@@ -97,3 +97,90 @@ def calculate_atr(highs, lows, closes, period=14):
         atr = (atr * (period - 1) + true_ranges[i]) / period
 
     return atr
+
+def calculate_macd(prices, fast_period=12, slow_period=26, signal_period=9):
+    """
+    Calculates MACD (Moving Average Convergence Divergence).
+    Returns a dict: { 'macd': float, 'signal': float, 'histogram': float } or None.
+    """
+    if len(prices) < slow_period + signal_period:
+        return None
+
+    # Step 1: Calculate Fast EMA and Slow EMA for all points starting from slow_period
+    fast_emas = []
+    slow_emas = []
+
+    # Calculate for each point starting where we have enough history
+    for i in range(slow_period, len(prices) + 1):
+        window = prices[:i]
+        fast_ema = calculate_ema(window, fast_period)
+        slow_ema = calculate_ema(window, slow_period)
+        if fast_ema is not None and slow_ema is not None:
+            fast_emas.append(fast_ema)
+            slow_emas.append(slow_ema)
+
+    # Step 2: MACD line = Fast EMA - Slow EMA
+    macd_line = [f - s for f, s in zip(fast_emas, slow_emas)]
+
+    if len(macd_line) < signal_period:
+        return None
+
+    # Step 3: Signal line = EMA of MACD line
+    signal_line = calculate_ema(macd_line, signal_period)
+
+    if signal_line is None:
+        return None
+
+    # Step 4: Histogram = MACD - Signal
+    current_macd = macd_line[-1]
+    current_signal = signal_line
+    current_histogram = current_macd - current_signal
+
+    return {
+        'macd': current_macd,
+        'signal': current_signal,
+        'histogram': current_histogram
+    }
+
+def calculate_bollinger_bands(prices, period=20, num_std=2.0):
+    """
+    Calculates Bollinger Bands.
+    Returns dict: { 'upper': float, 'middle': float, 'lower': float } or None.
+    """
+    if len(prices) < period:
+        return None
+
+    # Standard SMA (Middle band)
+    window = prices[-period:]
+    middle = sum(window) / period
+
+    # Variance and standard deviation calculation
+    variance = sum((x - middle) ** 2 for x in window) / period
+    std_dev = variance ** 0.5
+
+    upper = middle + (num_std * std_dev)
+    lower = middle - (num_std * std_dev)
+
+    return {
+        'upper': upper,
+        'middle': middle,
+        'lower': lower
+    }
+
+def calculate_pivot_points(high, low, close):
+    """
+    Calculates classic floor support and resistance pivot points.
+    Returns dict: { 'pivot': float, 'r1': float, 's1': float, 'r2': float, 's2': float }
+    """
+    pivot = (high + low + close) / 3.0
+    r1 = (2.0 * pivot) - low
+    s1 = (2.0 * pivot) - high
+    r2 = pivot + (high - low)
+    s2 = pivot - (high - low)
+    return {
+        'pivot': pivot,
+        'r1': r1,
+        's1': s1,
+        'r2': r2,
+        's2': s2
+    }

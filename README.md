@@ -15,11 +15,14 @@ Because you are new to trading, the bot defaults to a high-fidelity **Paper Trad
    - Scrollable visual matrix table containing all monitored assets (major/minor currency pairs, metals, and cryptocurrencies) with live ticks, trends, RSI values, and detailed plain-English justifications of holding or executing.
    - Simple action buttons to Toggle Simulation Mode, Start, and Stop the bot smoothly.
 
-2. **"The Brain" Decision Engine (`brain.py` & `indicators.py`):**
-   - **Trend Filter (200 EMA):** The bot will only take BUY trades in an uptrend (price > 200 EMA) and only SELL trades in a downtrend (price < 200 EMA).
-   - **Timing Indicators (9 EMA, 21 EMA, RSI):** Precise entries on pullback deviations. It triggers a buy signal when momentum crosses up and RSI shows oversold levels within an uptrend.
-   - **Volatility Protection (ATR):** Dynamically calculates Stop Loss (SL) and Take Profit (TP) levels based on current market noise (Average True Range) for custom risk-to-reward metrics.
-   - **Detailed State Explanations:** Explains exactly why it is in "HOLD" state for each asset (e.g., *"UPTrend. Waiting for: RSI 46.6 not oversold (<=35)"*) so you can learn market timings in real-time.
+2. **"The Brain" Multi-Strategy Decision Engine (`brain.py` & `indicators.py`):**
+   - **Multi-Strategy Voting Model:** Includes four active strategy configurations:
+     1. **Trend Following (EMA + RSI Pullbacks):** Buys on pullbacks in strong uptrends, Sells on rallies in strong downtrends.
+     2. **Mean Reversion (Bollinger Bands + RSI):** Buys on touches/falls below Bollinger Lower Band with RSI oversold, Sells on Upper Band touches with RSI overbought.
+     3. **MACD Momentum:** Enters on bullish MACD signal crossovers above 0 and histogram shifts, Sells on bearish shifts.
+     4. **Ensemble Voting (`VOTING_ENSEMBLE`):** Aggregates votes from all strategies and only triggers high-probability trades when multiple strategies agree!
+   - **Advanced Indicator Suite:** Built-in high-performance, manual math implementations for **EMA, RSI, ATR, Bollinger Bands, MACD, and S/R Pivot Points** without bloating external dependencies.
+   - **Detailed State Explanations:** Explains exactly why it is in "HOLD" state for each asset (e.g., *"Voting: Hold. (Trend: HOLD | Reversion: HOLD | MACD: BUY)"*) so you can learn market timings in real-time.
 
 3. **Expanded Symbols Coverage:**
    - Prepopulated and ready to scan **all major/minor forex currency pairs, gold, silver, and major cryptocurrencies** (EURUSD, GBPUSD, USDJPY, AUDUSD, NZDUSD, USDCAD, EURJPY, EURCAD, GBPJPY, GBPCAD, XAUUSD, XAGUSD, BTCUSD, ETHUSD, SOLUSD, LTCUSD, etc.).
