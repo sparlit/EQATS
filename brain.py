@@ -92,18 +92,19 @@ class ScalperBrain:
 
                 lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
                 explanation = (
-                    f"Trend is UP (Price {current_price:.5f} > 200 EMA {ema_long:.5f}). "
-                    f"Momentum EMA-9 {ema_short:.5f} is above EMA-21 {ema_medium:.5f}. "
-                    f"RSI is oversold at {rsi_val:.2f} (<= {config.RSI_BUY_THRESHOLD}). "
-                    f"Triggering BUY order."
+                    f"Trend is UP. "
+                    f"EMA-9 {ema_short:.5f} > EMA-21 {ema_medium:.5f}. "
+                    f"RSI oversold {rsi_val:.2f} <= {config.RSI_BUY_THRESHOLD}."
                 )
             else:
-                explanation = (
-                    f"Trend is UP (Price {current_price:.5f} > 200 EMA {ema_long:.5f}). "
-                    f"RSI is {rsi_val:.2f} (Buy requires <= {config.RSI_BUY_THRESHOLD}). "
-                    f"EMA-9 {ema_short:.5f} vs EMA-21 {ema_medium:.5f}. "
-                    f"No entry condition met. Holding."
-                )
+                # Detail the exact holding reasons
+                reasons = []
+                if rsi_val > config.RSI_BUY_THRESHOLD:
+                    reasons.append(f"RSI {rsi_val:.1f} not oversold (<={config.RSI_BUY_THRESHOLD})")
+                if ema_short <= ema_medium:
+                    reasons.append(f"EMA-9 {ema_short:.5f} not above EMA-21 {ema_medium:.5f}")
+
+                explanation = f"UPTrend. Waiting for: " + " & ".join(reasons)
 
         elif trend_direction == "DOWN":
             # Short Setup logic: Fast EMA-9 crossing/staying below EMA-21, plus price pullbacks where RSI is overbought
@@ -115,18 +116,19 @@ class ScalperBrain:
 
                 lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
                 explanation = (
-                    f"Trend is DOWN (Price {current_price:.5f} < 200 EMA {ema_long:.5f}). "
-                    f"Momentum EMA-9 {ema_short:.5f} is below EMA-21 {ema_medium:.5f}. "
-                    f"RSI is overbought at {rsi_val:.2f} (>= {config.RSI_SELL_THRESHOLD}). "
-                    f"Triggering SELL order."
+                    f"Trend is DOWN. "
+                    f"EMA-9 {ema_short:.5f} < EMA-21 {ema_medium:.5f}. "
+                    f"RSI overbought {rsi_val:.2f} >= {config.RSI_SELL_THRESHOLD}."
                 )
             else:
-                explanation = (
-                    f"Trend is DOWN (Price {current_price:.5f} < 200 EMA {ema_long:.5f}). "
-                    f"RSI is {rsi_val:.2f} (Sell requires >= {config.RSI_SELL_THRESHOLD}). "
-                    f"EMA-9 {ema_short:.5f} vs EMA-21 {ema_medium:.5f}. "
-                    f"No entry condition met. Holding."
-                )
+                # Detail the exact holding reasons
+                reasons = []
+                if rsi_val < config.RSI_SELL_THRESHOLD:
+                    reasons.append(f"RSI {rsi_val:.1f} not overbought (>={config.RSI_SELL_THRESHOLD})")
+                if ema_short >= ema_medium:
+                    reasons.append(f"EMA-9 {ema_short:.5f} not below EMA-21 {ema_medium:.5f}")
+
+                explanation = f"DOWNTrend. Waiting for: " + " & ".join(reasons)
 
         database.log_assessment(
             symbol=symbol,
