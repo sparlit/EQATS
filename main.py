@@ -123,34 +123,72 @@ class AutonomousScalper:
                 database.log_trade_close(ticket_str, current_price, estimated_profit, "EXTERNAL_MT5_CLOSE")
                 print(f"Trade {ticket_str} ({db_trade['symbol']}) detected as CLOSED on MT5. Synchronized local database.")
 
-        # E. Core Scanning Loop
-        # Don't place new trades if we already reached our total max limit of simultaneous positions
-        if len(active_positions) >= config.MAX_CONCURRENT_TRADES:
-            return
-
+        # E. Core Scanning Loop & Status Reporting
         account = self.conn.get_account_info()
         current_equity = account['equity']
+        current_balance = account['balance']
+
+        timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n⚡ [{timestamp_str}] --- COGNITIVE SCAN CYCLE ---")
+        print(f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES}")
+        print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status':<15}")
+        print("-" * 80)
+
+        # Draw visual dashboards inside MT5 terminal (or simulated logs)
+        dashboard_data = {
+            "time": timestamp_str,
+            "equity": current_equity,
+            "balance": current_balance,
+            "active_count": len(active_positions)
+        }
+
+        # Don't place new trades if we already reached our total max limit of simultaneous positions
+        trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
 
         for symbol in config.SYMBOLS:
-            # Skip if we already have an open trade on this exact symbol
-            has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
-            if has_active_symbol:
-                continue
-
             # Fetch 210 candles of historical data (plenty for 200 EMA calculation)
             history = self.conn.get_history(symbol, 220)
             if not history:
+                print(f"{symbol:<9} | No History Data Found. Please wait for terminal to synchronize.")
+                # Draw status on chart
+                self.conn.draw_dashboard(symbol, {**dashboard_data, "status": "Waiting for Data", "detail": "Syncing history..."})
+                continue
+
+            current_price = history[-1]['close']
+
+            # Check if we already have an open trade on this exact symbol
+            has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
+            if has_active_symbol:
+                trade_info = [p for p in active_positions if p['symbol'].upper() == symbol.upper()][0]
+                print(f"{symbol:<9} | {current_price:<10.5f} | {'-':<10} | {'-':<5} | {'-':<6} | {'-':<8} | ACTIVE ({trade_info['direction']} ticket {trade_info['ticket']})")
+                self.conn.draw_dashboard(symbol, {**dashboard_data, "status": f"ACTIVE {trade_info['direction']}", "detail": f"Ticket: {trade_info['ticket']} | SL: {trade_info['sl']} | TP: {trade_info['tp']}"})
                 continue
 
             # Get technical analysis and trading decision from the Brain
             analysis = self.brain.evaluate(symbol, history, current_equity)
             decision = analysis['decision']
+            indicators_info = analysis.get('indicators', {})
+            ema200 = indicators_info.get('ema_long', 0.0)
+            rsi_val = indicators_info.get('rsi', 0.0)
+            atr_val = indicators_info.get('atr', 0.0)
+            trend_str = "UP" if current_price > ema200 else "DOWN"
 
-            if decision in ['BUY', 'SELL']:
-                # Extra double-check limits
-                if len(active_positions) >= config.MAX_CONCURRENT_TRADES:
-                    break
+            status_text = "HOLD"
+            if not trading_available:
+                status_text = "HOLD (MAX LIMIT)"
+            elif decision in ['BUY', 'SELL']:
+                status_text = f"EXECUTING {decision}"
 
+            print(f"{symbol:<9} | {current_price:<10.5f} | {ema200:<10.5f} | {trend_str:<5} | {rsi_val:<6.2f} | {atr_val:<8.5f} | {status_text}")
+
+            # Send latest indicators to responsive MT5 chart labels
+            self.conn.draw_dashboard(symbol, {
+                **dashboard_data,
+                "status": f"SCANNING | Trend: {trend_str}",
+                "detail": f"RSI: {rsi_val:.1f} | ATR: {atr_val:.5f} | Signal: {decision}"
+            })
+
+            if decision in ['BUY', 'SELL'] and trading_available:
                 # Execute order
                 print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
                 res = self.conn.execute_order(
@@ -193,6 +231,10 @@ class AutonomousScalper:
                         'tp': analysis['tp'],
                         'lot_size': analysis['lot_size']
                     })
+                    # Recheck available limit
+                    trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
+
+        print("-" * 80)
 
 
 if __name__ == "__main__":
