@@ -342,8 +342,8 @@ class AutonomousScalper:
         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n⚡ [{timestamp_str}] --- COGNITIVE SCAN CYCLE ---")
         print(f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES}")
-        print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status':<15}")
-        print("-" * 80)
+        print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}")
+        print("-" * 120)
 
         # Draw visual dashboards inside MT5 terminal (or simulated logs)
         dashboard_data = {
@@ -402,11 +402,11 @@ class AutonomousScalper:
             atr_val = indicators_info.get('atr', 0.0)
             trend_str = "UP" if current_price > ema200 else "DOWN"
 
-            status_text = "HOLD"
+            status_text = analysis['explanation']
             if not trading_available:
-                status_text = "HOLD (MAX LIMIT)"
+                status_text = "HOLD (MAX LIMIT OF ACTIVE TRADES REACHED)"
             elif decision in ['BUY', 'SELL']:
-                status_text = f"Executing {decision}"
+                status_text = f"Executing {decision}!"
 
             print(f"{symbol:<9} | {current_price:<10.5f} | {ema200:<10.5f} | {trend_str:<5} | {rsi_val:<6.2f} | {atr_val:<8.5f} | {status_text}")
 
@@ -475,7 +475,7 @@ class AutonomousScalper:
             scans=scans_list
         )
 
-        print("-" * 80)
+        print("-" * 120)
 
 
 if __name__ == "__main__":
