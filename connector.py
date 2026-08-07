@@ -66,6 +66,14 @@ class TradingConnector(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def draw_dashboard(self, symbol, data):
+        """
+        Renders status labels directly on the specified symbol's chart in MT5.
+        data: dict containing balance, equity, status, detail, time, active_count.
+        """
+        pass
+
 
 class MT5Connector(TradingConnector):
     """
@@ -261,6 +269,43 @@ class MT5Connector(TradingConnector):
             })
         return orders_list
 
+    def draw_dashboard(self, symbol, data):
+        """
+        Draws dynamic responsive visual text labels directly on the MT5 symbol's chart background.
+        This provides a stunning real-time GUI on MT5!
+        """
+        if not self.mt5:
+            return
+
+        # MT5 allows custom object drawing using ObjectCreate and ObjectSetDouble/String/Integer.
+        # We will render multiple distinct info lines on the chart.
+        # Format of items: (Name, Text, Y-offset, Color)
+        lines = [
+            ("SC_TITLE", f"🤖 SCALPER BRAIN AUTONOMOUS BOT", 20, 0x00FF00), # Green
+            ("SC_STATUS", f"Status: {data['status'].upper()}", 40, 0xFFFFFF), # White
+            ("SC_DETAIL", f"Details: {data['detail']}", 60, 0x00FFFF), # Cyan
+            ("SC_METRICS", f"Balance: {data['balance']:.2f} | Equity: {data['equity']:.2f} | Open: {data['active_count']}", 80, 0xFFFF00), # Yellow
+            ("SC_TIME", f"Last Scan: {data['time']}", 100, 0x888888) # Gray
+        ]
+
+        # In MT5, 0xRRGGBB format is accepted by OBJPROP_COLOR.
+        # We will issue orders to either update or create these text objects.
+        # Safe drawing script:
+        for name, text, y_offset, color in lines:
+            obj_name = f"{symbol}_{name}"
+            # Attempt to create label (OBJ_LABEL = 24)
+            # Standard MT5 object creation
+            created = self.mt5.object_create(symbol, obj_name, 24, 0, 0, 0)
+
+            # Set properties (X=20px, Y=y_offset from top-left, Corner=0 (Top-Left))
+            self.mt5.object_set_integer(symbol, obj_name, self.mt5.OBJPROP_CORNER, 0)
+            self.mt5.object_set_integer(symbol, obj_name, self.mt5.OBJPROP_XDISTANCE, 20)
+            self.mt5.object_set_integer(symbol, obj_name, self.mt5.OBJPROP_YDISTANCE, y_offset)
+            self.mt5.object_set_string(symbol, obj_name, self.mt5.OBJPROP_TEXT, text)
+            self.mt5.object_set_integer(symbol, obj_name, self.mt5.OBJPROP_COLOR, color)
+            self.mt5.object_set_integer(symbol, obj_name, self.mt5.OBJPROP_FONTSIZE, 11)
+            self.mt5.object_set_string(symbol, obj_name, self.mt5.OBJPROP_FONT, "Segoe UI")
+
 
 class SimulatorConnector(TradingConnector):
     """
@@ -380,6 +425,11 @@ class SimulatorConnector(TradingConnector):
 
     def get_open_orders(self):
         return list(self.open_trades.values())
+
+    def draw_dashboard(self, symbol, data):
+        # Simulator does not have a physical UI chart.
+        # We can mock this or print a clean status line.
+        pass
 
     # --- SIMULATOR UTILITIES ---
     def tick(self):
