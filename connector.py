@@ -16,6 +16,11 @@ class TradingConnector(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def is_connected(self):
+        """Checks if the connection to the terminal is healthy and active."""
+        pass
+
+    @abc.abstractmethod
     def disconnect(self):
         """Disconnects safely from the terminal."""
         pass
@@ -120,6 +125,12 @@ class MT5Connector(TradingConnector):
 
         print(f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}")
         return True
+
+    def is_connected(self):
+        if not self.mt5:
+            return False
+        info = self.mt5.terminal_info()
+        return info is not None
 
     def disconnect(self):
         if self.mt5:
@@ -322,6 +333,9 @@ class SimulatorConnector(TradingConnector):
 
     def connect(self):
         print(f"Simulator connected. Local Balance: {self.balance} {self.currency}")
+        return True
+
+    def is_connected(self):
         return True
 
     def disconnect(self):
