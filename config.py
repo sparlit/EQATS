@@ -4,7 +4,7 @@ import os
 
 # 1. Operational Mode
 # Set to True for running in testing / paper trading simulation. Set to False for Windows MT5 integration.
-SIMULATION_MODE = True
+SIMULATION_MODE = False
 
 # Safety setting. If False, the bot can trade on a Live / Real account.
 DEMO_ACCOUNT_ONLY = True
