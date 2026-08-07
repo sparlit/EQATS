@@ -163,6 +163,27 @@ class AutonomousScalper:
 
         return True, "Safe conditions"
 
+    def _write_ea_state_file(self, equity, balance, active_count, scans):
+        """
+        Writes a highly structured trading state file 'scalper_state.txt' into the MT5
+        Common Files directory so the native MQL5 EA can parse and show it on chart.
+        """
+        lines = []
+        # Header line: equity|balance|active_count
+        lines.append(f"{equity:.2f}|{balance:.2f}|{active_count}")
+
+        # Symbol scan lines
+        for s in scans:
+            lines.append(f"{s['symbol']}|{s['price']}|{s['ema200']}|{s['trend']}|{s['rsi']}|{s['atr']}|{s['status']}")
+
+        file_content = "\n".join(lines)
+        try:
+            target_path = os.path.join(config.MT5_COMMON_FILES_PATH, "scalper_state.txt")
+            with open(target_path, "w") as f:
+                f.write(file_content)
+        except Exception as e:
+            print(f"Warning: Failed to write EA state file: {e}")
+
     def _generate_html_dashboard(self, current_time, equity, balance, active_positions, scans):
         """Generates a responsive and beautiful HTML dashboard file."""
         html_content = f"""<!DOCTYPE html>
@@ -590,6 +611,14 @@ class AutonomousScalper:
             equity=current_equity,
             balance=current_balance,
             active_positions=active_positions,
+            scans=scans_list
+        )
+
+        # Write real-time trading state for native MT5 MQL5 EA visual dashboard
+        self._write_ea_state_file(
+            equity=current_equity,
+            balance=current_balance,
+            active_count=len(active_positions),
             scans=scans_list
         )
 

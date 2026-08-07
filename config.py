@@ -64,8 +64,12 @@ MACD_FAST = 12
 MACD_SLOW = 26
 MACD_SIGNAL = 9
 
-# 5. Database Settings
+# 5. Database & Multi-Terminal Integration
 DB_PATH = "scalper_brain.db"
+
+# The Windows common folder path for sharing real-time state with the MQL5 EA (using FILE_COMMON)
+# Default is current workspace, can be changed to Roaming/MetaQuotes/Terminal/Common/Files on Windows.
+MT5_COMMON_FILES_PATH = os.environ.get("MT5_COMMON_PATH", ".")
 
 # 6. Telegram Notifications
 TELEGRAM_ENABLED = False

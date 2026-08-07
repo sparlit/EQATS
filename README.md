@@ -85,6 +85,14 @@ pip install -r requirements.txt
    ```
 5. The bot will automatically initialize, connect directly to your MT5, and handle trading autonomously!
 
+### Step 4: Loading the Native MT5 On-Chart HUD Dashboard (EA)
+For an added advantage and stunning visual feedback, you can load our custom Expert Advisor directly onto any chart in your MT5 terminal:
+1. Copy `ScalperBrainEA.mq5` into your MT5 terminal's MQL5 Expert Advisors folder (e.g., `MQL5/Experts/`).
+2. Inside MT5, right-click **Experts** in the Navigator panel and select **Refresh**.
+3. Drag and drop `ScalperBrainEA` onto any active chart.
+4. Check **Allow Algorithmic Trading** in the EA's settings panel.
+5. The EA will immediately establish an ultra-low-latency file connection with your Python brain and draw a stunning real-time visual dashboard HUD directly on your MT5 chart background!
+
 ---
 
 ## 🔬 Running Tests
