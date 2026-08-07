@@ -125,7 +125,8 @@ class MT5Connector(TradingConnector):
         # We fetch M1 copy_rates
         import MetaTrader5 as mt5
         timeframe = mt5.TIMEFRAME_M1
-        rates = self.mt5.copy_rates_from_now(symbol, timeframe, count)
+        # copy_rates_from_pos gets bars starting from position 0 (the current candle) backwards
+        rates = self.mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
         if rates is None or len(rates) == 0:
             return []
 
@@ -143,7 +144,7 @@ class MT5Connector(TradingConnector):
         tick = self.mt5.symbol_info_tick(symbol)
         if tick is None:
             # Fallback
-            rates = self.mt5.copy_rates_from_now(symbol, self.mt5.TIMEFRAME_M1, 1)
+            rates = self.mt5.copy_rates_from_pos(symbol, self.mt5.TIMEFRAME_M1, 0, 1)
             if rates is not None and len(rates) > 0:
                 return {'bid': rates[0]['close'], 'ask': rates[0]['close']}
             return {'bid': 0.0, 'ask': 0.0}
