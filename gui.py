@@ -54,6 +54,9 @@ class ScalperGui:
         # Initialize background visual update loop
         self.update_gui_loop()
 
+        # Autostart autonomous bot immediately on GUI load for hands-off execution!
+        self.root.after(1000, self.start_bot)
+
     def _build_header(self):
         """Header Banner"""
         header_frame = tk.Frame(self.root, bg=self.bg_dark, pady=10, padx=20)
