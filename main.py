@@ -212,6 +212,53 @@ class AutonomousScalper:
             return "Crypto 24/7 Session" # Fallback if traditional is quiet
         return " + ".join(sessions) + " Overlap" if len(sessions) > 1 else sessions[0] + " Session"
 
+    def _get_session_symbols(self, active_session):
+        """
+        Dynamically filters config.SYMBOLS to trade only the symbols active during
+        the current global trading session. If it's a crypto session, it filters out all
+        traditional assets and trades ONLY cryptocurrencies.
+        """
+        all_symbols = config.SYMBOLS
+        active_session_upper = active_session.upper()
+
+        if "CRYPTO 24/7" in active_session_upper:
+            # Trade ONLY crypto symbols
+            return [s for s in all_symbols if any(c in s.upper() for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])]
+
+        filtered = []
+        for s in all_symbols:
+            s_up = s.upper()
+            is_crypto = any(c in s_up for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])
+            is_metal = "XAU" in s_up or "XAG" in s_up
+
+            # Cryptos are traded 24/7, metals are traded during London/New York standardly
+            if is_crypto:
+                filtered.append(s)
+                continue
+
+            if "TOKYO" in active_session_upper:
+                # Trade JPY, AUD, NZD, and Gold
+                if any(curr in s_up for curr in ["JPY", "AUD", "NZD"]) or "XAU" in s_up:
+                    filtered.append(s)
+            elif "LONDON" in active_session_upper:
+                # Trade EUR, GBP, CHF, and Metals
+                if any(curr in s_up for curr in ["EUR", "GBP", "CHF"]) or is_metal:
+                    filtered.append(s)
+            elif "NEW YORK" in active_session_upper:
+                # Trade USD, CAD, and Metals
+                if any(curr in s_up for curr in ["USD", "CAD"]) or is_metal:
+                    filtered.append(s)
+            else:
+                # Default fallback
+                filtered.append(s)
+
+        # Deduplicate list preserving order
+        deduped = []
+        for x in filtered:
+            if x not in deduped:
+                deduped.append(x)
+        return deduped
+
     def _write_ea_state_file(self, equity, balance, active_positions, scans):
         """
         Writes a highly structured trading state file 'scalper_state.txt' into the MT5
@@ -567,8 +614,11 @@ class AutonomousScalper:
         current_balance = account['balance']
 
         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        active_session = self._get_current_session()
+        active_symbols = self._get_session_symbols(active_session)
+
         print(f"\n⚡ [{timestamp_str}] --- COGNITIVE SCAN CYCLE ---")
-        print(f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES}")
+        print(f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES} | Active Session: {active_session}")
         print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}")
         print("-" * 120)
 
@@ -585,7 +635,7 @@ class AutonomousScalper:
 
         scans_list = []
 
-        for symbol in config.SYMBOLS:
+        for symbol in active_symbols:
             # Fetch 210 candles of historical data (plenty for 200 EMA calculation)
             history = self.conn.get_history(symbol, 220)
             if not history:
