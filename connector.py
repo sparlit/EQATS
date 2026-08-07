@@ -59,6 +59,14 @@ class TradingConnector(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def modify_order(self, ticket, sl, tp):
+        """
+        Modifies Stop Loss and Take Profit levels of an active trade.
+        Returns: bool indicating success.
+        """
+        pass
+
+    @abc.abstractmethod
     def get_open_orders(self):
         """
         Returns currently active open orders on the terminal:
@@ -249,6 +257,19 @@ class MT5Connector(TradingConnector):
             'error': ''
         }
 
+    def modify_order(self, ticket, sl, tp):
+        import MetaTrader5 as mt5
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": int(ticket),
+            "sl": float(sl),
+            "tp": float(tp),
+        }
+        result = self.mt5.order_send(request)
+        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            return False
+        return True
+
     def get_open_orders(self):
         import MetaTrader5 as mt5
         positions = self.mt5.positions_get(magic=998822)
@@ -393,6 +414,14 @@ class SimulatorConnector(TradingConnector):
             'profit': round(profit, 2),
             'error': ''
         }
+
+    def modify_order(self, ticket, sl, tp):
+        ticket_str = str(ticket)
+        if ticket_str not in self.open_trades:
+            return False
+        self.open_trades[ticket_str]['sl'] = sl
+        self.open_trades[ticket_str]['tp'] = tp
+        return True
 
     def get_open_orders(self):
         return list(self.open_trades.values())

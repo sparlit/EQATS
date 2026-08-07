@@ -177,18 +177,28 @@ class ScalperBrain:
         Calculates the appropriate lot size to risk exactly config.RISK_PER_TRADE_PERCENT of current equity.
         Formula:
         Risk Amount = Equity * (Risk % / 100)
-        Pip Value calculations vary by symbol type. We can use generalized point/pip values:
-        For standard currency pairs:
-        1 standard lot = 100,000 units.
-        For a risk distance of sl_distance:
-        For EURUSD (tick size ~ 0.00001, pip size ~ 0.0001):
-        Loss per standard lot = 100,000 * sl_distance (quote currency).
-        Let's use robust multipliers for each class of symbols:
-        - Forex: standard lot size contract is 100,000 units.
-        - Gold (XAUUSD): standard contract size is 100 oz.
-        - Crypto (BTCUSD, ETHUSD): standard contract size is 1.
+
+        This method is enhanced with Adaptive Risk Sizing:
+        - If the bot has recently taken a streak of consecutive losses,
+          it autonomously downscales the risk % to protect account equity!
         """
-        risk_amount = equity * (config.RISK_PER_TRADE_PERCENT / 100.0)
+        # A. Query recent trade performance to adapt risk
+        base_risk_pct = config.RISK_PER_TRADE_PERCENT
+
+        try:
+            recent_trades = database.get_recent_performance(count=4)
+            if len(recent_trades) >= 3:
+                losses = sum(1 for t in recent_trades if t['profit'] is not None and t['profit'] < 0)
+                if losses == 3:
+                    base_risk_pct = base_risk_pct * 0.5 # Scale down risk by 50%
+                    print(f"🛡️ PERFORMANCE ADAPTATION: Drawdown streak detected (3 losses). Downscaling trade risk to {base_risk_pct:.2f}% to protect equity.")
+                elif losses >= 4:
+                    base_risk_pct = base_risk_pct * 0.25 # Scale down risk by 75%
+                    print(f"🛡️ PERFORMANCE ADAPTATION: Severe Drawdown streak detected (4 losses). Downscaling trade risk to {base_risk_pct:.2f}% to preserve capital.")
+        except Exception as e:
+            print(f"Warning: Risk adaptation query error: {e}")
+
+        risk_amount = equity * (base_risk_pct / 100.0)
 
         # Contract size mapping
         contract_size = 100000.0  # Default to Forex standard lot size

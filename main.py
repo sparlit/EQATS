@@ -1,10 +1,12 @@
 import os
 import time
 import datetime
+import threading
 import config
 import database
 import connector
 import brain
+import indicators
 import telegram_bot
 
 class AutonomousScalper:
@@ -28,6 +30,9 @@ class AutonomousScalper:
 
         self.brain = brain.ScalperBrain()
         self.running = False
+
+        # Thread-safe execution lock to prevent order collisions
+        self.trade_lock = threading.Lock()
 
         # Track total starting balance of the day for Drawdown calculations
         self.daily_start_balance = 0.0
@@ -64,6 +69,99 @@ class AutonomousScalper:
         stop_msg = "🛑 *Autonomous Forex Scalper Stopped Safely.*"
         print(stop_msg.replace("*", ""))
         telegram_bot.send_telegram_message(stop_msg)
+
+    def _process_trailing_stops(self, active_positions):
+        """
+        Autonomously manages trailing stop loss levels of active open trades
+        to secure running profits dynamically.
+        """
+        if not config.TRAILING_STOP_ENABLED:
+            return
+
+        for pos in active_positions:
+            symbol = pos['symbol']
+            ticket = pos['ticket']
+            direction = pos['direction']
+            current_sl = pos['sl']
+            current_tp = pos['tp']
+
+            # Get historical ATR
+            history = self.conn.get_history(symbol, 30)
+            if not history:
+                continue
+
+            closes = [bar['close'] for bar in history]
+            highs = [bar['high'] for bar in history]
+            lows = [bar['low'] for bar in history]
+            atr_val = indicators.calculate_atr(highs, lows, closes, config.ATR_PERIOD)
+            if atr_val is None or atr_val <= 0:
+                continue
+
+            trail_dist = atr_val * config.TRAILING_STOP_ATR_MULT
+            price_info = self.conn.get_current_price(symbol)
+            bid = price_info['bid']
+            ask = price_info['ask']
+
+            if direction == "BUY":
+                # Ensure trailing target is higher than current SL and is locked above entry price
+                target_sl = bid - trail_dist
+                if target_sl > current_sl + 0.00005:
+                    success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
+                    if success:
+                        print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)")
+            elif direction == "SELL":
+                target_sl = ask + trail_dist
+                # For SELL, target SL must be lower than current SL (or if current SL is 0)
+                if current_sl == 0 or target_sl < current_sl - 0.00005:
+                    success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
+                    if success:
+                        print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on SELL {symbol} (Ticket {ticket}) down to {target_sl:.5f} (Locked profits!)")
+
+    def _is_market_open_and_liquid(self, symbol, price_info):
+        """
+        Autonomously assesses market conditions to protect capital from
+        wide spreads or dangerous rollover/weekend gaps.
+        Returns: (bool, str) - (is_safe, description_reason)
+        """
+        # A. Session Time Filters
+        now_gmt = datetime.datetime.now(datetime.timezone.utc)
+        weekday = now_gmt.weekday() # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
+        hour = now_gmt.hour
+
+        if config.BLOCK_WEEKENDS:
+            # Friday after 21:00 GMT to Sunday before 21:00 GMT
+            if (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21):
+                return False, "Hazardous session: Weekend market shutdown."
+
+        if config.BLOCK_ROLLOVER_HOUR:
+            # Rollover daily spread expansions occur between 22:00 and 23:00 GMT standardly
+            if hour == 22:
+                return False, "Hazardous session: Daily broker rollover hour."
+
+        # B. Spread Protections
+        bid = price_info['bid']
+        ask = price_info['ask']
+        spread = ask - bid
+        if spread < 0:
+            return False, "Negative spread / bad price data."
+
+        # Determine pip scaling
+        symbol_upper = symbol.upper()
+        pip_size = 0.0001
+        if "JPY" in symbol_upper:
+            pip_size = 0.01
+        elif "XAU" in symbol_upper:
+            pip_size = 0.1
+        elif "XAG" in symbol_upper:
+            pip_size = 0.01
+        elif any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
+            pip_size = 1.0
+
+        spread_pips = spread / pip_size
+        if spread_pips > config.MAX_SPREAD_PIPS:
+            return False, f"Liquidity Filter: Spread is too wide ({spread_pips:.1f} pips > {config.MAX_SPREAD_PIPS:.1f} limit)."
+
+        return True, "Safe conditions"
 
     def _generate_html_dashboard(self, current_time, equity, balance, active_positions, scans):
         """Generates a responsive and beautiful HTML dashboard file."""
@@ -315,6 +413,9 @@ class AutonomousScalper:
         active_positions = self.conn.get_open_orders()
         open_db_trades = database.get_open_trades()
 
+        # Process trailing stops for active positions
+        self._process_trailing_stops(active_positions)
+
         # If positions closed externally in MT5 terminal, synchronize SQLite
         active_tickets = {str(p['ticket']) for p in active_positions}
         for db_trade in open_db_trades:
@@ -394,6 +495,10 @@ class AutonomousScalper:
                 })
                 continue
 
+            # Get latest tick price details to execute spread filters
+            price_info = self.conn.get_current_price(symbol)
+            is_safe, safety_reason = self._is_market_open_and_liquid(symbol, price_info)
+
             # Get technical analysis and trading decision from the Brain
             analysis = self.brain.evaluate(symbol, history, current_equity)
             decision = analysis['decision']
@@ -404,7 +509,11 @@ class AutonomousScalper:
             trend_str = "UP" if current_price > ema200 else "DOWN"
 
             status_text = analysis['explanation']
-            if not trading_available:
+            if not is_safe:
+                # Override decision to HOLD due to spread/session safety trigger
+                decision = "HOLD"
+                status_text = f"HOLD ({safety_reason})"
+            elif not trading_available:
                 status_text = "HOLD (MAX LIMIT OF ACTIVE TRADES REACHED)"
             elif decision in ['BUY', 'SELL']:
                 status_text = f"Executing {decision}!"
@@ -422,50 +531,58 @@ class AutonomousScalper:
             })
 
             if decision in ['BUY', 'SELL'] and trading_available:
-                # Execute order
-                print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
-                res = self.conn.execute_order(
-                    symbol=symbol,
-                    order_type=decision,
-                    lot_size=analysis['lot_size'],
-                    sl=analysis['sl'],
-                    tp=analysis['tp']
-                )
+                # Execute order with thread-safe serialization lock
+                with self.trade_lock:
+                    # Double-check constraints inside the lock context
+                    active_positions_refresh = self.conn.get_open_orders()
+                    if len(active_positions_refresh) >= config.MAX_CONCURRENT_TRADES:
+                        break
+                    if any(p['symbol'].upper() == symbol.upper() for p in active_positions_refresh):
+                        continue
 
-                if res['success']:
-                    database.log_trade_open(
-                        ticket=res['ticket'],
+                    print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
+                    res = self.conn.execute_order(
                         symbol=symbol,
-                        direction=decision,
-                        open_price=res['price'],
+                        order_type=decision,
+                        lot_size=analysis['lot_size'],
                         sl=analysis['sl'],
-                        tp=analysis['tp'],
-                        lot_size=analysis['lot_size']
+                        tp=analysis['tp']
                     )
 
-                    alert_msg = (
-                        f"📊 *New Trade Executed!*\n"
-                        f"Symbol: {symbol} ({decision})\n"
-                        f"Price: {res['price']:.5f}\n"
-                        f"Lot Size: {analysis['lot_size']}\n"
-                        f"SL: {analysis['sl']:.5f} | TP: {analysis['tp']:.5f}\n"
-                        f"Reason: {analysis['explanation']}"
-                    )
-                    print(alert_msg.replace("*", ""))
-                    telegram_bot.send_telegram_message(alert_msg)
+                    if res['success']:
+                        database.log_trade_open(
+                            ticket=res['ticket'],
+                            symbol=symbol,
+                            direction=decision,
+                            open_price=res['price'],
+                            sl=analysis['sl'],
+                            tp=analysis['tp'],
+                            lot_size=analysis['lot_size']
+                        )
 
-                    # Update active positions list to prevent duplicate trades in the same tick loop
-                    active_positions.append({
-                        'ticket': res['ticket'],
-                        'symbol': symbol,
-                        'direction': decision,
-                        'open_price': res['price'],
-                        'sl': analysis['sl'],
-                        'tp': analysis['tp'],
-                        'lot_size': analysis['lot_size']
-                    })
-                    # Recheck available limit
-                    trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
+                        alert_msg = (
+                            f"📊 *New Trade Executed!*\n"
+                            f"Symbol: {symbol} ({decision})\n"
+                            f"Price: {res['price']:.5f}\n"
+                            f"Lot Size: {analysis['lot_size']}\n"
+                            f"SL: {analysis['sl']:.5f} | TP: {analysis['tp']:.5f}\n"
+                            f"Reason: {analysis['explanation']}"
+                        )
+                        print(alert_msg.replace("*", ""))
+                        telegram_bot.send_telegram_message(alert_msg)
+
+                        # Update active positions list to prevent duplicate trades in the same tick loop
+                        active_positions.append({
+                            'ticket': res['ticket'],
+                            'symbol': symbol,
+                            'direction': decision,
+                            'open_price': res['price'],
+                            'sl': analysis['sl'],
+                            'tp': analysis['tp'],
+                            'lot_size': analysis['lot_size']
+                        })
+                        # Recheck available limit
+                        trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
 
         # Generate HTML Dashboard file with real and live data & indicators
         self._generate_html_dashboard(
