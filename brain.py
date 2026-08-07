@@ -1,6 +1,7 @@
 import indicators
 import config
 import database
+import predictive_brain
 
 class ScalperBrain:
     """
@@ -61,6 +62,26 @@ class ScalperBrain:
             }
 
         trend_direction = "UP" if current_price > ema_long else "DOWN"
+
+        # --- AI Predictor Integration and Learning ---
+        predictor = predictive_brain.get_symbol_predictor(symbol)
+
+        # Prepare inputs
+        rsi_norm = rsi_val / 100.0
+        ema_ratio = ema_short / ema_medium if ema_medium > 0 else 1.0
+        macd_ratio = macd['histogram'] / current_price if current_price > 0 else 0.0
+        returns_prev = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
+
+        inputs = [rsi_norm, ema_ratio, macd_ratio, returns_prev]
+
+        # Train on actual open-to-close outcome of previous candle
+        actual_bullish_close = 1.0 if closes[-1] > closes[-2] else 0.0
+        predictor.learn_and_adjust(actual_bullish_close)
+
+        # Predict next candle bullish probability
+        ai_bullish_prob = predictor.predict(inputs)
+        ai_pred_direction = "BULLISH" if ai_bullish_prob > 0.5 else "BEARISH"
+        ai_accuracy = predictor.get_accuracy()
 
         # 1. EVALUATE STRATEGY 1: TREND_FOLLOWING (EMA + RSI)
         sig_tf = "HOLD"
@@ -125,15 +146,24 @@ class ScalperBrain:
             sell_votes = votes.count("SELL")
 
             if buy_votes >= 2 and sell_votes == 0:
-                decision = "BUY"
-                explanation = f"Ensemble BUY signal triggered with {buy_votes} strategy consensus!"
+                # Blindspot Protection: Filter Buy if AI next-candle is bearish
+                if ai_pred_direction == "BULLISH":
+                    decision = "BUY"
+                    explanation = f"Consensus BUY signal with AI Next-Candle BULLISH convergence ({ai_accuracy}% acc)!"
+                else:
+                    decision = "HOLD"
+                    explanation = f"Technical BUY consensus withheld: AI Next-Candle Bearish mismatch ({ai_accuracy}% acc)."
             elif sell_votes >= 2 and buy_votes == 0:
-                decision = "SELL"
-                explanation = f"Ensemble SELL signal triggered with {sell_votes} strategy consensus!"
+                # Blindspot Protection: Filter Sell if AI next-candle is bullish
+                if ai_pred_direction == "BEARISH":
+                    decision = "SELL"
+                    explanation = f"Consensus SELL signal with AI Next-Candle BEARISH convergence ({ai_accuracy}% acc)!"
+                else:
+                    decision = "HOLD"
+                    explanation = f"Technical SELL consensus withheld: AI Next-Candle Bullish mismatch ({ai_accuracy}% acc)."
             else:
                 decision = "HOLD"
-                # Formulate detailed hold summaries of each module
-                explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac})"
+                explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac}) | AI: {ai_pred_direction} ({ai_accuracy}% acc)"
 
         # Dynamic Stop Loss and Take Profit with Volatility-Adaptive Profit Multiples
         sl = 0.0
