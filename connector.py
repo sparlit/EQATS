@@ -283,22 +283,24 @@ class MT5Connector(TradingConnector):
 
     def get_open_orders(self):
         import MetaTrader5 as mt5
-        positions = self.mt5.positions_get(magic=998822)
+        positions = self.mt5.positions_get()
         if positions is None or len(positions) == 0:
             return []
 
         orders_list = []
         for pos in positions:
-            direction = 'BUY' if pos.type == mt5.POSITION_TYPE_BUY else 'SELL'
-            orders_list.append({
-                'ticket': str(pos.ticket),
-                'symbol': pos.symbol,
-                'direction': direction,
-                'open_price': pos.price_open,
-                'sl': pos.sl,
-                'tp': pos.tp,
-                'lot_size': pos.volume
-            })
+            # Filter positions by magic number autonomously
+            if getattr(pos, 'magic', 0) == 998822:
+                direction = 'BUY' if pos.type == mt5.POSITION_TYPE_BUY else 'SELL'
+                orders_list.append({
+                    'ticket': str(pos.ticket),
+                    'symbol': pos.symbol,
+                    'direction': direction,
+                    'open_price': pos.price_open,
+                    'sl': pos.sl,
+                    'tp': pos.tp,
+                    'lot_size': pos.volume
+                })
         return orders_list
 
     def draw_dashboard(self, symbol, data):

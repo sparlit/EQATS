@@ -149,7 +149,10 @@ class AutonomousScalper:
         weekday = now_gmt.weekday() # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
         hour = now_gmt.hour
 
-        if config.BLOCK_WEEKENDS:
+        symbol_upper = symbol.upper()
+        is_crypto_asset = any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])
+
+        if config.BLOCK_WEEKENDS and not is_crypto_asset:
             # Friday after 21:00 GMT to Sunday before 21:00 GMT
             if (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21):
                 return False, "Hazardous session: Weekend market shutdown."
@@ -185,9 +188,15 @@ class AutonomousScalper:
         return True, "Safe conditions"
 
     def _get_current_session(self):
-        """Autonomously determines the active global trading session based on GMT hour."""
+        """Autonomously determines the active global trading session based on GMT hour and weekend status."""
         now_gmt = datetime.datetime.now(datetime.timezone.utc)
+        weekday = now_gmt.weekday() # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
         hour = now_gmt.hour
+
+        # Traditional markets weekend check
+        is_weekend = (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21)
+        if is_weekend:
+            return "Crypto 24/7 Session"
 
         # Session Hour definitions (GMT)
         tokyo = (0 <= hour < 9)
@@ -200,7 +209,7 @@ class AutonomousScalper:
         if ny: sessions.append("New York")
 
         if not sessions:
-            return "Quiet Session"
+            return "Crypto 24/7 Session" # Fallback if traditional is quiet
         return " + ".join(sessions) + " Overlap" if len(sessions) > 1 else sessions[0] + " Session"
 
     def _write_ea_state_file(self, equity, balance, active_positions, scans):
@@ -237,7 +246,7 @@ class AutonomousScalper:
         # Split marker
         lines.append("SCANS_HEADER")
 
-        # Symbol scan lines
+        # Symbol scan lines: Symbol|Price|EMA200|Trend|RSI|ATR|Status
         for s in scans:
             lines.append(f"{s['symbol']}|{s['price']}|{s['ema200']}|{s['trend']}|{s['rsi']}|{s['atr']}|{s['status']}")
 

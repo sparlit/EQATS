@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Scalper Brain"
 #property link      "https://github.com/scalper"
-#property version   "1.20"
+#property version   "1.50"
 #property description "Autonomous Scalper Brain - On-Chart Interactive HUD Dashboard"
 #property indicator_chart_window
 
@@ -15,8 +15,12 @@ input int      InpTimerInterval = 1;              // Update Interval (seconds)
 
 // State variables
 string m_symbols[50];
-string m_statuses[50];
 string m_prices[50];
+string m_ema200[50];
+string m_trends[50];
+string m_rsis[50];
+string m_atrs[50];
+string m_statuses[50];
 int m_total_symbols = 0;
 
 string m_trades_text[20];
@@ -133,7 +137,7 @@ bool ParseStateFile()
             string open_p = parts[4];
             string profit = parts[7];
 
-            m_trades_text[m_total_trades] = symbol + " " + dir + " | Ticket: " + ticket + " | Entry: " + open_p + " | Floating PnL: " + profit + " USD";
+            m_trades_text[m_total_trades] = symbol + " " + dir + " | Ticket: " + ticket + " | Entry: " + open_p + " | PnL: " + profit + " USD";
             m_total_trades++;
          }
       }
@@ -144,11 +148,11 @@ bool ParseStateFile()
          {
             m_symbols[m_total_symbols] = parts[0];
             m_prices[m_total_symbols] = parts[1];
-
-            string trend = parts[3];
-            string rsi = parts[4];
-            string status = parts[6];
-            m_statuses[m_total_symbols] = "[" + trend + " | RSI: " + rsi + "] " + status;
+            m_ema200[m_total_symbols] = parts[2];
+            m_trends[m_total_symbols] = parts[3];
+            m_rsis[m_total_symbols] = parts[4];
+            m_atrs[m_total_symbols] = parts[5];
+            m_statuses[m_total_symbols] = parts[6];
 
             m_total_symbols++;
          }
@@ -185,13 +189,25 @@ void UpdateDashboard()
    for(int i = 0; i < 40; i++)
    {
       ObjectDelete(0, "SB_Row_Sym_" + (string)i);
+      ObjectDelete(0, "SB_Row_P_" + (string)i);
+      ObjectDelete(0, "SB_Row_EMA_" + (string)i);
+      ObjectDelete(0, "SB_Row_Tr_" + (string)i);
+      ObjectDelete(0, "SB_Row_RSI_" + (string)i);
+      ObjectDelete(0, "SB_Row_ATR_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
       ObjectDelete(0, "SB_Row_Trade_" + (string)i);
    }
    ObjectDelete(0, "SB_No_Trades");
+   ObjectDelete(0, "SB_H_Sym");
+   ObjectDelete(0, "SB_H_P");
+   ObjectDelete(0, "SB_H_EMA");
+   ObjectDelete(0, "SB_H_Tr");
+   ObjectDelete(0, "SB_H_RSI");
+   ObjectDelete(0, "SB_H_ATR");
+   ObjectDelete(0, "SB_H_Stat");
 
    // Update system metrics labels
-   string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Session: " + m_active_session;
+   string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Active Session: " + m_active_session;
    CreateLabel("SB_Metrics", metrics_text, 20, 50, 11, clrWhite, "Segoe UI Semibold");
 
    // Section 1: Active Running Trades
@@ -218,27 +234,50 @@ void UpdateDashboard()
       }
    }
 
-   // Section 2: Scans Matrix
+   // Section 2: Scans Matrix Table
    current_y += 10;
    CreateLabel("SB_ScanSec", "🔍 MULTI-ASSET COGNITIVE SCANS MATRIX:", 20, current_y, 11, clrSkyBlue, "Segoe UI Bold");
-   current_y += 25;
+   current_y += 22;
+
+   // Table Column Headers
+   color head_col = clrSkyBlue;
+   CreateLabel("SB_H_Sym", "SYMBOL", 20, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_P", "PRICE", 100, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_EMA", "EMA-200", 180, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_Tr", "TREND", 260, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_RSI", "RSI", 320, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_ATR", "ATR", 370, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_Stat", "STATUS DETAILS", 440, current_y, 9, head_col, "Segoe UI Bold");
+   current_y += spacing;
 
    for(int i = 0; i < m_total_symbols && i < 15; i++)
    {
       string sym_name = m_symbols[i];
       string price_val = m_prices[i];
+      string ema_val = m_ema200[i];
+      string trend_val = m_trends[i];
+      string rsi_val = m_rsis[i];
+      string atr_val = m_atrs[i];
       string status_val = m_statuses[i];
 
       color status_color = clrLightGray;
-      if(StringFind(status_val, "Executing BUY") >= 0 || StringFind(status_val, "ACTIVE (BUY") >= 0)
+      if(StringFind(status_val, "Executing BUY") >= 0 || StringFind(status_val, "Consensus BUY") >= 0)
          status_color = clrGreen;
-      else if(StringFind(status_val, "Executing SELL") >= 0 || StringFind(status_val, "ACTIVE (SELL") >= 0)
+      else if(StringFind(status_val, "Executing SELL") >= 0 || StringFind(status_val, "Consensus SELL") >= 0)
          status_color = clrRed;
-      else if(StringFind(status_val, "HOLD") >= 0)
+      else if(StringFind(status_val, "Hold") >= 0)
          status_color = clrGray;
 
-      CreateLabel("SB_Row_Sym_" + (string)i, sym_name + " (" + price_val + "):", 20, current_y, 10, clrYellow, "Segoe UI Semibold");
-      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 180, current_y, 10, status_color, "Segoe UI");
+      color trend_color = (trend_val == "UP") ? clrGreen : clrRed;
+
+      CreateLabel("SB_Row_Sym_" + (string)i, sym_name, 20, current_y, 10, clrYellow, "Segoe UI Semibold");
+      CreateLabel("SB_Row_P_" + (string)i, price_val, 100, current_y, 10, clrWhite, "Segoe UI");
+      CreateLabel("SB_Row_EMA_" + (string)i, ema_val, 180, current_y, 10, clrLightGray, "Segoe UI");
+      CreateLabel("SB_Row_Tr_" + (string)i, trend_val, 260, current_y, 10, trend_color, "Segoe UI Bold");
+      CreateLabel("SB_Row_RSI_" + (string)i, rsi_val, 320, current_y, 10, clrWhite, "Segoe UI");
+      CreateLabel("SB_Row_ATR_" + (string)i, atr_val, 370, current_y, 10, clrLightGray, "Segoe UI");
+      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 440, current_y, 10, status_color, "Segoe UI");
+
       current_y += spacing;
    }
 
@@ -280,10 +319,22 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_TradeSec");
    ObjectDelete(0, "SB_No_Trades");
    ObjectDelete(0, "SB_ScanSec");
+   ObjectDelete(0, "SB_H_Sym");
+   ObjectDelete(0, "SB_H_P");
+   ObjectDelete(0, "SB_H_EMA");
+   ObjectDelete(0, "SB_H_Tr");
+   ObjectDelete(0, "SB_H_RSI");
+   ObjectDelete(0, "SB_H_ATR");
+   ObjectDelete(0, "SB_H_Stat");
 
    for(int i = 0; i < 50; i++)
    {
       ObjectDelete(0, "SB_Row_Sym_" + (string)i);
+      ObjectDelete(0, "SB_Row_P_" + (string)i);
+      ObjectDelete(0, "SB_Row_EMA_" + (string)i);
+      ObjectDelete(0, "SB_Row_Tr_" + (string)i);
+      ObjectDelete(0, "SB_Row_RSI_" + (string)i);
+      ObjectDelete(0, "SB_Row_ATR_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
       ObjectDelete(0, "SB_Row_Trade_" + (string)i);
    }
