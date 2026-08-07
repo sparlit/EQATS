@@ -486,14 +486,16 @@ class SimulatorConnector(TradingConnector):
     def _generate_initial_history(self, symbol):
         # Generate 250 bars of realistic starting prices
         base_prices = {
-            "EURUSD": 1.0950,
-            "GBPUSD": 1.2720,
-            "USDJPY": 151.30,
-            "XAUUSD": 2150.00,
-            "BTCUSD": 65000.00,
-            "ETHUSD": 3500.00
+            "EURUSD": 1.0950, "GBPUSD": 1.2720, "USDJPY": 151.30, "USDCHF": 0.8950,
+            "AUDUSD": 0.6650, "NZDUSD": 0.6120, "USDCAD": 1.3650, "EURGBP": 0.8550,
+            "EURJPY": 162.30, "EURCAD": 1.4950, "EURCHF": 0.9750, "EURNZD": 1.7850,
+            "EURAUD": 1.6450, "GBPJPY": 191.30, "GBPCAD": 1.7350, "GBPCHF": 1.1350,
+            "GBPAUD": 1.9150, "GBPNZD": 2.0750, "AUDJPY": 100.30, "NZDJPY": 92.50,
+            "CHFJPY": 168.50, "CADJPY": 110.50, "AUDCAD": 0.9050, "AUDNZD": 1.0850,
+            "NZDCAD": 0.8350, "XAUUSD": 2350.00, "XAGUSD": 29.50, "BTCUSD": 65000.00,
+            "ETHUSD": 3500.00, "LTCUSD": 80.00, "SOLUSD": 145.00, "XRPUSD": 0.50
         }
-        price = base_prices.get(symbol, 100.0)
+        price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
         for _ in range(250):
             # random walk
@@ -515,7 +517,9 @@ class SimulatorConnector(TradingConnector):
         symbol_upper = symbol.upper()
         if "XAU" in symbol_upper or "GOLD" in symbol_upper:
             return 100.0
-        elif "BTC" in symbol_upper or "ETH" in symbol_upper:
+        elif "XAG" in symbol_upper or "SILVER" in symbol_upper:
+            return 5000.0
+        elif any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
             return 1.0
         elif "JPY" in symbol_upper:
             return 1000.0 # Standard USDJPY contract is 100,000, scaled down JPY quote

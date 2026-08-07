@@ -479,11 +479,28 @@ class AutonomousScalper:
 
 
 if __name__ == "__main__":
-    scalper = AutonomousScalper()
-    if scalper.start():
-        try:
-            while True:
-                scalper.tick_and_execute()
-                time.sleep(config.CHECK_INTERVAL_SECONDS)
-        except KeyboardInterrupt:
-            scalper.stop()
+    # Check if we should launch in GUI mode or fallback to classic CLI mode
+    # Standard fallback if Tkinter is not supported/configured (e.g., in headless Linux/Docker environments)
+    use_gui = True
+    try:
+        import tkinter as tk
+        # Check for X11 display presence on Unix-like environments
+        if os.name != 'nt' and not os.environ.get('DISPLAY'):
+            use_gui = False
+    except ImportError:
+        use_gui = False
+
+    if use_gui:
+        print("Launching Scalper Brain in Desktop GUI Mode...")
+        import gui
+        gui.launch_gui()
+    else:
+        print("No GUI environment detected or supported. Launching in CLASSIC CONSOLE MODE...")
+        scalper = AutonomousScalper()
+        if scalper.start():
+            try:
+                while True:
+                    scalper.tick_and_execute()
+                    time.sleep(config.CHECK_INTERVAL_SECONDS)
+            except KeyboardInterrupt:
+                scalper.stop()
