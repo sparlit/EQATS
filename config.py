@@ -10,7 +10,19 @@ SIMULATION_MODE = True
 DEMO_ACCOUNT_ONLY = True
 
 # 2. Assets to Trade
-SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD", "ETHUSD"]
+# Fully expanded list including Majors, Minors, Metals (Gold, Silver), and Cryptos
+SYMBOLS = [
+    # --- Majors & Major Crosses ---
+    "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD",
+    # --- Minors & Minor Crosses ---
+    "EURGBP", "EURJPY", "EURCAD", "EURCHF", "EURNZD", "EURAUD",
+    "GBPJPY", "GBPCAD", "GBPCHF", "GBPAUD", "GBPNZD",
+    "AUDJPY", "NZDJPY", "CHFJPY", "CADJPY", "AUDCAD", "AUDNZD", "NZDCAD",
+    # --- Metals ---
+    "XAUUSD", "XAGUSD",
+    # --- Cryptocurrencies ---
+    "BTCUSD", "ETHUSD", "LTCUSD", "SOLUSD", "XRPUSD"
+]
 
 # Scalping timeframe (M1 = 1 Minute, M5 = 5 Minutes)
 # In MT5 Python, these map to MT5 timeframe constants.

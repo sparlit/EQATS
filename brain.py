@@ -178,7 +178,9 @@ class ScalperBrain:
             # Let's adjust contract sizes
             if "XAU" in symbol_upper or "GOLD" in symbol_upper:
                 contract_size = 100.0
-            elif "BTC" in symbol_upper or "ETH" in symbol_upper:
+            elif "XAG" in symbol_upper or "SILVER" in symbol_upper:
+                contract_size = 5000.0
+            elif any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
                 contract_size = 1.0
             elif "JPY" in symbol_upper:
                 # USDJPY contract is 100,000, but pip is 0.01 (divide by 100 to scale with USD)
