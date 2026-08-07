@@ -129,6 +129,20 @@ def get_open_trades():
     conn.close()
     return [dict(row) for row in rows]
 
+def get_recent_performance(count=5):
+    """Retrieves the last N closed trades to analyze performance trends."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT profit FROM trades
+        WHERE status = 'CLOSED'
+        ORDER BY close_time DESC
+        LIMIT ?
+    """, (count,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
 def get_daily_profit(date_str=None):
     """Calculates total profits for closed trades on a specific date (YYYY-MM-DD)."""
     if date_str is None:

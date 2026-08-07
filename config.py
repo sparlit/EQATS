@@ -36,6 +36,13 @@ RISK_REWARD_RATIO = 2.0            # Win target is 2.0x of the stop loss distanc
 ATR_PERIOD = 14                    # Period for Average True Range volatility calculation
 ATR_MULTIPLIER_SL = 1.5            # Stop loss distance = 1.5 * ATR
 
+# 3.1 Advanced Autonomy Filters & Protection Layers
+MAX_SPREAD_PIPS = 3.0              # Max allowed spread in pips (prevents trading in illiquid expand times)
+BLOCK_ROLLOVER_HOUR = True         # Blocks entries during broker rollover (22:00 - 23:00 GMT)
+BLOCK_WEEKENDS = True              # Blocks weekend trading (Friday 21:00 - Sunday 21:00 GMT)
+TRAILING_STOP_ENABLED = True       # Dynamic profit lock
+TRAILING_STOP_ATR_MULT = 1.5       # Trailing distance = 1.5 * ATR
+
 # 4. Strategy Selection and Tuning
 # Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE"
 ACTIVE_STRATEGY = "VOTING_ENSEMBLE"
