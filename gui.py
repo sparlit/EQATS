@@ -96,8 +96,10 @@ class ScalperGui:
         self.card_equity = self._create_card(ribbon_frame, "Account Equity", "$10,000.00 USD", 1, value_color=self.fg_accent)
         # 3. Active Positions
         self.card_active = self._create_card(ribbon_frame, "Running Positions", "0 / 3", 2)
-        # 4. Performance Card
-        self.card_perf = self._create_card(ribbon_frame, "Brain Performance Analytics", "Win Rate: 0% | Net: 0.00 USD (0 Trades)", 3, value_color=self.fg_accent)
+        # 4. Trading Session Card
+        self.card_session = self._create_card(ribbon_frame, "Trading Session", "Quiet Session", 3, value_color="#eab308")
+        # 5. Performance Card
+        self.card_perf = self._create_card(ribbon_frame, "Brain Performance Analytics", "Win Rate: 0% | Net: 0.00 USD (0 Trades)", 4, value_color=self.fg_accent)
 
     def _create_card(self, parent, label_text, val_text, column, value_color=None):
         card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#334155", highlightcolor="#334155")
@@ -304,6 +306,10 @@ class ScalperGui:
                 # Fetch all-time performance metrics
                 perf = database.get_all_time_performance()
                 self.card_perf.config(text=f"Win Rate: {perf['win_rate']}% | Net: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)")
+
+                # Fetch active trading session info
+                session_str = self.scalper._get_current_session()
+                self.card_session.config(text=session_str)
 
                 # Fetch latest DB scan assessments to show in table
                 self.tree.delete(*self.tree.get_children())

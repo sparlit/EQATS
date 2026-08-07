@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Scalper Brain"
 #property link      "https://github.com/scalper"
-#property version   "1.00"
+#property version   "1.20"
 #property description "Autonomous Scalper Brain - On-Chart Interactive HUD Dashboard"
 #property indicator_chart_window
 
@@ -18,9 +18,14 @@ string m_symbols[50];
 string m_statuses[50];
 string m_prices[50];
 int m_total_symbols = 0;
+
+string m_trades_text[20];
+int m_total_trades = 0;
+
 string m_equity = "0.00";
 string m_balance = "0.00";
 string m_active_count = "0";
+string m_active_session = "Quiet Session";
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -81,40 +86,72 @@ bool ParseStateFile()
    }
 
    m_total_symbols = 0;
+   m_total_trades = 0;
+   bool in_scans_section = false;
 
-   // Line 1: Header (equity|balance|active_count)
+   // Line 1: Header (equity|balance|active_count|active_session)
    if(!FileIsEnding(file_handle))
    {
       string header_line = FileReadString(file_handle);
       string parts[];
-      if(StringSplit(header_line, '|', parts) == 3)
+      int split_count = StringSplit(header_line, '|', parts);
+      if(split_count >= 3)
       {
          m_equity = parts[0];
          m_balance = parts[1];
          m_active_count = parts[2];
+         if(split_count >= 4)
+         {
+            m_active_session = parts[3];
+         }
       }
    }
 
-   // Subsequent lines: Symbol|Price|EMA200|Trend|RSI|ATR|Status
-   while(!FileIsEnding(file_handle) && m_total_symbols < 50)
+   // Parse subsequent rows
+   while(!FileIsEnding(file_handle))
    {
       string line = FileReadString(file_handle);
-      if(StringLen(line) < 5) continue;
+      if(StringLen(line) < 3) continue;
+
+      if(line == "SCANS_HEADER")
+      {
+         in_scans_section = true;
+         continue;
+      }
 
       string parts[];
       int split_count = StringSplit(line, '|', parts);
-      if(split_count >= 6)
+
+      if(!in_scans_section)
       {
-         m_symbols[m_total_symbols] = parts[0];
-         m_prices[m_total_symbols] = parts[1];
+         // This is a trade row: TRADE|ticket|symbol|direction|open_price|sl|tp|profit
+         if(split_count >= 8 && parts[0] == "TRADE" && m_total_trades < 20)
+         {
+            string ticket = parts[1];
+            string symbol = parts[2];
+            string dir = parts[3];
+            string open_p = parts[4];
+            string profit = parts[7];
 
-         // Build status display
-         string trend = parts[3];
-         string rsi = parts[4];
-         string status = parts[6];
-         m_statuses[m_total_symbols] = "[" + trend + " | RSI: " + rsi + "] " + status;
+            m_trades_text[m_total_trades] = symbol + " " + dir + " | Ticket: " + ticket + " | Entry: " + open_p + " | Floating PnL: " + profit + " USD";
+            m_total_trades++;
+         }
+      }
+      else
+      {
+         // This is a scan row: Symbol|Price|EMA200|Trend|RSI|ATR|Status
+         if(split_count >= 6 && m_total_symbols < 50)
+         {
+            m_symbols[m_total_symbols] = parts[0];
+            m_prices[m_total_symbols] = parts[1];
 
-         m_total_symbols++;
+            string trend = parts[3];
+            string rsi = parts[4];
+            string status = parts[6];
+            m_statuses[m_total_symbols] = "[" + trend + " | RSI: " + rsi + "] " + status;
+
+            m_total_symbols++;
+         }
       }
    }
 
@@ -144,27 +181,50 @@ void UpdateDashboard()
       return;
    }
 
-   // Update system metrics labels
-   string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Active Trades: " + m_active_count;
-   CreateLabel("SB_Metrics", metrics_text, 20, 50, 11, clrWhite, "Segoe UI Semibold");
-
-   // Subtitle label
-   CreateLabel("SB_SubTitle", "🔍 Multi-Asset Trading Signals and Scanner Matrix:", 20, 80, 10, clrSkyBlue, "Segoe UI");
-
-   // Draw symbols scans
-   int start_y = 110;
-   int row_spacing = 22;
-
-   // Hide any previous rows that might be inactive
+   // Clean up any previously drawn rows
    for(int i = 0; i < 40; i++)
    {
       ObjectDelete(0, "SB_Row_Sym_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
+      ObjectDelete(0, "SB_Row_Trade_" + (string)i);
    }
+   ObjectDelete(0, "SB_No_Trades");
+
+   // Update system metrics labels
+   string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Session: " + m_active_session;
+   CreateLabel("SB_Metrics", metrics_text, 20, 50, 11, clrWhite, "Segoe UI Semibold");
+
+   // Section 1: Active Running Trades
+   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING TRADES (" + m_active_count + "/3):", 20, 80, 11, clrSkyBlue, "Segoe UI Bold");
+
+   int current_y = 105;
+   int spacing = 20;
+
+   if(m_total_trades == 0)
+   {
+      CreateLabel("SB_No_Trades", "No active open positions. Brain is monitoring.", 20, current_y, 10, clrGray, "Segoe UI Italic");
+      current_y += spacing;
+   }
+   else
+   {
+      for(int i = 0; i < m_total_trades; i++)
+      {
+         color trade_col = clrLightGray;
+         if(StringFind(m_trades_text[i], "BUY") >= 0) trade_col = clrGreen;
+         if(StringFind(m_trades_text[i], "SELL") >= 0) trade_col = clrRed;
+
+         CreateLabel("SB_Row_Trade_" + (string)i, "• " + m_trades_text[i], 20, current_y, 10, trade_col, "Segoe UI");
+         current_y += spacing;
+      }
+   }
+
+   // Section 2: Scans Matrix
+   current_y += 10;
+   CreateLabel("SB_ScanSec", "🔍 MULTI-ASSET COGNITIVE SCANS MATRIX:", 20, current_y, 11, clrSkyBlue, "Segoe UI Bold");
+   current_y += 25;
 
    for(int i = 0; i < m_total_symbols && i < 15; i++)
    {
-      int y_pos = start_y + (i * row_spacing);
       string sym_name = m_symbols[i];
       string price_val = m_prices[i];
       string status_val = m_statuses[i];
@@ -177,8 +237,9 @@ void UpdateDashboard()
       else if(StringFind(status_val, "HOLD") >= 0)
          status_color = clrGray;
 
-      CreateLabel("SB_Row_Sym_" + (string)i, sym_name + " (" + price_val + "):", 20, y_pos, 10, clrYellow, "Segoe UI Semibold");
-      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 180, y_pos, 10, status_color, "Segoe UI");
+      CreateLabel("SB_Row_Sym_" + (string)i, sym_name + " (" + price_val + "):", 20, current_y, 10, clrYellow, "Segoe UI Semibold");
+      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 180, current_y, 10, status_color, "Segoe UI");
+      current_y += spacing;
    }
 
    ChartRedraw();
@@ -216,12 +277,15 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_Title");
    ObjectDelete(0, "SB_Status");
    ObjectDelete(0, "SB_Metrics");
-   ObjectDelete(0, "SB_SubTitle");
+   ObjectDelete(0, "SB_TradeSec");
+   ObjectDelete(0, "SB_No_Trades");
+   ObjectDelete(0, "SB_ScanSec");
 
    for(int i = 0; i < 50; i++)
    {
       ObjectDelete(0, "SB_Row_Sym_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
+      ObjectDelete(0, "SB_Row_Trade_" + (string)i);
    }
 
    ChartRedraw();
