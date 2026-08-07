@@ -102,14 +102,35 @@ class AutonomousScalper:
             bid = price_info['bid']
             ask = price_info['ask']
 
+            entry_price = pos.get('open_price', 0.0)
+            if entry_price <= 0:
+                continue
+
+            risk_dist = abs(entry_price - current_sl)
+
             if direction == "BUY":
-                # Ensure trailing target is higher than current SL and is locked above entry price
+                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR is touched
+                if bid >= entry_price + risk_dist and current_sl < entry_price + 0.00001:
+                    success = self.conn.modify_order(ticket, round(entry_price, 5), current_tp)
+                    if success:
+                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on BUY {symbol} (Ticket {ticket}) at 1:1 RR!")
+                        current_sl = entry_price # update local ref for trailing step below
+
+                # 2. Dynamic Trailing Stop
                 target_sl = bid - trail_dist
                 if target_sl > current_sl + 0.00005:
                     success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
                     if success:
                         print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)")
             elif direction == "SELL":
+                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR is touched
+                if ask <= entry_price - risk_dist and (current_sl == 0 or current_sl > entry_price - 0.00001):
+                    success = self.conn.modify_order(ticket, round(entry_price, 5), current_tp)
+                    if success:
+                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on SELL {symbol} (Ticket {ticket}) at 1:1 RR!")
+                        current_sl = entry_price # update local ref
+
+                # 2. Dynamic Trailing Stop
                 target_sl = ask + trail_dist
                 # For SELL, target SL must be lower than current SL (or if current SL is 0)
                 if current_sl == 0 or target_sl < current_sl - 0.00005:
@@ -403,6 +424,15 @@ class AutonomousScalper:
         Runs one iteration of checking market state, assessing trades,
         updating open positions, and enforcing limits.
         """
+        # Heartbeat: Check connection status and attempt auto-reconnection
+        if not self.conn.is_connected():
+            print("⚠️ DISCONNECTION DETECTED: Heartbeat failed. Autonomously attempting to reconnect...")
+            try:
+                self.conn.connect()
+            except Exception as e:
+                print(f"Warning: Reconnection attempt failed: {e}")
+                return
+
         # A. Check and update the daily drawdown start baseline
         current_date = datetime.date.today().isoformat()
         if current_date != self.last_day_str:
@@ -419,18 +449,28 @@ class AutonomousScalper:
                 # Synchronize status with SQLite (if not already handled by Simulator)
                 pass
 
-        # C. Check Daily Drawdown Limit
-        daily_loss = database.get_daily_profit(current_date)
+        # C. Check Real-Time Floating Daily Drawdown Limit
+        account_tmp = self.conn.get_account_info()
+        current_equity = account_tmp['equity']
+
+        # Real-time daily loss including closed trades and floating trades PnL
+        daily_floating_loss = current_equity - self.daily_start_balance
         max_allowed_loss = self.daily_start_balance * (config.MAX_DAILY_DRAWDOWN_PERCENT / 100.0)
 
-        if daily_loss < 0 and abs(daily_loss) >= max_allowed_loss:
+        if daily_floating_loss < 0 and abs(daily_floating_loss) >= max_allowed_loss:
             warn_msg = (
-                f"⚠️ *Daily Drawdown Reached!* Today's loss of {abs(daily_loss):.2f} "
-                f"exceeded maximum allowed of {max_allowed_loss:.2f} ({config.MAX_DAILY_DRAWDOWN_PERCENT}%). "
-                f"Stopping new trades for today."
+                f"⚠️ *CRITICAL DRAWDOWN CIRCUIT BREAKER TRIGGERED!*\n"
+                f"Daily drawdown of {abs(daily_floating_loss):.2f} USD reached "
+                f"({config.MAX_DAILY_DRAWDOWN_PERCENT}% of starting {self.daily_start_balance:.2f} USD).\n"
+                f"Autonomously liquidating all open positions and stopping trading for the day..."
             )
             print(warn_msg.replace("*", ""))
             telegram_bot.send_telegram_message(warn_msg)
+
+            # Autonomously close all active trades immediately to preserve remaining capital!
+            active_positions = self.conn.get_open_orders()
+            for pos in active_positions:
+                self.conn.close_order(pos['ticket'], reason="DAILY_DRAWDOWN_CIRCUIT_BREAKER")
             return
 
         # D. Retrieve open positions from connection and synchronize with SQLite
