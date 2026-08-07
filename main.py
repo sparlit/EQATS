@@ -185,7 +185,8 @@ class AutonomousScalper:
             print(f"Warning: Failed to write EA state file: {e}")
 
     def _generate_html_dashboard(self, current_time, equity, balance, active_positions, scans):
-        """Generates a responsive and beautiful HTML dashboard file."""
+        """Generates a responsive and beautiful HTML dashboard file with live analytics."""
+        perf = database.get_all_time_performance()
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -335,8 +336,10 @@ class AutonomousScalper:
                 <div class="card-val">{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}</div>
             </div>
             <div class="card">
-                <div class="card-label">Risk Settings</div>
-                <div class="card-val" style="font-size: 16px;">{config.RISK_PER_TRADE_PERCENT}% Risk | {config.MAX_DAILY_DRAWDOWN_PERCENT}% Daily Limit</div>
+                <div class="card-label">Brain Performance Analytics</div>
+                <div class="card-val" style="font-size: 15px; color: #38bdf8;">
+                    Win Rate: {perf['win_rate']}% | Net Profit: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)
+                </div>
             </div>
         </div>
 
@@ -436,6 +439,10 @@ class AutonomousScalper:
 
         # Process trailing stops for active positions
         self._process_trailing_stops(active_positions)
+
+        # Trigger Autonomous Performance Analysis in real-time
+        account_tmp = self.conn.get_account_info()
+        database.update_performance_metrics(current_date, account_tmp['balance'])
 
         # If positions closed externally in MT5 terminal, synchronize SQLite
         active_tickets = {str(p['ticket']) for p in active_positions}

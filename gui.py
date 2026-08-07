@@ -96,8 +96,8 @@ class ScalperGui:
         self.card_equity = self._create_card(ribbon_frame, "Account Equity", "$10,000.00 USD", 1, value_color=self.fg_accent)
         # 3. Active Positions
         self.card_active = self._create_card(ribbon_frame, "Running Positions", "0 / 3", 2)
-        # 4. Settings Card
-        self.card_settings = self._create_card(ribbon_frame, "Risk Limit Settings", f"{config.RISK_PER_TRADE_PERCENT}% Risk / {config.MAX_DAILY_DRAWDOWN_PERCENT}% Stop", 3)
+        # 4. Performance Card
+        self.card_perf = self._create_card(ribbon_frame, "Brain Performance Analytics", "Win Rate: 0% | Net: 0.00 USD (0 Trades)", 3, value_color=self.fg_accent)
 
     def _create_card(self, parent, label_text, val_text, column, value_color=None):
         card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#334155", highlightcolor="#334155")
@@ -287,8 +287,6 @@ class ScalperGui:
         self.badge_label.config(bg="#eab308" if config.SIMULATION_MODE else "#15803d")
         self.mode_text.set("SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR")
 
-        # Update settings display card
-        self.card_settings.config(text=f"{config.RISK_PER_TRADE_PERCENT}% Risk / {config.MAX_DAILY_DRAWDOWN_PERCENT}% Stop")
         messagebox.showinfo("Mode Toggled", f"Successfully switched trading backend to: {'Simulation Paper Trading' if config.SIMULATION_MODE else 'MT5 Windows Native'}")
 
     def update_gui_loop(self):
@@ -302,6 +300,10 @@ class ScalperGui:
 
                 active_positions = self.scalper.conn.get_open_orders()
                 self.card_active.config(text=f"{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}")
+
+                # Fetch all-time performance metrics
+                perf = database.get_all_time_performance()
+                self.card_perf.config(text=f"Win Rate: {perf['win_rate']}% | Net: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)")
 
                 # Fetch latest DB scan assessments to show in table
                 self.tree.delete(*self.tree.get_children())

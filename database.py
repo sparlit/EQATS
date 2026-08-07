@@ -160,6 +160,67 @@ def get_daily_profit(date_str=None):
     conn.close()
     return profit
 
+def update_performance_metrics(date_str, current_balance):
+    """
+    Autonomously analyzes trading performance for a specific date and
+    upserts metrics into the performance_metrics table.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Query closed trades for the date
+    cursor.execute("""
+        SELECT profit FROM trades
+        WHERE status = 'CLOSED' AND close_time LIKE ?
+    """, (f"{date_str}%",))
+    rows = cursor.fetchall()
+
+    trades_taken = len(rows)
+    net_profit = sum(row['profit'] for row in rows) if trades_taken > 0 else 0.0
+    wins = sum(1 for row in rows if row['profit'] > 0)
+    win_rate = (wins / trades_taken) * 100.0 if trades_taken > 0 else 0.0
+
+    # Check if record exists
+    cursor.execute("SELECT 1 FROM performance_metrics WHERE date = ?", (date_str,))
+    exists = cursor.fetchone() is not None
+
+    if exists:
+        cursor.execute("""
+            UPDATE performance_metrics
+            SET final_balance = ?, trades_taken = ?, win_rate = ?, net_profit = ?
+            WHERE date = ?
+        """, (current_balance, trades_taken, win_rate, net_profit, date_str))
+    else:
+        cursor.execute("""
+            INSERT INTO performance_metrics (date, initial_balance, final_balance, trades_taken, win_rate, net_profit)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (date_str, current_balance - net_profit, current_balance, trades_taken, win_rate, net_profit))
+
+    conn.commit()
+    conn.close()
+
+def get_all_time_performance():
+    """Computes all-time trading performance summary metrics."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT profit FROM trades
+        WHERE status = 'CLOSED'
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    total_trades = len(rows)
+    net_profit = sum(row['profit'] for row in rows) if total_trades > 0 else 0.0
+    wins = sum(1 for row in rows if row['profit'] > 0)
+    win_rate = (wins / total_trades) * 100.0 if total_trades > 0 else 0.0
+
+    return {
+        'total_trades': total_trades,
+        'win_rate': round(win_rate, 2),
+        'net_profit': round(net_profit, 2)
+    }
+
 def get_all_trades():
     """Returns all trades (open and closed)."""
     conn = get_connection()
