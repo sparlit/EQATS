@@ -36,13 +36,26 @@ RISK_REWARD_RATIO = 2.0            # Win target is 2.0x of the stop loss distanc
 ATR_PERIOD = 14                    # Period for Average True Range volatility calculation
 ATR_MULTIPLIER_SL = 1.5            # Stop loss distance = 1.5 * ATR
 
-# 4. Strategy Parameter Tuning (EMA, RSI)
+# 4. Strategy Selection and Tuning
+# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE"
+ACTIVE_STRATEGY = "VOTING_ENSEMBLE"
+
+# EMA / Trend / Pullback Strategy Parameters
 EMA_LONG_PERIOD = 200              # Long-term trend filter
 EMA_SHORT_PERIOD = 9               # Trigger fast EMA
 EMA_MEDIUM_PERIOD = 21             # Trigger medium EMA
 RSI_PERIOD = 14
 RSI_BUY_THRESHOLD = 35             # Buy when RSI is low (pullback in uptrend)
 RSI_SELL_THRESHOLD = 65            # Sell when RSI is high (pullback in downtrend)
+
+# Bollinger Bands Mean Reversion Parameters
+BB_PERIOD = 20
+BB_STD_DEV = 2.0
+
+# MACD Momentum Parameters
+MACD_FAST = 12
+MACD_SLOW = 26
+MACD_SIGNAL = 9
 
 # 5. Database Settings
 DB_PATH = "scalper_brain.db"

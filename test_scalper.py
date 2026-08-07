@@ -32,6 +32,27 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertIsNotNone(atr_val)
         self.assertGreater(atr_val, 0)
 
+    def test_macd(self):
+        prices = [10.0 + i for i in range(50)]
+        res = indicators.calculate_macd(prices, 12, 26, 9)
+        self.assertIsNotNone(res)
+        self.assertIn('macd', res)
+        self.assertIn('signal', res)
+        self.assertIn('histogram', res)
+
+    def test_bollinger_bands(self):
+        prices = [100.0, 101.0, 102.0, 101.0, 100.0, 102.0, 103.0, 104.0, 102.0, 101.0, 100.0, 99.0, 101.0, 102.0, 103.0, 102.0, 101.0, 100.0, 98.0, 102.0]
+        res = indicators.calculate_bollinger_bands(prices, 10, 2.0)
+        self.assertIsNotNone(res)
+        self.assertGreater(res['upper'], res['middle'])
+        self.assertGreater(res['middle'], res['lower'])
+
+    def test_pivot_points(self):
+        res = indicators.calculate_pivot_points(100.0, 90.0, 95.0)
+        self.assertEqual(res['pivot'], 95.0)
+        self.assertEqual(res['r1'], 100.0)
+        self.assertEqual(res['s1'], 90.0)
+
 
 class TestScalperBrainAndConnector(unittest.TestCase):
 

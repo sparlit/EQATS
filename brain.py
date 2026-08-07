@@ -17,20 +17,9 @@ class ScalperBrain:
         Analyzes historical bars and gives a decision: 'BUY', 'SELL', or 'HOLD'.
         history_bars: list of dicts/objects with keys: 'open', 'high', 'low', 'close'
         current_equity: float, current account balance/equity to calculate lot size.
-
-        Returns:
-            dict with structure:
-            {
-                'decision': 'BUY' | 'SELL' | 'HOLD',
-                'lot_size': float,
-                'sl': float,
-                'tp': float,
-                'explanation': str,
-                'indicators': { 'ema_long': float, 'rsi': float, 'atr': float }
-            }
         """
-        # Ensure we have enough data to calculate EMA-200 and other indicators
-        min_bars_needed = max(config.EMA_LONG_PERIOD + 10, config.RSI_PERIOD + 10, config.ATR_PERIOD + 10)
+        # Ensure we have enough data to calculate all indicators
+        min_bars_needed = max(config.EMA_LONG_PERIOD + 10, config.RSI_PERIOD + 10, config.ATR_PERIOD + 10, config.MACD_SLOW + 15)
 
         if len(history_bars) < min_bars_needed:
             msg = f"Insufficient history data for {symbol}. Needs {min_bars_needed} bars, got {len(history_bars)}."
@@ -50,14 +39,16 @@ class ScalperBrain:
 
         current_price = closes[-1]
 
-        # Calculate indicators
+        # Calculate all active indicators
         ema_long = indicators.calculate_ema(closes, config.EMA_LONG_PERIOD)
         ema_short = indicators.calculate_ema(closes, config.EMA_SHORT_PERIOD)
         ema_medium = indicators.calculate_ema(closes, config.EMA_MEDIUM_PERIOD)
         rsi_val = indicators.calculate_rsi(closes, config.RSI_PERIOD)
         atr_val = indicators.calculate_atr(highs, lows, closes, config.ATR_PERIOD)
+        bb = indicators.calculate_bollinger_bands(closes, config.BB_PERIOD, config.BB_STD_DEV)
+        macd = indicators.calculate_macd(closes, config.MACD_FAST, config.MACD_SLOW, config.MACD_SIGNAL)
 
-        if ema_long is None or rsi_val is None or atr_val is None or ema_short is None or ema_medium is None:
+        if ema_long is None or rsi_val is None or atr_val is None or ema_short is None or ema_medium is None or bb is None or macd is None:
             msg = f"Indicator calculation returned None for {symbol} due to insufficient history window."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
             return {
@@ -69,66 +60,95 @@ class ScalperBrain:
                 'indicators': {}
             }
 
-        # Trend filter definition (using 200 EMA)
         trend_direction = "UP" if current_price > ema_long else "DOWN"
 
-        # Trading assessment setup
-        decision = 'HOLD'
+        # 1. EVALUATE STRATEGY 1: TREND_FOLLOWING (EMA + RSI)
+        sig_tf = "HOLD"
+        reasons_tf = []
+        if trend_direction == "UP":
+            if rsi_val <= config.RSI_BUY_THRESHOLD and ema_short > ema_medium:
+                sig_tf = "BUY"
+            else:
+                if rsi_val > config.RSI_BUY_THRESHOLD:
+                    reasons_tf.append(f"RSI {rsi_val:.1f} > {config.RSI_BUY_THRESHOLD}")
+                if ema_short <= ema_medium:
+                    reasons_tf.append("EMA-9 below EMA-21")
+        else: # DOWN trend
+            if rsi_val >= config.RSI_SELL_THRESHOLD and ema_short < ema_medium:
+                sig_tf = "SELL"
+            else:
+                if rsi_val < config.RSI_SELL_THRESHOLD:
+                    reasons_tf.append(f"RSI {rsi_val:.1f} < {config.RSI_SELL_THRESHOLD}")
+                if ema_short >= ema_medium:
+                    reasons_tf.append("EMA-9 above EMA-21")
+
+        # 2. EVALUATE STRATEGY 2: MEAN_REVERSION (Bollinger Bands)
+        sig_mr = "HOLD"
+        reasons_mr = []
+        if current_price <= bb['lower'] and rsi_val <= 30.0:
+            sig_mr = "BUY"
+        elif current_price >= bb['upper'] and rsi_val >= 70.0:
+            sig_mr = "SELL"
+        else:
+            if current_price > bb['lower'] and current_price < bb['upper']:
+                reasons_mr.append("Price inside Bands")
+            if rsi_val > 30.0 and rsi_val < 70.0:
+                reasons_mr.append(f"RSI {rsi_val:.1f} neutral")
+
+        # 3. EVALUATE STRATEGY 3: MACD_MOMENTUM
+        sig_mac = "HOLD"
+        reasons_mac = []
+        if macd['histogram'] > 0 and macd['macd'] > macd['signal']:
+            sig_mac = "BUY"
+        elif macd['histogram'] < 0 and macd['macd'] < macd['signal']:
+            sig_mac = "SELL"
+        else:
+            reasons_mac.append("MACD neutral")
+
+        # Choose the dynamic trading setup based on user's active strategy configuration
+        strategy_mode = config.ACTIVE_STRATEGY
+        decision = "HOLD"
+        explanation = ""
+
+        if strategy_mode == "TREND_FOLLOWING":
+            decision = sig_tf
+            explanation = f"Trend Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_tf)}"
+        elif strategy_mode == "MEAN_REVERSION":
+            decision = sig_mr
+            explanation = f"Mean Reversion Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_mr)}"
+        elif strategy_mode == "MACD_MOMENTUM":
+            decision = sig_mac
+            explanation = f"MACD Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_mac)}"
+        else: # VOTING_ENSEMBLE
+            votes = [sig_tf, sig_mr, sig_mac]
+            buy_votes = votes.count("BUY")
+            sell_votes = votes.count("SELL")
+
+            if buy_votes >= 2 and sell_votes == 0:
+                decision = "BUY"
+                explanation = f"Ensemble BUY signal triggered with {buy_votes} strategy consensus!"
+            elif sell_votes >= 2 and buy_votes == 0:
+                decision = "SELL"
+                explanation = f"Ensemble SELL signal triggered with {sell_votes} strategy consensus!"
+            else:
+                decision = "HOLD"
+                # Formulate detailed hold summaries of each module
+                explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac})"
+
+        # Dynamic Stop Loss and Take Profit
         sl = 0.0
         tp = 0.0
         lot_size = 0.0
-        explanation = ""
+        sl_distance = max(atr_val * config.ATR_MULTIPLIER_SL, current_price * 0.0005)
 
-        # ATR multiplier for Stop Loss
-        sl_distance = max(atr_val * config.ATR_MULTIPLIER_SL, current_price * 0.0005) # Floor at 0.05% of price to avoid zero-distance errors
-
-        if trend_direction == "UP":
-            # Long Setup logic: Fast EMA-9 crossing/staying above EMA-21, plus price pullbacks where RSI is oversold
-            # RSI oversold signals an opportunistic entry in an overall uptrend
-            if rsi_val <= config.RSI_BUY_THRESHOLD and ema_short > ema_medium:
-                decision = 'BUY'
-                sl = current_price - sl_distance
-                tp = current_price + (sl_distance * config.RISK_REWARD_RATIO)
-
-                lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
-                explanation = (
-                    f"Trend is UP. "
-                    f"EMA-9 {ema_short:.5f} > EMA-21 {ema_medium:.5f}. "
-                    f"RSI oversold {rsi_val:.2f} <= {config.RSI_BUY_THRESHOLD}."
-                )
-            else:
-                # Detail the exact holding reasons
-                reasons = []
-                if rsi_val > config.RSI_BUY_THRESHOLD:
-                    reasons.append(f"RSI {rsi_val:.1f} not oversold (<={config.RSI_BUY_THRESHOLD})")
-                if ema_short <= ema_medium:
-                    reasons.append(f"EMA-9 {ema_short:.5f} not above EMA-21 {ema_medium:.5f}")
-
-                explanation = f"UPTrend. Waiting for: " + " & ".join(reasons)
-
-        elif trend_direction == "DOWN":
-            # Short Setup logic: Fast EMA-9 crossing/staying below EMA-21, plus price pullbacks where RSI is overbought
-            # RSI overbought signals an opportunistic short entry in an overall downtrend
-            if rsi_val >= config.RSI_SELL_THRESHOLD and ema_short < ema_medium:
-                decision = 'SELL'
-                sl = current_price + sl_distance
-                tp = current_price - (sl_distance * config.RISK_REWARD_RATIO)
-
-                lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
-                explanation = (
-                    f"Trend is DOWN. "
-                    f"EMA-9 {ema_short:.5f} < EMA-21 {ema_medium:.5f}. "
-                    f"RSI overbought {rsi_val:.2f} >= {config.RSI_SELL_THRESHOLD}."
-                )
-            else:
-                # Detail the exact holding reasons
-                reasons = []
-                if rsi_val < config.RSI_SELL_THRESHOLD:
-                    reasons.append(f"RSI {rsi_val:.1f} not overbought (>={config.RSI_SELL_THRESHOLD})")
-                if ema_short >= ema_medium:
-                    reasons.append(f"EMA-9 {ema_short:.5f} not below EMA-21 {ema_medium:.5f}")
-
-                explanation = f"DOWNTrend. Waiting for: " + " & ".join(reasons)
+        if decision == "BUY":
+            sl = current_price - sl_distance
+            tp = current_price + (sl_distance * config.RISK_REWARD_RATIO)
+            lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
+        elif decision == "SELL":
+            sl = current_price + sl_distance
+            tp = current_price - (sl_distance * config.RISK_REWARD_RATIO)
+            lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
 
         database.log_assessment(
             symbol=symbol,

@@ -174,6 +174,24 @@ class ScalperGui:
         )
         self.btn_stop.pack(side=tk.LEFT, padx=10, pady=10)
 
+        # Strategy Selector label and dropdown list
+        strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Segoe UI", 9, "bold"), bg=self.bg_card, fg="#94a3b8")
+        strat_lbl.pack(side=tk.LEFT, padx=(20, 5), pady=15)
+
+        self.strat_var = tk.StringVar(value=config.ACTIVE_STRATEGY)
+        self.strat_menu = tk.OptionMenu(
+            ctrl_frame,
+            self.strat_var,
+            "TREND_FOLLOWING",
+            "MEAN_REVERSION",
+            "MACD_MOMENTUM",
+            "VOTING_ENSEMBLE",
+            command=self.on_strategy_change
+        )
+        self.strat_menu.config(font=("Segoe UI", 9, "bold"), bg="#1e293b", fg=self.fg_accent, activebackground="#334155", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
+        self.strat_menu["menu"].config(bg="#1e293b", fg=self.fg_accent)
+        self.strat_menu.pack(side=tk.LEFT, padx=5, pady=15)
+
         # Simulation Mode Toggle Button
         self.mode_text = tk.StringVar(value="SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR")
         self.btn_toggle_mode = tk.Button(
@@ -253,6 +271,11 @@ class ScalperGui:
         self.btn_stop.config(state=tk.DISABLED)
         self.btn_toggle_mode.config(state=tk.NORMAL)
         self.lbl_clock.config(text="Bot stopped safely.")
+
+    def on_strategy_change(self, selected_strat):
+        """Fires when the user updates the strategy dropdown choice"""
+        config.ACTIVE_STRATEGY = selected_strat
+        print(f"🔄 GUI STRATEGY SWITCH: Active Trading Strategy updated to: {selected_strat}")
 
     def toggle_mode(self):
         """Switches between MT5 Windows live and paper trading simulation"""
