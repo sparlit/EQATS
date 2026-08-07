@@ -1,4 +1,2 @@
 10000.00|10000.00|0|Crypto 24/7 Session
 SCANS_HEADER
-EURUSD|1.12143|1.10572|UP|51.2|0.00326|HOLD (Hazardous session: Weekend market shutdown.)
-GBPUSD|1.29276|1.28799|UP|51.9|0.00359|HOLD (Hazardous session: Weekend market shutdown.)
