@@ -184,14 +184,58 @@ class AutonomousScalper:
 
         return True, "Safe conditions"
 
-    def _write_ea_state_file(self, equity, balance, active_count, scans):
+    def _get_current_session(self):
+        """Autonomously determines the active global trading session based on GMT hour."""
+        now_gmt = datetime.datetime.now(datetime.timezone.utc)
+        hour = now_gmt.hour
+
+        # Session Hour definitions (GMT)
+        tokyo = (0 <= hour < 9)
+        london = (8 <= hour < 17)
+        ny = (12 <= hour < 21)
+
+        sessions = []
+        if tokyo: sessions.append("Tokyo")
+        if london: sessions.append("London")
+        if ny: sessions.append("New York")
+
+        if not sessions:
+            return "Quiet Session"
+        return " + ".join(sessions) + " Overlap" if len(sessions) > 1 else sessions[0] + " Session"
+
+    def _write_ea_state_file(self, equity, balance, active_positions, scans):
         """
         Writes a highly structured trading state file 'scalper_state.txt' into the MT5
         Common Files directory so the native MQL5 EA can parse and show it on chart.
         """
         lines = []
-        # Header line: equity|balance|active_count
-        lines.append(f"{equity:.2f}|{balance:.2f}|{active_count}")
+        active_session = self._get_current_session()
+
+        # Header line: equity|balance|active_count|active_session
+        lines.append(f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}")
+
+        # Open Positions Section
+        for pos in active_positions:
+            ticket = pos.get('ticket', '0')
+            symbol = pos.get('symbol', 'UNKNOWN')
+            direction = pos.get('direction', 'BUY')
+            open_p = pos.get('open_price', 0.0)
+            sl = pos.get('sl', 0.0)
+            tp = pos.get('tp', 0.0)
+
+            # Simple floating profit estimate
+            prices = self.conn.get_current_price(symbol)
+            curr_p = prices['bid'] if direction == "BUY" else prices['ask']
+            p_diff = curr_p - open_p if direction == "BUY" else open_p - curr_p
+            is_crypto = "BTC" in symbol or "ETH" in symbol
+            is_gold = "XAU" in symbol
+            mult = 1.0 if is_crypto else (100.0 if is_gold else 100000.0)
+            profit = p_diff * pos.get('lot_size', 0.0) * mult
+
+            lines.append(f"TRADE|{ticket}|{symbol}|{direction}|{open_p:.5f}|{sl:.5f}|{tp:.5f}|{profit:.2f}")
+
+        # Split marker
+        lines.append("SCANS_HEADER")
 
         # Symbol scan lines
         for s in scans:
@@ -256,7 +300,7 @@ class AutonomousScalper:
         }}
         .metrics-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
             margin-bottom: 25px;
         }}
@@ -355,6 +399,10 @@ class AutonomousScalper:
             <div class="card">
                 <div class="card-label">Open Positions</div>
                 <div class="card-val">{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Active Market Session</div>
+                <div class="card-val" style="color: #eab308; font-size: 20px;">{self._get_current_session()}</div>
             </div>
             <div class="card">
                 <div class="card-label">Brain Performance Analytics</div>
@@ -665,7 +713,7 @@ class AutonomousScalper:
         self._write_ea_state_file(
             equity=current_equity,
             balance=current_balance,
-            active_count=len(active_positions),
+            active_positions=active_positions,
             scans=scans_list
         )
 
