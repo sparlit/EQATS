@@ -1,1 +1,3 @@
-playwright
+# Requirements file for the Forex Scalper Bot
+# Note: On Windows, also run: pip install MetaTrader5
+# The MT5 module is included dynamically inside connector.py
