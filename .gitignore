@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+scalper_brain.db
+test_scalper_brain.db
+integration_test.db

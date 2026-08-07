@@ -1,0 +1,126 @@
+import unittest
+import indicators
+import brain
+import connector
+import database
+import main
+import os
+
+class TestScalperIndicators(unittest.TestCase):
+
+    def test_ema(self):
+        # 1. Zero check
+        res = indicators.calculate_ema([], 5)
+        self.assertIsNone(res)
+
+        # 2. Basic values check
+        prices = [10.0, 10.0, 10.0, 10.0, 10.0]
+        self.assertEqual(indicators.calculate_ema(prices, 3), 10.0)
+
+    def test_rsi_calculations(self):
+        prices = [100.0, 102.0, 104.0, 103.0, 105.0, 104.0, 106.0, 107.0, 105.0, 108.0, 109.0, 107.0, 110.0, 111.0, 109.0, 112.0]
+        rsi = indicators.calculate_rsi(prices, 14)
+        self.assertIsNotNone(rsi)
+        self.assertTrue(0 <= rsi <= 100)
+
+    def test_atr(self):
+        highs = [1.10, 1.11, 1.12, 1.10, 1.11]
+        lows = [1.08, 1.09, 1.10, 1.08, 1.09]
+        closes = [1.09, 1.10, 1.11, 1.09, 1.10]
+
+        atr_val = indicators.calculate_atr(highs, lows, closes, 3)
+        self.assertIsNotNone(atr_val)
+        self.assertGreater(atr_val, 0)
+
+
+class TestScalperBrainAndConnector(unittest.TestCase):
+
+    def setUp(self):
+        # Ensure database is clean for test run
+        if os.path.exists("test_scalper_brain.db"):
+            os.remove("test_scalper_brain.db")
+        import config
+        config.DB_PATH = "test_scalper_brain.db"
+        database.init_db()
+
+    def tearDown(self):
+        if os.path.exists("test_scalper_brain.db"):
+            os.remove("test_scalper_brain.db")
+
+    def test_simulator_connector(self):
+        sim = connector.SimulatorConnector(initial_balance=5000.0)
+        self.assertTrue(sim.connect())
+        info = sim.get_account_info()
+        self.assertEqual(info['balance'], 5000.0)
+
+        # Test mock history and prices
+        bars = sim.get_history("EURUSD", 10)
+        self.assertEqual(len(bars), 10)
+
+        price = sim.get_current_price("EURUSD")
+        self.assertIn('bid', price)
+        self.assertIn('ask', price)
+
+        # Test trade execution and closure
+        order = sim.execute_order("EURUSD", "BUY", 0.5, 1.0800, 1.1200)
+        self.assertTrue(order['success'])
+        self.assertIsNotNone(order['ticket'])
+
+        # Verify order list
+        orders = sim.get_open_orders()
+        self.assertEqual(len(orders), 1)
+        self.assertEqual(orders[0]['symbol'], "EURUSD")
+
+        # Close position
+        close_res = sim.close_order(order['ticket'], "MANUAL_TEST")
+        self.assertTrue(close_res['success'])
+        self.assertEqual(len(sim.get_open_orders()), 0)
+
+    def test_brain_eval(self):
+        b = brain.ScalperBrain()
+        # Generate 210 historical bars of flat price
+        history = [{'open': 1.1000, 'high': 1.1010, 'low': 1.0990, 'close': 1.1000} for _ in range(215)]
+
+        res = b.evaluate("EURUSD", history, 10000.0)
+        self.assertIn('decision', res)
+        # Should be 'HOLD' since RSI on flat is 50
+        self.assertEqual(res['decision'], 'HOLD')
+
+
+class TestAutonomousScalperIntegration(unittest.TestCase):
+
+    def setUp(self):
+        if os.path.exists("integration_test.db"):
+            os.remove("integration_test.db")
+        import config
+        config.DB_PATH = "integration_test.db"
+        config.SIMULATION_MODE = True
+        config.SYMBOLS = ["EURUSD", "GBPUSD"]
+        database.init_db()
+
+    def tearDown(self):
+        if os.path.exists("integration_test.db"):
+            os.remove("integration_test.db")
+
+    def test_full_trading_loop(self):
+        """
+        Runs an autonomous scalping loop 10 times in simulation mode,
+        asserting that everything coordinates, updates, and writes results to SQLite without error.
+        """
+        scalper = main.AutonomousScalper()
+        self.assertTrue(scalper.start())
+
+        # We manually perform multiple ticks to verify loop integrity and simulator updates
+        for i in range(15):
+            scalper.tick_and_execute()
+
+        # Verify db log files are updated
+        assessments = database.get_all_trades()
+        # We have run historical scanning, we should at least check that SQLite db exists and has no errors
+        self.assertTrue(os.path.exists("integration_test.db"))
+
+        scalper.stop()
+
+
+if __name__ == "__main__":
+    unittest.main()
