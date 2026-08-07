@@ -135,19 +135,32 @@ class ScalperBrain:
                 # Formulate detailed hold summaries of each module
                 explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac})"
 
-        # Dynamic Stop Loss and Take Profit
+        # Dynamic Stop Loss and Take Profit with Volatility-Adaptive Profit Multiples
         sl = 0.0
         tp = 0.0
         lot_size = 0.0
         sl_distance = max(atr_val * config.ATR_MULTIPLIER_SL, current_price * 0.0005)
 
+        # Calculate a baseline ATR to adapt Take Profit ratio
+        baseline_atr = sum(indicators.calculate_atr(highs[:i], lows[:i], closes[:i], config.ATR_PERIOD) or atr_val for i in range(len(closes) - 20, len(closes))) / 20.0
+        if baseline_atr <= 0:
+            baseline_atr = atr_val
+
+        # Volatility adaptation multiplier
+        volatility_ratio = atr_val / baseline_atr if baseline_atr > 0 else 1.0
+        adaptive_rr = config.RISK_REWARD_RATIO
+        if volatility_ratio > 1.2:
+            adaptive_rr = 2.5  # Heavy trend: scale up targets
+        elif volatility_ratio < 0.8:
+            adaptive_rr = 1.5  # Consolidating/Quiet: pull targets in closer for high-probability win exits
+
         if decision == "BUY":
             sl = current_price - sl_distance
-            tp = current_price + (sl_distance * config.RISK_REWARD_RATIO)
+            tp = current_price + (sl_distance * adaptive_rr)
             lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
         elif decision == "SELL":
             sl = current_price + sl_distance
-            tp = current_price - (sl_distance * config.RISK_REWARD_RATIO)
+            tp = current_price - (sl_distance * adaptive_rr)
             lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
 
         database.log_assessment(
