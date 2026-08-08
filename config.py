@@ -70,6 +70,13 @@ DB_PATH = "scalper_brain.db"
 # The Windows common folder path for sharing real-time state with the MQL5 EA (using FILE_COMMON)
 # Default is current workspace, can be changed to Roaming/MetaQuotes/Terminal/Common/Files on Windows.
 MT5_COMMON_FILES_PATH = os.environ.get("MT5_COMMON_PATH", ".")
+if os.name == 'nt' and "APPDATA" in os.environ:
+    standard_mt5_common_path = os.path.join(os.environ["APPDATA"], "MetaQuotes", "Terminal", "Common", "Files")
+    try:
+        os.makedirs(standard_mt5_common_path, exist_ok=True)
+        MT5_COMMON_FILES_PATH = standard_mt5_common_path
+    except Exception:
+        pass
 
 # 6. Telegram Notifications
 TELEGRAM_ENABLED = False
