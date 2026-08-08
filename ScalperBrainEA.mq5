@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Scalper Brain"
 #property link      "https://github.com/scalper"
-#property version   "1.80"
+#property version   "2.00"
 #property description "Autonomous Scalper Brain - On-Chart Interactive HUD Dashboard"
 #property indicator_chart_window
 
@@ -21,6 +21,10 @@ string m_trends[50];
 string m_rsis[50];
 string m_atrs[50];
 string m_statuses[50];
+string m_avg_w_ih[50];
+string m_avg_w_ho[50];
+string m_bias_out[50];
+string m_hidden_act[50];
 int m_total_symbols = 0;
 
 string m_trades_text[20];
@@ -146,7 +150,7 @@ bool ParseStateFile()
       }
       else
       {
-         // This is a scan row: Symbol|Price|EMA200|Trend|RSI|ATR|Status
+         // This is a scan row: Symbol|Price|EMA200|Trend|RSI|ATR|Status|avg_w_ih|avg_w_ho|bias_output|hidden_activations
          if(split_count >= 6 && m_total_symbols < 50)
          {
             m_symbols[m_total_symbols] = parts[0];
@@ -156,6 +160,22 @@ bool ParseStateFile()
             m_rsis[m_total_symbols] = parts[4];
             m_atrs[m_total_symbols] = parts[5];
             m_statuses[m_total_symbols] = parts[6];
+
+            // AI internals columns
+            if(split_count >= 11)
+            {
+               m_avg_w_ih[m_total_symbols] = parts[7];
+               m_avg_w_ho[m_total_symbols] = parts[8];
+               m_bias_out[m_total_symbols] = parts[9];
+               m_hidden_act[m_total_symbols] = parts[10];
+            }
+            else
+            {
+               m_avg_w_ih[m_total_symbols] = "0.0";
+               m_avg_w_ho[m_total_symbols] = "0.0";
+               m_bias_out[m_total_symbols] = "0.0";
+               m_hidden_act[m_total_symbols] = "0,0,0,0,0";
+            }
 
             m_total_symbols++;
          }
@@ -199,6 +219,9 @@ void UpdateDashboard()
       ObjectDelete(0, "SB_Row_ATR_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
       ObjectDelete(0, "SB_Row_Trade_" + (string)i);
+      ObjectDelete(0, "SB_Row_AI_W1_" + (string)i);
+      ObjectDelete(0, "SB_Row_AI_W2_" + (string)i);
+      ObjectDelete(0, "SB_Row_AI_Act_" + (string)i);
    }
    ObjectDelete(0, "SB_No_Trades");
    ObjectDelete(0, "SB_H_Sym");
@@ -209,6 +232,9 @@ void UpdateDashboard()
    ObjectDelete(0, "SB_H_ATR");
    ObjectDelete(0, "SB_H_Stat");
    ObjectDelete(0, "SB_Timeline_Lbl");
+   ObjectDelete(0, "SB_H_AI_W1");
+   ObjectDelete(0, "SB_H_AI_W2");
+   ObjectDelete(0, "SB_H_AI_Act");
 
    // Update system metrics labels
    string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Session: " + m_active_session;
@@ -244,7 +270,7 @@ void UpdateDashboard()
 
    // Section 3: Scans Matrix Table
    current_y += 10;
-   CreateLabel("SB_ScanSec", "🔍 MULTI-ASSET COGNITIVE SCANS MATRIX:", 20, current_y, 11, clrSkyBlue, "Segoe UI Bold");
+   CreateLabel("SB_ScanSec", "🧠 MULTI-ASSET COGNITIVE SCANS & AI NEURONS ACTIVATION MATRIX:", 20, current_y, 11, clrSkyBlue, "Segoe UI Bold");
    current_y += 22;
 
    // Table Column Headers
@@ -255,7 +281,13 @@ void UpdateDashboard()
    CreateLabel("SB_H_Tr", "TREND", 260, current_y, 9, head_col, "Segoe UI Bold");
    CreateLabel("SB_H_RSI", "RSI", 320, current_y, 9, head_col, "Segoe UI Bold");
    CreateLabel("SB_H_ATR", "ATR", 370, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_Stat", "STATUS DETAILS", 440, current_y, 9, head_col, "Segoe UI Bold");
+
+   // AI columns headers
+   CreateLabel("SB_H_AI_W1", "IN-WEIGHTS", 420, current_y, 9, clrOrange, "Segoe UI Bold");
+   CreateLabel("SB_H_AI_W2", "OUT-WEIGHTS", 500, current_y, 9, clrOrange, "Segoe UI Bold");
+   CreateLabel("SB_H_AI_Act", "NEURONS ACTIVATIONS", 585, current_y, 9, clrOrange, "Segoe UI Bold");
+
+   CreateLabel("SB_H_Stat", "STATUS DETAILS", 735, current_y, 9, head_col, "Segoe UI Bold");
    current_y += spacing;
 
    for(int i = 0; i < m_total_symbols && i < 15; i++)
@@ -267,6 +299,10 @@ void UpdateDashboard()
       string rsi_val = m_rsis[i];
       string atr_val = m_atrs[i];
       string status_val = m_statuses[i];
+
+      string w1_val = m_avg_w_ih[i];
+      string w2_val = m_avg_w_ho[i];
+      string act_val = m_hidden_act[i];
 
       color status_color = clrLightGray;
       if(StringFind(status_val, "Executing BUY") >= 0 || StringFind(status_val, "Consensus BUY") >= 0)
@@ -284,7 +320,13 @@ void UpdateDashboard()
       CreateLabel("SB_Row_Tr_" + (string)i, trend_val, 260, current_y, 10, trend_color, "Segoe UI Bold");
       CreateLabel("SB_Row_RSI_" + (string)i, rsi_val, 320, current_y, 10, clrWhite, "Segoe UI");
       CreateLabel("SB_Row_ATR_" + (string)i, atr_val, 370, current_y, 10, clrLightGray, "Segoe UI");
-      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 440, current_y, 10, status_color, "Segoe UI");
+
+      // Draw AI stats rows
+      CreateLabel("SB_Row_AI_W1_" + (string)i, w1_val, 420, current_y, 10, clrOrange, "Courier New Semibold");
+      CreateLabel("SB_Row_AI_W2_" + (string)i, w2_val, 500, current_y, 10, clrOrange, "Courier New Semibold");
+      CreateLabel("SB_Row_AI_Act_" + (string)i, "[" + act_val + "]", 585, current_y, 9, clrPeachPuff, "Courier New");
+
+      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 735, current_y, 10, status_color, "Segoe UI");
 
       current_y += spacing;
    }
@@ -335,6 +377,9 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_H_ATR");
    ObjectDelete(0, "SB_H_Stat");
    ObjectDelete(0, "SB_Timeline_Lbl");
+   ObjectDelete(0, "SB_H_AI_W1");
+   ObjectDelete(0, "SB_H_AI_W2");
+   ObjectDelete(0, "SB_H_AI_Act");
 
    for(int i = 0; i < 50; i++)
    {
@@ -346,6 +391,9 @@ void DeleteDashboardObjects()
       ObjectDelete(0, "SB_Row_ATR_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
       ObjectDelete(0, "SB_Row_Trade_" + (string)i);
+      ObjectDelete(0, "SB_Row_AI_W1_" + (string)i);
+      ObjectDelete(0, "SB_Row_AI_W2_" + (string)i);
+      ObjectDelete(0, "SB_Row_AI_Act_" + (string)i);
    }
 
    ChartRedraw();
