@@ -22,13 +22,14 @@ class ScalperGui:
         self.root.geometry("1100x700")
         self.root.minsize(1000, 600)
 
-        # Style configurations
-        self.bg_dark = "#0f172a"
-        self.bg_card = "#1e293b"
-        self.fg_light = "#f1f5f9"
-        self.fg_accent = "#38bdf8"
-        self.fg_green = "#22c55e"
-        self.fg_red = "#f43f5e"
+        # Bloomberg Terminal Style configurations
+        self.bg_dark = "#000000"         # Bloomberg Pitch Black
+        self.bg_card = "#161616"         # Dark Grey Panels
+        self.fg_light = "#ffffff"        # White text
+        self.fg_accent = "#ff9900"       # Classic Bloomberg Neon Amber/Orange
+        self.fg_green = "#00ff00"        # Neon Green (Profit / Buy)
+        self.fg_red = "#ff3333"          # Neon Red (Loss / Sell)
+        self.fg_cyan = "#00ffff"         # Cyan details
 
         self.root.configure(bg=self.bg_dark)
 
@@ -36,9 +37,9 @@ class ScalperGui:
         self.style = ttk.Style()
         self.style.theme_use("clam")
         self.style.configure(".", background=self.bg_dark, foreground=self.fg_light, fieldbackground=self.bg_dark)
-        self.style.configure("Treeview", background=self.bg_card, foreground=self.fg_light, fieldbackground=self.bg_card, bordercolor="#334155", borderwidth=1, rowheight=25)
-        self.style.map("Treeview", background=[("selected", "#38bdf8")], foreground=[("selected", "#0f172a")])
-        self.style.configure("Treeview.Heading", background="#0f172a", foreground=self.fg_accent, font=("Segoe UI", 10, "bold"), borderwidth=1)
+        self.style.configure("Treeview", background=self.bg_card, foreground=self.fg_light, fieldbackground=self.bg_card, bordercolor="#2d2d2d", borderwidth=1, rowheight=25)
+        self.style.map("Treeview", background=[("selected", "#ff9900")], foreground=[("selected", "#000000")])
+        self.style.configure("Treeview.Heading", background="#121212", foreground=self.fg_accent, font=("Consolas", 10, "bold"), borderwidth=1)
 
         # Background Thread state
         self.scalper = None
@@ -64,8 +65,8 @@ class ScalperGui:
 
         title_label = tk.Label(
             header_frame,
-            text="🤖 SCALPER BRAIN AUTONOMOUS SYSTEM",
-            font=("Segoe UI Semibold", 18),
+            text="BBG: SCALPER BRAIN <GO>",
+            font=("Consolas", 18, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent
         )
@@ -76,8 +77,8 @@ class ScalperGui:
         self.badge_label = tk.Label(
             header_frame,
             textvariable=self.badge_text,
-            font=("Segoe UI", 9, "bold"),
-            bg="#eab308" if config.SIMULATION_MODE else "#15803d",
+            font=("Consolas", 9, "bold"),
+            bg="#b45309" if config.SIMULATION_MODE else "#15803d",
             fg="#ffffff",
             padx=10,
             pady=3,
@@ -91,26 +92,26 @@ class ScalperGui:
         ribbon_frame.pack(fill=tk.X)
 
         # 1. Balance Card
-        self.card_balance = self._create_card(ribbon_frame, "Account Balance", "$10,000.00 USD", 0)
+        self.card_balance = self._create_card(ribbon_frame, "1) BALANCE <GO>", "$10,000.00 USD", 0)
         # 2. Equity Card
-        self.card_equity = self._create_card(ribbon_frame, "Account Equity", "$10,000.00 USD", 1, value_color=self.fg_accent)
+        self.card_equity = self._create_card(ribbon_frame, "2) EQUITY <GO>", "$10,000.00 USD", 1, value_color=self.fg_cyan)
         # 3. Active Positions
-        self.card_active = self._create_card(ribbon_frame, "Running Positions", "0 / 3", 2)
+        self.card_active = self._create_card(ribbon_frame, "3) ACTIVE <GO>", "0 / 3", 2)
         # 4. Trading Session Card
-        self.card_session = self._create_card(ribbon_frame, "Trading Session", "Quiet Session", 3, value_color="#eab308")
+        self.card_session = self._create_card(ribbon_frame, "4) SESSION <GO>", "Quiet Session", 3, value_color="#b45309")
         # 5. Performance Card
-        self.card_perf = self._create_card(ribbon_frame, "Brain Performance Analytics", "Win Rate: 0% | Net: 0.00 USD (0 Trades)", 4, value_color=self.fg_accent)
+        self.card_perf = self._create_card(ribbon_frame, "5) PERFORMANCE ANALYTICS <GO>", "Win Rate: 0% | Net: 0.00 USD (0 Trades)", 4, value_color=self.fg_accent)
 
     def _create_card(self, parent, label_text, val_text, column, value_color=None):
-        card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#334155", highlightcolor="#334155")
+        card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", highlightcolor="#2d2d2d")
         card.grid(row=0, column=column, padx=10, pady=5, sticky="ew")
         parent.columnconfigure(column, weight=1)
 
-        lbl = tk.Label(card, text=label_text.upper(), font=("Segoe UI", 8, "bold"), bg=self.bg_card, fg="#94a3b8")
+        lbl = tk.Label(card, text=label_text.upper(), font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888")
         lbl.pack(anchor="w", padx=15, pady=(10, 2))
 
         val_color = value_color if value_color else self.fg_light
-        val = tk.Label(card, text=val_text, font=("Segoe UI Semibold", 16), bg=self.bg_card, fg=val_color)
+        val = tk.Label(card, text=val_text, font=("Consolas", 14, "bold"), bg=self.bg_card, fg=val_color)
         val.pack(anchor="w", padx=15, pady=(0, 10))
         return val
 
@@ -123,7 +124,7 @@ class ScalperGui:
         left_pane = tk.Frame(split_frame, bg=self.bg_dark)
         left_pane.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        lbl = tk.Label(left_pane, text="🔎 MULTI-ASSET COGNITIVE SCANS MATRIX", font=("Segoe UI", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl = tk.Label(left_pane, text="6) MULTI-ASSET COGNITIVE SCANS MATRIX <GO>", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl.pack(anchor="w", pady=(0, 5))
 
         # Setup Scans Treeview Table
@@ -143,18 +144,18 @@ class ScalperGui:
 
     def _build_controls_bar(self):
         """Action Buttons Controls Banner"""
-        ctrl_frame = tk.Frame(self.root, bg=self.bg_card, height=60, bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        ctrl_frame = tk.Frame(self.root, bg=self.bg_card, height=60, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
         ctrl_frame.pack(fill=tk.X, side=tk.BOTTOM, ipady=10)
 
         # Start Bot Button
         self.btn_start = tk.Button(
             ctrl_frame,
-            text="▶ START AUTONOMOUS TRADER",
-            font=("Segoe UI", 10, "bold"),
-            bg="#16a34a",
-            fg="#ffffff",
-            activebackground="#15803d",
-            activeforeground="#ffffff",
+            text="▶ START TRADING",
+            font=("Consolas", 10, "bold"),
+            bg="#10b981",
+            fg="#000000",
+            activebackground="#059669",
+            activeforeground="#000000",
             padx=15,
             pady=8,
             relief=tk.FLAT,
@@ -166,10 +167,10 @@ class ScalperGui:
         self.btn_stop = tk.Button(
             ctrl_frame,
             text="🛑 STOP BOT",
-            font=("Segoe UI", 10, "bold"),
-            bg="#dc2626",
+            font=("Consolas", 10, "bold"),
+            bg="#ef4444",
             fg="#ffffff",
-            activebackground="#b91c1c",
+            activebackground="#dc2626",
             activeforeground="#ffffff",
             padx=15,
             pady=8,
@@ -180,7 +181,7 @@ class ScalperGui:
         self.btn_stop.pack(side=tk.LEFT, padx=10, pady=10)
 
         # Strategy Selector label and dropdown list
-        strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Segoe UI", 9, "bold"), bg=self.bg_card, fg="#94a3b8")
+        strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
         strat_lbl.pack(side=tk.LEFT, padx=(20, 5), pady=15)
 
         self.strat_var = tk.StringVar(value=config.ACTIVE_STRATEGY)
@@ -193,8 +194,8 @@ class ScalperGui:
             "VOTING_ENSEMBLE",
             command=self.on_strategy_change
         )
-        self.strat_menu.config(font=("Segoe UI", 9, "bold"), bg="#1e293b", fg=self.fg_accent, activebackground="#334155", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
-        self.strat_menu["menu"].config(bg="#1e293b", fg=self.fg_accent)
+        self.strat_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
+        self.strat_menu["menu"].config(bg="#242424", fg=self.fg_accent)
         self.strat_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
         # Simulation Mode Toggle Button
@@ -202,10 +203,10 @@ class ScalperGui:
         self.btn_toggle_mode = tk.Button(
             ctrl_frame,
             textvariable=self.mode_text,
-            font=("Segoe UI", 9, "bold"),
-            bg="#475569",
+            font=("Consolas", 9, "bold"),
+            bg="#3e3e3e",
             fg="#ffffff",
-            activebackground="#334155",
+            activebackground="#2a2a2a",
             activeforeground="#ffffff",
             padx=15,
             pady=8,
@@ -218,9 +219,9 @@ class ScalperGui:
         self.lbl_clock = tk.Label(
             ctrl_frame,
             text="Last update: Never",
-            font=("Segoe UI", 9),
+            font=("Consolas", 9),
             bg=self.bg_card,
-            fg="#64748b"
+            fg="#888888"
         )
         self.lbl_clock.pack(side=tk.RIGHT, padx=10, pady=15)
 
@@ -272,7 +273,7 @@ class ScalperGui:
 
     def reset_buttons(self):
         """Puts UI buttons back to normal"""
-        self.btn_start.config(state=tk.NORMAL, bg="#16a34a")
+        self.btn_start.config(state=tk.NORMAL, bg="#10b981")
         self.btn_stop.config(state=tk.DISABLED)
         self.btn_toggle_mode.config(state=tk.NORMAL)
         self.lbl_clock.config(text="Bot stopped safely.")
