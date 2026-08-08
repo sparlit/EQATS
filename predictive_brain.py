@@ -125,6 +125,27 @@ class NeuralNetworkPredictor:
             return 50.0  # Default baseline
         return round((self.correct_predictions / self.total_predictions) * 100.0, 2)
 
+    def get_internal_state(self):
+        """
+        Exposes internal neural network parameters (weights, activations, biases)
+        to visualize the training and convergence process happening inside the brain.
+        """
+        # Calculate averages of weights
+        total_w_ih = sum(sum(w_row) for w_row in self.w_input_hidden)
+        avg_w_ih = total_w_ih / 20.0 # 4 inputs * 5 hidden = 20 weights
+
+        avg_w_ho = sum(self.w_hidden_output) / 5.0 # 5 hidden neurons
+
+        hidden_str = ",".join(f"{h:.2f}" for h in getattr(self, 'hidden_activated', [0.0]*5))
+
+        return {
+            "avg_w_ih": round(avg_w_ih, 4),
+            "avg_w_ho": round(avg_w_ho, 4),
+            "bias_output": round(self.bias_output, 4),
+            "hidden_activations": hidden_str,
+            "training_cycles": self.total_predictions
+        }
+
 
 # Centralized predictive brain dictionary to keep track of predictors for each symbol
 _predictor_registry = {}

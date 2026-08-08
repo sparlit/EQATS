@@ -7,6 +7,7 @@ import database
 import connector
 import brain
 import indicators
+import predictive_brain
 import telegram_bot
 
 class AutonomousScalper:
@@ -359,9 +360,9 @@ class AutonomousScalper:
         # Split marker
         lines.append("SCANS_HEADER")
 
-        # Symbol scan lines: Symbol|Price|EMA200|Trend|RSI|ATR|Status
+        # Symbol scan lines: Symbol|Price|EMA200|Trend|RSI|ATR|Status|avg_w_ih|avg_w_ho|bias_output|hidden_activations
         for s in scans:
-            lines.append(f"{s['symbol']}|{s['price']}|{s['ema200']}|{s['trend']}|{s['rsi']}|{s['atr']}|{s['status']}")
+            lines.append(f"{s['symbol']}|{s['price']}|{s['ema200']}|{s['trend']}|{s['rsi']}|{s['atr']}|{s['status']}|{s.get('avg_w_ih', 0.0)}|{s.get('avg_w_ho', 0.0)}|{s.get('bias_output', 0.0)}|{s.get('hidden_activations', '0,0,0,0,0')}")
 
         file_content = "\n".join(lines)
         try:
@@ -546,6 +547,9 @@ class AutonomousScalper:
                     <th>Trend Bias</th>
                     <th>RSI Index</th>
                     <th>ATR Volatility</th>
+                    <th>Input Weights (Avg)</th>
+                    <th>Output Weights (Avg)</th>
+                    <th>Neurons Activations</th>
                     <th>Current Status</th>
                 </tr>
             </thead>
@@ -569,6 +573,9 @@ class AutonomousScalper:
                     <td>{scan['trend']}</td>
                     <td>{scan['rsi']}</td>
                     <td>{scan['atr']}</td>
+                    <td>{scan.get('avg_w_ih', 0.0):.4f}</td>
+                    <td>{scan.get('avg_w_ho', 0.0):.4f}</td>
+                    <td style="font-family: monospace; font-size: 12px; color: #eab308;">[{scan.get('hidden_activations', '0,0,0,0,0')}]</td>
                     <td><span class="status-badge {status_badge_class}">{scan['status']}</span></td>
                 </tr>
             """
@@ -763,6 +770,10 @@ class AutonomousScalper:
 
             print(f"{symbol:<9} | {current_price:<10.5f} | {ema200:<10.5f} | {trend_str:<5} | {rsi_val:<6.2f} | {atr_val:<8.5f} | {status_text}")
 
+            # Fetch AI internal state diagnostics
+            predictor_tmp = predictive_brain.get_symbol_predictor(symbol)
+            nn_state = predictor_tmp.get_internal_state()
+
             scans_list.append({
                 "symbol": symbol,
                 "price": f"{current_price:.5f}",
@@ -770,7 +781,11 @@ class AutonomousScalper:
                 "trend": trend_str,
                 "rsi": f"{rsi_val:.1f}",
                 "atr": f"{atr_val:.5f}",
-                "status": status_text
+                "status": status_text,
+                "avg_w_ih": nn_state["avg_w_ih"],
+                "avg_w_ho": nn_state["avg_w_ho"],
+                "bias_output": nn_state["bias_output"],
+                "hidden_activations": nn_state["hidden_activations"]
             })
 
             if decision in ['BUY', 'SELL'] and trading_available:
