@@ -282,18 +282,18 @@ void UpdateDashboard()
    // Table Column Headers
    color head_col = clrSkyBlue;
    CreateLabel("SB_H_Sym", "SYMBOL", 20, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_P", "PRICE", 100, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_EMA", "EMA-200", 180, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_Tr", "TREND", 260, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_RSI", "RSI", 320, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_ATR", "ATR", 370, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_P", "PRICE", 110, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_EMA", "EMA-200", 200, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_Tr", "TREND", 300, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_RSI", "RSI", 380, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_ATR", "ATR", 440, current_y, 9, head_col, "Segoe UI Bold");
 
    // AI columns headers
-   CreateLabel("SB_H_AI_W1", "IN-WEIGHTS", 420, current_y, 9, clrOrange, "Segoe UI Bold");
-   CreateLabel("SB_H_AI_W2", "OUT-WEIGHTS", 500, current_y, 9, clrOrange, "Segoe UI Bold");
-   CreateLabel("SB_H_AI_Act", "NEURONS ACTIVATIONS", 585, current_y, 9, clrOrange, "Segoe UI Bold");
+   CreateLabel("SB_H_AI_W1", "IN-WEIGHTS", 520, current_y, 9, clrOrange, "Segoe UI Bold");
+   CreateLabel("SB_H_AI_W2", "OUT-WEIGHTS", 620, current_y, 9, clrOrange, "Segoe UI Bold");
+   CreateLabel("SB_H_AI_Act", "NEURONS ACTIVATIONS", 730, current_y, 9, clrOrange, "Segoe UI Bold");
 
-   CreateLabel("SB_H_Stat", "STATUS DETAILS", 735, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_Stat", "STATUS DETAILS", 920, current_y, 9, head_col, "Segoe UI Bold");
    current_y += spacing;
 
    for(int i = 0; i < m_total_symbols && i < 15; i++)
@@ -321,18 +321,18 @@ void UpdateDashboard()
       color trend_color = (trend_val == "UP") ? clrGreen : clrRed;
 
       CreateLabel("SB_Row_Sym_" + (string)i, sym_name, 20, current_y, 10, clrYellow, "Segoe UI Semibold");
-      CreateLabel("SB_Row_P_" + (string)i, price_val, 100, current_y, 10, clrWhite, "Segoe UI");
-      CreateLabel("SB_Row_EMA_" + (string)i, ema_val, 180, current_y, 10, clrLightGray, "Segoe UI");
-      CreateLabel("SB_Row_Tr_" + (string)i, trend_val, 260, current_y, 10, trend_color, "Segoe UI Bold");
-      CreateLabel("SB_Row_RSI_" + (string)i, rsi_val, 320, current_y, 10, clrWhite, "Segoe UI");
-      CreateLabel("SB_Row_ATR_" + (string)i, atr_val, 370, current_y, 10, clrLightGray, "Segoe UI");
+      CreateLabel("SB_Row_P_" + (string)i, price_val, 110, current_y, 10, clrWhite, "Segoe UI");
+      CreateLabel("SB_Row_EMA_" + (string)i, ema_val, 200, current_y, 10, clrLightGray, "Segoe UI");
+      CreateLabel("SB_Row_Tr_" + (string)i, trend_val, 300, current_y, 10, trend_color, "Segoe UI Bold");
+      CreateLabel("SB_Row_RSI_" + (string)i, rsi_val, 380, current_y, 10, clrWhite, "Segoe UI");
+      CreateLabel("SB_Row_ATR_" + (string)i, atr_val, 440, current_y, 10, clrLightGray, "Segoe UI");
 
       // Draw AI stats rows
-      CreateLabel("SB_Row_AI_W1_" + (string)i, w1_val, 420, current_y, 10, clrOrange, "Courier New Semibold");
-      CreateLabel("SB_Row_AI_W2_" + (string)i, w2_val, 500, current_y, 10, clrOrange, "Courier New Semibold");
-      CreateLabel("SB_Row_AI_Act_" + (string)i, "[" + act_val + "]", 585, current_y, 9, clrPeachPuff, "Courier New");
+      CreateLabel("SB_Row_AI_W1_" + (string)i, w1_val, 520, current_y, 10, clrOrange, "Courier New Semibold");
+      CreateLabel("SB_Row_AI_W2_" + (string)i, w2_val, 620, current_y, 10, clrOrange, "Courier New Semibold");
+      CreateLabel("SB_Row_AI_Act_" + (string)i, "[" + act_val + "]", 730, current_y, 9, clrPeachPuff, "Courier New");
 
-      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 735, current_y, 10, status_color, "Segoe UI");
+      CreateLabel("SB_Row_Stat_" + (string)i, status_val, 920, current_y, 10, status_color, "Segoe UI");
 
       current_y += spacing;
    }
