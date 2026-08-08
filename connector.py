@@ -3,6 +3,7 @@ import random
 import time
 import datetime
 import math
+import threading
 
 class TradingConnector(abc.ABC):
     """
@@ -326,6 +327,7 @@ class SimulatorConnector(TradingConnector):
         self.is_demo = True
         self.open_trades = {}
         self.ticket_counter = 100001
+        self.lock = threading.Lock()
 
         # Keep internal simulated historical data for symbols
         self.historical_prices = {}
@@ -344,26 +346,27 @@ class SimulatorConnector(TradingConnector):
         print("Simulator disconnected.")
 
     def get_account_info(self):
-        # Recalculate equity based on current floating profits
-        floating_profit = 0.0
-        for ticket, trade in self.open_trades.items():
-            prices = self.get_current_price(trade['symbol'])
-            current_price = prices['bid'] if trade['direction'] == 'BUY' else prices['ask']
+        with self.lock:
+            # Recalculate equity based on current floating profits
+            floating_profit = 0.0
+            for ticket, trade in self.open_trades.items():
+                prices = self.get_current_price(trade['symbol'])
+                current_price = prices['bid'] if trade['direction'] == 'BUY' else prices['ask']
 
-            p_diff = current_price - trade['open_price']
-            if trade['direction'] == 'SELL':
-                p_diff = -p_diff
+                p_diff = current_price - trade['open_price']
+                if trade['direction'] == 'SELL':
+                    p_diff = -p_diff
 
-            contract_mult = self._get_contract_multiplier(trade['symbol'])
-            floating_profit += p_diff * trade['lot_size'] * contract_mult
+                contract_mult = self._get_contract_multiplier(trade['symbol'])
+                floating_profit += p_diff * trade['lot_size'] * contract_mult
 
-        self.equity = self.balance + floating_profit
-        return {
-            'balance': round(self.balance, 2),
-            'equity': round(self.equity, 2),
-            'currency': self.currency,
-            'is_demo': True
-        }
+            self.equity = self.balance + floating_profit
+            return {
+                'balance': round(self.balance, 2),
+                'equity': round(self.equity, 2),
+                'currency': self.currency,
+                'is_demo': True
+            }
 
     def get_history(self, symbol, count):
         if symbol not in self.historical_prices:
@@ -383,64 +386,68 @@ class SimulatorConnector(TradingConnector):
         }
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
-        prices = self.get_current_price(symbol)
-        open_price = prices['ask'] if order_type == 'BUY' else prices['bid']
+        with self.lock:
+            prices = self.get_current_price(symbol)
+            open_price = prices['ask'] if order_type == 'BUY' else prices['bid']
 
-        ticket = str(self.ticket_counter)
-        self.ticket_counter += 1
+            ticket = str(self.ticket_counter)
+            self.ticket_counter += 1
 
-        self.open_trades[ticket] = {
-            'ticket': ticket,
-            'symbol': symbol,
-            'direction': order_type,
-            'open_price': open_price,
-            'sl': sl,
-            'tp': tp,
-            'lot_size': lot_size
-        }
+            self.open_trades[ticket] = {
+                'ticket': ticket,
+                'symbol': symbol,
+                'direction': order_type,
+                'open_price': open_price,
+                'sl': sl,
+                'tp': tp,
+                'lot_size': lot_size
+            }
 
-        return {
-            'success': True,
-            'ticket': ticket,
-            'price': open_price,
-            'error': ''
-        }
+            return {
+                'success': True,
+                'ticket': ticket,
+                'price': open_price,
+                'error': ''
+            }
 
     def close_order(self, ticket, reason="MANUAL"):
-        if ticket not in self.open_trades:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Ticket {ticket} not found."}
+        with self.lock:
+            if ticket not in self.open_trades:
+                return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Ticket {ticket} not found."}
 
-        trade = self.open_trades.pop(ticket)
-        prices = self.get_current_price(trade['symbol'])
-        close_price = prices['bid'] if trade['direction'] == 'BUY' else prices['ask']
+            trade = self.open_trades.pop(ticket)
+            prices = self.get_current_price(trade['symbol'])
+            close_price = prices['bid'] if trade['direction'] == 'BUY' else prices['ask']
 
-        p_diff = close_price - trade['open_price']
-        if trade['direction'] == 'SELL':
-            p_diff = -p_diff
+            p_diff = close_price - trade['open_price']
+            if trade['direction'] == 'SELL':
+                p_diff = -p_diff
 
-        contract_mult = self._get_contract_multiplier(trade['symbol'])
-        profit = p_diff * trade['lot_size'] * contract_mult
+            contract_mult = self._get_contract_multiplier(trade['symbol'])
+            profit = p_diff * trade['lot_size'] * contract_mult
 
-        self.balance += profit
-        self.equity = self.balance
+            self.balance += profit
+            self.equity = self.balance
 
-        return {
-            'success': True,
-            'price': close_price,
-            'profit': round(profit, 2),
-            'error': ''
-        }
+            return {
+                'success': True,
+                'price': close_price,
+                'profit': round(profit, 2),
+                'error': ''
+            }
 
     def modify_order(self, ticket, sl, tp):
-        ticket_str = str(ticket)
-        if ticket_str not in self.open_trades:
-            return False
-        self.open_trades[ticket_str]['sl'] = sl
-        self.open_trades[ticket_str]['tp'] = tp
-        return True
+        with self.lock:
+            ticket_str = str(ticket)
+            if ticket_str not in self.open_trades:
+                return False
+            self.open_trades[ticket_str]['sl'] = sl
+            self.open_trades[ticket_str]['tp'] = tp
+            return True
 
     def get_open_orders(self):
-        return list(self.open_trades.values())
+        with self.lock:
+            return list(self.open_trades.values())
 
     def draw_dashboard(self, symbol, data):
         # Simulator does not have a physical UI chart.
@@ -478,40 +485,42 @@ class SimulatorConnector(TradingConnector):
             if len(last_bars) > 300:
                 self.historical_prices[symbol] = last_bars[-300:]
 
-        # Evaluate if SL or TP are hit
-        for ticket, trade in list(self.open_trades.items()):
-            symbol = trade['symbol']
-            last_bar = self.historical_prices[symbol][-1]
-            high = last_bar['high']
-            low = last_bar['low']
-            direction = trade['direction']
-            sl = trade['sl']
-            tp = trade['tp']
+        with self.lock:
+            # Evaluate if SL or TP are hit
+            for ticket, trade in list(self.open_trades.items()):
+                symbol = trade['symbol']
+                last_bar = self.historical_prices[symbol][-1]
+                high = last_bar['high']
+                low = last_bar['low']
+                direction = trade['direction']
+                sl = trade['sl']
+                tp = trade['tp']
 
-            # Check Buy order
-            if direction == 'BUY':
-                if low <= sl:
-                    # SL hit
-                    self._process_hit(ticket, sl, "SL")
-                    closed_tickets.append(ticket)
-                elif high >= tp:
-                    # TP hit
-                    self._process_hit(ticket, tp, "TP")
-                    closed_tickets.append(ticket)
-            # Check Sell order
-            elif direction == 'SELL':
-                if high >= sl:
-                    # SL hit
-                    self._process_hit(ticket, sl, "SL")
-                    closed_tickets.append(ticket)
-                elif low <= tp:
-                    # TP hit
-                    self._process_hit(ticket, tp, "TP")
-                    closed_tickets.append(ticket)
+                # Check Buy order
+                if direction == 'BUY':
+                    if low <= sl:
+                        # SL hit
+                        self._process_hit(ticket, sl, "SL")
+                        closed_tickets.append(ticket)
+                    elif high >= tp:
+                        # TP hit
+                        self._process_hit(ticket, tp, "TP")
+                        closed_tickets.append(ticket)
+                # Check Sell order
+                elif direction == 'SELL':
+                    if high >= sl:
+                        # SL hit
+                        self._process_hit(ticket, sl, "SL")
+                        closed_tickets.append(ticket)
+                    elif low <= tp:
+                        # TP hit
+                        self._process_hit(ticket, tp, "TP")
+                        closed_tickets.append(ticket)
 
         return closed_tickets
 
     def _process_hit(self, ticket, hit_price, reason):
+        # Assumed inside a 'with self.lock' lock context
         trade = self.open_trades.pop(ticket)
         p_diff = hit_price - trade['open_price']
         if trade['direction'] == 'SELL':
