@@ -93,6 +93,12 @@ bool ParseStateFile()
    int file_handle = FileOpen(InpFileName, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
    if(file_handle == INVALID_HANDLE)
    {
+      static int err_count = 0;
+      err_count++;
+      if(err_count % 10 == 1) // Log once every 10 ticks to prevent spam
+      {
+         Print("ScalperBrainEA: Waiting for Python Brain file '", InpFileName, "' inside MT5 Common folder. (Error Code: ", GetLastError(), ")");
+      }
       return false;
    }
 
