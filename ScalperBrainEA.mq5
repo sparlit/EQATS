@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Scalper Brain"
 #property link      "https://github.com/scalper"
-#property version   "1.50"
+#property version   "1.80"
 #property description "Autonomous Scalper Brain - On-Chart Interactive HUD Dashboard"
 #property indicator_chart_window
 
@@ -30,6 +30,9 @@ string m_equity = "0.00";
 string m_balance = "0.00";
 string m_active_count = "0";
 string m_active_session = "Quiet Session";
+string m_overlaps = "No active overlap";
+string m_next_session = "Tokyo";
+string m_countdown = "00:00:00";
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -93,7 +96,7 @@ bool ParseStateFile()
    m_total_trades = 0;
    bool in_scans_section = false;
 
-   // Line 1: Header (equity|balance|active_count|active_session)
+   // Line 1: Header (equity|balance|active_count|active_session|overlaps|next_session|countdown)
    if(!FileIsEnding(file_handle))
    {
       string header_line = FileReadString(file_handle);
@@ -104,10 +107,10 @@ bool ParseStateFile()
          m_equity = parts[0];
          m_balance = parts[1];
          m_active_count = parts[2];
-         if(split_count >= 4)
-         {
-            m_active_session = parts[3];
-         }
+         if(split_count >= 4) m_active_session = parts[3];
+         if(split_count >= 5) m_overlaps = parts[4];
+         if(split_count >= 6) m_next_session = parts[5];
+         if(split_count >= 7) m_countdown = parts[6];
       }
    }
 
@@ -205,15 +208,20 @@ void UpdateDashboard()
    ObjectDelete(0, "SB_H_RSI");
    ObjectDelete(0, "SB_H_ATR");
    ObjectDelete(0, "SB_H_Stat");
+   ObjectDelete(0, "SB_Timeline_Lbl");
 
    // Update system metrics labels
-   string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Active Session: " + m_active_session;
+   string metrics_text = "Balance: " + m_balance + " USD  |  Equity: " + m_equity + " USD  |  Session: " + m_active_session;
    CreateLabel("SB_Metrics", metrics_text, 20, 50, 11, clrWhite, "Segoe UI Semibold");
 
-   // Section 1: Active Running Trades
-   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING TRADES (" + m_active_count + "/3):", 20, 80, 11, clrSkyBlue, "Segoe UI Bold");
+   // Section 1: Sessions Timeline Countdown HUD
+   string timeline_text = "⏳ SESSIONS TIMELINE  |  Active Overlaps: " + m_overlaps + "  |  Next Session: " + m_next_session + " starts in " + m_countdown;
+   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, 75, 10, clrOrange, "Segoe UI Bold");
 
-   int current_y = 105;
+   // Section 2: Active Running Trades
+   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING TRADES (" + m_active_count + "/3):", 20, 100, 11, clrSkyBlue, "Segoe UI Bold");
+
+   int current_y = 125;
    int spacing = 20;
 
    if(m_total_trades == 0)
@@ -234,7 +242,7 @@ void UpdateDashboard()
       }
    }
 
-   // Section 2: Scans Matrix Table
+   // Section 3: Scans Matrix Table
    current_y += 10;
    CreateLabel("SB_ScanSec", "🔍 MULTI-ASSET COGNITIVE SCANS MATRIX:", 20, current_y, 11, clrSkyBlue, "Segoe UI Bold");
    current_y += 22;
@@ -326,6 +334,7 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_H_RSI");
    ObjectDelete(0, "SB_H_ATR");
    ObjectDelete(0, "SB_H_Stat");
+   ObjectDelete(0, "SB_Timeline_Lbl");
 
    for(int i = 0; i < 50; i++)
    {

@@ -307,8 +307,9 @@ class ScalperGui:
                 perf = database.get_all_time_performance()
                 self.card_perf.config(text=f"Win Rate: {perf['win_rate']}% | Net: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)")
 
-                # Fetch active trading session info
-                session_str = self.scalper._get_current_session()
+                # Fetch active trading session and timeline countdown details
+                timeline = self.scalper._get_sessions_timeline()
+                session_str = f"{timeline['active']} (Next: {timeline['next_session']} in {timeline['countdown']})"
                 self.card_session.config(text=session_str)
 
                 # Fetch latest DB scan assessments to show in table
