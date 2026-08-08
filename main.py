@@ -212,6 +212,71 @@ class AutonomousScalper:
             return "Crypto 24/7 Session" # Fallback if traditional is quiet
         return " + ".join(sessions) + " Overlap" if len(sessions) > 1 else sessions[0] + " Session"
 
+    def _get_sessions_timeline(self):
+        """
+        Calculates real-time global trading session timelines, details active overlaps,
+        identifies the next upcoming session, and computes precise countdown clocks.
+        """
+        now_gmt = datetime.datetime.now(datetime.timezone.utc)
+        hour = now_gmt.hour
+        minute = now_gmt.minute
+        second = now_gmt.second
+
+        # Definition of standard sessions (start_hour, end_hour, duration_hours)
+        sessions_def = {
+            "Tokyo": (0, 9, 9),
+            "London": (8, 17, 9),
+            "New York": (12, 21, 9)
+        }
+
+        active = []
+        overlaps = []
+        upcoming_name = ""
+        upcoming_start = 0
+
+        # Determine active sessions
+        for name, (start, end, duration) in sessions_def.items():
+            if start <= hour < end:
+                active.append(name)
+            else:
+                # Find the next session standardly
+                if start > hour and (upcoming_name == "" or start < upcoming_start):
+                    upcoming_name = name
+                    upcoming_start = start
+
+        # Fallback for upcoming if we are past all start hours (next is Tokyo at 00:00)
+        if upcoming_name == "":
+            upcoming_name = "Tokyo"
+            upcoming_start = 24
+
+        # Calculate overlap details
+        if "London" in active and "New York" in active:
+            overlaps.append("London + New York Overlap (12:00 - 17:00 GMT)")
+        if "Tokyo" in active and "London" in active:
+            overlaps.append("Tokyo + London Overlap (08:00 - 09:00 GMT)")
+
+        # Calculate exact countdown timer to upcoming session (in seconds)
+        curr_seconds = (hour * 3600) + (minute * 60) + second
+        target_seconds = upcoming_start * 3600
+        diff_seconds = target_seconds - curr_seconds
+
+        countdown_str = "00:00:00"
+        if diff_seconds > 0:
+            h_cd = diff_seconds // 3600
+            m_cd = (diff_seconds % 3600) // 60
+            s_cd = diff_seconds % 60
+            countdown_str = f"{h_cd:02d}:{m_cd:02d}:{s_cd:02d}"
+
+        overlap_str = " & ".join(overlaps) if len(overlaps) > 0 else "No active overlap"
+        active_str = " + ".join(active) if len(active) > 0 else "Crypto Session"
+
+        return {
+            "active": active_str,
+            "overlaps": overlap_str,
+            "next_session": upcoming_name,
+            "countdown": countdown_str
+        }
+
     def _get_session_symbols(self, active_session):
         """
         Dynamically filters config.SYMBOLS to trade only the symbols active during
@@ -266,9 +331,10 @@ class AutonomousScalper:
         """
         lines = []
         active_session = self._get_current_session()
+        timeline = self._get_sessions_timeline()
 
-        # Header line: equity|balance|active_count|active_session
-        lines.append(f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}")
+        # Header line: equity|balance|active_count|active_session|overlaps|next_session|countdown
+        lines.append(f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{timeline['overlaps']}|{timeline['next_session']}|{timeline['countdown']}")
 
         # Open Positions Section
         for pos in active_positions:
@@ -308,6 +374,7 @@ class AutonomousScalper:
     def _generate_html_dashboard(self, current_time, equity, balance, active_positions, scans):
         """Generates a responsive and beautiful HTML dashboard file with live analytics."""
         perf = database.get_all_time_performance()
+        timeline = self._get_sessions_timeline()
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -439,6 +506,7 @@ class AutonomousScalper:
         <header>
             <h1>🤖 SCALPER BRAIN <span class="badge {'sim' if config.SIMULATION_MODE else ''}">{'SIMULATION MODE' if config.SIMULATION_MODE else 'MT5 LIVE/DEMO'}</span></h1>
             <div style="text-align: right;">
+                <span class="status-badge active" style="background-color: #f97316; margin-right: 10px;">TIMELINE: {timeline['active']} (Overlaps: {timeline['overlaps']}) | Next: {timeline['next_session']} starts in {timeline['countdown']}</span>
                 <span class="status-badge active" style="background-color: #15803d;">AUTONOMOUS EXECUTION RUNNING</span>
             </div>
         </header>
