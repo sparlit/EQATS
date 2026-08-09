@@ -24,6 +24,12 @@ class ScalperGui:
 
     def __init__(self, root):
         self.root = root
+        # Initialize the database and all tables first before any visual loads or logs!
+        try:
+            database.init_db()
+        except Exception as e:
+            print(f"Warning: Database initialization error: {e}")
+
         self.root.title("BBG PROFESSIONAL - ELITE AUTONOMOUS QUANTUM TRADING SYSTEM")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)

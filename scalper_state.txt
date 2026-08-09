@@ -1,2 +1,2 @@
-10000.00|10000.00|0|Crypto 24/7 Session|London + New York Overlap (12:00 - 17:00 GMT)|Tokyo|07:28:15
+10000.00|10000.00|0|Crypto 24/7 Session|No active overlap|Tokyo|06:41:18
 SCANS_HEADER
