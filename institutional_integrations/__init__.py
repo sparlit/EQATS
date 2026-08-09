@@ -11,3 +11,4 @@ from .databases import query_high_speed_analytical_duckdb, insert_vector_embeddi
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue
 from .advanced_math import evaluate_black_scholes_option_pricing, calculate_markov_regime_switching_probability
 from .rust_bridge import execute_high_speed_rust_order_send
+from .comprehensive_suite import *

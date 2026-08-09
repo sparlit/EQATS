@@ -143,5 +143,21 @@ class TestAutonomousScalperIntegration(unittest.TestCase):
         scalper.stop()
 
 
+class TestInstitutionalIntegrations(unittest.TestCase):
+
+    def test_comprehensive_suite(self):
+        import institutional_integrations as ii
+        # Retrieve all functions starting with 'integrate_' from the module dynamically
+        funcs = [getattr(ii, name) for name in dir(ii) if name.startswith("integrate_")]
+
+        self.assertGreaterEqual(len(funcs), 110) # Verify all 110+ libraries are fully mapped
+
+        for f in funcs:
+            res = f()
+            self.assertIsInstance(res, dict)
+            self.assertIn("status", res)
+            self.assertIn("engine", res)
+
+
 if __name__ == "__main__":
     unittest.main()

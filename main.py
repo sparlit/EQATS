@@ -52,7 +52,7 @@ class AutonomousScalper:
         self.last_day_str = datetime.date.today().isoformat()
 
         start_msg = (
-            f"🚀 *Autonomous Forex Scalper Started!*\n"
+            f"🚀 *Elite Autonomous Quantum Trading System Started!*\n"
             f"Mode: {'Simulation' if config.SIMULATION_MODE else 'MT5 Terminal'}\n"
             f"Balance: {account_info['balance']:.2f} {account_info['currency']}\n"
             f"Risk Per Trade: {config.RISK_PER_TRADE_PERCENT}%\n"
@@ -67,7 +67,7 @@ class AutonomousScalper:
     def stop(self):
         self.running = False
         self.conn.disconnect()
-        stop_msg = "🛑 *Autonomous Forex Scalper Stopped Safely.*"
+        stop_msg = "🛑 *Elite Autonomous Quantum Trading System Stopped Safely.*"
         print(stop_msg.replace("*", ""))
         telegram_bot.send_telegram_message(stop_msg)
 

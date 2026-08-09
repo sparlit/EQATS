@@ -24,7 +24,7 @@ class ScalperGui:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("BLOOMBERG PROFESSIONAL - TERMINAL CLIENT")
+        self.root.title("BBG PROFESSIONAL - ELITE AUTONOMOUS QUANTUM TRADING SYSTEM")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
 
@@ -128,7 +128,7 @@ class ScalperGui:
 
         title_label = tk.Label(
             header_frame,
-            text="BBG: SCALPER BRAIN",
+            text="BBG: ELITE QUANTUM TRADING SYSTEM <GO>",
             font=("Consolas", 18, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent
