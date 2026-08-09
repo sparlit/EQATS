@@ -371,7 +371,8 @@ class AutonomousScalper:
         file_content = "\n".join(lines)
         try:
             target_path = os.path.join(config.MT5_COMMON_FILES_PATH, "scalper_state.txt")
-            with open(target_path, "w") as f:
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with open(target_path, "w", encoding="utf-8") as f:
                 f.write(file_content)
         except Exception as e:
             print(f"Warning: Failed to write EA state file: {e}")
@@ -597,7 +598,7 @@ class AutonomousScalper:
         """
 
         try:
-            with open("dashboard.html", "w") as f:
+            with open("dashboard.html", "w", encoding="utf-8") as f:
                 f.write(html_content)
         except Exception as e:
             print(f"Warning: Failed to write dashboard.html: {e}")
