@@ -198,10 +198,10 @@ class AutonomousScalper:
         weekday = now_gmt.weekday() # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
         hour = now_gmt.hour
 
-        # Traditional markets weekend check
+        # Traditional markets weekend check (Friday 21:00 to Sunday 21:00 GMT)
         is_weekend = (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21)
         if is_weekend:
-            return "Crypto 24/7 Session"
+            return "Crypto Weekend Session (24/7)"
 
         # Session Hour definitions (GMT)
         tokyo = (0 <= hour < 9)
@@ -214,7 +214,7 @@ class AutonomousScalper:
         if ny: sessions.append("New York")
 
         if not sessions:
-            return "Crypto 24/7 Session" # Fallback if traditional is quiet
+            return "Global 24-Hour Interbank Session"
         return " + ".join(sessions) + " Overlap" if len(sessions) > 1 else sessions[0] + " Session"
 
     def _get_sessions_timeline(self):
@@ -285,49 +285,20 @@ class AutonomousScalper:
     def _get_session_symbols(self, active_session):
         """
         Dynamically filters config.SYMBOLS to trade only the symbols active during
-        the current global trading session. If it's a crypto session, it filters out all
-        traditional assets and trades ONLY cryptocurrencies.
+        the current global trading session.
+        - Weekends: Only Cryptos.
+        - Weekdays: All Forex and metals are always tradeable (24-hour interbank liquidity),
+                    and Cryptos are always tradeable.
         """
         all_symbols = config.SYMBOLS
         active_session_upper = active_session.upper()
 
-        if "CRYPTO 24/7" in active_session_upper:
-            # Trade ONLY crypto symbols
+        if "WEEKEND" in active_session_upper:
+            # Trade ONLY crypto symbols on weekends when traditional markets are closed
             return [s for s in all_symbols if any(c in s.upper() for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])]
 
-        filtered = []
-        for s in all_symbols:
-            s_up = s.upper()
-            is_crypto = any(c in s_up for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])
-            is_metal = "XAU" in s_up or "XAG" in s_up
-
-            # Cryptos are traded 24/7, metals are traded during London/New York standardly
-            if is_crypto:
-                filtered.append(s)
-                continue
-
-            if "TOKYO" in active_session_upper:
-                # Trade JPY, AUD, NZD, and Gold
-                if any(curr in s_up for curr in ["JPY", "AUD", "NZD"]) or "XAU" in s_up:
-                    filtered.append(s)
-            elif "LONDON" in active_session_upper:
-                # Trade EUR, GBP, CHF, and Metals
-                if any(curr in s_up for curr in ["EUR", "GBP", "CHF"]) or is_metal:
-                    filtered.append(s)
-            elif "NEW YORK" in active_session_upper:
-                # Trade USD, CAD, and Metals
-                if any(curr in s_up for curr in ["USD", "CAD"]) or is_metal:
-                    filtered.append(s)
-            else:
-                # Default fallback
-                filtered.append(s)
-
-        # Deduplicate list preserving order
-        deduped = []
-        for x in filtered:
-            if x not in deduped:
-                deduped.append(x)
-        return deduped
+        # Weekdays: All markets are fully active and liquid!
+        return all_symbols
 
     def _write_ea_state_file(self, equity, balance, active_positions, scans):
         """
