@@ -1,2 +1,4 @@
-10000.00|10000.00|0|Crypto 24/7 Session|No active overlap|Tokyo|01:14:19
+10000.00|10000.00|0|Global 24-Hour Interbank Session|No active overlap|Tokyo|00:36:12
 SCANS_HEADER
+EURUSD|1.09688|1.10163|DOWN|43.5|0.00303|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09232 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.32948|1.32118|UP|48.2|0.00355|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32009 - 1.34322]|0.0|0.0|0.0|0,0,0,0,0
