@@ -66,13 +66,21 @@ class ScalperBrain:
         # --- AI Predictor Integration and Learning ---
         predictor = predictive_brain.get_symbol_predictor(symbol)
 
-        # Prepare inputs
+        # Classify market regime to pass as additional neural inputs
+        reg_info_nn = indicators.classify_market_regime(highs, lows, closes)
+        reg_state_val = 1.0 if reg_info_nn['regime'] == "TRENDING" else 0.0
+
+        # Calculate volatility ratio
+        baseline_atr_nn = sum(indicators.calculate_atr(highs[:i], lows[:i], closes[:i], config.ATR_PERIOD) or atr_val for i in range(len(closes) - 20, len(closes))) / 20.0
+        vol_ratio = atr_val / baseline_atr_nn if baseline_atr_nn > 0 else 1.0
+
+        # Prepare inputs (Expanded to 6 features for institutional intelligence)
         rsi_norm = rsi_val / 100.0
         ema_ratio = ema_short / ema_medium if ema_medium > 0 else 1.0
         macd_ratio = macd['histogram'] / current_price if current_price > 0 else 0.0
         returns_prev = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
 
-        inputs = [rsi_norm, ema_ratio, macd_ratio, returns_prev]
+        inputs = [rsi_norm, ema_ratio, macd_ratio, returns_prev, reg_state_val, vol_ratio]
 
         # Train on actual open-to-close outcome of previous candle
         actual_bullish_close = 1.0 if closes[-1] > closes[-2] else 0.0
@@ -185,6 +193,11 @@ class ScalperBrain:
         decision = "HOLD"
         explanation = ""
 
+        # Classify market regime to dynamically weight voting strategies!
+        reg_info = indicators.classify_market_regime(highs, lows, closes)
+        reg_state = reg_info['regime']
+        reg_vol = reg_info['volatility']
+
         if strategy_mode == "TREND_FOLLOWING":
             decision = sig_tf
             explanation = f"Trend Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_tf)}"
@@ -204,29 +217,68 @@ class ScalperBrain:
             decision = sig_gd
             explanation = f"Grid Placement Bias: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_gd)}"
         else: # VOTING_ENSEMBLE
-            votes = [sig_tf, sig_mr, sig_mac, sig_bo, sig_cy]
-            buy_votes = votes.count("BUY")
-            sell_votes = votes.count("SELL")
+            # Convert signals to numeric values (+1: BUY, -1: SELL, 0: HOLD)
+            sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
 
-            if buy_votes >= 3 and sell_votes == 0:
+            tf_val = sig_to_val(sig_tf)
+            mr_val = sig_to_val(sig_mr)
+            mac_val = sig_to_val(sig_mac)
+            bo_val = sig_to_val(sig_bo)
+            cy_val = sig_to_val(sig_cy)
+
+            # Assign adaptive weights based on current market regime!
+            tf_w, mr_w, mac_w, bo_w, cy_w = 1.0, 1.0, 1.0, 1.0, 0.5
+
+            if reg_state == "TRENDING":
+                tf_w = 2.0   # Trend is strong: boost trend following
+                bo_w = 2.0   # Boost breakout follow-through
+                mr_w = 0.0   # Disable mean-reversion counter-trend trades to avoid getting run over
+            else: # RANGING
+                mr_w = 2.5   # Rangebound: heavily boost mean reversion osc
+                tf_w = 0.1   # Suppress trend following whipsaws
+                bo_w = 0.1   # Suppress false breakouts
+
+            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w
+            weighted_score = (tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) + (bo_val * bo_w) + (cy_val * cy_w)
+            normalized_score = weighted_score / total_weight if total_weight > 0 else 0.0
+
+            ensemble_bias = "HOLD"
+            if normalized_score >= 0.35:
+                ensemble_bias = "BUY"
+            elif normalized_score <= -0.35:
+                ensemble_bias = "SELL"
+
+            if ensemble_bias == "BUY":
                 # Blindspot Protection: Filter Buy if AI next-candle is bearish
                 if ai_pred_direction == "BULLISH":
                     decision = "BUY"
-                    explanation = f"Consensus BUY signal with AI Next-Candle BULLISH convergence ({ai_accuracy}% acc)!"
+                    explanation = f"Regime Consensus BUY ({reg_state}/{reg_vol}) with AI Bullish convergence! Score: {normalized_score:.2f}"
                 else:
                     decision = "HOLD"
-                    explanation = f"Technical BUY consensus withheld: AI Next-Candle Bearish mismatch ({ai_accuracy}% acc)."
-            elif sell_votes >= 3 and buy_votes == 0:
+                    explanation = f"Consensus BUY vetoed: AI predicts Bearish candle ({ai_accuracy}% acc). Score: {normalized_score:.2f}"
+            elif ensemble_bias == "SELL":
                 # Blindspot Protection: Filter Sell if AI next-candle is bullish
                 if ai_pred_direction == "BEARISH":
                     decision = "SELL"
-                    explanation = f"Consensus SELL signal with AI Next-Candle BEARISH convergence ({ai_accuracy}% acc)!"
+                    explanation = f"Regime Consensus SELL ({reg_state}/{reg_vol}) with AI Bearish convergence! Score: {normalized_score:.2f}"
                 else:
                     decision = "HOLD"
-                    explanation = f"Technical SELL consensus withheld: AI Next-Candle Bullish mismatch ({ai_accuracy}% acc)."
+                    explanation = f"Consensus SELL vetoed: AI predicts Bullish candle ({ai_accuracy}% acc). Score: {normalized_score:.2f}"
             else:
                 decision = "HOLD"
-                explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac} | Breakout: {sig_bo} | Carry: {sig_cy}) | AI: {ai_pred_direction} ({ai_accuracy}% acc)"
+                explanation = f"Regime {reg_state} ({reg_vol}) Voting: Neutral hold (Score: {normalized_score:+.2f}). AI Bias: {ai_pred_direction}"
+
+        # Apply Institutional NLP Sentiment-News Veto Filter
+        try:
+            prevailing_sentiment = database.get_prevailing_news_sentiment()
+            if prevailing_sentiment == "BULLISH" and decision == "SELL":
+                decision = "HOLD"
+                explanation = f"HOLD (Macro Vetoed: High-priority News Sentiment is BULLISH!) | {explanation}"
+            elif prevailing_sentiment == "BEARISH" and decision == "BUY":
+                decision = "HOLD"
+                explanation = f"HOLD (Macro Vetoed: High-priority News Sentiment is BEARISH!) | {explanation}"
+        except Exception as e:
+            print(f"Warning: News sentiment filter error: {e}")
 
         # Dynamic Stop Loss and Take Profit with Volatility-Adaptive Profit Multiples
         sl = 0.0
@@ -296,29 +348,61 @@ class ScalperBrain:
 
     def _calculate_lot_size(self, symbol, equity, sl_distance):
         """
-        Calculates the appropriate lot size to risk exactly config.RISK_PER_TRADE_PERCENT of current equity.
-        Formula:
-        Risk Amount = Equity * (Risk % / 100)
-
-        This method is enhanced with Adaptive Risk Sizing:
-        - If the bot has recently taken a streak of consecutive losses,
-          it autonomously downscales the risk % to protect account equity!
+        Calculates the appropriate lot size to risk on current equity using
+        mathematical Kelly Criterion optimization and Performance-Adaptive Risk Sizing.
         """
-        # A. Query recent trade performance to adapt risk
         base_risk_pct = config.RISK_PER_TRADE_PERCENT
+        using_kelly = False
+        kelly_val = 0.0
 
+        # Query past trade stats to calculate Kelly Sizing mathematically if history is rich
         try:
-            recent_trades = database.get_recent_performance(count=4)
-            if len(recent_trades) >= 3:
-                losses = sum(1 for t in recent_trades if t['profit'] is not None and t['profit'] < 0)
-                if losses == 3:
-                    base_risk_pct = base_risk_pct * 0.5 # Scale down risk by 50%
-                    print(f"🛡️ PERFORMANCE ADAPTATION: Drawdown streak detected (3 losses). Downscaling trade risk to {base_risk_pct:.2f}% to protect equity.")
-                elif losses >= 4:
-                    base_risk_pct = base_risk_pct * 0.25 # Scale down risk by 75%
-                    print(f"🛡️ PERFORMANCE ADAPTATION: Severe Drawdown streak detected (4 losses). Downscaling trade risk to {base_risk_pct:.2f}% to preserve capital.")
+            conn_db = database.get_connection()
+            cursor = conn_db.cursor()
+            cursor.execute("SELECT profit FROM trades WHERE status = 'CLOSED'")
+            rows = cursor.fetchall()
+            conn_db.close()
+
+            if len(rows) >= 10:
+                profits = [r['profit'] for r in rows if r['profit'] is not None]
+                wins = [p for p in profits if p > 0.0]
+                losses = [abs(p) for p in profits if p <= 0.0]
+
+                if len(profits) >= 10 and len(wins) > 0 and len(losses) > 0:
+                    win_rate = len(wins) / len(profits)
+                    avg_win = sum(wins) / len(wins)
+                    avg_loss = sum(losses) / len(losses)
+                    profit_factor = avg_win / avg_loss if avg_loss > 0 else 1.0
+
+                    # Standard Kelly formula: K% = W - ((1 - W) / R)
+                    kelly_fraction = win_rate - ((1.0 - win_rate) / profit_factor) if profit_factor > 0 else 0.0
+
+                    if kelly_fraction > 0:
+                        # Use Quarter-Kelly fraction to ensure safe risk boundaries
+                        base_risk_pct = (kelly_fraction * 0.25) * 100.0
+                        # Cap risk at hard ceilings [0.1%, 1.5%]
+                        base_risk_pct = max(0.1, min(base_risk_pct, 1.5))
+                        using_kelly = True
+                        kelly_val = kelly_fraction
+                    else:
+                        base_risk_pct = 0.25 # Underperforming: reduce risk fraction to Quarter-Percent
+
+            # Fallback to Streak-Adaptive Downscaling if not rich history or experiencing dynamic streaks
+            if not using_kelly:
+                recent_trades = database.get_recent_performance(count=4)
+                if len(recent_trades) >= 3:
+                    losses_count = sum(1 for t in recent_trades if t['profit'] is not None and t['profit'] < 0)
+                    if losses_count == 3:
+                        base_risk_pct = base_risk_pct * 0.5
+                        print(f"🛡️ PERFORMANCE ADAPTATION: Drawdown streak detected (3 losses). Downscaling trade risk to {base_risk_pct:.2f}% to protect equity.")
+                    elif losses_count >= 4:
+                        base_risk_pct = base_risk_pct * 0.25
+                        print(f"🛡️ PERFORMANCE ADAPTATION: Severe Drawdown streak detected (4 losses). Downscaling trade risk to {base_risk_pct:.2f}% to preserve capital.")
         except Exception as e:
-            print(f"Warning: Risk adaptation query error: {e}")
+            print(f"Warning: Kelly/Sizing adaptation calculation error: {e}")
+
+        if using_kelly:
+            print(f"🧮 KELLY CRITERION SIZING: Optimizing risk fraction to {base_risk_pct:.2f}% based on Kelly mathematical edge (K={kelly_val:.4f}).")
 
         risk_amount = equity * (base_risk_pct / 100.0)
 

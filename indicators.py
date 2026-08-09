@@ -210,3 +210,49 @@ def calculate_bollinger_squeeze(prices, period=20, num_std=2.0):
     if bb is None or bb['middle'] == 0:
         return None
     return (bb['upper'] - bb['lower']) / bb['middle']
+
+def classify_market_regime(highs, lows, closes, period=20):
+    """
+    Statistically classifies the current market regime.
+    Returns a dict: {
+        'regime': 'TRENDING' | 'RANGING',
+        'volatility': 'HIGH' | 'LOW',
+        'trend_intensity': float,
+        'squeeze_ratio': float
+    }
+    """
+    if len(closes) < 200:
+        return {
+            'regime': 'RANGING',
+            'volatility': 'LOW',
+            'trend_intensity': 0.0,
+            'squeeze_ratio': 0.0
+        }
+
+    ema_long = calculate_ema(closes, 200) or closes[-1]
+    ema_short = calculate_ema(closes, 20) or closes[-1]
+    atr_val = calculate_atr(highs, lows, closes, 14) or (closes[-1] * 0.001)
+
+    # Trend Intensity = Abs distance between Short and Long EMA normalized by ATR
+    trend_intensity = abs(ema_short - ema_long) / atr_val if atr_val > 0 else 0.0
+    regime = "TRENDING" if trend_intensity > 1.2 else "RANGING"
+
+    # Squeeze / Volatility Regime
+    squeeze = calculate_bollinger_squeeze(closes, period, 2.0) or 0.0
+
+    # Calculate historical average squeeze over previous 20 periods to establish a benchmark
+    historical_squeezes = []
+    for i in range(max(0, len(closes) - 40), len(closes)):
+        sq = calculate_bollinger_squeeze(closes[:i], period, 2.0)
+        if sq is not None:
+            historical_squeezes.append(sq)
+
+    avg_squeeze = sum(historical_squeezes) / len(historical_squeezes) if len(historical_squeezes) > 0 else squeeze
+    volatility = "HIGH" if squeeze > avg_squeeze else "LOW"
+
+    return {
+        'regime': regime,
+        'volatility': volatility,
+        'trend_intensity': round(trend_intensity, 4),
+        'squeeze_ratio': round(squeeze, 4)
+    }

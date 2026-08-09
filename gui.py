@@ -83,6 +83,13 @@ class ScalperGui:
             {"time": "13:20:00", "headline": "SEC OFFICIALLY APPROVES SPOT ETHEREUM ETFS IN UNEXPECTED REVERSAL", "source": "BBG", "sentiment": "BULLISH"}
         ]
 
+        # Prepopulate the database with initial headlines
+        try:
+            for story in self.news_stories:
+                database.log_news_headline(story["headline"], story["sentiment"])
+        except Exception as e:
+            print(f"Warning: Failed to prepopulate database news: {e}")
+
         # Build UI layout
         self._build_header()
         self._build_command_bar()
@@ -946,6 +953,11 @@ For custom code updates, consult the terminal configuration at config.py.
             self.news_stories.insert(0, new_item)
             if len(self.news_stories) > 30:
                 self.news_stories.pop()
+
+            try:
+                database.log_news_headline(new_item["headline"], new_item["sentiment"])
+            except Exception as e:
+                print(f"Warning: Failed to log new item to database news: {e}")
 
         self.news_tree.delete(*self.news_tree.get_children())
         for story in self.news_stories:
