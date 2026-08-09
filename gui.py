@@ -272,7 +272,7 @@ class ScalperGui:
 
         # Strategy Selector label and dropdown list
         strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
-        strat_lbl.pack(side=tk.LEFT, padx=(20, 5), pady=15)
+        strat_lbl.pack(side=tk.LEFT, padx=(10, 5), pady=15)
 
         self.strat_var = tk.StringVar(value=config.ACTIVE_STRATEGY)
         self.strat_menu = tk.OptionMenu(
@@ -282,11 +282,32 @@ class ScalperGui:
             "MEAN_REVERSION",
             "MACD_MOMENTUM",
             "VOTING_ENSEMBLE",
+            "BREAKOUT",
+            "CARRY_TRADE",
+            "GRID_TRADE",
             command=self.on_strategy_change
         )
         self.strat_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
         self.strat_menu["menu"].config(bg="#242424", fg=self.fg_accent)
         self.strat_menu.pack(side=tk.LEFT, padx=5, pady=15)
+
+        # Style Selector label and dropdown list
+        style_lbl = tk.Label(ctrl_frame, text="STYLE:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
+        style_lbl.pack(side=tk.LEFT, padx=(15, 5), pady=15)
+
+        self.style_var = tk.StringVar(value=config.TRADING_STYLE)
+        self.style_menu = tk.OptionMenu(
+            ctrl_frame,
+            self.style_var,
+            "SCALPING",
+            "DAY_TRADING",
+            "SWING_TRADING",
+            "POSITION_TRADING",
+            command=self.on_style_change
+        )
+        self.style_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
+        self.style_menu["menu"].config(bg="#242424", fg=self.fg_accent)
+        self.style_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
         # Simulation Mode Toggle Button
         self.mode_text = tk.StringVar(value="SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR")
@@ -683,6 +704,11 @@ For custom code updates, consult the terminal configuration at config.py.
         """Fires when the user updates the strategy dropdown choice"""
         config.ACTIVE_STRATEGY = selected_strat
         print(f"🔄 GUI STRATEGY SWITCH: Active Trading Strategy updated to: {selected_strat}")
+
+    def on_style_change(self, selected_style):
+        """Fires when the user updates the trading style dropdown choice"""
+        config.TRADING_STYLE = selected_style
+        print(f"🔄 GUI STYLE SWITCH: Active Trading Style updated to: {selected_style}")
 
     def toggle_mode(self):
         """Switches between MT5 Windows live and paper trading simulation"""

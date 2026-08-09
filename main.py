@@ -733,6 +733,47 @@ class AutonomousScalper:
             has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
             if has_active_symbol:
                 trade_info = [p for p in active_positions if p['symbol'].upper() == symbol.upper()][0]
+
+                # Dynamic Grid Trading Cost-Averaging Logic Expansion!
+                if config.ACTIVE_STRATEGY == "GRID_TRADE":
+                    symbol_trades = [p for p in active_positions if p['symbol'].upper() == symbol.upper()]
+                    if len(symbol_trades) < config.GRID_MAX_LEVELS:
+                        last_trade = symbol_trades[-1]
+                        entry_p = last_trade['open_price']
+                        direction = last_trade['direction']
+
+                        atr_val = indicators.calculate_atr([b['high'] for b in history], [b['low'] for b in history], [b['close'] for b in history], config.ATR_PERIOD) or 0.0010
+                        grid_spacing = atr_val * config.GRID_SPACING_ATR_MULT
+
+                        price_info = self.conn.get_current_price(symbol)
+                        current_p = price_info['bid'] if direction == "BUY" else price_info['ask']
+
+                        should_add_grid = False
+                        if direction == "BUY" and current_p <= entry_p - grid_spacing:
+                            should_add_grid = True
+                        elif direction == "SELL" and current_p >= entry_p + grid_spacing:
+                            should_add_grid = True
+
+                        if should_add_grid and len(active_positions) < config.MAX_CONCURRENT_TRADES:
+                            with self.trade_lock:
+                                lot = last_trade['lot_size']
+                                sl_new = current_p - (grid_spacing * 2) if direction == "BUY" else current_p + (grid_spacing * 2)
+                                tp_new = current_p + (grid_spacing * 3) if direction == "BUY" else current_p - (grid_spacing * 3)
+
+                                res = self.conn.execute_order(symbol, direction, lot, sl_new, tp_new)
+                                if res['success']:
+                                    database.log_trade_open(res['ticket'], symbol, direction, res['price'], sl_new, tp_new, lot)
+                                    print(f"🧱 GRID COST-AVERAGING PLACEMENT: Added layer {len(symbol_trades)+1} on {symbol} {direction} (Ticket {res['ticket']}) at {res['price']:.5f}")
+                                    active_positions.append({
+                                        'ticket': res['ticket'],
+                                        'symbol': symbol,
+                                        'direction': direction,
+                                        'open_price': res['price'],
+                                        'sl': sl_new,
+                                        'tp': tp_new,
+                                        'lot_size': lot
+                                    })
+
                 print(f"{symbol:<9} | {current_price:<10.5f} | {'-':<10} | {'-':<5} | {'-':<6} | {'-':<8} | ACTIVE ({trade_info['direction']} ticket {trade_info['ticket']})")
                 scans_list.append({
                     "symbol": symbol,
