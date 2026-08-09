@@ -59,6 +59,16 @@ def init_db():
     )
     """)
 
+    # Table for news sentiment indexing
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS news (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        headline TEXT NOT NULL,
+        sentiment TEXT NOT NULL -- 'BULLISH', 'BEARISH', 'NEUTRAL'
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -128,6 +138,47 @@ def get_open_trades():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+def log_news_headline(headline, sentiment):
+    """Logs a macro headline with its parsed sentiment classification."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT INTO news (timestamp, headline, sentiment)
+    VALUES (?, ?, ?)
+    """, (
+        datetime.datetime.now().isoformat(),
+        headline,
+        sentiment.upper()
+    ))
+    conn.commit()
+    conn.close()
+
+def get_prevailing_news_sentiment():
+    """
+    Computes prevailing sentiment across recent news headlines.
+    Returns: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Get last 15 headlines logged
+    cursor.execute("SELECT sentiment FROM news ORDER BY timestamp DESC LIMIT 15")
+    rows = cursor.fetchall()
+    conn.close()
+
+    if not rows:
+        return "NEUTRAL"
+
+    sentiments = [r['sentiment'] for r in rows]
+    bullish_count = sentiments.count("BULLISH")
+    bearish_count = sentiments.count("BEARISH")
+
+    if bullish_count > bearish_count:
+        return "BULLISH"
+    elif bearish_count > bullish_count:
+        return "BEARISH"
+    else:
+        return "NEUTRAL"
 
 def get_recent_performance(count=5):
     """Retrieves the last N closed trades to analyze performance trends."""

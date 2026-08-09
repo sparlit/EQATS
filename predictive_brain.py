@@ -11,7 +11,7 @@ class NeuralNetworkPredictor:
     """
     Lightweight, high-performance Multi-Layer Perceptron (MLP) Neural Network.
     Architecture:
-      - Input Layer: 4 features (Normalized RSI, EMA Ratio, MACD Histogram, Return)
+      - Input Layer: 6 features (Normalized RSI, EMA Ratio, MACD Histogram, Return, Regime, Volatility Ratio)
       - Hidden Layer: 5 Neurons (Sigmoid activation)
       - Output Layer: 1 Neuron (Sigmoid activation, > 0.5 is Bullish, <= 0.5 is Bearish)
     """
@@ -23,8 +23,8 @@ class NeuralNetworkPredictor:
         random.seed(42)
 
         # 1. Initialize weights and biases with small random values
-        # Input to Hidden Weights (4 inputs -> 5 hidden neurons)
-        self.w_input_hidden = [[random.uniform(-0.5, 0.5) for _ in range(5)] for _ in range(4)]
+        # Input to Hidden Weights (6 inputs -> 5 hidden neurons)
+        self.w_input_hidden = [[random.uniform(-0.5, 0.5) for _ in range(5)] for _ in range(6)]
         self.bias_hidden = [random.uniform(-0.1, 0.1) for _ in range(5)]
 
         # Hidden to Output Weights (5 hidden -> 1 output)
@@ -51,17 +51,17 @@ class NeuralNetworkPredictor:
     def predict(self, inputs):
         """
         Runs forward propagation to predict next candle direction.
-        inputs: list of 4 floats.
+        inputs: list of 6 floats.
         Returns: float (probability of bullish direction [0.0, 1.0])
         """
-        if len(inputs) != 4:
+        if len(inputs) != 6:
             return 0.5
 
         # 1. Forward to Hidden Layer
         self.hidden_activated = []
         for h in range(5):
             sum_h = self.bias_hidden[h]
-            for i in range(4):
+            for i in range(6):
                 sum_h += inputs[i] * self.w_input_hidden[i][h]
             self.hidden_activated.append(self._sigmoid(sum_h))
 
@@ -112,7 +112,7 @@ class NeuralNetworkPredictor:
         self.bias_output += self.learning_rate * output_delta
 
         # 4. Update Input-to-Hidden weights and biases
-        for i in range(4):
+        for i in range(6):
             for h in range(5):
                 self.w_input_hidden[i][h] += self.learning_rate * hidden_deltas[h] * self.last_inputs[i]
 
@@ -132,7 +132,7 @@ class NeuralNetworkPredictor:
         """
         # Calculate averages of weights
         total_w_ih = sum(sum(w_row) for w_row in self.w_input_hidden)
-        avg_w_ih = total_w_ih / 20.0 # 4 inputs * 5 hidden = 20 weights
+        avg_w_ih = total_w_ih / 30.0 # 6 inputs * 5 hidden = 30 weights
 
         avg_w_ho = sum(self.w_hidden_output) / 5.0 # 5 hidden neurons
 
