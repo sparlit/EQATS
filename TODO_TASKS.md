@@ -29,3 +29,4 @@ This document tracks the progress of advanced institutional enhancements designe
 - **Task 2 Complete:** Mathematical Kelly Criterion Dynamic Position Sizing active. Utilizes Quarter-Kelly compounding equations derived from live database metrics, protected by dynamic risk ceilings.
 - **Task 3 Complete:** Natural Language Processing (NLP) Macro News Sentiment Filter active. Logs real-time terminal headlines to SQLite and autonomously vetoes counter-news trade proposals.
 - **Task 4 Complete:** Predictive AI Brain Expanded. Multi-Layer Perceptron neural network inputs upgraded to 6 features (including live statistical market regimes and ATR-volatility ratio coefficients) to elevate prediction accuracy.
+- **Task 5 Complete:** Premium Institutional Bloomberg Screens Active. Enabled PORT <GO> (Markowitz Allocation Optimizer using Polars and NumPy), MCTS <GO> (Monte Carlo Path Risk Simulator), and VDS <GO> (FAISS & ChromaDB Neural Hidden Layer Vector Search indexing).

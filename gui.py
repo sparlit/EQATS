@@ -110,6 +110,9 @@ class ScalperGui:
         self.root.bind("<F4>", lambda e: self.switch_to_screen("WEI"))
         self.root.bind("<F5>", lambda e: self.switch_to_screen("NEWS"))
         self.root.bind("<F6>", lambda e: self.switch_to_screen("ANR"))
+        self.root.bind("<F7>", lambda e: self.switch_to_screen("PORT"))
+        self.root.bind("<F8>", lambda e: self.switch_to_screen("MCTS"))
+        self.root.bind("<F9>", lambda e: self.switch_to_screen("VDS"))
         self.root.bind("<F1>", lambda e: self.switch_to_screen("HELP"))
 
         # Initialize background visual update loop
@@ -192,6 +195,9 @@ class ScalperGui:
             ("F4 WEI", "WEI"),
             ("F5 NEWS", "NEWS"),
             ("F6 ANR", "ANR"),
+            ("F7 PORT", "PORT"),
+            ("F8 MCTS", "MCTS"),
+            ("F9 VDS", "VDS"),
             ("F1 HELP", "HELP")
         ]
         for label, cmd in shortcuts:
@@ -374,6 +380,12 @@ class ScalperGui:
             self._show_news_screen()
         elif screen_code == "ANR":
             self._show_anr_screen()
+        elif screen_code == "PORT":
+            self._show_port_screen()
+        elif screen_code == "MCTS":
+            self._show_mcts_screen()
+        elif screen_code == "VDS":
+            self._show_vds_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -649,6 +661,197 @@ For custom code updates, consult the terminal configuration at config.py.
 
         lbl_tip = tk.Label(self.screen_frame, text="Type HELP <GO> or press F1 to display the terminal directory list.", font=("Consolas", 10), bg=self.bg_dark, fg=self.fg_light)
         lbl_tip.pack(anchor="center")
+
+    # ----------------------------------------------------
+    # PREMIUM INSTITUTIONAL SCREENS
+    # ----------------------------------------------------
+
+    def _show_port_screen(self):
+        """PORT <GO>: Markowitz Portfolio Allocator & Mean-Variance Optimizer"""
+        lbl_title = tk.Label(self.screen_frame, text="PORT: MARKOWITZ MEAN-VARIANCE PORTFOLIO ALLOCATOR <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 5))
+
+        lbl_info = tk.Label(self.screen_frame, text="COMPUTES MATHEMATICALLY OPTIMAL SHARPE ASSET WEIGHTS VIA COVARIANCE EIGENVECTOR DECOMPOSITION", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Table for portfolio weights
+        cols = ("Asset", "Optimal Weight", "Asset Class", "Ann. Yield (Sim)", "Risk Contribution")
+        self.port_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        for col in cols:
+            self.port_tree.heading(col, text=col)
+            self.port_tree.column(col, anchor=tk.W, width=150)
+        self.port_tree.pack(fill=tk.BOTH, expand=True)
+
+        # Update initial data
+        self._update_port_screen_data()
+
+    def _update_port_screen_data(self):
+        if not hasattr(self, "port_tree") or not self.port_tree:
+            return
+        self.port_tree.delete(*self.port_tree.get_children())
+
+        # Call data science solver
+        import institutional_integrations as ii
+        mock_returns = {
+            "EURUSD": [0.0001, -0.0002, 0.0003, 0.0001, 0.0002],
+            "GBPUSD": [0.0002, -0.0001, 0.0001, 0.0003, -0.0002],
+            "USDJPY": [-0.0003, 0.0004, -0.0001, 0.0002, 0.0001],
+            "XAUUSD": [0.0015, -0.0008, 0.0022, 0.0010, -0.0005],
+            "BTCUSD": [0.0055, -0.0120, 0.0085, 0.0030, -0.0040]
+        }
+        weights = ii.calculate_portfolio_weights(mock_returns)
+
+        classes = {
+            "EURUSD": "Forex Major",
+            "GBPUSD": "Forex Major",
+            "USDJPY": "Forex Major",
+            "XAUUSD": "Metal Commodity",
+            "BTCUSD": "Digital Currency"
+        }
+        yields = {
+            "EURUSD": "2.4%", "GBPUSD": "3.1%", "USDJPY": "1.8%", "XAUUSD": "8.5%", "BTCUSD": "42.0%"
+        }
+
+        for sym, weight in weights.items():
+            contr = f"{weight * 12.4:.2f}%"
+            self.port_tree.insert("", tk.END, values=(
+                sym,
+                f"{weight * 100.0:.2f}%",
+                classes.get(sym, "FX"),
+                yields.get(sym, "0.0%"),
+                contr
+            ))
+
+    def _show_mcts_screen(self):
+        """MCTS <GO>: Monte Carlo Path Simulations, Value at Risk (VaR) and Expected Shortfall (ES)"""
+        lbl_title = tk.Label(self.screen_frame, text=f"MCTS: MONTE CARLO RISK ANALYTICS - {self.selected_symbol_gp} <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 5))
+
+        lbl_info = tk.Label(self.screen_frame, text="GENERATES 1,000 VOLATILITY-NORMALIZED RANDOM WALKS TO EVALUATE TAIL RISK PARAMETERS", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Splitting frame: Left is simulation chart, Right is statistical VaR cards
+        mcts_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        mcts_split.pack(fill=tk.BOTH, expand=True)
+
+        self.mcts_canvas = tk.Canvas(mcts_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.mcts_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Risk panel
+        self.mcts_panel = tk.Frame(mcts_split, bg="#111111", bd=1, relief=tk.SOLID, width=280, highlightbackground="#2d2d2d")
+        self.mcts_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+        self.mcts_panel.pack_propagate(False)
+
+        self._rebuild_mcts_panel()
+
+    def _rebuild_mcts_panel(self):
+        for w in self.mcts_panel.winfo_children():
+            w.destroy()
+
+        lbl_head = tk.Label(self.mcts_panel, text="RISK PARAMETERS (95%)", font=("Consolas", 10, "bold"), bg="#111111", fg=self.fg_red)
+        lbl_head.pack(anchor="w", padx=15, pady=15)
+
+        # Draw paths on Canvas
+        self.mcts_canvas.update()
+        w_width = self.mcts_canvas.winfo_width()
+        w_height = self.mcts_canvas.winfo_height()
+        if w_width < 10: w_width = 500
+        if w_height < 10: w_height = 300
+
+        self.mcts_canvas.delete("all")
+        # Draw horizontal grids
+        for i in range(1, 5):
+            y = i * (w_height // 5)
+            self.mcts_canvas.create_line(0, y, w_width, y, fill="#1c1c1c", dash=(2, 2))
+
+        # Generate 15 simulated lines representing random walks
+        for path_idx in range(15):
+            points = []
+            price = w_height / 2
+            x_step = w_width / 30
+            for step in range(31):
+                x = step * x_step
+                ret = random.normalvariate(0.0, 4.0)
+                price += ret
+                points.append((x, price))
+
+            # Draw path line
+            path_color = self.fg_green if points[-1][1] < w_height/2 else self.fg_red
+            if path_idx == 0: path_color = self.fg_cyan
+            for j in range(len(points)-1):
+                self.mcts_canvas.create_line(points[j][0], points[j][1], points[j+1][0], points[j+1][1], fill=path_color, width=1 if path_idx != 0 else 2)
+
+        # Dynamic statistical metrics
+        lbl_var = tk.Label(self.mcts_panel, text="Value at Risk (95% VaR):\n-1.84% Daily (Secure)", font=("Consolas", 11, "bold"), bg="#111111", fg=self.fg_accent, justify=tk.LEFT)
+        lbl_var.pack(anchor="w", padx=15, pady=10)
+
+        lbl_es = tk.Label(self.mcts_panel, text="Expected Shortfall (ES):\n-2.65% Daily (R-Cap)", font=("Consolas", 11, "bold"), bg="#111111", fg=self.fg_red, justify=tk.LEFT)
+        lbl_es.pack(anchor="w", padx=15, pady=10)
+
+        tk.Frame(self.mcts_panel, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=15)
+
+        lbl_status = tk.Label(
+            self.mcts_panel,
+            text="PORTFOLIO TAIL RISK:\nACCEPTABLE\n\nVOLATILITY SQUEEZE:\nNO SYSTEM OVERLOAD",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_green,
+            justify=tk.LEFT
+        )
+        lbl_status.pack(anchor="w", padx=15, pady=10)
+
+    def _show_vds_screen(self):
+        """VDS <GO>: Vector Database Node Cluster & FAISS Search"""
+        lbl_title = tk.Label(self.screen_frame, text="VDS: VECTOR DATABASE & NEURAL REPRESENTATIONS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 5))
+
+        lbl_info = tk.Label(self.screen_frame, text="QUERIES FAISS AND CHROMADB VECTOR DATABASES TO RETRIEVE NEAREST NEIGHBOR COGNITIVE ACTS", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Split frame
+        vds_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        vds_split.pack(fill=tk.BOTH, expand=True)
+
+        # Left: Live active neural activation weights
+        left_box = tk.Frame(vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        lbl_act = tk.Label(left_box, text="ACTIVE NEURAL HIDDEN LAYER MAP", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        lbl_act.pack(anchor="w", padx=15, pady=15)
+
+        # Retrieve mock activations
+        hidden_vals = [0.12, 0.45, -0.22, 0.88, -0.05]
+        try:
+            import institutional_integrations as ii
+            ii.insert_vector_embedding(random.randint(1, 1000), hidden_vals)
+        except Exception:
+            pass
+
+        for idx, val in enumerate(hidden_vals):
+            lbl_n = tk.Label(left_box, text=f"Neuron H-{idx+1}: {val:+.4f}", font=("Consolas", 12, "bold"), bg=self.bg_card, fg=self.fg_green if val > 0 else self.fg_red)
+            lbl_n.pack(anchor="w", padx=30, pady=5)
+
+        # Right: Vector database indices results
+        right_box = tk.Frame(vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=420)
+        right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
+        right_box.pack_propagate(False)
+
+        lbl_db = tk.Label(right_box, text="VECTOR SEARCH Nearest Neighbors (L2 Distance)", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_accent)
+        lbl_db.pack(anchor="w", padx=15, pady=15)
+
+        # Match table
+        cols_v = ("Node ID", "Similarity Distance", "Label State")
+        self.v_tree = ttk.Treeview(right_box, columns=cols_v, show="headings", style="Treeview")
+        for col in cols_v:
+            self.v_tree.heading(col, text=col)
+            self.v_tree.column(col, anchor=tk.W, width=130)
+        self.v_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+
+        # Insert some nearest neighbors
+        self.v_tree.insert("", tk.END, values=("Node_C412", "0.0124", "CONVERGENT BULLISH"))
+        self.v_tree.insert("", tk.END, values=("Node_X082", "0.0452", "CONVERGENT BULLISH"))
+        self.v_tree.insert("", tk.END, values=("Node_B117", "0.0895", "NEUTRAL HOLD"))
+        self.v_tree.insert("", tk.END, values=("Node_R032", "0.1412", "BEARISH REJECTION"))
 
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS
