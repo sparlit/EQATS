@@ -10,9 +10,9 @@ This document tracks the progress of advanced institutional enhancements designe
   - Implement a statistical regime filter in `indicators.py` evaluating Average Directional Index (ADX) proxy or Bollinger Band Width standard deviations.
   - Integrate regime metrics into `brain.py` to auto-tune active strategies (e.g. prioritize `TREND_FOLLOWING` during trends, and `MEAN_REVERSION` during ranging regimes).
 
-- [x] **Task 2: Kelly Criterion Dynamic Position Sizing**
+- [x] **Task 2: Kelly Criterion Dynamic Position Sizing (Upgraded to Kelly 2.0)**
   - Implement a Kelly fraction lot calculation engine in `brain.py` that queries closed trade statistics (Win Rate $W$ and Win/Loss Ratio $R$) to optimize compounding yields.
-  - Implement protective fractional-Kelly caps (e.g., Quarter-Kelly or Half-Kelly) to secure account equity.
+  - Implement protective fractional-Kelly caps and subtract Expected Shortfall (CVaR) tail risk constraints to secure account equity.
 
 - [x] **Task 3: NLP Macro News Sentiment Filters**
   - Expand `brain.py` and `main.py` to parse live macro news sentiment feeds.
@@ -26,7 +26,8 @@ This document tracks the progress of advanced institutional enhancements designe
 
 ## 📈 Completion Log
 - **Task 1 Complete:** Statistical Market Regime Classifier fully active. Dynamically tunes strategy voting weights (Trends boost Trend following, Ranges favor Bollinger oscillators).
-- **Task 2 Complete:** Mathematical Kelly Criterion Dynamic Position Sizing active. Utilizes Quarter-Kelly compounding equations derived from live database metrics, protected by dynamic risk ceilings.
+- **Task 2 Complete:** Mathematical Kelly Criterion Dynamic Position Sizing active. Upgraded to Kelly 2.0 by incorporating Expected Shortfall (CVaR) tail risk constraints derived from historical distributions to stabilize compounding.
 - **Task 3 Complete:** Natural Language Processing (NLP) Macro News Sentiment Filter active. Logs real-time terminal headlines to SQLite and autonomously vetoes counter-news trade proposals.
 - **Task 4 Complete:** Predictive AI Brain Expanded. Multi-Layer Perceptron neural network inputs upgraded to 6 features (including live statistical market regimes and ATR-volatility ratio coefficients) to elevate prediction accuracy.
 - **Task 5 Complete:** Premium Institutional Bloomberg Screens Active. Enabled PORT <GO> (Markowitz Allocation Optimizer using Polars and NumPy), MCTS <GO> (Monte Carlo Path Risk Simulator), and VDS <GO> (FAISS & ChromaDB Neural Hidden Layer Vector Search indexing).
+- **Task 6 Complete:** Real Trading Strategies Integrated. Successfully added 3 high-performance quantitative trading setups: Statistical Arbitrage (Pairs Spread Trading), Opening Range Breakout (ORB), and Volume-Spread Analysis (VSA).

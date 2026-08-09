@@ -298,6 +298,9 @@ class ScalperGui:
             "BREAKOUT",
             "CARRY_TRADE",
             "GRID_TRADE",
+            "STAT_ARB",
+            "ORB",
+            "VSA",
             command=self.on_strategy_change
         )
         self.strat_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)

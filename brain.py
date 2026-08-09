@@ -1,3 +1,4 @@
+import math
 import indicators
 import config
 import database
@@ -188,6 +189,73 @@ class ScalperBrain:
         except Exception:
             sig_gd = "HOLD"
 
+        # 7. EVALUATE STRATEGY 7: STAT_ARB (Statistical Arbitrage Spread Converge)
+        sig_sa = "HOLD"
+        reasons_sa = []
+        try:
+            # Simple spread ratio tracking relative to its 20-period standard deviation (z-score)
+            ratio_series = []
+            for j in range(len(closes) - 20, len(closes)):
+                ratio_series.append(closes[j] / (closes[j-1] if closes[j-1] > 0 else 1.0))
+
+            mean_r = sum(ratio_series) / len(ratio_series)
+            var_r = sum((x - mean_r) ** 2 for x in ratio_series) / len(ratio_series)
+            std_r = math.sqrt(var_r) if var_r > 0 else 0.001
+
+            curr_ratio = closes[-1] / (closes[-2] if closes[-2] > 0 else 1.0)
+            z_score = (curr_ratio - mean_r) / std_r
+
+            if z_score <= -2.0:
+                sig_sa = "BUY"
+            elif z_score >= 2.0:
+                sig_sa = "SELL"
+            else:
+                reasons_sa.append(f"Z-Score {z_score:+.2f} inside boundaries")
+        except Exception as e:
+            reasons_sa.append(f"StatArb calculation error: {e}")
+
+        # 8. EVALUATE STRATEGY 8: ORB (Opening Range Breakout)
+        sig_or = "HOLD"
+        reasons_or = []
+        if len(closes) >= 30:
+            open_high = max(highs[:30])
+            open_low = min(lows[:30])
+            if current_price > open_high:
+                sig_or = "BUY"
+            elif current_price < open_low:
+                sig_or = "SELL"
+            else:
+                reasons_or.append(f"Price inside opening range [{open_low:.5f} - {open_high:.5f}]")
+        else:
+            reasons_or.append("Insufficient bars for Opening Range (needs 30)")
+
+        # 9. EVALUATE STRATEGY 9: VSA (Volume Spread Analysis)
+        sig_vs = "HOLD"
+        reasons_vs = []
+        try:
+            # Simulated Tick Volume (High - Low returns range multiplier)
+            vol_series = [(highs[i] - lows[i]) * 10000.0 for i in range(len(closes))]
+            avg_vol = sum(vol_series[-10:]) / 10.0
+            curr_vol = vol_series[-1]
+            curr_spread = highs[-1] - lows[-1]
+
+            is_ultra_high_vol = curr_vol >= avg_vol * 1.5
+            is_narrow_spread = curr_spread <= atr_val * 0.5
+
+            if is_ultra_high_vol and is_narrow_spread:
+                # Accumulation or Distribution
+                if current_price < ema_long and closes[-1] > closes[-2]:
+                    sig_vs = "BUY"  # Accumulation at Support (No Supply)
+                elif current_price > ema_long and closes[-1] < closes[-2]:
+                    sig_vs = "SELL" # Distribution at Resistance (No Demand)
+                else:
+                    reasons_vs.append("Spread/Volume squeeze with no support confirmation")
+            else:
+                if not is_ultra_high_vol: reasons_vs.append(f"Volume {curr_vol:.1f} below threshold")
+                if not is_narrow_spread: reasons_vs.append("Spread too wide")
+        except Exception as e:
+            reasons_vs.append(f"VSA evaluation error: {e}")
+
         # Choose the dynamic trading setup based on user's active strategy configuration
         strategy_mode = config.ACTIVE_STRATEGY
         decision = "HOLD"
@@ -216,6 +284,15 @@ class ScalperBrain:
         elif strategy_mode == "GRID_TRADE":
             decision = sig_gd
             explanation = f"Grid Placement Bias: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_gd)}"
+        elif strategy_mode == "STAT_ARB":
+            decision = sig_sa
+            explanation = f"StatArb Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_sa)}"
+        elif strategy_mode == "ORB":
+            decision = sig_or
+            explanation = f"ORB Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_or)}"
+        elif strategy_mode == "VSA":
+            decision = sig_vs
+            explanation = f"VSA Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_vs)}"
         else: # VOTING_ENSEMBLE
             # Convert signals to numeric values (+1: BUY, -1: SELL, 0: HOLD)
             sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
@@ -225,27 +302,35 @@ class ScalperBrain:
             mac_val = sig_to_val(sig_mac)
             bo_val = sig_to_val(sig_bo)
             cy_val = sig_to_val(sig_cy)
+            sa_val = sig_to_val(sig_sa)
+            or_val_v = sig_to_val(sig_or)
+            vs_val = sig_to_val(sig_vs)
 
             # Assign adaptive weights based on current market regime!
-            tf_w, mr_w, mac_w, bo_w, cy_w = 1.0, 1.0, 1.0, 1.0, 0.5
+            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5
 
             if reg_state == "TRENDING":
                 tf_w = 2.0   # Trend is strong: boost trend following
                 bo_w = 2.0   # Boost breakout follow-through
+                or_w = 2.0   # Opening Range Breakouts perform best in trends
                 mr_w = 0.0   # Disable mean-reversion counter-trend trades to avoid getting run over
             else: # RANGING
                 mr_w = 2.5   # Rangebound: heavily boost mean reversion osc
+                sa_w = 2.0   # StatArb thrives in mean-reverting ranging markets
                 tf_w = 0.1   # Suppress trend following whipsaws
                 bo_w = 0.1   # Suppress false breakouts
 
-            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w
-            weighted_score = (tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) + (bo_val * bo_w) + (cy_val * cy_w)
+            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w
+            weighted_score = ((tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) +
+                              (bo_val * bo_w) + (cy_val * cy_w) + (sa_val * sa_w) +
+                              (or_val_v * or_w) + (vs_val * vs_w))
+
             normalized_score = weighted_score / total_weight if total_weight > 0 else 0.0
 
             ensemble_bias = "HOLD"
-            if normalized_score >= 0.35:
+            if normalized_score >= 0.28: # Dynamic consensus threshold
                 ensemble_bias = "BUY"
-            elif normalized_score <= -0.35:
+            elif normalized_score <= -0.28:
                 ensemble_bias = "SELL"
 
             if ensemble_bias == "BUY":
@@ -378,12 +463,21 @@ class ScalperBrain:
                     kelly_fraction = win_rate - ((1.0 - win_rate) / profit_factor) if profit_factor > 0 else 0.0
 
                     if kelly_fraction > 0:
+                        # Kelly 2.0: Subtract Expected Shortfall (CVaR) tail risk multiplier to stabilize sizing
+                        sorted_losses = sorted(losses) if losses else [0.0]
+                        var_idx = int(len(sorted_losses) * 0.95)
+                        cvar_tail_risk = sum(sorted_losses[var_idx:]) / len(sorted_losses[var_idx:]) if len(sorted_losses) - var_idx > 0 else 0.01
+
+                        # Normalize CVaR to fraction and apply as risk penalty
+                        cvar_penalty = min(0.10, cvar_tail_risk / (equity if equity > 0 else 10000.0))
+                        kelly_fraction_cvar = max(0.01, kelly_fraction - cvar_penalty)
+
                         # Use Quarter-Kelly fraction to ensure safe risk boundaries
-                        base_risk_pct = (kelly_fraction * 0.25) * 100.0
+                        base_risk_pct = (kelly_fraction_cvar * 0.25) * 100.0
                         # Cap risk at hard ceilings [0.1%, 1.5%]
                         base_risk_pct = max(0.1, min(base_risk_pct, 1.5))
                         using_kelly = True
-                        kelly_val = kelly_fraction
+                        kelly_val = kelly_fraction_cvar
                     else:
                         base_risk_pct = 0.25 # Underperforming: reduce risk fraction to Quarter-Percent
 
