@@ -11,6 +11,7 @@
 
 // Input Parameters
 input string   InpFileName = "scalper_state.txt"; // State File Name
+input bool     InpUseCommonFolder = true;         // Use Common shared folder (FILE_COMMON)
 input int      InpTimerInterval = 1;              // Update Interval (seconds)
 
 // State variables
@@ -89,8 +90,11 @@ void OnTimer()
 bool ParseStateFile()
 {
    ResetLastError();
-   // Open the state file sharing the Python live data using FILE_COMMON flag
-   int file_handle = FileOpen(InpFileName, FILE_READ|FILE_TXT|FILE_ANSI|FILE_COMMON);
+   // Open the state file sharing the Python live data
+   int flags = FILE_READ|FILE_TXT|FILE_ANSI;
+   if(InpUseCommonFolder) flags |= FILE_COMMON;
+
+   int file_handle = FileOpen(InpFileName, flags);
    if(file_handle == INVALID_HANDLE)
    {
       static int err_count = 0;
