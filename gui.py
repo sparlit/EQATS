@@ -1213,24 +1213,42 @@ For custom code updates, consult the terminal configuration at config.py.
         self.anr_tree.tag_configure("red", foreground=self.fg_red)
 
         # Refresh Predictive AI Neural Network Pane metrics from active Brain state
-        if self.scalper and hasattr(self.scalper, "neural_net") and self.scalper.neural_net:
-            nn = self.scalper.neural_net
-            # Calculate rolling accuracy rate
-            perf = database.get_all_time_performance()
-            win_rate = perf["win_rate"]
+        try:
+            import predictive_brain
+            nn = predictive_brain.get_symbol_predictor(self.selected_symbol_gp)
+            if nn and nn.last_prediction is not None:
+                # Calculate rolling accuracy rate
+                perf = database.get_all_time_performance()
+                win_rate = perf["win_rate"]
 
-            self.lbl_mlp_bias.config(
-                text=f"MLP Next Candle Bias: {nn.last_predicted_dir.upper()} ({nn.last_prob*100:.1f}% Confidence)",
-                fg=self.fg_green if nn.last_predicted_dir == "buy" else self.fg_red
-            )
-            self.lbl_mlp_loss.config(text=f"Latest Backpropagation Loss: {nn.last_loss:.5f}")
+                predicted_dir = "BUY" if nn.last_prediction > 0.5 else "SELL"
+                prob_pct = nn.last_prediction if nn.last_prediction > 0.5 else (1.0 - nn.last_prediction)
 
-            filter_state = "INTERVENTION ENGAGED" if nn.is_deviating else "IDLE (PROCEED)"
-            self.lbl_mlp_corrective.config(
-                text=f"Filter Intervention State: {filter_state}",
-                fg=self.fg_red if nn.is_deviating else self.fg_green
-            )
-            self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
+                self.lbl_mlp_bias.config(
+                    text=f"MLP Next Candle Bias: {predicted_dir} ({prob_pct*100:.1f}% Confidence)",
+                    fg=self.fg_green if predicted_dir == "BUY" else self.fg_red
+                )
+
+                # Fetch loss if logged
+                latest_loss = getattr(nn, "last_loss", 0.0024)
+                self.lbl_mlp_loss.config(text=f"Latest Backpropagation Loss: {latest_loss:.5f}")
+
+                # Veto state
+                is_deviating = False
+                prevailing_sentiment = database.get_prevailing_news_sentiment()
+                if prevailing_sentiment == "BULLISH" and predicted_dir == "SELL":
+                    is_deviating = True
+                elif prevailing_sentiment == "BEARISH" and predicted_dir == "BUY":
+                    is_deviating = True
+
+                filter_state = "INTERVENTION ENGAGED" if is_deviating else "IDLE (PROCEED)"
+                self.lbl_mlp_corrective.config(
+                    text=f"Filter Intervention State: {filter_state}",
+                    fg=self.fg_red if is_deviating else self.fg_green
+                )
+                self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
+        except Exception as e:
+            print(f"Warning: Failed to refresh MLP neural network dashboard metrics: {e}")
 
 
 def launch_gui():

@@ -602,6 +602,137 @@ class AutonomousScalper:
         except Exception as e:
             print(f"Warning: Failed to write dashboard.html: {e}")
 
+    def evaluate_symbol_worker(self, symbol, active_positions, current_equity, trading_available):
+        """
+        Parallel worker to perform indicator calculation, research scraping,
+        regime selection, and strategy evaluations for a single symbol.
+        """
+        # Fetch 210 candles of historical data (plenty for 200 EMA calculation)
+        history = self.conn.get_history(symbol, 220)
+        if not history:
+            return {
+                "symbol": symbol,
+                "price": "-",
+                "ema200": "-",
+                "trend": "-",
+                "rsi": "-",
+                "atr": "-",
+                "status": "Syncing history...",
+                "decision": "HOLD",
+                "analysis": None,
+                "nn_state": None
+            }
+
+        current_price = history[-1]['close']
+
+        # Check if we already have an open trade on this exact symbol
+        has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
+        if has_active_symbol:
+            trade_info = [p for p in active_positions if p['symbol'].upper() == symbol.upper()][0]
+
+            # Dynamic Grid Trading Cost-Averaging Logic Expansion!
+            if config.ACTIVE_STRATEGY == "GRID_TRADE":
+                symbol_trades = [p for p in active_positions if p['symbol'].upper() == symbol.upper()]
+                if len(symbol_trades) < config.GRID_MAX_LEVELS:
+                    last_trade = symbol_trades[-1]
+                    entry_p = last_trade['open_price']
+                    direction = last_trade['direction']
+
+                    atr_val = indicators.calculate_atr([b['high'] for b in history], [b['low'] for b in history], [b['close'] for b in history], config.ATR_PERIOD) or 0.0010
+                    grid_spacing = atr_val * config.GRID_SPACING_ATR_MULT
+
+                    price_info = self.conn.get_current_price(symbol)
+                    current_p = price_info['bid'] if direction == "BUY" else price_info['ask']
+
+                    should_add_grid = False
+                    if direction == "BUY" and current_p <= entry_p - grid_spacing:
+                        should_add_grid = True
+                    elif direction == "SELL" and current_p >= entry_p + grid_spacing:
+                        should_add_grid = True
+
+                    if should_add_grid and len(active_positions) < config.MAX_CONCURRENT_TRADES:
+                        with self.trade_lock:
+                            lot = last_trade['lot_size']
+                            sl_new = current_p - (grid_spacing * 2) if direction == "BUY" else current_p + (grid_spacing * 2)
+                            tp_new = current_p + (grid_spacing * 3) if direction == "BUY" else current_p - (grid_spacing * 3)
+
+                            res = self.conn.execute_order(symbol, direction, lot, sl_new, tp_new)
+                            if res['success']:
+                                database.log_trade_open(res['ticket'], symbol, direction, res['price'], sl_new, tp_new, lot)
+                                print(f"🧱 GRID COST-AVERAGING PLACEMENT: Added layer {len(symbol_trades)+1} on {symbol} {direction} (Ticket {res['ticket']}) at {res['price']:.5f}")
+                                active_positions.append({
+                                    'ticket': res['ticket'],
+                                    'symbol': symbol,
+                                    'direction': direction,
+                                    'open_price': res['price'],
+                                    'sl': sl_new,
+                                    'tp': tp_new,
+                                    'lot_size': lot
+                                })
+
+            return {
+                "symbol": symbol,
+                "price": f"{current_price:.5f}",
+                "ema200": "-",
+                "trend": "-",
+                "rsi": "-",
+                "atr": "-",
+                "status": f"ACTIVE ({trade_info['direction']} Ticket {trade_info['ticket']})",
+                "decision": "HOLD",
+                "analysis": None,
+                "nn_state": None
+            }
+
+        # Autonomously select optimal trading style and strategy dynamically first!
+        try:
+            closes_hist = [b['close'] for b in history]
+            highs_hist = [b['high'] for b in history]
+            lows_hist = [b['low'] for b in history]
+            opt_style, opt_strat = self.quantum_auto_engine.determine_optimal_style_and_strategy(
+                symbol, closes_hist, highs_hist, lows_hist
+            )
+        except Exception:
+            pass
+
+        # Get latest tick price details to execute spread filters
+        price_info = self.conn.get_current_price(symbol)
+        is_safe, safety_reason = self._is_market_open_and_liquid(symbol, price_info)
+
+        # Get technical analysis and trading decision from the Brain
+        analysis = self.brain.evaluate(symbol, history, current_equity)
+        decision = analysis['decision']
+        indicators_info = analysis.get('indicators', {})
+        ema200 = indicators_info.get('ema_long', 0.0)
+        rsi_val = indicators_info.get('rsi', 0.0)
+        atr_val = indicators_info.get('atr', 0.0)
+        trend_str = "UP" if current_price > ema200 else "DOWN"
+
+        status_text = analysis['explanation']
+        if not is_safe:
+            decision = "HOLD"
+            status_text = f"HOLD ({safety_reason})"
+        elif not trading_available:
+            status_text = "HOLD (MAX LIMIT OF ACTIVE TRADES REACHED)"
+        elif decision in ['BUY', 'SELL']:
+            status_text = f"Executing {decision}!"
+
+        # Fetch AI internal state diagnostics
+        predictor_tmp = predictive_brain.get_symbol_predictor(symbol)
+        nn_state = predictor_tmp.get_internal_state()
+
+        return {
+            "symbol": symbol,
+            "price": f"{current_price:.5f}",
+            "ema200": f"{ema200:.5f}",
+            "trend": trend_str,
+            "rsi": f"{rsi_val:.1f}",
+            "atr": f"{atr_val:.5f}",
+            "status": status_text,
+            "decision": decision,
+            "analysis": analysis,
+            "nn_state": nn_state
+        }
+
     def tick_and_execute(self):
         """
         Runs one iteration of checking market state, assessing trades,
@@ -713,191 +844,86 @@ class AutonomousScalper:
         trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
 
         scans_list = []
+        pending_orders = []
 
-        for symbol in active_symbols:
-            # Fetch 210 candles of historical data (plenty for 200 EMA calculation)
-            history = self.conn.get_history(symbol, 220)
-            if not history:
-                print(f"{symbol:<9} | No History Data Found. Please wait for terminal to synchronize.")
-                # Draw status on chart
-                scans_list.append({
-                    "symbol": symbol,
-                    "price": "-",
-                    "ema200": "-",
-                    "trend": "-",
-                    "rsi": "-",
-                    "atr": "-",
-                    "status": "Syncing history..."
-                })
-                continue
+        # Multi-threaded parallel processing using concurrent.futures
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_symbols))) as executor:
+            future_to_symbol = {
+                executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
+                for symbol in active_symbols
+            }
+            for future in concurrent.futures.as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    res = future.result()
+                    scans_list.append(res)
+                    if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
+                        pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
+                except Exception as e:
+                    print(f"Error evaluating symbol {symbol} in parallel thread: {e}")
 
-            current_price = history[-1]['close']
+        # Sort scans_list by symbol name to keep output clean and ordered
+        scans_list = sorted(scans_list, key=lambda x: x["symbol"])
 
-            # Check if we already have an open trade on this exact symbol
-            has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
-            if has_active_symbol:
-                trade_info = [p for p in active_positions if p['symbol'].upper() == symbol.upper()][0]
+        # Display results
+        for s in scans_list:
+            print(f"{s['symbol']:<9} | {s['price']:<10} | {s['ema200']:<10} | {s['trend']:<5} | {s['rsi']:<6} | {s['atr']:<8} | {s['status']}")
 
-                # Dynamic Grid Trading Cost-Averaging Logic Expansion!
-                if config.ACTIVE_STRATEGY == "GRID_TRADE":
-                    symbol_trades = [p for p in active_positions if p['symbol'].upper() == symbol.upper()]
-                    if len(symbol_trades) < config.GRID_MAX_LEVELS:
-                        last_trade = symbol_trades[-1]
-                        entry_p = last_trade['open_price']
-                        direction = last_trade['direction']
+        # Process any pending orders sequentially under thread-safe lock
+        for symbol, decision, analysis in pending_orders:
+            if not trading_available:
+                break
 
-                        atr_val = indicators.calculate_atr([b['high'] for b in history], [b['low'] for b in history], [b['close'] for b in history], config.ATR_PERIOD) or 0.0010
-                        grid_spacing = atr_val * config.GRID_SPACING_ATR_MULT
+            with self.trade_lock:
+                # Double-check constraints inside lock context
+                active_positions_refresh = self.conn.get_open_orders()
+                if len(active_positions_refresh) >= config.MAX_CONCURRENT_TRADES:
+                    break
+                if any(p['symbol'].upper() == symbol.upper() for p in active_positions_refresh):
+                    continue
 
-                        price_info = self.conn.get_current_price(symbol)
-                        current_p = price_info['bid'] if direction == "BUY" else price_info['ask']
-
-                        should_add_grid = False
-                        if direction == "BUY" and current_p <= entry_p - grid_spacing:
-                            should_add_grid = True
-                        elif direction == "SELL" and current_p >= entry_p + grid_spacing:
-                            should_add_grid = True
-
-                        if should_add_grid and len(active_positions) < config.MAX_CONCURRENT_TRADES:
-                            with self.trade_lock:
-                                lot = last_trade['lot_size']
-                                sl_new = current_p - (grid_spacing * 2) if direction == "BUY" else current_p + (grid_spacing * 2)
-                                tp_new = current_p + (grid_spacing * 3) if direction == "BUY" else current_p - (grid_spacing * 3)
-
-                                res = self.conn.execute_order(symbol, direction, lot, sl_new, tp_new)
-                                if res['success']:
-                                    database.log_trade_open(res['ticket'], symbol, direction, res['price'], sl_new, tp_new, lot)
-                                    print(f"🧱 GRID COST-AVERAGING PLACEMENT: Added layer {len(symbol_trades)+1} on {symbol} {direction} (Ticket {res['ticket']}) at {res['price']:.5f}")
-                                    active_positions.append({
-                                        'ticket': res['ticket'],
-                                        'symbol': symbol,
-                                        'direction': direction,
-                                        'open_price': res['price'],
-                                        'sl': sl_new,
-                                        'tp': tp_new,
-                                        'lot_size': lot
-                                    })
-
-                print(f"{symbol:<9} | {current_price:<10.5f} | {'-':<10} | {'-':<5} | {'-':<6} | {'-':<8} | ACTIVE ({trade_info['direction']} ticket {trade_info['ticket']})")
-                scans_list.append({
-                    "symbol": symbol,
-                    "price": f"{current_price:.5f}",
-                    "ema200": "-",
-                    "trend": "-",
-                    "rsi": "-",
-                    "atr": "-",
-                    "status": f"ACTIVE ({trade_info['direction']} Ticket {trade_info['ticket']})"
-                })
-                continue
-
-            # Autonomously select optimal trading style and strategy dynamically first!
-            try:
-                closes_hist = [b['close'] for b in history]
-                highs_hist = [b['high'] for b in history]
-                lows_hist = [b['low'] for b in history]
-                opt_style, opt_strat = self.quantum_auto_engine.determine_optimal_style_and_strategy(
-                    symbol, closes_hist, highs_hist, lows_hist
+                print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
+                res = self.conn.execute_order(
+                    symbol=symbol,
+                    order_type=decision,
+                    lot_size=analysis['lot_size'],
+                    sl=analysis['sl'],
+                    tp=analysis['tp']
                 )
-                print(f"🔮 AUTONOMOUS DECISION: Dynamically selected optimal Style={opt_style} | Strategy={opt_strat} for {symbol} based on statistical regimes & external scraper research.")
-            except Exception as e:
-                print(f"Warning: Autonomous style/strategy selection error: {e}")
 
-            # Get latest tick price details to execute spread filters
-            price_info = self.conn.get_current_price(symbol)
-            is_safe, safety_reason = self._is_market_open_and_liquid(symbol, price_info)
-
-            # Get technical analysis and trading decision from the Brain
-            analysis = self.brain.evaluate(symbol, history, current_equity)
-            decision = analysis['decision']
-            indicators_info = analysis.get('indicators', {})
-            ema200 = indicators_info.get('ema_long', 0.0)
-            rsi_val = indicators_info.get('rsi', 0.0)
-            atr_val = indicators_info.get('atr', 0.0)
-            trend_str = "UP" if current_price > ema200 else "DOWN"
-
-            status_text = analysis['explanation']
-            if not is_safe:
-                # Override decision to HOLD due to spread/session safety trigger
-                decision = "HOLD"
-                status_text = f"HOLD ({safety_reason})"
-            elif not trading_available:
-                status_text = "HOLD (MAX LIMIT OF ACTIVE TRADES REACHED)"
-            elif decision in ['BUY', 'SELL']:
-                status_text = f"Executing {decision}!"
-
-            print(f"{symbol:<9} | {current_price:<10.5f} | {ema200:<10.5f} | {trend_str:<5} | {rsi_val:<6.2f} | {atr_val:<8.5f} | {status_text}")
-
-            # Fetch AI internal state diagnostics
-            predictor_tmp = predictive_brain.get_symbol_predictor(symbol)
-            nn_state = predictor_tmp.get_internal_state()
-
-            scans_list.append({
-                "symbol": symbol,
-                "price": f"{current_price:.5f}",
-                "ema200": f"{ema200:.5f}",
-                "trend": trend_str,
-                "rsi": f"{rsi_val:.1f}",
-                "atr": f"{atr_val:.5f}",
-                "status": status_text,
-                "avg_w_ih": nn_state["avg_w_ih"],
-                "avg_w_ho": nn_state["avg_w_ho"],
-                "bias_output": nn_state["bias_output"],
-                "hidden_activations": nn_state["hidden_activations"]
-            })
-
-            if decision in ['BUY', 'SELL'] and trading_available:
-                # Execute order with thread-safe serialization lock
-                with self.trade_lock:
-                    # Double-check constraints inside the lock context
-                    active_positions_refresh = self.conn.get_open_orders()
-                    if len(active_positions_refresh) >= config.MAX_CONCURRENT_TRADES:
-                        break
-                    if any(p['symbol'].upper() == symbol.upper() for p in active_positions_refresh):
-                        continue
-
-                    print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
-                    res = self.conn.execute_order(
+                if res['success']:
+                    database.log_trade_open(
+                        ticket=res['ticket'],
                         symbol=symbol,
-                        order_type=decision,
-                        lot_size=analysis['lot_size'],
+                        direction=decision,
+                        open_price=res['price'],
                         sl=analysis['sl'],
-                        tp=analysis['tp']
+                        tp=analysis['tp'],
+                        lot_size=analysis['lot_size']
                     )
 
-                    if res['success']:
-                        database.log_trade_open(
-                            ticket=res['ticket'],
-                            symbol=symbol,
-                            direction=decision,
-                            open_price=res['price'],
-                            sl=analysis['sl'],
-                            tp=analysis['tp'],
-                            lot_size=analysis['lot_size']
-                        )
+                    alert_msg = (
+                        f"📊 *New Trade Executed!*\n"
+                        f"Symbol: {symbol} ({decision})\n"
+                        f"Price: {res['price']:.5f}\n"
+                        f"Lot Size: {analysis['lot_size']}\n"
+                        f"SL: {analysis['sl']:.5f} | TP: {analysis['tp']:.5f}\n"
+                        f"Reason: {analysis['explanation']}"
+                    )
+                    print(alert_msg.replace("*", ""))
+                    telegram_bot.send_telegram_message(alert_msg)
 
-                        alert_msg = (
-                            f"📊 *New Trade Executed!*\n"
-                            f"Symbol: {symbol} ({decision})\n"
-                            f"Price: {res['price']:.5f}\n"
-                            f"Lot Size: {analysis['lot_size']}\n"
-                            f"SL: {analysis['sl']:.5f} | TP: {analysis['tp']:.5f}\n"
-                            f"Reason: {analysis['explanation']}"
-                        )
-                        print(alert_msg.replace("*", ""))
-                        telegram_bot.send_telegram_message(alert_msg)
-
-                        # Update active positions list to prevent duplicate trades in the same tick loop
-                        active_positions.append({
-                            'ticket': res['ticket'],
-                            'symbol': symbol,
-                            'direction': decision,
-                            'open_price': res['price'],
-                            'sl': analysis['sl'],
-                            'tp': analysis['tp'],
-                            'lot_size': analysis['lot_size']
-                        })
-                        # Recheck available limit
-                        trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
+                    active_positions.append({
+                        'ticket': res['ticket'],
+                        'symbol': symbol,
+                        'direction': decision,
+                        'open_price': res['price'],
+                        'sl': analysis['sl'],
+                        'tp': analysis['tp'],
+                        'lot_size': analysis['lot_size']
+                    })
+                    trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
 
         # Generate HTML Dashboard file with real and live data & indicators
         self._generate_html_dashboard(
