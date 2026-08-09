@@ -44,7 +44,7 @@ TRAILING_STOP_ENABLED = True       # Dynamic profit lock
 TRAILING_STOP_ATR_MULT = 1.5       # Trailing distance = 1.5 * ATR
 
 # 4. Strategy Selection and Tuning
-# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE", "BREAKOUT", "CARRY_TRADE", "GRID_TRADE"
+# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE", "BREAKOUT", "CARRY_TRADE", "GRID_TRADE", "STAT_ARB", "ORB", "VSA"
 ACTIVE_STRATEGY = "VOTING_ENSEMBLE"
 
 # Supported active trading styles: "SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING"
