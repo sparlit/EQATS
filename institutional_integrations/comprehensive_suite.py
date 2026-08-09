@@ -294,6 +294,7 @@ def integrate_great_expectations():
     """Enforces mathematical assertions and validation checks on incoming price feeds using Great Expectations."""
     try:
         import great_expectations as ge
+        import pandas as pd
         df = ge.from_pandas(pd.DataFrame({"price": [1.1, 1.2]}))
         res = df.expect_column_values_to_be_between("price", 0.1, 10.0)
         return {"status": "ACTIVE", "validation_success": res.success, "engine": "GREAT_EXPECTATIONS"}
