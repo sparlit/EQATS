@@ -35,6 +35,10 @@ class AutonomousScalper:
         # Thread-safe execution lock to prevent order collisions
         self.trade_lock = threading.Lock()
 
+        # Instantiate premium Autonomous decision & strategy engine!
+        import institutional_integrations as ii
+        self.quantum_auto_engine = ii.QuantumAutoEngine()
+
         # Track total starting balance of the day for Drawdown calculations
         self.daily_start_balance = 0.0
         self.last_day_str = ""
@@ -785,6 +789,18 @@ class AutonomousScalper:
                     "status": f"ACTIVE ({trade_info['direction']} Ticket {trade_info['ticket']})"
                 })
                 continue
+
+            # Autonomously select optimal trading style and strategy dynamically first!
+            try:
+                closes_hist = [b['close'] for b in history]
+                highs_hist = [b['high'] for b in history]
+                lows_hist = [b['low'] for b in history]
+                opt_style, opt_strat = self.quantum_auto_engine.determine_optimal_style_and_strategy(
+                    symbol, closes_hist, highs_hist, lows_hist
+                )
+                print(f"🔮 AUTONOMOUS DECISION: Dynamically selected optimal Style={opt_style} | Strategy={opt_strat} for {symbol} based on statistical regimes & external scraper research.")
+            except Exception as e:
+                print(f"Warning: Autonomous style/strategy selection error: {e}")
 
             # Get latest tick price details to execute spread filters
             price_info = self.conn.get_current_price(symbol)
