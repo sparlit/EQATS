@@ -126,6 +126,60 @@ class ScalperBrain:
         else:
             reasons_mac.append("MACD neutral")
 
+        # 4. EVALUATE STRATEGY 4: BREAKOUT (Donchian Channels + Bollinger Squeeze)
+        sig_bo = "HOLD"
+        reasons_bo = []
+        donchian = indicators.calculate_donchian_channels(highs, lows, config.BREAKOUT_PERIOD)
+        squeeze = indicators.calculate_bollinger_squeeze(closes, config.BB_PERIOD, config.BB_STD_DEV)
+
+        if donchian and squeeze is not None:
+            # Squeeze is active if bandwidth is tight
+            is_squeezed = squeeze < 0.04
+            if is_squeezed:
+                # Squeeze breakout setup
+                if current_price >= donchian['upper']:
+                    sig_bo = "BUY"
+                elif current_price <= donchian['lower']:
+                    sig_bo = "SELL"
+                else:
+                    reasons_bo.append(f"Inside Squeeze Channel [{donchian['lower']:.5f} - {donchian['upper']:.5f}]")
+            else:
+                reasons_bo.append(f"Bandwidth too high: {squeeze:.3f}")
+        else:
+            reasons_bo.append("Breakout indicators unavailable")
+
+        # 5. EVALUATE STRATEGY 5: CARRY_TRADE (Rollover / Interest Yield Arbitrage)
+        sig_cy = "HOLD"
+        reasons_cy = []
+        swap_val = config.SWAP_LONG_POINTS.get(symbol.upper(), 0.0)
+
+        if abs(swap_val) >= config.MIN_CARRY_YIELD_POINTS:
+            if swap_val > 0 and trend_direction == "UP" and rsi_val <= 60:
+                sig_cy = "BUY"
+            elif swap_val < 0 and trend_direction == "DOWN" and rsi_val >= 40:
+                sig_cy = "SELL"
+            else:
+                reasons_cy.append(f"Trend/RSI divergence with swap {swap_val:+.1f}")
+        else:
+            reasons_cy.append(f"Carry yield {swap_val:+.1f} below minimum {config.MIN_CARRY_YIELD_POINTS}")
+
+        # 6. EVALUATE STRATEGY 6: GRID_TRADE (Cost-Averaging Matrix)
+        sig_gd = "HOLD"
+        reasons_gd = []
+        # Query active open positions for cost average spacing checks
+        try:
+            recent_assessments = database.get_recent_performance(count=1)
+            # GRID rules will be evaluated by looking at active positions inside main execution loop
+            # Here we provide grid bias triggers based on Bollinger outer bounds
+            if rsi_val <= 40:
+                sig_gd = "BUY"
+            elif rsi_val >= 60:
+                sig_gd = "SELL"
+            else:
+                reasons_gd.append("RSI too neutral for grid bias placement")
+        except Exception:
+            sig_gd = "HOLD"
+
         # Choose the dynamic trading setup based on user's active strategy configuration
         strategy_mode = config.ACTIVE_STRATEGY
         decision = "HOLD"
@@ -140,12 +194,21 @@ class ScalperBrain:
         elif strategy_mode == "MACD_MOMENTUM":
             decision = sig_mac
             explanation = f"MACD Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_mac)}"
+        elif strategy_mode == "BREAKOUT":
+            decision = sig_bo
+            explanation = f"Breakout Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_bo)}"
+        elif strategy_mode == "CARRY_TRADE":
+            decision = sig_cy
+            explanation = f"Carry Trade: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_cy)}"
+        elif strategy_mode == "GRID_TRADE":
+            decision = sig_gd
+            explanation = f"Grid Placement Bias: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_gd)}"
         else: # VOTING_ENSEMBLE
-            votes = [sig_tf, sig_mr, sig_mac]
+            votes = [sig_tf, sig_mr, sig_mac, sig_bo, sig_cy]
             buy_votes = votes.count("BUY")
             sell_votes = votes.count("SELL")
 
-            if buy_votes >= 2 and sell_votes == 0:
+            if buy_votes >= 3 and sell_votes == 0:
                 # Blindspot Protection: Filter Buy if AI next-candle is bearish
                 if ai_pred_direction == "BULLISH":
                     decision = "BUY"
@@ -153,7 +216,7 @@ class ScalperBrain:
                 else:
                     decision = "HOLD"
                     explanation = f"Technical BUY consensus withheld: AI Next-Candle Bearish mismatch ({ai_accuracy}% acc)."
-            elif sell_votes >= 2 and buy_votes == 0:
+            elif sell_votes >= 3 and buy_votes == 0:
                 # Blindspot Protection: Filter Sell if AI next-candle is bullish
                 if ai_pred_direction == "BEARISH":
                     decision = "SELL"
@@ -163,13 +226,29 @@ class ScalperBrain:
                     explanation = f"Technical SELL consensus withheld: AI Next-Candle Bullish mismatch ({ai_accuracy}% acc)."
             else:
                 decision = "HOLD"
-                explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac}) | AI: {ai_pred_direction} ({ai_accuracy}% acc)"
+                explanation = f"Voting: Hold. (Trend: {sig_tf} | Reversion: {sig_mr} | MACD: {sig_mac} | Breakout: {sig_bo} | Carry: {sig_cy}) | AI: {ai_pred_direction} ({ai_accuracy}% acc)"
 
         # Dynamic Stop Loss and Take Profit with Volatility-Adaptive Profit Multiples
         sl = 0.0
         tp = 0.0
         lot_size = 0.0
-        sl_distance = max(atr_val * config.ATR_MULTIPLIER_SL, current_price * 0.0005)
+
+        # ADAPT ATR MULTIPLIER AND HOLDING RATIO BY ACTIVE TRADING STYLE!
+        style_mode = config.TRADING_STYLE
+        style_multiplier = 1.5  # SCALPING base
+        style_target_rr = config.RISK_REWARD_RATIO
+
+        if style_mode == "DAY_TRADING":
+            style_multiplier = 2.5
+            style_target_rr = 2.0
+        elif style_mode == "SWING_TRADING":
+            style_multiplier = 4.0
+            style_target_rr = 3.0
+        elif style_mode == "POSITION_TRADING":
+            style_multiplier = 6.0
+            style_target_rr = 4.5
+
+        sl_distance = max(atr_val * style_multiplier, current_price * 0.0010)
 
         # Calculate a baseline ATR to adapt Take Profit ratio
         baseline_atr = sum(indicators.calculate_atr(highs[:i], lows[:i], closes[:i], config.ATR_PERIOD) or atr_val for i in range(len(closes) - 20, len(closes))) / 20.0
@@ -178,11 +257,11 @@ class ScalperBrain:
 
         # Volatility adaptation multiplier
         volatility_ratio = atr_val / baseline_atr if baseline_atr > 0 else 1.0
-        adaptive_rr = config.RISK_REWARD_RATIO
+        adaptive_rr = style_target_rr
         if volatility_ratio > 1.2:
-            adaptive_rr = 2.5  # Heavy trend: scale up targets
+            adaptive_rr = style_target_rr * 1.25  # Heavy trend: scale up targets
         elif volatility_ratio < 0.8:
-            adaptive_rr = 1.5  # Consolidating/Quiet: pull targets in closer for high-probability win exits
+            adaptive_rr = style_target_rr * 0.75  # Consolidating/Quiet: pull targets in closer for high-probability win exits
 
         if decision == "BUY":
             sl = current_price - sl_distance

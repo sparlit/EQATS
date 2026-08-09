@@ -44,8 +44,33 @@ TRAILING_STOP_ENABLED = True       # Dynamic profit lock
 TRAILING_STOP_ATR_MULT = 1.5       # Trailing distance = 1.5 * ATR
 
 # 4. Strategy Selection and Tuning
-# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE"
+# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE", "BREAKOUT", "CARRY_TRADE", "GRID_TRADE"
 ACTIVE_STRATEGY = "VOTING_ENSEMBLE"
+
+# Supported active trading styles: "SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING"
+TRADING_STYLE = "SCALPING"
+
+# --- BREAKOUT STRATEGY CONFIG ---
+BREAKOUT_PERIOD = 20                # Lookback period for Donchian Channel breakout detection
+SQUEEZE_RSI_MAX = 60                # Upper RSI limit for breakout squeeze filtering
+SQUEEZE_RSI_MIN = 40                # Lower RSI limit for breakout squeeze filtering
+
+# --- CARRY TRADE CONFIG ---
+# Estimated simulated dynamic Swap/Rollover yield points (favors positive yield assets)
+SWAP_LONG_POINTS = {
+    "USDJPY": 12.5,   # High positive carry for buy
+    "EURUSD": -4.2,   # Negative carry
+    "GBPUSD": -3.1,
+    "AUDUSD": 4.5,    # Positive carry
+    "XAUUSD": -18.5,  # High negative storage fee
+    "BTCUSD": 0.0,
+    "ETHUSD": 0.0
+}
+MIN_CARRY_YIELD_POINTS = 2.0       # Minimum positive swap points required to allow positive-carry bias trade
+
+# --- GRID TRADE CONFIG ---
+GRID_MAX_LEVELS = 5                # Max buy/sell layers in the grid matrix
+GRID_SPACING_ATR_MULT = 1.2        # Spacing interval between grid layers expressed as a multiplier of ATR
 
 # EMA / Trend / Pullback Strategy Parameters
 EMA_LONG_PERIOD = 200              # Long-term trend filter

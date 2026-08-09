@@ -184,3 +184,29 @@ def calculate_pivot_points(high, low, close):
         'r2': r2,
         's2': s2
     }
+
+def calculate_donchian_channels(highs, lows, period=20):
+    """
+    Calculates Donchian Channels (highest high and lowest low over the lookback period).
+    Returns dict: { 'upper': float, 'lower': float } or None.
+    """
+    if len(highs) < period or len(lows) < period:
+        return None
+
+    upper = max(highs[-period:])
+    lower = min(lows[-period:])
+    return {
+        'upper': upper,
+        'lower': lower
+    }
+
+def calculate_bollinger_squeeze(prices, period=20, num_std=2.0):
+    """
+    Calculates Bollinger Band Width as a ratio to evaluate squeeze conditions.
+    Formula: (Upper Band - Lower Band) / Middle Band
+    Returns float or None.
+    """
+    bb = calculate_bollinger_bands(prices, period, num_std)
+    if bb is None or bb['middle'] == 0:
+        return None
+    return (bb['upper'] - bb['lower']) / bb['middle']
