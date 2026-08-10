@@ -13,3 +13,5 @@ from .advanced_math import evaluate_black_scholes_option_pricing, calculate_mark
 from .rust_bridge import execute_high_speed_rust_order_send
 from .comprehensive_suite import *
 from .quantum_quantum_engine import QuantumAutoEngine
+from .brain_self_healer import QuantumSelfHealer
+from .go_gateway import start_go_concurrency_websocket_relay
