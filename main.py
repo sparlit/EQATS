@@ -219,67 +219,110 @@ class AutonomousScalper:
 
     def _get_sessions_timeline(self):
         """
-        Calculates real-time global trading session timelines, details active overlaps,
-        identifies the next upcoming session, and computes precise countdown clocks.
+        Comprehensive 24-Session Market Timeline Tracker.
+        Calculates 3 rows of data: Active, Previous, and Coming sessions with precise countdown timers.
         """
         now_gmt = datetime.datetime.now(datetime.timezone.utc)
+        weekday = now_gmt.weekday() # 0 = Monday, ..., 6 = Sunday
         hour = now_gmt.hour
         minute = now_gmt.minute
         second = now_gmt.second
 
-        # Definition of standard sessions (start_hour, end_hour, duration_hours)
-        sessions_def = {
-            "Tokyo": (0, 9, 9),
-            "London": (8, 17, 9),
-            "New York": (12, 21, 9)
+        # Definitions of all 24 specific Forex, Equity, Futures, and Crypto sessions
+        # Format: (start_hour_gmt, end_hour_gmt, category)
+        self.sessions_def = {
+            # 1. Forex Sessions
+            "Wellington FX": (20, 5, "Forex"),
+            "Sydney FX": (22, 7, "Forex"),
+            "Tokyo FX": (23, 8, "Forex"),
+            "Hong Kong FX": (1, 10, "Forex"),
+            "Singapore FX": (1, 10, "Forex"),
+            "Frankfurt FX": (6, 15, "Forex"),
+            "London FX": (7, 16, "Forex"),
+            "Zurich FX": (7, 15, "Forex"),
+            "New York FX": (12, 21, "Forex"),
+            # 2. Global Equity Sessions
+            "Sydney ASX": (0, 6, "Equity"),
+            "Tokyo TSE": (0, 6, "Equity"),
+            "Hong Kong HKEX": (1, 8, "Equity"),
+            "Shanghai SSE": (1, 7, "Equity"),
+            "Dubai DFM": (6, 11, "Equity"),
+            "Saudi Tadawul": (7, 12, "Equity"),
+            "Frankfurt Xetra": (7, 15, "Equity"),
+            "London LSE": (7, 15, "Equity"),
+            "Euronext Paris": (7, 15, "Equity"),
+            "Johannesburg JSE": (7, 15, "Equity"),
+            "São Paulo B3": (13, 20, "Equity"),
+            "Mexican BMV": (13, 20, "Equity"),
+            "US NYSE/NASDAQ": (13, 20, "Equity"),
+            # 3. US Extended Hours
+            "US Pre-Market": (8, 13, "Extended"),
+            "US After-Hours": (20, 0, "Extended"),
+            # 4. Futures & Commodities
+            "CME Futures": (22, 21, "Futures"),
+            "ICE Brent": (23, 22, "Futures"),
+            # 5. Digital Assets
+            "Crypto Markets": (0, 24, "Digital")
         }
 
         active = []
-        overlaps = []
-        upcoming_name = ""
-        upcoming_start = 0
+        previous = []
+        coming = []
 
-        # Determine active sessions
-        for name, (start, end, duration) in sessions_def.items():
-            if start <= hour < end:
+        is_weekend = (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21)
+
+        for name, (start, end, cat) in self.sessions_def.items():
+            # Check weekend blockades for non-crypto assets
+            if cat != "Digital" and is_weekend:
+                continue
+
+            # Determine if session is active standardly
+            is_active = False
+            if start < end:
+                if start <= hour < end:
+                    is_active = True
+            else: # Wraps past midnight
+                if hour >= start or hour < end:
+                    is_active = True
+
+            if is_active:
                 active.append(name)
             else:
-                # Find the next session standardly
-                if start > hour and (upcoming_name == "" or start < upcoming_start):
-                    upcoming_name = name
-                    upcoming_start = start
+                # Check if it was closed in the previous 4 hours
+                is_prev = False
+                prev_close = end
+                dist_closed = (hour - prev_close) % 24
+                if dist_closed <= 4:
+                    is_prev = True
 
-        # Fallback for upcoming if we are past all start hours (next is Tokyo at 00:00)
-        if upcoming_name == "":
-            upcoming_name = "Tokyo"
-            upcoming_start = 24
+                if is_prev:
+                    previous.append(name)
+                else:
+                    # Calculate countdown to coming opening
+                    dist_to_start = (start - hour) % 24
+                    coming.append((name, dist_to_start, start))
 
-        # Calculate overlap details
-        if "London" in active and "New York" in active:
-            overlaps.append("London + New York Overlap (12:00 - 17:00 GMT)")
-        if "Tokyo" in active and "London" in active:
-            overlaps.append("Tokyo + London Overlap (08:00 - 09:00 GMT)")
+        # Sort coming sessions by closest opening hour
+        coming = sorted(coming, key=lambda x: x[1])
 
-        # Calculate exact countdown timer to upcoming session (in seconds)
-        curr_seconds = (hour * 3600) + (minute * 60) + second
-        target_seconds = upcoming_start * 3600
-        diff_seconds = target_seconds - curr_seconds
+        # Formulate Coming rows with exact countdown timers
+        coming_str_list = []
+        for name, dist, start_h in coming[:5]:
+            seconds_to_start = (dist * 3600) - (minute * 60) - second
+            if seconds_to_start < 0:
+                seconds_to_start += 24 * 3600
 
-        countdown_str = "00:00:00"
-        if diff_seconds > 0:
-            h_cd = diff_seconds // 3600
-            m_cd = (diff_seconds % 3600) // 60
-            s_cd = diff_seconds % 60
-            countdown_str = f"{h_cd:02d}:{m_cd:02d}:{s_cd:02d}"
-
-        overlap_str = " & ".join(overlaps) if len(overlaps) > 0 else "No active overlap"
-        active_str = " + ".join(active) if len(active) > 0 else "Crypto Session"
+            h_cd = seconds_to_start // 3600
+            m_cd = (seconds_to_start % 3600) // 60
+            s_cd = seconds_to_start % 60
+            cd_timer = f"{h_cd:02d}:{m_cd:02d}:{s_cd:02d}"
+            coming_str_list.append(f"{name} ({cd_timer})")
 
         return {
-            "active": active_str,
-            "overlaps": overlap_str,
-            "next_session": upcoming_name,
-            "countdown": countdown_str
+            "active": " | ".join(active) if active else "No active sessions",
+            "previous": " | ".join(previous) if previous else "None",
+            "next_session": " | ".join(coming_str_list[:3]) if coming_str_list else "None",
+            "countdown": "Active Tracker"
         }
 
     def _get_session_symbols(self, active_session):
@@ -310,7 +353,7 @@ class AutonomousScalper:
         timeline = self._get_sessions_timeline()
 
         # Header line: equity|balance|active_count|active_session|overlaps|next_session|countdown
-        lines.append(f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{timeline['overlaps']}|{timeline['next_session']}|{timeline['countdown']}")
+        lines.append(f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{timeline['previous']}|{timeline['next_session']}|{timeline['countdown']}")
 
         # Open Positions Section
         for pos in active_positions:
@@ -482,9 +525,10 @@ class AutonomousScalper:
     <div class="container">
         <header>
             <h1>🤖 SCALPER BRAIN <span class="badge {'sim' if config.SIMULATION_MODE else ''}">{'SIMULATION MODE' if config.SIMULATION_MODE else 'MT5 LIVE/DEMO'}</span></h1>
-            <div style="text-align: right;">
-                <span class="status-badge active" style="background-color: #f97316; margin-right: 10px;">TIMELINE: {timeline['active']} (Overlaps: {timeline['overlaps']}) | Next: {timeline['next_session']} starts in {timeline['countdown']}</span>
-                <span class="status-badge active" style="background-color: #15803d;">AUTONOMOUS EXECUTION RUNNING</span>
+            <div style="text-align: right; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+                <span class="status-badge active" style="background-color: #00ff00; color: #000000; font-family: monospace; font-weight: bold;">[ACTIVE] {timeline['active']}</span>
+                <span class="status-badge hold" style="background-color: #555555; color: #ffffff; font-family: monospace; font-weight: bold;">[CLOSED <= 4H] {timeline['previous']}</span>
+                <span class="status-badge active" style="background-color: #ff9900; color: #000000; font-family: monospace; font-weight: bold;">[UPCOMING] {timeline['next_session']}</span>
             </div>
         </header>
 
