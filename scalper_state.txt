@@ -1,4 +1,4 @@
-10000.00|10000.00|0|New York Session|Frankfurt FX | London FX | Zurich FX | Frankfurt Xetra | London LSE | Euronext Paris | Johannesburg JSE|Wellington FX (00:43:04) | US After-Hours (00:43:04) | Sydney FX (02:43:04)|Active Tracker
+10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ | CME Futures|Sydney FX (00:52:57) | Tokyo FX (01:52:57) | Sydney ASX (02:52:57)|Active Tracker
 SCANS_HEADER
 EURUSD|1.10475|1.10209|UP|55.7|0.00302|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09471 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
 GBPUSD|1.33180|1.32186|UP|46.8|0.00374|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32384 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
