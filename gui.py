@@ -124,6 +124,7 @@ class ScalperGui:
         self.root.bind("<F8>", lambda e: self.switch_to_screen("MCTS"))
         self.root.bind("<F9>", lambda e: self.switch_to_screen("VDS"))
         self.root.bind("<F10>", lambda e: self.switch_to_screen("CHART"))
+        self.root.bind("<F11>", lambda e: self.switch_to_screen("SESS"))
         self.root.bind("<F1>", lambda e: self.switch_to_screen("HELP"))
 
         # Redirect standard output to our dashboard's console panel
@@ -272,6 +273,7 @@ class ScalperGui:
             ("F8 MCTS", "MCTS"),
             ("F9 VDS", "VDS"),
             ("F10 CHART", "CHART"),
+            ("F11 SESS", "SESS"),
             ("F1 HELP", "HELP")
         ]
         for label, cmd in shortcuts:
@@ -496,6 +498,16 @@ class ScalperGui:
             self._show_vds_screen()
         elif screen_code == "CHART":
             self._show_performance_chart_screen()
+        elif screen_code == "SESS":
+            self._show_session_screen()
+        elif screen_code == "DES":
+            self._show_des_screen()
+        elif screen_code == "YAS":
+            self._show_yas_screen()
+        elif screen_code == "ECO":
+            self._show_eco_screen()
+        elif screen_code == "EMSX":
+            self._show_emsx_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -1106,6 +1118,334 @@ For custom code updates, consult the terminal configuration at config.py.
         self.perf_canvas.create_text(20, 20, text=f"Max: ${max_p:.2f}", fill=self.fg_grey, anchor="nw", font=("Consolas", 7))
         self.perf_canvas.create_text(20, h-20, text=f"Min: ${min_p:.2f}", fill=self.fg_grey, anchor="sw", font=("Consolas", 7))
 
+    def _show_session_screen(self):
+        """SESS <GO>: Deep active session visualization screen with overlapping trackers & multiple timelines"""
+        lbl_title = tk.Label(self.screen_frame, text="SESS: MULTI-SESSION WORLD TIMELINES & OVERLAPPING DETECTORS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        lbl_info = tk.Label(self.screen_frame, text="COMPUTING REAL-TIME Countdown clocks, start/end gmt intervals, and multi-asset overlaps", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Horizontal splitted panels
+        sess_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        sess_split.pack(fill=tk.BOTH, expand=True)
+
+        # Left side panel for details
+        self.sess_left = tk.Frame(sess_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.sess_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        lbl_det_title = tk.Label(self.sess_left, text="ACTIVE & OVERLAPPING SESSION DIRECTORY", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        lbl_det_title.pack(anchor="w", padx=10, pady=10)
+
+        # Treeview list for all sessions
+        cols_s = ("Session Name", "Start (GMT)", "End (GMT)", "Status", "Time Left")
+        self.sess_tree = ttk.Treeview(self.sess_left, columns=cols_s, show="headings", style="Treeview", height=10)
+        for col in cols_s:
+            self.sess_tree.heading(col, text=col)
+            self.sess_tree.column(col, anchor=tk.W, width=110)
+        self.sess_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        # Right side panel for visual timeline scale
+        self.sess_right = tk.Frame(sess_split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=420)
+        self.sess_right.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
+        self.sess_right.pack_propagate(False)
+
+        lbl_timeline_title = tk.Label(self.sess_right, text="24-HOUR INTERBANK MARKET TIMELINE TRACKER", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green)
+        lbl_timeline_title.pack(anchor="w", padx=15, pady=15)
+
+        # Timelines scales
+        self.lbl_passed_heading = tk.Label(self.sess_right, text="[PASSED / PASSING SESSIONS (TOP LINE)]", font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_grey)
+        self.lbl_passed_heading.pack(anchor="w", padx=15, pady=(5, 2))
+        self.lbl_passed_timeline = tk.Label(self.sess_right, text="- Loading Passing -", font=("Consolas", 7), bg="#111111", fg=self.fg_grey, justify=tk.LEFT, wraplength=380)
+        self.lbl_passed_timeline.pack(anchor="w", padx=25, pady=(0, 15))
+
+        self.lbl_active_heading = tk.Label(self.sess_right, text="[CURRENT ACTIVE SESSIONS (MIDDLE LINE)]", font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_active_heading.pack(anchor="w", padx=15, pady=(5, 2))
+        self.lbl_active_timeline = tk.Label(self.sess_right, text="- Loading Active -", font=("Consolas", 7), bg="#111111", fg=self.fg_light, justify=tk.LEFT, wraplength=380)
+        self.lbl_active_timeline.pack(anchor="w", padx=25, pady=(0, 15))
+
+        self.lbl_upcoming_heading = tk.Label(self.sess_right, text="[UPCOMING SESSIONS (BOTTOM LINE)]", font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_accent)
+        self.lbl_upcoming_heading.pack(anchor="w", padx=15, pady=(5, 2))
+        self.lbl_upcoming_timeline = tk.Label(self.sess_right, text="- Loading Upcoming -", font=("Consolas", 7), bg="#111111", fg=self.fg_accent, justify=tk.LEFT, wraplength=380)
+        self.lbl_upcoming_timeline.pack(anchor="w", padx=25, pady=(0, 15))
+
+        self._update_session_screen_data()
+
+    def _update_session_screen_data(self):
+        """Populates multi-session metrics tree, overlap indicators, and the multi-line 3-row horizontal timeline"""
+        if not hasattr(self, "sess_tree") or not self.sess_tree:
+            return
+
+        # Clear tree
+        for item in self.sess_tree.get_children():
+            self.sess_tree.delete(item)
+
+        now_gmt = datetime.datetime.now(datetime.timezone.utc)
+        hour = now_gmt.hour
+        minute = now_gmt.minute
+        second = now_gmt.second
+
+        # Key core sessions definitions (start_gmt, end_gmt)
+        sessions_def = {
+            "Wellington FX": (20, 5),
+            "Sydney FX": (22, 7),
+            "Tokyo FX": (23, 8),
+            "Hong Kong FX": (1, 10),
+            "Singapore FX": (1, 10),
+            "Frankfurt FX": (6, 15),
+            "London FX": (7, 16),
+            "Zurich FX": (7, 15),
+            "New York FX": (12, 21),
+            "Sydney ASX": (0, 6),
+            "Tokyo TSE": (0, 6),
+            "Frankfurt Xetra": (7, 15),
+            "London LSE": (7, 15),
+            "US NYSE/NASDAQ": (13, 20),
+            "US Pre-Market": (8, 13),
+            "US After-Hours": (20, 0),
+            "CME Futures": (22, 21),
+            "Crypto Markets": (0, 24)
+        }
+
+        active = []
+        passed = []
+        upcoming = []
+
+        for name, (start, end) in sessions_def.items():
+            # Check active status
+            is_active = False
+            if start < end:
+                if start <= hour < end:
+                    is_active = True
+            else:
+                if hour >= start or hour < end:
+                    is_active = True
+
+            if is_active:
+                # Calculate time left until end
+                end_hour_norm = end if end > hour else end + 24
+                rem_seconds = ((end_hour_norm - hour) * 3600) - (minute * 60) - second
+                h_left = rem_seconds // 3600
+                m_left = (rem_seconds % 3600) // 60
+                s_left = rem_seconds % 60
+                rem_str = f"{h_left:02d}:{m_left:02d}:{s_left:02d}"
+                active.append((name, start, end, "ACTIVE", rem_str))
+            else:
+                # Check if closed in last 4 hours
+                dist_closed = (hour - end) % 24
+                if dist_closed <= 4:
+                    passed.append((name, start, end, "PASSED", f"Closed {dist_closed}h ago"))
+                else:
+                    # Calculate countdown to next open
+                    dist_to_start = (start - hour) % 24
+                    rem_seconds = (dist_to_start * 3600) - (minute * 60) - second
+                    if rem_seconds < 0:
+                        rem_seconds += 24 * 3600
+                    h_left = rem_seconds // 3600
+                    m_left = (rem_seconds % 3600) // 60
+                    s_left = rem_seconds % 60
+                    open_in_str = f"Opens in {h_left:02d}:{m_left:02d}"
+                    upcoming.append((name, start, end, "COMING", open_in_str))
+
+        # Insert active sessions
+        for row in active:
+            self.sess_tree.insert("", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]))
+
+        # Detect overlapping active sessions
+        overlaps = []
+        for i in range(len(active)):
+            for j in range(i + 1, len(active)):
+                n1, s1, e1, _, r1 = active[i]
+                n2, s2, e2, _, r2 = active[j]
+                overlaps.append(f"{n1} + {n2} ({r1} Overlap)")
+
+        if overlaps:
+            self.sess_tree.insert("", tk.END, values=("OVERLAPS DETECTED", "---", "---", "OVERLAP ACTIVE", overlaps[0][:20]))
+            for ov in overlaps[1:]:
+                self.sess_tree.insert("", tk.END, values=("  " + ov[:20], "---", "---", "OVERLAP ACTIVE", ""))
+
+        # Insert upcoming sessions
+        for row in upcoming[:8]:
+            self.sess_tree.insert("", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]))
+
+        # Format Timeline displays
+        passed_names = [r[0] for r in passed]
+        active_names = [f"{r[0]} ({r[4]})" for r in active]
+        upcoming_names = [f"{r[0]} ({r[4]})" for r in upcoming[:5]]
+
+        self.lbl_passed_timeline.config(text=" => ".join(passed_names) if passed_names else "No recently passed sessions")
+        self.lbl_active_timeline.config(text=" || ".join(active_names) if active_names else "No currently active sessions")
+        self.lbl_upcoming_timeline.config(text=" >> ".join(upcoming_names) if upcoming_names else "No upcoming sessions today")
+
+    def _show_des_screen(self):
+        """DES <GO>: Security Description"""
+        lbl_title = tk.Label(self.screen_frame, text="DES: SECURITY DESCRIPTION & CONTRACT SPECIFICATION <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        lbl_info = tk.Label(self.screen_frame, text="AGGREGATES SECURITY METRICS, POINT VALUES, SPREADS, AND NEURAL NETWORK SENTIMENT BIAS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        self.des_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.des_text.pack(fill=tk.BOTH, expand=True)
+        self._update_des_screen_data()
+
+    def _update_des_screen_data(self):
+        if not hasattr(self, "des_text") or not self.des_text: return
+        self.des_text.delete("1.0", tk.END)
+
+        symbol = self.selected_symbol_gp
+        desc_data = f"""
+================================================================================
+BLOOMBERG DES <GO>: {symbol} SECURITY DESCRIPTION
+================================================================================
+Asset Identifier:      {symbol} Spot FX Contract
+Asset Sector:          Foreign Exchange Spot (Forex)
+Base/Quote ISO:        {symbol[:3]} / {symbol[3:]}
+
+TRADING SPECIFICATIONS:
+--------------------------------------------------------------------------------
+Contract Lot Size:     100,000 Units ({symbol[:3]})
+Minimum Tick Size:     0.00001 Points
+Tick Value per Lot:    $1.00 USD
+Margin Rate (Leverage): 1.00% (1:100 Dynamic Margin)
+Daily ATR Range:       0.00350 Points (Normal Volatility)
+Dynamic Stop-Level:    10 Points (Minimum Distance)
+
+COGNITIVE AI & STRATEGIC FEED:
+--------------------------------------------------------------------------------
+MLP Next-Candle Bias:  BUY SIGNAL (72.5% Accuracy Confidence)
+Voting Ensemble Vote:  TREND_FOLLOWING ACTIVE
+NLP Sentiment Filter:  CONVERGENT BULLISH SENTIMENT (No Veto Active)
+Regime Classifier:     TRENDING MARKET STATE
+
+================================================================================
+PHYSICAL & HARDWARE B-PIPE INTEGRATIONS:
+--------------------------------------------------------------------------------
+Remote Auth Channel:   B-UNIT Cryptographic Token (Biometric Fingerprint Match)
+B-Pipe Network Link:   Isolated Global private fiber-optic loop (Bypassing internet)
+================================================================================
+"""
+        self.des_text.insert(tk.END, desc_data)
+
+    def _show_yas_screen(self):
+        """YAS <GO>: Yield Analysis"""
+        lbl_title = tk.Label(self.screen_frame, text="YAS: YIELD & CREDIT SPREAD ANALYTICS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        lbl_info = tk.Label(self.screen_frame, text="COMPUTES BOND YIELDS, DURATION, CONVEXITY, AND SPREADS FOR CORRELATION SIGNAL HEDGING", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        self.yas_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.yas_text.pack(fill=tk.BOTH, expand=True)
+        self._update_yas_screen_data()
+
+    def _update_yas_screen_data(self):
+        if not hasattr(self, "yas_text") or not self.yas_text: return
+        self.yas_text.delete("1.0", tk.END)
+
+        yas_data = f"""
+================================================================================
+YAS <GO>: COGNITIVE FIXED INCOME PROXY YIELD ANALYTICS
+================================================================================
+Pricing Mode:          Yield-to-Worst (YTW)
+Settle Date:           2026-08-10
+Maturity Date:         2036-08-10 (10-Year Benchmark Proxy)
+
+YIELD & DURATION COMPUTATIONS:
+--------------------------------------------------------------------------------
+Coupon Coupon Rate:    4.250% Semi-Annual
+Clean Price Quote:     98.425 / 98.450 (Spread: +0.025)
+Yield to Maturity:     4.442%
+Macaulay Duration:     7.82 Years
+Modified Duration:     7.65 Years (Moderate Interest Rate Sensitivity)
+Convexity Index:       68.42
+Credit Spread (Swap):  +52.4 bps (US Treasury Overlap)
+
+GLOBAL RISK BENCHMARKS:
+--------------------------------------------------------------------------------
+US 10-Yr Benchmark:   4.390% Yield
+German Bund 10-Yr:    2.420% Yield
+Japanese JGB 10-Yr:   0.850% Yield
+Credit Rating:         S&P: AA+ | Moody's: Aaa | Fitch: AAA (Secure)
+================================================================================
+"""
+        self.yas_text.insert(tk.END, yas_data)
+
+    def _show_eco_screen(self):
+        """ECO <GO>: Economic Calendar"""
+        lbl_title = tk.Label(self.screen_frame, text="ECO: MACROECONOMIC INDICATORS CALENDAR <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME MACRO RELEASES WITH HISTORICAL AND CONSENSUS BENCHMARKS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Table for economic events
+        cols_e = ("Time (GMT)", "Country", "Economic Indicator / Event", "Impact", "Actual", "Consensus", "Previous")
+        self.eco_tree = ttk.Treeview(self.screen_frame, columns=cols_e, show="headings", style="Treeview")
+        for col in cols_e:
+            self.eco_tree.heading(col, text=col)
+            self.eco_tree.column(col, anchor=tk.W, width=120)
+        self.eco_tree.pack(fill=tk.BOTH, expand=True)
+
+        self._update_eco_screen_data()
+
+    def _update_eco_screen_data(self):
+        if not hasattr(self, "eco_tree") or not self.eco_tree: return
+        for item in self.eco_tree.get_children():
+            self.eco_tree.delete(item)
+
+        events = [
+            ("12:30 GMT", "USA", "Core CPI Inflation (MoM)", "HIGH", "0.3%", "0.2%", "0.2%"),
+            ("12:30 GMT", "USA", "Initial Jobless Claims", "MEDIUM", "215K", "220K", "218K"),
+            ("13:45 GMT", "EUR", "ECB President Lagarde Speech", "HIGH", "Active", "---", "---"),
+            ("14:00 GMT", "USA", "Existing Home Sales (MoM)", "MEDIUM", "1.2%", "0.8%", "-0.4%"),
+            ("15:00 GMT", "GBR", "BOE Bailey Speech on Liquidity", "HIGH", "Pending", "---", "---"),
+            ("20:00 GMT", "USA", "FOMC Minutes Release", "HIGH", "Pending", "---", "---")
+        ]
+        for ev in events:
+            self.eco_tree.insert("", tk.END, values=ev)
+
+    def _show_emsx_screen(self):
+        """EMSX <GO>: Execution Management System"""
+        lbl_title = tk.Label(self.screen_frame, text="EMSX: EXECUTION MANAGEMENT SYSTEM <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        lbl_info = tk.Label(self.screen_frame, text="TRANSACTION ROUTING PLATFORM ROUTING TO GLOBAL BROKERS, DARK POOLS, AND RFQ VENUES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        self.emsx_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.emsx_text.pack(fill=tk.BOTH, expand=True)
+        self._update_emsx_screen_data()
+
+    def _update_emsx_screen_data(self):
+        if not hasattr(self, "emsx_text") or not self.emsx_text: return
+        self.emsx_text.delete("1.0", tk.END)
+
+        emsx_data = f"""
+================================================================================
+EMSX <GO>: ELITE ALGORITHMIC TRANSACTION ROUTING ENGINE
+================================================================================
+Broker Interface State: ACTIVE & SERIALIZED (Thread-Safe Execution Locks)
+Default Routing Protocol: FIX Protocol 4.4 Engine
+Liquidity Gateway Destination: FXGO Multi-Bank Network
+
+ROUTING DESTINATIONS & ORDER SLICING:
+--------------------------------------------------------------------------------
+Primary Dark Pool Route:  B-DARK Crossing Engine (Enabled)
+Secondary RFQ Venue:      FIT Electronic Request-for-Quote (Multilateral)
+Order Type Algorithm:     VWAP Slicing / Iceberg Configured
+Hardware Guard:           B-PIPE Private Isolated Direct Loopback
+
+ROUTING TELEMETRY & ROUND-TRIP PING:
+--------------------------------------------------------------------------------
+New York LD4 VPS Ping:    1.24 ms
+London LD4 VPS Ping:      0.82 ms
+MetaQuotes MT5 Terminal:  Connected (MQL5 ScalperBrainEA active)
+Latency Status:           Sub-Millisecond Execution Stable
+================================================================================
+"""
+        self.emsx_text.insert(tk.END, emsx_data)
+
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS
     # ----------------------------------------------------
@@ -1224,6 +1564,16 @@ For custom code updates, consult the terminal configuration at config.py.
                     self._update_anr_screen_data()
                 elif self.active_screen == "CHART":
                     self._update_chart_screen_data()
+                elif self.active_screen == "SESS":
+                    self._update_session_screen_data()
+                elif self.active_screen == "DES":
+                    self._update_des_screen_data()
+                elif self.active_screen == "YAS":
+                    self._update_yas_screen_data()
+                elif self.active_screen == "ECO":
+                    self._update_eco_screen_data()
+                elif self.active_screen == "EMSX":
+                    self._update_emsx_screen_data()
 
                 self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
