@@ -271,11 +271,48 @@ class MT5Connector(TradingConnector):
 
     def modify_order(self, ticket, sl, tp):
         import MetaTrader5 as mt5
+        # Fetch position info to get the symbol
+        positions = self.mt5.positions_get(ticket=int(ticket))
+        if not positions or len(positions) == 0:
+            return False
+
+        pos = positions[0]
+        symbol = pos.symbol
+        direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
+
+        info = mt5.symbol_info(symbol)
+        stops_level = info.trade_stops_level if info else 0
+        point = info.point if info else 0.00001
+
+        price_info = self.get_current_price(symbol)
+        curr_price = price_info['bid'] if direction == "BUY" else price_info['ask']
+
+        # Enforce minimum stop distance (add small 5 point safety buffer to be completely safe)
+        min_distance = (stops_level + 5) * point
+
+        # Adjust SL
+        if sl > 0:
+            if direction == "BUY":
+                if sl > curr_price - min_distance:
+                    sl = curr_price - min_distance
+            else: # SELL
+                if sl < curr_price + min_distance:
+                    sl = curr_price + min_distance
+
+        # Adjust TP
+        if tp > 0:
+            if direction == "BUY":
+                if tp < curr_price + min_distance:
+                    tp = curr_price + min_distance
+            else: # SELL
+                if tp > curr_price - min_distance:
+                    tp = curr_price - min_distance
+
         request = {
             "action": mt5.TRADE_ACTION_SLTP,
             "position": int(ticket),
-            "sl": float(sl),
-            "tp": float(tp),
+            "sl": float(round(sl, 5)),
+            "tp": float(round(tp, 5)),
         }
         result = self.mt5.order_send(request)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:

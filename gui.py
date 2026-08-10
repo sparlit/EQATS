@@ -100,6 +100,7 @@ class ScalperGui:
         self._build_header()
         self._build_command_bar()
         self._build_stats_ribbon()
+        self._build_session_timeline_panel()
 
         # Central switchable display frame
         self.screen_frame = tk.Frame(self.root, bg=self.bg_dark, padx=20, pady=5)
@@ -221,6 +222,35 @@ class ScalperGui:
                 command=lambda c=cmd: self.switch_to_screen(c)
             )
             btn.pack(side=tk.LEFT, padx=3)
+
+    def _build_session_timeline_panel(self):
+        """Builds a gorgeous, vibrant 3-row Bloomberg session timeline panel"""
+        self.timeline_frame = tk.Frame(self.root, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        self.timeline_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        # Row 1: Active
+        row_act = tk.Frame(self.timeline_frame, bg=self.bg_card)
+        row_act.pack(fill=tk.X, pady=2)
+        lbl_act_title = tk.Label(row_act, text="[ACTIVE SESSIONS]   >", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_green, width=22, anchor="w")
+        lbl_act_title.pack(side=tk.LEFT)
+        self.lbl_act_val = tk.Label(row_act, text="No active sessions", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#ffffff", anchor="w")
+        self.lbl_act_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Row 2: Closed
+        row_cls = tk.Frame(self.timeline_frame, bg=self.bg_card)
+        row_cls.pack(fill=tk.X, pady=2)
+        lbl_cls_title = tk.Label(row_cls, text="[CLOSED <= 4H]     >", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_grey, width=22, anchor="w")
+        lbl_cls_title.pack(side=tk.LEFT)
+        self.lbl_cls_val = tk.Label(row_cls, text="None", font=("Consolas", 9), bg=self.bg_card, fg=self.fg_grey, anchor="w")
+        self.lbl_cls_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Row 3: Upcoming
+        row_upc = tk.Frame(self.timeline_frame, bg=self.bg_card)
+        row_upc.pack(fill=tk.X, pady=2)
+        lbl_upc_title = tk.Label(row_upc, text="[UPCOMING SESSIONS] >", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_accent, width=22, anchor="w")
+        lbl_upc_title.pack(side=tk.LEFT)
+        self.lbl_upc_val = tk.Label(row_upc, text="None", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_accent, anchor="w")
+        self.lbl_upc_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     def _build_stats_ribbon(self):
         """Card grid displaying account statistics"""
@@ -960,7 +990,11 @@ For custom code updates, consult the terminal configuration at config.py.
 
                 # Fetch active trading session and timeline countdown details
                 timeline = self.scalper._get_sessions_timeline()
-                session_str = f"{timeline['active']} (Next: {timeline['next_session']} in {timeline['countdown']})"
+                self.lbl_act_val.config(text=timeline['active'])
+                self.lbl_cls_val.config(text=timeline['previous'])
+                self.lbl_upc_val.config(text=timeline['next_session'])
+
+                session_str = f"{timeline['active'].split('|')[0]} (Tracker Active)"
                 self.card_session.config(text=session_str)
 
                 # Route updating depending on which panel screen is active
