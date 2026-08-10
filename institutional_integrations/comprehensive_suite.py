@@ -127,7 +127,10 @@ def integrate_click():
 def integrate_cupy():
     """Performs GPU-accelerated array math operations using CuPy."""
     try:
-        import cupy as cp
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            import cupy as cp
         x = cp.array([1, 2, 3])
         return {"status": "ACTIVE", "gpu_sum": float(x.sum()), "engine": "CUPY"}
     except Exception:
