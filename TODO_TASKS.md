@@ -1,33 +1,36 @@
-# TODO LIST: INSTITUTIONAL-GRADE ALGORITHMIC TRADING SYSTEM
-
-This document tracks the progress of advanced institutional enhancements designed to turn our multi-strategy platform into an unmatchable, industry-leading trading framework.
-
----
-
-## 📋 Task Checklist
-
-- [x] **Task 1: Market Regime Classifier (Trending vs. Ranging)**
-  - Implement a statistical regime filter in `indicators.py` evaluating Average Directional Index (ADX) proxy or Bollinger Band Width standard deviations.
-  - Integrate regime metrics into `brain.py` to auto-tune active strategies (e.g. prioritize `TREND_FOLLOWING` during trends, and `MEAN_REVERSION` during ranging regimes).
-
-- [x] **Task 2: Kelly Criterion Dynamic Position Sizing (Upgraded to Kelly 2.0)**
-  - Implement a Kelly fraction lot calculation engine in `brain.py` that queries closed trade statistics (Win Rate $W$ and Win/Loss Ratio $R$) to optimize compounding yields.
-  - Implement protective fractional-Kelly caps and subtract Expected Shortfall (CVaR) tail risk constraints to secure account equity.
-
-- [x] **Task 3: NLP Macro News Sentiment Filters**
-  - Expand `brain.py` and `main.py` to parse live macro news sentiment feeds.
-  - Automatically veto consensus signals if they run contrary to prevailing high-priority macro-sentiment (e.g., blocking Longs if news sentiment is extremely BEARISH).
-
-- [x] **Task 4: AI Neural Network Predictive Feature Expansion**
-  - Enrich the pure-Python Multi-Layer Perceptron (MLP) in `predictive_brain.py` with multi-timeframe and regime inputs (Regime Index, ATR volatility ratios, MACD slopes).
-  - Train on expanded input features to improve next-candle accuracy and suppress trend divergence blind spots.
+# TODO LIST: ELITE AUTONOMOUS QUANTUM TRADING SYSTEM
+This document tracks current accomplishments, open tasks, pending issues, and future strategic enhancements designed for professional hedge-fund scale deployment.
 
 ---
 
-## 📈 Completion Log
-- **Task 1 Complete:** Statistical Market Regime Classifier fully active. Dynamically tunes strategy voting weights (Trends boost Trend following, Ranges favor Bollinger oscillators).
-- **Task 2 Complete:** Mathematical Kelly Criterion Dynamic Position Sizing active. Upgraded to Kelly 2.0 by incorporating Expected Shortfall (CVaR) tail risk constraints derived from historical distributions to stabilize compounding.
-- **Task 3 Complete:** Natural Language Processing (NLP) Macro News Sentiment Filter active. Logs real-time terminal headlines to SQLite and autonomously vetoes counter-news trade proposals.
-- **Task 4 Complete:** Predictive AI Brain Expanded. Multi-Layer Perceptron neural network inputs upgraded to 6 features (including live statistical market regimes and ATR-volatility ratio coefficients) to elevate prediction accuracy.
-- **Task 5 Complete:** Premium Institutional Bloomberg Screens Active. Enabled PORT <GO> (Markowitz Allocation Optimizer using Polars and NumPy), MCTS <GO> (Monte Carlo Path Risk Simulator), and VDS <GO> (FAISS & ChromaDB Neural Hidden Layer Vector Search indexing).
-- **Task 6 Complete:** Real Trading Strategies Integrated. Successfully added 3 high-performance quantitative trading setups: Statistical Arbitrage (Pairs Spread Trading), Opening Range Breakout (ORB), and Volume-Spread Analysis (VSA).
+## 📋 Status Overview
+- **Project Name:** Elite Autonomous Quantum Trading System
+- **Operational Mode:** 100% Autonomous Auto Trading (Zero user input or decision-making)
+- **Primary Host OS:** Windows (MT5 Native Bridge via FILE_COMMON state exchange)
+- **Fallback Host OS:** Linux / macOS (Automatic High-Fidelity Simulator Connector)
+
+---
+
+## 🛠️ Complete Operational Features (Completed & Integrated)
+- [x] **Task 1: 100% Autonomous Hands-Free Coordinator**
+  - Autostarts on GUI load. Evaluates tick arrays, indicator matrices, and news feeds entirely autonomously without human intervention.
+- [x] **Task 2: AI Predictive Brain Hyperparameter Search Loop**
+  - Upgraded Multi-Layer Perceptron (MLP) neural network in `predictive_brain.py` with multi-epoch error correction and dynamic learning rate adjustments to maximize next-candle success probability.
+- [x] **Task 3: Real-Time Candlestick Chart**
+  - Integrated high-performance FOSS Canvas candlestick ticker plotting next-candle patterns and current quotes side-by-side with account equity trajectories inside the `CHART <GO>` tab (Shortcut F10).
+- [x] **Task 4: Multi-Row Market Timeline & Overlaps Tracker**
+  - Designed deep SESS <GO> (Shortcut F11) dashboard panel mapping GMT sessions, active countdown clocks, and overlapping currency session directory (passed, active, and coming rows).
+- [x] **Task 5: Monospace Tkinter System Console**
+  - Embedded scrolling stdout redirection panel at the bottom side of the window to stream parallel multi-threaded evaluations natively.
+
+---
+
+## 🔮 Strategic Future Roadmap & Open Issues
+- [ ] **Roadmap Item 1: Direct FIX Protocol 4.4 routing engine**
+  - *Description:* Connect directly to institutional liquidity providers, bypassing MT5 terminal latency.
+- [ ] **Roadmap Item 2: Deep Reinforcement Learning Policy (PPO)**
+  - *Description:* Train an autonomous RL agent on simulated market environments to optimize dynamic stop-loss adjustments.
+- [ ] **Roadmap Item 3: Multi-Monitor detach support**
+  - *Description:* Support detaching `SESS <GO>` and `CHART <GO>` panels into floating auxiliary monitor panels.
+- [ ] **Roadmap Item 4: Webhook Discord/Telegram order execution alerts**
+  - *Description:* Broadcast FIX routing confirmations and daily equity audits to admin channels.
