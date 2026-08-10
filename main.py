@@ -39,6 +39,10 @@ class AutonomousScalper:
         import institutional_integrations as ii
         self.quantum_auto_engine = ii.QuantumAutoEngine()
 
+        # Spawn non-stop, non-break self-healer and self-learning loop autonomously!
+        self.self_healer = ii.QuantumSelfHealer()
+        self.self_healer.start_non_stop_loop()
+
         # Track total starting balance of the day for Drawdown calculations
         self.daily_start_balance = 0.0
         self.last_day_str = ""
@@ -70,6 +74,10 @@ class AutonomousScalper:
 
     def stop(self):
         self.running = False
+        try:
+            self.self_healer.stop_loop()
+        except Exception:
+            pass
         self.conn.disconnect()
         stop_msg = "🛑 *Elite Autonomous Quantum Trading System Stopped Safely.*"
         print(stop_msg.replace("*", ""))
