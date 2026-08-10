@@ -266,7 +266,9 @@ class ScalperGui:
         # 4. Trading Session Card
         self.card_session = self._create_card(ribbon_frame, "4) SESSION <GO>", "Quiet Session", 3, value_color="#b45309")
         # 5. Performance Card
-        self.card_perf = self._create_card(ribbon_frame, "5) PERFORMANCE ANALYTICS <GO>", "Win Rate: 0% | Net: 0.00 USD (0 Trades)", 4, value_color=self.fg_accent)
+        self.card_perf = self._create_card(ribbon_frame, "5) PERFORMANCE <GO>", "Win Rate: 0%", 4, value_color=self.fg_accent)
+        # 6. Floating PnL Card
+        self.card_pnl = self._create_card(ribbon_frame, "6) FLOATING PnL <GO>", "$0.00 USD", 5, value_color=self.fg_green)
 
     def _create_card(self, parent, label_text, val_text, column, value_color=None):
         card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", highlightcolor="#2d2d2d")
@@ -436,21 +438,49 @@ class ScalperGui:
     # ----------------------------------------------------
 
     def _show_main_screen(self):
-        """MAIN <GO>: The technical scans matrix & cognitive indicators grid"""
-        lbl = tk.Label(self.screen_frame, text="6) MULTI-ASSET COGNITIVE SCANS MATRIX <GO>", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl.pack(anchor="w", pady=(0, 5))
+        """MAIN <GO>: Split terminal showing Asset Scans (Left) and Live Active Trades (Right)"""
+        # Central split frame
+        main_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        main_split.pack(fill=tk.BOTH, expand=True)
+
+        # Left Column: Scans Matrix
+        left_col = tk.Frame(main_split, bg=self.bg_dark)
+        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        lbl_scans = tk.Label(left_col, text="7) MULTI-ASSET COGNITIVE SCANS MATRIX <GO>", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_scans.pack(anchor="w", pady=(0, 5))
 
         cols = ("Symbol", "Price", "EMA-200", "Trend", "RSI", "ATR", "Status")
-        self.tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        self.tree = ttk.Treeview(left_col, columns=cols, show="headings", style="Treeview")
         for col in cols:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor=tk.W, width=110)
-        self.tree.column("Status", width=340)
+            self.tree.column(col, anchor=tk.W, width=85)
+        self.tree.column("Status", width=220)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        sb = ttk.Scrollbar(self.screen_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        sb = ttk.Scrollbar(left_col, orient=tk.VERTICAL, command=self.tree.yview)
         sb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=sb.set)
+
+        # Right Column: Live Active Trades
+        right_col = tk.Frame(main_split, bg=self.bg_dark, width=420)
+        right_col.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
+        right_col.pack_propagate(False)
+
+        lbl_trades = tk.Label(right_col, text="8) LIVE RUNNING POSITIONS TERMINAL <GO>", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_cyan)
+        lbl_trades.pack(anchor="w", pady=(0, 5))
+
+        cols_t = ("Ticket", "Symbol", "Type", "Lots", "Entry", "Current", "PnL ($)")
+        self.trades_tree = ttk.Treeview(right_col, columns=cols_t, show="headings", style="Treeview")
+        for col_t in cols_t:
+            self.trades_tree.heading(col_t, text=col_t)
+            if col_t in ["Ticket", "Symbol"]:
+                self.trades_tree.column(col_t, anchor=tk.CENTER, width=60)
+            elif col_t in ["Type", "Lots"]:
+                self.trades_tree.column(col_t, anchor=tk.CENTER, width=50)
+            else:
+                self.trades_tree.column(col_t, anchor=tk.W, width=70)
+        self.trades_tree.pack(fill=tk.BOTH, expand=True)
 
     def _show_gp_screen(self):
         """GP <GO>: Graphical Price Tracking Line Chart & Key Quote Details"""
@@ -1017,7 +1047,7 @@ For custom code updates, consult the terminal configuration at config.py.
         self.root.after(2000, self.update_gui_loop)
 
     def _update_main_screen_data(self, active_positions):
-        """Populates the scan assessment matrix table"""
+        """Populates the scan assessment matrix table and the Live Active Trades treeview"""
         if not hasattr(self, "tree") or not self.tree:
             return
 
@@ -1060,6 +1090,56 @@ For custom code updates, consult the terminal configuration at config.py.
 
             # Insert row
             self.tree.insert("", tk.END, values=(sym, price, "-", trend, rsi, atr, status))
+
+        # Update Live Active Trades Treeview (Right Column) & calculate Floating P&L
+        if hasattr(self, "trades_tree") and self.trades_tree:
+            self.trades_tree.delete(*self.trades_tree.get_children())
+            total_floating_pnl = 0.0
+
+            for pos in active_positions:
+                ticket = pos.get('ticket', '0')
+                sym = pos.get('symbol', 'UNKNOWN')
+                direction = pos.get('direction', 'BUY')
+                lots = pos.get('lot_size', 0.01)
+                open_p = pos.get('open_price', 0.0)
+
+                price_info = self.scalper.conn.get_current_price(sym)
+                current_p = price_info['bid'] if direction == "BUY" else price_info['ask']
+
+                # Compute multiplier
+                sym_up = sym.upper()
+                multiplier = 100000.0  # Forex standard
+                if "XAU" in sym_up or "GOLD" in sym_up:
+                    multiplier = 100.0
+                elif "XAG" in sym_up or "SILVER" in sym_up:
+                    multiplier = 5000.0
+                elif any(c in sym_up for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
+                    multiplier = 1.0
+                elif "JPY" in sym_up:
+                    multiplier = 1000.0
+
+                p_diff = current_p - open_p if direction == "BUY" else open_p - current_p
+                profit = p_diff * lots * multiplier
+                total_floating_pnl += profit
+
+                tag_color = "green" if profit >= 0 else "red"
+                self.trades_tree.insert("", tk.END, values=(
+                    ticket,
+                    sym,
+                    direction,
+                    f"{lots:.2f}",
+                    f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
+                    f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
+                    f"{profit:+.2f}"
+                ), tags=(tag_color,))
+
+            self.trades_tree.tag_configure("green", foreground=self.fg_green)
+            self.trades_tree.tag_configure("red", foreground=self.fg_red)
+
+            # Update floating PnL stats card dynamically
+            pnl_color = self.fg_green if total_floating_pnl >= 0 else self.fg_red
+            pnl_sign = "+" if total_floating_pnl >= 0 else ""
+            self.card_pnl.config(text=f"{pnl_sign}${total_floating_pnl:,.2f} USD", fg=pnl_color)
 
     def _update_gp_screen_data(self):
         """Updates and draws visual price lines and candle properties for the selected symbol on the Canvas"""
