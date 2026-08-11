@@ -1008,8 +1008,27 @@ For custom code updates, consult the terminal configuration at config.py.
         lbl_title = tk.Label(self.screen_frame, text="CHART: REAL-TIME QUANTUM PERFORMANCE, EQUITY & CANDLESTICK TICKER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        lbl_info = tk.Label(self.screen_frame, text="INTEGRATED HIGH-PERFORMANCE CANDLESTICK CHART CONCURRENTLY PLOTING WITH ACCOUNT EQUITY TRAJECTORY", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
-        lbl_info.pack(anchor="w", pady=(0, 10))
+        # Chart controls ribbon (Symbol and Timeframe selection)
+        chart_ctrl_ribbon = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        chart_ctrl_ribbon.pack(fill=tk.X, pady=(0, 5))
+
+        lbl_sym = tk.Label(chart_ctrl_ribbon, text="SYMBOL:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_sym.pack(side=tk.LEFT)
+
+        self.chart_sym_var = tk.StringVar(value=self.selected_symbol_gp)
+        sym_menu = tk.OptionMenu(chart_ctrl_ribbon, self.chart_sym_var, *config.SYMBOLS, command=self.on_chart_symbol_change)
+        sym_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        sym_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
+        sym_menu.pack(side=tk.LEFT, padx=(5, 15))
+
+        lbl_tf = tk.Label(chart_ctrl_ribbon, text="TIMEFRAME:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_tf.pack(side=tk.LEFT)
+
+        self.chart_tf_var = tk.StringVar(value="M1")
+        tf_menu = tk.OptionMenu(chart_ctrl_ribbon, self.chart_tf_var, "M1", "M5", "M15", "H1", "D1", command=self.on_chart_tf_change)
+        tf_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        tf_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
+        tf_menu.pack(side=tk.LEFT, padx=5)
 
         # Split frame
         chart_layout = tk.Frame(self.screen_frame, bg=self.bg_dark)
@@ -1048,10 +1067,42 @@ For custom code updates, consult the terminal configuration at config.py.
         self.lbl_chart_wins.pack(anchor="w", padx=15, pady=5)
 
         self.perf_history_data = [] # Track historical points to draw
+        self.cursor_x = None
+        self.cursor_y = None
+
+        # Bind interactive mouse events to Candlestick Canvas for TradingView style crosshair tracking
+        self.candlestick_canvas.bind("<Motion>", self.on_chart_mouse_motion)
+        self.candlestick_canvas.bind("<Leave>", self.on_chart_mouse_leave)
+
+        self._update_chart_screen_data()
+
+    def on_chart_mouse_motion(self, event):
+        """Saves mouse cursor coordinates and schedules canvas crosshairs redraw"""
+        self.cursor_x = event.x
+        self.cursor_y = event.y
+        self._update_chart_screen_data()
+
+    def on_chart_mouse_leave(self, event):
+        """Clears crosshair coordinates when mouse leaves the chart canvas"""
+        self.cursor_x = None
+        self.cursor_y = None
+        self._update_chart_screen_data()
+
+    def on_chart_symbol_change(self, selection):
+        self.selected_symbol_gp = selection
+        # Re-generate candles representing selection
+        if hasattr(self, "candlestick_data_list"):
+            self.candlestick_data_list = []
+        self._update_chart_screen_data()
+
+    def on_chart_tf_change(self, selection):
+        # Force re-scaling on timeframe adjustments
+        if hasattr(self, "candlestick_data_list"):
+            self.candlestick_data_list = []
         self._update_chart_screen_data()
 
     def _update_chart_screen_data(self):
-        """Draws a visual line graph of account equity and real-time candlesticks on canvases"""
+        """Draws a visual line graph of account equity and real-time candlesticks on canvases with scales resembling TradingView"""
         # 1. Update Candlestick Chart Canvas
         if hasattr(self, "candlestick_canvas") and self.candlestick_canvas:
             self.candlestick_canvas.delete("all")
@@ -1060,32 +1111,35 @@ For custom code updates, consult the terminal configuration at config.py.
             if cw < 10: cw = 400
             if ch < 10: ch = 150
 
-            # Draw grids
-            for i in range(1, 4):
-                cy_grid = int(ch * i / 4)
-                self.candlestick_canvas.create_line(0, cy_grid, cw, cy_grid, fill="#1c1c1c", dash=(1, 2))
-            for i in range(1, 8):
-                cx_grid = int(cw * i / 8)
-                self.candlestick_canvas.create_line(cx_grid, 0, cx_grid, ch, fill="#1c1c1c", dash=(1, 2))
+            # Define scales margins (Y price scale on right, X timeline scale on bottom)
+            margin_right = 65
+            margin_bottom = 20
+
+            chart_w = cw - margin_right
+            chart_h = ch - margin_bottom
+
+            # Draw axes lines
+            self.candlestick_canvas.create_line(chart_w, 0, chart_w, chart_h, fill="#2d2d2d")
+            self.candlestick_canvas.create_line(0, chart_h, chart_w, chart_h, fill="#2d2d2d")
 
             # Generate beautiful real-time mock candle series
-            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list:
+            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list or len(self.candlestick_data_list) == 0:
                 self.candlestick_data_list = []
-                base = 1.10200
+                base = 1.10200 if "JPY" not in self.selected_symbol_gp else 145.50
                 for index in range(25):
-                    op = base + random.uniform(-0.0005, 0.0005)
-                    cl = op + random.uniform(-0.0006, 0.0006)
-                    hi = max(op, cl) + random.uniform(0.0001, 0.0003)
-                    lo = min(op, cl) - random.uniform(0.0001, 0.0003)
+                    op = base + random.uniform(-0.0005, 0.0005) if "JPY" not in self.selected_symbol_gp else base + random.uniform(-0.05, 0.05)
+                    cl = op + random.uniform(-0.0006, 0.0006) if "JPY" not in self.selected_symbol_gp else op + random.uniform(-0.06, 0.06)
+                    hi = max(op, cl) + random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else max(op, cl) + random.uniform(0.01, 0.03)
+                    lo = min(op, cl) - random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else min(op, cl) - random.uniform(0.01, 0.03)
                     self.candlestick_data_list.append({"open": op, "high": hi, "low": lo, "close": cl})
                     base = cl
             else:
                 # Append a new tick movement or transition to a new candle
                 last = self.candlestick_data_list[-1]
                 op = last["close"]
-                cl = op + random.uniform(-0.0004, 0.0004)
-                hi = max(op, cl) + random.uniform(0.0001, 0.0002)
-                lo = min(op, cl) - random.uniform(0.0001, 0.0002)
+                cl = op + random.uniform(-0.0004, 0.0004) if "JPY" not in self.selected_symbol_gp else op + random.uniform(-0.04, 0.04)
+                hi = max(op, cl) + random.uniform(0.0001, 0.0002) if "JPY" not in self.selected_symbol_gp else max(op, cl) + random.uniform(0.01, 0.02)
+                lo = min(op, cl) - random.uniform(0.0001, 0.0002) if "JPY" not in self.selected_symbol_gp else min(op, cl) - random.uniform(0.01, 0.02)
                 self.candlestick_data_list.pop(0)
                 self.candlestick_data_list.append({"open": op, "high": hi, "low": lo, "close": cl})
 
@@ -1098,15 +1152,35 @@ For custom code updates, consult the terminal configuration at config.py.
             price_range = max_price - min_price
             if price_range == 0: price_range = 0.01
 
-            candle_w = int(cw / 30)
-            spacing = int(cw / 28)
+            # Draw vertical price scale on right margin (Y-Axis)
+            price_steps = 5
+            for i in range(price_steps + 1):
+                p_val = min_price + (price_range * i / price_steps)
+                y_coord = int(chart_h - (chart_h * i / price_steps))
+
+                # Draw grid line
+                self.candlestick_canvas.create_line(0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2))
+                # Draw right axis tick label
+                self.candlestick_canvas.create_text(chart_w + 5, y_coord, text=f"{p_val:.5f}" if "JPY" not in self.selected_symbol_gp else f"{p_val:.2f}", fill=self.fg_grey, anchor="w", font=("Consolas", 7))
+
+            # Draw horizontal timeline scale on bottom margin (X-Axis)
+            time_steps = len(self.candlestick_data_list)
+            candle_w = int(chart_w / 30)
+            spacing = int(chart_w / 28)
+
             for idx, c in enumerate(self.candlestick_data_list):
                 cx = idx * spacing + 15
+
+                # Draw horizontal time ticks on every 5th candle
+                if idx % 5 == 0:
+                    self.candlestick_canvas.create_line(cx, chart_h, cx, chart_h + 4, fill="#2d2d2d")
+                    self.candlestick_canvas.create_text(cx, chart_h + 8, text=f"+{idx}m", fill=self.fg_grey, anchor="n", font=("Consolas", 7))
+
                 # Map prices to Y coords
-                y_open = int(ch - (ch * (c["open"] - min_price) / price_range))
-                y_close = int(ch - (ch * (c["close"] - min_price) / price_range))
-                y_high = int(ch - (ch * (c["high"] - min_price) / price_range))
-                y_low = int(ch - (ch * (c["low"] - min_price) / price_range))
+                y_open = int(chart_h - (chart_h * (c["open"] - min_price) / price_range))
+                y_close = int(chart_h - (chart_h * (c["close"] - min_price) / price_range))
+                y_high = int(chart_h - (chart_h * (c["high"] - min_price) / price_range))
+                y_low = int(chart_h - (chart_h * (c["low"] - min_price) / price_range))
 
                 is_green = c["close"] >= c["open"]
                 color = self.fg_green if is_green else self.fg_red
@@ -1119,7 +1193,35 @@ For custom code updates, consult the terminal configuration at config.py.
                 if y1 == y2: y2 += 1
                 self.candlestick_canvas.create_rectangle(cx - int(candle_w/2), y1, cx + int(candle_w/2), y2, fill=color, outline="")
 
-            self.candlestick_canvas.create_text(10, 10, text=f"REAL-TIME FOSS CHART ({self.selected_symbol_gp})", fill=self.fg_accent, anchor="nw", font=("Consolas", 7, "bold"))
+            # Draw live quote horizontal tracker line (TradingView-style)
+            latest_close = self.candlestick_data_list[-1]["close"]
+            y_latest = int(chart_h - (chart_h * (latest_close - min_price) / price_range))
+            self.candlestick_canvas.create_line(0, y_latest, chart_w, y_latest, fill=self.fg_accent, dash=(2, 2))
+
+            # Draw interactive highlight badge on price axis
+            self.candlestick_canvas.create_rectangle(chart_w, y_latest - 6, cw, y_latest + 6, fill=self.fg_accent, outline="")
+            self.candlestick_canvas.create_text(chart_w + 3, y_latest, text=f"{latest_close:.5f}" if "JPY" not in self.selected_symbol_gp else f"{latest_close:.2f}", fill="#000000", anchor="w", font=("Consolas", 7, "bold"))
+
+            # Draw interactive crosshairs if cursor is inside the active chart area
+            if self.cursor_x is not None and self.cursor_y is not None:
+                cx_clipped = max(0, min(chart_w, self.cursor_x))
+                cy_clipped = max(0, min(chart_h, self.cursor_y))
+
+                # Horizontal & Vertical crosshair lines
+                self.candlestick_canvas.create_line(0, cy_clipped, chart_w, cy_clipped, fill="#888888", dash=(2, 2))
+                self.candlestick_canvas.create_line(cx_clipped, 0, cx_clipped, chart_h, fill="#888888", dash=(2, 2))
+
+                # Draw interactive coordinate label on Y-axis (Price)
+                cursor_price = max_price - (price_range * cy_clipped / chart_h)
+                self.candlestick_canvas.create_rectangle(chart_w, cy_clipped - 6, cw, cy_clipped + 6, fill="#1e293b", outline="#888888")
+                self.candlestick_canvas.create_text(chart_w + 3, cy_clipped, text=f"{cursor_price:.5f}" if "JPY" not in self.selected_symbol_gp else f"{cursor_price:.2f}", fill="#ffffff", anchor="w", font=("Consolas", 7))
+
+                # Draw interactive highlight label on X-axis (Time Index)
+                nearest_candle_idx = int(cx_clipped / spacing)
+                self.candlestick_canvas.create_rectangle(cx_clipped - 20, chart_h, cx_clipped + 20, ch, fill="#1e293b", outline="#888888")
+                self.candlestick_canvas.create_text(cx_clipped, chart_h + 8, text=f"+{nearest_candle_idx}m", fill="#ffffff", anchor="n", font=("Consolas", 7))
+
+            self.candlestick_canvas.create_text(10, 10, text=f"TV CLONE: {self.selected_symbol_gp} {self.chart_tf_var.get()}", fill=self.fg_accent, anchor="nw", font=("Consolas", 7, "bold"))
 
         # 2. Update Performance Line Graph Canvas
         if hasattr(self, "perf_canvas") and self.perf_canvas:
