@@ -1,4 +1,4 @@
-10000.00|10000.00|0|London + New York Overlap|Frankfurt FX | Zurich FX | Dubai DFM | Saudi Tadawul | Frankfurt Xetra | London LSE | Euronext Paris | Johannesburg JSE | US Pre-Market|Wellington FX (04:07:22) | US After-Hours (04:07:22) | Sydney FX (06:07:22)|Active Tracker
+10000.00|10000.00|0|New York Session|Frankfurt FX | London FX | Zurich FX | Frankfurt Xetra | London LSE | Euronext Paris | Johannesburg JSE|Wellington FX (01:11:53) | US After-Hours (01:11:53) | Sydney FX (03:11:53)|Active Tracker
 SCANS_HEADER
-EURUSD|1.09463|1.10183|DOWN|34.3|0.00288|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09348 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.33486|1.32208|UP|50.1|0.00418|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32463 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.09724|1.10185|DOWN|40.6|0.00292|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09348 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.33436|1.32207|UP|49.2|0.00414|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32463 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
