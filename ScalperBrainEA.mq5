@@ -29,11 +29,6 @@ string m_hidden_act[50];
 int m_total_symbols = 0;
 
 string m_trades_text[20];
-string m_trade_symbols[20];
-string m_trade_dirs[20];
-string m_trade_tickets[20];
-string m_trade_opens[20];
-string m_trade_profits[20];
 int m_total_trades = 0;
 
 string m_equity = "0.00";
@@ -159,12 +154,6 @@ bool ParseStateFile()
             string open_p = parts[4];
             string profit = parts[7];
 
-            m_trade_symbols[m_total_trades] = symbol;
-            m_trade_dirs[m_total_trades] = dir;
-            m_trade_tickets[m_total_trades] = ticket;
-            m_trade_opens[m_total_trades] = open_p;
-            m_trade_profits[m_total_trades] = profit;
-
             m_trades_text[m_total_trades] = symbol + " " + dir + " | Ticket: " + ticket + " | Entry: " + open_p + " | PnL: " + profit + " USD";
             m_total_trades++;
          }
@@ -240,11 +229,6 @@ void UpdateDashboard()
       ObjectDelete(0, "SB_Row_ATR_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
       ObjectDelete(0, "SB_Row_Trade_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Sym_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Dir_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Tkt_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Ent_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Pnl_" + (string)i);
       ObjectDelete(0, "SB_Row_AI_W1_" + (string)i);
       ObjectDelete(0, "SB_Row_AI_W2_" + (string)i);
       ObjectDelete(0, "SB_Row_AI_Act_" + (string)i);
@@ -285,19 +269,11 @@ void UpdateDashboard()
    {
       for(int i = 0; i < m_total_trades; i++)
       {
-         string prefix = "• " + m_trade_symbols[i] + " ";
-         color dir_col = (m_trade_dirs[i] == "BUY") ? clrLime : clrOrangeRed;
-         color pnl_col = clrWhite;
-         double p_val = StringToDouble(m_trade_profits[i]);
-         if(p_val > 0) pnl_col = clrGreen;
-         if(p_val < 0) pnl_col = clrRed;
+         color trade_col = clrLightGray;
+         if(StringFind(m_trades_text[i], "BUY") >= 0) trade_col = clrGreen;
+         if(StringFind(m_trades_text[i], "SELL") >= 0) trade_col = clrRed;
 
-         CreateLabel("SB_Row_Trade_Sym_" + (string)i, prefix, 20, current_y, 10, clrCyan, "Segoe UI");
-         CreateLabel("SB_Row_Trade_Dir_" + (string)i, m_trade_dirs[i], 110, current_y, 10, dir_col, "Segoe UI Bold");
-         CreateLabel("SB_Row_Trade_Tkt_" + (string)i, " | Ticket: " + m_trade_tickets[i], 160, current_y, 10, clrYellow, "Segoe UI");
-         CreateLabel("SB_Row_Trade_Ent_" + (string)i, " | Entry: " + m_trade_opens[i], 270, current_y, 10, clrWhite, "Segoe UI");
-         CreateLabel("SB_Row_Trade_Pnl_" + (string)i, " | PnL: " + m_trade_profits[i] + " USD", 400, current_y, 10, pnl_col, "Segoe UI Bold");
-
+         CreateLabel("SB_Row_Trade_" + (string)i, "• " + m_trades_text[i], 20, current_y, 10, trade_col, "Segoe UI");
          current_y += spacing;
       }
    }
@@ -425,11 +401,6 @@ void DeleteDashboardObjects()
       ObjectDelete(0, "SB_Row_ATR_" + (string)i);
       ObjectDelete(0, "SB_Row_Stat_" + (string)i);
       ObjectDelete(0, "SB_Row_Trade_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Sym_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Dir_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Tkt_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Ent_" + (string)i);
-      ObjectDelete(0, "SB_Row_Trade_Pnl_" + (string)i);
       ObjectDelete(0, "SB_Row_AI_W1_" + (string)i);
       ObjectDelete(0, "SB_Row_AI_W2_" + (string)i);
       ObjectDelete(0, "SB_Row_AI_Act_" + (string)i);
