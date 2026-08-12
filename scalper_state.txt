@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (03:26:41) | Dubai DFM (03:26:41) | London FX (04:26:41)|Active Tracker
+10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (02:34:06) | Dubai DFM (02:34:06) | London FX (03:34:06)|Active Tracker
 SCANS_HEADER
-EURUSD|1.09315|1.10178|DOWN|32.2|0.00291|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09201 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.33565|1.32210|UP|51.2|0.00418|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32463 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.10259|1.10208|UP|50.9|0.00303|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09471 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.32657|1.32178|UP|34.6|0.00370|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32258 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
