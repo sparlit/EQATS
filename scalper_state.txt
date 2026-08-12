@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ | ICE Brent|Tokyo FX (00:53:27) | Sydney ASX (01:53:27) | Tokyo TSE (01:53:27)|Active Tracker
+10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (03:26:41) | Dubai DFM (03:26:41) | London FX (04:26:41)|Active Tracker
 SCANS_HEADER
-EURUSD|1.10880|1.10214|UP|62.2|0.00321|HOLD (Hazardous session: Daily broker rollover hour.)|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.32767|1.32179|UP|38.3|0.00364|HOLD (Hazardous session: Daily broker rollover hour.)|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.09315|1.10178|DOWN|32.2|0.00291|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09201 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.33565|1.32210|UP|51.2|0.00418|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32463 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
