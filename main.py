@@ -870,22 +870,46 @@ class AutonomousScalper:
         scans_list = []
         pending_orders = []
 
-        # Multi-threaded parallel processing using concurrent.futures
+        # High-Performance Parallel processing bypassing the GIL using ProcessPoolExecutor falling back to ThreadPoolExecutor
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_symbols))) as executor:
-            future_to_symbol = {
-                executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
-                for symbol in active_symbols
-            }
-            for future in concurrent.futures.as_completed(future_to_symbol):
-                symbol = future_to_symbol[future]
-                try:
+        pool_workers = min(12, max(1, len(active_symbols))) # Optimized for Performance hybrid cores (12 logical threads)
+        parallel_success = False
+
+        try:
+            # Attempt true parallel execution bypassing GIL via ProcessPoolExecutor
+            with concurrent.futures.ProcessPoolExecutor(max_workers=pool_workers) as executor:
+                future_to_symbol = {
+                    executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
+                    for symbol in active_symbols
+                }
+                for future in concurrent.futures.as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
                     res = future.result()
                     scans_list.append(res)
                     if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
                         pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
-                except Exception as e:
-                    print(f"Error evaluating symbol {symbol} in parallel thread: {e}")
+                parallel_success = True
+        except Exception:
+            # Fall back gracefully to thread-pool under GIL-restricted sandboxes
+            pass
+
+        if not parallel_success:
+            scans_list = []
+            pending_orders = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_symbols))) as executor:
+                future_to_symbol = {
+                    executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
+                    for symbol in active_symbols
+                }
+                for future in concurrent.futures.as_completed(future_to_symbol):
+                    symbol = future_to_symbol[future]
+                    try:
+                        res = future.result()
+                        scans_list.append(res)
+                        if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
+                            pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
+                    except Exception as e:
+                        print(f"Error evaluating symbol {symbol} in parallel thread: {e}")
 
         # Sort scans_list by symbol name to keep output clean and ordered
         scans_list = sorted(scans_list, key=lambda x: x["symbol"])

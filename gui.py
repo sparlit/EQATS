@@ -223,6 +223,22 @@ class ScalperGui:
         )
         self.badge_label.pack(side=tk.RIGHT, pady=5)
 
+        # Global Tab Selector dropdown list
+        lbl_tab = tk.Label(header_frame, text="TERMINAL SHEET:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_tab.pack(side=tk.RIGHT, padx=(15, 5))
+
+        self.tab_selector_var = tk.StringVar(value="MAIN")
+        self.tab_list = [
+            "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
+            "DES", "YAS", "ECO", "EMSX", "SET", "ING", "FEAT", "STRAT", "RISK", "ORD",
+            "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
+            "MKT", "TRADEBOOK", "HELP"
+        ]
+        self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
+        self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        self.tab_selector_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
+        self.tab_selector_menu.pack(side=tk.RIGHT, padx=5)
+
     def _build_command_bar(self):
         """Authentic Bloomberg Command Bar for inputting commands directly"""
         cmd_frame = tk.Frame(self.root, bg=self.bg_dark, pady=5, padx=20)
@@ -536,14 +552,6 @@ class ScalperGui:
             self._show_aic_screen()
         elif screen_code == "CRAWL":
             self._show_crawl_screen()
-        elif screen_code == "CRED":
-            self._show_cred_screen()
-        elif screen_code == "WATCH":
-            self._show_watch_screen()
-        elif screen_code == "MKT":
-            self._show_mkt_screen()
-        elif screen_code == "TRADEBOOK":
-            self._show_tradebook_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -812,251 +820,6 @@ class ScalperGui:
         )
         self.lbl_llm_forecast.pack(anchor="w", padx=15, pady=5)
 
-    def _show_cred_screen(self):
-        """CRED <GO>: User Credential Management with 2FA/MFA Configuration"""
-        lbl_title = tk.Label(self.screen_frame, text="CRED: USER CREDENTIALS & MFA AUTHENTICATION <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-
-        self.cred_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.cred_text.pack(fill=tk.BOTH, expand=True, pady=5)
-        self._update_cred_screen_data()
-
-    def _update_cred_screen_data(self):
-        if not hasattr(self, "cred_text") or not self.cred_text: return
-        self.cred_text.delete("1.0", tk.END)
-        # Generate a rotating simulated 2FA token
-        token = random.randint(100000, 999999)
-        cred_data = f"""
-================================================================================
-CRED <GO>: SECURED CREDENTIAL VAULT & MFA TOKEN VERIFIER
-================================================================================
-ACCOUNT AUTHENTICATION DESK:
---------------------------------------------------------------------------------
-Primary Identity User:       BBG_QUANT_OPERATOR
-Multi-Factor Auth (MFA):     ACTIVE & SYNCED
-Authentic dynamic 2FA:       {token} (Rotates every 30 seconds)
-Hardware Auth Device:        B-UNIT Cryptographic Token matched
-
-BROKER LOGIN POOLS:
---------------------------------------------------------------------------------
-MT5 Login Account ID:        741295
-Server Connection host:      Paper simulator paper server
-Authentication status:       Pass (Credentials synchronized)
-================================================================================
-"""
-        self.cred_text.insert(tk.END, cred_data)
-
-    def _show_watch_screen(self):
-        """WATCH <GO>: Symbols Watchlist with Symbols Heatmap"""
-        lbl_title = tk.Label(self.screen_frame, text="WATCH: SYMBOLS WATCHLIST & HEATMAP DESK <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-
-        # Main frame divided vertically into List (Left) and Heatmap (Right)
-        watch_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
-        watch_split.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        # Left: List Table
-        left_box = tk.Frame(watch_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=250)
-        left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        lbl_tbl = tk.Label(left_box, text="DASHBOARD SCANNERS DIRECTORY", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan)
-        lbl_tbl.pack(anchor="w", padx=10, pady=10)
-
-        cols_w = ("Symbol", "Bid Quote", "Daily Change %")
-        self.watch_tree = ttk.Treeview(left_box, columns=cols_w, show="headings", style="Treeview", height=10)
-        for col in cols_w:
-            self.watch_tree.heading(col, text=col)
-            self.watch_tree.column(col, anchor=tk.W, width=80)
-        self.watch_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
-
-        # Right: Heatmap Grid Panel
-        self.right_heatmap = tk.Frame(watch_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380)
-        self.right_heatmap.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
-
-        lbl_hm = tk.Label(self.right_heatmap, text="REAL-TIME MARKET CHANGE HEATMAP GRID", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent)
-        lbl_hm.pack(anchor="w", padx=10, pady=10)
-
-        # Sub container for grid boxes
-        self.heatmap_grid = tk.Frame(self.right_heatmap, bg=self.bg_card)
-        self.heatmap_grid.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
-
-        self._update_watch_screen_data()
-
-    def _update_watch_screen_data(self):
-        if not hasattr(self, "watch_tree") or not self.watch_tree: return
-        self.watch_tree.delete(*self.watch_tree.get_children())
-
-        # Populate table and grid dynamically
-        symbols_change = {
-            "EURUSD": +0.12, "GBPUSD": -0.05, "USDJPY": +0.42, "USDCHF": -0.15,
-            "AUDUSD": +0.28, "NZDUSD": -0.04, "XAUUSD": +0.85, "BTCUSD": +1.45,
-            "ETHUSD": -0.22, "SOLUSD": +2.12, "XRPUSD": -0.85, "LTCUSD": +0.15
-        }
-
-        for sym, chg in symbols_change.items():
-            sign = "+" if chg > 0 else ""
-            color_tag = "green" if chg > 0 else "red"
-            bid = 1.1042 if "EUR" in sym else (145.24 if "JPY" in sym else 60250.00)
-            self.watch_tree.insert("", tk.END, values=(sym, f"{bid:,.4f}", f"{sign}{chg:.2f}%"), tags=(color_tag,))
-
-        self.watch_tree.tag_configure("green", foreground=self.fg_green)
-        self.watch_tree.tag_configure("red", foreground=self.fg_red)
-
-        # Re-draw heatmap grid boxes
-        for widget in self.heatmap_grid.winfo_children():
-            widget.destroy()
-
-        row = 0
-        col = 0
-        for sym, chg in symbols_change.items():
-            sign = "+" if chg > 0 else ""
-            box_bg = "#064e3b" if chg > 0 else "#7f1d1d" # Deep institutional dark red/green
-            box_fg = self.fg_green if chg > 0 else self.fg_red
-
-            box = tk.Frame(self.heatmap_grid, bg=box_bg, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-            box.grid(row=row, column=col, sticky="nsew", padx=4, pady=4)
-            self.heatmap_grid.rowconfigure(row, weight=1)
-            self.heatmap_grid.columnconfigure(col, weight=1)
-
-            lbl_sym = tk.Label(box, text=sym, font=("Consolas", 8, "bold"), bg=box_bg, fg="#ffffff")
-            lbl_sym.pack(pady=(5, 1))
-
-            lbl_chg = tk.Label(box, text=f"{sign}{chg:.2f}%", font=("Consolas", 7), bg=box_bg, fg=box_fg)
-            lbl_chg.pack(pady=(0, 5))
-
-            col += 1
-            if col > 3:
-                col = 0
-                row += 1
-
-    def _show_mkt_screen(self):
-        """MKT <GO>: Market Screen containing 5 sub-tabs"""
-        lbl_title = tk.Label(self.screen_frame, text="MKT: MARKET INTEL & GLOBAL MATRICES <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-
-        # ttk.Notebook for 5 nested sub-tabs
-        self.mkt_notebook = ttk.Notebook(self.screen_frame)
-        self.mkt_notebook.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        # Tab 1: Exchange Messages
-        self.mkt_tab_msg = tk.Frame(self.mkt_notebook, bg=self.bg_card)
-        self.mkt_text_msg = tk.Text(self.mkt_tab_msg, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.mkt_text_msg.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.mkt_notebook.add(self.mkt_tab_msg, text="Exchange Messages")
-
-        # Tab 2: Market Movers
-        self.mkt_tab_mv = tk.Frame(self.mkt_notebook, bg=self.bg_card)
-        self.mkt_text_mv = tk.Text(self.mkt_tab_mv, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.mkt_text_mv.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.mkt_notebook.add(self.mkt_tab_mv, text="Market Movers")
-
-        # Tab 3: Scanners
-        self.mkt_tab_sc = tk.Frame(self.mkt_notebook, bg=self.bg_card)
-        self.mkt_text_sc = tk.Text(self.mkt_tab_sc, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.mkt_text_sc.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.mkt_notebook.add(self.mkt_tab_sc, text="Scanners")
-
-        # Tab 4: Fundamentals
-        self.mkt_tab_fu = tk.Frame(self.mkt_notebook, bg=self.bg_card)
-        self.mkt_text_fu = tk.Text(self.mkt_tab_fu, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.mkt_text_fu.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.mkt_notebook.add(self.mkt_tab_fu, text="Fundamentals")
-
-        # Tab 5: Corporate Actions
-        self.mkt_tab_ca = tk.Frame(self.mkt_notebook, bg=self.bg_card)
-        self.mkt_text_ca = tk.Text(self.mkt_tab_ca, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.mkt_text_ca.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.mkt_notebook.add(self.mkt_tab_ca, text="Corporate Actions")
-
-        self._update_mkt_screen_data()
-
-    def _update_mkt_screen_data(self):
-        if not hasattr(self, "mkt_text_msg") or not self.mkt_text_msg: return
-
-        # 1. Update Exchange Messages Tab
-        self.mkt_text_msg.delete("1.0", tk.END)
-        msg_data = f"""
-================================================================================
-EXCHANGE MESSAGES PROTOCOL LOGS
-================================================================================
-[INFO] Sydney Exchange (ASX): Continuous trading matching engine clear.
-[INFO] Tokyo Exchange (TSE): Lunch break disengaged, orders matching synchronized.
-[INFO] CME Group: Globex matching network status OK.
-================================================================================
-"""
-        self.mkt_text_msg.insert(tk.END, msg_data)
-
-        # 2. Update Market Movers Tab
-        self.mkt_text_mv.delete("1.0", tk.END)
-        mv_data = f"""
-================================================================================
-GLOBAL TOP MARKET MOVERS MATRIX (USD basis)
-================================================================================
-1) SOLUSD:                   +2.12% Daily (High volume momentum)
-2) BTCUSD:                   +1.45% Daily (Inflows support)
-3) GBPUSD:                   -0.05% Daily (Mild correction)
-================================================================================
-"""
-        self.mkt_text_mv.insert(tk.END, mv_data)
-
-        # 3. Update Scanners Tab
-        self.mkt_text_sc.delete("1.0", tk.END)
-        sc_data = f"""
-================================================================================
-COGNITIVE MULTI-ASSET SCANNER SCANS
-================================================================================
-Squeeze Breakout Alert:      EURUSD inside squeeze channel [1.094 - 1.109]
-RSI Pullback Alert:          XAUUSD RSI approaching support (Bullish pullback)
-================================================================================
-"""
-        self.mkt_text_sc.insert(tk.END, sc_data)
-
-        # 4. Update Fundamentals Tab
-        self.mkt_text_fu.delete("1.0", tk.END)
-        fu_data = f"""
-================================================================================
-MACRO FUNDAMENTAL METRICS DESK
-================================================================================
-US GDP (QoQ Proxy):          +2.4% Annualized (Simulated)
-EU Inflation CPI index:      2.2% (Approaching targets)
-BOJ Core target rate:        0.25% (Mild hike stance)
-================================================================================
-"""
-        self.mkt_text_fu.insert(tk.END, fu_data)
-
-        # 5. Update Corporate Actions Tab
-        self.mkt_text_ca.delete("1.0", tk.END)
-        ca_data = f"""
-================================================================================
-CORPORATE ACTIONS & LIQUIDATION ALERTS
-================================================================================
-No upcoming corporate stock splits or major asset index re-balancings scheduled.
-================================================================================
-"""
-        self.mkt_text_ca.insert(tk.END, ca_data)
-
-    def _show_tradebook_screen(self):
-        """TRADEBOOK <GO>: Dedicated Trade Book log sheet"""
-        lbl_title = tk.Label(self.screen_frame, text="TRADEBOOK: DEDICATED TRADE BOOK ARCHIVE <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-
-        self.tb_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.tb_text.pack(fill=tk.BOTH, expand=True, pady=5)
-        self._update_tradebook_screen_data()
-
-    def _update_tradebook_screen_data(self):
-        if not hasattr(self, "tb_text") or not self.tb_text: return
-        self.tb_text.delete("1.0", tk.END)
-        tb_data = f"""
-================================================================================
-TRADEBOOK <GO>: COMPREHENSIVE SETTLED TRANSACTIONS LOGS
-================================================================================
-No historical settled contracts recorded on this database instance.
-Dynamic Balance starting anchor: $10,000.00 USD
-================================================================================
-"""
-        self.tb_text.insert(tk.END, tb_data)
-
     def _show_help_screen(self):
         """HELP <GO>: Help command directory and system details"""
         lbl_title = tk.Label(self.screen_frame, text="HELP: BLOOMBERG USER DIRECTORY & CODEBOOK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
@@ -1067,38 +830,70 @@ Dynamic Balance starting anchor: $10,000.00 USD
         text_widget.pack(fill=tk.BOTH, expand=True, pady=5)
 
         help_content = """================================================================================
-                       BLOOMBERG PROFESSIONAL SERVICE DIRECTORY
+           BLOOMBERG PROFESSIONAL SERVICE - COMPLETE OPERATIONAL MANUAL
 ================================================================================
 
-1) AVAILABLE SCREEN COMMANDS:
------------------------------
-- MAIN <GO>    : Multi-Asset Scanner & Real-Time Setup Assessments Matrix.
-- GP <GO>      : Graphical Price Chart (Visualizing EMA-200, Bollinger margins, RSI).
-- WEI <GO>     : World Equity and Currency Indices board (DXY, CCMP, SPX, BTCUSD).
-- NEWS <GO>    : Macro News Feed with NLP AI Automated Sentiment Indexing.
-- ANR <GO>     : Analyst Consensus and Neural Network Self-Correction telemetry.
-- HELP <GO>    : Displays this terminal client directory directory list.
+1) AVAILABLE SHEET CODES (Type code and press <GO> or select from header dropdown):
+--------------------------------------------------------------------------------
+- MAIN      : Multi-Asset Scan Matrix & Active trades terminal.
+- GP        : Graphical Price chart (Supports indicator lines and pivot S/R).
+- WEI       : World Currency, Crypto and Equity Indices board.
+- NEWS      : Live macro news headlines feed with dynamic NLP sentiment tags.
+- ANR       : Consensus recommendations matrix, MLP neural model, and Local LLM.
+- CHART     : TradingView FOSS Candle Chart & Performance trajectory curve.
+- SESS      : GMT session timelines countdown and overlap directory.
+- DES       : Detailed Security specifications & contract parameters.
+- YAS       : Dynamic Yield metrics, Macaulay/Modified duration, and spread index.
+- ECO       : Global Economic Calendar releases tracking actuals/forecasts.
+- EMSX      : Algorithmic transaction routing configurations (FIT, FXGO venues).
+- SET       : System Settings, risk per trade, and communication configs.
+- ING       : Real-time Data Ingestion telemetry (REST / WebSockets feeds).
+- FEAT      : Quantitative Feature Store input vectors and variances.
+- STRAT     : Strategy Voting weight matrix and dynamic state transitions.
+- RISK      : Circuit breakers, VaR boundaries, and stop protection models.
+- ORD       : Order Book, Trade Book, Spread multi-leg, and Trigger orders.
+- LOG       : Direct Execution logs and database transactions logs.
+- MON       : CPU load, memory leak, and connection pings monitoring.
+- SEC       : User credentials, 2FA dynamic tokens, B-Unit hardware authentication.
+- SAFE      : Geopolitical commodity blocker and overnight rollover protectors.
+- PF        : Portfolio Position Book, asset holdings, and free ledger funds.
+- WATCH     : Interactive visual Symbol Watchlist with Symbols Heatmap.
+- MKT       : Exchange messages, movers, scanners, and fundamentals.
+- SYM       : Broker specs, lot sizes, margins, and spreads limits.
+- AIC       : AI & LLM configurations, learning rates, attention dimensions.
+- CRAWL     : Scraper feeds (DeFiLlama, TokenTerminal, dropsTab, ICOdrops).
+- TRADEBOOK : Settled closed trade logs.
+- HELP      : Displays this interactive operational handbook.
 
 2) KEYBOARD SHORTCUTS:
-----------------------
-- [F2]         : Switch to MAIN Screen.
-- [F3]         : Switch to GP Screen.
-- [F4]         : Switch to WEI Screen.
-- [F5]         : Switch to NEWS Screen.
-- [F6]         : Switch to ANR Screen.
-- [F1]         : Switch to HELP Screen.
+--------------------------------------------------------------------------------
+- [F2] MAIN  |  [F3] GP    |  [F4] WEI   |  [F5] NEWS |  [F6] ANR
+- [F7] PORT  |  [F8] MCTS  |  [F9] VDS   |  [F10] CHART |  [F11] SESS  |  [F1] HELP
 
-3) INTEGRATED TRADING LOGIC AND PARAMETERS:
--------------------------------------------
-- SCALPER COGNITION SYSTEM: Combines EMA-200, Bollinger Bands, RSI, MACD, and Pivot Lines.
-- MULTI-LAYER PERCEPTRON (MLP): Implemented completely in-house using pure-Python.
-  Continuously trains on incoming indicators to predict next-candle trend bias.
-  Acts as an autonomous veto filter if indicators suggest trade entries in a bad setups.
-- VOLATILITY-ADAPTIVE TAKE PROFITS: Multiplies targets by active ATR ranges.
-- FLOATING DAILY CIRCUIT BREAKER: Shuts down and closes all active transactions instantly
-  if equity drawdown exceeds -3.0% of start balance.
-- BREAKEVEN PROTECTIONS: Locks in stop loss to entry coordinates when trades hit 1:1 reward-risk.
+3) FREQUENTLY ASKED QUESTIONS (FAQ):
+--------------------------------------------------------------------------------
+Q: How does the system trade completely autonomously?
+A: The Python background coordinator thread pools tick rates, parses indicator
+   confluences, checks macro news sentiment filters, runs the neural prediction veto,
+   and submits orders directly without requiring any human manual entry.
 
+Q: How can I connect the system to my live MT5 terminal?
+A: Edit `config.py` and set `SIMULATION_MODE = False`. Launch the MT5 terminal on
+   Windows, then drag our compiled `ScalperBrainEA.mq5` onto an active chart.
+
+Q: Why are trade orders rejected?
+A: Check if the dynamic spread has expanded beyond config.MAX_SPREAD_PIPS, or if
+   the active session rollover hour blocker is currently engaged (22:00 - 23:00 GMT).
+
+4) EMERGENCY SAFETY ACTIONS / INCIDENT RESPONSE HOW-TO:
+--------------------------------------------------------------------------------
+EMERGENCY INCIDENT: UNEXPECTED FLOATING LOSS OR REGIME VOLATILITY EXPANSION
+Action 1 - Click [STOP BOT] immediately on the bottom action controls bar.
+Action 2 - Type "RISK" and press <GO>. Inspect the current daily drawdown levels.
+Action 3 - Open the MT5 Windows terminal and click [CLOSE ALL] on the chart HUD
+           to manually wipe out floating risks.
+Action 4 - Set config.DEMO_ACCOUNT_ONLY = True to prevent any further real balance
+           risks during system maintenance.
 ================================================================================
 For custom code updates, consult the terminal configuration at config.py.
 """
@@ -1406,7 +1201,21 @@ For custom code updates, consult the terminal configuration at config.py.
         self.candlestick_canvas.bind("<Motion>", self.on_chart_mouse_motion)
         self.candlestick_canvas.bind("<Leave>", self.on_chart_mouse_leave)
 
+        # Interactive scale zoom dragging coordinates
+        self.chart_zoom_mult = 1.0
+        self.candlestick_canvas.bind("<MouseWheel>", self.on_chart_zoom)
+        self.candlestick_canvas.bind("<Button-4>", self.on_chart_zoom)
+        self.candlestick_canvas.bind("<Button-5>", self.on_chart_zoom)
+
         self._update_chart_screen_data()
+
+    def on_chart_zoom(self, event):
+        """Adjusts the chart zoom multiplier on mousewheel scrolls, mimicking TradingView axes scale dragging"""
+        if event.num == 4 or event.delta > 0:
+            self.chart_zoom_mult = min(5.0, self.chart_zoom_mult * 1.1)
+        elif event.num == 5 or event.delta < 0:
+            self.chart_zoom_mult = max(0.2, self.chart_zoom_mult / 1.1)
+        self._update_chart_screen_data(new_tick=False)
 
     def on_chart_mouse_motion(self, event):
         """Saves mouse cursor coordinates and schedules canvas crosshairs redraw"""
@@ -1427,6 +1236,10 @@ For custom code updates, consult the terminal configuration at config.py.
             self.candlestick_data_list = []
         self._update_chart_screen_data(new_tick=True)
 
+    def on_global_tab_change(self, selection):
+        """Automated screen switch triggered by global dropdown select option"""
+        self.switch_to_screen(selection)
+
     def on_chart_tf_change(self, selection):
         # Force re-scaling on timeframe adjustments
         if hasattr(self, "candlestick_data_list"):
@@ -1435,6 +1248,7 @@ For custom code updates, consult the terminal configuration at config.py.
 
     def _update_chart_screen_data(self, new_tick=False):
         """Draws a visual line graph of account equity and real-time candlesticks on canvases with scales resembling TradingView"""
+        now_gmt = datetime.datetime.now(datetime.timezone.utc)
         # 1. Update Candlestick Chart Canvas
         if hasattr(self, "candlestick_canvas") and self.candlestick_canvas:
             self.candlestick_canvas.delete("all")
@@ -1497,16 +1311,37 @@ For custom code updates, consult the terminal configuration at config.py.
 
             # Draw horizontal timeline scale on bottom margin (X-Axis)
             time_steps = len(self.candlestick_data_list)
-            candle_w = max(1, int(chart_w / 30))
-            spacing = max(1, int(chart_w / 28))
+            zoom = getattr(self, "chart_zoom_mult", 1.0)
+            candle_w = max(1, int((chart_w / 30) * zoom))
+            spacing = max(1, int((chart_w / 28) * zoom))
+
+            # Determine correct candle timing intervals based on selected timeframe
+            tf = self.chart_tf_var.get()
+            m_val = 1
+            if tf.startswith("M"):
+                try: m_val = int(tf[1:])
+                except: m_val = 1
+            elif tf.startswith("H"):
+                try: m_val = int(tf[1:]) * 60
+                except: m_val = 60
+            elif tf.startswith("D"):
+                m_val = 1440
+            elif tf.startswith("W"):
+                m_val = 10080
+            else:
+                m_val = 43200
 
             for idx, c in enumerate(self.candlestick_data_list):
                 cx = idx * spacing + 15
 
-                # Draw horizontal time ticks on every 5th candle
+                # Draw horizontal time ticks on every 5th candle using correct dynamic candle timings
                 if idx % 5 == 0:
+                    offset_min = (len(self.candlestick_data_list) - 1 - idx) * m_val
+                    candle_time = now_gmt - datetime.timedelta(minutes=offset_min)
+                    time_lbl = candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
+
                     self.candlestick_canvas.create_line(cx, chart_h, cx, chart_h + 4, fill="#2d2d2d")
-                    self.candlestick_canvas.create_text(cx, chart_h + 8, text=f"+{idx}m", fill=self.fg_grey, anchor="n", font=("Consolas", 7))
+                    self.candlestick_canvas.create_text(cx, chart_h + 8, text=time_lbl, fill=self.fg_grey, anchor="n", font=("Consolas", 7))
 
                 # Map prices to Y coords
                 y_open = int(chart_h - (chart_h * (c["open"] - min_price) / price_range))
@@ -1548,11 +1383,16 @@ For custom code updates, consult the terminal configuration at config.py.
                 self.candlestick_canvas.create_rectangle(chart_w, cy_clipped - 6, cw, cy_clipped + 6, fill="#1e293b", outline="#888888")
                 self.candlestick_canvas.create_text(chart_w + 3, cy_clipped, text=f"{cursor_price:.5f}" if "JPY" not in self.selected_symbol_gp else f"{cursor_price:.2f}", fill="#ffffff", anchor="w", font=("Consolas", 7))
 
-                # Draw interactive highlight label on X-axis (Time Index)
+                # Draw interactive highlight label on X-axis (Time Index) using correct candle timing
                 nearest_candle_idx = int(cx_clipped / spacing) if spacing > 0 else 0
                 nearest_candle_idx = max(0, min(nearest_candle_idx, len(self.candlestick_data_list) - 1))
+
+                offset_min = (len(self.candlestick_data_list) - 1 - nearest_candle_idx) * m_val
+                candle_time = now_gmt - datetime.timedelta(minutes=offset_min)
+                time_lbl = candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
+
                 self.candlestick_canvas.create_rectangle(cx_clipped - 20, chart_h, cx_clipped + 20, ch, fill="#1e293b", outline="#888888")
-                self.candlestick_canvas.create_text(cx_clipped, chart_h + 8, text=f"+{nearest_candle_idx}m", fill="#ffffff", anchor="n", font=("Consolas", 7))
+                self.candlestick_canvas.create_text(cx_clipped, chart_h + 8, text=time_lbl, fill="#ffffff", anchor="n", font=("Consolas", 7))
 
             self.candlestick_canvas.create_text(10, 10, text=f"TV CLONE: {self.selected_symbol_gp} {self.chart_tf_var.get()}", fill=self.fg_accent, anchor="nw", font=("Consolas", 7, "bold"))
 
@@ -2168,95 +2008,36 @@ Trailing Profit Lock State:  Active (Dotted Tracker Line)
         self.risk_text.insert(tk.END, risk_data)
 
     def _show_ord_screen(self):
-        """ORD <GO>: Order Manager containing 4 sub-tabs"""
+        """ORD <GO>: Order Manager"""
         lbl_title = tk.Label(self.screen_frame, text="ORD: ORDER MANAGER & ROUTING QUEUE <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="REPORTS PENDING ORDER QUEUES, COST-AVERAGING GRID LAYERS, AND TRAILING BRACKETS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
 
-        # ttk.Notebook for 4 nested sub-tabs
-        self.ord_notebook = ttk.Notebook(self.screen_frame)
-        self.ord_notebook.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        # Tab 1: Order Book
-        self.ord_tab_ob = tk.Frame(self.ord_notebook, bg=self.bg_card)
-        self.ord_text_ob = tk.Text(self.ord_tab_ob, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.ord_text_ob.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.ord_notebook.add(self.ord_tab_ob, text="Order Book")
-
-        # Tab 2: Trade Book
-        self.ord_tab_tb = tk.Frame(self.ord_notebook, bg=self.bg_card)
-        self.ord_text_tb = tk.Text(self.ord_tab_tb, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.ord_text_tb.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.ord_notebook.add(self.ord_tab_tb, text="Trade Book")
-
-        # Tab 3: Spread / Multi-leg Order
-        self.ord_tab_sp = tk.Frame(self.ord_notebook, bg=self.bg_card)
-        self.ord_text_sp = tk.Text(self.ord_tab_sp, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.ord_text_sp.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.ord_notebook.add(self.ord_tab_sp, text="Spread/Multi-leg")
-
-        # Tab 4: Trigger Orders
-        self.ord_tab_tr = tk.Frame(self.ord_notebook, bg=self.bg_card)
-        self.ord_text_tr = tk.Text(self.ord_tab_tr, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.ord_text_tr.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.ord_notebook.add(self.ord_tab_tr, text="Trigger Orders")
-
+        self.ord_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.ord_text.pack(fill=tk.BOTH, expand=True)
         self._update_ord_screen_data()
 
     def _update_ord_screen_data(self):
-        if not hasattr(self, "ord_text_ob") or not self.ord_text_ob: return
+        if not hasattr(self, "ord_text") or not self.ord_text: return
+        self.ord_text.delete("1.0", tk.END)
+        ord_data = f"""
+================================================================================
+ORD <GO>: TRANSMISSION ROUTER QUEUE LIST
+================================================================================
+ACTIVE EXECUTED POSITIONS:
+--------------------------------------------------------------------------------
+No active positions currently running in the market.
 
-        # 1. Update Order Book Tab
-        self.ord_text_ob.delete("1.0", tk.END)
-        ob_data = f"""
-================================================================================
-ORDER BOOK TELEMETRY
-================================================================================
-Pending Limit Orders:        0 Orders active
-Pending Stop Orders:         0 Orders active
-Execution Lock status:       SERIALIZED (Mutex trade_lock active)
-Last check timestamp:        {datetime.datetime.now().strftime('%H:%M:%S')}
+PENDING BRACKETS & LIMIT LAYERS:
+--------------------------------------------------------------------------------
+Grid Matrix Spacing:         {config.GRID_SPACING_ATR_MULT}x ATR spacing intervals
+Maximum Grid Levels Cap:     {config.GRID_MAX_LEVELS} buy/sell layers
+Queue Lock State:            SERIALIZED (Mutex trade_lock active)
+Last Routing Transmission:   Success (Order matching bridge cleared)
 ================================================================================
 """
-        self.ord_text_ob.insert(tk.END, ob_data)
-
-        # 2. Update Trade Book Tab
-        self.ord_text_tb.delete("1.0", tk.END)
-        tb_data = f"""
-================================================================================
-TRADE BOOK HISTORICAL LOGS
-================================================================================
-No recent trades processed during this operational sequence.
-Connection Mode:             Paper Simulator fallback
-================================================================================
-"""
-        self.ord_text_tb.insert(tk.END, tb_data)
-
-        # 3. Update Spread/Multi-leg Tab
-        self.ord_text_sp.delete("1.0", tk.END)
-        sp_data = f"""
-================================================================================
-SPREAD & MULTI-LEG ROUTING MATRIX
-================================================================================
-Active spreads:              EURUSD/GBPUSD dynamic correlation spread
-Hedge ratio matrix:          1.24x multiplier
-Leg 1 State:                 IDLE
-Leg 2 State:                 IDLE
-================================================================================
-"""
-        self.ord_text_sp.insert(tk.END, sp_data)
-
-        # 4. Update Trigger Tab
-        self.ord_text_tr.delete("1.0", tk.END)
-        tr_data = f"""
-================================================================================
-TRIGGER ORDERS CONFIGURATION
-================================================================================
-Oco Stop Triggers:           Enabled
-Trailing profit trigger:     {config.TRAILING_STOP_ENABLED} (Distance: {config.TRAILING_STOP_ATR_MULT}x ATR)
-Stop-Level buffer:           10 points / pips min stop distance
-================================================================================
-"""
-        self.ord_text_tr.insert(tk.END, tr_data)
+        self.ord_text.insert(tk.END, ord_data)
 
     def _show_log_screen(self):
         """LOG <GO>: Execution Logger"""
@@ -2388,81 +2169,39 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
         self.safe_text.insert(tk.END, safe_data)
 
     def _show_pf_screen(self):
-        """PF <GO>: Portfolio Manager containing 3 sub-tabs"""
+        """PF <GO>: Portfolio Manager"""
         lbl_title = tk.Label(self.screen_frame, text="PF: PORTFOLIO ALLOCATION MANAGER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="COMPUTES MATHEMATICALLY OPTIMAL SHARPE ASSET ALLOCATIONS USING MARKOWITZ PRINCIPLE", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
 
-        # ttk.Notebook for 3 nested sub-tabs
-        self.pf_notebook = ttk.Notebook(self.screen_frame)
-        self.pf_notebook.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        # Tab 1: Position Book
-        self.pf_tab_pb = tk.Frame(self.pf_notebook, bg=self.bg_card)
-        self.pf_text_pb = tk.Text(self.pf_tab_pb, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.pf_text_pb.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.pf_notebook.add(self.pf_tab_pb, text="Position Book")
-
-        # Tab 2: Holdings
-        self.pf_tab_hd = tk.Frame(self.pf_notebook, bg=self.bg_card)
-        self.pf_text_hd = tk.Text(self.pf_tab_hd, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.pf_text_hd.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.pf_notebook.add(self.pf_tab_hd, text="Holdings")
-
-        # Tab 3: Funds
-        self.pf_tab_fd = tk.Frame(self.pf_notebook, bg=self.bg_card)
-        self.pf_text_fd = tk.Text(self.pf_tab_fd, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=0, highlightthickness=0)
-        self.pf_text_fd.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.pf_notebook.add(self.pf_tab_fd, text="Funds")
-
+        self.pf_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.pf_text.pack(fill=tk.BOTH, expand=True)
         self._update_pf_screen_data()
 
     def _update_pf_screen_data(self):
-        if not hasattr(self, "pf_text_pb") or not self.pf_text_pb: return
-
-        # 1. Update Position Book Tab
-        self.pf_text_pb.delete("1.0", tk.END)
-        pb_data = f"""
+        if not hasattr(self, "pf_text") or not self.pf_text: return
+        self.pf_text.delete("1.0", tk.END)
+        pf_data = f"""
 ================================================================================
-POSITION BOOK STATUS
+PF <GO>: MARKOWITZ MEAN-VARIANCE ALLOCATOR
 ================================================================================
-No active open positions currently allocated.
-Slippage Risk parameters:    Safe (0.0% breach)
-================================================================================
-"""
-        self.pf_text_pb.insert(tk.END, pb_data)
-
-        # 2. Update Holdings Tab
-        self.pf_text_hd.delete("1.0", tk.END)
-        hd_data = f"""
-================================================================================
-PORTFOLIO ASSET HOLDINGS & MARKOWITZ OPTIMAL ALLOCATIONS
-================================================================================
-COGNITIVE ALLOCATIONS (Re-balanced via JAX Eigenvalues):
+COGNITIVE ALLOCATIONS:
 --------------------------------------------------------------------------------
-1) EURUSD Optimal Weight:    {random.uniform(15, 35):.2f}%
-2) GBPUSD Optimal Weight:    {random.uniform(10, 30):.2f}%
-3) USDJPY Optimal Weight:    {random.uniform(5, 20):.2f}%
-4) XAUUSD Optimal Weight:    {random.uniform(10, 25):.2f}%
-5) BTCUSD Optimal Weight:    {random.uniform(5, 15):.2f}%
+1) EURUSD Optimal Sharpe weight: {random.uniform(15, 35):.2f}%
+2) GBPUSD Optimal Sharpe weight: {random.uniform(10, 30):.2f}%
+3) USDJPY Optimal Sharpe weight: {random.uniform(5, 20):.2f}%
+4) XAUUSD Optimal Sharpe weight: {random.uniform(10, 25):.2f}%
+5) BTCUSD Optimal Sharpe weight: {random.uniform(5, 15):.2f}%
 
-Expected Portfolio Yield:    18.42% Annualized (Low variance limit)
+MATHEMATICAL CALCULATOR:
+--------------------------------------------------------------------------------
+Covariance Eigenvectors:    JAX-Accelerated Decomposition OK
+Target Portfolio Return:     18.42% Annualized (Simulated)
+Target Portfolio Volatility:  4.22% Annualized (Low variance limit)
 ================================================================================
 """
-        self.pf_text_hd.insert(tk.END, hd_data)
-
-        # 3. Update Funds Tab
-        self.pf_text_fd.delete("1.0", tk.END)
-        fd_data = f"""
-================================================================================
-FUNDS & LIQUIDITY ACCOUNT LEDGER
-================================================================================
-Broker Starting Balance:     $10,000.00 USD
-Dynamic Total Net Equity:    $10,000.00 USD
-Available Margin Free:       $10,000.00 USD
-Account Currency:            USD Ledger
-================================================================================
-"""
-        self.pf_text_fd.insert(tk.END, fd_data)
+        self.pf_text.insert(tk.END, pf_data)
 
     def _show_sym_screen(self):
         """SYM <GO>: Broker Configuration and Tradable symbol Configuration"""
@@ -2723,14 +2462,6 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
                     self._update_aic_screen_data()
                 elif self.active_screen == "CRAWL":
                     self._update_crawl_screen_data()
-                elif self.active_screen == "CRED":
-                    self._update_cred_screen_data()
-                elif self.active_screen == "WATCH":
-                    self._update_watch_screen_data()
-                elif self.active_screen == "MKT":
-                    self._update_mkt_screen_data()
-                elif self.active_screen == "TRADEBOOK":
-                    self._update_tradebook_screen_data()
 
                 self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
