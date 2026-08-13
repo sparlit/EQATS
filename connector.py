@@ -365,6 +365,7 @@ class SimulatorConnector(TradingConnector):
         self.open_trades = {}
         self.ticket_counter = 100001
         self.lock = threading.Lock()
+        self.connected_status = True
 
         # Keep internal simulated historical data for symbols
         self.historical_prices = {}
@@ -377,7 +378,7 @@ class SimulatorConnector(TradingConnector):
         return True
 
     def is_connected(self):
-        return True
+        return self.connected_status
 
     def disconnect(self):
         print("Simulator disconnected.")

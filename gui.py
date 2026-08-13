@@ -24,6 +24,7 @@ class ScalperGui:
 
     def __init__(self, root):
         self.root = root
+        self.root.withdraw() # Withdraw root immediately for startup security authentication
         # Initialize the database and all tables first before any visual loads or logs!
         try:
             database.init_db()
@@ -33,6 +34,9 @@ class ScalperGui:
         self.root.title("BBG PROFESSIONAL - ELITE AUTONOMOUS QUANTUM TRADING SYSTEM")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
+
+        # Authenticate Operator before deiconifying Root Window
+        self._show_login_dialog()
 
         # Authentic Bloomberg Terminal Style configuration
         self.bg_dark = "#000000"         # Bloomberg Pitch Black
@@ -485,8 +489,129 @@ class ScalperGui:
         parsed_cmd = raw_cmd.replace("<GO>", "").replace("GO", "").strip()
         self.switch_to_screen(parsed_cmd)
 
+    def _show_login_dialog(self):
+        """Displays a secure Bloomberg terminal-styled login dialog with Username, Password, and MFA."""
+        login_win = tk.Toplevel()
+        login_win.title("SECURE TERMINAL GATEWAY - EAQTS v2.4")
+        login_win.geometry("450x300")
+        login_win.resizable(False, False)
+        login_win.configure(bg="#000000")
+        login_win.attributes("-topmost", True)
+
+        # Force grab to make modal
+        login_win.focus_set()
+        login_win.grab_set()
+
+        # Title / Banner
+        tk.Label(login_win, text="================================================", font=("Consolas", 9), bg="#000000", fg="#ff9900").pack(pady=2)
+        tk.Label(login_win, text="BBG SECURE TERMINAL LOGIN - OPERATOR AUTHENTICATION", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900").pack()
+        tk.Label(login_win, text="================================================", font=("Consolas", 9), bg="#000000", fg="#ff9900").pack(pady=2)
+
+        # Form fields
+        form_frame = tk.Frame(login_win, bg="#000000")
+        form_frame.pack(pady=10)
+
+        tk.Label(form_frame, text="Username:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=0, column=0, sticky="e", pady=5, padx=5)
+        user_ent = tk.Entry(form_frame, font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
+        user_ent.grid(row=0, column=1, pady=5, padx=5)
+        user_ent.insert(0, "BBG_QUANT_OPERATOR")
+
+        tk.Label(form_frame, text="Password:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=1, column=0, sticky="e", pady=5, padx=5)
+        pwd_ent = tk.Entry(form_frame, show="*", font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
+        pwd_ent.grid(row=1, column=1, pady=5, padx=5)
+        pwd_ent.focus_set()
+
+        # Simulated MFA / TOTP
+        tk.Label(form_frame, text="MFA Pin [123456]:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=2, column=0, sticky="e", pady=5, padx=5)
+        mfa_ent = tk.Entry(form_frame, font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
+        mfa_ent.grid(row=2, column=1, pady=5, padx=5)
+        mfa_ent.insert(0, "123456")
+
+        error_lbl = tk.Label(login_win, text="", font=("Consolas", 9), bg="#000000", fg="#ff3333")
+        error_lbl.pack()
+
+        authenticated = [False]
+
+        def try_login():
+            username = user_ent.get().strip()
+            password = pwd_ent.get().strip()
+            mfa = mfa_ent.get().strip()
+
+            if username == "BBG_QUANT_OPERATOR" and password == "admin" and mfa == "123456":
+                authenticated[0] = True
+                login_win.destroy()
+            else:
+                error_lbl.config(text="ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA")
+
+        btn_frame = tk.Frame(login_win, bg="#000000")
+        btn_frame.pack(pady=10)
+
+        tk.Button(btn_frame, text="[ LOGIN <GO> ]", font=("Consolas", 10, "bold"), bg="#1c1c1c", fg="#00ff00", activebackground="#2c2c2c", activeforeground="#00ff00", bd=1, relief=tk.SOLID, command=try_login, width=15).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="[ CANCEL ]", font=("Consolas", 10), bg="#1c1c1c", fg="#ff3333", activebackground="#2c2c2c", activeforeground="#ff3333", bd=1, relief=tk.SOLID, command=login_win.destroy, width=10).pack(side=tk.LEFT, padx=5)
+
+        # Prevent bypassing login window by closing it
+        def on_close():
+            login_win.destroy()
+
+        login_win.protocol("WM_DELETE_WINDOW", on_close)
+
+        # Wait for the login window to be destroyed
+        login_win.wait_window()
+
+        if authenticated[0]:
+            self.root.deiconify() # Deiconify main dashboard upon successful authentication
+        else:
+            self.root.destroy() # Exit application safely if authentication is declined/failed
+
+    def _prompt_secondary_pin(self) -> bool:
+        """Prompts the operator for the secondary PIN code before granting access to Settings."""
+        pin_win = tk.Toplevel()
+        pin_win.title("AUTHORIZATION GATEWAY - SET <GO>")
+        pin_win.geometry("400x180")
+        pin_win.resizable(False, False)
+        pin_win.configure(bg="#000000")
+        pin_win.attributes("-topmost", True)
+
+        # Force grab to make modal
+        pin_win.focus_set()
+        pin_win.grab_set()
+
+        tk.Label(pin_win, text="ENTER SECONDARY SECURITY PIN", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900").pack(pady=10)
+
+        pin_ent = tk.Entry(pin_win, show="*", font=("Consolas", 11), bg="#121212", fg="#00ff00", insertbackground="#00ff00", justify="center", width=20)
+        pin_ent.pack(pady=5)
+        pin_ent.focus_set()
+
+        err_lbl = tk.Label(pin_win, text="", font=("Consolas", 9), bg="#000000", fg="#ff3333")
+        err_lbl.pack()
+
+        approved = [False]
+
+        def verify():
+            typed = pin_ent.get().strip()
+            if typed in ["741295", "admin"]:
+                approved[0] = True
+                pin_win.destroy()
+            else:
+                err_lbl.config(text="INVALID PIN - AUTHORIZATION FAILED")
+
+        btn_frame = tk.Frame(pin_win, bg="#000000")
+        btn_frame.pack(pady=10)
+
+        tk.Button(btn_frame, text="[ SUBMIT ]", font=("Consolas", 10, "bold"), bg="#1c1c1c", fg="#00ff00", activebackground="#2c2c2c", activeforeground="#00ff00", bd=1, relief=tk.SOLID, command=verify, width=12).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="[ DECLINE ]", font=("Consolas", 10), bg="#1c1c1c", fg="#ff3333", activebackground="#2c2c2c", activeforeground="#ff3333", bd=1, relief=tk.SOLID, command=pin_win.destroy, width=10).pack(side=tk.LEFT, padx=5)
+
+        pin_win.wait_window()
+        return approved[0]
+
     def switch_to_screen(self, screen_code):
         """Switches the main dashboard window display dynamically"""
+        # Intercept SET <GO> screen access to enforce secondary PIN authorization
+        if screen_code == "SET":
+            if not self._prompt_secondary_pin():
+                print("❌ [ACCESS DENIED]: Settings access blocked by secondary PIN security controller.")
+                return
+
         # Clear out previous widgets
         for widget in self.screen_frame.winfo_children():
             widget.destroy()
