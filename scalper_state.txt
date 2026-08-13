@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ | CME Futures|Sydney FX (00:36:36) | Tokyo FX (01:36:36) | Sydney ASX (02:36:36)|Active Tracker
+10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ|Sydney ASX (00:34:19) | Tokyo TSE (00:34:19) | Hong Kong FX (01:34:19)|Active Tracker
 SCANS_HEADER
-EURUSD|1.09463|1.10183|DOWN|34.3|0.00288|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09348 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.33486|1.32208|UP|50.1|0.00418|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32463 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.10259|1.10208|UP|50.9|0.00303|Breakout Setup: Waiting for: Inside Squeeze Channel [1.09471 - 1.10930]|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.32657|1.32178|UP|34.6|0.00370|Breakout Setup: Waiting for: Inside Squeeze Channel [1.32258 - 1.34485]|0.0|0.0|0.0|0,0,0,0,0
