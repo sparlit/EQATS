@@ -533,26 +533,54 @@ class SimulatorConnector(TradingConnector):
                 sl = trade['sl']
                 tp = trade['tp']
 
-                # Check Buy order
+                # Check if BOTH SL and TP are hit in the same high-volatility range
+                both_hit = False
                 if direction == 'BUY':
-                    if low <= sl:
-                        # SL hit
-                        self._process_hit(ticket, sl, "SL")
-                        closed_tickets.append(ticket)
-                    elif high >= tp:
-                        # TP hit
-                        self._process_hit(ticket, tp, "TP")
-                        closed_tickets.append(ticket)
-                # Check Sell order
+                    if low <= sl and high >= tp:
+                        both_hit = True
                 elif direction == 'SELL':
-                    if high >= sl:
-                        # SL hit
-                        self._process_hit(ticket, sl, "SL")
-                        closed_tickets.append(ticket)
-                    elif low <= tp:
-                        # TP hit
-                        self._process_hit(ticket, tp, "TP")
-                        closed_tickets.append(ticket)
+                    if high >= sl and low <= tp:
+                        both_hit = True
+
+                if both_hit:
+                    # Resolve double-hit ambiguity using the candle direction as a heuristic
+                    is_green = (last_bar['close'] >= last_bar['open'])
+                    if direction == 'BUY':
+                        if is_green:
+                            # Assume price went up first to hit TP
+                            self._process_hit(ticket, tp, "TP")
+                        else:
+                            # Assume price went down first to hit SL (conservative)
+                            self._process_hit(ticket, sl, "SL")
+                    else: # SELL
+                        if not is_green:
+                            # Assume price went down first to hit TP
+                            self._process_hit(ticket, tp, "TP")
+                        else:
+                            # Assume price went up first to hit SL (conservative)
+                            self._process_hit(ticket, sl, "SL")
+                    closed_tickets.append(ticket)
+                else:
+                    # Check Buy order
+                    if direction == 'BUY':
+                        if low <= sl:
+                            # SL hit
+                            self._process_hit(ticket, sl, "SL")
+                            closed_tickets.append(ticket)
+                        elif high >= tp:
+                            # TP hit
+                            self._process_hit(ticket, tp, "TP")
+                            closed_tickets.append(ticket)
+                    # Check Sell order
+                    elif direction == 'SELL':
+                        if high >= sl:
+                            # SL hit
+                            self._process_hit(ticket, sl, "SL")
+                            closed_tickets.append(ticket)
+                        elif low <= tp:
+                            # TP hit
+                            self._process_hit(ticket, tp, "TP")
+                            closed_tickets.append(ticket)
 
         return closed_tickets
 
