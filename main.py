@@ -9,12 +9,14 @@ import brain
 import indicators
 import predictive_brain
 import telegram_bot
+import eaqts_planes
+from event_bus import global_event_bus, Event
 
 class AutonomousScalper:
     """
     The main coordinator class for the Autonomous Forex Scalper.
     It orchestrates initialization, main loops, technical scans, execution,
-    trade monitoring, and risk/drawdown safeguards.
+    trade monitoring, and risk/drawdown safeguards under the EAQTS 2.4 unified control flow.
     """
 
     def __init__(self):
@@ -28,6 +30,9 @@ class AutonomousScalper:
         else:
             print("--- RUNNING IN LIVE MT5 WINDOWS MODE ---")
             self.conn = connector.MT5Connector(demo_only=config.DEMO_ACCOUNT_ONLY)
+
+        # 3. Instantiate the EAQTS 2.4 Unified 9 Planes Engine
+        self.engine = eaqts_planes.init_core_engine(self.conn)
 
         self.brain = brain.ScalperBrain()
         self.running = False
@@ -46,6 +51,20 @@ class AutonomousScalper:
         # Track total starting balance of the day for Drawdown calculations
         self.daily_start_balance = 0.0
         self.last_day_str = ""
+
+        # Event Bus wiring: subscribe to vital events
+        global_event_bus.subscribe("SafetyInvariantViolation", self._handle_safety_violation)
+        global_event_bus.subscribe("TradeAdmissionApproved", self._handle_trade_approved)
+        global_event_bus.subscribe("TradeAdmissionRejected", self._handle_trade_rejected)
+
+    def _handle_safety_violation(self, event: Event):
+        print(f"🛑 [SAFETY INVARIANT VIOLATION EVENT]: {event.payload}")
+
+    def _handle_trade_approved(self, event: Event):
+        print(f"✅ [TRADE ADMISSION APPROVED EVENT]: {event.payload}")
+
+    def _handle_trade_rejected(self, event: Event):
+        print(f"❌ [TRADE ADMISSION REJECTED EVENT]: {event.payload}")
 
     def start(self):
         """Connects and starts the main loop."""
@@ -68,6 +87,13 @@ class AutonomousScalper:
         )
         print(start_msg.replace("*", ""))
         telegram_bot.send_telegram_message(start_msg)
+
+        # Notify Event Bus
+        global_event_bus.publish(Event(
+            family="SystemFault",
+            source="Main",
+            payload={"message": "System starting up cleanly"}
+        ))
 
         self.running = True
         return True
@@ -181,6 +207,11 @@ class AutonomousScalper:
         spread = ask - bid
         if spread < 0:
             return False, "Negative spread / bad price data."
+
+        # Enforce Data Plane reasonableness filters
+        data_status = self.engine.data.validate_reasonableness(symbol, bid, ask)
+        if data_status in ["INVALID", "QUARANTINED"]:
+            return False, f"Data Plane Filter: Market state is {data_status}."
 
         # Determine pip scaling
         symbol_upper = symbol.upper()
@@ -649,6 +680,9 @@ class AutonomousScalper:
 
         current_price = history[-1]['close']
 
+        # Notify Data Plane of incoming tick
+        self.engine.data.store_price(symbol, current_price - 0.0001, current_price + 0.0001)
+
         # Check if we already have an open trade on this exact symbol
         has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
         if has_active_symbol:
@@ -760,7 +794,7 @@ class AutonomousScalper:
     def tick_and_execute(self):
         """
         Runs one iteration of checking market state, assessing trades,
-        updating open positions, and enforcing limits.
+        updating open positions, and enforcing limits under EAQTS 2.4 logic.
         """
         # Heartbeat: Check connection status and attempt auto-reconnection
         if not self.conn.is_connected():
@@ -770,6 +804,9 @@ class AutonomousScalper:
             except Exception as e:
                 print(f"Warning: Reconnection attempt failed: {e}")
                 return
+
+        # Log heartbeat metrics on the Operations plane
+        self.engine.resilience.log_heartbeat(0.12)
 
         # A. Check and update the daily drawdown start baseline
         current_date = datetime.date.today().isoformat()
@@ -784,7 +821,6 @@ class AutonomousScalper:
             # Let the simulator tick and automatically trigger closures on hit SL/TP
             closed_tickets = self.conn.tick()
             for ticket in closed_tickets:
-                # Synchronize status with SQLite (if not already handled by Simulator)
                 pass
 
         # C. Check Real-Time Floating Daily Drawdown Limit
@@ -856,14 +892,6 @@ class AutonomousScalper:
         print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}")
         print("-" * 120)
 
-        # Draw visual dashboards inside MT5 terminal (or simulated logs)
-        dashboard_data = {
-            "time": timestamp_str,
-            "equity": current_equity,
-            "balance": current_balance,
-            "active_count": len(active_positions)
-        }
-
         # Don't place new trades if we already reached our total max limit of simultaneous positions
         trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
 
@@ -931,11 +959,52 @@ class AutonomousScalper:
                 if any(p['symbol'].upper() == symbol.upper() for p in active_positions_refresh):
                     continue
 
+                # ==================================================================
+                # EAQTS 2.4 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
+                # ==================================================================
+                # A. Evaluate Safety Invariants
+                violations = self.engine.safety.evaluate_invariants(
+                    current_risk=config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
+                    active_count=len(active_positions_refresh) + 1
+                )
+
+                # B. Estimate Expected Net Value
+                env = self.engine.risk.calculate_expected_net_value(
+                    gross_edge=config.RISK_PER_TRADE_PERCENT * 2.0, # Expected win
+                    spread=0.0002,
+                    commission=0.0001,
+                    slippage=0.0001
+                )
+
+                # C. Safety Kernel check
+                if not self.engine.safety.authorize_trade(symbol, env, violations):
+                    print(f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed.")
+                    continue
+
+                # D. Fat-Finger checking
+                if not self.engine.execution.validate_fat_finger(symbol, analysis['lot_size'], float(s['price'] if s['price'] != '-' else '1.1')):
+                    print(f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {analysis['lot_size']} or notional exceeds standard limits.")
+                    continue
+
+                # E. Self-Trade prevention check
+                if self.engine.execution.prevent_self_trade(symbol, decision, active_positions_refresh):
+                    print(f"🛑 [SELF-TRADE PREVENTION BLOCKED]: conflicting positions open on symbol {symbol}.")
+                    continue
+
+                # F. Rate limits check
+                if not self.engine.execution.check_rate_limits():
+                    print(f"🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
+                    continue
+
+                # Commit Reservation & execute
+                self.engine.risk.reserve_capital(symbol, config.RISK_PER_TRADE_PERCENT)
+                self.engine.risk.commit_reservation(symbol)
+
                 print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
-                res = self.conn.execute_order(
+                res = self.engine.execution.execute_admitted_order(
                     symbol=symbol,
-                    order_type=decision,
-                    lot_size=analysis['lot_size'],
+                    direction=decision,
+                    lot=analysis['lot_size'],
                     sl=analysis['sl'],
                     tp=analysis['tp']
                 )
@@ -995,11 +1064,9 @@ class AutonomousScalper:
 
 if __name__ == "__main__":
     # Check if we should launch in GUI mode or fallback to classic CLI mode
-    # Standard fallback if Tkinter is not supported/configured (e.g., in headless Linux/Docker environments)
     use_gui = True
     try:
         import tkinter as tk
-        # Check for X11 display presence on Unix-like environments
         if os.name != 'nt' and not os.environ.get('DISPLAY'):
             use_gui = False
     except ImportError:

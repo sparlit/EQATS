@@ -159,5 +159,27 @@ class TestInstitutionalIntegrations(unittest.TestCase):
             self.assertIn("engine", res)
 
 
+class TestEAQTSReleaseGates(unittest.TestCase):
+
+    def test_all_29_release_gates(self):
+        """Programmatically executes and verifies all 29 EAQTS Version 2.4 Production Release Gates (G01-G29)."""
+        import release_gates
+        runner = release_gates.ReleaseGateRunner()
+        success = runner.run_all_gates()
+
+        # Check that we evaluated all 29 gates
+        self.assertEqual(len(runner.results), 29)
+
+        # Print all gate evaluation results for transparency in test logs
+        print("\n--- EAQTS VERSION 2.4 PRODUCTION RELEASE GATES AUDIT REPORT ---")
+        for code, data in sorted(runner.results.items()):
+            status_str = "PASSED" if data["passed"] else "FAILED"
+            print(f"[{code}] {data['name']:<45} : {status_str} ({data['reason']})")
+        print("----------------------------------------------------------------\n")
+
+        # Assert that all 29 gates successfully passed
+        self.assertTrue(success, "One or more mandatory Production Release Gates (G01-G29) failed!")
+
+
 if __name__ == "__main__":
     unittest.main()
