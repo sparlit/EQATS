@@ -8,38 +8,6 @@ to output direct text-based market forecast reports and sentiment analysis.
 import math
 import random
 
-class TencentDBAgentMemory:
-    """
-    Simulated Tencent DB Agent Memory.
-    Features high-speed nearest-neighbor semantic vector retrieval to store and query
-    cognitive memory representations across ticks.
-    """
-    def __init__(self):
-        self.memory_store = []
-
-    def save_memory(self, vector, text_content):
-        self.memory_store.append({"vector": vector, "content": text_content})
-
-    def query_nearest_memory(self, query_vector):
-        if not self.memory_store:
-            return "No previous memories stored."
-
-        # Calculate Euclidean distance
-        best_match = None
-        min_dist = float('inf')
-        for mem in self.memory_store:
-            dist = math.sqrt(sum((query_vector[i] - mem["vector"][i])**2 for i in range(min(len(query_vector), len(mem["vector"])))))
-            if dist < min_dist:
-                min_dist = dist
-                best_match = mem["content"]
-        return best_match
-
-# Global Tencent DB Memory instance
-tencent_db_memory = TencentDBAgentMemory()
-# Pre-populate with typical baseline memories
-tencent_db_memory.save_memory([0.1, -0.2, 0.5, 0.9], "Memory: EURUSD trend showing high bullish support above pivot line.")
-tencent_db_memory.save_memory([-0.4, 0.8, -0.1, -0.5], "Memory: Federal Reserve signals potential rate stabilization, easing yields.")
-
 class QuantumLocalGPT:
     """
     Self-contained Financial GPT model built from scratch.

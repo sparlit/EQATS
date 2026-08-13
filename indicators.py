@@ -157,6 +157,8 @@ def calculate_bollinger_bands(prices, period=20, num_std=2.0):
     # Variance and standard deviation calculation
     variance = sum((x - middle) ** 2 for x in window) / period
     std_dev = variance ** 0.5
+    if std_dev == 0.0:
+        std_dev = 1e-9  # Avoid division by zero downstream
 
     upper = middle + (num_std * std_dev)
     lower = middle - (num_std * std_dev)

@@ -96,85 +96,6 @@ class ScalperGui:
         except Exception as e:
             print(f"Warning: Failed to prepopulate database news: {e}")
 
-        # Withdraw root window for security/pre-user authentication startup
-        self.root.withdraw()
-        self._show_login_dialog()
-
-    def _show_login_dialog(self):
-        """Displays a secure Bloomberg-styled terminal pre-user login authentication window"""
-        self.login_win = tk.Toplevel(self.root, bg=self.bg_dark)
-        self.login_win.title("BBG SECURE TERMINAL LOGIN")
-        self.login_win.geometry("500x350")
-        self.login_win.resizable(False, False)
-
-        # Center the window
-        self.login_win.update_idletasks()
-        w = 500
-        h = 350
-        x = (self.login_win.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.login_win.winfo_screenheight() // 2) - (h // 2)
-        self.login_win.geometry(f"+{x}+{y}")
-
-        # ASCII Logo banner
-        logo_text = """
-==================================================
-  ELITE AUTONOMOUS QUANTUM TRADING SYSTEM v3.0
-==================================================
-        """
-        lbl_logo = tk.Label(self.login_win, text=logo_text, font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_logo.pack(pady=15)
-
-        lbl_instruct = tk.Label(self.login_win, text="SECURE BIOMETRIC / PASSWORD ENTRY REQUIRED", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
-        lbl_instruct.pack(pady=(0, 15))
-
-        # Fields frame
-        f_frame = tk.Frame(self.login_win, bg=self.bg_dark)
-        f_frame.pack(pady=5)
-
-        tk.Label(f_frame, text="USERNAME:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey).grid(row=0, column=0, sticky="w", pady=5)
-        self.ent_user = tk.Entry(f_frame, font=("Consolas", 9), bg="#111111", fg=self.fg_accent, insertbackground=self.fg_accent, width=25, bd=1, relief=tk.SOLID)
-        self.ent_user.grid(row=0, column=1, pady=5, padx=10)
-        self.ent_user.insert(0, "BBG_QUANT_OPERATOR")
-
-        tk.Label(f_frame, text="PASSWORD:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey).grid(row=1, column=0, sticky="w", pady=5)
-        self.ent_pass = tk.Entry(f_frame, show="*", font=("Consolas", 9), bg="#111111", fg=self.fg_accent, insertbackground=self.fg_accent, width=25, bd=1, relief=tk.SOLID)
-        self.ent_pass.grid(row=1, column=1, pady=5, padx=10)
-        self.ent_pass.insert(0, "741295")
-
-        # Action Buttons
-        btn_frame = tk.Frame(self.login_win, bg=self.bg_dark)
-        btn_frame.pack(pady=20)
-
-        btn_login = tk.Button(
-            btn_frame,
-            text="VERIFY & SECURE <GO>",
-            font=("Consolas", 8, "bold"),
-            bg=self.fg_accent,
-            fg="#000000",
-            padx=12,
-            pady=6,
-            relief=tk.FLAT,
-            command=self._verify_startup_credentials
-        )
-        btn_login.pack(side=tk.LEFT, padx=10)
-
-        # Handle closed window
-        self.login_win.protocol("WM_DELETE_WINDOW", self.root.quit)
-
-    def _verify_startup_credentials(self):
-        user = self.ent_user.get().strip()
-        pwd = self.ent_pass.get().strip()
-
-        if user == "BBG_QUANT_OPERATOR" and pwd in ["741295", "admin"]:
-            # Successful Authentication
-            self.login_win.destroy()
-            self.root.deiconify()
-            self._initialize_main_workspace()
-        else:
-            messagebox.showerror("Auth Error", "INVALID CREDENTIALS SECURED. ACCESS DENIED.")
-
-    def _initialize_main_workspace(self):
-        """Builds and loads the entire visual client workspace after pre-user authentication passes"""
         # Build UI layout
         self._build_header()
         self._build_command_bar()
@@ -311,7 +232,7 @@ class ScalperGui:
             "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
             "DES", "YAS", "ECO", "EMSX", "SET", "ING", "FEAT", "STRAT", "RISK", "ORD",
             "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
-            "MKT", "TRADEBOOK", "SENTIMENT", "PREDICTOR", "AGENT", "HELP"
+            "MKT", "TRADEBOOK", "HELP"
         ]
         self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
         self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
@@ -565,15 +486,7 @@ class ScalperGui:
         self.switch_to_screen(parsed_cmd)
 
     def switch_to_screen(self, screen_code):
-        """Switches the main dashboard window display dynamically with secure passcode check on SET tab"""
-        if screen_code == "SET":
-            # Secure Settings passcode entry prompt
-            from tkinter import simpledialog
-            passcode = simpledialog.askstring("SET SECURITY", "Enter Settings Authorization PIN:", show="*")
-            if passcode != "741295" and passcode != "admin":
-                messagebox.showerror("Access Denied", "INVALID SETTINGS ACCESS PIN. AUTHORIZATION FAILED.")
-                return
-
+        """Switches the main dashboard window display dynamically"""
         # Clear out previous widgets
         for widget in self.screen_frame.winfo_children():
             widget.destroy()
@@ -639,20 +552,6 @@ class ScalperGui:
             self._show_aic_screen()
         elif screen_code == "CRAWL":
             self._show_crawl_screen()
-        elif screen_code == "CRED":
-            self._show_cred_screen()
-        elif screen_code == "WATCH":
-            self._show_watch_screen()
-        elif screen_code == "MKT":
-            self._show_mkt_screen()
-        elif screen_code == "TRADEBOOK":
-            self._show_tradebook_screen()
-        elif screen_code == "SENTIMENT":
-            self._show_sentiment_screen()
-        elif screen_code == "PREDICTOR":
-            self._show_predictor_screen()
-        elif screen_code == "AGENT":
-            self._show_agent_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -2407,156 +2306,6 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
 """
         self.crawl_text.insert(tk.END, crawl_data)
 
-    def _show_sentiment_screen(self):
-        """SENTIMENT <GO>: Deep Market Sentiment Analyzer"""
-        lbl_title = tk.Label(self.screen_frame, text="SENTIMENT: DEEP CROSS-ASSET MARKET SENTIMENT ANALYZER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="EVALUATES LIVE SOCIAL SCALES, NEWS POLARITIES, AND AGGREGATE FEAR-AND-GREED GAUGES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
-        lbl_info.pack(anchor="w", pady=(0, 10))
-
-        self.sentiment_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.sentiment_text.pack(fill=tk.BOTH, expand=True)
-        self._update_sentiment_screen_data()
-
-    def _update_sentiment_screen_data(self):
-        if not hasattr(self, "sentiment_text") or not self.sentiment_text: return
-        self.sentiment_text.delete("1.0", tk.END)
-        sentiment_data = f"""
-================================================================================
-SENTIMENT <GO>: CROSS-ASSET COGNITIVE SENTIMENT SPECTRUM
-================================================================================
-FEAR-AND-GREED SENTIMENT DESK:
---------------------------------------------------------------------------------
-Aggregate Fear & Greed:      {random.randint(60, 85)} / 100 (Greed / Bullish Expansion)
-Market Volatility Index:     VIX at {random.uniform(12.5, 15.8):.2f} (Low volatility premium)
-Short-term funding rates:     Stable positive cash premium
-
-NLP WEB SCRAPER CHANNELS (Alternative feeds):
---------------------------------------------------------------------------------
-Hugging Face BERT classifier: BULLISH (74.2% polarity consensus)
-Twitter / Reddit volume scan: High social discussion activity (Up 12.4% YoY)
-SEC Filings sentiment:       Convergent positive corporate capital expenditures
-Institutional flow:          Dark Pool whale buying detected
-================================================================================
-"""
-        self.sentiment_text.insert(tk.END, sentiment_data)
-
-    def _show_predictor_screen(self):
-        """PREDICTOR <GO>: Stock Market Predictor with price forecast canvas drawing"""
-        lbl_title = tk.Label(self.screen_frame, text="PREDICTOR: ADVANCED STOCK & CRYPTO PREDICTIVE ANALYTICS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-
-        # Split: Upper splits into stats text (Right) and forecast canvas (Left)
-        split = tk.Frame(self.screen_frame, bg=self.bg_dark)
-        split.pack(fill=tk.BOTH, expand=True, pady=5)
-
-        self.pred_canvas = tk.Canvas(split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.pred_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        right_panel = tk.Frame(split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=320)
-        right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
-        right_panel.pack_propagate(False)
-
-        lbl_head = tk.Label(right_panel, text="PREDICTIONS ENGINE", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_cyan)
-        lbl_head.pack(anchor="w", padx=15, pady=15)
-
-        self.lbl_pred_current = tk.Label(right_panel, text="Current Price: --", font=("Consolas", 8), bg="#111111", fg=self.fg_light)
-        self.lbl_pred_current.pack(anchor="w", padx=15, pady=5)
-
-        self.lbl_pred_forecast = tk.Label(right_panel, text="Forecast Target: --", font=("Consolas", 8), bg="#111111", fg=self.fg_green)
-        self.lbl_pred_forecast.pack(anchor="w", padx=15, pady=5)
-
-        self._update_predictor_screen_data()
-
-    def _update_predictor_screen_data(self):
-        if not hasattr(self, "pred_canvas") or not self.pred_canvas: return
-        self.pred_canvas.delete("all")
-
-        # Get active price
-        price = 1.1024
-        if self.scalper and self.scalper.conn:
-            prices = self.scalper.conn.get_current_price(self.selected_symbol_gp)
-            price = prices["bid"]
-
-        self.lbl_pred_current.config(text=f"Current Price: {price:.5f}")
-        self.lbl_pred_forecast.config(text=f"Forecast Target: {price * 1.0045:.5f} (+0.45%)")
-
-        # Draw forecast curve on canvas
-        w = self.pred_canvas.winfo_width()
-        h = self.pred_canvas.winfo_height()
-        if w < 10: w = 400
-        if h < 10: h = 150
-
-        # Draw grid
-        for i in range(1, 4):
-            y_coord = int(h * i / 4)
-            self.pred_canvas.create_line(0, y_coord, w, y_coord, fill="#1c1c1c", dash=(1, 2))
-        for i in range(1, 8):
-            x_coord = int(w * i / 8)
-            self.pred_canvas.create_line(x_coord, 0, x_coord, h, fill="#1c1c1c", dash=(1, 2))
-
-        # Plotted simulated historical and forecast curve
-        # Left half is historical price, right half is the forecast projection!
-        pts = [price * (1.0 + random.uniform(-0.002, 0.002)) for _ in range(15)]
-        forecast_pts = [price * (1.0 + i * 0.0005 + random.uniform(-0.0005, 0.0005)) for i in range(15)]
-        all_pts = pts + forecast_pts
-
-        min_val = min(all_pts)
-        max_val = max(all_pts)
-        diff = max_val - min_val
-        if diff == 0: diff = 0.01
-
-        coords = []
-        for i, val in enumerate(all_pts):
-            cx = int(w * i / max(1, len(all_pts)-1))
-            cy = int(h - (h * (val - min_val) / diff))
-            coords.append((cx, cy))
-
-        # Draw historical segment (White)
-        for i in range(14):
-            self.pred_canvas.create_line(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1], fill="#ffffff", width=2)
-
-        # Draw forecast projection (Dashed Yellow)
-        for i in range(14, len(coords)-1):
-            self.pred_canvas.create_line(coords[i][0], coords[i][1], coords[i+1][0], coords[i+1][1], fill=self.fg_accent, width=2, dash=(2, 2))
-
-        self.pred_canvas.create_text(10, 10, text=f"PRICE FORECAST CURVE - {self.selected_symbol_gp}", fill=self.fg_accent, anchor="nw", font=("Consolas", 7, "bold"))
-        self.pred_canvas.create_text(w/2 + 10, h-20, text="<< PROJECTION WINDOW >>", fill=self.fg_grey, anchor="n", font=("Consolas", 7, "bold"))
-
-    def _show_agent_screen(self):
-        """AGENT <GO>: Agentic AI Workspace"""
-        lbl_title = tk.Label(self.screen_frame, text="AGENT: AGENTIC AI MANAGER & QUANT CO-ORDINATOR <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
-        lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="REPORTS DYNAMIC CHANNELS, CHART PATTERN AGENTS, AND REGULATORY CRAWL STATUS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
-        lbl_info.pack(anchor="w", pady=(0, 10))
-
-        self.agent_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.agent_text.pack(fill=tk.BOTH, expand=True)
-        self._update_agent_screen_data()
-
-    def _update_agent_screen_data(self):
-        if not hasattr(self, "agent_text") or not self.agent_text: return
-        self.agent_text.delete("1.0", tk.END)
-        agent_data = f"""
-================================================================================
-AGENT <GO>: AUTONOMOUS AGENTIC QUANT WORKSPACE (Python + Rust Bridge)
-================================================================================
-ACTIVE QUANT CO-ORDINATOR WORKFLOWS:
---------------------------------------------------------------------------------
-1) Chart Pattern Recognition Agent: ACTIVE (Scanning for Double Bottoms / Flags)
-2) Alternative Data Scraper Agent:  ACTIVE (Parsing DeFiLlama TVL & TokenTerminal)
-3) Risk Assessment Auditor Agent:   ACTIVE (Continuous checking daily circuit bounds)
-4) Regulatory Filing Compliance:    ACTIVE (Crawling SEC 10-Q transcripts)
-5) Execution Slippage TCA Auditor:  ACTIVE (Benchmarking order matching slippage)
-
-RUST LOW-LATENCY ROUTING CO-ORDINATOR:
---------------------------------------------------------------------------------
-Bridge Channel Pipe:         Connected (rust_bridge active)
-Tencent DB Agent Memory:     Retrieving nearest-neighbor context memories (Success)
-================================================================================
-"""
-        self.agent_text.insert(tk.END, agent_data)
-
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS
     # ----------------------------------------------------
@@ -2713,12 +2462,6 @@ Tencent DB Agent Memory:     Retrieving nearest-neighbor context memories (Succe
                     self._update_aic_screen_data()
                 elif self.active_screen == "CRAWL":
                     self._update_crawl_screen_data()
-                elif self.active_screen == "SENTIMENT":
-                    self._update_sentiment_screen_data()
-                elif self.active_screen == "PREDICTOR":
-                    self._update_predictor_screen_data()
-                elif self.active_screen == "AGENT":
-                    self._update_agent_screen_data()
 
                 self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
