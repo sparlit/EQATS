@@ -41,6 +41,8 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         """Stress: Injects extreme spread spikes (liquidity shock) and ensures execution blocks entry."""
         scalper = main.AutonomousScalper()
         scalper.conn = self.conn
+        old_bw = config.BLOCK_WEEKENDS
+        config.BLOCK_WEEKENDS = False # Temporarily bypass weekend filter for isolated spread unit test
 
         # Under normal conditions (spread = 0.0002 / 2 pips <= MAX_SPREAD_PIPS)
         price_info_ok = {"bid": 1.1000, "ask": 1.1002}
@@ -52,6 +54,7 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         is_safe_shock, reason_shock = scalper._is_market_open_and_liquid("EURUSD", price_info_shock)
         self.assertFalse(is_safe_shock, "Should block trade under extreme spread shock.")
         self.assertIn("Liquidity Filter", reason_shock)
+        config.BLOCK_WEEKENDS = old_bw
 
     def test_fat_finger_protection_limits(self):
         """Safety: Verifies fat-finger size limits block hazardous orders."""
