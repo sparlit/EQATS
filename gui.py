@@ -2733,7 +2733,7 @@ SECURITY DOMAINS ENFORCED:
             widget.destroy()
 
         import config
-        symbols = config.SYMBOLS[:12] # Limit to 12 symbols to keep CPU execution and UI refresh sub-second
+        symbols = config.SYMBOLS # Processes all majors, minors, metals, and cryptos in config.SYMBOLS
 
         headers = [
             "SYMBOL", "LTP (BID)", "ASK PRICE", "ATP", "SPREAD", "TREND", "WIN PROB",
