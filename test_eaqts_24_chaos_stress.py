@@ -39,22 +39,27 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
 
     def test_extreme_spread_spikes_liquidity_shock(self):
         """Stress: Injects extreme spread spikes (liquidity shock) and ensures execution blocks entry."""
-        scalper = main.AutonomousScalper()
-        scalper.conn = self.conn
         old_bw = config.BLOCK_WEEKENDS
-        config.BLOCK_WEEKENDS = False # Temporarily bypass weekend filter for isolated spread unit test
+        old_ro = config.BLOCK_ROLLOVER_HOUR
+        config.BLOCK_WEEKENDS = False # Temporarily bypass session time filters for isolated spread unit test
+        config.BLOCK_ROLLOVER_HOUR = False
+        try:
+            scalper = main.AutonomousScalper()
+            scalper.conn = self.conn
 
-        # Under normal conditions (spread = 0.0002 / 2 pips <= MAX_SPREAD_PIPS)
-        price_info_ok = {"bid": 1.1000, "ask": 1.1002}
-        is_safe, reason = scalper._is_market_open_and_liquid("EURUSD", price_info_ok)
-        self.assertTrue(is_safe, f"Should be safe under normal spread. Reason: {reason}")
+            # Under normal conditions (spread = 0.0002 / 2 pips <= MAX_SPREAD_PIPS)
+            price_info_ok = {"bid": 1.1000, "ask": 1.1002}
+            is_safe, reason = scalper._is_market_open_and_liquid("EURUSD", price_info_ok)
+            self.assertTrue(is_safe, f"Should be safe under normal spread. Reason: {reason}")
 
-        # Under spread shock (spread = 0.0050 / 50 pips > MAX_SPREAD_PIPS)
-        price_info_shock = {"bid": 1.1000, "ask": 1.1050}
-        is_safe_shock, reason_shock = scalper._is_market_open_and_liquid("EURUSD", price_info_shock)
-        self.assertFalse(is_safe_shock, "Should block trade under extreme spread shock.")
-        self.assertIn("Liquidity Filter", reason_shock)
-        config.BLOCK_WEEKENDS = old_bw
+            # Under spread shock (spread = 0.0050 / 50 pips > MAX_SPREAD_PIPS)
+            price_info_shock = {"bid": 1.1000, "ask": 1.1050}
+            is_safe_shock, reason_shock = scalper._is_market_open_and_liquid("EURUSD", price_info_shock)
+            self.assertFalse(is_safe_shock, "Should block trade under extreme spread shock.")
+            self.assertIn("Liquidity Filter", reason_shock)
+        finally:
+            config.BLOCK_WEEKENDS = old_bw
+            config.BLOCK_ROLLOVER_HOUR = old_ro
 
     def test_fat_finger_protection_limits(self):
         """Safety: Verifies fat-finger size limits block hazardous orders."""
