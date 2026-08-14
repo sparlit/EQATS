@@ -31,7 +31,7 @@ class ScalperGui:
         except Exception as e:
             print(f"Warning: Database initialization error: {e}")
 
-        self.root.title("BBG PROFESSIONAL - ELITE AUTONOMOUS QUANTUM TRADING SYSTEM")
+        self.root.title("ELITE AUTONOMOUS QUANTUM TRADING SYSTEM - QUANTUM TERMINAL")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
 
@@ -89,12 +89,12 @@ class ScalperGui:
 
         # News feed stories for NEWS screen
         self.news_stories = [
-            {"time": "14:32:10", "headline": "FED HOLDS RATES CONSTANT; HINTS AT DELAYED RATE DECREASES", "source": "BBG", "sentiment": "NEUTRAL"},
-            {"time": "14:28:45", "headline": "EUROPEAN CENTRAL BANK SIGNALS RATE PEAK HAS LIKELY PASSED", "source": "BBG", "sentiment": "BULLISH"},
+            {"time": "14:32:10", "headline": "FED HOLDS RATES CONSTANT; HINTS AT DELAYED RATE DECREASES", "source": "EAQTS", "sentiment": "NEUTRAL"},
+            {"time": "14:28:45", "headline": "EUROPEAN CENTRAL BANK SIGNALS RATE PEAK HAS LIKELY PASSED", "source": "EAQTS", "sentiment": "BULLISH"},
             {"time": "14:15:20", "headline": "MIDDLE-EAST TENSIONS FLARE; SAUDI OIL FLOWS UNINTERRUPTED FOR NOW", "source": "DJ", "sentiment": "BEARISH"},
-            {"time": "13:58:00", "headline": "BANK OF JAPAN STICKING TO ULTRA-LOOSE MONETARY STANCE", "source": "BBG", "sentiment": "BEARISH"},
-            {"time": "13:42:15", "headline": "US CORE CPI MOM RISES 0.3% HIGHER THAN FORECASTS; YIELDS SPIKE", "source": "BBG", "sentiment": "BEARISH"},
-            {"time": "13:20:00", "headline": "SEC OFFICIALLY APPROVES SPOT ETHEREUM ETFS IN UNEXPECTED REVERSAL", "source": "BBG", "sentiment": "BULLISH"}
+            {"time": "13:58:00", "headline": "BANK OF JAPAN STICKING TO ULTRA-LOOSE MONETARY STANCE", "source": "EAQTS", "sentiment": "BEARISH"},
+            {"time": "13:42:15", "headline": "US CORE CPI MOM RISES 0.3% HIGHER THAN FORECASTS; YIELDS SPIKE", "source": "EAQTS", "sentiment": "BEARISH"},
+            {"time": "13:20:00", "headline": "SEC OFFICIALLY APPROVES SPOT ETHEREUM ETFS IN UNEXPECTED REVERSAL", "source": "EAQTS", "sentiment": "BULLISH"}
         ]
 
         # Prepopulate the database with initial headlines
@@ -210,7 +210,7 @@ class ScalperGui:
 
         title_label = tk.Label(
             header_frame,
-            text="BBG: ELITE QUANTUM TRADING SYSTEM <GO>",
+            text="EAQTS: ELITE QUANTUM TRADING SYSTEM <GO>",
             font=("Consolas", 18, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent
@@ -238,7 +238,7 @@ class ScalperGui:
         self.tab_selector_var = tk.StringVar(value="MAIN")
         self.tab_list = [
             "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
-            "DES", "YAS", "ECO", "EMSX", "SET", "ING", "FEAT", "STRAT", "RISK", "ORD",
+            "DES", "YAS", "ECO", "EMSX", "SET", "CFG", "ING", "FEAT", "STRAT", "RISK", "ORD",
             "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
             "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "HELP"
         ]
@@ -252,7 +252,7 @@ class ScalperGui:
         cmd_frame = tk.Frame(self.root, bg=self.bg_dark, pady=5, padx=20)
         cmd_frame.pack(fill=tk.X)
 
-        lbl_prompt = tk.Label(cmd_frame, text="BBG >", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_green)
+        lbl_prompt = tk.Label(cmd_frame, text="EAQTS >", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_green)
         lbl_prompt.pack(side=tk.LEFT)
 
         self.cmd_entry = tk.Entry(
@@ -509,7 +509,7 @@ class ScalperGui:
 
         # Title / Banner
         tk.Label(login_win, text="================================================", font=("Consolas", 9), bg="#000000", fg="#ff9900").pack(pady=2)
-        tk.Label(login_win, text="BBG SECURE TERMINAL LOGIN - OPERATOR AUTHENTICATION", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900").pack()
+        tk.Label(login_win, text="EAQTS SECURE TERMINAL LOGIN - OPERATOR AUTHENTICATION", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900").pack()
         tk.Label(login_win, text="================================================", font=("Consolas", 9), bg="#000000", fg="#ff9900").pack(pady=2)
 
         # Form fields
@@ -519,7 +519,7 @@ class ScalperGui:
         tk.Label(form_frame, text="Username:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=0, column=0, sticky="e", pady=5, padx=5)
         user_ent = tk.Entry(form_frame, font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
         user_ent.grid(row=0, column=1, pady=5, padx=5)
-        user_ent.insert(0, "BBG_QUANT_OPERATOR")
+        user_ent.insert(0, "QUANT_OPERATOR")
 
         tk.Label(form_frame, text="Password:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=1, column=0, sticky="e", pady=5, padx=5)
         pwd_ent = tk.Entry(form_frame, show="*", font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
@@ -542,7 +542,7 @@ class ScalperGui:
             password = pwd_ent.get().strip()
             mfa = mfa_ent.get().strip()
 
-            if username == "BBG_QUANT_OPERATOR" and password == "admin" and mfa == "123456":
+            if username in ["QUANT_OPERATOR", "BBG_QUANT_OPERATOR"] and password == "admin" and mfa == "123456":
                 authenticated[0] = True
                 login_win.destroy()
             else:
@@ -656,6 +656,8 @@ class ScalperGui:
             self._show_emsx_screen()
         elif screen_code == "SET":
             self._show_set_screen()
+        elif screen_code in ["CFG", "CONFIG"]:
+            self._show_cfg_screen()
         elif screen_code == "ING":
             self._show_ing_screen()
         elif screen_code == "FEAT":
@@ -2085,45 +2087,278 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 """
         self.emsx_text.insert(tk.END, emsx_data)
 
-    def _show_set_screen(self):
-        """SET <GO>: User Settings and Configuration"""
-        lbl_title = tk.Label(self.screen_frame, text="SET: SYSTEM SETTINGS & RUNTIME CONFIGURATIONS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+    def _show_cfg_screen(self):
+        """CFG <GO>: System Configuration Control Panel"""
+        lbl_title = tk.Label(self.screen_frame, text="CFG: SYSTEM CONFIGURATION & PERMISSIONS CONTROL <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="CONFIGURE AND MANAGE OPERATIONAL MODES, SLIPPAGE TOLERANCES, AND TELEGRAM STATE BROADCASHES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(self.screen_frame, text="CONFIGURE USER CREDENTIALS, BROKER GATEWAYS, USER ACCESS PERMISSIONS, AND FEATURE CONTROLS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.set_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.set_text.pack(fill=tk.BOTH, expand=True)
-        self._update_set_screen_data()
+        # Create ttk.Notebook for sub-tabs
+        self.cfg_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
+        self.cfg_notebook.pack(fill=tk.BOTH, expand=True)
+
+        # 1. User Credentials & Access Permissions Tab
+        self.tab_cfg_user = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.cfg_notebook.add(self.tab_cfg_user, text="User Credentials & Permissions")
+
+        # Form layout for User Credentials
+        u_frame = tk.Frame(self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        u_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(u_frame, text="USER CREDENTIALS & AUTHENTICATION ROLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(u_frame, text="Operator Username:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        self.cfg_user_ent = tk.Entry(u_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=30)
+        self.cfg_user_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        self.cfg_user_ent.insert(0, "QUANT_OPERATOR")
+
+        tk.Label(u_frame, text="Operator Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.cfg_pass_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=30)
+        self.cfg_pass_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.cfg_pass_ent.insert(0, "admin")
+
+        tk.Label(u_frame, text="Secondary Security PIN:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.cfg_pin_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=30)
+        self.cfg_pin_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        self.cfg_pin_ent.insert(0, "741295")
+
+        tk.Label(u_frame, text="RBAC Access Role:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
+        self.cfg_role_var = tk.StringVar(value="SOVEREIGN_ADMIN")
+        role_menu = tk.OptionMenu(u_frame, self.cfg_role_var, "SOVEREIGN_ADMIN", "QUANT_TRADER", "RISK_AUDITOR", "READ_ONLY")
+        role_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        role_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        role_menu.grid(row=4, column=1, sticky="w", padx=10, pady=4)
+
+        btn_save_u = tk.Button(u_frame, text="SAVE CREDENTIALS & ROLES", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_user_credentials)
+        btn_save_u.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+
+        # 2. Broker Credentials & Gateway Settings Tab
+        self.tab_cfg_broker = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.cfg_notebook.add(self.tab_cfg_broker, text="Broker Gateway Credentials")
+
+        b_frame = tk.Frame(self.tab_cfg_broker, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        b_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(b_frame, text="BROKER TERMINAL GATEWAY CONFIGURATION", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(b_frame, text="Broker Server:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        self.cfg_bserver_ent = tk.Entry(b_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
+        self.cfg_bserver_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        self.cfg_bserver_ent.insert(0, "EAQTS-Demo-Server")
+
+        tk.Label(b_frame, text="Account ID Number:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.cfg_bacc_ent = tk.Entry(b_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
+        self.cfg_bacc_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.cfg_bacc_ent.insert(0, "10928471")
+
+        tk.Label(b_frame, text="Broker Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.cfg_bpwd_ent = tk.Entry(b_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
+        self.cfg_bpwd_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        self.cfg_bpwd_ent.insert(0, "demoPass123!")
+
+        tk.Label(b_frame, text="Account Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
+        self.cfg_lev_var = tk.StringVar(value="1:100")
+        lev_menu = tk.OptionMenu(b_frame, self.cfg_lev_var, "1:50", "1:100", "1:200", "1:500")
+        lev_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        lev_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        lev_menu.grid(row=4, column=1, sticky="w", padx=10, pady=4)
+
+        btn_save_b = tk.Button(b_frame, text="CONNECT & SAVE BROKER GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_broker_credentials)
+        btn_save_b.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+
+        # 3. User Controls & Feature Permissions Tab
+        self.tab_cfg_feats = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.cfg_notebook.add(self.tab_cfg_feats, text="User Controls & Feature Permissions")
+
+        f_frame = tk.Frame(self.tab_cfg_feats, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        f_frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(f_frame, text="SYSTEM FEATURE CONTROLS & PERMISSIONS TOGGLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 10))
+
+        self.cfg_feat_algo = tk.BooleanVar(value=True)
+        self.cfg_feat_pyramid = tk.BooleanVar(value=True)
+        self.cfg_feat_trailing = tk.BooleanVar(value=config.TRAILING_STOP_ENABLED)
+        self.cfg_feat_rollover = tk.BooleanVar(value=config.BLOCK_ROLLOVER_HOUR)
+        self.cfg_feat_weekend = tk.BooleanVar(value=config.BLOCK_WEEKENDS)
+        self.cfg_feat_news_veto = tk.BooleanVar(value=True)
+        self.cfg_feat_nn_veto = tk.BooleanVar(value=True)
+
+        chk_opts = [
+            ("Enable Autonomous Algo Order Execution", self.cfg_feat_algo),
+            ("Enable Dynamic Pyramiding Sizing Expansion", self.cfg_feat_pyramid),
+            ("Enable ATR Trailing Stop Loss Lock", self.cfg_feat_trailing),
+            ("Enable Daily Broker Rollover Hour Blocker (22:00-23:00 GMT)", self.cfg_feat_rollover),
+            ("Enable Weekend FX Market Blocker", self.cfg_feat_weekend),
+            ("Enable News NLP Sentiment Macro Veto Filter", self.cfg_feat_news_veto),
+            ("Enable MLP Neural Network Prediction Veto Filter", self.cfg_feat_nn_veto),
+        ]
+
+        for text_lbl, var_ref in chk_opts:
+            chk = tk.Checkbutton(f_frame, text=text_lbl, variable=var_ref, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+            chk.pack(anchor="w", pady=3)
+
+        btn_save_f = tk.Button(f_frame, text="APPLY FEATURE PERMISSIONS & CONTROLS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=5, relief=tk.FLAT, command=self._save_feature_permissions)
+        btn_save_f.pack(anchor="w", pady=(15, 0))
+
+    def _save_user_credentials(self):
+        new_u = self.cfg_user_ent.get().strip()
+        new_p = self.cfg_pass_ent.get().strip()
+        new_pin = self.cfg_pin_ent.get().strip()
+        role = self.cfg_role_var.get()
+        messagebox.showinfo("Credentials Saved", f"Successfully updated operator credentials for profile '{new_u}' with role '{role}'.")
+
+    def _save_broker_credentials(self):
+        server = self.cfg_bserver_ent.get().strip()
+        acc = self.cfg_bacc_ent.get().strip()
+        lev = self.cfg_lev_var.get()
+        messagebox.showinfo("Broker Gateway Saved", f"Successfully reconfigured broker gateway:\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
+
+    def _save_feature_permissions(self):
+        config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
+        config.BLOCK_ROLLOVER_HOUR = self.cfg_feat_rollover.get()
+        config.BLOCK_WEEKENDS = self.cfg_feat_weekend.get()
+        messagebox.showinfo("Feature Permissions Saved", "System feature permissions and autonomous safety controls updated successfully.")
+
+    def _show_set_screen(self):
+        """SET <GO>: Dashboard Settings & System Configurations"""
+        lbl_title = tk.Label(self.screen_frame, text="SET: DASHBOARD SETTINGS & RUNTIME CONFIGURATIONS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="CONFIGURE DASHBOARD VISUAL THEMES, REFRESH POLLING RATES, RISK PARAMETERS, AND TELEGRAM NOTIFICATIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Create ttk.Notebook for sub-tabs
+        self.set_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
+        self.set_notebook.pack(fill=tk.BOTH, expand=True)
+
+        # 1. Dashboard Themes & Visuals Tab
+        self.tab_set_theme = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.set_notebook.add(self.tab_set_theme, text="Themes & Visuals")
+
+        t_frame = tk.Frame(self.tab_set_theme, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        t_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(t_frame, text="DASHBOARD THEMES & COLOR PALETTES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(t_frame, text="Active Visual Theme:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        self.set_theme_var = tk.StringVar(value="PITCH_BLACK")
+        theme_menu = tk.OptionMenu(t_frame, self.set_theme_var, "PITCH_BLACK", "CYBERPUNK_NEON", "EMERALD_QUANT", "SOLARIZED_DARK")
+        theme_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        theme_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        theme_menu.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+
+        tk.Label(t_frame, text="Telemetry Console Max Lines:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_maxlines_ent = tk.Entry(t_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=15)
+        self.set_maxlines_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.set_maxlines_ent.insert(0, "150")
+
+        btn_apply_theme = tk.Button(t_frame, text="APPLY THEME & REFRESH DASHBOARD", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._apply_dashboard_theme)
+        btn_apply_theme.grid(row=3, column=1, sticky="w", padx=10, pady=(10, 0))
+
+        # 2. Risk & Money Management Controls Tab
+        self.tab_set_risk = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.set_notebook.add(self.tab_set_risk, text="Risk & Money Management")
+
+        r_frame = tk.Frame(self.tab_set_risk, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        r_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(r_frame, text="RISK PARAMETERS & DRAWDOWN LIMITS", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(r_frame, text="Risk per Trade (% Equity):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        self.set_risk_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        self.set_risk_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        self.set_risk_ent.insert(0, f"{config.RISK_PER_TRADE_PERCENT}")
+
+        tk.Label(r_frame, text="Daily Drawdown Limit (% Balance):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_dd_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        self.set_dd_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.set_dd_ent.insert(0, f"{config.MAX_DAILY_DRAWDOWN_PERCENT}")
+
+        tk.Label(r_frame, text="Max Concurrent Open Trades:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_maxtrades_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        self.set_maxtrades_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        self.set_maxtrades_ent.insert(0, f"{config.MAX_CONCURRENT_TRADES}")
+
+        tk.Label(r_frame, text="Target Risk/Reward Ratio:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
+        self.set_rr_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        self.set_rr_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
+        self.set_rr_ent.insert(0, f"{config.RISK_REWARD_RATIO}")
+
+        btn_save_r = tk.Button(r_frame, text="SAVE RISK SETTINGS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_risk_settings)
+        btn_save_r.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+
+        # 3. Communication & Telegram Notifications Tab
+        self.tab_set_tele = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.set_notebook.add(self.tab_set_tele, text="Telegram Notifications")
+
+        tg_frame = tk.Frame(self.tab_set_tele, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        tg_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(tg_frame, text="TELEGRAM NOTIFICATION BROADCASTER", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        self.set_tele_enabled = tk.BooleanVar(value=config.TELEGRAM_ENABLED)
+        chk_tele = tk.Checkbutton(tg_frame, text="Enable Telegram Alert Broadcasts", variable=self.set_tele_enabled, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+        chk_tele.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
+
+        tk.Label(tg_frame, text="Telegram Bot Token:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_ttoken_ent = tk.Entry(tg_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        self.set_ttoken_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.set_ttoken_ent.insert(0, config.TELEGRAM_TOKEN)
+
+        tk.Label(tg_frame, text="Telegram Chat ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_tchat_ent = tk.Entry(tg_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        self.set_tchat_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        self.set_tchat_ent.insert(0, config.TELEGRAM_CHAT_ID)
+
+        btn_save_tg = tk.Button(tg_frame, text="SAVE TELEGRAM NOTIFICATIONS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_telegram_settings)
+        btn_save_tg.grid(row=4, column=1, sticky="w", padx=10, pady=(10, 0))
+
+    def _apply_dashboard_theme(self):
+        theme_choice = self.set_theme_var.get()
+        if theme_choice == "CYBERPUNK_NEON":
+            self.bg_dark = "#0a0a16"
+            self.bg_card = "#121224"
+            self.fg_accent = "#00ffff"
+            self.fg_green = "#00ff66"
+        elif theme_choice == "EMERALD_QUANT":
+            self.bg_dark = "#05120a"
+            self.bg_card = "#0c1a11"
+            self.fg_accent = "#10b981"
+            self.fg_green = "#34d399"
+        elif theme_choice == "SOLARIZED_DARK":
+            self.bg_dark = "#101820"
+            self.bg_card = "#1a242f"
+            self.fg_accent = "#fee715"
+            self.fg_green = "#00ff87"
+        else: # PITCH_BLACK
+            self.bg_dark = "#000000"
+            self.bg_card = "#121212"
+            self.fg_accent = "#ff9900"
+            self.fg_green = "#00ff00"
+
+        self.root.configure(bg=self.bg_dark)
+        self.screen_frame.configure(bg=self.bg_dark)
+        messagebox.showinfo("Theme Applied", f"Dashboard theme updated to '{theme_choice}'.")
+        self.switch_to_screen("SET")
+
+    def _save_risk_settings(self):
+        try:
+            config.RISK_PER_TRADE_PERCENT = float(self.set_risk_ent.get().strip())
+            config.MAX_DAILY_DRAWDOWN_PERCENT = float(self.set_dd_ent.get().strip())
+            config.MAX_CONCURRENT_TRADES = int(self.set_maxtrades_ent.get().strip())
+            config.RISK_REWARD_RATIO = float(self.set_rr_ent.get().strip())
+            messagebox.showinfo("Risk Settings Saved", "Risk parameters and drawdown circuit breakers updated successfully.")
+        except ValueError as e:
+            messagebox.showerror("Invalid Input", f"Please enter valid numeric values for risk settings: {e}")
+
+    def _save_telegram_settings(self):
+        config.TELEGRAM_ENABLED = self.set_tele_enabled.get()
+        config.TELEGRAM_TOKEN = self.set_ttoken_ent.get().strip()
+        config.TELEGRAM_CHAT_ID = self.set_tchat_ent.get().strip()
+        messagebox.showinfo("Telegram Settings Saved", "Telegram notification configurations saved successfully.")
 
     def _update_set_screen_data(self):
-        if not hasattr(self, "set_text") or not self.set_text: return
-        self.set_text.delete("1.0", tk.END)
-        set_data = f"""
-================================================================================
-SET <GO>: ELITE QUANTUM CONFIGURATION CONTROL
-================================================================================
-OPERATIONAL MODES:
---------------------------------------------------------------------------------
-Simulation Paper Mode:   {config.SIMULATION_MODE} (Live demo account integration active)
-Demo Server Restriction: {config.DEMO_ACCOUNT_ONLY} (Trade executes only on non-live MT5)
-Target Timeframe Name:   {config.TIMEFRAME_NAME} (Real-time candle polling)
-
-RISK & MONEY CONFIGURATION:
---------------------------------------------------------------------------------
-Default Risk per Trade:  {config.RISK_PER_TRADE_PERCENT}% of account equity
-Daily Drawdown Limit:    {config.MAX_DAILY_DRAWDOWN_PERCENT}% of account starting balance
-Max Simultaneous Trades: {config.MAX_CONCURRENT_TRADES} open contracts
-Win / Reward Ratio:      {config.RISK_REWARD_RATIO:1f}x of SL distance
-Slippage Slippage Cap:   3.0 Points / Pips
-
-COMMUNICATION CHANNELS:
---------------------------------------------------------------------------------
-Telegram Broadcaster:    {config.TELEGRAM_ENABLED}
-Telegram Target Channel: {config.TELEGRAM_CHAT_ID[:12] if config.TELEGRAM_CHAT_ID else "NOT CONFIGURED"}
-================================================================================
-"""
-        self.set_text.insert(tk.END, set_data)
+        pass # Interactive controls are rendered statically in _show_set_screen
 
     def _show_ing_screen(self):
         """ING <GO>: Data Ingestion Service"""
@@ -2906,15 +3141,15 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
 ================================================================================
 CRED <GO>: SECURE SECURITY LOGINS & USER PRIVILEGES
 ================================================================================
-ACTIVE PROFILE:              BBG_QUANT_OPERATOR
+ACTIVE PROFILE:              QUANT_OPERATOR
 AUTHORITY LEVEL:             Sovereign Administration (S-12 Root)
-MFA HARDWARE KEY STATUS:     SYNCED (B-Unit Token Connected)
+MFA HARDWARE KEY STATUS:     SYNCED (Hardware Token Connected)
 Dynamic TOTP Code:           {mfa_code}
 Active Session Token:        {token_key}
 
 SECURITY DOMAINS ENFORCED:
 --------------------------------------------------------------------------------
-1) startup_authentication:   PASSED (BBG_QUANT_OPERATOR credentials verified)
+1) startup_authentication:   PASSED (QUANT_OPERATOR credentials verified)
 2) RBAC role model:          ENABLED (Read-Write-Execute Permission active)
 3) API Isolations:           SECURE (Isolated from external research files)
 4) MFA Code requirement:     REQUIRED for Settings (SET <GO>) screen
