@@ -7,9 +7,9 @@ import eaqts_planes
 import main
 from event_bus import global_event_bus, Event
 
-class TestEAQTS22ChaosStressCompliance(unittest.TestCase):
+class TestEAQTS23ChaosStressCompliance(unittest.TestCase):
     """
-    Exhaustive programmatic test suite verifying EAQTS Version 2.2 Chaos Engineering,
+    Exhaustive programmatic test suite verifying EAQTS Version 2.3 Chaos Engineering,
     Stress Scenarios, Disagreement Protocols, Reconciliation, and Throttling compliance.
     """
 

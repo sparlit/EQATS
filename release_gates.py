@@ -10,7 +10,7 @@ from event_bus import global_event_bus, Event
 class ReleaseGateRunner:
     """
     Executes and signs off on the 29 mandatory Production Release Gates (G01 to G29)
-    required by EAQTS Version 2.2. Zero stubs, fully programmatic validation.
+    required by EAQTS Version 2.3. Zero stubs, fully programmatic validation.
     """
     def __init__(self, conn=None):
         database.init_db() # Ensure database tables are fully initialized first
