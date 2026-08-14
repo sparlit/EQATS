@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Tokyo Session|Wellington FX | Sydney FX | Sydney ASX | Tokyo TSE | Shanghai SSE|US Pre-Market (00:23:33) | New York FX (04:23:33) | São Paulo B3 (05:23:33)|Active Tracker
+10000.00|10000.00|0|London Session|Wellington FX | Sydney FX | Tokyo FX | Sydney ASX | Tokyo TSE | Hong Kong HKEX | Shanghai SSE|New York FX (02:57:24) | São Paulo B3 (03:57:24) | Mexican BMV (03:57:24)|Active Tracker
 SCANS_HEADER
-EURUSD|1.14640|1.12609|UP|60.8|0.00298|Breakout Setup: Waiting for: Inside Squeeze Channel [1.13504 - 1.14985]|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.30311|1.29529|UP|38.8|0.00374|Breakout Setup: Waiting for: Inside Squeeze Channel [1.29958 - 1.32020]|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.13888|1.12598|UP|45.7|0.00312|Breakout Setup: Waiting for: Inside Squeeze Channel [1.13504 - 1.14985]|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.30509|1.29542|UP|42.8|0.00422|Breakout Setup: Waiting for: Inside Squeeze Channel [1.29958 - 1.32020]|0.0|0.0|0.0|0,0,0,0,0
