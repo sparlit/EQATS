@@ -240,7 +240,7 @@ class ScalperGui:
             "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
             "DES", "YAS", "ECO", "EMSX", "SET", "CFG", "ING", "FEAT", "STRAT", "RISK", "ORD",
             "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
-            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "HELP"
+            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "HELP"
         ]
         self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
         self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
@@ -747,6 +747,8 @@ class ScalperGui:
             self._show_sentiment_screen()
         elif screen_code in ["PREDICTOR", "STOCK MARKET PREDICTOR"]:
             self._show_predictor_screen()
+        elif screen_code in ["AGENT", "SUPERVISOR"]:
+            self._show_agent_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -4052,6 +4054,128 @@ SECURITY DOMAINS ENFORCED:
         confidence_val = 100.0 - (atr_val / current_price) * 50000.0
         confidence_val = max(30.0, min(95.0, confidence_val))
         self.lbl_pred_conf.config(text=f"{confidence_val:.1f}%")
+
+    def _show_agent_screen(self):
+        """AGENT <GO>: AI System Supervisor & Governance Desk"""
+        lbl_title = tk.Label(self.screen_frame, text="AGENT: AI SYSTEM SUPERVISOR & AUTONOMOUS GOVERNANCE DESK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="MONITORS SYSTEM HEALTH, EXECUTION LATENCY, RECONCILIATION INTEGRITY, AND AUTONOMOUS INTERVENTIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Upper Health Stats Ribbon
+        stats_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        stats_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.lbl_agent_health = self._create_sentiment_card(stats_frame, "COMPOSITE SYSTEM HEALTH", "100.0% [HEALTHY]", 0, self.fg_green)
+        self.lbl_agent_data_h = self._create_sentiment_card(stats_frame, "DATA PLANE HEALTH", "100.0%", 1, self.fg_cyan)
+        self.lbl_agent_exec_h = self._create_sentiment_card(stats_frame, "EXECUTION PLANE HEALTH", "100.0%", 2, self.fg_green)
+        self.lbl_agent_risk_h = self._create_sentiment_card(stats_frame, "RISK PLANE HEALTH", "100.0%", 3, self.fg_accent)
+
+        # Action controls bar
+        ctrl_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d")
+        ctrl_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.btn_sup_toggle = tk.Button(ctrl_frame, text="🤖 SUPERVISOR: ACTIVE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._toggle_supervisor_mode)
+        self.btn_sup_toggle.pack(side=tk.LEFT, padx=(0, 5))
+
+        tk.Button(ctrl_frame, text="🛡️ FORCE SAFETY AUDIT", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._force_supervisor_audit).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(ctrl_frame, text="📊 GENERATE AUDIT REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_supervisor_report_dialog).pack(side=tk.LEFT, padx=5)
+
+        # Main Split Section
+        split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        split_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Left Column: Active Interventions & Invariants Treeview
+        left_frame = tk.Frame(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d")
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        tk.Label(left_frame, text="ACTIVE SUPERVISORY INTERVENTIONS & SAFETY INVARIANTS", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
+
+        cols_i = ("ID", "Plane Domain", "Severity", "Intervention / Audit Action")
+        self.agent_interv_tree = ttk.Treeview(left_frame, columns=cols_i, show="headings", style="Treeview", height=10)
+        for c in cols_i:
+            self.agent_interv_tree.heading(c, text=c)
+            if c == "Intervention / Audit Action":
+                self.agent_interv_tree.column(c, width=300, anchor="w")
+            else:
+                self.agent_interv_tree.column(c, width=90, anchor="center")
+        self.agent_interv_tree.pack(fill=tk.BOTH, expand=True)
+
+        # Right Column: Real-Time Supervisory Telemetry Stream Box
+        right_frame = tk.Frame(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d", width=420)
+        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
+        right_frame.pack_propagate(False)
+
+        tk.Label(right_frame, text="SUPERVISORY TELEMETRY & AUDIT STREAM", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent).pack(anchor="w", pady=(0, 5))
+
+        self.agent_tele_text = tk.Text(right_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), wrap=tk.WORD, bd=0, highlightthickness=0)
+        self.agent_tele_text.pack(fill=tk.BOTH, expand=True)
+
+        self._update_agent_screen_data()
+
+    def _toggle_supervisor_mode(self):
+        sup = self.scalper.supervisor
+        sup.supervisor_active = not sup.supervisor_active
+        mode_str = "ACTIVE" if sup.supervisor_active else "PAUSED"
+        btn_bg = "#15803d" if sup.supervisor_active else "#991b1b"
+        self.btn_sup_toggle.config(text=f"🤖 SUPERVISOR: {mode_str}", bg=btn_bg)
+        messagebox.showinfo("Supervisor Mode", f"AI Supervisor Agent monitoring mode updated to: {mode_str}")
+
+    def _force_supervisor_audit(self):
+        audit_res = self.scalper.supervisor.run_supervisory_audit(self.scalper)
+        score = audit_res["health_score"]
+        status = audit_res["status"]
+        messagebox.showinfo("Supervisory Audit Executed", f"AI Supervisor Agent completed real-time audit:\nComposite Health Score: {score}%\nSystem Status: {status}")
+        self._update_agent_screen_data()
+
+    def _generate_supervisor_report_dialog(self):
+        report_text = self.scalper.supervisor.generate_supervisory_report()
+
+        rep_win = tk.Toplevel(self.root)
+        rep_win.title("AI SUPERVISOR AGENT — FORMAL AUDIT REPORT")
+        rep_win.geometry("700x500")
+        rep_win.configure(bg="#000000")
+
+        txt_rep = tk.Text(rep_win, bg="#0d0d0d", fg="#00ff00", font=("Consolas", 9), wrap=tk.WORD, padx=15, pady=15)
+        txt_rep.pack(fill=tk.BOTH, expand=True)
+        txt_rep.insert(tk.END, report_text)
+        txt_rep.config(state=tk.DISABLED)
+
+    def _update_agent_screen_data(self):
+        if not hasattr(self, "agent_interv_tree") or not self.agent_interv_tree: return
+
+        sup = self.scalper.supervisor
+        audit_res = sup.run_supervisory_audit(self.scalper)
+
+        # Update Cards
+        score = audit_res["health_score"]
+        status = audit_res["status"]
+        score_color = self.fg_green if score >= 80 else (self.fg_accent if score >= 60 else self.fg_red)
+
+        self.lbl_agent_health.config(text=f"{score:.1f}% [{status}]", fg=score_color)
+        self.lbl_agent_data_h.config(text=f"{audit_res['data_health']:.1f}%")
+        self.lbl_agent_exec_h.config(text=f"{audit_res['execution_health']:.1f}%")
+        self.lbl_agent_risk_h.config(text=f"{audit_res['risk_health']:.1f}%")
+
+        # Update Interventions Treeview
+        self.agent_interv_tree.delete(*self.agent_interv_tree.get_children())
+        interventions = audit_res["interventions"]
+
+        if not interventions:
+            self.agent_interv_tree.insert("", tk.END, values=("INV_OK", "ALL_PLANES", "NOMINAL", "Zero active interventions. All system invariants satisfied."))
+        else:
+            for idx, item in enumerate(interventions, 1):
+                sev = "HIGH" if "CRITICAL" in item else "MEDIUM"
+                self.agent_interv_tree.insert("", tk.END, values=(f"INT_{idx:03d}", "CORE_PLANE", sev, item))
+
+        # Update Telemetry Stream Text
+        self.agent_tele_text.config(state=tk.NORMAL)
+        self.agent_tele_text.delete("1.0", tk.END)
+        for log in audit_res["logs"]:
+            self.agent_tele_text.insert(tk.END, log + "\n")
+        self.agent_tele_text.see(tk.END)
+        self.agent_tele_text.config(state=tk.DISABLED)
 
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS
