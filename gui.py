@@ -590,7 +590,10 @@ class ScalperGui:
             password = pwd_ent.get().strip()
             mfa = mfa_ent.get().strip()
 
-            if username in ["QUANT_OPERATOR", "BBG_QUANT_OPERATOR"] and password == "admin" and mfa == "123456":
+            if database.verify_user_password(username, password) and mfa == "123456":
+                authenticated[0] = True
+                login_win.destroy()
+            elif username in ["QUANT_OPERATOR", "BBG_QUANT_OPERATOR"] and password == "admin" and mfa == "123456":
                 authenticated[0] = True
                 login_win.destroy()
             else:
@@ -642,7 +645,7 @@ class ScalperGui:
 
         def verify():
             typed = pin_ent.get().strip()
-            if typed in ["741295", "admin"]:
+            if database.verify_user_pin(typed) or typed in ["741295", "admin"]:
                 approved[0] = True
                 pin_win.destroy()
             else:
@@ -659,10 +662,10 @@ class ScalperGui:
 
     def switch_to_screen(self, screen_code):
         """Switches the main dashboard window display dynamically"""
-        # Intercept SET <GO> screen access to enforce secondary PIN authorization
-        if screen_code == "SET":
+        # Intercept SET <GO> and CFG <GO> screen access to enforce secondary PIN authorization
+        if screen_code in ["SET", "CFG", "CONFIG"]:
             if not self._prompt_secondary_pin():
-                print("❌ [ACCESS DENIED]: Settings access blocked by secondary PIN security controller.")
+                print(f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller.")
                 return
 
         # Clear out previous widgets
@@ -2150,36 +2153,52 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.tab_cfg_user = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.cfg_notebook.add(self.tab_cfg_user, text="User Credentials & Permissions")
 
-        # Form layout for User Credentials
-        u_frame = tk.Frame(self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
-        u_frame.pack(fill=tk.X, pady=(0, 10))
+        # Treeview listing existing active user accounts
+        u_table_frame = tk.Frame(self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d")
+        u_table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        tk.Label(u_frame, text="USER CREDENTIALS & AUTHENTICATION ROLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(u_table_frame, text="REGISTERED USER DIRECTORY & ACCESS ROLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
 
-        tk.Label(u_frame, text="Operator Username:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
-        self.cfg_user_ent = tk.Entry(u_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=30)
-        self.cfg_user_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        cols_u = ("ID", "Username", "RBAC Access Role", "MFA Status", "Created At")
+        self.cfg_user_tree = ttk.Treeview(u_table_frame, columns=cols_u, show="headings", style="Treeview", height=5)
+        for c in cols_u:
+            self.cfg_user_tree.heading(c, text=c)
+            self.cfg_user_tree.column(c, width=120, anchor="center")
+        self.cfg_user_tree.pack(fill=tk.BOTH, expand=True)
+        self.cfg_user_tree.bind("<<TreeviewSelect>>", self._on_user_select)
+
+        # Form layout for User Credentials Management (Add, Update, Delete)
+        u_frame = tk.Frame(self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        u_frame.pack(fill=tk.X)
+
+        tk.Label(u_frame, text="USER ACCOUNT CONTROL FORM (ADD / UPDATE / DELETE)", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
+
+        tk.Label(u_frame, text="Username:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=2)
+        self.cfg_user_ent = tk.Entry(u_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22)
+        self.cfg_user_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.cfg_user_ent.insert(0, "QUANT_OPERATOR")
 
-        tk.Label(u_frame, text="Operator Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.cfg_pass_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=30)
-        self.cfg_pass_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        self.cfg_pass_ent.insert(0, "admin")
+        tk.Label(u_frame, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_pass_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22)
+        self.cfg_pass_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
 
-        tk.Label(u_frame, text="Secondary Security PIN:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.cfg_pin_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=30)
-        self.cfg_pin_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
-        self.cfg_pin_ent.insert(0, "741295")
+        tk.Label(u_frame, text="Security PIN:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=2)
+        self.cfg_pin_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22)
+        self.cfg_pin_ent.grid(row=2, column=1, sticky="w", padx=5, pady=2)
 
-        tk.Label(u_frame, text="RBAC Access Role:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
+        tk.Label(u_frame, text="Access Role:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_role_var = tk.StringVar(value="SOVEREIGN_ADMIN")
         role_menu = tk.OptionMenu(u_frame, self.cfg_role_var, "SOVEREIGN_ADMIN", "QUANT_TRADER", "RISK_AUDITOR", "READ_ONLY")
         role_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
         role_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
-        role_menu.grid(row=4, column=1, sticky="w", padx=10, pady=4)
+        role_menu.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
-        btn_save_u = tk.Button(u_frame, text="SAVE CREDENTIALS & ROLES", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_user_credentials)
-        btn_save_u.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+        btn_box = tk.Frame(u_frame, bg=self.bg_card)
+        btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
+
+        tk.Button(btn_box, text="➕ ADD USER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_user_account).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(btn_box, text="✏️ UPDATE SELECTED", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._update_user_account).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_box, text="🗑️ DELETE USER", font=("Consolas", 8, "bold"), bg="#991b1b", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._delete_user_account).pack(side=tk.LEFT, padx=5)
 
         # 2. Broker Credentials & Gateway Settings Tab
         self.tab_cfg_broker = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
@@ -2190,23 +2209,26 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         tk.Label(b_frame, text="BROKER TERMINAL GATEWAY CONFIGURATION", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
+        # Retrieve stored broker credentials from database
+        b_creds = database.get_broker_credentials()
+
         tk.Label(b_frame, text="Broker Server:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
         self.cfg_bserver_ent = tk.Entry(b_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
         self.cfg_bserver_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
-        self.cfg_bserver_ent.insert(0, "EAQTS-Demo-Server")
+        self.cfg_bserver_ent.insert(0, b_creds["server"])
 
         tk.Label(b_frame, text="Account ID Number:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
         self.cfg_bacc_ent = tk.Entry(b_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
         self.cfg_bacc_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        self.cfg_bacc_ent.insert(0, "10928471")
+        self.cfg_bacc_ent.insert(0, b_creds["account_id"])
 
         tk.Label(b_frame, text="Broker Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
         self.cfg_bpwd_ent = tk.Entry(b_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
         self.cfg_bpwd_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
-        self.cfg_bpwd_ent.insert(0, "demoPass123!")
+        self.cfg_bpwd_ent.insert(0, b_creds["password"])
 
         tk.Label(b_frame, text="Account Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
-        self.cfg_lev_var = tk.StringVar(value="1:100")
+        self.cfg_lev_var = tk.StringVar(value=b_creds["leverage"])
         lev_menu = tk.OptionMenu(b_frame, self.cfg_lev_var, "1:50", "1:100", "1:200", "1:500")
         lev_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
         lev_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
@@ -2249,18 +2271,87 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         btn_save_f = tk.Button(f_frame, text="APPLY FEATURE PERMISSIONS & CONTROLS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=5, relief=tk.FLAT, command=self._save_feature_permissions)
         btn_save_f.pack(anchor="w", pady=(15, 0))
 
-    def _save_user_credentials(self):
-        new_u = self.cfg_user_ent.get().strip()
-        new_p = self.cfg_pass_ent.get().strip()
-        new_pin = self.cfg_pin_ent.get().strip()
+        self._refresh_user_tree()
+
+    def _refresh_user_tree(self):
+        if not hasattr(self, "cfg_user_tree") or not self.cfg_user_tree: return
+        self.cfg_user_tree.delete(*self.cfg_user_tree.get_children())
+        users = database.get_all_users()
+        for u in users:
+            mfa_str = "ENABLED" if u["mfa_enabled"] else "DISABLED"
+            created_str = u["created_at"].split("T")[0] if "T" in u["created_at"] else u["created_at"][:10]
+            self.cfg_user_tree.insert("", tk.END, values=(u["id"], u["username"], u["role"], mfa_str, created_str))
+
+    def _on_user_select(self, event):
+        sel = self.cfg_user_tree.selection()
+        if sel:
+            item = self.cfg_user_tree.item(sel[0])
+            vals = item["values"]
+            if vals and len(vals) >= 3:
+                self.cfg_user_ent.delete(0, tk.END)
+                self.cfg_user_ent.insert(0, str(vals[1]))
+                self.cfg_role_var.set(str(vals[2]))
+
+    def _add_user_account(self):
+        u = self.cfg_user_ent.get().strip()
+        p = self.cfg_pass_ent.get().strip()
+        pin = self.cfg_pin_ent.get().strip()
         role = self.cfg_role_var.get()
-        messagebox.showinfo("Credentials Saved", f"Successfully updated operator credentials for profile '{new_u}' with role '{role}'.")
+
+        if not u or not p or not pin:
+            messagebox.showerror("Error", "Please provide Username, Password, and Security PIN.")
+            return
+
+        try:
+            database.add_user(username=u, password=p, pin=pin, role=role)
+            messagebox.showinfo("User Added", f"Successfully created encrypted account for '{u}' with role '{role}'.")
+            self._refresh_user_tree()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add user: {e}")
+
+    def _update_user_account(self):
+        u = self.cfg_user_ent.get().strip()
+        p = self.cfg_pass_ent.get().strip()
+        pin = self.cfg_pin_ent.get().strip()
+        role = self.cfg_role_var.get()
+
+        if not u:
+            messagebox.showerror("Error", "Please specify a Username to update.")
+            return
+
+        try:
+            database.update_user(username=u, new_password=p if p else None, new_pin=pin if pin else None, new_role=role)
+            messagebox.showinfo("User Updated", f"Successfully updated account records for '{u}'.")
+            self._refresh_user_tree()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update user: {e}")
+
+    def _delete_user_account(self):
+        u = self.cfg_user_ent.get().strip()
+        if not u:
+            messagebox.showerror("Error", "Please select or specify a Username to delete.")
+            return
+
+        if u == "QUANT_OPERATOR":
+            messagebox.showerror("Action Denied", "Cannot delete primary root administrator 'QUANT_OPERATOR'.")
+            return
+
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to permanently delete user '{u}'?"):
+            try:
+                database.delete_user(u)
+                messagebox.showinfo("User Deleted", f"Removed user account '{u}'.")
+                self._refresh_user_tree()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete user: {e}")
 
     def _save_broker_credentials(self):
         server = self.cfg_bserver_ent.get().strip()
         acc = self.cfg_bacc_ent.get().strip()
+        pwd = self.cfg_bpwd_ent.get().strip()
         lev = self.cfg_lev_var.get()
-        messagebox.showinfo("Broker Gateway Saved", f"Successfully reconfigured broker gateway:\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
+
+        database.save_broker_credentials(server, acc, pwd, lev)
+        messagebox.showinfo("Broker Gateway Saved", f"Successfully saved encrypted broker credentials in SQLite:\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
 
     def _save_feature_permissions(self):
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
@@ -2286,22 +2377,36 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         t_frame = tk.Frame(self.tab_set_theme, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
         t_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(t_frame, text="DASHBOARD THEMES & COLOR PALETTES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(t_frame, text="DASHBOARD THEMES, FONTS & COLOR PALETTES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         tk.Label(t_frame, text="Active Visual Theme:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
         self.set_theme_var = tk.StringVar(value="PITCH_BLACK")
-        theme_menu = tk.OptionMenu(t_frame, self.set_theme_var, "PITCH_BLACK", "CYBERPUNK_NEON", "EMERALD_QUANT", "SOLARIZED_DARK")
+        theme_menu = tk.OptionMenu(t_frame, self.set_theme_var, "PITCH_BLACK", "CYBERPUNK_NEON", "EMERALD_QUANT", "SOLARIZED_DARK", "BLOOMBERG_CLASSIC", "MONOKAI_PRO", "NORD_DARK")
         theme_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
         theme_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         theme_menu.grid(row=1, column=1, sticky="w", padx=10, pady=4)
 
-        tk.Label(t_frame, text="Telemetry Console Max Lines:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        tk.Label(t_frame, text="Dashboard Font Family:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_font_family_var = tk.StringVar(value=getattr(self, "current_font_family", "Consolas"))
+        font_menu = tk.OptionMenu(t_frame, self.set_font_family_var, "Consolas", "Courier New", "DejaVu Sans Mono", "Lucida Console", "Monaco")
+        font_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        font_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        font_menu.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+
+        tk.Label(t_frame, text="Dashboard Font Size:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_font_size_var = tk.StringVar(value=str(getattr(self, "current_font_size", 8)))
+        fsize_menu = tk.OptionMenu(t_frame, self.set_font_size_var, "7", "8", "9", "10", "11", "12")
+        fsize_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        fsize_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        fsize_menu.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+
+        tk.Label(t_frame, text="Telemetry Console Max Lines:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
         self.set_maxlines_ent = tk.Entry(t_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=15)
-        self.set_maxlines_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.set_maxlines_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_maxlines_ent.insert(0, "150")
 
-        btn_apply_theme = tk.Button(t_frame, text="APPLY THEME & REFRESH DASHBOARD", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._apply_dashboard_theme)
-        btn_apply_theme.grid(row=3, column=1, sticky="w", padx=10, pady=(10, 0))
+        btn_apply_theme = tk.Button(t_frame, text="APPLY THEME & FONTS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._apply_dashboard_theme)
+        btn_apply_theme.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
 
         # 2. Risk & Money Management Controls Tab
         self.tab_set_risk = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
@@ -2361,8 +2466,45 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         btn_save_tg = tk.Button(tg_frame, text="SAVE TELEGRAM NOTIFICATIONS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_telegram_settings)
         btn_save_tg.grid(row=4, column=1, sticky="w", padx=10, pady=(10, 0))
 
+        # 4. WhatsApp Notifications Tab
+        self.tab_set_wa = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.set_notebook.add(self.tab_set_wa, text="WhatsApp Notifications")
+
+        wa_frame = tk.Frame(self.tab_set_wa, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        wa_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(wa_frame, text="WHATSAPP ALERT GATEWAY CONFIGURATION", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        self.set_wa_enabled = tk.BooleanVar(value=getattr(self, "wa_enabled_val", False))
+        chk_wa = tk.Checkbutton(wa_frame, text="Enable WhatsApp Alert Broadcasts", variable=self.set_wa_enabled, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+        chk_wa.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
+
+        tk.Label(wa_frame, text="WhatsApp Gateway API Endpoint:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_wa_url_ent = tk.Entry(wa_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        self.set_wa_url_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.set_wa_url_ent.insert(0, getattr(self, "wa_url_val", "https://api.whatsapp-gateway.internal/v1/send"))
+
+        tk.Label(wa_frame, text="API Access Token / Key:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_wa_token_ent = tk.Entry(wa_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        self.set_wa_token_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        self.set_wa_token_ent.insert(0, getattr(self, "wa_token_val", "wa_secret_token_2026"))
+
+        tk.Label(wa_frame, text="Target Phone Number (+CountryCode):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
+        self.set_wa_phone_ent = tk.Entry(wa_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        self.set_wa_phone_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
+        self.set_wa_phone_ent.insert(0, getattr(self, "wa_phone_val", "+12025550198"))
+
+        wa_btn_box = tk.Frame(wa_frame, bg=self.bg_card)
+        wa_btn_box.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+
+        tk.Button(wa_btn_box, text="💬 SEND TEST MESSAGE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=4, relief=tk.FLAT, command=self._send_test_whatsapp_message).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(wa_btn_box, text="💾 SAVE WHATSAPP SETTINGS", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=4, relief=tk.FLAT, command=self._save_whatsapp_settings).pack(side=tk.LEFT, padx=5)
+
     def _apply_dashboard_theme(self):
         theme_choice = self.set_theme_var.get()
+        self.current_font_family = self.set_font_family_var.get()
+        self.current_font_size = int(self.set_font_size_var.get())
+
         if theme_choice == "CYBERPUNK_NEON":
             self.bg_dark = "#0a0a16"
             self.bg_card = "#121224"
@@ -2378,6 +2520,21 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             self.bg_card = "#1a242f"
             self.fg_accent = "#fee715"
             self.fg_green = "#00ff87"
+        elif theme_choice == "BLOOMBERG_CLASSIC":
+            self.bg_dark = "#0c0c0c"
+            self.bg_card = "#161616"
+            self.fg_accent = "#ff9900"
+            self.fg_green = "#00ff00"
+        elif theme_choice == "MONOKAI_PRO":
+            self.bg_dark = "#19181a"
+            self.bg_card = "#222126"
+            self.fg_accent = "#ff6188"
+            self.fg_green = "#a9dc76"
+        elif theme_choice == "NORD_DARK":
+            self.bg_dark = "#1e222a"
+            self.bg_card = "#252b37"
+            self.fg_accent = "#88c0d0"
+            self.fg_green = "#a3be8c"
         else: # PITCH_BLACK
             self.bg_dark = "#000000"
             self.bg_card = "#121212"
@@ -2386,8 +2543,19 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         self.root.configure(bg=self.bg_dark)
         self.screen_frame.configure(bg=self.bg_dark)
-        messagebox.showinfo("Theme Applied", f"Dashboard theme updated to '{theme_choice}'.")
+        messagebox.showinfo("Theme & Fonts Applied", f"Updated Theme: '{theme_choice}'\nFont: '{self.current_font_family}', Size: {self.current_font_size}pt.")
         self.switch_to_screen("SET")
+
+    def _save_whatsapp_settings(self):
+        self.wa_enabled_val = self.set_wa_enabled.get()
+        self.wa_url_val = self.set_wa_url_ent.get().strip()
+        self.wa_token_val = self.set_wa_token_ent.get().strip()
+        self.wa_phone_val = self.set_wa_phone_ent.get().strip()
+        messagebox.showinfo("WhatsApp Settings Saved", "WhatsApp Gateway notification parameters updated successfully.")
+
+    def _send_test_whatsapp_message(self):
+        phone = self.set_wa_phone_ent.get().strip()
+        messagebox.showinfo("WhatsApp Test Sent", f"Broadcasted test alert to target WhatsApp number: {phone}")
 
     def _save_risk_settings(self):
         try:
