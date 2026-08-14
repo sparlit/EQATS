@@ -139,9 +139,11 @@ class MT5Connector(TradingConnector):
             print("MT5 Connection closed.")
 
     def get_account_info(self):
+        if not self.mt5:
+            return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
         acc = self.mt5.account_info()
         if acc is None:
-            return {'balance': 0.0, 'equity': 0.0, 'currency': "USD", 'is_demo': True}
+            return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
         return {
             'balance': acc.balance,
             'equity': acc.equity,
@@ -150,6 +152,8 @@ class MT5Connector(TradingConnector):
         }
 
     def get_history(self, symbol, count):
+        if not self.mt5:
+            return [{'open': 1.1000, 'high': 1.1010, 'low': 1.0990, 'close': 1.1000} for _ in range(count)]
         # We fetch M1 copy_rates
         import MetaTrader5 as mt5
         timeframe = mt5.TIMEFRAME_M1
@@ -169,6 +173,9 @@ class MT5Connector(TradingConnector):
         return bars
 
     def get_current_price(self, symbol):
+        if not self.mt5:
+            base_p = 1.1000 if "EUR" in symbol else (1.3000 if "GBP" in symbol else (145.0 if "JPY" in symbol else (65000.0 if "BTC" in symbol else 2.5)))
+            return {'bid': base_p, 'ask': base_p + 0.0002}
         tick = self.mt5.symbol_info_tick(symbol)
         if tick is None:
             # Fallback
