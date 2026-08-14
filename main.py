@@ -16,7 +16,7 @@ class AutonomousScalper:
     """
     The main coordinator class for the Autonomous Forex Scalper.
     It orchestrates initialization, main loops, technical scans, execution,
-    trade monitoring, and risk/drawdown safeguards under the EAQTS 2.4 unified control flow.
+    trade monitoring, and risk/drawdown safeguards under the EAQTS 2.2 unified control flow.
     """
 
     def __init__(self):
@@ -31,7 +31,7 @@ class AutonomousScalper:
             print("--- RUNNING IN LIVE MT5 WINDOWS MODE ---")
             self.conn = connector.MT5Connector(demo_only=config.DEMO_ACCOUNT_ONLY)
 
-        # 3. Instantiate the EAQTS 2.4 Unified 9 Planes Engine
+        # 3. Instantiate the EAQTS 2.2 Unified 9 Planes Engine
         self.engine = eaqts_planes.init_core_engine(self.conn)
 
         self.brain = brain.ScalperBrain()
@@ -794,7 +794,7 @@ class AutonomousScalper:
     def tick_and_execute(self):
         """
         Runs one iteration of checking market state, assessing trades,
-        updating open positions, and enforcing limits under EAQTS 2.4 logic.
+        updating open positions, and enforcing limits under EAQTS 2.2 logic.
         """
         # Heartbeat: Check connection status and attempt auto-reconnection
         if not self.conn.is_connected():
@@ -976,7 +976,7 @@ class AutonomousScalper:
                 has_reconciliation_mismatch = not self.engine.resilience.reconcile_positions(open_db_trades_refresh, active_positions_refresh)
 
                 # ==================================================================
-                # EAQTS 2.4 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
+                # EAQTS 2.2 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
                 # A. Evaluate Safety Invariants (INV-001 to INV-015)
                 violations = self.engine.safety.evaluate_invariants(
