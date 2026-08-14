@@ -1,6 +1,37 @@
 import sqlite3
 import datetime
+import hashlib
+import hmac
+import base64
 import config
+
+def hash_credential(secret_text, salt="EAQTS_SOVEREIGN_SALT_2026"):
+    """Generates a salt-based SHA-256 cryptographic digest for passwords and PINs."""
+    if not secret_text:
+        secret_text = ""
+    salted_str = f"{secret_text}:{salt}"
+    return hashlib.sha256(salted_str.encode('utf-8')).hexdigest()
+
+def encrypt_secret(plain_text, key_seed="EAQTS_CIPHER_KEY_2026"):
+    """Encrypts a string using reversible XOR-base64 ciphering for broker passwords."""
+    if not plain_text:
+        return ""
+    key_bytes = hashlib.sha256(key_seed.encode('utf-8')).digest()
+    plain_bytes = plain_text.encode('utf-8')
+    cipher_bytes = bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(plain_bytes)])
+    return base64.b64encode(cipher_bytes).decode('utf-8')
+
+def decrypt_secret(cipher_text, key_seed="EAQTS_CIPHER_KEY_2026"):
+    """Decrypts a base64-XOR encrypted string back to plaintext."""
+    if not cipher_text:
+        return ""
+    try:
+        key_bytes = hashlib.sha256(key_seed.encode('utf-8')).digest()
+        cipher_bytes = base64.b64decode(cipher_text.encode('utf-8'))
+        plain_bytes = bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(cipher_bytes)])
+        return plain_bytes.decode('utf-8')
+    except Exception:
+        return ""
 
 def get_connection():
     """Returns a connection to the SQLite database."""
@@ -69,8 +100,174 @@ def init_db():
     )
     """)
 
+    # Table for storing user access accounts with cryptographic hash credentials
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        pin_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',
+        mfa_enabled INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL
+    )
+    """)
+
+    # Table for storing broker gateway connection details with encrypted secrets
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS broker_credentials (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        server TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        password_encrypted TEXT NOT NULL,
+        leverage TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """)
+
+    # Prepopulate default admin operator account if empty
+    cursor.execute("SELECT COUNT(*) FROM users")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("""
+        INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            "QUANT_OPERATOR",
+            hash_credential("admin"),
+            hash_credential("741295"),
+            "SOVEREIGN_ADMIN",
+            1,
+            datetime.datetime.now().isoformat()
+        ))
+
+    # Prepopulate default broker credentials if empty
+    cursor.execute("SELECT COUNT(*) FROM broker_credentials")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("""
+        INSERT INTO broker_credentials (server, account_id, password_encrypted, leverage, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        """, (
+            "EAQTS-Demo-Server",
+            "10928471",
+            encrypt_secret("demoPass123!"),
+            "1:100",
+            datetime.datetime.now().isoformat()
+        ))
+
     conn.commit()
     conn.close()
+
+def verify_user_password(username, password_input):
+    """Verifies a user's password against the encrypted hash stored in SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return False
+    return row['password_hash'] == hash_credential(password_input)
+
+def verify_user_pin(pin_input):
+    """Verifies a secondary security PIN against active operators in SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT pin_hash FROM users")
+    rows = cursor.fetchall()
+    conn.close()
+
+    target_hash = hash_credential(pin_input)
+    return any(r['pin_hash'] == target_hash for r in rows)
+
+def get_all_users():
+    """Retrieves all registered user profiles."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, role, mfa_enabled, created_at FROM users ORDER BY id ASC")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
+    """Adds a new operator account with salt-hashed password and PIN."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        username,
+        hash_credential(password),
+        hash_credential(pin),
+        role,
+        int(mfa_enabled),
+        datetime.datetime.now().isoformat()
+    ))
+    conn.commit()
+    conn.close()
+
+def update_user(username, new_password=None, new_pin=None, new_role=None):
+    """Updates password, PIN, or role for an existing user account."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if new_password:
+        cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (hash_credential(new_password), username))
+    if new_pin:
+        cursor.execute("UPDATE users SET pin_hash = ? WHERE username = ?", (hash_credential(new_pin), username))
+    if new_role:
+        cursor.execute("UPDATE users SET role = ? WHERE username = ?", (new_role, username))
+    conn.commit()
+    conn.close()
+
+def delete_user(username):
+    """Deletes a user account from SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+def save_broker_credentials(server, account_id, password, leverage):
+    """Saves broker gateway parameters with encrypted password into SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM broker_credentials")
+    cursor.execute("""
+    INSERT INTO broker_credentials (server, account_id, password_encrypted, leverage, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    """, (
+        server,
+        account_id,
+        encrypt_secret(password),
+        leverage,
+        datetime.datetime.now().isoformat()
+    ))
+    conn.commit()
+    conn.close()
+
+def get_broker_credentials():
+    """Retrieves broker connection parameters and decrypts the password."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT server, account_id, password_encrypted, leverage FROM broker_credentials ORDER BY id DESC LIMIT 1")
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return {
+            "server": "EAQTS-Demo-Server",
+            "account_id": "10928471",
+            "password": "demoPass123!",
+            "leverage": "1:100"
+        }
+
+    return {
+        "server": row["server"],
+        "account_id": row["account_id"],
+        "password": decrypt_secret(row["password_encrypted"]),
+        "leverage": row["leverage"]
+    }
 
 def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):
     """Logs an analysis assessment made by the brain."""
