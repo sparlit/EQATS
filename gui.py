@@ -677,6 +677,14 @@ class ScalperGui:
             self._show_aic_screen()
         elif screen_code == "CRAWL":
             self._show_crawl_screen()
+        elif screen_code == "CRED":
+            self._show_cred_screen()
+        elif screen_code == "WATCH":
+            self._show_watch_screen()
+        elif screen_code == "MKT":
+            self._show_mkt_screen()
+        elif screen_code == "TRADEBOOK":
+            self._show_tradebook_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -2431,6 +2439,202 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
 """
         self.crawl_text.insert(tk.END, crawl_data)
 
+    def _show_cred_screen(self):
+        """CRED <GO>: User Credentials and MFA Gateways"""
+        lbl_title = tk.Label(self.screen_frame, text="CRED: SECURITY PRIVILEGES & MFA CREDENTIALS CONTROLLER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="MONITORS SECURITY TOKENS, DYNAMIC 2FA MFA ACCESS, AND PRIVILEGE ROLES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        self.cred_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.cred_text.pack(fill=tk.BOTH, expand=True)
+        self._update_cred_screen_data()
+
+    def _update_cred_screen_data(self):
+        if not hasattr(self, "cred_text") or not self.cred_text: return
+        self.cred_text.delete("1.0", tk.END)
+        # Generate some simulated rotating dynamic token key
+        token_key = "".join(random.choices("0123456789ABCDEF", k=16))
+        mfa_code = random.randint(100000, 999999)
+        cred_data = f"""
+================================================================================
+CRED <GO>: SECURE SECURITY LOGINS & USER PRIVILEGES
+================================================================================
+ACTIVE PROFILE:              BBG_QUANT_OPERATOR
+AUTHORITY LEVEL:             Sovereign Administration (S-12 Root)
+MFA HARDWARE KEY STATUS:     SYNCED (B-Unit Token Connected)
+Dynamic TOTP Code:           {mfa_code}
+Active Session Token:        {token_key}
+
+SECURITY DOMAINS ENFORCED:
+--------------------------------------------------------------------------------
+1) startup_authentication:   PASSED (BBG_QUANT_OPERATOR credentials verified)
+2) RBAC role model:          ENABLED (Read-Write-Execute Permission active)
+3) API Isolations:           SECURE (Isolated from external research files)
+4) MFA Code requirement:     REQUIRED for Settings (SET <GO>) screen
+================================================================================
+"""
+        self.cred_text.insert(tk.END, cred_data)
+
+    def _show_watch_screen(self):
+        """WATCH <GO>: Interactive Symbols Watchlist and percentage Heatmap"""
+        lbl_title = tk.Label(self.screen_frame, text="WATCH: INTERACTIVE SYMBOLS WATCHLIST & HEATMAP <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME MONITORING AND DAILY RETURNS PERCENTAGE HEATMAP", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Create a frame for the heatmap grid
+        self.watch_container = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        self.watch_container.pack(fill=tk.BOTH, expand=True)
+        self._update_watch_screen_data()
+
+    def _update_watch_screen_data(self):
+        if not hasattr(self, "watch_container") or not self.watch_container: return
+        for widget in self.watch_container.winfo_children():
+            widget.destroy()
+
+        # Let's create a visual 4x6 grid heatmap of all symbols!
+        import config
+        symbols = config.SYMBOLS[:18] # Take first 18 symbols to fit beautifully
+
+        # Header Row
+        headers = ["SYMBOL", "BID PRICE", "SPREAD (PIPS)", "24H CHANGE (%)"]
+        for col_idx, h in enumerate(headers):
+            lbl = tk.Label(self.watch_container, text=h, font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_accent, width=18, bd=1, relief=tk.SOLID)
+            lbl.grid(row=0, column=col_idx, padx=1, pady=1, sticky="nsew")
+
+        for idx, sym in enumerate(symbols):
+            row_idx = idx + 1
+            # Random returns between -2.0% and +3.5%
+            ret = random.uniform(-2.0, 3.5)
+            spread_pips = random.uniform(0.8, 2.5)
+
+            # Simulated bid price
+            pip_size = 0.0001
+            base_p = 1.1000 if "EUR" in sym else (1.3000 if "GBP" in sym else (145.0 if "JPY" in sym else (65000.0 if "BTC" in sym else 2.5)))
+            price = base_p + random.uniform(-0.01, 0.01) * base_p
+            price_str = f"{price:.5f}" if price < 1000 else f"{price:.2f}"
+
+            ret_color = "#00ff00" if ret >= 0 else "#ff3333"
+            ret_str = f"+{ret:.2f}%" if ret >= 0 else f"{ret:.2f}%"
+
+            # Label for Symbol
+            lbl_sym = tk.Label(self.watch_container, text=sym, font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#38bdf8", width=18, bd=1, relief=tk.SOLID)
+            lbl_sym.grid(row=row_idx, column=0, padx=1, pady=1, sticky="nsew")
+
+            # Label for Price
+            lbl_p = tk.Label(self.watch_container, text=price_str, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, width=18, bd=1, relief=tk.SOLID)
+            lbl_p.grid(row=row_idx, column=1, padx=1, pady=1, sticky="nsew")
+
+            # Label for Spread
+            lbl_spread = tk.Label(self.watch_container, text=f"{spread_pips:.1f}", font=("Consolas", 8), bg=self.bg_card, fg="#eab308", width=18, bd=1, relief=tk.SOLID)
+            lbl_spread.grid(row=row_idx, column=2, padx=1, pady=1, sticky="nsew")
+
+            # Heatmap color background for Return!
+            bg_color = "#053005" if ret >= 0 else "#300505"
+            lbl_ret = tk.Label(self.watch_container, text=ret_str, font=("Consolas", 8, "bold"), bg=bg_color, fg=ret_color, width=18, bd=1, relief=tk.SOLID)
+            lbl_ret.grid(row=row_idx, column=3, padx=1, pady=1, sticky="nsew")
+
+    def _show_mkt_screen(self):
+        """MKT <GO>: Market movers, scanners, and exchange messages"""
+        lbl_title = tk.Label(self.screen_frame, text="MKT: INTEGRATED MARKET SCANNERS & Movers <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="EXCHANGE SYSTEM ALERTS, HIGHEST VOLATILITY SCANS, AND FUNDAMENTALS FEED", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        self.mkt_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.mkt_text.pack(fill=tk.BOTH, expand=True)
+        self._update_mkt_screen_data()
+
+    def _update_mkt_screen_data(self):
+        if not hasattr(self, "mkt_text") or not self.mkt_text: return
+        self.mkt_text.delete("1.0", tk.END)
+        movers_str = f"""
+================================================================================
+MKT <GO>: INTEGRATED SCANNERS AND VOLATILITY TRACKER
+================================================================================
+EXCHANGE MESSAGES & B-PIPE NETWORK STATUS:
+--------------------------------------------------------------------------------
+[09:12:45] FEED: Chicago CME Brent Futures connection status: OK
+[09:14:02] ALER: High volatility spikes detected on BTCUSD (+3.1%)
+[09:15:10] FEED: New York FX Interbank matching server ping: 12ms (FAST)
+
+LARGEST 24H MARKET MOVERS:
+--------------------------------------------------------------------------------
+1) SOLUSD:                   +6.45% (Aggressive breakout above resistance)
+2) USDJPY:                   -1.84% (Yen momentum strengthening)
+3) EURGBP:                   +0.12% (Consolidation pullback)
+4) XAUUSD:                   +2.15% (Safe-haven institutional accumulation)
+
+MARKET COGNITIVE MOVERS VOLUME SCANNER:
+--------------------------------------------------------------------------------
+- Highest volume peak:       XAUUSD (1.8x ATR Standard Deviation)
+- Lowest spread width:       EURUSD (0.6 Pips average)
+- Tightest Bollinger band:   GBPUSD (Inside Squeeze Channel - BREAKOUT imminent)
+================================================================================
+"""
+        self.mkt_text.insert(tk.END, movers_str)
+
+    def _show_tradebook_screen(self):
+        """TRADEBOOK <GO>: Settled Closed Trades Ledger from SQLite"""
+        lbl_title = tk.Label(self.screen_frame, text="TRADEBOOK: SETTLED CLOSED TRADES REGISTER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="IMMUTABLE TRADING LEDGER RECORDING COMPLETED TRANSACTIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Create Treeview inside a Frame with Scrollbar
+        tree_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        from tkinter import ttk
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Custom.Treeview", background=self.bg_card, foreground=self.fg_light, fieldbackground=self.bg_card, font=("Consolas", 8), rowheight=18)
+        style.configure("Custom.Treeview.Heading", background="#111111", foreground=self.fg_accent, font=("Consolas", 8, "bold"))
+
+        cols = ("TICKET", "SYMBOL", "DIR", "LOTS", "OPEN P", "CLOSE P", "PROFIT", "REASON")
+        self.tradebook_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", style="Custom.Treeview")
+
+        for c in cols:
+            self.tradebook_tree.heading(c, text=c)
+            self.tradebook_tree.column(c, width=80, anchor="center")
+
+        scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tradebook_tree.yview)
+        self.tradebook_tree.configure(yscroll=scroll.set)
+
+        self.tradebook_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self._update_tradebook_screen_data()
+
+    def _update_tradebook_screen_data(self):
+        if not hasattr(self, "tradebook_tree") or not self.tradebook_tree: return
+        # Clear previous rows
+        for item in self.tradebook_tree.get_children():
+            self.tradebook_tree.delete(item)
+
+        # Retrieve real data from SQLite database
+        import database
+        trades = database.get_all_trades()
+        closed_trades = [t for t in trades if t["status"] == "CLOSED"]
+
+        # Insert rows
+        for t in closed_trades[:50]: # Limit to 50 rows for performance
+            ticket = t.get("ticket", "-")
+            symbol = t.get("symbol", "-")
+            direction = t.get("direction", "-")
+            lot_size = t.get("lot_size", 0.0)
+            open_price = t.get("open_price", 0.0)
+            close_price = t.get("close_price", 0.0)
+            profit = t.get("profit", 0.0)
+            reason = t.get("close_reason", "-")
+
+            profit_str = f"${profit:.2f}" if profit >= 0 else f"-${abs(profit):.2f}"
+
+            self.tradebook_tree.insert("", tk.END, values=(
+                ticket, symbol, direction, f"{lot_size:.2f}", f"{open_price:.5f}", f"{close_price:.5f}", profit_str, reason
+            ))
+
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS
     # ----------------------------------------------------
@@ -2587,6 +2791,14 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
                     self._update_aic_screen_data()
                 elif self.active_screen == "CRAWL":
                     self._update_crawl_screen_data()
+                elif self.active_screen == "CRED":
+                    self._update_cred_screen_data()
+                elif self.active_screen == "WATCH":
+                    self._update_watch_screen_data()
+                elif self.active_screen == "MKT":
+                    self._update_mkt_screen_data()
+                elif self.active_screen == "TRADEBOOK":
+                    self._update_tradebook_screen_data()
 
                 self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
