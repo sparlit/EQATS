@@ -107,8 +107,21 @@ class DataPlane:
         self.active_provider_idx = 0
 
     def store_price(self, symbol: str, bid: float, ask: float):
-        """Stores point-in-time price record with event, publication, and availability times."""
-        now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        """Stores point-in-time price record with strictly monotonic times to prevent timestamp collisions."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        # Enforce strict timestamp monotonicity (to resolve rapid microsecond test collisions)
+        records = self._pit_database.get(symbol, [])
+        if records:
+            last_record_time_str = records[-1]["availability_time"]
+            try:
+                last_time = datetime.datetime.fromisoformat(last_record_time_str)
+                if now <= last_time:
+                    now = last_time + datetime.timedelta(microseconds=1)
+            except Exception:
+                pass
+
+        now_str = now.isoformat()
         record = {
             "event_time": now_str,
             "publication_time": now_str,
