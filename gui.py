@@ -432,6 +432,7 @@ class ScalperGui:
             "STAT_ARB",
             "ORB",
             "VSA",
+            "MTF_CONFLUENCE",
             command=self.on_strategy_change
         )
         self.strat_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
