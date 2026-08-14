@@ -414,6 +414,54 @@ class ScalperGui:
         )
         self.btn_stop.pack(side=tk.LEFT, padx=10, pady=10)
 
+        # Manual Override: Close All Positions Button
+        self.btn_close_all = tk.Button(
+            ctrl_frame,
+            text="⚡ CLOSE ALL",
+            font=("Consolas", 9, "bold"),
+            bg="#b45309",
+            fg="#ffffff",
+            activebackground="#92400e",
+            activeforeground="#ffffff",
+            padx=10,
+            pady=8,
+            relief=tk.FLAT,
+            command=self.manual_override_close_all
+        )
+        self.btn_close_all.pack(side=tk.LEFT, padx=5, pady=10)
+
+        # Manual Override: Pause Admissions Button
+        self.btn_pause = tk.Button(
+            ctrl_frame,
+            text="⏸ PAUSE ADMISSION",
+            font=("Consolas", 9, "bold"),
+            bg="#7c2d12",
+            fg="#ffffff",
+            activebackground="#7f1d1d",
+            activeforeground="#ffffff",
+            padx=10,
+            pady=8,
+            relief=tk.FLAT,
+            command=self.manual_override_pause
+        )
+        self.btn_pause.pack(side=tk.LEFT, padx=5, pady=10)
+
+        # System Exit Button
+        self.btn_exit_system = tk.Button(
+            ctrl_frame,
+            text="❌ EXIT SYSTEM",
+            font=("Consolas", 9, "bold"),
+            bg="#991b1b",
+            fg="#ffffff",
+            activebackground="#7f1d1d",
+            activeforeground="#ffffff",
+            padx=12,
+            pady=8,
+            relief=tk.FLAT,
+            command=self.exit_system
+        )
+        self.btn_exit_system.pack(side=tk.RIGHT, padx=(10, 20), pady=10)
+
         # Strategy Selector label and dropdown list
         strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
         strat_lbl.pack(side=tk.LEFT, padx=(10, 5), pady=15)
@@ -3890,6 +3938,48 @@ SECURITY DOMAINS ENFORCED:
         self.btn_stop.config(state=tk.DISABLED)
         self.btn_toggle_mode.config(state=tk.NORMAL)
         self.lbl_clock.config(text="Bot stopped safely.")
+
+    def manual_override_close_all(self):
+        """Manual override control to liquidate all running active positions immediately."""
+        if not messagebox.askyesno("Manual Override Confirmation", "Are you sure you want to liquidate ALL open positions immediately?"):
+            return
+        try:
+            active_positions = self.scalper.conn.get_open_orders()
+            closed_count = 0
+            for pos in active_positions:
+                res = self.scalper.conn.close_order(pos['ticket'], reason="MANUAL_OVERRIDE_CLOSE_ALL")
+                if res and res.get('success'):
+                    closed_count += 1
+            messagebox.showinfo("Manual Override Executed", f"Liquidated {closed_count} open positions across symbols.")
+            self.update_gui_loop()
+        except Exception as e:
+            messagebox.showerror("Override Error", f"Error closing positions: {e}")
+
+    def manual_override_pause(self):
+        """Manual override control to freeze trade admissions and transition engine state to DEFENSIVE."""
+        curr_state = self.scalper.engine.resilience.current_state
+        if curr_state != "DEFENSIVE":
+            self.scalper.engine.resilience.transition_state("DEFENSIVE")
+            messagebox.showwarning("Manual Override Engaged", "System state transitioned to DEFENSIVE. Trade admissions paused.")
+        else:
+            self.scalper.engine.resilience.transition_state("NORMAL")
+            messagebox.showinfo("Manual Override Cleared", "System state restored to NORMAL. Trade admissions resumed.")
+
+    def exit_system(self):
+        """Shuts down all background threads, stops the bot, disconnects feeds, and exits the application."""
+        if messagebox.askyesno("Exit Confirmation", "Are you sure you want to stop all services and exit the Elite Autonomous Quantum Trading System?"):
+            try:
+                print("🛑 SYSTEM EXIT TRIGGERED: Stopping autonomous services and terminating application...")
+                self.running = False
+                if self.scalper:
+                    self.scalper.stop()
+                import sys
+                self.root.destroy()
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error during system exit: {e}")
+                import sys
+                sys.exit(0)
 
     def on_strategy_change(self, selected_strat):
         """Fires when the user updates the strategy dropdown choice"""
