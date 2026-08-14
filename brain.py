@@ -256,6 +256,57 @@ class ScalperBrain:
         except Exception as e:
             reasons_vs.append(f"VSA evaluation error: {e}")
 
+        # 10. EVALUATE STRATEGY 10: MTF_CONFLUENCE (Multi-Timeframe Trend & Momentum Alignment)
+        sig_mtf = "HOLD"
+        reasons_mtf = []
+        try:
+            # Multi-Timeframe lookback SMA trend checks
+            sma20 = sum(closes[-20:]) / 20.0
+            sma50 = sum(closes[-50:]) / 50.0 if len(closes) >= 50 else closes[-1]
+            sma100 = sum(closes[-100:]) / 100.0 if len(closes) >= 100 else closes[-1]
+            sma200 = sum(closes[-200:]) / 200.0 if len(closes) >= 200 else closes[-1]
+
+            # Fast, Medium, and Slow RSI
+            rsi10 = indicators.calculate_rsi(closes, 10) or 50.0
+            rsi14 = rsi_val
+            rsi21 = indicators.calculate_rsi(closes, 21) or 50.0
+
+            bullish_indicators = 0
+            bearish_indicators = 0
+
+            # Trend alignments
+            if current_price > sma20: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            if current_price > sma50: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            if current_price > sma100: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            if current_price > sma200: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            # Momentum alignments
+            if rsi10 > 50: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            if rsi14 > 50: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            if rsi21 > 50: bullish_indicators += 1
+            else: bearish_indicators += 1
+
+            # Determine confluence ratio (needs >= 5 out of 7 aligned signals)
+            if bullish_indicators >= 5:
+                sig_mtf = "BUY"
+            elif bearish_indicators >= 5:
+                sig_mtf = "SELL"
+            else:
+                reasons_mtf.append(f"No MTF alignment (Bullish: {bullish_indicators}/7, Bearish: {bearish_indicators}/7)")
+        except Exception as e:
+            reasons_mtf.append(f"MTF Confluence error: {e}")
+
         # Choose the dynamic trading setup based on user's active strategy configuration
         strategy_mode = config.ACTIVE_STRATEGY
         decision = "HOLD"
@@ -293,6 +344,9 @@ class ScalperBrain:
         elif strategy_mode == "VSA":
             decision = sig_vs
             explanation = f"VSA Setup: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_vs)}"
+        elif strategy_mode == "MTF_CONFLUENCE":
+            decision = sig_mtf
+            explanation = f"MTF Confluence: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_mtf)}"
         else: # VOTING_ENSEMBLE
             # Convert signals to numeric values (+1: BUY, -1: SELL, 0: HOLD)
             sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
@@ -305,25 +359,28 @@ class ScalperBrain:
             sa_val = sig_to_val(sig_sa)
             or_val_v = sig_to_val(sig_or)
             vs_val = sig_to_val(sig_vs)
+            mtf_val = sig_to_val(sig_mtf)
 
             # Assign adaptive weights based on current market regime!
-            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5
+            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5, 1.0
 
             if reg_state == "TRENDING":
                 tf_w = 2.0   # Trend is strong: boost trend following
                 bo_w = 2.0   # Boost breakout follow-through
                 or_w = 2.0   # Opening Range Breakouts perform best in trends
                 mr_w = 0.0   # Disable mean-reversion counter-trend trades to avoid getting run over
+                mtf_w = 2.0  # Align MTF trend alignment heavily in strong trends
             else: # RANGING
                 mr_w = 2.5   # Rangebound: heavily boost mean reversion osc
                 sa_w = 2.0   # StatArb thrives in mean-reverting ranging markets
                 tf_w = 0.1   # Suppress trend following whipsaws
                 bo_w = 0.1   # Suppress false breakouts
+                mtf_w = 0.5  # Reduce MTF weight in choppy ranging markets
 
-            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w
+            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w
             weighted_score = ((tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) +
                               (bo_val * bo_w) + (cy_val * cy_w) + (sa_val * sa_w) +
-                              (or_val_v * or_w) + (vs_val * vs_w))
+                              (or_val_v * or_w) + (vs_val * vs_w) + (mtf_val * mtf_w))
 
             normalized_score = weighted_score / total_weight if total_weight > 0 else 0.0
 
