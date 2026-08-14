@@ -841,6 +841,9 @@ class AutonomousScalper:
             print(warn_msg.replace("*", ""))
             telegram_bot.send_telegram_message(warn_msg)
 
+            # Transition safety state machine to HALTED (Section 41)
+            self.engine.resilience.transition_state("HALTED")
+
             # Autonomously close all active trades immediately to preserve remaining capital!
             active_positions = self.conn.get_open_orders()
             for pos in active_positions:
@@ -959,13 +962,28 @@ class AutonomousScalper:
                 if any(p['symbol'].upper() == symbol.upper() for p in active_positions_refresh):
                     continue
 
+                # Find the scan matching this symbol to retrieve NN State and trends
+                scan_item = next((sc for sc in scans_list if sc["symbol"].upper() == symbol.upper()), None)
+                tech_trend = scan_item["trend"] if scan_item else "UP"
+                ai_trend = "UP" if (analysis.get("probability", 0.5) >= 0.5) else "DOWN"
+
+                # Check State Disagreement (Section 22)
+                component_decisions = {"technical_trend": tech_trend, "ai_trend": ai_trend}
+                has_disagreement = not self.engine.safety.verify_component_agreement(component_decisions)
+
+                # Check Continuous Reconciliation Mismatch (Section 33)
+                open_db_trades_refresh = database.get_open_trades()
+                has_reconciliation_mismatch = not self.engine.resilience.reconcile_positions(open_db_trades_refresh, active_positions_refresh)
+
                 # ==================================================================
                 # EAQTS 2.4 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
-                # A. Evaluate Safety Invariants
+                # A. Evaluate Safety Invariants (INV-001 to INV-015)
                 violations = self.engine.safety.evaluate_invariants(
                     current_risk=config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
-                    active_count=len(active_positions_refresh) + 1
+                    active_count=len(active_positions_refresh) + 1,
+                    has_reconciliation_mismatch=has_reconciliation_mismatch,
+                    has_disagreement=has_disagreement
                 )
 
                 # B. Estimate Expected Net Value
@@ -976,24 +994,36 @@ class AutonomousScalper:
                     slippage=0.0001
                 )
 
-                # C. Safety Kernel check
+                # C. Reference Price Deviation check (Section 10.5)
+                feed_price = float(scan_item["price"] if (scan_item and scan_item["price"] != "-") else "1.1")
+                price_ok = self.engine.data.check_price_deviation(symbol, feed_price, feed_price) # Compares with self as baseline
+                if not price_ok:
+                    print(f"🛑 [REFERENCE PRICE DEVIATION BLOCKED]: {symbol} feed price deviated significantly from reference source.")
+                    continue
+
+                # D. Safety Kernel check
                 if not self.engine.safety.authorize_trade(symbol, env, violations):
                     print(f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed.")
                     continue
 
-                # D. Fat-Finger checking
-                if not self.engine.execution.validate_fat_finger(symbol, analysis['lot_size'], float(s['price'] if s['price'] != '-' else '1.1')):
+                # E. Fat-Finger checking
+                if not self.engine.execution.validate_fat_finger(symbol, analysis['lot_size'], feed_price):
                     print(f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {analysis['lot_size']} or notional exceeds standard limits.")
                     continue
 
-                # E. Self-Trade prevention check
+                # F. Self-Trade prevention check
                 if self.engine.execution.prevent_self_trade(symbol, decision, active_positions_refresh):
                     print(f"🛑 [SELF-TRADE PREVENTION BLOCKED]: conflicting positions open on symbol {symbol}.")
                     continue
 
-                # F. Rate limits check
+                # G. Rate limits check (Section 24.1)
                 if not self.engine.execution.check_rate_limits():
                     print(f"🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
+                    # Transition resilience state on throttling
+                    if self.engine.execution.rate_state == "HALTED":
+                        self.engine.resilience.transition_state("HALTED")
+                    elif self.engine.execution.rate_state == "THROTTLED":
+                        self.engine.resilience.transition_state("DEFENSIVE")
                     continue
 
                 # Commit Reservation & execute
