@@ -31,7 +31,7 @@ TIMEFRAME_NAME = "M1"
 # 3. Risk and Money Management
 RISK_PER_TRADE_PERCENT = 1.0       # Risk exactly 1% of equity per trade
 MAX_DAILY_DRAWDOWN_PERCENT = 3.0   # Stop trading for the day if 3% of account balance is lost
-MAX_CONCURRENT_TRADES = 3          # Max simultaneous open trades across all symbols
+MAX_CONCURRENT_TRADES = 10         # Max simultaneous open trades across all symbols (optimized for parallel multi-style scaling)
 RISK_REWARD_RATIO = 2.0            # Win target is 2.0x of the stop loss distance
 ATR_PERIOD = 14                    # Period for Average True Range volatility calculation
 ATR_MULTIPLIER_SL = 1.5            # Stop loss distance = 1.5 * ATR
