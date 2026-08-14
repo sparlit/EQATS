@@ -258,3 +258,117 @@ def classify_market_regime(highs, lows, closes, period=20):
         'trend_intensity': round(trend_intensity, 4),
         'squeeze_ratio': round(squeeze, 4)
     }
+
+def calculate_adx(highs, lows, closes, period=14):
+    """
+    Average Directional Index (ADX) measuring trend strength.
+    Range [0, 100]. Values > 25 indicate strong trends.
+    """
+    if len(closes) < period * 2 or len(highs) < period * 2 or len(lows) < period * 2:
+        return 20.0 # Default fallback
+
+    tr_list = []
+    dm_plus = []
+    dm_minus = []
+
+    for i in range(1, len(closes)):
+        h_diff = highs[i] - highs[i-1]
+        l_diff = lows[i-1] - lows[i]
+
+        # True Range
+        tr = max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1]))
+        tr_list.append(tr)
+
+        # DM plus / minus
+        if h_diff > l_diff and h_diff > 0:
+            dm_plus.append(h_diff)
+        else:
+            dm_plus.append(0.0)
+
+        if l_diff > h_diff and l_diff > 0:
+            dm_minus.append(l_diff)
+        else:
+            dm_minus.append(0.0)
+
+    # Smooth using Wilder's Smoothing
+    tr_smooth = [sum(tr_list[:period])]
+    dm_plus_smooth = [sum(dm_plus[:period])]
+    dm_minus_smooth = [sum(dm_minus[:period])]
+
+    for i in range(period, len(tr_list)):
+        tr_smooth.append(tr_smooth[-1] - (tr_smooth[-1] / period) + tr_list[i])
+        dm_plus_smooth.append(dm_plus_smooth[-1] - (dm_plus_smooth[-1] / period) + dm_plus[i])
+        dm_minus_smooth.append(dm_minus_smooth[-1] - (dm_minus_smooth[-1] / period) + dm_minus[i])
+
+    # Calculate DI+ and DI-
+    di_plus = []
+    di_minus = []
+    dx_list = []
+
+    for i in range(len(tr_smooth)):
+        tr_val = tr_smooth[i] if tr_smooth[i] > 0 else 0.00001
+        di_p = (dm_plus_smooth[i] / tr_val) * 100.0
+        di_m = (dm_minus_smooth[i] / tr_val) * 100.0
+        di_plus.append(di_p)
+        di_minus.append(di_m)
+
+        diff = abs(di_p - di_m)
+        total = di_p + di_m if (di_p + di_m) > 0 else 0.00001
+        dx_list.append((diff / total) * 100.0)
+
+    # ADX smoothing
+    if len(dx_list) < period:
+        return 20.0
+    adx = sum(dx_list[:period]) / period
+    for i in range(period, len(dx_list)):
+        adx = ((adx * (period - 1)) + dx_list[i]) / period
+
+    return round(adx, 2)
+
+def calculate_stochastic(highs, lows, closes, period=14, d_period=3):
+    """
+    Stochastic Oscillator (%K and %D).
+    Returns a dict: {'k': float, 'd': float}
+    """
+    if len(closes) < period:
+        return {'k': 50.0, 'd': 50.0}
+
+    k_values = []
+    # Calculate %K for recent bars to enable %D smoothing
+    for i in range(len(closes) - d_period, len(closes)):
+        sub_highs = highs[max(0, i - period + 1): i + 1]
+        sub_lows = lows[max(0, i - period + 1): i + 1]
+        if not sub_highs or not sub_lows:
+            continue
+        h_high = max(sub_highs)
+        l_low = min(sub_lows)
+        denom = h_high - l_low
+        if denom == 0:
+            k = 50.0
+        else:
+            k = ((closes[i] - l_low) / denom) * 100.0
+        k_values.append(k)
+
+    k_curr = k_values[-1] if k_values else 50.0
+    d_curr = sum(k_values) / len(k_values) if k_values else 50.0
+    return {'k': round(k_curr, 2), 'd': round(d_curr, 2)}
+
+def calculate_ichimoku(highs, lows, closes):
+    """
+    Ichimoku Cloud parameters (Tenkan-sen and Kijun-sen).
+    Returns a dict: {'tenkan': float, 'kijun': float}
+    """
+    if len(closes) < 26:
+        return {'tenkan': closes[-1], 'kijun': closes[-1]}
+
+    # 9-period High/Low
+    high_9 = max(highs[-9:])
+    low_9 = min(lows[-9:])
+    tenkan = (high_9 + low_9) / 2.0
+
+    # 26-period High/Low
+    high_26 = max(highs[-26:])
+    low_26 = min(lows[-26:])
+    kijun = (high_26 + low_26) / 2.0
+
+    return {'tenkan': round(tenkan, 5), 'kijun': round(kijun, 5)}
