@@ -3898,15 +3898,19 @@ SECURITY DOMAINS ENFORCED:
             self.mkt_corp_tree.insert("", tk.END, values=row)
 
     def _show_tradebook_screen(self):
-        """TRADEBOOK <GO>: Settled Closed Trades Ledger from SQLite"""
-        lbl_title = tk.Label(self.screen_frame, text="TRADEBOOK: SETTLED CLOSED TRADES REGISTER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        """TRADEBOOK <GO>: Settled Closed Trades Ledger & Trade Memory Protocol"""
+        lbl_title = tk.Label(self.screen_frame, text="TRADEBOOK: SETTLED CLOSED TRADES REGISTER & REFLECTION PROTOCOL <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="IMMUTABLE TRADING LEDGER RECORDING COMPLETED TRANSACTIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(self.screen_frame, text="IMMUTABLE TRADING LEDGER RECORDING COMPLETED TRANSACTIONS & COGNITIVE TRADE REFLECTIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        # Create Treeview inside a Frame with Scrollbar
-        tree_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
-        tree_frame.pack(fill=tk.BOTH, expand=True)
+        # Split Container
+        split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        split_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Left Column: Treeview
+        tree_frame = tk.Frame(split_frame, bg=self.bg_dark)
+        tree_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         from tkinter import ttk
         style = ttk.Style()
@@ -3919,13 +3923,23 @@ SECURITY DOMAINS ENFORCED:
 
         for c in cols:
             self.tradebook_tree.heading(c, text=c)
-            self.tradebook_tree.column(c, width=80, anchor="center")
+            self.tradebook_tree.column(c, width=70, anchor="center")
 
         scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tradebook_tree.yview)
         self.tradebook_tree.configure(yscroll=scroll.set)
 
         self.tradebook_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Right Column: Trade Memory & Reflection Logs Panel
+        mem_frame = tk.Frame(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d", width=360)
+        mem_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
+        mem_frame.pack_propagate(False)
+
+        tk.Label(mem_frame, text="TRADE MEMORY & REFLECTION PROTOCOL", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
+
+        self.tradebook_mem_text = tk.Text(mem_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), wrap=tk.WORD, bd=0, highlightthickness=0)
+        self.tradebook_mem_text.pack(fill=tk.BOTH, expand=True)
 
         self._update_tradebook_screen_data()
 
@@ -3956,6 +3970,22 @@ SECURITY DOMAINS ENFORCED:
             self.tradebook_tree.insert("", tk.END, values=(
                 ticket, symbol, direction, f"{lot_size:.2f}", f"{open_price:.5f}", f"{close_price:.5f}", profit_str, reason
             ))
+
+        # Update Trade Memory Reflection Text
+        if hasattr(self, "tradebook_mem_text") and self.tradebook_mem_text:
+            import institutional_integrations.trade_memory_protocol as tmp
+            ref_data = tmp.global_trade_memory_protocol.get_summary()
+
+            self.tradebook_mem_text.config(state=tk.NORMAL)
+            self.tradebook_mem_text.delete("1.0", tk.END)
+            self.tradebook_mem_text.insert(tk.END, f"Total Reflected Trades: {ref_data['total_reflections']}\n")
+            self.tradebook_mem_text.insert(tk.END, f"Reflection Win Rate:    {ref_data['win_rate']}%\n")
+            self.tradebook_mem_text.insert(tk.END, f"Average Efficiency:     {ref_data['avg_efficiency']}%\n")
+            self.tradebook_mem_text.insert(tk.END, "----------------------------------------\n")
+            self.tradebook_mem_text.insert(tk.END, "RECENT TRADE POST-MORTEMS:\n")
+            for note in ref_data["recent_reflections"]:
+                self.tradebook_mem_text.insert(tk.END, note + "\n\n")
+            self.tradebook_mem_text.config(state=tk.DISABLED)
 
     def _show_sentiment_screen(self):
         """DEEP MARKET SENTIMENT <GO>: Deep NLP News Sentiment Analyzer"""
