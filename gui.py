@@ -3586,13 +3586,29 @@ SECURITY DOMAINS ENFORCED:
         self.cred_text.insert(tk.END, cred_data)
 
     def _show_watch_screen(self):
-        """WATCH <GO>: Interactive Symbols Watchlist and percentage Heatmap with detailed indicators and MTF"""
+        """WATCH <GO>: Interactive Symbols Watchlist with Fixed Sticky Header and Full Row Selection"""
         lbl_title = tk.Label(self.screen_frame, text="WATCH: INTERACTIVE SYMBOLS WATCHLIST & HEATMAP <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME MONITORING AND MULTI-TIMEFRAME (MTF) CONFLUENCE HEATMAP MATRIX WITH 10+ TECHNICAL INDICATORS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME MONITORING, FIXED STICKY HEADERS, FULL ROW SELECTION, AND MULTI-TIMEFRAME (MTF) CONFLUENCE HEATMAP", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
         lbl_info.pack(anchor="w", pady=(0, 5))
 
-        # Create scrollable canvas container to prevent window overflows on extremely wide columns grid
+        # FIXED STICKY HEADER FRAME (Stays visible at ALL times when scrolling!)
+        self.watch_header_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        self.watch_header_frame.pack(fill=tk.X, pady=(0, 2))
+
+        headers = [
+            "SYMBOL", "LTP (BID)", "ASK PRICE", "ATP", "SPREAD", "TREND", "WIN PROB",
+            "RSI", "MACD", "ADX", "ATR", "VWAP", "TWAP", "SMA", "EMA", "STOCH", "ICHIMOKU",
+            "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"
+        ]
+
+        for col_idx, h in enumerate(headers):
+            bg_col = "#111111" if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#1e293b"
+            fg_col = self.fg_accent if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#38bdf8"
+            lbl = tk.Label(self.watch_header_frame, text=h, font=("Consolas", 7, "bold"), bg=bg_col, fg=fg_col, width=12, bd=1, relief=tk.SOLID)
+            lbl.grid(row=0, column=col_idx, padx=1, pady=1, sticky="nsew")
+
+        # Scrollable canvas container for data rows
         self.canvas_watch = tk.Canvas(self.screen_frame, bg=self.bg_dark, bd=0, highlightthickness=0)
         v_scroll = tk.Scrollbar(self.screen_frame, orient=tk.VERTICAL, command=self.canvas_watch.yview)
         h_scroll = tk.Scrollbar(self.screen_frame, orient=tk.HORIZONTAL, command=self.canvas_watch.xview)
@@ -3609,28 +3625,36 @@ SECURITY DOMAINS ENFORCED:
         h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
         self.canvas_watch.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        self.selected_watch_row = None
+        self.watch_row_widgets = {}
+
         self._update_watch_screen_data()
+
+    def _select_watch_row(self, row_idx, symbol_name):
+        """Highlights the entire row across all columns for full row selection."""
+        if self.selected_watch_row and self.selected_watch_row in self.watch_row_widgets:
+            for w, default_bg in self.watch_row_widgets[self.selected_watch_row]:
+                try: w.config(bg=default_bg)
+                except Exception: pass
+
+        self.selected_watch_row = row_idx
+        if row_idx in self.watch_row_widgets:
+            for w, _ in self.watch_row_widgets[row_idx]:
+                try: w.config(bg="#1e3a8a")  # Highlight full row in royal blue
+                except Exception: pass
+
+        self.selected_symbol_gp = symbol_name
+        print(f"🎯 WATCHLIST FULL ROW SELECTED: Row #{row_idx} ({symbol_name})")
 
     def _update_watch_screen_data(self):
         if not hasattr(self, "watch_container") or not self.watch_container: return
         for widget in self.watch_container.winfo_children():
             widget.destroy()
 
+        self.watch_row_widgets = {}
+
         import config
         symbols = config.SYMBOLS # Processes all majors, minors, metals, and cryptos in config.SYMBOLS
-
-        headers = [
-            "SYMBOL", "LTP (BID)", "ASK PRICE", "ATP", "SPREAD", "TREND", "WIN PROB",
-            "RSI", "MACD", "ADX", "ATR", "VWAP", "TWAP", "SMA", "EMA", "STOCH", "ICHIMOKU",
-            "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"
-        ]
-
-        # Header Row
-        for col_idx, h in enumerate(headers):
-            bg_col = "#111111" if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#1e293b"
-            fg_col = self.fg_accent if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#38bdf8"
-            lbl = tk.Label(self.watch_container, text=h, font=("Consolas", 7, "bold"), bg=bg_col, fg=fg_col, width=12, bd=1, relief=tk.SOLID)
-            lbl.grid(row=0, column=col_idx, padx=1, pady=1, sticky="nsew")
 
         # Iterate through watchlist symbols
         for idx, sym in enumerate(symbols):
@@ -3717,6 +3741,8 @@ SECURITY DOMAINS ENFORCED:
                     f"{stoch_k:.1f}/{stoch_d:.1f}", f"{tenkan:.5f}/{kijun:.5f}" if tenkan < 100 else f"{tenkan:.1f}/{kijun:.1f}"
                 ]
 
+                row_widgets = []
+
                 # Render standard cells
                 for col_idx, val in enumerate(row_vals):
                     fg_cell = self.fg_light
@@ -3727,6 +3753,8 @@ SECURITY DOMAINS ENFORCED:
 
                     lbl_cell = tk.Label(self.watch_container, text=val, font=("Consolas", 8), bg=self.bg_card, fg=fg_cell, width=12, bd=1, relief=tk.SOLID)
                     lbl_cell.grid(row=row_idx, column=col_idx, padx=1, pady=1, sticky="nsew")
+                    lbl_cell.bind("<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s))
+                    row_widgets.append((lbl_cell, self.bg_card))
 
                 # Render MTF Heatmap blocks (col_idx starts from len(row_vals))
                 start_col = len(row_vals)
@@ -3738,6 +3766,10 @@ SECURITY DOMAINS ENFORCED:
 
                     lbl_block = tk.Label(self.watch_container, text=txt_state, font=("Consolas", 8, "bold"), bg=bg_color, fg=fg_color, width=12, bd=1, relief=tk.SOLID)
                     lbl_block.grid(row=row_idx, column=block_col, padx=1, pady=1, sticky="nsew")
+                    lbl_block.bind("<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s))
+                    row_widgets.append((lbl_block, bg_color))
+
+                self.watch_row_widgets[row_idx] = row_widgets
 
             except Exception as e:
                 print(f"Error drawing watchlist symbol {sym}: {e}")
@@ -3808,7 +3840,203 @@ SECURITY DOMAINS ENFORCED:
             self.mkt_corp_tree.column(c, width=150, anchor="center")
         self.mkt_corp_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+        # 6. Forex Market Hours Sub-Tab
+        self.tab_mkt_hours = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
+        self.mkt_notebook.add(self.tab_mkt_hours, text="Forex Market Hours")
+
+        cols_hrs = ("Market Session", "UTC Interval", "Local Converted Time", "Status", "Volume Profile")
+        self.mkt_hours_tree = ttk.Treeview(self.tab_mkt_hours, columns=cols_hrs, show="headings", style="Treeview", height=10)
+        for c in cols_hrs:
+            self.mkt_hours_tree.heading(c, text=c)
+            self.mkt_hours_tree.column(c, width=140, anchor="center")
+        self.mkt_hours_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # 7. Currency Correlation Calculator Sub-Tab
+        self.tab_mkt_corr = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
+        self.mkt_notebook.add(self.tab_mkt_corr, text="Currency Correlation")
+
+        cols_corr = ("Pair", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD")
+        self.mkt_corr_tree = ttk.Treeview(self.tab_mkt_corr, columns=cols_corr, show="headings", style="Treeview", height=10)
+        for c in cols_corr:
+            self.mkt_corr_tree.heading(c, text=c)
+            self.mkt_corr_tree.column(c, width=90, anchor="center")
+        self.mkt_corr_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # 8. Risk-On / Risk-Off Meter Sub-Tab
+        self.tab_mkt_roro = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
+        self.mkt_notebook.add(self.tab_mkt_roro, text="Risk-On / Risk-Off Meter")
+
+        roro_top = tk.Frame(self.tab_mkt_roro, bg=self.bg_dark)
+        roro_top.pack(fill=tk.X, padx=10, pady=10)
+
+        self.lbl_mkt_roro_gauge = tk.Label(roro_top, text="GLOBAL MARKET REGIME: RISK-ON (NEON GREEN)", font=("Consolas", 11, "bold"), bg="#15803d", fg="#ffffff", padx=15, pady=8)
+        self.lbl_mkt_roro_gauge.pack(anchor="w")
+
+        cols_roro = ("Asset Class / Proxy", "Current Value", "Daily Net %", "Risk Sentiment Direction")
+        self.mkt_roro_tree = ttk.Treeview(self.tab_mkt_roro, columns=cols_roro, show="headings", style="Treeview", height=8)
+        for c in cols_roro:
+            self.mkt_roro_tree.heading(c, text=c)
+            self.mkt_roro_tree.column(c, width=150, anchor="center")
+        self.mkt_roro_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        # 9. Gain & Loss Percentage Calculator Sub-Tab
+        self.tab_mkt_gainloss = tk.Frame(self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15)
+        self.mkt_notebook.add(self.tab_mkt_gainloss, text="Gain & Loss Calculator")
+
+        gl_frame = tk.Frame(self.tab_mkt_gainloss, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        gl_frame.pack(fill=tk.X)
+
+        tk.Label(gl_frame, text="DRAWDOWN RECOVERY PERCENTAGE CALCULATOR", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(gl_frame, text="Account Loss Percentage (%):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+
+        self.ent_mkt_loss_pct = tk.Entry(gl_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        self.ent_mkt_loss_pct.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        self.ent_mkt_loss_pct.insert(0, "10.0")
+
+        btn_calc_gl = tk.Button(gl_frame, text="CALCULATE RECOVERY %", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3, relief=tk.FLAT, command=self._calc_gain_loss_recovery)
+        btn_calc_gl.grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 5))
+
+        self.lbl_mkt_recovery_result = tk.Label(gl_frame, text="Required Gain To Break-Even: +11.11%", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_green)
+        self.lbl_mkt_recovery_result.grid(row=3, column=0, columnspan=2, sticky="w", pady=5)
+
+        # 10. Pip Value Calculator Sub-Tab
+        self.tab_mkt_pipval = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
+        self.mkt_notebook.add(self.tab_mkt_pipval, text="Pip Value Calculator")
+
+        cols_pip = ("Symbol", "Contract Size", "Pip Size", "Pip Value per 1.0 Lot ($ USD)", "Pip Value per 0.1 Lot ($ USD)", "Pip Value per 0.01 Lot ($ USD)")
+        self.mkt_pipval_tree = ttk.Treeview(self.tab_mkt_pipval, columns=cols_pip, show="headings", style="Treeview", height=10)
+        for c in cols_pip:
+            self.mkt_pipval_tree.heading(c, text=c)
+            self.mkt_pipval_tree.column(c, width=120, anchor="center")
+        self.mkt_pipval_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # 11. Pivot Point Calculator Sub-Tab
+        self.tab_mkt_pivot = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
+        self.mkt_notebook.add(self.tab_mkt_pivot, text="Pivot Point Calculator")
+
+        piv_top = tk.Frame(self.tab_mkt_pivot, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        piv_top.pack(fill=tk.X, padx=10, pady=10)
+
+        tk.Label(piv_top, text="High:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=0, padx=5)
+        self.ent_mkt_p_high = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
+        self.ent_mkt_p_high.grid(row=0, column=1, padx=5)
+        self.ent_mkt_p_high.insert(0, "1.1050")
+
+        tk.Label(piv_top, text="Low:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=2, padx=5)
+        self.ent_mkt_p_low = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
+        self.ent_mkt_p_low.grid(row=0, column=3, padx=5)
+        self.ent_mkt_p_low.insert(0, "1.0950")
+
+        tk.Label(piv_top, text="Close:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=4, padx=5)
+        self.ent_mkt_p_close = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
+        self.ent_mkt_p_close.grid(row=0, column=5, padx=5)
+        self.ent_mkt_p_close.insert(0, "1.1020")
+
+        tk.Button(piv_top, text="CALCULATE PIVOTS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=2, relief=tk.FLAT, command=self._calc_pivot_points).grid(row=0, column=6, padx=10)
+
+        cols_piv = ("Pivot System", "Resistance R3", "Resistance R2", "Resistance R1", "PIVOT POINT", "Support S1", "Support S2", "Support S3")
+        self.mkt_pivot_tree = ttk.Treeview(self.tab_mkt_pivot, columns=cols_piv, show="headings", style="Treeview", height=8)
+        for c in cols_piv:
+            self.mkt_pivot_tree.heading(c, text=c)
+            self.mkt_pivot_tree.column(c, width=90, anchor="center")
+        self.mkt_pivot_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+
+        # 12. Position Size Calculator Sub-Tab
+        self.tab_mkt_possize = tk.Frame(self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15)
+        self.mkt_notebook.add(self.tab_mkt_possize, text="Position Size Calculator")
+
+        ps_frame = tk.Frame(self.tab_mkt_possize, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        ps_frame.pack(fill=tk.X)
+
+        tk.Label(ps_frame, text="POSITION SIZING & LOT ALLOCATION SOLVER", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(ps_frame, text="Account Balance ($ USD):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_bal = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        self.ent_mkt_ps_bal.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        self.ent_mkt_ps_bal.insert(0, "10000")
+
+        tk.Label(ps_frame, text="Risk Per Trade (%):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_risk = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        self.ent_mkt_ps_risk.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        self.ent_mkt_ps_risk.insert(0, "1.0")
+
+        tk.Label(ps_frame, text="Stop Loss Distance (Pips):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_sl = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        self.ent_mkt_ps_sl.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        self.ent_mkt_ps_sl.insert(0, "20.0")
+
+        tk.Button(ps_frame, text="CALCULATE LOT SIZE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3, relief=tk.FLAT, command=self._calc_position_size).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 5))
+
+        self.lbl_mkt_ps_result = tk.Label(ps_frame, text="Recommended Volume: 0.50 Lots ($100.00 Risk)", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_green)
+        self.lbl_mkt_ps_result.grid(row=5, column=0, columnspan=2, sticky="w", pady=5)
+
+        # 13. Forex Regulatory Organizations Sub-Tab
+        self.tab_mkt_reg = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
+        self.mkt_notebook.add(self.tab_mkt_reg, text="Forex Regulation")
+
+        cols_reg = ("Jurisdiction", "Regulatory Body", "Abbreviation", "Leverage Cap", "Official Website / Verification")
+        self.mkt_reg_tree = ttk.Treeview(self.tab_mkt_reg, columns=cols_reg, show="headings", style="Treeview", height=10)
+        for c in cols_reg:
+            self.mkt_reg_tree.heading(c, text=c)
+            self.mkt_reg_tree.column(c, width=130, anchor="center")
+        self.mkt_reg_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
         self._update_mkt_screen_data()
+
+    def _calc_gain_loss_recovery(self):
+        try:
+            loss_pct = float(self.ent_mkt_loss_pct.get().strip())
+            if loss_pct >= 100.0:
+                self.lbl_mkt_recovery_result.config(text="Total Bankruptcy (100% loss)", fg=self.fg_red)
+                return
+            rec_pct = (loss_pct / (100.0 - loss_pct)) * 100.0
+            self.lbl_mkt_recovery_result.config(text=f"Required Gain To Break-Even: +{rec_pct:.2f}%", fg=self.fg_green)
+        except Exception:
+            self.lbl_mkt_recovery_result.config(text="Invalid input number", fg=self.fg_red)
+
+    def _calc_pivot_points(self):
+        try:
+            h = float(self.ent_mkt_p_high.get().strip())
+            l = float(self.ent_mkt_p_low.get().strip())
+            c = float(self.ent_mkt_p_close.get().strip())
+
+            # Standard
+            p = (h + l + c) / 3.0
+            r1 = 2 * p - l; s1 = 2 * p - h
+            r2 = p + (h - l); s2 = p - (h - l)
+            r3 = h + 2 * (p - l); s3 = l - 2 * (h - p)
+
+            self.mkt_pivot_tree.delete(*self.mkt_pivot_tree.get_children())
+            self.mkt_pivot_tree.insert("", tk.END, values=("Standard Floor", f"{r3:.5f}", f"{r2:.5f}", f"{r1:.5f}", f"{p:.5f}", f"{s1:.5f}", f"{s2:.5f}", f"{s3:.5f}"))
+
+            # Fibonacci
+            range_vl = h - l
+            f_r1 = p + 0.382 * range_vl; f_s1 = p - 0.382 * range_vl
+            f_r2 = p + 0.618 * range_vl; f_s2 = p - 0.618 * range_vl
+            f_r3 = p + 1.000 * range_vl; f_s3 = p - 1.000 * range_vl
+            self.mkt_pivot_tree.insert("", tk.END, values=("Fibonacci", f"{f_r3:.5f}", f"{f_r2:.5f}", f"{f_r1:.5f}", f"{p:.5f}", f"{f_s1:.5f}", f"{f_s2:.5f}", f"{f_s3:.5f}"))
+
+            # Camarilla
+            c_r3 = c + range_vl * 1.1 / 4.0; c_s3 = c - range_vl * 1.1 / 4.0
+            c_r2 = c + range_vl * 1.1 / 6.0; c_s2 = c - range_vl * 1.1 / 6.0
+            c_r1 = c + range_vl * 1.1 / 12.0; c_s1 = c - range_vl * 1.1 / 12.0
+            self.mkt_pivot_tree.insert("", tk.END, values=("Camarilla", "---", f"{c_r3:.5f}", f"{c_r2:.5f}", f"{p:.5f}", f"{c_s1:.5f}", f"{c_s2:.5f}", f"{c_s3:.5f}"))
+        except Exception as e:
+            print(f"Pivot calculation error: {e}")
+
+    def _calc_position_size(self):
+        try:
+            bal = float(self.ent_mkt_ps_bal.get().strip())
+            risk_pct = float(self.ent_mkt_ps_risk.get().strip())
+            sl_pips = float(self.ent_mkt_ps_sl.get().strip())
+
+            risk_amt = bal * (risk_pct / 100.0)
+            pip_val_std = 10.0  # $10 per pip on 1.0 standard Forex lot
+            lot_size = risk_amt / (sl_pips * pip_val_std) if sl_pips > 0 else 0.01
+
+            self.lbl_mkt_ps_result.config(text=f"Recommended Volume: {lot_size:.2f} Lots (${risk_amt:.2f} Risk)", fg=self.fg_green)
+        except Exception:
+            self.lbl_mkt_ps_result.config(text="Invalid calculation inputs", fg=self.fg_red)
 
     def _update_mkt_screen_data(self):
         if not hasattr(self, "mkt_msg_tree") or not self.mkt_msg_tree: return
@@ -3898,6 +4126,75 @@ SECURITY DOMAINS ENFORCED:
         ]
         for row in corp_rows:
             self.mkt_corp_tree.insert("", tk.END, values=row)
+
+        # Update Tab 6: Forex Market Hours
+        if hasattr(self, "mkt_hours_tree") and self.mkt_hours_tree:
+            self.mkt_hours_tree.delete(*self.mkt_hours_tree.get_children())
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            is_wknd = now_utc.weekday() in [5, 6]
+            hrs_rows = [
+                ("Sydney (AEST)", "22:00 - 07:00 UTC", (now_utc + datetime.timedelta(hours=10)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "MODERATE"),
+                ("Tokyo (JST)", "00:00 - 09:00 UTC", (now_utc + datetime.timedelta(hours=9)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "HIGH"),
+                ("London (BST)", "08:00 - 17:00 UTC", (now_utc + datetime.timedelta(hours=1)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "HIGH OVERLAP"),
+                ("New York (EDT)", "13:00 - 22:00 UTC", (now_utc + datetime.timedelta(hours=-4)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "HIGH OVERLAP"),
+            ]
+            for row in hrs_rows:
+                self.mkt_hours_tree.insert("", tk.END, values=row)
+
+        # Update Tab 7: Currency Correlation
+        if hasattr(self, "mkt_corr_tree") and self.mkt_corr_tree:
+            self.mkt_corr_tree.delete(*self.mkt_corr_tree.get_children())
+            corr_matrix = [
+                ("EURUSD", "+1.00", "+0.88", "-0.72", "+0.78", "-0.65", "-0.92", "+0.70"),
+                ("GBPUSD", "+0.88", "+1.00", "-0.68", "+0.82", "-0.60", "-0.85", "+0.75"),
+                ("USDJPY", "-0.72", "-0.68", "+1.00", "-0.55", "+0.78", "+0.80", "-0.50"),
+                ("AUDUSD", "+0.78", "+0.82", "-0.55", "+1.00", "-0.75", "-0.70", "+0.88"),
+                ("USDCAD", "-0.65", "-0.60", "+0.78", "-0.75", "+1.00", "+0.68", "-0.72"),
+                ("USDCHF", "-0.92", "-0.85", "+0.80", "-0.70", "+0.68", "+1.00", "-0.65"),
+                ("NZDUSD", "+0.70", "+0.75", "-0.50", "+0.88", "-0.72", "-0.65", "+1.00")
+            ]
+            for row in corr_matrix:
+                self.mkt_corr_tree.insert("", tk.END, values=row)
+
+        # Update Tab 8: Risk-On / Risk-Off Meter
+        if hasattr(self, "mkt_roro_tree") and self.mkt_roro_tree:
+            self.mkt_roro_tree.delete(*self.mkt_roro_tree.get_children())
+            roro_rows = [
+                ("S&P 500 Index (SPX)", "5,020.40", "+0.85%", "RISK-ON (BULLISH)"),
+                ("Gold Bullion (XAUUSD)", "$2,032.40", "+0.55%", "SAFE-HAVEN DEMAND"),
+                ("CBOE Volatility Index (VIX)", "13.40", "-3.20%", "RISK-ON (LOW VOL)"),
+                ("Bitcoin Spot (BTCUSD)", "$62,140.00", "+1.38%", "RISK-ON (BULLISH)"),
+                ("AUDJPY Carry Pair", "98.50", "+0.62%", "RISK-ON CARRY DEMAND")
+            ]
+            for row in roro_rows:
+                self.mkt_roro_tree.insert("", tk.END, values=row)
+
+        # Update Tab 10: Pip Value Calculator
+        if hasattr(self, "mkt_pipval_tree") and self.mkt_pipval_tree:
+            self.mkt_pipval_tree.delete(*self.mkt_pipval_tree.get_children())
+            pips_rows = [
+                ("EURUSD", "100,000", "0.0001", "$10.00 USD", "$1.00 USD", "$0.10 USD"),
+                ("GBPUSD", "100,000", "0.0001", "$10.00 USD", "$1.00 USD", "$0.10 USD"),
+                ("USDJPY", "100,000", "0.01", "$6.67 USD", "$0.67 USD", "$0.07 USD"),
+                ("XAUUSD", "100", "0.10", "$10.00 USD", "$1.00 USD", "$0.10 USD"),
+                ("BTCUSD", "1.0", "1.00", "$1.00 USD", "$0.10 USD", "$0.01 USD")
+            ]
+            for row in pips_rows:
+                self.mkt_pipval_tree.insert("", tk.END, values=row)
+
+        # Update Tab 13: Forex Regulatory Organizations
+        if hasattr(self, "mkt_reg_tree") and self.mkt_reg_tree:
+            self.mkt_reg_tree.delete(*self.mkt_reg_tree.get_children())
+            reg_rows = [
+                ("United States", "Commodity Futures Trading Commission / NFA", "CFTC / NFA", "1:50 Majors", "https://www.cftc.gov"),
+                ("United Kingdom", "Financial Conduct Authority", "FCA", "1:30 Retail", "https://www.fca.org.uk"),
+                ("Australia", "Australian Securities and Investments Commission", "ASIC", "1:30 Retail", "https://asic.gov.au"),
+                ("Cyprus / EU", "Cyprus Securities and Exchange Commission", "CySEC", "1:30 ESMA Cap", "https://www.cysec.gov.cy"),
+                ("Switzerland", "Swiss Financial Market Supervisory Authority", "FINMA", "1:100 Banking", "https://www.finma.ch"),
+                ("Japan", "Financial Services Agency Japan", "JFSA", "1:25 Retail", "https://www.fsa.go.jp")
+            ]
+            for row in reg_rows:
+                self.mkt_reg_tree.insert("", tk.END, values=row)
 
     def _show_tradebook_screen(self):
         """TRADEBOOK <GO>: Settled Closed Trades Ledger & Trade Memory Protocol"""
