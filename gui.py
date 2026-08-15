@@ -4288,6 +4288,10 @@ SECURITY DOMAINS ENFORCED:
 
         tk.Button(ctrl_frame, text="📊 GENERATE AUDIT REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_supervisor_report_dialog).pack(side=tk.LEFT, padx=5)
 
+        tk.Button(ctrl_frame, text="🧠 RUN AGENTIC LOOP", font=("Consolas", 8, "bold"), bg="#7e22ce", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_brain_agentic_loop).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(ctrl_frame, text="⚡ FORCE ORCHESTRATOR INTERVENTION", font=("Consolas", 8, "bold"), bg="#be123c", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._force_orchestrator_intervention).pack(side=tk.LEFT, padx=5)
+
         # Main Split Section
         split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split_frame.pack(fill=tk.BOTH, expand=True)
@@ -4348,6 +4352,27 @@ SECURITY DOMAINS ENFORCED:
         txt_rep.insert(tk.END, report_text)
         txt_rep.config(state=tk.DISABLED)
 
+    def _run_brain_agentic_loop(self):
+        from brain_agents_orchestrator import global_brain_orchestrator
+        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
+        messagebox.showinfo(
+            "Multi-Agent Brain Loop Executed",
+            f"Master Brain Orchestrator Directive Generated for {self.selected_symbol_gp}:\n\n"
+            f"• Recommended Bias: {directive.recommended_bias}\n"
+            f"• Confidence Score: {directive.confidence_score:.1f}%\n"
+            f"• Risk Ceiling Modifier: {directive.risk_ceiling_modifier:.2f}x\n"
+            f"• Max Spread Filter: {directive.execution_instructions.get('max_spread_pips', 3.5):.2f} pips"
+        )
+        self._update_agent_screen_data()
+
+    def _force_orchestrator_intervention(self):
+        from brain_agents_orchestrator import global_brain_orchestrator
+        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
+        global_brain_orchestrator.master_interventions.append("FORCE_INTERVENTION: Manual operator intervention triggered.")
+        global_brain_orchestrator.last_directive.risk_ceiling_modifier = 0.5
+        messagebox.showwarning("Orchestrator Intervention", f"Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.")
+        self._update_agent_screen_data()
+
     def _update_agent_screen_data(self):
         if not hasattr(self, "agent_interv_tree") or not self.agent_interv_tree: return
 
@@ -4375,11 +4400,21 @@ SECURITY DOMAINS ENFORCED:
                 sev = "HIGH" if "CRITICAL" in item else "MEDIUM"
                 self.agent_interv_tree.insert("", tk.END, values=(f"INT_{idx:03d}", "CORE_PLANE", sev, item))
 
-        # Update Telemetry Stream Text
+        # Update Telemetry Stream Text with Brain Orchestrator History
         self.agent_tele_text.config(state=tk.NORMAL)
         self.agent_tele_text.delete("1.0", tk.END)
-        for log in audit_res["logs"]:
+        self.agent_tele_text.insert(tk.END, "--- SUPERVISOR AGENT AUDIT LOGS ---\n")
+        for log in audit_res["logs"][-5:]:
             self.agent_tele_text.insert(tk.END, log + "\n")
+
+        from brain_agents_orchestrator import global_brain_orchestrator
+        orch_summary = global_brain_orchestrator.get_status_summary()
+        self.agent_tele_text.insert(tk.END, "\n--- MULTI-AGENT BRAIN ORCHESTRATOR TELEMETRY ---\n")
+        for log in orch_summary["telemetry_history"][-5:]:
+            self.agent_tele_text.insert(tk.END, log + "\n")
+
+        d = orch_summary["last_directive"]
+        self.agent_tele_text.insert(tk.END, f"\nLAST DIRECTIVE: Bias={d.get('recommended_bias')}, Conf={d.get('confidence_score')}%, RiskMod={d.get('risk_ceiling_modifier')}x\n")
         self.agent_tele_text.see(tk.END)
         self.agent_tele_text.config(state=tk.DISABLED)
 
