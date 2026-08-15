@@ -191,9 +191,9 @@ python main.py
 
 ---
 
-# 6. DASHBOARD & TERMINAL SHEET DIRECTORY (32 SHEETS)
+# 6. DASHBOARD & TERMINAL SHEET DIRECTORY (33 SHEETS)
 
-The EQATS Quantum Terminal features 32 interactive sheets accessible via the global command bar, tab dropdown, or F-keys:
+The EQATS Quantum Terminal features 33 interactive sheets accessible via the global command bar, tab dropdown, or F-keys:
 
 1. **MAIN <GO> (F2):** Multi-Asset Scanning Matrix displaying real-time LTP, spread, trend bias, win probability, and technical indicators.
 2. **GP <GO> (F3):** Graphical Price Tracking chart displaying price levels, high/low envelopes, and spread pips.
@@ -226,7 +226,8 @@ The EQATS Quantum Terminal features 32 interactive sheets accessible via the glo
 29. **TRADEBOOK <GO>:** Historical Trade Journal displaying settled tickets, PnL, and Trade Memory Reflection Protocol post-mortems.
 30. **AGENT <GO> / SUPERVISOR <GO>:** AI System Supervisor Agent Panel displaying health scores, interventions, and audit reports.
 31. **ECOSYSTEM <GO>:** Full System Visualizer displaying live work across all 6 Core Brain Agents, 4 Method Brains, 10 Strategy Brains, Risk/Lot Mechanism Brains, and Parallel Executors.
-32. **HELP <GO> (F1):** Comprehensive Operational Handbook containing tutorials, keyboard shortcut guides, emergency procedures, and FAQs.
+32. **TZCONV <GO>:** Forex Market Time Zone & Timeline Converter with interactive timezone selection (Kolkata, UTC, London, New York, Tokyo, Sydney), 12/24h toggles, live purple pointer needle, 4 session timeline bars, and liquidity volume curve.
+33. **HELP <GO> (F1):** Comprehensive Operational Handbook containing tutorials, keyboard shortcut guides, emergency procedures, and FAQs.
 
 ---
 

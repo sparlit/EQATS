@@ -240,7 +240,7 @@ class ScalperGui:
             "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
             "DES", "YAS", "ECO", "EMSX", "SET", "CFG", "ING", "FEAT", "STRAT", "RISK", "ORD",
             "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
-            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "ECOSYSTEM", "HELP"
+            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "ECOSYSTEM", "TZCONV", "HELP"
         ]
         self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
         self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
@@ -783,6 +783,8 @@ class ScalperGui:
             self._show_agent_screen()
         elif screen_code in ["ECOSYSTEM", "SYSTEM"]:
             self._show_ecosystem_screen()
+        elif screen_code in ["TZCONV", "TIMEZONE", "CONVERTER"]:
+            self._show_tzconv_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -4573,6 +4575,202 @@ SECURITY DOMAINS ENFORCED:
             st = "🟢 OPTIMAL" if score >= 80 else ("🟡 NOMINAL" if score >= 60 else "🔴 LOW")
             self.eco_strat_tree.insert("", tk.END, values=(name, cat, f"{score:.1f}", st))
 
+    def _show_tzconv_screen(self):
+        """TZCONV <GO>: Forex Market Time Zone & Timeline Converter"""
+        top_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        top_frame.pack(fill=tk.X, pady=(0, 5))
+
+        lbl_title = tk.Label(top_frame, text="Forex Market Time Zone Converter <GO>", font=("Consolas", 14, "bold"), bg=self.bg_dark, fg="#ffffff")
+        lbl_title.pack(side=tk.LEFT, anchor="w")
+
+        # 24-Hour Format Switch
+        self.is_24h_var = tk.BooleanVar(value=True)
+        chk_24h = tk.Checkbutton(top_frame, text="24 Hour Time", variable=self.is_24h_var, font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent, selectcolor="#1c1c1c", activebackground=self.bg_dark, command=self._update_tzconv_screen_data)
+        chk_24h.pack(side=tk.RIGHT, padx=10)
+
+        # Timezone Selection Bar
+        tz_bar = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=8, highlightbackground="#2d2d2d")
+        tz_bar.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(tz_bar, text="TIMEZONE:", font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888").pack(side=tk.LEFT, padx=(0, 10))
+
+        self.tz_var = tk.StringVar(value="Kolkata (GMT +5:30)")
+        self.tz_options = [
+            "Kolkata (GMT +5:30)",
+            "UTC / GMT (+0:00)",
+            "London (GMT +1:00 BST)",
+            "New York (GMT -4:00 EDT)",
+            "Tokyo (GMT +9:00 JST)",
+            "Sydney (GMT +10:00 AEST)",
+            "Frankfurt (GMT +2:00 CEST)",
+            "Singapore (GMT +8:00 SGT)"
+        ]
+        tz_menu = tk.OptionMenu(tz_bar, self.tz_var, *self.tz_options, command=lambda _: self._update_tzconv_screen_data())
+        tz_menu.config(font=("Consolas", 9, "bold"), bg="#6b21a8", fg="#ffffff", activebackground="#7e22ce", relief=tk.FLAT, padx=10)
+        tz_menu["menu"].config(bg="#1c1c1c", fg="#ffffff")
+        tz_menu.pack(side=tk.LEFT)
+
+        # Pin / Time Badge Header Frame
+        self.badge_pin_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        self.badge_pin_frame.pack(fill=tk.X, pady=(0, 2))
+
+        self.lbl_tz_pin_time = tk.Label(self.badge_pin_frame, text="20:04 Saturday", font=("Consolas", 10, "bold"), bg="#6b21a8", fg="#ffffff", padx=12, pady=4)
+        self.lbl_tz_pin_time.pack(side=tk.RIGHT, padx=80)
+
+        # Timeline Canvas (Includes 24h Scale, 4 Session Bars, Vertical Time Pointer Line)
+        self.canvas_tz_timeline = tk.Canvas(self.screen_frame, bg=self.bg_card, height=320, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.canvas_tz_timeline.pack(fill=tk.X, pady=(0, 10))
+
+        # Bottom Volume / Liquidity Curve Panel
+        vol_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        vol_frame.pack(fill=tk.X)
+
+        vol_left = tk.Frame(vol_frame, bg=self.bg_card)
+        vol_left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
+
+        tk.Label(vol_left, text="Trading Volume is usually\nhigh at this time of day.", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_light, justify=tk.LEFT).pack(anchor="w", pady=(0, 5))
+
+        self.lbl_vol_level_badge = tk.Label(vol_left, text="● High", font=("Consolas", 9, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3)
+        self.lbl_vol_level_badge.pack(anchor="w")
+
+        self.canvas_tz_vol = tk.Canvas(vol_frame, bg=self.bg_card, height=80, bd=0, highlightthickness=0)
+        self.canvas_tz_vol.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        self._update_tzconv_screen_data()
+
+    def _update_tzconv_screen_data(self):
+        if not hasattr(self, "canvas_tz_timeline") or not self.canvas_tz_timeline: return
+
+        # Timezone offsets in hours relative to UTC
+        tz_offsets = {
+            "Kolkata (GMT +5:30)": 5.5,
+            "UTC / GMT (+0:00)": 0.0,
+            "London (GMT +1:00 BST)": 1.0,
+            "New York (GMT -4:00 EDT)": -4.0,
+            "Tokyo (GMT +9:00 JST)": 9.0,
+            "Sydney (GMT +10:00 AEST)": 10.0,
+            "Frankfurt (GMT +2:00 CEST)": 2.0,
+            "Singapore (GMT +8:00 SGT)": 8.0
+        }
+
+        selected_tz = self.tz_var.get()
+        offset_hours = tz_offsets.get(selected_tz, 5.5)
+
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        target_time = now_utc + datetime.timedelta(hours=offset_hours)
+
+        is_24h = self.is_24h_var.get()
+        time_str = target_time.strftime("%H:%M") if is_24h else target_time.strftime("%I:%M %p")
+        day_str = target_time.strftime("%A")
+        full_pin_str = f"🕒 {time_str} {day_str}"
+
+        self.lbl_tz_pin_time.config(text=full_pin_str)
+
+        # Clear Timeline Canvas
+        self.canvas_tz_timeline.delete("all")
+        w = self.canvas_tz_timeline.winfo_width()
+        if w < 100: w = 850
+        h = 320
+
+        left_margin = 220
+        right_margin = 30
+        timeline_w = w - left_margin - right_margin
+
+        # Draw 24-Hour Scale Header
+        self.canvas_tz_timeline.create_text(left_margin - 30, 20, text="TIMEZONE", fill="#888888", font=("Consolas", 8, "bold"), anchor="e")
+        for hr in range(1, 25):
+            x = left_margin + (hr / 24.0) * timeline_w
+            self.canvas_tz_timeline.create_text(x, 20, text=str(hr), fill="#cccccc", font=("Consolas", 8, "bold"), anchor="center")
+
+        # Session Definitions (UTC Start, UTC End, Name, Flag, Code, OffsetStr)
+        sessions = [
+            {"name": "Sydney", "code": "AEST (UTC +10)", "flag": "🇦🇺", "start_utc": 22.0, "end_utc": 7.0, "color": "#3b82f6", "offset": 10.0},
+            {"name": "Tokyo", "code": "JST (UTC +9)", "flag": "🇯🇵", "start_utc": 0.0, "end_utc": 9.0, "color": "#ec4899", "offset": 9.0},
+            {"name": "London", "code": "BST (UTC +1)", "flag": "🇬🇧", "start_utc": 8.0, "end_utc": 17.0, "color": "#60a5fa", "offset": 1.0},
+            {"name": "New York", "code": "EDT (UTC -4)", "flag": "🇺🇸", "start_utc": 13.0, "end_utc": 22.0, "color": "#4ade80", "offset": -4.0}
+        ]
+
+        is_weekend = now_utc.weekday() in [5, 6] # Saturday / Sunday
+
+        y_start = 50
+        row_height = 65
+
+        for idx, sess in enumerate(sessions):
+            y = y_start + idx * row_height
+
+            # Converted Session Local Time
+            sess_time = now_utc + datetime.timedelta(hours=sess["offset"])
+            s_time_str = sess_time.strftime("%H:%M") if is_24h else sess_time.strftime("%I:%M %p")
+            s_date_str = sess_time.strftime("%a %b %d")
+
+            # Draw Left Info Label
+            self.canvas_tz_timeline.create_text(20, y + 10, text=f"{sess['flag']}  {sess['name']}", fill="#ffffff", font=("Consolas", 10, "bold"), anchor="w")
+            self.canvas_tz_timeline.create_text(20, y + 26, text=f"{s_time_str}", fill="#00ff00" if not is_weekend else "#ff9900", font=("Consolas", 9, "bold"), anchor="w")
+            self.canvas_tz_timeline.create_text(20, y + 40, text=f"{s_date_str} {sess['code']}", fill="#888888", font=("Consolas", 7), anchor="w")
+
+            # Draw Session Background Bar Container
+            self.canvas_tz_timeline.create_rectangle(left_margin, y + 5, w - right_margin, y + 45, fill="#18181b", outline="#262626")
+
+            # Calculate Active Session Bar Coordinates relative to converted timeline scale
+            s_start = (sess["start_utc"] + offset_hours) % 24.0
+            s_end = (sess["end_utc"] + offset_hours) % 24.0
+
+            x1 = left_margin + (s_start / 24.0) * timeline_w
+            x2 = left_margin + (s_end / 24.0) * timeline_w
+
+            if is_weekend:
+                status_text = "MARKET CLOSED FOR THE WEEKEND"
+                self.canvas_tz_timeline.create_text(left_margin + 10, y + 12, text=status_text, fill=sess["color"], font=("Consolas", 7, "bold"), anchor="w")
+
+            if x1 < x2:
+                self.canvas_tz_timeline.create_rectangle(x1, y + 22, x2, y + 40, fill=sess["color"], outline="", stipple="gray50")
+            else:
+                # Wrap-around midnight
+                self.canvas_tz_timeline.create_rectangle(x1, y + 22, w - right_margin, y + 40, fill=sess["color"], outline="", stipple="gray50")
+                self.canvas_tz_timeline.create_rectangle(left_margin, y + 22, x2, y + 40, fill=sess["color"], outline="", stipple="gray50")
+
+        # Current Time Needle Position
+        current_hour_frac = target_time.hour + target_time.minute / 60.0 + target_time.second / 3600.0
+        needle_x = left_margin + (current_hour_frac / 24.0) * timeline_w
+
+        # Draw Vertical Purple Time Pointer Needle across all sessions
+        self.canvas_tz_timeline.create_line(needle_x, 30, needle_x, h - 10, fill="#a855f7", width=3)
+        self.canvas_tz_timeline.create_oval(needle_x - 5, 25, needle_x + 5, 35, fill="#a855f7", outline="#ffffff")
+
+        # Render Volume / Liquidity Curve Canvas
+        self.canvas_tz_vol.delete("all")
+        vw = self.canvas_tz_vol.winfo_width()
+        if vw < 100: vw = 500
+        vh = 80
+
+        # Sine wave combining London & New York session overlaps
+        vol_points = []
+        for px in range(0, vw, 5):
+            hr = (px / vw) * 24.0
+            # Peak during London / NY overlap (13:00 - 17:00 UTC)
+            vol_val = 20 + 35 * math.sin(math.pi * (hr - 6) / 12) + 25 * math.sin(math.pi * (hr - 14) / 6)
+            vol_val = max(10, min(vh - 10, vh - vol_val))
+            vol_points.append((px, vol_val))
+
+        for i in range(len(vol_points) - 1):
+            p1 = vol_points[i]
+            p2 = vol_points[i+1]
+            self.canvas_tz_vol.create_line(p1[0], p1[1], p2[0], p2[1], fill="#22c55e", width=2)
+
+        # Draw Volume Vertical Needle Marker
+        v_needle_x = (current_hour_frac / 24.0) * vw
+        self.canvas_tz_vol.create_line(v_needle_x, 0, v_needle_x, vh, fill="#a855f7", width=3)
+        self.canvas_tz_vol.create_oval(v_needle_x - 6, vh / 2 - 6, v_needle_x + 6, vh / 2 + 6, fill="#22c55e", outline="#ffffff")
+
+        # Volume level badge text update
+        current_utc_hr = now_utc.hour + now_utc.minute / 60.0
+        if 12.0 <= current_utc_hr <= 17.0:
+            self.lbl_vol_level_badge.config(text="● High Liquidity Peak", bg="#15803d")
+        elif 7.0 <= current_utc_hr <= 21.0:
+            self.lbl_vol_level_badge.config(text="● Moderate Volume", bg="#b45309")
+        else:
+            self.lbl_vol_level_badge.config(text="● Low Volume / Quiet", bg="#3f3f46")
+
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS
     # ----------------------------------------------------
@@ -4809,6 +5007,8 @@ SECURITY DOMAINS ENFORCED:
                     self._update_mkt_screen_data()
                 elif self.active_screen == "TRADEBOOK":
                     self._update_tradebook_screen_data()
+                elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
+                    self._update_tzconv_screen_data()
 
                 self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
         except Exception as e:
