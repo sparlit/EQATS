@@ -240,7 +240,7 @@ class ScalperGui:
             "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
             "DES", "YAS", "ECO", "EMSX", "SET", "CFG", "ING", "FEAT", "STRAT", "RISK", "ORD",
             "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
-            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "HELP"
+            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "ECOSYSTEM", "HELP"
         ]
         self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
         self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
@@ -781,6 +781,8 @@ class ScalperGui:
             self._show_predictor_screen()
         elif screen_code in ["AGENT", "SUPERVISOR"]:
             self._show_agent_screen()
+        elif screen_code in ["ECOSYSTEM", "SYSTEM"]:
+            self._show_ecosystem_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -4417,6 +4419,129 @@ SECURITY DOMAINS ENFORCED:
         self.agent_tele_text.insert(tk.END, f"\nLAST DIRECTIVE: Bias={d.get('recommended_bias')}, Conf={d.get('confidence_score')}%, RiskMod={d.get('risk_ceiling_modifier')}x\n")
         self.agent_tele_text.see(tk.END)
         self.agent_tele_text.config(state=tk.DISABLED)
+
+    def _show_ecosystem_screen(self):
+        """ECOSYSTEM <GO>: Full System Visualizer & Parallel Multi-Agent Architecture"""
+        lbl_title = tk.Label(self.screen_frame, text="ECOSYSTEM: FULL SYSTEM VISUALIZER & PARALLEL MULTI-AGENT ARCHITECTURE <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+        lbl_info = tk.Label(self.screen_frame, text="DEMONSTRATES LIVE WORK OF ALL 6 CORE BRAIN AGENTS, 4 METHOD BRAIN AGENTS, 10 STRATEGY BRAIN AGENTS, RISK & LOT MECHANISMS, AND PARALLEL EXECUTORS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info.pack(anchor="w", pady=(0, 10))
+
+        # Controls bar
+        ctrl_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d")
+        ctrl_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Button(ctrl_frame, text="⚡ RUN PARALLEL AGENT SWEEP", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_parallel_agent_sweep).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(ctrl_frame, text="📊 GENERATE ECOSYSTEM REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_ecosystem_report).pack(side=tk.LEFT, padx=5)
+
+        # Multi-Subtab Notebook for Agents & Brains
+        self.eco_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
+        self.eco_notebook.pack(fill=tk.BOTH, expand=True)
+
+        # Subtab 1: Core Brain Agents (6)
+        tab_core = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
+        self.eco_notebook.add(tab_core, text="Core Brain Agents (6)")
+
+        core_grid = tk.Frame(tab_core, bg=self.bg_dark)
+        core_grid.pack(fill=tk.BOTH, expand=True)
+
+        self.lbl_eco_research = self._create_card(core_grid, "1) RESEARCH AGENT", "Active | Sentiment: NEUTRAL", 0)
+        self.lbl_eco_analyst = self._create_card(core_grid, "2) ANALYST AGENT", "Active | Price Action OK", 1)
+        self.lbl_eco_prediction = self._create_card(core_grid, "3) PREDICTION AGENT", "Accuracy: 60.0% | Loss: 0.05", 2)
+
+        core_grid2 = tk.Frame(tab_core, bg=self.bg_dark)
+        core_grid2.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+        self.lbl_eco_strategy = self._create_card(core_grid2, "4) STRATEGY AGENT", "Active | Dynamic Weights", 0)
+        self.lbl_eco_risk = self._create_card(core_grid2, "5) RISK AGENT", "Active | Modifier: 1.0x", 1)
+        self.lbl_eco_execution = self._create_card(core_grid2, "6) EXECUTION AGENT", "Active | Spread Filter OK", 2)
+
+        # Subtab 2: Trading Method Agents & Brains (4)
+        tab_methods = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
+        self.eco_notebook.add(tab_methods, text="Trading Method Brains (4)")
+
+        m_grid = tk.Frame(tab_methods, bg=self.bg_dark)
+        m_grid.pack(fill=tk.BOTH, expand=True)
+
+        self.lbl_eco_m_scalp = self._create_card(m_grid, "SCALPING METHOD", "Score: 85.0 | M1-M5", 0)
+        self.lbl_eco_m_day = self._create_card(m_grid, "DAY TRADING METHOD", "Score: 80.0 | M15-H1", 1)
+
+        m_grid2 = tk.Frame(tab_methods, bg=self.bg_dark)
+        m_grid2.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+
+        self.lbl_eco_m_swing = self._create_card(m_grid2, "SWING TRADING METHOD", "Score: 75.0 | H4-D1", 0)
+        self.lbl_eco_m_pos = self._create_card(m_grid2, "POSITION TRADING METHOD", "Score: 70.0 | D1-MN", 1)
+
+        # Subtab 3: Trading Strategy Brains (10)
+        tab_strats = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
+        self.eco_notebook.add(tab_strats, text="Trading Strategy Brains (10)")
+
+        cols_s = ("Strategy Name", "Category", "Score", "Status")
+        self.eco_strat_tree = ttk.Treeview(tab_strats, columns=cols_s, show="headings", height=8)
+        for c in cols_s:
+            self.eco_strat_tree.heading(c, text=c)
+            self.eco_strat_tree.column(c, width=150, anchor="center")
+        self.eco_strat_tree.pack(fill=tk.BOTH, expand=True)
+
+        # Subtab 4: Trading Mechanism Agents (2)
+        tab_mech = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
+        self.eco_notebook.add(tab_mech, text="Trading Mechanism Brains (2)")
+
+        mech_grid = tk.Frame(tab_mech, bg=self.bg_dark)
+        mech_grid.pack(fill=tk.BOTH, expand=True)
+
+        self.lbl_eco_risk_mech = self._create_card(mech_grid, "RISK ASSESSMENT BRAIN", "Risk Modifier: 1.0x", 0)
+        self.lbl_eco_lot_mech = self._create_card(mech_grid, "LOT MANAGEMENT BRAIN", "Lot Multiplier: 1.0x", 1)
+
+        self._update_ecosystem_screen_data()
+
+    def _run_parallel_agent_sweep(self):
+        from brain_agents_orchestrator import global_brain_orchestrator
+        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
+        messagebox.showinfo("Parallel Multi-Agent Sweep", f"Completed multi-threaded & multi-processed parallel agent sweep!\nRecommended Style: {directive.recommended_style}\nRecommended Bias: {directive.recommended_bias}\nConfidence Score: {directive.confidence_score:.1f}%")
+        self._update_ecosystem_screen_data()
+
+    def _generate_ecosystem_report(self):
+        from brain_agents_orchestrator import global_brain_orchestrator
+        summary = global_brain_orchestrator.get_status_summary()
+
+        rep_win = tk.Toplevel(self.root)
+        rep_win.title("ECOSYSTEM — FULL AGENTIC SYSTEM REPORT")
+        rep_win.geometry("700x500")
+        rep_win.configure(bg="#000000")
+
+        txt = tk.Text(rep_win, bg="#0d0d0d", fg="#00ff00", font=("Consolas", 9), wrap=tk.WORD, padx=15, pady=15)
+        txt.pack(fill=tk.BOTH, expand=True)
+
+        import json
+        txt.insert(tk.END, "================================================================================\n")
+        txt.insert(tk.END, "FULL SYSTEM ECOSYSTEM & PARALLEL MULTI-AGENT REPORT\n")
+        txt.insert(tk.END, "================================================================================\n\n")
+        txt.insert(tk.END, json.dumps(summary, indent=2))
+        txt.config(state=tk.DISABLED)
+
+    def _update_ecosystem_screen_data(self):
+        if not hasattr(self, "eco_strat_tree") or not self.eco_strat_tree: return
+        from brain_agents_orchestrator import global_brain_orchestrator
+        directive = global_brain_orchestrator.last_directive
+
+        # Update Strategy Tree
+        self.eco_strat_tree.delete(*self.eco_strat_tree.get_children())
+        strats = [
+            ("TREND_FOLLOWING", "Trend / Momentum", directive.strategy_scores.get("TREND_FOLLOWING", 85.0)),
+            ("MEAN_REVERSION", "Mean Reversion", directive.strategy_scores.get("MEAN_REVERSION", 85.0)),
+            ("MACD_MOMENTUM", "Trend / Momentum", directive.strategy_scores.get("MACD_MOMENTUM", 75.0)),
+            ("BREAKOUT", "Volatility / Breakout", directive.strategy_scores.get("BREAKOUT", 80.0)),
+            ("CARRY_TRADE", "Macro / Fundamental", directive.strategy_scores.get("CARRY_TRADE", 60.0)),
+            ("GRID_TRADE", "Quantitative / Grid", directive.strategy_scores.get("GRID_TRADE", 55.0)),
+            ("STAT_ARB", "Quantitative / Arbitrage", directive.strategy_scores.get("STAT_ARB", 70.0)),
+            ("ORB", "Opening Range Breakout", directive.strategy_scores.get("ORB", 65.0)),
+            ("VSA", "Volume Spread Analysis", directive.strategy_scores.get("VSA", 75.0)),
+            ("MTF_CONFLUENCE", "Multi-Timeframe Trend", directive.strategy_scores.get("MTF_CONFLUENCE", 90.0)),
+        ]
+        for name, cat, score in strats:
+            st = "🟢 OPTIMAL" if score >= 80 else ("🟡 NOMINAL" if score >= 60 else "🔴 LOW")
+            self.eco_strat_tree.insert("", tk.END, values=(name, cat, f"{score:.1f}", st))
 
     # ----------------------------------------------------
     # CORE PROCESSES & ACTIONS

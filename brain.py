@@ -475,7 +475,7 @@ class ScalperBrain:
                 brain_directive = None
 
         if brain_directive and hasattr(brain_directive, "risk_ceiling_modifier"):
-            lot_size = lot_size * brain_directive.risk_ceiling_modifier
+            lot_size = lot_size * brain_directive.risk_ceiling_modifier * getattr(brain_directive, "lot_multiplier", 1.0)
             if hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
                 explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
 
