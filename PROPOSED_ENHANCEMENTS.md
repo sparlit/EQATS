@@ -1,7 +1,7 @@
 # ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS)
 ## STRATEGIC SYSTEM ENHANCEMENTS, ADDONS, CONTROLS, RESTRICTIONS, AND TAB ROADMAP
 
-This document outlines the strategic roadmap, proposed feature addons, control frameworks, risk restriction models, granular permission matrices, and tab proposals for the **Elite Quantum Autonomous Trading System (EQATS)** operating under Version 2.4+ specifications.
+This document outlines the strategic roadmap, proposed feature addons, control frameworks, risk restriction models, granular permission matrices, and tab proposals for the **Elite Quantum Autonomous Trading System (EQATS)** operating under Version 3.0+ specifications.
 
 ---
 
@@ -77,4 +77,4 @@ This document outlines the strategic roadmap, proposed feature addons, control f
 - Searchable interface to explore prior trade cases stored in local vector memory, query trade decision rationales, inspect GPT financial sentiment outputs, and review supervisory agent intervention logs.
 
 ---
-*Document Version: EQATS v2.4+ Master Roadmap*
+*Document Version: EQATS v3.0+ Master Roadmap*

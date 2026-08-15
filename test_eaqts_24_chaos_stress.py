@@ -9,7 +9,7 @@ from event_bus import global_event_bus, Event
 
 class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
     """
-    Exhaustive programmatic test suite verifying EAQTS Version 2.4 Chaos Engineering,
+    Exhaustive programmatic test suite verifying EAQTS Version 3.0 Chaos Engineering,
     Stress Scenarios, Disagreement Protocols, Reconciliation, and Throttling compliance.
     """
 

@@ -577,7 +577,7 @@ class ScalperGui:
     def _show_login_dialog(self):
         """Displays a secure EQATS terminal-styled login dialog with Username, Password, and MFA."""
         login_win = tk.Toplevel()
-        login_win.title("SECURE TERMINAL GATEWAY - EAQTS v2.4")
+        login_win.title("SECURE TERMINAL GATEWAY - EAQTS v3.0")
         login_win.geometry("450x300")
         login_win.resizable(False, False)
         login_win.configure(bg="#000000")

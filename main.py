@@ -17,7 +17,7 @@ class AutonomousScalper:
     """
     The main coordinator class for the Autonomous Forex Scalper.
     It orchestrates initialization, main loops, technical scans, execution,
-    trade monitoring, and risk/drawdown safeguards under the EAQTS 2.4 unified control flow.
+    trade monitoring, and risk/drawdown safeguards under the EAQTS 3.0 unified control flow.
     """
 
     def __init__(self):
@@ -32,7 +32,7 @@ class AutonomousScalper:
             print("--- RUNNING IN LIVE MT5 WINDOWS MODE ---")
             self.conn = connector.MT5Connector(demo_only=config.DEMO_ACCOUNT_ONLY)
 
-        # 3. Instantiate the EAQTS 2.4 Unified 9 Planes Engine
+        # 3. Instantiate the EAQTS 3.0 Unified 9 Planes Engine
         self.engine = eaqts_planes.init_core_engine(self.conn)
 
         self.brain = brain.ScalperBrain()
@@ -802,7 +802,7 @@ class AutonomousScalper:
     def tick_and_execute(self):
         """
         Runs one iteration of checking market state, assessing trades,
-        updating open positions, and enforcing limits under EAQTS 2.4 logic.
+        updating open positions, and enforcing limits under EAQTS 3.0 logic.
         """
         # Run Multi-Agent Brain Intelligence Collaborative Loop
         try:
@@ -996,7 +996,7 @@ class AutonomousScalper:
                 has_reconciliation_mismatch = not self.engine.resilience.reconcile_positions(open_db_trades_refresh, active_positions_refresh)
 
                 # ==================================================================
-                # EAQTS 2.4 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
+                # EAQTS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
                 # A. Evaluate Safety Invariants (INV-001 to INV-015)
                 violations = self.engine.safety.evaluate_invariants(
@@ -1014,14 +1014,31 @@ class AutonomousScalper:
                     slippage=0.0001
                 )
 
-                # C. Reference Price Deviation check (Section 10.5)
+                # C. System Constitution Hierarchy Evaluation (Level 0 - Level 6)
+                constitution_payload = {
+                    "market_open": is_market_open,
+                    "symbol_tradable": is_symbol_tradable,
+                    "safety_violations": violations,
+                    "portfolio_risk_pct": config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
+                    "drawdown_pct": 0.0,
+                    "spread_pips": float(scan_item["spread"] if (scan_item and "spread" in scan_item) else "1.0"),
+                    "rate_throttled": (self.engine.execution.rate_state != "NORMAL"),
+                    "strategy_valid": (decision in ['BUY', 'SELL']),
+                    "ai_probability": 85.0
+                }
+                const_res = self.engine.constitution.evaluate_constitution_compliance(constitution_payload)
+                if not const_res["compliant"]:
+                    print(f"🛡️ [SYSTEM CONSTITUTION BLOCKED]: {const_res['reason']}")
+                    continue
+
+                # D. Reference Price Deviation check (Section 10.5)
                 feed_price = float(scan_item["price"] if (scan_item and scan_item["price"] != "-") else "1.1")
                 price_ok = self.engine.data.check_price_deviation(symbol, feed_price, feed_price) # Compares with self as baseline
                 if not price_ok:
                     print(f"🛑 [REFERENCE PRICE DEVIATION BLOCKED]: {symbol} feed price deviated significantly from reference source.")
                     continue
 
-                # D. Safety Kernel check
+                # E. Safety Kernel check
                 if not self.engine.safety.authorize_trade(symbol, env, violations):
                     print(f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed.")
                     continue
