@@ -14,7 +14,7 @@ class ScalperBrain:
     def __init__(self):
         pass
 
-    def evaluate(self, symbol, history_bars, current_equity):
+    def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """
         Analyzes historical bars and gives a decision: 'BUY', 'SELL', or 'HOLD'.
         history_bars: list of dicts/objects with keys: 'open', 'high', 'low', 'close'
@@ -465,6 +465,19 @@ class ScalperBrain:
             sl = current_price + sl_distance
             tp = current_price - (sl_distance * adaptive_rr)
             lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
+
+        # Apply Multi-Agent Brain Orchestrator Directive Modifiers
+        if brain_directive is None:
+            try:
+                from brain_agents_orchestrator import global_brain_orchestrator
+                brain_directive = global_brain_orchestrator.last_directive
+            except Exception:
+                brain_directive = None
+
+        if brain_directive and hasattr(brain_directive, "risk_ceiling_modifier"):
+            lot_size = lot_size * brain_directive.risk_ceiling_modifier
+            if hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
+                explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
 
         database.log_assessment(
             symbol=symbol,

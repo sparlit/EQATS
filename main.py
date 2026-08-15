@@ -52,6 +52,10 @@ class AutonomousScalper:
         # Attach AI System Supervisor Agent
         self.supervisor = global_supervisor_agent
 
+        # Attach Multi-Agent Brain Intelligence & Learning Orchestrator
+        from brain_agents_orchestrator import global_brain_orchestrator
+        self.brain_orchestrator = global_brain_orchestrator
+
         # Track total starting balance of the day for Drawdown calculations
         self.daily_start_balance = 0.0
         self.last_day_str = ""
@@ -800,6 +804,12 @@ class AutonomousScalper:
         Runs one iteration of checking market state, assessing trades,
         updating open positions, and enforcing limits under EAQTS 2.4 logic.
         """
+        # Run Multi-Agent Brain Intelligence Collaborative Loop
+        try:
+            self.brain_orchestrator.run_agentic_loop(self, symbol=config.SYMBOLS[0])
+        except Exception as e:
+            print(f"Warning: Brain orchestrator loop exception: {e}")
+
         # Run AI System Supervisor Agent Audit
         try:
             self.supervisor.run_supervisory_audit(self)
