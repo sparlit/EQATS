@@ -3774,20 +3774,94 @@ SECURITY DOMAINS ENFORCED:
             except Exception as e:
                 print(f"Error drawing watchlist symbol {sym}: {e}")
 
+    def _select_mkt_subtab(self, tab_idx):
+        if hasattr(self, "mkt_notebook") and self.mkt_notebook:
+            try:
+                self.mkt_notebook.select(tab_idx)
+            except Exception:
+                pass
+        if hasattr(self, "mkt_subtab_buttons"):
+            for idx, btn in enumerate(self.mkt_subtab_buttons):
+                if idx == tab_idx:
+                    btn.config(bg="#15803d", fg="#ffffff")
+                else:
+                    btn.config(bg="#1c1c1c", fg=self.fg_accent)
+
+    def _on_mkt_tab_changed(self):
+        if hasattr(self, "mkt_notebook") and hasattr(self, "mkt_subtab_buttons"):
+            try:
+                curr_idx = self.mkt_notebook.index(self.mkt_notebook.select())
+                for idx, btn in enumerate(self.mkt_subtab_buttons):
+                    if idx == curr_idx:
+                        btn.config(bg="#15803d", fg="#ffffff")
+                    else:
+                        btn.config(bg="#1c1c1c", fg=self.fg_accent)
+            except Exception:
+                pass
+
     def _show_mkt_screen(self):
         """MKT <GO>: Market movers, scanners, and exchange messages"""
         lbl_title = tk.Label(self.screen_frame, text="MKT: INTEGRATED MARKET SCANNERS & MOVERS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 2))
         lbl_info = tk.Label(self.screen_frame, text="EXCHANGE SYSTEM ALERTS, HIGHEST VOLATILITY SCANS, AND FUNDAMENTALS FEED", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
-        lbl_info.pack(anchor="w", pady=(0, 10))
+        lbl_info.pack(anchor="w", pady=(0, 5))
+
+        # 2-Row Sub-Tab Navigation Bar so ALL 13 Market sub-tabs are 100% visible and accessible on screen!
+        subtab_nav_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        subtab_nav_frame.pack(fill=tk.X, pady=(0, 5))
+
+        self.mkt_subtab_buttons = []
+        subtabs_def = [
+            ("1. Messages", 0),
+            ("2. Movers", 1),
+            ("3. Scanners", 2),
+            ("4. Fundamentals", 3),
+            ("5. Corp Actions", 4),
+            ("6. Market Hours", 5),
+            ("7. Correlation", 6),
+            ("8. Risk-On/Off", 7),
+            ("9. Gain & Loss", 8),
+            ("10. Pip Value", 9),
+            ("11. Pivots", 10),
+            ("12. Position Size", 11),
+            ("13. Regulation", 12)
+        ]
+
+        row1_frame = tk.Frame(subtab_nav_frame, bg=self.bg_dark)
+        row1_frame.pack(fill=tk.X, pady=1)
+
+        row2_frame = tk.Frame(subtab_nav_frame, bg=self.bg_dark)
+        row2_frame.pack(fill=tk.X, pady=1)
+
+        for text_lbl, tab_idx in subtabs_def:
+            parent_row = row1_frame if tab_idx <= 6 else row2_frame
+            bg_col = "#15803d" if tab_idx == 0 else "#1c1c1c"
+            fg_col = "#ffffff" if tab_idx == 0 else self.fg_accent
+            btn = tk.Button(
+                parent_row,
+                text=text_lbl,
+                font=("Consolas", 8, "bold"),
+                bg=bg_col,
+                fg=fg_col,
+                activebackground=self.fg_accent,
+                activeforeground="#000000",
+                bd=1,
+                relief=tk.SOLID,
+                padx=6,
+                pady=2,
+                command=lambda i=tab_idx: self._select_mkt_subtab(i)
+            )
+            btn.pack(side=tk.LEFT, padx=2)
+            self.mkt_subtab_buttons.append(btn)
 
         # Create ttk.Notebook
         self.mkt_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
         self.mkt_notebook.pack(fill=tk.BOTH, expand=True)
+        self.mkt_notebook.bind("<<NotebookTabChanged>>", lambda e: self._on_mkt_tab_changed())
 
         # 1. Exchange Messages Tab
         self.tab_mkt_messages = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_messages, text="Exchange Messages")
+        self.mkt_notebook.add(self.tab_mkt_messages, text="1. Messages")
 
         cols_msg = ("Timestamp", "Source Exchange", "Message Type", "Alert Details", "Routing Connection")
         self.mkt_msg_tree = ttk.Treeview(self.tab_mkt_messages, columns=cols_msg, show="headings", style="Treeview", height=10)
@@ -3798,7 +3872,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 2. Market Movers Tab
         self.tab_mkt_movers = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_movers, text="Market Movers")
+        self.mkt_notebook.add(self.tab_mkt_movers, text="2. Movers")
 
         cols_mov = ("Symbol Name", "LTP (Bid)", "Net Change", "Change %", "Regime Direction", "Vibe/Strength")
         self.mkt_mov_tree = ttk.Treeview(self.tab_mkt_movers, columns=cols_mov, show="headings", style="Treeview", height=10)
@@ -3809,7 +3883,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 3. Scanners Tab
         self.tab_mkt_scanners = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_scanners, text="Scanners")
+        self.mkt_notebook.add(self.tab_mkt_scanners, text="3. Scanners")
 
         cols_scan = ("Symbol", "Spread (Pips)", "ATR Volatility", "RSI State", "Bollinger Band Width", "Scanner Signal")
         self.mkt_scan_tree = ttk.Treeview(self.tab_mkt_scanners, columns=cols_scan, show="headings", style="Treeview", height=10)
@@ -3820,7 +3894,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 4. Fundamentals Tab
         self.tab_mkt_fundamentals = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_fundamentals, text="Fundamentals")
+        self.mkt_notebook.add(self.tab_mkt_fundamentals, text="4. Fundamentals")
 
         cols_fund = ("Symbol", "Corporate Issuer Name / Asset Type", "Market Cap ($B)", "Coupon/Yield %", "P/E Ratio", "SEC Filing Link")
         self.mkt_fund_tree = ttk.Treeview(self.tab_mkt_fundamentals, columns=cols_fund, show="headings", style="Treeview", height=10)
@@ -3831,7 +3905,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 5. Corporate Actions Tab
         self.tab_mkt_corp = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_corp, text="Corporate Actions")
+        self.mkt_notebook.add(self.tab_mkt_corp, text="5. Corp Actions")
 
         cols_corp = ("Ex-Date", "Symbol", "Corporate Action Event", "Details / Ratio", "Sovereign Impact Rating")
         self.mkt_corp_tree = ttk.Treeview(self.tab_mkt_corp, columns=cols_corp, show="headings", style="Treeview", height=10)
@@ -3842,7 +3916,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 6. Forex Market Hours Sub-Tab
         self.tab_mkt_hours = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_hours, text="Forex Market Hours")
+        self.mkt_notebook.add(self.tab_mkt_hours, text="6. Market Hours")
 
         cols_hrs = ("Market Session", "UTC Interval", "Local Converted Time", "Status", "Volume Profile")
         self.mkt_hours_tree = ttk.Treeview(self.tab_mkt_hours, columns=cols_hrs, show="headings", style="Treeview", height=10)
@@ -3853,7 +3927,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 7. Currency Correlation Calculator Sub-Tab
         self.tab_mkt_corr = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_corr, text="Currency Correlation")
+        self.mkt_notebook.add(self.tab_mkt_corr, text="7. Correlation")
 
         cols_corr = ("Pair", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD")
         self.mkt_corr_tree = ttk.Treeview(self.tab_mkt_corr, columns=cols_corr, show="headings", style="Treeview", height=10)
@@ -3864,7 +3938,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 8. Risk-On / Risk-Off Meter Sub-Tab
         self.tab_mkt_roro = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_roro, text="Risk-On / Risk-Off Meter")
+        self.mkt_notebook.add(self.tab_mkt_roro, text="8. Risk-On/Off")
 
         roro_top = tk.Frame(self.tab_mkt_roro, bg=self.bg_dark)
         roro_top.pack(fill=tk.X, padx=10, pady=10)
@@ -3881,7 +3955,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 9. Gain & Loss Percentage Calculator Sub-Tab
         self.tab_mkt_gainloss = tk.Frame(self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15)
-        self.mkt_notebook.add(self.tab_mkt_gainloss, text="Gain & Loss Calculator")
+        self.mkt_notebook.add(self.tab_mkt_gainloss, text="9. Gain & Loss")
 
         gl_frame = tk.Frame(self.tab_mkt_gainloss, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
         gl_frame.pack(fill=tk.X)
@@ -3901,7 +3975,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 10. Pip Value Calculator Sub-Tab
         self.tab_mkt_pipval = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_pipval, text="Pip Value Calculator")
+        self.mkt_notebook.add(self.tab_mkt_pipval, text="10. Pip Value")
 
         cols_pip = ("Symbol", "Contract Size", "Pip Size", "Pip Value per 1.0 Lot ($ USD)", "Pip Value per 0.1 Lot ($ USD)", "Pip Value per 0.01 Lot ($ USD)")
         self.mkt_pipval_tree = ttk.Treeview(self.tab_mkt_pipval, columns=cols_pip, show="headings", style="Treeview", height=10)
@@ -3912,7 +3986,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 11. Pivot Point Calculator Sub-Tab
         self.tab_mkt_pivot = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_pivot, text="Pivot Point Calculator")
+        self.mkt_notebook.add(self.tab_mkt_pivot, text="11. Pivots")
 
         piv_top = tk.Frame(self.tab_mkt_pivot, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
         piv_top.pack(fill=tk.X, padx=10, pady=10)
@@ -3943,7 +4017,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 12. Position Size Calculator Sub-Tab
         self.tab_mkt_possize = tk.Frame(self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15)
-        self.mkt_notebook.add(self.tab_mkt_possize, text="Position Size Calculator")
+        self.mkt_notebook.add(self.tab_mkt_possize, text="12. Position Size")
 
         ps_frame = tk.Frame(self.tab_mkt_possize, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
         ps_frame.pack(fill=tk.X)
@@ -3972,7 +4046,7 @@ SECURITY DOMAINS ENFORCED:
 
         # 13. Forex Regulatory Organizations Sub-Tab
         self.tab_mkt_reg = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
-        self.mkt_notebook.add(self.tab_mkt_reg, text="Forex Regulation")
+        self.mkt_notebook.add(self.tab_mkt_reg, text="13. Regulation")
 
         cols_reg = ("Jurisdiction", "Regulatory Body", "Abbreviation", "Leverage Cap", "Official Website / Verification")
         self.mkt_reg_tree = ttk.Treeview(self.tab_mkt_reg, columns=cols_reg, show="headings", style="Treeview", height=10)
