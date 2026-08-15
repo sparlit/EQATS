@@ -117,13 +117,30 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS broker_credentials (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        broker_name TEXT DEFAULT 'PRIMARY GATEWAY',
         server TEXT NOT NULL,
         account_id TEXT NOT NULL,
         password_encrypted TEXT NOT NULL,
         leverage TEXT NOT NULL,
+        environment TEXT DEFAULT 'Demo',
+        is_active INTEGER DEFAULT 1,
         updated_at TEXT NOT NULL
     )
     """)
+
+    # Alter table if existing schema lacks new multi-broker columns
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
 
     # Prepopulate default admin operator account if empty
     cursor.execute("SELECT COUNT(*) FROM users")
@@ -144,13 +161,16 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM broker_credentials")
     if cursor.fetchone()[0] == 0:
         cursor.execute("""
-        INSERT INTO broker_credentials (server, account_id, password_encrypted, leverage, updated_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            "Primary MetaTrader Gateway",
             "EAQTS-Demo-Server",
             "10928471",
             encrypt_secret("demoPass123!"),
             "1:100",
+            "Demo",
+            1,
             datetime.datetime.now().isoformat()
         ))
 
@@ -228,45 +248,108 @@ def delete_user(username):
     conn.commit()
     conn.close()
 
-def save_broker_credentials(server, account_id, password, leverage):
-    """Saves broker gateway parameters with encrypted password into SQLite."""
+def get_all_brokers():
+    """Retrieves all registered broker profiles from SQLite."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM broker_credentials")
+    cursor.execute("SELECT id, broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at FROM broker_credentials ORDER BY id ASC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    brokers = []
+    for r in rows:
+        b = dict(r)
+        b["password"] = decrypt_secret(b["password_encrypted"])
+        brokers.append(b)
+    return brokers
+
+def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", is_active=0):
+    """Adds a new broker gateway configuration into SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if is_active:
+        cursor.execute("UPDATE broker_credentials SET is_active = 0")
     cursor.execute("""
-    INSERT INTO broker_credentials (server, account_id, password_encrypted, leverage, updated_at)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
+        broker_name,
         server,
         account_id,
         encrypt_secret(password),
         leverage,
+        environment,
+        1 if is_active else 0,
         datetime.datetime.now().isoformat()
     ))
     conn.commit()
     conn.close()
 
-def get_broker_credentials():
-    """Retrieves broker connection parameters and decrypts the password."""
+def set_active_broker(broker_id):
+    """Sets a specific broker account as the active primary gateway."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT server, account_id, password_encrypted, leverage FROM broker_credentials ORDER BY id DESC LIMIT 1")
+    cursor.execute("UPDATE broker_credentials SET is_active = 0")
+    cursor.execute("UPDATE broker_credentials SET is_active = 1 WHERE id = ?", (broker_id,))
+    conn.commit()
+    conn.close()
+
+def delete_broker_account(broker_id):
+    """Deletes a broker profile from SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM broker_credentials WHERE id = ?", (broker_id,))
+    conn.commit()
+    conn.close()
+
+def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo"):
+    """Saves or updates primary active broker parameters in SQLite."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM broker_credentials WHERE is_active = 1 LIMIT 1")
     row = cursor.fetchone()
+    if row:
+        cursor.execute("""
+        UPDATE broker_credentials
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, updated_at = ?
+        WHERE id = ?
+        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat(), row['id']))
+    else:
+        cursor.execute("""
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def get_broker_credentials():
+    """Retrieves active broker connection parameters and decrypts the password."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment FROM broker_credentials WHERE is_active = 1 LIMIT 1")
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment FROM broker_credentials ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
     conn.close()
 
     if not row:
         return {
+            "broker_name": "Primary MetaTrader Gateway",
             "server": "EAQTS-Demo-Server",
             "account_id": "10928471",
             "password": "demoPass123!",
-            "leverage": "1:100"
+            "leverage": "1:100",
+            "environment": "Demo"
         }
 
     return {
+        "broker_name": row["broker_name"] if "broker_name" in row.keys() and row["broker_name"] else "Primary Gateway",
         "server": row["server"],
         "account_id": row["account_id"],
         "password": decrypt_secret(row["password_encrypted"]),
-        "leverage": row["leverage"]
+        "leverage": row["leverage"],
+        "environment": row["environment"] if "environment" in row.keys() and row["environment"] else "Demo"
     }
 
 def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):

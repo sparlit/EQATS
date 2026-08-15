@@ -1,5 +1,5 @@
 """
-Comprehensive Suite for the Elite Autonomous Quantum Trading System.
+Comprehensive Suite for the Elite Quantum Autonomous Trading System.
 Provides 110+ highly-structured integration functions representing a complete,
 hedge-fund-grade quantitative arsenal using the specified Python libraries.
 All functions fall back gracefully to pure-Python analytical models if packages are absent.

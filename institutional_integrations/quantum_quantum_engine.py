@@ -1,6 +1,6 @@
 """
 Quantum Autonomous Decision & Strategy Execution Engine.
-Part of the Elite Autonomous Quantum Trading System.
+Part of the Elite Quantum Autonomous Trading System.
 Provides 100% autonomous, hands-off auto-trading sweeps with zero human inputs.
 
 Integrates Data Research from:

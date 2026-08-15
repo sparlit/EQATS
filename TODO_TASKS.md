@@ -4,7 +4,7 @@ This document tracks current accomplishments, open tasks, pending issues, and fu
 ---
 
 ## 📋 Status Overview
-- **Project Name:** Elite Autonomous Quantum Trading System
+- **Project Name:** Elite Quantum Autonomous Trading System
 - **Operational Mode:** 100% Autonomous Auto Trading (Zero user input or decision-making)
 - **Primary Host OS:** Windows (MT5 Native Bridge via FILE_COMMON state exchange)
 - **Fallback Host OS:** Linux / macOS (Automatic High-Fidelity Simulator Connector)

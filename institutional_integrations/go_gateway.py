@@ -1,6 +1,6 @@
 """
 Institutional Go High-Concurrency Gateway Bridge.
-Part of the Elite Autonomous Quantum Trading System.
+Part of the Elite Quantum Autonomous Trading System.
 Handles everything else (concurrent market data streams, WebSockets, and Redis state caches) in Go.
 """
 

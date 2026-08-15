@@ -6,7 +6,7 @@ from event_bus import global_event_bus, Event
 
 class TradingSystemSupervisorAgent:
     """
-    AI System Supervisor Agent for the Elite Autonomous Quantum Trading System (EAQTS).
+    AI System Supervisor Agent for the Elite Quantum Autonomous Trading System (EQATS).
     Continuously monitors, manages, and supervises system operations, data feeds, execution latency,
     model predictions, risk boundaries, and reconciliation integrity.
     """
