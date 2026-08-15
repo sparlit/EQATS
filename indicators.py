@@ -372,3 +372,18 @@ def calculate_ichimoku(highs, lows, closes):
     kijun = (high_26 + low_26) / 2.0
 
     return {'tenkan': round(tenkan, 5), 'kijun': round(kijun, 5)}
+
+def get_smc_analysis(history_bars):
+    """Returns institutional Smart Money Concepts (SMC) & ICT market structure analysis."""
+    try:
+        import institutional_integrations.smc_ict_engine as smc
+        return smc.global_smc_engine.analyze(history_bars)
+    except Exception:
+        return {
+            "order_blocks": {"bullish_ob": None, "bearish_ob": None},
+            "fvgs": {"bullish_fvgs": [], "bearish_fvgs": []},
+            "mss": {"mss_status": "NEUTRAL", "break_level": None},
+            "liquidity_sweeps": {"bsl_sweep": False, "ssl_sweep": False},
+            "bias": "NEUTRAL",
+            "confluence_score": 50.0
+        }

@@ -347,7 +347,14 @@ class ScalperBrain:
         elif strategy_mode == "MTF_CONFLUENCE":
             decision = sig_mtf
             explanation = f"MTF Confluence: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_mtf)}"
+        elif strategy_mode == "SMC_ICT":
+            smc_data = indicators.get_smc_analysis(history_bars)
+            sig_smc = "BUY" if smc_data["bias"] == "BULLISH" else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
+            decision = sig_smc
+            explanation = f"SMC/ICT Structure: {decision if decision != 'HOLD' else 'Waiting for Order Block / FVG alignment'} | Confluence Score: {smc_data['confluence_score']:.1f}%"
         else: # VOTING_ENSEMBLE
+            smc_data = indicators.get_smc_analysis(history_bars)
+            sig_smc = "BUY" if smc_data["bias"] == "BULLISH" else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
             # Convert signals to numeric values (+1: BUY, -1: SELL, 0: HOLD)
             sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
 
@@ -360,9 +367,10 @@ class ScalperBrain:
             or_val_v = sig_to_val(sig_or)
             vs_val = sig_to_val(sig_vs)
             mtf_val = sig_to_val(sig_mtf)
+            smc_val = sig_to_val(sig_smc)
 
             # Assign adaptive weights based on current market regime!
-            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5, 1.0
+            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5, 1.0, 1.5
 
             if reg_state == "TRENDING":
                 tf_w = 2.0   # Trend is strong: boost trend following
@@ -377,10 +385,10 @@ class ScalperBrain:
                 bo_w = 0.1   # Suppress false breakouts
                 mtf_w = 0.5  # Reduce MTF weight in choppy ranging markets
 
-            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w
+            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w
             weighted_score = ((tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) +
                               (bo_val * bo_w) + (cy_val * cy_w) + (sa_val * sa_w) +
-                              (or_val_v * or_w) + (vs_val * vs_w) + (mtf_val * mtf_w))
+                              (or_val_v * or_w) + (vs_val * vs_w) + (mtf_val * mtf_w) + (smc_val * smc_w))
 
             normalized_score = weighted_score / total_weight if total_weight > 0 else 0.0
 
