@@ -11,6 +11,7 @@ import predictive_brain
 import telegram_bot
 import eaqts_planes
 from event_bus import global_event_bus, Event
+from supervisor_agent import global_supervisor_agent
 
 class AutonomousScalper:
     """
@@ -47,6 +48,9 @@ class AutonomousScalper:
         # Spawn non-stop, non-break self-healer and self-learning loop autonomously!
         self.self_healer = ii.QuantumSelfHealer()
         self.self_healer.start_non_stop_loop()
+
+        # Attach AI System Supervisor Agent
+        self.supervisor = global_supervisor_agent
 
         # Track total starting balance of the day for Drawdown calculations
         self.daily_start_balance = 0.0
@@ -796,6 +800,12 @@ class AutonomousScalper:
         Runs one iteration of checking market state, assessing trades,
         updating open positions, and enforcing limits under EAQTS 2.4 logic.
         """
+        # Run AI System Supervisor Agent Audit
+        try:
+            self.supervisor.run_supervisory_audit(self)
+        except Exception as e:
+            print(f"Warning: Supervisor agent audit exception: {e}")
+
         # Heartbeat: Check connection status and attempt auto-reconnection
         if not self.conn.is_connected():
             print("⚠️ DISCONNECTION DETECTED: Heartbeat failed. Autonomously attempting to reconnect...")
