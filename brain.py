@@ -487,6 +487,15 @@ class ScalperBrain:
             if hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
                 explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
 
+        # Enforce initial lot size as 0.01 lots for first trade across all symbols
+        try:
+            open_trades = database.get_open_trades()
+            symbol_open = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
+            if not symbol_open and decision in ["BUY", "SELL"]:
+                lot_size = 0.01
+        except Exception:
+            pass
+
         database.log_assessment(
             symbol=symbol,
             trend_direction=trend_direction,
@@ -513,7 +522,16 @@ class ScalperBrain:
         """
         Calculates the appropriate lot size to risk on current equity using
         mathematical Kelly Criterion optimization and Performance-Adaptive Risk Sizing.
+        Enforces 0.01 lots as initial position size for first trade across all symbols.
         """
+        try:
+            open_trades = database.get_open_trades()
+            symbol_open = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
+            if not symbol_open:
+                return 0.01
+        except Exception:
+            pass
+
         base_risk_pct = config.RISK_PER_TRADE_PERCENT
         using_kelly = False
         kelly_val = 0.0
