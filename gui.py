@@ -12,7 +12,7 @@ import main
 
 class ScalperGui:
     """
-    Ultimate Bloomberg Terminal style visual dashboard for the Autonomous Forex Scalper.
+    Ultimate EQATS Quantum Terminal style visual dashboard for the Autonomous Forex Scalper.
     Provides navigable screens via a Command Input Box and F-key quick links:
     - MAIN <GO>: Multi-Asset Scans Matrix, Account Balance and metrics.
     - GP <GO>: Graphical Price Tracking line chart, spread metrics, high/low boundaries.
@@ -38,11 +38,11 @@ class ScalperGui:
         # Authenticate Operator before deiconifying Root Window
         self._show_login_dialog()
 
-        # Authentic Bloomberg Terminal Style configuration
-        self.bg_dark = "#000000"         # Bloomberg Pitch Black
-        self.bg_card = "#121212"         # Bloomberg Dark Grey Panels
+        # Authentic EQATS Quantum Terminal Style configuration
+        self.bg_dark = "#000000"         # EQATS Pitch Black
+        self.bg_card = "#121212"         # EQATS Dark Grey Panels
         self.fg_light = "#ffffff"        # Clean White text
-        self.fg_accent = "#ff9900"       # Classic Bloomberg Neon Amber/Orange
+        self.fg_accent = "#ff9900"       # Classic EQATS Neon Amber/Orange
         self.fg_green = "#00ff00"        # Neon Green (Profit / Positive / Go)
         self.fg_red = "#ff3333"          # Neon Red (Loss / Negative)
         self.fg_cyan = "#00ffff"         # Cyan details
@@ -122,7 +122,7 @@ class ScalperGui:
 
         self._build_controls_bar()
 
-        # Keyboard Bindings to simulate Bloomberg F-Keys
+        # Keyboard Bindings to simulate EQATS Terminal F-Keys
         self.root.bind("<F2>", lambda e: self.switch_to_screen("MAIN"))
         self.root.bind("<F3>", lambda e: self.switch_to_screen("GP"))
         self.root.bind("<F4>", lambda e: self.switch_to_screen("WEI"))
@@ -248,7 +248,7 @@ class ScalperGui:
         self.tab_selector_menu.pack(side=tk.RIGHT, padx=5)
 
     def _build_command_bar(self):
-        """Authentic Bloomberg Command Bar for inputting commands directly"""
+        """Authentic EQATS Terminal Command Bar for inputting commands directly"""
         cmd_frame = tk.Frame(self.root, bg=self.bg_dark, pady=5, padx=20)
         cmd_frame.pack(fill=tk.X)
 
@@ -317,7 +317,7 @@ class ScalperGui:
             btn.pack(side=tk.LEFT, padx=3)
 
     def _build_session_timeline_panel(self):
-        """Builds a gorgeous, vibrant 3-row Bloomberg session timeline panel"""
+        """Builds a gorgeous, vibrant 3-row EQATS session timeline panel"""
         self.timeline_frame = tk.Frame(self.root, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
         self.timeline_frame.pack(fill=tk.X, padx=20, pady=5)
 
@@ -446,6 +446,38 @@ class ScalperGui:
         )
         self.btn_pause.pack(side=tk.LEFT, padx=5, pady=10)
 
+        # Manual Override: Panic Lockdown Button
+        self.btn_panic = tk.Button(
+            ctrl_frame,
+            text="🔒 PANIC LOCKDOWN",
+            font=("Consolas", 9, "bold"),
+            bg="#7f1d1d",
+            fg="#ffffff",
+            activebackground="#991b1b",
+            activeforeground="#ffffff",
+            padx=10,
+            pady=8,
+            relief=tk.FLAT,
+            command=self.manual_override_panic_lockdown
+        )
+        self.btn_panic.pack(side=tk.LEFT, padx=5, pady=10)
+
+        # Manual Override: Hard Reset Engines Button
+        self.btn_reset_engines = tk.Button(
+            ctrl_frame,
+            text="🔄 RESET ENGINES",
+            font=("Consolas", 9, "bold"),
+            bg="#1e3a8a",
+            fg="#ffffff",
+            activebackground="#1d4ed8",
+            activeforeground="#ffffff",
+            padx=10,
+            pady=8,
+            relief=tk.FLAT,
+            command=self.manual_override_reset_engines
+        )
+        self.btn_reset_engines.pack(side=tk.LEFT, padx=5, pady=10)
+
         # System Exit Button
         self.btn_exit_system = tk.Button(
             ctrl_frame,
@@ -543,7 +575,7 @@ class ScalperGui:
         self.switch_to_screen(parsed_cmd)
 
     def _show_login_dialog(self):
-        """Displays a secure Bloomberg terminal-styled login dialog with Username, Password, and MFA."""
+        """Displays a secure EQATS terminal-styled login dialog with Username, Password, and MFA."""
         login_win = tk.Toplevel()
         login_win.title("SECURE TERMINAL GATEWAY - EAQTS v2.4")
         login_win.geometry("450x300")
@@ -2204,40 +2236,89 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         # 2. Broker Credentials & Gateway Settings Tab
         self.tab_cfg_broker = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
-        self.cfg_notebook.add(self.tab_cfg_broker, text="Broker Gateway Credentials")
+        self.cfg_notebook.add(self.tab_cfg_broker, text="Multi-Broker Gateway Credentials")
 
         b_frame = tk.Frame(self.tab_cfg_broker, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
-        b_frame.pack(fill=tk.X, pady=(0, 10))
+        b_frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(b_frame, text="BROKER TERMINAL GATEWAY CONFIGURATION", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(b_frame, text="MULTI-BROKER TERMINAL GATEWAYS DATABASE", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
 
-        # Retrieve stored broker credentials from database
+        # Broker Accounts Treeview
+        b_tree_frame = tk.Frame(b_frame, bg=self.bg_card)
+        b_tree_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        b_scroll = tk.Scrollbar(b_tree_frame)
+        b_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.broker_tree = ttk.Treeview(b_tree_frame, columns=("id", "name", "server", "acc", "env", "lev", "status"), show="headings", height=5, yscrollcommand=b_scroll.set)
+        b_scroll.config(command=self.broker_tree.yview)
+
+        self.broker_tree.heading("id", text="ID")
+        self.broker_tree.heading("name", text="Broker Name")
+        self.broker_tree.heading("server", text="Server")
+        self.broker_tree.heading("acc", text="Account ID")
+        self.broker_tree.heading("env", text="Environment")
+        self.broker_tree.heading("lev", text="Leverage")
+        self.broker_tree.heading("status", text="Status")
+
+        self.broker_tree.column("id", width=35, anchor="center")
+        self.broker_tree.column("name", width=140, anchor="w")
+        self.broker_tree.column("server", width=130, anchor="w")
+        self.broker_tree.column("acc", width=90, anchor="center")
+        self.broker_tree.column("env", width=80, anchor="center")
+        self.broker_tree.column("lev", width=60, anchor="center")
+        self.broker_tree.column("status", width=90, anchor="center")
+
+        self.broker_tree.pack(fill=tk.BOTH, expand=True)
+        self.broker_tree.bind("<<TreeviewSelect>>", self._on_broker_tree_select)
+
+        # Retrieve active broker credentials from database
         b_creds = database.get_broker_credentials()
 
-        tk.Label(b_frame, text="Broker Server:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
-        self.cfg_bserver_ent = tk.Entry(b_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
-        self.cfg_bserver_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+        # Form Inputs Frame
+        bf_inputs = tk.Frame(b_frame, bg=self.bg_card)
+        bf_inputs.pack(fill=tk.X, pady=(5, 0))
+
+        tk.Label(bf_inputs, text="Broker Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=0, sticky="w", pady=2)
+        self.cfg_bname_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        self.cfg_bname_ent.grid(row=0, column=1, sticky="w", padx=5, pady=2)
+        self.cfg_bname_ent.insert(0, b_creds.get("broker_name", "Primary Gateway"))
+
+        tk.Label(bf_inputs, text="Server Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_bserver_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        self.cfg_bserver_ent.grid(row=0, column=3, sticky="w", padx=5, pady=2)
         self.cfg_bserver_ent.insert(0, b_creds["server"])
 
-        tk.Label(b_frame, text="Account ID Number:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.cfg_bacc_ent = tk.Entry(b_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
-        self.cfg_bacc_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
+        tk.Label(bf_inputs, text="Account ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=2)
+        self.cfg_bacc_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        self.cfg_bacc_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.cfg_bacc_ent.insert(0, b_creds["account_id"])
 
-        tk.Label(b_frame, text="Broker Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.cfg_bpwd_ent = tk.Entry(b_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=30)
-        self.cfg_bpwd_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+        tk.Label(bf_inputs, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_bpwd_ent = tk.Entry(bf_inputs, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        self.cfg_bpwd_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
         self.cfg_bpwd_ent.insert(0, b_creds["password"])
 
-        tk.Label(b_frame, text="Account Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
+        tk.Label(bf_inputs, text="Environment:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=2)
+        self.cfg_benv_var = tk.StringVar(value=b_creds.get("environment", "Demo"))
+        env_menu = tk.OptionMenu(bf_inputs, self.cfg_benv_var, "Demo", "Live", "ECN", "STP")
+        env_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        env_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        env_menu.grid(row=2, column=1, sticky="w", padx=5, pady=2)
+
+        tk.Label(bf_inputs, text="Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_lev_var = tk.StringVar(value=b_creds["leverage"])
-        lev_menu = tk.OptionMenu(b_frame, self.cfg_lev_var, "1:50", "1:100", "1:200", "1:500")
+        lev_menu = tk.OptionMenu(bf_inputs, self.cfg_lev_var, "1:50", "1:100", "1:200", "1:500")
         lev_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
         lev_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
-        lev_menu.grid(row=4, column=1, sticky="w", padx=10, pady=4)
+        lev_menu.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
-        btn_save_b = tk.Button(b_frame, text="CONNECT & SAVE BROKER GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_broker_credentials)
-        btn_save_b.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+        b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
+        b_btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
+
+        tk.Button(b_btn_box, text="➕ ADD BROKER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_broker_profile).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(b_btn_box, text="⚡ SET ACTIVE GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._set_active_broker_profile).pack(side=tk.LEFT, padx=5)
+        tk.Button(b_btn_box, text="🗑️ DELETE BROKER", font=("Consolas", 8, "bold"), bg="#991b1b", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._delete_broker_profile).pack(side=tk.LEFT, padx=5)
 
         # 3. User Controls & Feature Permissions Tab
         self.tab_cfg_feats = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
@@ -2246,7 +2327,38 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         f_frame = tk.Frame(self.tab_cfg_feats, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
         f_frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(f_frame, text="SYSTEM FEATURE CONTROLS & PERMISSIONS TOGGLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 10))
+        # Split into two columns: Granular RBAC Permissions (Left) and Feature Control Toggles (Right)
+        p_left = tk.Frame(f_frame, bg=self.bg_card)
+        p_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        p_right = tk.Frame(f_frame, bg=self.bg_card)
+        p_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
+
+        tk.Label(p_left, text="GRANULAR RBAC USER PERMISSIONS", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 10))
+
+        self.cfg_perm_overrides = tk.BooleanVar(value=True)
+        self.cfg_perm_risk = tk.BooleanVar(value=True)
+        self.cfg_perm_broker = tk.BooleanVar(value=True)
+        self.cfg_perm_users = tk.BooleanVar(value=True)
+        self.cfg_perm_logs = tk.BooleanVar(value=True)
+        self.cfg_perm_supervisor = tk.BooleanVar(value=True)
+        self.cfg_perm_weights = tk.BooleanVar(value=True)
+
+        perm_opts = [
+            ("Can Execute Manual Overrides & Close All", self.cfg_perm_overrides),
+            ("Can Modify Risk Parameters & Drawdown Limits", self.cfg_perm_risk),
+            ("Can Switch Active Gateway & Broker Accounts", self.cfg_perm_broker),
+            ("Can Manage User Accounts & Credentials", self.cfg_perm_users),
+            ("Can Export System Telemetry & Audit Logs", self.cfg_perm_logs),
+            ("Can Toggle & Configure AI Supervisor Agent", self.cfg_perm_supervisor),
+            ("Can Adjust Voting Strategy Weights & Ensembles", self.cfg_perm_weights),
+        ]
+
+        for text_lbl, var_ref in perm_opts:
+            chk = tk.Checkbutton(p_left, text=text_lbl, variable=var_ref, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+            chk.pack(anchor="w", pady=3)
+
+        tk.Label(p_right, text="SYSTEM FEATURE CONTROLS & ENGINES TOGGLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 10))
 
         self.cfg_feat_algo = tk.BooleanVar(value=True)
         self.cfg_feat_pyramid = tk.BooleanVar(value=True)
@@ -2255,6 +2367,10 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_feat_weekend = tk.BooleanVar(value=config.BLOCK_WEEKENDS)
         self.cfg_feat_news_veto = tk.BooleanVar(value=True)
         self.cfg_feat_nn_veto = tk.BooleanVar(value=True)
+        self.cfg_feat_local_gpt = tk.BooleanVar(value=True)
+        self.cfg_feat_mtf = tk.BooleanVar(value=True)
+        self.cfg_feat_chaos = tk.BooleanVar(value=True)
+        self.cfg_feat_alerts = tk.BooleanVar(value=True)
 
         chk_opts = [
             ("Enable Autonomous Algo Order Execution", self.cfg_feat_algo),
@@ -2264,16 +2380,21 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             ("Enable Weekend FX Market Blocker", self.cfg_feat_weekend),
             ("Enable News NLP Sentiment Macro Veto Filter", self.cfg_feat_news_veto),
             ("Enable MLP Neural Network Prediction Veto Filter", self.cfg_feat_nn_veto),
+            ("Enable Local GPT Generative AI Reports Engine", self.cfg_feat_local_gpt),
+            ("Enable MTF Confluence Matrix Signal Generator", self.cfg_feat_mtf),
+            ("Enable Chaos Fault Injection Containment Framework", self.cfg_feat_chaos),
+            ("Enable Real-Time Messaging Alerts Dispatcher", self.cfg_feat_alerts),
         ]
 
         for text_lbl, var_ref in chk_opts:
-            chk = tk.Checkbutton(f_frame, text=text_lbl, variable=var_ref, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+            chk = tk.Checkbutton(p_right, text=text_lbl, variable=var_ref, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
             chk.pack(anchor="w", pady=3)
 
         btn_save_f = tk.Button(f_frame, text="APPLY FEATURE PERMISSIONS & CONTROLS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=5, relief=tk.FLAT, command=self._save_feature_permissions)
-        btn_save_f.pack(anchor="w", pady=(15, 0))
+        btn_save_f.pack(side=tk.BOTTOM, anchor="e", pady=(15, 0))
 
         self._refresh_user_tree()
+        self._refresh_broker_tree()
 
     def _refresh_user_tree(self):
         if not hasattr(self, "cfg_user_tree") or not self.cfg_user_tree: return
@@ -2346,14 +2467,99 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delete user: {e}")
 
+    def _refresh_broker_tree(self):
+        if not hasattr(self, "broker_tree") or not self.broker_tree:
+            return
+        self.broker_tree.delete(*self.broker_tree.get_children())
+        brokers = database.get_all_brokers()
+        for b in brokers:
+            st = "🟢 ACTIVE" if b.get("is_active", 0) else "⚪ STANDBY"
+            self.broker_tree.insert("", tk.END, values=(
+                b["id"],
+                b.get("broker_name", "Gateway"),
+                b["server"],
+                b["account_id"],
+                b.get("environment", "Demo"),
+                b["leverage"],
+                st
+            ))
+
+    def _on_broker_tree_select(self, event):
+        sel = self.broker_tree.selection()
+        if sel:
+            item = self.broker_tree.item(sel[0])
+            vals = item["values"]
+            if vals and len(vals) >= 6:
+                self.cfg_bname_ent.delete(0, tk.END)
+                self.cfg_bname_ent.insert(0, str(vals[1]))
+                self.cfg_bserver_ent.delete(0, tk.END)
+                self.cfg_bserver_ent.insert(0, str(vals[2]))
+                self.cfg_bacc_ent.delete(0, tk.END)
+                self.cfg_bacc_ent.insert(0, str(vals[3]))
+                self.cfg_benv_var.set(str(vals[4]))
+                self.cfg_lev_var.set(str(vals[5]))
+
+    def _add_broker_profile(self):
+        bname = self.cfg_bname_ent.get().strip() or "New Gateway"
+        server = self.cfg_bserver_ent.get().strip()
+        acc = self.cfg_bacc_ent.get().strip()
+        pwd = self.cfg_bpwd_ent.get().strip()
+        env = self.cfg_benv_var.get()
+        lev = self.cfg_lev_var.get()
+
+        if not server or not acc or not pwd:
+            messagebox.showerror("Error", "Please provide Server Name, Account ID, and Broker Password.")
+            return
+
+        try:
+            database.add_broker_account(broker_name=bname, server=server, account_id=acc, password=pwd, leverage=lev, environment=env, is_active=1)
+            messagebox.showinfo("Broker Added", f"Successfully created and activated broker profile '{bname}' ({server}).")
+            self._refresh_broker_tree()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add broker profile: {e}")
+
+    def _set_active_broker_profile(self):
+        sel = self.broker_tree.selection()
+        if not sel:
+            messagebox.showwarning("Select Broker", "Please select a broker account from the list to set active.")
+            return
+        item = self.broker_tree.item(sel[0])
+        b_id = item["values"][0]
+        b_name = item["values"][1]
+        try:
+            database.set_active_broker(b_id)
+            messagebox.showinfo("Active Broker Switched", f"Primary active gateway successfully switched to '{b_name}' (ID: {b_id}).")
+            self._refresh_broker_tree()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to set active broker: {e}")
+
+    def _delete_broker_profile(self):
+        sel = self.broker_tree.selection()
+        if not sel:
+            messagebox.showwarning("Select Broker", "Please select a broker account to delete.")
+            return
+        item = self.broker_tree.item(sel[0])
+        b_id = item["values"][0]
+        b_name = item["values"][1]
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete broker profile '{b_name}' (ID: {b_id})?"):
+            try:
+                database.delete_broker_account(b_id)
+                messagebox.showinfo("Broker Deleted", f"Deleted broker profile '{b_name}'.")
+                self._refresh_broker_tree()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete broker: {e}")
+
     def _save_broker_credentials(self):
+        bname = self.cfg_bname_ent.get().strip() or "Primary Gateway"
         server = self.cfg_bserver_ent.get().strip()
         acc = self.cfg_bacc_ent.get().strip()
         pwd = self.cfg_bpwd_ent.get().strip()
         lev = self.cfg_lev_var.get()
+        env = self.cfg_benv_var.get()
 
-        database.save_broker_credentials(server, acc, pwd, lev)
-        messagebox.showinfo("Broker Gateway Saved", f"Successfully saved encrypted broker credentials in SQLite:\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
+        database.save_broker_credentials(server, acc, pwd, lev, broker_name=bname, environment=env)
+        messagebox.showinfo("Broker Gateway Saved", f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
+        self._refresh_broker_tree()
 
     def _save_feature_permissions(self):
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
@@ -2941,7 +3147,7 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
 --------------------------------------------------------------------------------
 """
         if not trades:
-            log_data += "[SYSTEM] Elite Autonomous Quantum Trading System Coordinator Started.\n"
+            log_data += "[SYSTEM] Elite Quantum Autonomous Trading System Coordinator Started.\n"
             log_data += f"[DB] SQLite database file verified successfully: {config.DB_PATH}\n"
             log_data += "[HEALER] QuantumSelfHealer background thread initiated.\n"
             log_data += "[CONNECT] High-Fidelity Simulator Connector initialized.\n"
@@ -3608,7 +3814,7 @@ SECURITY DOMAINS ENFORCED:
         now_str = datetime.datetime.now().strftime("%H:%M:%S")
         msgs = [
             (f"{now_str}", "CME Group", "LIQUIDITY_PING", "CME Brent Crude matching server ping: 8ms", "CONNECTED"),
-            (f"{now_str}", "B-Pipe network", "HEARTBEAT", "Bloomberg real-time quote synchronization feed: OK", "SYNCED"),
+            (f"{now_str}", "B-Pipe network", "HEARTBEAT", "EQATS real-time quote synchronization feed: OK", "SYNCED"),
             (f"{now_str}", "FIT Request", "QUOTE_STREAM", "Multi-lateral liquidity pricing request pipeline loaded", "CONNECTED")
         ]
         for row in msgs:
@@ -4257,9 +4463,42 @@ SECURITY DOMAINS ENFORCED:
             self.scalper.engine.resilience.transition_state("NORMAL")
             messagebox.showinfo("Manual Override Cleared", "System state restored to NORMAL. Trade admissions resumed.")
 
+    def manual_override_panic_lockdown(self):
+        """Emergency Panic Lockdown: liquidates positions, freezes admissions, and pauses trading."""
+        if not messagebox.askyesno("⚠️ EMERGENCY PANIC LOCKDOWN", "ARE YOU ABSOLUTELY SURE YOU WANT TO ENGAGE PANIC LOCKDOWN?\n\nThis will immediately:\n1. Liquidate ALL open orders across symbols.\n2. Freeze new order admissions.\n3. Transition System Safety State to DEFENSIVE.\n4. Stop the autonomous trading loop."):
+            return
+
+        try:
+            print("🚨 EMERGENCY PANIC LOCKDOWN ENGAGED BY OPERATOR!")
+            active_positions = self.scalper.conn.get_open_orders()
+            closed_count = 0
+            for pos in active_positions:
+                res = self.scalper.conn.close_order(pos['ticket'], reason="EMERGENCY_PANIC_LOCKDOWN")
+                if res and res.get('success'):
+                    closed_count += 1
+            self.scalper.engine.resilience.transition_state("DEFENSIVE")
+            self.running = False
+            self.lbl_clock.config(text="🔒 PANIC LOCKDOWN ENGAGED")
+            messagebox.showwarning("Lockdown Complete", f"Panic Lockdown executed successfully!\n- Liquidated positions: {closed_count}\n- Safety State: DEFENSIVE\n- Trading Loop: PAUSED")
+            self.update_gui_loop()
+        except Exception as e:
+            messagebox.showerror("Lockdown Error", f"Error during Panic Lockdown: {e}")
+
+    def manual_override_reset_engines(self):
+        """Hard reset of trading brain engines, indicators, and supervisory health audit."""
+        try:
+            print("🔄 HARD RESET ENGINES: Re-initializing indicators, resetting buffers, and auditing supervisor...")
+            self.scalper.brain = ScalperBrain()
+            from supervisor_agent import global_supervisor_agent
+            audit_report = global_supervisor_agent.run_supervisory_audit(self.scalper)
+            messagebox.showinfo("Engines Reset", f"Trading engines re-initialized successfully!\nSupervisor Audit Status: {audit_report.get('status', 'OK')}\nOverall System Health: {audit_report.get('overall_health', 100):.1f}%")
+            self.update_gui_loop()
+        except Exception as e:
+            messagebox.showerror("Reset Error", f"Error resetting engines: {e}")
+
     def exit_system(self):
         """Shuts down all background threads, stops the bot, disconnects feeds, and exits the application."""
-        if messagebox.askyesno("Exit Confirmation", "Are you sure you want to stop all services and exit the Elite Autonomous Quantum Trading System?"):
+        if messagebox.askyesno("Exit Confirmation", "Are you sure you want to stop all services and exit the Elite Quantum Autonomous Trading System?"):
             try:
                 print("🛑 SYSTEM EXIT TRIGGERED: Stopping autonomous services and terminating application...")
                 self.running = False

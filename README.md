@@ -1,7 +1,7 @@
 # ELITE AUTONOMOUS QUANTUM TRADING SYSTEM (EAQTS)
 ## AUTHORITATIVE TECHNICAL DOCUMENTATION, OPERATIONAL GUIDE, AND VERIFICATION HANDBOOK
 
-Welcome to the canonical technical handbook for the **Elite Autonomous Quantum Trading System (EAQTS)**—a professional, hedge-fund-grade quantitative trading operating system designed to run under the strict **Version 2.4 Master Specification**. EAQTS operates in a fully autonomous, hands-free configuration, interfacing natively with MetaTrader 5 (MT5) on Windows and high-fidelity simulated paper-trading environments on Unix/Linux sandboxes.
+Welcome to the canonical technical handbook for the **Elite Quantum Autonomous Trading System (EQATS)**—a professional, hedge-fund-grade quantitative trading operating system designed to run under the strict **Version 2.4 Master Specification**. EQATS operates in a fully autonomous, hands-free configuration, interfacing natively with MetaTrader 5 (MT5) on Windows and high-fidelity simulated paper-trading environments on Unix/Linux sandboxes.
 
 ---
 
@@ -129,7 +129,7 @@ Start the platform:
 ```bash
 python main.py
 ```
-- If a desktop environment is available, the stunning **Tkinter Bloomberg Professional Terminal GUI** will launch automatically.
+- If a desktop environment is available, the stunning **Tkinter EQATS Quantum Terminal GUI** will launch automatically.
 - If a headless or CLI terminal is detected, the program will fall back gracefully to **Classic Console Mode** with real-time logging.
 
 ---
@@ -181,7 +181,7 @@ In the event of a critical system anomaly, adhere to the following emergency wor
 
 ### Scenario C: Unresolved Position Reconciliation Mismatch
 1. If the database and broker terminal show conflicting trades, the system raises invariant violation `INV-013` and locks new entries.
-2. Under the Bloomberg Terminal GUI, go to the `SET` or `RISK` tab to force a database re-sync.
+2. Under the EQATS Terminal GUI, go to the `SET` or `RISK` tab to force a database re-sync.
 3. If the discrepancy remains, manually liquidate the conflicting positions on MetaTrader 5 and restart the python core application.
 
 ---
@@ -199,7 +199,7 @@ In the event of a critical system anomaly, adhere to the following emergency wor
 
 ## 🛠️ 9. HELP COMMANDS & ADVANCED NAVIGATION
 
-EAQTS features a complete command line system modeled on professional Bloomberg Terminals. Command formats follow: `[TICKER] [MODULE]`.
+EQATS features a complete command line system modeled on professional quantitative terminals. Command formats follow: `[TICKER] [MODULE]`.
 
 - **`MAIN <GO>` (Shortcut F1):** Display multi-asset scanning matrices and technical indicator metrics.
 - **`PORT <GO>` (Shortcut F2):** Perform real-time Mean-Variance Sharpe optimization on active assets.
