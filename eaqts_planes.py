@@ -595,14 +595,75 @@ class OperationsResiliencePlane:
 
 
 # ==============================================================================
+# SYSTEM CONSTITUTION HIERARCHY (EAQTS VERSION 3.0)
+# ==============================================================================
+class SystemConstitution:
+    """
+    Enforces the immutable EAQTS Version 3.0 System Constitution Hierarchy (LEVEL 0 to LEVEL 6).
+    Lower levels (AI recommendations, research proposals) can NEVER override higher levels
+    (broker constraints, safety kernel, hard risk limits).
+    """
+
+    def __init__(self):
+        pass
+
+    def evaluate_constitution_compliance(self, intent_payload: dict) -> dict:
+        """
+        Evaluates a proposed TradingIntent or system action against Level 0 through Level 6.
+        Returns: { 'compliant': bool, 'blocking_level': str, 'reason': str }
+        """
+        # LEVEL 0: Legal / Exchange / Broker Constraints
+        broker_open = intent_payload.get("market_open", True)
+        symbol_tradable = intent_payload.get("symbol_tradable", True)
+        if not broker_open:
+            return {"compliant": False, "blocking_level": "LEVEL_0", "reason": "LEVEL 0 BLOCK: Market is closed by broker schedule."}
+        if not symbol_tradable:
+            return {"compliant": False, "blocking_level": "LEVEL_0", "reason": "LEVEL 0 BLOCK: Symbol is untradable under broker constraints."}
+
+        # LEVEL 1: Safety Kernel (Invariants)
+        safety_violations = intent_payload.get("safety_violations", [])
+        if safety_violations:
+            return {"compliant": False, "blocking_level": "LEVEL_1", "reason": f"LEVEL 1 BLOCK: Safety Kernel Invariant Violations: {safety_violations}"}
+
+        # LEVEL 2: Hard Portfolio Risk Limits
+        portfolio_risk = intent_payload.get("portfolio_risk_pct", 0.0)
+        max_daily_drawdown = intent_payload.get("drawdown_pct", 0.0)
+        if portfolio_risk > config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES:
+            return {"compliant": False, "blocking_level": "LEVEL_2", "reason": "LEVEL 2 BLOCK: Hard Portfolio Risk Limit exceeded."}
+        if max_daily_drawdown >= config.MAX_DAILY_DRAWDOWN_PERCENT:
+            return {"compliant": False, "blocking_level": "LEVEL_2", "reason": "LEVEL 2 BLOCK: Hard Daily Drawdown Ceiling breached."}
+
+        # LEVEL 3: Execution Constraints
+        spread_pips = intent_payload.get("spread_pips", 0.0)
+        rate_throttled = intent_payload.get("rate_throttled", False)
+        if spread_pips > config.MAX_SPREAD_PIPS * 2.0:
+            return {"compliant": False, "blocking_level": "LEVEL_3", "reason": f"LEVEL 3 BLOCK: Execution Constraint - Extreme spread ({spread_pips:.2f} pips)."}
+        if rate_throttled:
+            return {"compliant": False, "blocking_level": "LEVEL_3", "reason": "LEVEL 3 BLOCK: Execution Constraint - Message rate throttled."}
+
+        # LEVEL 4: Strategy Constraints
+        strategy_valid = intent_payload.get("strategy_valid", True)
+        if not strategy_valid:
+            return {"compliant": False, "blocking_level": "LEVEL_4", "reason": "LEVEL 4 BLOCK: Strategy conditions invalid for current regime."}
+
+        # LEVEL 5 & LEVEL 6: AI / Optimization Recommendations
+        ai_probability = intent_payload.get("ai_probability", 100.0)
+        if ai_probability < 60.0:
+            return {"compliant": False, "blocking_level": "LEVEL_5", "reason": f"LEVEL 5 BLOCK: AI Model Probability ({ai_probability:.1f}%) below minimum gate (60.0%)."}
+
+        return {"compliant": True, "blocking_level": "NONE", "reason": "All Level 0-6 System Constitution levels compliant."}
+
+
+# ==============================================================================
 # UNIFIED CENTRAL ASSEMBLY (EAQTS Core Engine)
 # ==============================================================================
 class EAQTSCoreEngine:
     """
     Authoritative coordinator bridging all 9 specialized Planes
-    under a strictly sequenced, safe operational control flow.
+    and enforcing the Version 3.0 System Constitution Hierarchy.
     """
     def __init__(self, connector_obj):
+        self.constitution = SystemConstitution()
         self.control = ControlGovernancePlane()
         self.data = DataPlane()
         self.intelligence = IntelligencePlane()

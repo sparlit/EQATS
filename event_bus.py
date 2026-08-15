@@ -5,7 +5,7 @@ import json
 
 class Event:
     """
-    A canonical, structured Event representation as defined in EAQTS Version 2.4.
+    A canonical, structured Event representation as defined in EAQTS Version 3.0.
     """
     def __init__(self, family, source, payload, correlation_id=None, causation_id=None, schema_version="1.0"):
         self.event_id = str(uuid.uuid4())
