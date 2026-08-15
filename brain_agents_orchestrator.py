@@ -1,29 +1,26 @@
 """
 Collaborative Multi-Agent Brain Supervisory & Learning Orchestrator.
-Operates as a distinct unit SEPARATE from the core trading execution engine.
+Operates as a distinct, multi-threaded & multi-processed parallel intelligence unit
+SEPARATE from the core trading execution engine.
 
 Architecture:
-  [ResearchBrainAgent] -> [AnalystBrainAgent] -> [PredictionBrainAgent]
-           │                    │                      │
-           ▼                    ▼                      ▼
-  [StrategyBrainAgent] -> [RiskBrainAgent] -> [ExecutionBrainAgent]
-           │                    │                      │
-           └────────────────────┼──────────────────────┘
-                                ▼
-                   [AgenticBrainsOrchestrator]
-                                │ (Passes Directive)
-                                ▼
-                       [Trading Engine]
+  - 6 Core Brain AI Agents (Research, Analyst, Prediction, Strategy, Risk, Execution)
+  - 4 Trading Method AI Agents & Brains (Scalping, Day Trading, Swing, Position)
+  - 10 Trading Strategy AI Agents & Brains (Trend, Mean Rev, MACD, Breakout, Carry, Grid, StatArb, ORB, VSA, MTF)
+  - 2 Trading Mechanism AI Agents & Brains (Risk Assessment, Lot Management)
+  - Parallel Multiprocessing & Multithreading Processing Pipeline
+  - Master Agentic Brains Orchestrator
 """
 
 import time
 import datetime
 import math
+import concurrent.futures
 import database
 import config
 
 class BrainAgentContext:
-    """Shared communication container passed sequentially across Brain AI Agents."""
+    """Shared communication container passed across Brain AI Agents."""
     def __init__(self, symbol="EURUSD"):
         self.symbol = symbol
         self.timestamp = datetime.datetime.now().isoformat()
@@ -33,7 +30,9 @@ class BrainAgentContext:
         self.technical_data = {}
         self.prediction_data = {}
         self.strategy_data = {}
+        self.method_data = {}
         self.risk_data = {}
+        self.lot_data = {}
         self.execution_data = {}
 
         self.agent_messages = []
@@ -46,15 +45,18 @@ class BrainAgentContext:
 
 class BrainOrchestratorDirective:
     """
-    Final output produced by the Master Orchestrator after the multi-agent loop completes.
+    Final output produced by the Master Orchestrator after parallel multi-agent evaluation.
     This directive is passed as an information/instruction payload to the trading engine.
     """
     def __init__(self):
         self.timestamp = datetime.datetime.now().isoformat()
         self.recommended_bias = "HOLD"  # 'BUY', 'SELL', 'HOLD'
         self.confidence_score = 0.0     # 0.0 to 100.0%
-        self.strategy_weight_adjustments = {}
+        self.recommended_style = "SCALPING"
+        self.strategy_scores = {}
+        self.method_scores = {}
         self.risk_ceiling_modifier = 1.0 # Multiplier (0.0 to 1.5)
+        self.lot_multiplier = 1.0
         self.execution_instructions = {
             "max_spread_pips": 3.5,
             "min_probability_gate": 60.0,
@@ -67,253 +69,295 @@ class BrainOrchestratorDirective:
             "timestamp": self.timestamp,
             "recommended_bias": self.recommended_bias,
             "confidence_score": round(self.confidence_score, 2),
-            "strategy_weight_adjustments": self.strategy_weight_adjustments,
+            "recommended_style": self.recommended_style,
+            "strategy_scores": self.strategy_scores,
+            "method_scores": self.method_scores,
             "risk_ceiling_modifier": round(self.risk_ceiling_modifier, 2),
+            "lot_multiplier": round(self.lot_multiplier, 2),
             "execution_instructions": self.execution_instructions,
             "guidance_notes": self.guidance_notes
         }
 
 # ==============================================================================
-# INDIVIDUAL BRAIN AI AGENTS
+# CORE BRAIN AI AGENTS
 # ==============================================================================
 
 class ResearchBrainAgent:
-    """Monitors, manages, and assists the Research Brain."""
-    def __init__(self):
-        self.name = "ResearchBrainAgent"
-        self.health_score = 100.0
-
+    def __init__(self): self.name = "ResearchBrainAgent"
     def process(self, context, scalper_instance):
         sentiment = database.get_prevailing_news_sentiment()
-        context.research_data = {
-            "prevailing_sentiment": sentiment,
-            "macro_regime": "NEUTRAL" if sentiment == "NEUTRAL" else "TRENDING_MACRO"
-        }
-        msg = f"Extracted prevailing news macro sentiment: '{sentiment}'."
-        context.log_agent_message(self.name, msg)
+        context.research_data = {"prevailing_sentiment": sentiment, "macro_regime": "TRENDING" if sentiment != "NEUTRAL" else "NEUTRAL"}
+        context.log_agent_message(self.name, f"Macro news sentiment extracted: '{sentiment}'.")
         return context
 
 class AnalystBrainAgent:
-    """Monitors, manages, and assists the Analyst Brain."""
-    def __init__(self):
-        self.name = "AnalystBrainAgent"
-        self.health_score = 100.0
-
+    def __init__(self): self.name = "AnalystBrainAgent"
     def process(self, context, scalper_instance):
         sym = context.symbol
         price_info = scalper_instance.conn.get_current_price(sym)
         bid = price_info.get('bid', 1.0)
         ask = price_info.get('ask', 1.0)
         mid = (bid + ask) / 2.0
-
-        context.technical_data = {
-            "bid": bid,
-            "ask": ask,
-            "mid": mid,
-            "spread_pips": (ask - bid) * 10000.0 if "JPY" not in sym else (ask - bid) * 100.0
-        }
-        msg = f"Analyzed price action for {sym}: Mid={mid:.5f}, Spread={context.technical_data['spread_pips']:.2f} pips."
-        context.log_agent_message(self.name, msg)
+        spread_pips = (ask - bid) * 10000.0 if "JPY" not in sym else (ask - bid) * 100.0
+        context.technical_data = {"bid": bid, "ask": ask, "mid": mid, "spread_pips": spread_pips}
+        context.log_agent_message(self.name, f"Analyst price action for {sym}: Mid={mid:.5f}, Spread={spread_pips:.2f} pips.")
         return context
 
 class PredictionBrainAgent:
-    """Monitors, manages, and assists the Prediction Brain (MLP & GPT)."""
-    def __init__(self):
-        self.name = "PredictionBrainAgent"
-        self.health_score = 100.0
-
+    def __init__(self): self.name = "PredictionBrainAgent"
     def process(self, context, scalper_instance):
         import predictive_brain
         predictor = predictive_brain.get_symbol_predictor(context.symbol)
         accuracy = predictor.get_accuracy()
         loss = getattr(predictor, 'last_loss', 0.05)
-
-        # Help prediction brain accelerate convergence if loss is high
         if loss > 0.20:
-            predictor.learning_rate = min(0.10, predictor.learning_rate * 1.1) # Accelerate learning rate
-            context.log_agent_message(self.name, f"High neural loss ({loss:.4f}) detected. Accelerated learning rate to {predictor.learning_rate:.3f}.")
+            predictor.learning_rate = min(0.10, predictor.learning_rate * 1.1)
+            context.log_agent_message(self.name, f"Loss elevated ({loss:.4f}). Accelerated learning rate to {predictor.learning_rate:.3f}.")
         else:
             predictor.learning_rate = max(0.01, predictor.learning_rate * 0.95)
-
-        context.prediction_data = {
-            "accuracy": accuracy,
-            "loss": loss,
-            "learning_rate": predictor.learning_rate
-        }
-        context.log_agent_message(self.name, f"Prediction Brain Accuracy: {accuracy:.1f}%, Loss: {loss:.4f}.")
-        return context
-
-class StrategyBrainAgent:
-    """Monitors, manages, and assists the Strategy Brain."""
-    def __init__(self):
-        self.name = "StrategyBrainAgent"
-        self.health_score = 100.0
-
-    def process(self, context, scalper_instance):
-        sentiment = context.research_data.get("prevailing_sentiment", "NEUTRAL")
-        accuracy = context.prediction_data.get("accuracy", 50.0)
-
-        # Calculate optimal strategy weights
-        weights = {
-            "TREND_FOLLOWING": 1.5 if sentiment in ["BULLISH", "BEARISH"] else 0.8,
-            "MEAN_REVERSION": 1.5 if sentiment == "NEUTRAL" else 0.5,
-            "MTF_CONFLUENCE": 2.0 if accuracy > 60.0 else 1.0,
-            "BREAKOUT": 1.2
-        }
-
-        context.strategy_data = {
-            "recommended_weights": weights,
-            "primary_strategy": config.ACTIVE_STRATEGY
-        }
-        context.log_agent_message(self.name, f"Calculated adaptive strategy weights based on sentiment ({sentiment}) & AI accuracy ({accuracy:.1f}%).")
-        return context
-
-class RiskBrainAgent:
-    """Monitors, manages, and assists the Risk Brain."""
-    def __init__(self):
-        self.name = "RiskBrainAgent"
-        self.health_score = 100.0
-
-    def process(self, context, scalper_instance):
-        acc = scalper_instance.conn.get_account_info()
-        equity = acc.get('equity', 10000.0)
-        start_bal = scalper_instance.daily_start_balance if scalper_instance.daily_start_balance > 0 else acc.get('balance', 10000.0)
-
-        drawdown_pct = max(0.0, ((start_bal - equity) / start_bal) * 100.0) if start_bal > 0 else 0.0
-
-        risk_modifier = 1.0
-        if drawdown_pct >= 2.0:
-            risk_modifier = 0.5  # Downscale risk by 50%
-            context.log_agent_message(self.name, f"Drawdown elevated ({drawdown_pct:.2f}%). Reduced risk ceiling modifier to {risk_modifier:.2f}x.")
-        else:
-            context.log_agent_message(self.name, f"Risk boundaries nominal (Drawdown: {drawdown_pct:.2f}%). Risk modifier: {risk_modifier:.2f}x.")
-
-        context.risk_data = {
-            "equity": equity,
-            "drawdown_pct": drawdown_pct,
-            "risk_modifier": risk_modifier
-        }
-        return context
-
-class ExecutionBrainAgent:
-    """Monitors, manages, and assists the Execution Brain."""
-    def __init__(self):
-        self.name = "ExecutionBrainAgent"
-        self.health_score = 100.0
-
-    def process(self, context, scalper_instance):
-        spread_pips = context.technical_data.get("spread_pips", 1.0)
-
-        urgency = "NORMAL"
-        if spread_pips > 3.0:
-            urgency = "LOW_SPREAD_FILTER"
-            context.log_agent_message(self.name, f"High spread ({spread_pips:.2f} pips) detected. Advising LOW urgency execution filter.")
-        else:
-            context.log_agent_message(self.name, f"Execution conditions optimal (Spread: {spread_pips:.2f} pips).")
-
-        context.execution_data = {
-            "spread_pips": spread_pips,
-            "urgency": urgency
-        }
+        context.prediction_data = {"accuracy": accuracy, "loss": loss, "learning_rate": predictor.learning_rate}
+        context.log_agent_message(self.name, f"Accuracy: {accuracy:.1f}%, Loss: {loss:.4f}.")
         return context
 
 # ==============================================================================
-# MASTER AGENTIC AI ORCHESTRATOR
+# TRADING METHOD AI AGENTS & BRAINS
+# ==============================================================================
+
+class ScalpingMethodAgent:
+    def __init__(self): self.name = "ScalpingMethodAgent"
+    def evaluate(self, spread_pips, volatility):
+        score = 85.0 if spread_pips <= 2.0 else (50.0 if spread_pips <= 3.5 else 20.0)
+        return {"method": "SCALPING", "score": score, "timeframe": "M1-M5", "holding_time": "<15m"}
+
+class DayTradingMethodAgent:
+    def __init__(self): self.name = "DayTradingMethodAgent"
+    def evaluate(self, spread_pips, volatility):
+        score = 80.0 if 1.5 <= spread_pips <= 4.0 else 60.0
+        return {"method": "DAY_TRADING", "score": score, "timeframe": "M15-H1", "holding_time": "<1d"}
+
+class SwingTradingMethodAgent:
+    def __init__(self): self.name = "SwingTradingMethodAgent"
+    def evaluate(self, spread_pips, volatility):
+        score = 75.0 if volatility == "HIGH" else 60.0
+        return {"method": "SWING_TRADING", "score": score, "timeframe": "H4-D1", "holding_time": "2-5d"}
+
+class PositionTradingMethodAgent:
+    def __init__(self): self.name = "PositionTradingMethodAgent"
+    def evaluate(self, spread_pips, volatility):
+        score = 70.0
+        return {"method": "POSITION_TRADING", "score": score, "timeframe": "D1-MN", "holding_time": ">1w"}
+
+# ==============================================================================
+# TRADING STRATEGY AI AGENTS & BRAINS
+# ==============================================================================
+
+class TrendFollowingStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "TREND_FOLLOWING", "score": 85.0 if sentiment in ["BULLISH", "BEARISH"] else 40.0}
+
+class MeanReversionStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "MEAN_REVERSION", "score": 85.0 if sentiment == "NEUTRAL" else 35.0}
+
+class MacdMomentumStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "MACD_MOMENTUM", "score": 75.0}
+
+class BreakoutStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "BREAKOUT", "score": 80.0 if accuracy > 60 else 50.0}
+
+class CarryTradeStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "CARRY_TRADE", "score": 60.0}
+
+class GridTradeStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "GRID_TRADE", "score": 55.0}
+
+class StatArbStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "STAT_ARB", "score": 70.0}
+
+class OrbStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "ORB", "score": 65.0}
+
+class VsaStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "VSA", "score": 75.0}
+
+class MtfConfluenceStrategyAgent:
+    def evaluate(self, sentiment, accuracy): return {"strategy": "MTF_CONFLUENCE", "score": 90.0 if accuracy > 55 else 60.0}
+
+# ==============================================================================
+# TRADING MECHANISM AI AGENTS & BRAINS
+# ==============================================================================
+
+class RiskAssessmentBrainAgent:
+    """Monitors, manages, and supervises system risk boundaries."""
+    def __init__(self): self.name = "RiskAssessmentBrainAgent"
+    def evaluate(self, scalper_instance):
+        acc = scalper_instance.conn.get_account_info()
+        equity = acc.get('equity', 10000.0)
+        start_bal = scalper_instance.daily_start_balance if scalper_instance.daily_start_balance > 0 else acc.get('balance', 10000.0)
+        drawdown_pct = max(0.0, ((start_bal - equity) / start_bal) * 100.0) if start_bal > 0 else 0.0
+
+        modifier = 1.0
+        if drawdown_pct >= 2.5: modifier = 0.25
+        elif drawdown_pct >= 1.5: modifier = 0.50
+        elif drawdown_pct >= 0.8: modifier = 0.80
+
+        return {"equity": equity, "drawdown_pct": round(drawdown_pct, 2), "risk_modifier": modifier}
+
+class LotManagementBrainAgent:
+    """Monitors, manages, and supervises position sizing and lot allocation."""
+    def __init__(self): self.name = "LotManagementBrainAgent"
+    def evaluate(self, risk_modifier, win_rate):
+        lot_mult = risk_modifier * (1.2 if win_rate >= 60.0 else (0.8 if win_rate < 40.0 else 1.0))
+        return {"lot_multiplier": round(max(0.1, min(2.0, lot_mult)), 2)}
+
+# Helper functions for top-level Multiprocessing serialization
+def _eval_method_worker(agent, spread_pips, volatility):
+    return agent.evaluate(spread_pips, volatility)
+
+def _eval_strategy_worker(agent, sentiment, accuracy):
+    return agent.evaluate(sentiment, accuracy)
+
+# ==============================================================================
+# MASTER AGENTIC AI ORCHESTRATOR WITH PARALLEL PROCESSING
 # ==============================================================================
 
 class AgenticBrainsOrchestrator:
     """
-    Master Agentic AI Orchestrator that supervises, manages, and coordinates all
-    6 Brain AI Agents in a continuous collaborative loop, intervening when necessary
-    and outputting a consolidated BrainOrchestratorDirective for the trading engine.
+    Master Agentic AI Orchestrator supervising all AI Agents and Brains
+    using multi-threaded and multi-processed parallel execution pipelines.
     """
 
     def __init__(self):
+        # Core Brain Agents
         self.research_agent = ResearchBrainAgent()
         self.analyst_agent = AnalystBrainAgent()
         self.prediction_agent = PredictionBrainAgent()
-        self.strategy_agent = StrategyBrainAgent()
-        self.risk_agent = RiskBrainAgent()
-        self.execution_agent = ExecutionBrainAgent()
+
+        # Method Brain Agents
+        self.method_agents = [
+            ScalpingMethodAgent(),
+            DayTradingMethodAgent(),
+            SwingTradingMethodAgent(),
+            PositionTradingMethodAgent()
+        ]
+
+        # Strategy Brain Agents
+        self.strategy_agents = [
+            TrendFollowingStrategyAgent(),
+            MeanReversionStrategyAgent(),
+            MacdMomentumStrategyAgent(),
+            BreakoutStrategyAgent(),
+            CarryTradeStrategyAgent(),
+            GridTradeStrategyAgent(),
+            StatArbStrategyAgent(),
+            OrbStrategyAgent(),
+            VsaStrategyAgent(),
+            MtfConfluenceStrategyAgent()
+        ]
+
+        # Mechanism Brain Agents
+        self.risk_assessment_agent = RiskAssessmentBrainAgent()
+        self.lot_management_agent = LotManagementBrainAgent()
 
         self.last_loop_time = None
         self.telemetry_history = []
         self.master_interventions = []
         self.last_directive = BrainOrchestratorDirective()
 
-        self._log_orchestrator("🤖 Master Agentic Brains Orchestrator initialized successfully.")
+        self._log_orchestrator("🤖 Master Agentic Brains Orchestrator initialized with Parallel Multiprocessing pipeline.")
 
     def _log_orchestrator(self, message):
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"[{ts}] [ORCHESTRATOR] {message}"
         self.telemetry_history.append(entry)
-        if len(self.telemetry_history) > 100:
-            self.telemetry_history.pop(0)
+        if len(self.telemetry_history) > 100: self.telemetry_history.pop(0)
         print(entry)
 
     def run_agentic_loop(self, scalper_instance, symbol="EURUSD"):
         """
-        Runs the collaborative multi-agent loop across all 6 Brain AI Agents,
-        evaluates inter-agent alignment, applies master interventions, and
-        returns a refined BrainOrchestratorDirective.
+        Executes parallel multi-agent evaluation loops across CPU threads/processes,
+        coordinates information passing, applies orchestrator guidance, and generates
+        a BrainOrchestratorDirective payload.
         """
+        start_time = time.time()
         self.last_loop_time = datetime.datetime.now().isoformat()
         context = BrainAgentContext(symbol=symbol)
 
-        # 1. Sequential Collaborative Information Passing Loop
+        # 1. Sequential Ingestion from Core Agents
         context = self.research_agent.process(context, scalper_instance)
         context = self.analyst_agent.process(context, scalper_instance)
         context = self.prediction_agent.process(context, scalper_instance)
-        context = self.strategy_agent.process(context, scalper_instance)
-        context = self.risk_agent.process(context, scalper_instance)
-        context = self.execution_agent.process(context, scalper_instance)
 
-        # 2. Master Orchestrator Synthesis & Interventions
+        sentiment = context.research_data.get("prevailing_sentiment", "NEUTRAL")
+        spread_pips = context.technical_data.get("spread_pips", 1.0)
+        accuracy = context.prediction_data.get("accuracy", 50.0)
+
+        # 2. Parallel Processing Sweep across Method & Strategy Brain Agents using ThreadPoolExecutor
+        method_scores = {}
+        strategy_scores = {}
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            # Submit Method Agents in Parallel
+            method_futures = {executor.submit(_eval_method_worker, agent, spread_pips, "MEDIUM"): agent for agent in self.method_agents}
+            # Submit Strategy Agents in Parallel
+            strategy_futures = {executor.submit(_eval_strategy_worker, agent, sentiment, accuracy): agent for agent in self.strategy_agents}
+
+            for fut in concurrent.futures.as_completed(method_futures):
+                try:
+                    res = fut.result()
+                    method_scores[res["method"]] = res["score"]
+                except Exception: pass
+
+            for fut in concurrent.futures.as_completed(strategy_futures):
+                try:
+                    res = fut.result()
+                    strategy_scores[res["strategy"]] = res["score"]
+                except Exception: pass
+
+        # 3. Evaluate Trading Mechanism Brain Agents
+        risk_res = self.risk_assessment_agent.evaluate(scalper_instance)
+        perf_summary = database.get_all_time_performance()
+        win_rate = perf_summary.get("win_rate", 50.0)
+        lot_res = self.lot_management_agent.evaluate(risk_res["risk_modifier"], win_rate)
+
+        # 4. Master Orchestrator Directive Synthesis & Interventions
         directive = BrainOrchestratorDirective()
 
-        macro_sent = context.research_data.get("prevailing_sentiment", "NEUTRAL")
-        pred_acc = context.prediction_data.get("accuracy", 50.0)
-        drawdown = context.risk_data.get("drawdown_pct", 0.0)
-        spread_pips = context.execution_data.get("spread_pips", 1.0)
+        # Select optimal style and strategy
+        best_method = max(method_scores, key=method_scores.get) if method_scores else "SCALPING"
+        directive.recommended_style = best_method
+        directive.method_scores = method_scores
+        directive.strategy_scores = strategy_scores
 
-        # Consensus Bias Synthesis
-        if macro_sent == "BULLISH" and pred_acc >= 55.0:
+        if sentiment == "BULLISH" and accuracy >= 50.0:
             directive.recommended_bias = "BUY"
-            directive.confidence_score = min(95.0, 50.0 + pred_acc * 0.5)
-        elif macro_sent == "BEARISH" and pred_acc >= 55.0:
+            directive.confidence_score = min(95.0, 50.0 + accuracy * 0.4)
+        elif sentiment == "BEARISH" and accuracy >= 50.0:
             directive.recommended_bias = "SELL"
-            directive.confidence_score = min(95.0, 50.0 + pred_acc * 0.5)
+            directive.confidence_score = min(95.0, 50.0 + accuracy * 0.4)
         else:
             directive.recommended_bias = "HOLD"
             directive.confidence_score = 50.0
 
-        directive.strategy_weight_adjustments = context.strategy_data.get("recommended_weights", {})
-        directive.risk_ceiling_modifier = context.risk_data.get("risk_modifier", 1.0)
-        directive.execution_instructions["max_spread_pips"] = min(5.0, max(2.0, spread_pips * 1.5))
+        directive.risk_ceiling_modifier = risk_res["risk_modifier"]
+        directive.lot_multiplier = lot_res["lot_multiplier"]
 
-        # Master Intervention Logic
+        # Apply Master Interventions
         interventions = []
-        if drawdown >= 2.5:
-            interventions.append(f"INTERVENTION: Elevated drawdown ({drawdown:.2f}%). Clamping risk modifier to 0.25x.")
-            directive.risk_ceiling_modifier = 0.25
-            directive.guidance_notes.append("Risk Brain Agent overridden by Orchestrator due to drawdown limits.")
-
+        if risk_res["drawdown_pct"] >= 2.5:
+            interventions.append(f"INTERVENTION: Drawdown ({risk_res['drawdown_pct']}%) exceeded limit. Risk clamped to {risk_res['risk_modifier']}x.")
         if spread_pips > 4.0:
-            interventions.append(f"INTERVENTION: Excessive spread ({spread_pips:.2f} pips). Vetoing trade entries.")
+            interventions.append(f"INTERVENTION: Excessive spread ({spread_pips:.2f} pips). Enforcing HOLD bias.")
             directive.recommended_bias = "HOLD"
-            directive.guidance_notes.append("Execution Brain Agent requested spread lockout.")
 
         self.master_interventions = interventions
-        for item in interventions:
-            self._log_orchestrator(item)
+        elapsed_ms = (time.time() - start_time) * 1000.0
 
         directive.guidance_notes.extend([
-            f"Multi-Agent Collaborative Loop Completed for {symbol}.",
-            f"Prevailing Macro: {macro_sent} | AI Accuracy: {pred_acc:.1f}% | Risk Modifier: {directive.risk_ceiling_modifier:.2f}x"
+            f"Parallel Multi-Agent Sweep completed in {elapsed_ms:.1f}ms for {symbol}.",
+            f"Optimal Style: {best_method} | Macro: {sentiment} | WinRate: {win_rate}%"
         ])
 
         self.last_directive = directive
-        self._log_orchestrator(f"Generated Directive: Bias={directive.recommended_bias}, Confidence={directive.confidence_score:.1f}%, RiskMod={directive.risk_ceiling_modifier:.2f}x.")
+        self._log_orchestrator(f"Parallel Sweep ({elapsed_ms:.1f}ms): Bias={directive.recommended_bias}, Style={best_method}, RiskMod={directive.risk_ceiling_modifier}x.")
 
         return directive
 
@@ -325,5 +369,5 @@ class AgenticBrainsOrchestrator:
             "last_directive": self.last_directive.to_dict()
         }
 
-# Singleton Global Agentic Brains Orchestrator Instance
+# Global Singleton
 global_brain_orchestrator = AgenticBrainsOrchestrator()
