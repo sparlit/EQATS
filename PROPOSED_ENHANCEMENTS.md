@@ -10,9 +10,10 @@ This document outlines the strategic roadmap, proposed feature addons, control f
 ### 1.1 Multi-Venue Co-Location & Sub-Millisecond Direct FIX Gateway
 - **C++ QuickFIX Bridge**: Upgrade from Python-MT5 File-Based sync to native C++ QuickFIX 4.4 / 5.0 engine co-located in Equinix LD4 (London) and NY4 (New Jersey) data centers for <1ms execution latency.
 - **Kernel-Bypass Networking (Solarflare OpenOnload)**: Bypass OS network stack bottlenecks for DMA (Direct Market Access) quote streaming.
+- **FPGA Hardware Timestamping (IEEE 1588 PTP)**: Hardware clock synchronization ensuring sub-microsecond precision for event-driven market micro-structure logging.
 
 ### 1.2 Distributed Real-Time Microservices Architecture
-- **gRPC / Protocol Buffers IPC**: Migrate internal Event Bus communication from Python in-memory queues to high-speed Protobuf gRPC channels.
+- **gRPC / Protocol Buffers & NATS JetStream IPC**: Migrate internal Event Bus communication from Python in-memory queues to high-speed Protobuf gRPC channels and NATS JetStream distributed streaming.
 - **Distributed Memory Cache (Redis Cluster / QuestDB Time Series)**: Stream tick-by-tick order book L2 depth data directly into QuestDB for zero-copy feature engineering.
 
 ---
@@ -20,11 +21,12 @@ This document outlines the strategic roadmap, proposed feature addons, control f
 ## 2. FEATURE ADDONS (QUANTITATIVE & AI MODULES)
 
 ### 2.1 Deep Reinforcement Learning Execution (DRL-PPO / SAC)
-- **Deep Deterministic Policy Gradient (DDPG) & Soft Actor-Critic (SAC)**: Autonomous adaptive order placement agent trained on L2/L3 market depth data to minimize execution slippage and market impact.
+- **Deep Deterministic Policy Gradient (DDPG) & Soft Actor-Critic (SAC)**: Autonomous adaptive order placement agent trained on L2/L3 market depth data to minimize execution slippage and market impact (benchmarked against TWAP/VWAP).
 - **Transformer-based Multi-Timeframe Attention (MTA-Net)**: Spatial-temporal transformer that cross-attends M1, M5, H1, and D1 candle structures simultaneously to predict micro-breakouts.
 
 ### 2.2 Quantum-Inspired Optimization Engine
 - **QAOA (Quantum Approximate Optimization Algorithm)**: Quantum annealing model (simulated or Qiskit-integrated) for instant Markowitz mean-variance portfolio weight solving across 100+ assets under non-linear constraints.
+- **CVXPY Convex Optimization Engine**: Robust quadratic programming solver for Real-Time Black-Litterman and Risk Parity asset allocation.
 - **Cross-Exchange Funding & Basis Arbitrage**: Autonomous tracking of crypto perpetual funding rates vs spot prices for delta-neutral cash-and-carry yields.
 
 ---

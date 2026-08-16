@@ -22,15 +22,19 @@ This document tracks current accomplishments, open tasks, pending issues, and fu
   - Designed deep SESS <GO> (Shortcut F11) dashboard panel mapping GMT sessions, active countdown clocks, and overlapping currency session directory (passed, active, and coming rows).
 - [x] **Task 5: Monospace Tkinter System Console**
   - Embedded scrolling stdout redirection panel at the bottom side of the window to stream parallel multi-threaded evaluations natively.
+- [x] **Task 6: Multi-Monitor Detach Support for Key Dashboard Panels**
+  - Enabled detaching key panels (`SESS <GO>`, `CHART <GO>`, `DOM <GO>`, `WHALE <GO>`, `BACKTEST <GO>`) into auxiliary floating Tkinter top-level windows.
+- [x] **Task 7: Real-Time Webhook Order Execution Alerts**
+  - Integrated Discord Webhook and Telegram Bot dispatchers for order execution notifications and daily equity summary broadcasts.
 
 ---
 
 ## 🔮 Strategic Future Roadmap & Open Issues
-- [ ] **Roadmap Item 1: Direct FIX Protocol 4.4 routing engine**
-  - *Description:* Connect directly to institutional liquidity providers, bypassing MT5 terminal latency.
-- [ ] **Roadmap Item 2: Deep Reinforcement Learning Policy (PPO)**
-  - *Description:* Train an autonomous RL agent on simulated market environments to optimize dynamic stop-loss adjustments.
-- [ ] **Roadmap Item 3: Multi-Monitor detach support**
-  - *Description:* Support detaching `SESS <GO>` and `CHART <GO>` panels into floating auxiliary monitor panels.
-- [ ] **Roadmap Item 4: Webhook Discord/Telegram order execution alerts**
-  - *Description:* Broadcast FIX routing confirmations and daily equity audits to admin channels.
+- [ ] **Roadmap Item 1: Native C++ QuickFIX 4.4 / 5.0 Direct LP Gateway**
+  - *Description:* Connect directly to institutional liquidity providers (Equinix LD4/NY4) using zero-dependency or QuickFIX engine, bypassing terminal latencies.
+- [ ] **Roadmap Item 2: Deep Reinforcement Learning Policy (SAC / DDPG)**
+  - *Description:* Train autonomous DRL agents on L2/L3 market depth data to optimize dynamic order execution, stop-loss adjustments, and execution slippage minimization.
+- [ ] **Roadmap Item 3: Hardware Timestamping & Kernel Bypass (OpenOnload / PTP)**
+  - *Description:* Implement Solarflare kernel bypass networking and PTP IEEE 1588 precision hardware clocks for sub-microsecond event logging.
+- [ ] **Roadmap Item 4: Quantum & Convex Optimization Portfolio Solver (QAOA / CVXPY)**
+  - *Description:* Integrate Qiskit QAOA and CVXPY solvers for real-time mean-variance and Black-Litterman multi-asset risk parity allocation across 100+ instruments.
