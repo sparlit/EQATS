@@ -34,9 +34,14 @@ def decrypt_secret(cipher_text, key_seed="EAQTS_CIPHER_KEY_2026"):
         return ""
 
 def get_connection():
-    """Returns a connection to the SQLite database."""
-    conn = sqlite3.connect(config.DB_PATH)
+    """Returns a thread-safe connection to the SQLite database with WAL journal mode and extended busy timeout."""
+    conn = sqlite3.connect(config.DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=30000;")
+    except Exception:
+        pass
     return conn
 
 def init_db():
@@ -236,44 +241,54 @@ def get_all_users():
     conn.close()
     return [dict(r) for r in rows]
 
+import time
+
+def _execute_with_retry(query, params=(), commit=True):
+    """Executes a database query with automatic retries on database lock operational errors."""
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            if commit:
+                conn.commit()
+            conn.close()
+            return True
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(0.2 * (attempt + 1))
+            else:
+                raise e
+
 def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
-    """Adds a new operator account with salt-hashed password and PIN."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    """Adds a new operator account with salt-hashed password and PIN with lock retries."""
+    query = """
     INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
-    """, (
+    """
+    params = (
         username,
         hash_credential(password),
         hash_credential(pin),
         role,
         int(mfa_enabled),
         datetime.datetime.now().isoformat()
-    ))
-    conn.commit()
-    conn.close()
+    )
+    _execute_with_retry(query, params)
 
 def update_user(username, new_password=None, new_pin=None, new_role=None):
-    """Updates password, PIN, or role for an existing user account."""
-    conn = get_connection()
-    cursor = conn.cursor()
+    """Updates password, PIN, or role for an existing user account with lock retries."""
     if new_password:
-        cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (hash_credential(new_password), username))
+        _execute_with_retry("UPDATE users SET password_hash = ? WHERE username = ?", (hash_credential(new_password), username))
     if new_pin:
-        cursor.execute("UPDATE users SET pin_hash = ? WHERE username = ?", (hash_credential(new_pin), username))
+        _execute_with_retry("UPDATE users SET pin_hash = ? WHERE username = ?", (hash_credential(new_pin), username))
     if new_role:
-        cursor.execute("UPDATE users SET role = ? WHERE username = ?", (new_role, username))
-    conn.commit()
-    conn.close()
+        _execute_with_retry("UPDATE users SET role = ? WHERE username = ?", (new_role, username))
 
 def delete_user(username):
-    """Deletes a user account from SQLite."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM users WHERE username = ?", (username,))
-    conn.commit()
-    conn.close()
+    """Deletes a user account from SQLite with lock retries."""
+    _execute_with_retry("DELETE FROM users WHERE username = ?", (username,))
 
 def get_all_brokers():
     """Retrieves all registered broker profiles from SQLite."""

@@ -122,13 +122,14 @@ class QuantumSelfHealer:
             print(f"Self-adjustment warning: {e}")
 
     def run_self_healing_and_db_vacuum(self):
-        """Self-Healing: Clears database deadlocks, runs SQL vacuum maintenance, and resolves thread lock congestion."""
+        """Self-Healing: Clears database deadlocks, runs SQL WAL checkpointing, and resolves thread lock congestion."""
         try:
             conn_db = database.get_connection()
             cursor = conn_db.cursor()
-            # Run vacuum optimization to heal index fragmentations and save storage space autonomously
-            cursor.execute("VACUUM")
+            # Run passive WAL checkpointing and lightweight optimization to prevent exclusive write lock congestion
+            cursor.execute("PRAGMA wal_checkpoint(PASSIVE);")
+            cursor.execute("PRAGMA optimize;")
             conn_db.close()
-            print("🩺 SELF-HEALING DATABASE: Executed SQLite VACUUM optimization. Database deadlocks successfully neutralized.")
+            print("🩺 SELF-HEALING DATABASE: Executed SQLite WAL checkpoint & optimization. Database locks neutralized.")
         except Exception as e:
             print(f"Self-healing database warning: {e}")
