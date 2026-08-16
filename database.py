@@ -34,12 +34,12 @@ def decrypt_secret(cipher_text, key_seed="EAQTS_CIPHER_KEY_2026"):
         return ""
 
 def get_connection():
-    """Returns a thread-safe connection to the SQLite database with WAL journal mode and extended busy timeout."""
-    conn = sqlite3.connect(config.DB_PATH, timeout=30.0)
+    """Returns a thread-safe connection to the SQLite database with WAL journal mode and 60-second busy timeout."""
+    conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA busy_timeout=30000;")
+        conn.execute("PRAGMA busy_timeout=60000;")
     except Exception:
         pass
     return conn
@@ -306,12 +306,10 @@ def get_all_brokers():
     return brokers
 
 def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", is_active=0):
-    """Adds a new broker gateway configuration into SQLite."""
-    conn = get_connection()
-    cursor = conn.cursor()
+    """Adds a new broker gateway configuration into SQLite with lock retries."""
     if is_active:
-        cursor.execute("UPDATE broker_credentials SET is_active = 0")
-    cursor.execute("""
+        _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
+    _execute_with_retry("""
     INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -324,45 +322,35 @@ def add_broker_account(broker_name, server, account_id, password, leverage="1:10
         1 if is_active else 0,
         datetime.datetime.now().isoformat()
     ))
-    conn.commit()
-    conn.close()
 
 def set_active_broker(broker_id):
-    """Sets a specific broker account as the active primary gateway."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE broker_credentials SET is_active = 0")
-    cursor.execute("UPDATE broker_credentials SET is_active = 1 WHERE id = ?", (broker_id,))
-    conn.commit()
-    conn.close()
+    """Sets a specific broker account as the active primary gateway with lock retries."""
+    _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
+    _execute_with_retry("UPDATE broker_credentials SET is_active = 1 WHERE id = ?", (broker_id,))
 
 def delete_broker_account(broker_id):
-    """Deletes a broker profile from SQLite."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM broker_credentials WHERE id = ?", (broker_id,))
-    conn.commit()
-    conn.close()
+    """Deletes a broker profile from SQLite with lock retries."""
+    _execute_with_retry("DELETE FROM broker_credentials WHERE id = ?", (broker_id,))
 
 def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo"):
-    """Saves or updates primary active broker parameters in SQLite."""
+    """Saves or updates primary active broker parameters in SQLite with lock retries."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM broker_credentials WHERE is_active = 1 LIMIT 1")
     row = cursor.fetchone()
+    conn.close()
+
     if row:
-        cursor.execute("""
+        _execute_with_retry("""
         UPDATE broker_credentials
         SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, updated_at = ?
         WHERE id = ?
         """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat(), row['id']))
     else:
-        cursor.execute("""
+        _execute_with_retry("""
         INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, 1, ?)
         """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat()))
-    conn.commit()
-    conn.close()
 
 def get_broker_credentials():
     """Retrieves active broker connection parameters and decrypts the password."""
@@ -395,10 +383,8 @@ def get_broker_credentials():
     }
 
 def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):
-    """Logs an analysis assessment made by the brain."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    """Logs an analysis assessment made by the brain with lock retries."""
+    _execute_with_retry("""
     INSERT INTO assessments (timestamp, symbol, trend_direction, rsi_val, atr_val, decision, explanation)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -410,14 +396,10 @@ def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanat
         decision,
         explanation
     ))
-    conn.commit()
-    conn.close()
 
 def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size):
-    """Logs the initiation of a trade."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    """Logs the initiation of a trade with lock retries."""
+    _execute_with_retry("""
     INSERT INTO trades (ticket, symbol, direction, open_price, open_time, sl, tp, lot_size, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -431,14 +413,10 @@ def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size):
         lot_size,
         'OPEN'
     ))
-    conn.commit()
-    conn.close()
 
 def log_trade_close(ticket, close_price, profit, reason):
-    """Updates the trade record when a trade is closed."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    """Updates the trade record when a trade is closed with lock retries."""
+    _execute_with_retry("""
     UPDATE trades
     SET status = 'CLOSED', close_price = ?, close_time = ?, profit = ?, close_reason = ?
     WHERE ticket = ?
@@ -449,8 +427,6 @@ def log_trade_close(ticket, close_price, profit, reason):
         reason,
         str(ticket)
     ))
-    conn.commit()
-    conn.close()
 
 def get_open_trades():
     """Returns all open trades, auto-initializing database if table does not exist."""
@@ -471,10 +447,8 @@ def get_open_trades():
         return [dict(row) for row in rows]
 
 def log_news_headline(headline, sentiment):
-    """Logs a macro headline with its parsed sentiment classification."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    """Logs a macro headline with its parsed sentiment classification with lock retries."""
+    _execute_with_retry("""
     INSERT INTO news (timestamp, headline, sentiment)
     VALUES (?, ?, ?)
     """, (
@@ -482,8 +456,6 @@ def log_news_headline(headline, sentiment):
         headline,
         sentiment.upper()
     ))
-    conn.commit()
-    conn.close()
 
 def get_prevailing_news_sentiment():
     """
