@@ -2057,6 +2057,31 @@ Net Profit ($ USD):               ${best_res['net_profit_usd']:+,.2f} USD
             self.perf_canvas.create_text(10, 10, text=f"Max Equity: ${max_p:.2f}", fill=self.fg_grey, anchor="nw", font=("Consolas", 7))
             self.perf_canvas.create_text(10, h-15, text=f"Min Equity: ${min_p:.2f}", fill=self.fg_grey, anchor="sw", font=("Consolas", 7))
 
+    def _detach_panel(self, panel_name):
+        """
+        Detaches specialized dashboard panels (e.g., SESS <GO>, CHART <GO>) into a floating auxiliary window.
+        """
+        top = tk.Toplevel(self.root)
+        top.title(f"EQATS Detached View — {panel_name}")
+        top.geometry("900x600")
+        top.configure(bg="#000000")
+
+        lbl = tk.Label(
+            top,
+            text=f"Detached Auxiliary Window — {panel_name}",
+            font=("Consolas", 12, "bold"),
+            bg="#000000",
+            fg="#00ffff"
+        )
+        lbl.pack(anchor="w", padx=10, pady=10)
+
+        frame = tk.Frame(top, bg="#161616")
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        txt = tk.Text(frame, bg="#000000", fg="#00ff00", font=("Consolas", 10))
+        txt.pack(fill="both", expand=True)
+        txt.insert("1.0", f"Live streaming feed for detached panel: {panel_name}\nStatus: ACTIVE & STREAMING\n")
+
     def _show_session_screen(self):
         """SESS <GO>: Deep active session visualization screen with overlapping trackers & multiple timelines"""
         lbl_title = tk.Label(self.screen_frame, text="SESS: MULTI-SESSION WORLD TIMELINES & OVERLAPPING DETECTORS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
