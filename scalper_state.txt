@@ -1,2 +1,4 @@
-10000.00|10000.00|0|Crypto Weekend Session (24/7)|None|None|Active Tracker
+10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ | ICE Brent|Tokyo FX (00:26:58) | Sydney ASX (01:26:58) | Tokyo TSE (01:26:58)|Active Tracker
 SCANS_HEADER
+EURUSD|1.14539|1.13635|UP|33.7|0.00354|HOLD (Hazardous session: Daily broker rollover hour.)|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.28367|1.27715|UP|58.8|0.00336|HOLD (Hazardous session: Daily broker rollover hour.)|0.0|0.0|0.0|0,0,0,0,0
