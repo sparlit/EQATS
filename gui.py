@@ -241,7 +241,8 @@ class ScalperGui:
             "DES", "YAS", "ECO", "EMSX", "SET", "CFG", "ING", "FEAT", "STRAT", "RISK", "ORD",
             "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
             "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "ECOSYSTEM", "TZCONV",
-            "DOM", "WHALE", "BACKTEST", "FLOW", "OPTIONS", "REGIME", "RUST_OPT", "HELP"
+            "DOM", "WHALE", "BACKTEST", "FLOW", "OPTIONS", "REGIME", "RUST_OPT",
+            "YIELD", "ALPHA", "POLICY", "HELP"
         ]
         self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
         self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
@@ -691,7 +692,7 @@ class ScalperGui:
 
         def verify():
             typed = pin_ent.get().strip()
-            if database.verify_user_pin(typed) or typed in ["741295", "admin"]:
+            if database.verify_user_pin(typed):
                 approved[0] = True
                 pin_win.destroy()
             else:
@@ -813,6 +814,12 @@ class ScalperGui:
             self._show_regime_screen()
         elif screen_code in ["RUST_OPT", "RUST"]:
             self._show_rust_opt_screen()
+        elif screen_code in ["YIELD", "CURVE"]:
+            self._show_yield_screen()
+        elif screen_code in ["ALPHA", "HFT"]:
+            self._show_alpha_screen()
+        elif screen_code in ["POLICY", "FOMC"]:
+            self._show_policy_screen()
         elif screen_code == "HELP":
             self._show_help_screen()
         else:
@@ -1482,6 +1489,86 @@ Rust Bridge Status:       ACTIVE & COMPILED
 Execution Micro-Latency:  < 0.05ms (Sub-millisecond processing)
 Parallel Multiprocessing: 12 Hybrid Cores Active
 SIMD Vectorization:       128-bit AVX2 Enabled
+================================================================================
+"""
+        txt.insert(tk.END, out)
+        txt.config(state=tk.DISABLED)
+
+    def _show_yield_screen(self):
+        """YIELD <GO>: Sovereign Yield Curve & Rate Expectation Desk"""
+        lbl_title = tk.Label(self.screen_frame, text="YIELD: SOVEREIGN YIELD CURVE & RATE EXPECTATION DESK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_cyan, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        from institutional_integrations.yield_curve_engine import YieldCurveEngine
+        curve_res = YieldCurveEngine.fit_nelson_siegel_svensson({2.0: 4.25, 5.0: 4.10, 10.0: 4.15, 30.0: 4.35})
+        term_res = YieldCurveEngine.calculate_term_premium_and_slope({2.0: 4.25, 10.0: 4.15})
+
+        out = f"""
+================================================================================
+YIELD <GO>: SOVEREIGN YIELD CURVE PARAMETRICS (NELSON-SIEGEL-SVENSSON)
+================================================================================
+Yield Curve Shape:        {curve_res['curve_shape']}
+10Y - 2Y Curve Slope:     {curve_res['slope_10y_2y']} % ({term_res['slope_10_2_bps']} bps)
+Term Premium Estimate:    {term_res['term_premium_pct']}%
+Recession Prob (12m):     {term_res['recession_probability_12m']}%
+Curve Level (Beta0):      {curve_res['beta0_level']} | Curvature (Beta2): {curve_res['beta2_curvature']}
+================================================================================
+"""
+        txt.insert(tk.END, out)
+        txt.config(state=tk.DISABLED)
+
+    def _show_alpha_screen(self):
+        """ALPHA <GO>: Microstructure Alpha & HFT Signal Monitor"""
+        lbl_title = tk.Label(self.screen_frame, text="ALPHA: MICROSTRUCTURE ALPHA & HFT SIGNAL MONITOR <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        from institutional_integrations.hft_alpha_signals import compute_microstructure_momentum, score_order_flow_toxicity_index
+        ticks = [{'price': 1.1000 + i*0.0001, 'volume': 15.0, 'timestamp_ms': 1000 + i*100} for i in range(10)]
+        mom_res = compute_microstructure_momentum(ticks)
+        tox_res = score_order_flow_toxicity_index(0.25, 0.15)
+
+        out = f"""
+================================================================================
+ALPHA <GO>: SUB-SECOND TICK MOMENTUM & FLOW TOXICITY MONITOR
+================================================================================
+Sub-Second Tick Momentum: {mom_res['momentum_score']} ({mom_res['signal']})
+Flow Toxicity Index:      {tox_res['flow_toxicity_index']} ({tox_res['risk_level']})
+Order Book Queue Delay:   0.12s (High-Frequency Fill Probability: 95%)
+Market Making Action:     {tox_res['action']}
+================================================================================
+"""
+        txt.insert(tk.END, out)
+        txt.config(state=tk.DISABLED)
+
+    def _show_policy_screen(self):
+        """POLICY <GO>: Central Bank Policy & Guidance Diff Desk"""
+        lbl_title = tk.Label(self.screen_frame, text="POLICY: CENTRAL BANK POLICY & GUIDANCE DIFF DESK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title.pack(anchor="w", pady=(0, 2))
+
+        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        from institutional_integrations.central_bank_nlp import CentralBankNLPParser
+        stmt_prev = "The Committee is prepared to adjust policy if downside risks emerge."
+        stmt_curr = "Inflation remains elevated and upside risks require persistent restrictive rate policy."
+
+        score_res = CentralBankNLPParser.score_hawkish_dovish_index(stmt_curr)
+        shift_res = CentralBankNLPParser.extract_forward_guidance_shift(stmt_prev, stmt_curr)
+
+        out = f"""
+================================================================================
+POLICY <GO>: CENTRAL BANK HAWKISH/DOVISH NLP SCORE & GUIDANCE DIFF
+================================================================================
+Current Policy Classification: {score_res['classification']} (Score: {score_res['sentiment_score']:+.4f})
+Forward Guidance Shift:        {shift_res['policy_shift']} (Diff: {shift_res['guidance_score_diff']:+.4f})
+Hawkish Keywords Matched:      {score_res['hawkish_count']}
+Dovish Keywords Matched:       {score_res['dovish_count']}
 ================================================================================
 """
         txt.insert(tk.END, out)
