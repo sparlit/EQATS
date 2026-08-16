@@ -215,8 +215,7 @@ def verify_user_credentials(username, password_input, pin_input=None):
 
     if pin_input is not None and str(pin_input).strip():
         typed_pin = str(pin_input).strip()
-        # Accept either the user's specific pin_hash or the standard default 123456/741295
-        pin_valid = (row['pin_hash'] == hash_credential(typed_pin)) or (typed_pin in ["123456", "741295", "admin"])
+        pin_valid = (row['pin_hash'] == hash_credential(typed_pin))
         return pin_valid
 
     return True

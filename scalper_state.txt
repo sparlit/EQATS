@@ -1,2 +1,4 @@
-10000.00|10000.00|0|Crypto Weekend Session (24/7)|None|None|Active Tracker
+10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ | CME Futures|Sydney FX (00:01:25) | Tokyo FX (01:01:25) | Sydney ASX (02:01:25)|Active Tracker
 SCANS_HEADER
+EURUSD|1.12437|1.12843|DOWN|46.1|0.00295|Breakout Setup: Waiting for: Inside Squeeze Channel [1.11896 - 1.13035] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.2ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.22669|1.24502|DOWN|38.7|0.00418|Breakout Setup: Waiting for: Inside Squeeze Channel [1.22117 - 1.24384] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.2ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
