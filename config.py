@@ -103,13 +103,10 @@ if os.name == 'nt' and "APPDATA" in os.environ:
     except Exception:
         pass
 
-# 6. Telegram & Discord Notifications
+# 6. Telegram Notifications
 TELEGRAM_ENABLED = False
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
-
-DISCORD_WEBHOOK_ENABLED = False
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 
 # 7. Execution Loop
 CHECK_INTERVAL_SECONDS = 15        # How often to check for candles and trade opportunities

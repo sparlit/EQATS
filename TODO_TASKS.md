@@ -25,12 +25,12 @@ This document tracks current accomplishments, open tasks, pending issues, and fu
 
 ---
 
-## 🔮 Strategic Future Roadmap & Open Issues (Completed & Integrated)
-- [x] **Roadmap Item 1: Direct FIX Protocol 4.4 routing engine**
-  - *Description:* Connect directly to institutional liquidity providers via FIX 4.4 tag-value message engine (`institutional_integrations/rust_bridge.py`), bypassing MT5 terminal latency.
-- [x] **Roadmap Item 2: Deep Reinforcement Learning Policy (PPO)**
-  - *Description:* Trained an autonomous RL actor-critic agent (`ActorCriticPolicy` in `institutional_integrations/machine_learning.py`) to optimize dynamic position sizing and stop adjustments.
-- [x] **Roadmap Item 3: Multi-Monitor detach support**
-  - *Description:* Supported detaching `SESS <GO>`, `CHART <GO>`, and terminal panels into floating auxiliary monitor windows via `_detach_panel()` in `gui.py`.
-- [x] **Roadmap Item 4: Webhook Discord/Telegram order execution alerts**
-  - *Description:* Broadcast FIX routing confirmations and daily equity audits to Telegram and Discord channels using `telegram_bot.py`.
+## 🔮 Strategic Future Roadmap & Open Issues
+- [ ] **Roadmap Item 1: Direct FIX Protocol 4.4 routing engine**
+  - *Description:* Connect directly to institutional liquidity providers, bypassing MT5 terminal latency.
+- [ ] **Roadmap Item 2: Deep Reinforcement Learning Policy (PPO)**
+  - *Description:* Train an autonomous RL agent on simulated market environments to optimize dynamic stop-loss adjustments.
+- [ ] **Roadmap Item 3: Multi-Monitor detach support**
+  - *Description:* Support detaching `SESS <GO>` and `CHART <GO>` panels into floating auxiliary monitor panels.
+- [ ] **Roadmap Item 4: Webhook Discord/Telegram order execution alerts**
+  - *Description:* Broadcast FIX routing confirmations and daily equity audits to admin channels.
