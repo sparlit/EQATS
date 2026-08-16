@@ -1055,80 +1055,113 @@ class ScalperGui:
 
     def _show_help_screen(self):
         """HELP <GO>: Help command directory and system details"""
-        lbl_title = tk.Label(self.screen_frame, text="HELP: BLOOMBERG USER DIRECTORY & CODEBOOK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(self.screen_frame, text="HELP: EQATS QUANTUM TERMINAL OPERATIONAL MANUAL <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
         lbl_title.pack(anchor="w", pady=(0, 5))
 
-        # Help Screen scrolling textbox
-        text_widget = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 10), insertbackground=self.fg_accent, wrap=tk.WORD, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        text_widget.pack(fill=tk.BOTH, expand=True, pady=5)
+        # Container Frame for Text widget + Vertical Scrollbar
+        help_container = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        help_container.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        sb = ttk.Scrollbar(help_container, orient=tk.VERTICAL)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        text_widget = tk.Text(help_container, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 10), insertbackground=self.fg_accent, wrap=tk.WORD, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", yscrollcommand=sb.set)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb.config(command=text_widget.yview)
 
         help_content = """================================================================================
-           BLOOMBERG PROFESSIONAL SERVICE - COMPLETE OPERATIONAL MANUAL
+          ELITE AUTONOMOUS QUANTUM TRADING SYSTEM (EAQTS VERSION 5.0)
+               COMPLETE OPERATIONAL DIRECTORY & COMMAND MANUAL
 ================================================================================
 
-1) AVAILABLE SHEET CODES (Type code and press <GO> or select from header dropdown):
+1) ALL AVAILABLE TERMINAL SHEET CODES:
 --------------------------------------------------------------------------------
-- MAIN      : Multi-Asset Scan Matrix & Active trades terminal.
-- GP        : Graphical Price chart (Supports indicator lines and pivot S/R).
-- WEI       : World Currency, Crypto and Equity Indices board.
-- NEWS      : Live macro news headlines feed with dynamic NLP sentiment tags.
-- ANR       : Consensus recommendations matrix, MLP neural model, and Local LLM.
-- CHART     : TradingView FOSS Candle Chart & Performance trajectory curve.
-- SESS      : GMT session timelines countdown and overlap directory.
-- DES       : Detailed Security specifications & contract parameters.
-- YAS       : Dynamic Yield metrics, Macaulay/Modified duration, and spread index.
-- ECO       : Global Economic Calendar releases tracking actuals/forecasts.
-- EMSX      : Algorithmic transaction routing configurations (FIT, FXGO venues).
-- SET       : System Settings, risk per trade, and communication configs.
-- ING       : Real-time Data Ingestion telemetry (REST / WebSockets feeds).
-- FEAT      : Quantitative Feature Store input vectors and variances.
-- STRAT     : Strategy Voting weight matrix and dynamic state transitions.
-- RISK      : Circuit breakers, VaR boundaries, and stop protection models.
-- ORD       : Order Book, Trade Book, Spread multi-leg, and Trigger orders.
-- LOG       : Direct Execution logs and database transactions logs.
-- MON       : CPU load, memory leak, and connection pings monitoring.
-- SEC       : User credentials, 2FA dynamic tokens, B-Unit hardware authentication.
-- SAFE      : Geopolitical commodity blocker and overnight rollover protectors.
-- PF        : Portfolio Position Book, asset holdings, and free ledger funds.
-- WATCH     : Interactive visual Symbol Watchlist with Symbols Heatmap.
-- MKT       : Exchange messages, movers, scanners, and fundamentals.
+- MAIN      : Multi-Asset Cognitive Scans Matrix & Active Trades Terminal.
+- GP        : Graphical Price Chart (supports indicator lines and pivot S/R).
+- WEI       : World Exchange & Equity Indices tracking board (DXY, BTC, SPX).
+- NEWS      : Live macro headlines feed with real-time NLP sentiment scores.
+- ANR       : Consensus recommendations matrix, MLP neural model, & Local LLM.
+- PORT      : Markowitz Mean-Variance Portfolio Allocator & Sharpe Solver.
+- MCTS      : Monte Carlo risk analytics, 95% VaR & Expected Shortfall (ES).
+- VDS       : Vector Database cluster map & FAISS L2 nearest-neighbor search.
+- CHART     : TradingView-style Candlestick Chart & Performance trajectory curve.
+- SESS      : Multi-session world timelines, countdowns & overlap detectors.
+- DES       : Security Description, contract specifications & tick properties.
+- YAS       : Dynamic Yield metrics, duration, convexity & carry swap spreads.
+- ECO       : Global Economic Calendar releases tracking actuals and forecasts.
+- EMSX      : Algorithmic transaction routing engine (FIT, FXGO, Dark Pools).
+- SET       : System settings, risk per trade, theme customization & notifications.
+- CFG       : Multi-Broker DB, User Credentials CRUD & Feature Toggles.
+- ING       : Real-time Data Ingestion telemetry (REST & WebSockets feeds).
+- FEAT      : Quantitative Feature Store input vectors & distribution drift.
+- STRAT     : Strategy Voting weight matrix & dynamic state transitions.
+- RISK      : Circuit breakers, VaR boundaries & dynamic stop protection models.
+- ORD       : Order Book, Trade Book, Spread multi-leg & Trigger orders.
+- LOG       : Direct Execution logs & database transaction logs.
+- MON       : Hardware CPU load, memory usage, thread counts & API health.
+- SEC       : User credentials, 2FA dynamic tokens & RBAC authority model.
+- SAFE      : Geopolitical commodity blocker & overnight rollover protectors.
+- PF        : Portfolio Position Book, asset holdings & free ledger funds.
+- WATCH     : Interactive Symbol Watchlist with sticky header & MTF heatmap.
+- MKT       : Integrated Market Scanners, Movers & 13 Specialized Sub-Tabs.
 - SYM       : Broker specs, lot sizes, margins, and spreads limits.
-- AIC       : AI & LLM configurations, learning rates, attention dimensions.
-- CRAWL     : Scraper feeds (DeFiLlama, TokenTerminal, dropsTab, ICOdrops).
-- TRADEBOOK : Settled closed trade logs.
+- AIC       : AI & LLM hyperparameter configurations & learning attention weights.
+- CRAWL     : Scraper feeds (DeFiLlama, TokenTerminal, DropsTab, ICOdrops).
+- CRED      : Security privileges, dynamic TOTP tokens & MFA controllers.
+- TRADEBOOK : Settled closed trade logs & Cognitive Trade Reflection protocol.
+- TZCONV    : Forex Market Time Zone & Timeline Converter (Kolkata, UTC, NY, etc.).
+- AGENT     : AI System Supervisor Agent & Governance Desk.
+- ECOSYSTEM : Full System Visualizer & Parallel Multi-Agent Architecture.
+- SENTIMENT : Deep NLP news sentiment analyzer & corporate filing parser.
+- PREDICTOR : Stock Market Predictor with OHLC forecast curves & ensemble regressions.
 - HELP      : Displays this interactive operational handbook.
 
-2) KEYBOARD SHORTCUTS:
+2) MARKET TAB (MKT <GO>) — 13 SPECIALIZED SUB-TABS:
 --------------------------------------------------------------------------------
-- [F2] MAIN  |  [F3] GP    |  [F4] WEI   |  [F5] NEWS |  [F6] ANR
-- [F7] PORT  |  [F8] MCTS  |  [F9] VDS   |  [F10] CHART |  [F11] SESS  |  [F1] HELP
+The Market screen includes 13 sub-tabs accessible via the 2-row navigation bar:
+  1. Messages      : Live exchange messages, B-Pipe heartbeats & FIT quote requests.
+  2. Movers        : Highest price change movers, net changes & momentum vibes.
+  3. Scanners      : Real-time ATR, RSI oversold/overbought & Bollinger Band scans.
+  4. Fundamentals  : Corporate issuer details, market caps, yields & filing links.
+  5. Corp Actions  : Validator upgrades, margin resets & central bank decisions.
+  6. Market Hours  : Active global market sessions, UTC intervals & volume profiles.
+  7. Correlation   : 8x8 Currency Correlation Matrix across FX majors & pairs.
+  8. Risk-On/Off   : Global Risk-On / Risk-Off sentiment meter & market proxies.
+  9. Gain & Loss   : Drawdown Recovery % Calculator (calculates break-even gain).
+ 10. Pip Value     : Pip Value Calculator across standard, mini & micro lot sizes.
+ 11. Pivots        : Multi-system Pivot Point Calculator (Floor, Fibonacci, Camarilla).
+ 12. Position Size : Position Size Calculator based on account balance & risk %.
+ 13. Regulation   : Forex Regulatory Organizations directory (CFTC, FCA, ASIC, etc.).
 
-3) FREQUENTLY ASKED QUESTIONS (FAQ):
+3) KEYBOARD SHORTCUTS:
+--------------------------------------------------------------------------------
+- [F2] MAIN  |  [F3] GP    |  [F4] WEI   |  [F5] NEWS   |  [F6] ANR
+- [F7] PORT  |  [F8] MCTS  |  [F9] VDS   |  [F10] CHART  |  [F11] SESS  |  [F1] HELP
+
+4) FREQUENTLY ASKED QUESTIONS (FAQ):
 --------------------------------------------------------------------------------
 Q: How does the system trade completely autonomously?
-A: The Python background coordinator thread pools tick rates, parses indicator
-   confluences, checks macro news sentiment filters, runs the neural prediction veto,
-   and submits orders directly without requiring any human manual entry.
+A: The background coordinator thread polls tick rates, calculates indicator
+   confluences, checks news sentiment filters, evaluates neural prediction vetoes,
+   and submits orders directly with zero human manual intervention required.
+
+Q: What is the position sizing policy for new trades?
+A: Initial positions on any new symbol are strictly fixed at 0.01 lots.
+   Subsequent positions follow dynamic Kelly 2.0 and ATR volatility sizing.
 
 Q: How can I connect the system to my live MT5 terminal?
-A: Edit `config.py` and set `SIMULATION_MODE = False`. Launch the MT5 terminal on
-   Windows, then drag our compiled `ScalperBrainEA.mq5` onto an active chart.
+A: Edit `config.py` and set `SIMULATION_MODE = False`. Launch MT5 on Windows and
+   attach `ScalperBrainEA.mq5` to an active chart.
 
-Q: Why are trade orders rejected?
-A: Check if the dynamic spread has expanded beyond config.MAX_SPREAD_PIPS, or if
-   the active session rollover hour blocker is currently engaged (22:00 - 23:00 GMT).
-
-4) EMERGENCY SAFETY ACTIONS / INCIDENT RESPONSE HOW-TO:
+5) EMERGENCY SAFETY CONTROLS & MANUAL OVERRIDES:
 --------------------------------------------------------------------------------
-EMERGENCY INCIDENT: UNEXPECTED FLOATING LOSS OR REGIME VOLATILITY EXPANSION
-Action 1 - Click [STOP BOT] immediately on the bottom action controls bar.
-Action 2 - Type "RISK" and press <GO>. Inspect the current daily drawdown levels.
-Action 3 - Open the MT5 Windows terminal and click [CLOSE ALL] on the chart HUD
-           to manually wipe out floating risks.
-Action 4 - Set config.DEMO_ACCOUNT_ONLY = True to prevent any further real balance
-           risks during system maintenance.
+- [⚡ CLOSE ALL]        : Instantly liquidates all running active positions.
+- [⏸ PAUSE ADMISSION]  : Freezes new trade order submissions.
+- [🔒 PANIC LOCKDOWN]   : Liquidates open orders & locks system into DEFENSIVE mode.
+- [🔄 RESET ENGINES]    : Re-initializes indicator buffers & audits system health.
+- [❌ EXIT SYSTEM]      : Stops background services and exits application cleanly.
 ================================================================================
-For custom code updates, consult the terminal configuration at config.py.
+For configuration parameters, consult `config.py` or type `CFG <GO>`.
 """
         text_widget.insert(tk.END, help_content)
         text_widget.config(state=tk.DISABLED)
