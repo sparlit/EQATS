@@ -21,8 +21,11 @@ from brain_agents_orchestrator import (
     global_brain_orchestrator
 )
 
+import database
+
 class DummyScalper:
     def __init__(self):
+        database.init_db()
         self.conn = connector.SimulatorConnector(initial_balance=10000.0)
         self.daily_start_balance = 10000.0
 
