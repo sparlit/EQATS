@@ -987,6 +987,10 @@ class AutonomousScalper:
                 tech_trend = scan_item["trend"] if scan_item else "UP"
                 ai_trend = "UP" if (analysis.get("probability", 0.5) >= 0.5) else "DOWN"
 
+                # Check market open & safety
+                price_info = self.conn.get_current_price(symbol)
+                is_safe, safety_reason = self._is_market_open_and_liquid(symbol, price_info)
+
                 # Check State Disagreement (Section 22)
                 component_decisions = {"technical_trend": tech_trend, "ai_trend": ai_trend}
                 has_disagreement = not self.engine.safety.verify_component_agreement(component_decisions)
@@ -1016,12 +1020,12 @@ class AutonomousScalper:
 
                 # C. System Constitution Hierarchy Evaluation (Level 0 - Level 6)
                 constitution_payload = {
-                    "market_open": is_market_open,
-                    "symbol_tradable": is_symbol_tradable,
+                    "market_open": is_safe,
+                    "symbol_tradable": is_safe,
                     "safety_violations": violations,
                     "portfolio_risk_pct": config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
                     "drawdown_pct": 0.0,
-                    "spread_pips": float(scan_item["spread"] if (scan_item and "spread" in scan_item) else "1.0"),
+                    "spread_pips": float(scan_item["spread"] if (scan_item and "spread" in scan_item and scan_item["spread"] != "-") else "1.0"),
                     "rate_throttled": (self.engine.execution.rate_state != "NORMAL"),
                     "strategy_valid": (decision in ['BUY', 'SELL']),
                     "ai_probability": 85.0
