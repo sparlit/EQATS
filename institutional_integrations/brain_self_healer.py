@@ -62,6 +62,7 @@ class QuantumSelfHealer:
     def run_self_evaluation(self):
         """Self-Evaluating: Dynamically computes win/loss drift and volatility decay."""
         try:
+            database.init_db()
             perf = database.get_all_time_performance()
             total_trades = perf["total_trades"]
             win_rate = perf["win_rate"]
@@ -76,6 +77,7 @@ class QuantumSelfHealer:
     def run_self_training_and_learning(self):
         """Self-Training & Self-Teaching: Triggers predictive neural network backpropagation optimizations."""
         try:
+            database.init_db()
             # Force train predictive networks on all active symbols to adapt to latest market regime shifts
             for symbol in config.SYMBOLS[:6]:
                 predictor = predictive_brain.get_symbol_predictor(symbol)
@@ -102,6 +104,7 @@ class QuantumSelfHealer:
     def run_self_adjust_and_fix(self):
         """Self-Adjusting & Self-Fixing: Auto-tunes risk configurations, spreads, and strategy coefficients."""
         try:
+            database.init_db()
             recent = database.get_recent_performance(count=3)
             if len(recent) >= 2:
                 losses = sum(1 for t in recent if t['profit'] is not None and t['profit'] < 0)
