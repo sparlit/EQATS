@@ -438,13 +438,22 @@ def log_trade_close(ticket, close_price, profit, reason):
     conn.close()
 
 def get_open_trades():
-    """Returns all open trades."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM trades WHERE status = 'OPEN'")
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    """Returns all open trades, auto-initializing database if table does not exist."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM trades WHERE status = 'OPEN'")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except sqlite3.OperationalError:
+        init_db()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM trades WHERE status = 'OPEN'")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
 
 def log_news_headline(headline, sentiment):
     """Logs a macro headline with its parsed sentiment classification."""
@@ -463,15 +472,23 @@ def log_news_headline(headline, sentiment):
 
 def get_prevailing_news_sentiment():
     """
-    Computes prevailing sentiment across recent news headlines.
+    Computes prevailing sentiment across recent news headlines,
+    auto-initializing database if table does not exist.
     Returns: 'BULLISH' | 'BEARISH' | 'NEUTRAL'
     """
-    conn = get_connection()
-    cursor = conn.cursor()
-    # Get last 15 headlines logged
-    cursor.execute("SELECT sentiment FROM news ORDER BY timestamp DESC LIMIT 15")
-    rows = cursor.fetchall()
-    conn.close()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT sentiment FROM news ORDER BY timestamp DESC LIMIT 15")
+        rows = cursor.fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        init_db()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT sentiment FROM news ORDER BY timestamp DESC LIMIT 15")
+        rows = cursor.fetchall()
+        conn.close()
 
     if not rows:
         return "NEUTRAL"
@@ -489,17 +506,21 @@ def get_prevailing_news_sentiment():
 
 def get_recent_performance(count=5):
     """Retrieves the last N closed trades to analyze performance trends."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT profit FROM trades
-        WHERE status = 'CLOSED'
-        ORDER BY close_time DESC
-        LIMIT ?
-    """, (count,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT profit FROM trades
+            WHERE status = 'CLOSED'
+            ORDER BY close_time DESC
+            LIMIT ?
+        """, (count,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+    except sqlite3.OperationalError:
+        init_db()
+        return []
 
 def get_daily_profit(date_str=None):
     """Calculates total profits for closed trades on a specific date (YYYY-MM-DD)."""
@@ -559,14 +580,18 @@ def update_performance_metrics(date_str, current_balance):
 
 def get_all_time_performance():
     """Computes all-time trading performance summary metrics."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT profit FROM trades
-        WHERE status = 'CLOSED'
-    """)
-    rows = cursor.fetchall()
-    conn.close()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT profit FROM trades
+            WHERE status = 'CLOSED'
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        init_db()
+        rows = []
 
     total_trades = len(rows)
     net_profit = sum(row['profit'] for row in rows) if total_trades > 0 else 0.0
