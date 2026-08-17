@@ -118,7 +118,7 @@ def integrate_click():
         @click.command()
         @click.option('--mode', default='SIMULATION')
         def hello(mode):
-            pass
+            return f"Mode set to {mode}"
         return {"status": "ACTIVE", "command": str(hello), "engine": "CLICK"}
     except Exception:
         return {"status": "MOCKED", "command": "MockClickCmd", "engine": "CLICK"}

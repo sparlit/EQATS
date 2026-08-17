@@ -148,7 +148,7 @@ class SmartMoneyConceptsEngine:
     """Consolidated SMC/ICT Analysis Engine."""
 
     def __init__(self):
-        pass
+        self.engine_version = "3.0.0"
 
     def analyze(self, history_bars):
         """

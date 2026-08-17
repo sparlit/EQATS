@@ -72,7 +72,7 @@ class EventDrivenBacktester:
             equity_curve.append(round(capital, 2))
 
         # Calculate performance statistics
-        returns = [(equity_curve[i] - equity_curve[i-1]) / equity_curve[i-1] for i in range(1, len(equity_curve))]
+        returns = [(equity_curve[i] - equity_curve[i-1]) / equity_curve[i-1] for i in range(1, len(equity_curve)) if equity_curve[i-1] > 0]
         total_trades = len(trades)
         wins = [t for t in trades if t['profit'] > 0]
         losses = [t for t in trades if t['profit'] <= 0]
@@ -83,12 +83,12 @@ class EventDrivenBacktester:
         profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 1.0)
 
         # Max Drawdown
-        peak = equity_curve[0]
+        peak = max(1e-5, equity_curve[0])
         max_dd = 0.0
         for eq in equity_curve:
             if eq > peak:
                 peak = eq
-            dd = (peak - eq) / peak
+            dd = (peak - eq) / peak if peak > 0 else 0.0
             if dd > max_dd:
                 max_dd = dd
 

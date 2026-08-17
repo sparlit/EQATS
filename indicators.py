@@ -9,7 +9,7 @@ def calculate_ema(prices, period):
     Formula: EMA_today = Price_today * multiplier + EMA_yesterday * (1 - multiplier)
     multiplier = 2 / (period + 1)
     """
-    if len(prices) < period:
+    if period <= 0 or len(prices) < period:
         return None
 
     multiplier = 2.0 / (period + 1)
@@ -43,8 +43,8 @@ def calculate_rsi(prices, period=14):
             losses.append(abs(diff))
 
     # First Average Gain & Loss
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
+    avg_gain = sum(gains[:period]) / period if period > 0 else 0.0
+    avg_loss = sum(losses[:period]) / period if period > 0 else 0.0
 
     if avg_loss == 0:
         if avg_gain == 0:
@@ -92,7 +92,7 @@ def calculate_atr(highs, lows, closes, period=14):
 
     # Return the simple average of true ranges (standard ATR is smoothed, but SMA is widely accepted/sufficient)
     # We can smooth it using Wilder's technique
-    atr = sum(true_ranges[:period]) / period
+    atr = sum(true_ranges[:period]) / period if period > 0 else 0.0
     for i in range(period, len(true_ranges)):
         atr = (atr * (period - 1) + true_ranges[i]) / period
 
@@ -152,10 +152,10 @@ def calculate_bollinger_bands(prices, period=20, num_std=2.0):
 
     # Standard SMA (Middle band)
     window = prices[-period:]
-    middle = sum(window) / period
+    middle = sum(window) / period if period > 0 else 0.0
 
     # Variance and standard deviation calculation
-    variance = sum((x - middle) ** 2 for x in window) / period
+    variance = sum((x - middle) ** 2 for x in window) / period if period > 0 else 0.0
     std_dev = variance ** 0.5
     if std_dev == 0.0:
         std_dev = 1e-9  # Avoid division by zero downstream

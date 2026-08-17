@@ -107,11 +107,12 @@ class TradingSystemSupervisorAgent:
             equity = account_info['equity']
             start_bal = scalper_instance.daily_start_balance if scalper_instance.daily_start_balance > 0 else account_info['balance']
 
+            safe_start = start_bal if start_bal > 0 else 10000.0
             current_loss = start_bal - equity
-            max_allowed = start_bal * (config.MAX_DAILY_DRAWDOWN_PERCENT / 100.0)
+            max_allowed = safe_start * (config.MAX_DAILY_DRAWDOWN_PERCENT / 100.0)
 
             if current_loss > 0:
-                drawdown_pct = (current_loss / start_bal) * 100.0
+                drawdown_pct = (current_loss / safe_start) * 100.0
                 if drawdown_pct >= config.MAX_DAILY_DRAWDOWN_PERCENT * 0.8: # Approaching 80% of limit
                     risk_deductions += 30.0
                     interventions.append(f"WARNING: Intraday drawdown reached {drawdown_pct:.2f}% (80% of daily limit ceiling).")

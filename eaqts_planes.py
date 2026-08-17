@@ -162,7 +162,7 @@ class DataPlane:
 
         spread = ask - bid
         pip_size = 0.0001 if "JPY" not in symbol else 0.01
-        spread_pips = spread / pip_size
+        spread_pips = spread / pip_size if pip_size > 0 else 0.0
         if spread_pips > config.MAX_SPREAD_PIPS * 3:
             return "SUSPECT"
 
@@ -190,7 +190,8 @@ class DataPlane:
         Section 10.6: Transitions to the next redundant provider source on feed failure.
         """
         old_provider = self.providers[self.active_provider_idx]
-        self.active_provider_idx = (self.active_provider_idx + 1) % len(self.providers)
+        if self.providers:
+            self.active_provider_idx = (self.active_provider_idx + 1) % len(self.providers)
         new_provider = self.providers[self.active_provider_idx]
         global_event_bus.publish(Event(
             family="SystemFault",
@@ -209,7 +210,7 @@ class IntelligencePlane:
     coordinates Analyst/Prediction brains, and checks for model drift or disagreement.
     """
     def __init__(self):
-        pass
+        self.state_cache = {}
 
     def build_market_state_vector(self, symbol: str, history_bars: list) -> dict:
         """Creates a normalized Market State Vector representation."""
@@ -322,7 +323,7 @@ class SafetyVerificationPlane:
     Enforces Safety Invariants (INV-001 to INV-014) and acts as the Trade Admission Controller.
     """
     def __init__(self):
-        pass
+        self.hard_risk_limit = config.MAX_DAILY_DRAWDOWN_PERCENT
 
     def evaluate_invariants(self, current_risk: float, active_count: int, has_reconciliation_mismatch: bool = False, has_disagreement: bool = False) -> list:
         """
@@ -605,7 +606,7 @@ class SystemConstitution:
     """
 
     def __init__(self):
-        pass
+        self.constitution_version = "3.0.0"
 
     def evaluate_constitution_compliance(self, intent_payload: dict) -> dict:
         """

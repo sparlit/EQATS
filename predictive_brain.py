@@ -154,10 +154,12 @@ class NeuralNetworkPredictor:
         to visualize the training and convergence process happening inside the brain.
         """
         # Calculate averages of weights
+        n_ih = float(len(self.w_input_hidden) * len(self.w_input_hidden[0])) if self.w_input_hidden and self.w_input_hidden[0] else 30.0
         total_w_ih = sum(sum(w_row) for w_row in self.w_input_hidden)
-        avg_w_ih = total_w_ih / 30.0 # 6 inputs * 5 hidden = 30 weights
+        avg_w_ih = total_w_ih / max(1.0, n_ih)
 
-        avg_w_ho = sum(self.w_hidden_output) / 5.0 # 5 hidden neurons
+        n_ho = float(len(self.w_hidden_output)) if self.w_hidden_output else 5.0
+        avg_w_ho = sum(self.w_hidden_output) / max(1.0, n_ho)
 
         hidden_str = ",".join(f"{h:.2f}" for h in getattr(self, 'hidden_activated', [0.0]*5))
 
