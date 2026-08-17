@@ -186,6 +186,8 @@ class MT5Connector(TradingConnector):
         return {'bid': tick.bid, 'ask': tick.ask}
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
+        if not self.mt5:
+            return {'success': False, 'ticket': '', 'price': 0.0, 'error': "MT5 not connected."}
         import MetaTrader5 as mt5
         price_info = self.get_current_price(symbol)
         price = price_info['ask'] if order_type == 'BUY' else price_info['bid']
@@ -222,6 +224,8 @@ class MT5Connector(TradingConnector):
         }
 
     def close_order(self, ticket, reason="MANUAL"):
+        if not self.mt5:
+            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': "MT5 not connected."}
         import MetaTrader5 as mt5
         orders = self.get_open_orders()
         target_order = None
