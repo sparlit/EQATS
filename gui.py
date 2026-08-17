@@ -593,45 +593,221 @@ class ScalperGui:
         self.switch_to_screen(parsed_cmd)
 
     def _show_login_dialog(self):
-        """Displays a secure EQATS terminal-styled login dialog with Username, Password, and MFA."""
+        """Displays a secure, full-screen, vibrant EQATS Quantum Terminal login gateway with Matrix digital rain animation and rich metadata."""
         login_win = tk.Toplevel()
-        login_win.title("SECURE TERMINAL GATEWAY - EAQTS v3.0")
-        login_win.geometry("450x300")
-        login_win.resizable(False, False)
+        login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS)")
         login_win.configure(bg="#000000")
         login_win.attributes("-topmost", True)
 
-        # Force grab to make modal
+        # Force Fullscreen covering the entire display area
+        try:
+            login_win.attributes("-fullscreen", True)
+        except Exception:
+            pass
+
+        screen_w = login_win.winfo_screenwidth()
+        screen_h = login_win.winfo_screenheight()
+        login_win.geometry(f"{screen_w}x{screen_h}+0+0")
+
         login_win.focus_set()
         login_win.grab_set()
 
-        # Title / Banner
-        tk.Label(login_win, text="================================================", font=("Consolas", 9), bg="#000000", fg="#ff9900").pack(pady=2)
-        tk.Label(login_win, text="EAQTS SECURE TERMINAL LOGIN - OPERATOR AUTHENTICATION", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900").pack()
-        tk.Label(login_win, text="================================================", font=("Consolas", 9), bg="#000000", fg="#ff9900").pack(pady=2)
+        # Canvas for animated vibrant Matrix Digital Rain background
+        matrix_canvas = tk.Canvas(login_win, bg="#000000", highlightthickness=0, bd=0)
+        matrix_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Form fields
-        form_frame = tk.Frame(login_win, bg="#000000")
-        form_frame.pack(pady=10)
+        # Matrix rain animation parameters
+        char_set = "0123456789ABCDEFΞΨΩΣΠ$%#@&*<>[]{}|+=-~"
+        cols = max(20, screen_w // 18)
+        drops = [random.randint(-30, 0) for _ in range(cols)]
+        colors = ["#00ff66", "#00ffcc", "#00ffff", "#38bdf8", "#ffaa00", "#ff007f", "#00ffaa", "#a855f7"]
 
-        tk.Label(form_frame, text="Username:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=0, column=0, sticky="e", pady=5, padx=5)
-        user_ent = tk.Entry(form_frame, font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
-        user_ent.grid(row=0, column=1, pady=5, padx=5)
+        anim_running = [True]
+
+        def update_matrix():
+            if not anim_running[0]:
+                return
+            try:
+                cw = matrix_canvas.winfo_width()
+                ch = matrix_canvas.winfo_height()
+                if cw < 50 or ch < 50:
+                    cw, ch = screen_w, screen_h
+
+                # Semi-transparent trailing black overlay effect
+                matrix_canvas.create_rectangle(0, 0, cw, ch, fill="#020804", outline="", stipple="gray75")
+
+                num_cols = max(10, cw // 20)
+                while len(drops) < num_cols:
+                    drops.append(random.randint(-30, 0))
+
+                for i in range(num_cols):
+                    x = i * 20 + 10
+                    y = drops[i] * 22
+
+                    # Random character & vibrant neon color selection
+                    char = random.choice(char_set)
+                    col = random.choice(colors) if random.random() > 0.3 else "#ffffff"
+
+                    # Draw leading bright character
+                    matrix_canvas.create_text(x, y, text=char, fill=col, font=("Consolas", 12, "bold"), tag="matrix_char")
+
+                    # Draw trailing dim character
+                    if drops[i] > 1:
+                        trail_char = random.choice(char_set)
+                        matrix_canvas.create_text(x, y - 22, text=trail_char, fill="#003311", font=("Consolas", 10), tag="matrix_char")
+
+                    # Reset drop when off screen
+                    if y > ch and random.random() > 0.95:
+                        drops[i] = random.randint(-15, 0)
+                    else:
+                        drops[i] += 1
+
+                # Clean up old matrix canvas items to maintain high FPS performance
+                items = matrix_canvas.find_withtag("matrix_char")
+                if len(items) > 1200:
+                    for item in items[:400]:
+                        matrix_canvas.delete(item)
+
+            except Exception:
+                pass
+
+            if anim_running[0]:
+                login_win.after(40, update_matrix)
+
+        # Center Container Frame (Glassmorphism card styled over canvas)
+        main_overlay = tk.Frame(matrix_canvas, bg="#05090e", bd=2, relief=tk.SOLID, highlightbackground="#00ffcc", highlightcolor="#00ffff")
+
+        # Position overlay in center of screen automatically
+        card_w = min(1100, int(screen_w * 0.85))
+        card_h = min(720, int(screen_h * 0.85))
+        overlay_window = matrix_canvas.create_window(screen_w // 2, screen_h // 2, window=main_overlay, width=card_w, height=card_h)
+
+        def on_resize(event):
+            try:
+                w = event.width
+                h = event.height
+                if w > 100 and h > 100:
+                    cw = min(1100, int(w * 0.88))
+                    ch = min(740, int(h * 0.88))
+                    matrix_canvas.coords(overlay_window, w // 2, h // 2)
+                    matrix_canvas.itemconfig(overlay_window, width=cw, height=ch)
+            except Exception:
+                pass
+
+        login_win.bind("<Configure>", on_resize)
+
+        # -----------------------------------------------------------------
+        # HEADER SECTION
+        # -----------------------------------------------------------------
+        header_frame = tk.Frame(main_overlay, bg="#030712", pady=12, padx=20)
+        header_frame.pack(fill=tk.X)
+
+        lbl_header_title = tk.Label(
+            header_frame,
+            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v3.0 / v5.0)",
+            font=("Consolas", 15, "bold"),
+            bg="#030712",
+            fg="#00ffcc"
+        )
+        lbl_header_title.pack(side=tk.LEFT)
+
+        lbl_header_badge = tk.Label(
+            header_frame,
+            text="OPERATOR AUTHENTICATION GATEWAY — DEFENSIVE LEVEL 0",
+            font=("Consolas", 9, "bold"),
+            bg="#166534",
+            fg="#ffffff",
+            padx=10,
+            pady=4
+        )
+        lbl_header_badge.pack(side=tk.RIGHT)
+
+        # Divider line
+        tk.Frame(main_overlay, bg="#00ffcc", height=2).pack(fill=tk.X)
+
+        # -----------------------------------------------------------------
+        # BODY SPLIT SECTION (Left: Brief Description | Right: Login Card)
+        # -----------------------------------------------------------------
+        body_frame = tk.Frame(main_overlay, bg="#05090e", padx=25, pady=20)
+        body_frame.pack(fill=tk.BOTH, expand=True)
+
+        # LEFT COLUMN: System Description & Metadata
+        left_desc_frame = tk.Frame(body_frame, bg="#0a121d", bd=1, relief=tk.SOLID, highlightbackground="#1e293b", padx=20, pady=20)
+        left_desc_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
+
+        tk.Label(
+            left_desc_frame,
+            text="SYSTEM OVERVIEW & COGNITIVE ARCHITECTURE",
+            font=("Consolas", 12, "bold"),
+            bg="#0a121d",
+            fg="#ffaa00"
+        ).pack(anchor="w", pady=(0, 10))
+
+        desc_text = (
+            "The Elite Quantum Autonomous Trading System (EQATS) is an institutional-grade, "
+            "multi-plane autonomous algorithmic trading system engineered for high-frequency "
+            "and multi-style execution across global interbank markets.\n\n"
+            "Key Architectural Capabilities:\n"
+            "• 6 Core Brain Agents (Research, Analyst, Prediction, Strategy, Risk, Execution)\n"
+            "• Smart Money Concepts (SMC/ICT) Engine & Order Flow Imbalance (VPIN/GEX)\n"
+            "• Multi-Layer Perceptron (MLP) Neural Networks & Local Privacy-First Financial LLMs\n"
+            "• Monte Carlo Risk Engine (95% VaR & Expected Shortfall) & Markov Regime Switchers\n"
+            "• 12 Execution Planes with System Constitution Hierarchy Enforcement (Levels 0-11)\n"
+            "• Native Zero-Latency FIX Protocol Bridge & Multi-Broker Gateways (Live / Demo / ECN)"
+        )
+
+        lbl_desc = tk.Label(
+            left_desc_frame,
+            text=desc_text,
+            font=("Consolas", 9),
+            bg="#0a121d",
+            fg="#e2e8f0",
+            justify=tk.LEFT,
+            wraplength=480
+        )
+        lbl_desc.pack(anchor="w", fill=tk.BOTH, expand=True)
+
+        # Status indicators row inside description card
+        status_row = tk.Frame(left_desc_frame, bg="#0a121d", pady=10)
+        status_row.pack(fill=tk.X)
+
+        tk.Label(status_row, text="DATABASE: WAL ONLINE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Label(status_row, text="CONSTITUTION: ACTIVE", font=("Consolas", 8, "bold"), bg="#1e40af", fg="#ffffff", padx=8, pady=3).pack(side=tk.LEFT, padx=5)
+        tk.Label(status_row, text="RUST PyO3: COMPILED", font=("Consolas", 8, "bold"), bg="#7e22ce", fg="#ffffff", padx=8, pady=3).pack(side=tk.LEFT, padx=5)
+
+        # RIGHT COLUMN: Secure Operator Login Form
+        right_login_frame = tk.Frame(body_frame, bg="#0b1320", bd=1, relief=tk.SOLID, highlightbackground="#00ffcc", padx=25, pady=20, width=380)
+        right_login_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(15, 0))
+        right_login_frame.pack_propagate(False)
+
+        tk.Label(
+            right_login_frame,
+            text="OPERATOR ACCESS GATEWAY",
+            font=("Consolas", 12, "bold"),
+            bg="#0b1320",
+            fg="#00ffcc"
+        ).pack(anchor="w", pady=(0, 15))
+
+        # Username Input
+        tk.Label(right_login_frame, text="OPERATOR USERNAME:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8").pack(anchor="w", pady=(5, 2))
+        user_ent = tk.Entry(right_login_frame, font=("Consolas", 10, "bold"), bg="#030712", fg="#00ff00", insertbackground="#00ff00", bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        user_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         user_ent.insert(0, "QUANT_OPERATOR")
 
-        tk.Label(form_frame, text="Password:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=1, column=0, sticky="e", pady=5, padx=5)
-        pwd_ent = tk.Entry(form_frame, show="*", font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
-        pwd_ent.grid(row=1, column=1, pady=5, padx=5)
+        # Password Input
+        tk.Label(right_login_frame, text="GATEWAY PASSWORD:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8").pack(anchor="w", pady=(5, 2))
+        pwd_ent = tk.Entry(right_login_frame, show="*", font=("Consolas", 10, "bold"), bg="#030712", fg="#00ff00", insertbackground="#00ff00", bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        pwd_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         pwd_ent.focus_set()
 
-        # Simulated MFA / TOTP
-        tk.Label(form_frame, text="MFA Pin [123456]:", font=("Consolas", 10), bg="#000000", fg="#ffffff").grid(row=2, column=0, sticky="e", pady=5, padx=5)
-        mfa_ent = tk.Entry(form_frame, font=("Consolas", 10), bg="#121212", fg="#00ff00", insertbackground="#00ff00", width=22)
-        mfa_ent.grid(row=2, column=1, pady=5, padx=5)
+        # MFA Pin Input
+        tk.Label(right_login_frame, text="SECONDARY MFA PIN [123456]:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8").pack(anchor="w", pady=(5, 2))
+        mfa_ent = tk.Entry(right_login_frame, font=("Consolas", 10, "bold"), bg="#030712", fg="#00ff00", insertbackground="#00ff00", bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        mfa_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         mfa_ent.insert(0, "123456")
 
-        error_lbl = tk.Label(login_win, text="", font=("Consolas", 9), bg="#000000", fg="#ff3333")
-        error_lbl.pack()
+        error_lbl = tk.Label(right_login_frame, text="", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#ff3333", wraplength=320)
+        error_lbl.pack(pady=5)
 
         authenticated = [False]
 
@@ -642,18 +818,77 @@ class ScalperGui:
 
             if database.verify_user_credentials(username, password, mfa):
                 authenticated[0] = True
-                login_win.destroy()
+                # Visual transition animation on button success
+                btn_login.config(text="✓ AUTHORIZED", bg="#15803d", fg="#ffffff")
+                error_lbl.config(text="ACCESS GRANTED: INITIALIZING QUANTUM TERMINAL...", fg="#00ff00")
+                anim_running[0] = False
+                login_win.after(300, login_win.destroy)
             else:
-                error_lbl.config(text="ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA")
+                error_lbl.config(text="❌ ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA", fg="#ff3333")
 
-        btn_frame = tk.Frame(login_win, bg="#000000")
-        btn_frame.pack(pady=10)
+        # Keypress Return listener
+        login_win.bind("<Return>", lambda e: try_login())
 
-        tk.Button(btn_frame, text="[ LOGIN <GO> ]", font=("Consolas", 10, "bold"), bg="#1c1c1c", fg="#00ff00", activebackground="#2c2c2c", activeforeground="#00ff00", bd=1, relief=tk.SOLID, command=try_login, width=15).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="[ CANCEL ]", font=("Consolas", 10), bg="#1c1c1c", fg="#ff3333", activebackground="#2c2c2c", activeforeground="#ff3333", bd=1, relief=tk.SOLID, command=login_win.destroy, width=10).pack(side=tk.LEFT, padx=5)
+        btn_login = tk.Button(
+            right_login_frame,
+            text="[ LOGIN <GO> ]",
+            font=("Consolas", 11, "bold"),
+            bg="#0284c7",
+            fg="#ffffff",
+            activebackground="#0369a1",
+            activeforeground="#ffffff",
+            bd=0,
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=try_login
+        )
+        btn_login.pack(fill=tk.X, ipady=8, pady=(10, 5))
+
+        btn_cancel = tk.Button(
+            right_login_frame,
+            text="[ SHUTDOWN GATEWAY ]",
+            font=("Consolas", 9, "bold"),
+            bg="#1e293b",
+            fg="#ef4444",
+            activebackground="#334155",
+            activeforeground="#ff3333",
+            bd=0,
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=login_win.destroy
+        )
+        btn_cancel.pack(fill=tk.X, ipady=4, pady=5)
+
+        # -----------------------------------------------------------------
+        # FOOTER SECTION (Copyright, Author & Legal Details)
+        # -----------------------------------------------------------------
+        footer_frame = tk.Frame(main_overlay, bg="#030712", pady=10, padx=20)
+        footer_frame.pack(fill=tk.X, side=tk.BOTTOM)
+
+        lbl_author = tk.Label(
+            footer_frame,
+            text="Author: Simon Peter  |  Copyright (c) 2026 TSyS Labs. All Rights Reserved.",
+            font=("Consolas", 9, "bold"),
+            bg="#030712",
+            fg="#ffaa00"
+        )
+        lbl_author.pack(side=tk.TOP, anchor="center")
+
+        lbl_copyright_notice = tk.Label(
+            footer_frame,
+            text="ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS) — PROPRIETARY SYSTEM CONSTITUTION ENFORCED. UNAUTHORIZED ACCESS IS MONITORED AND STRICTLY PROHIBITED.",
+            font=("Consolas", 7),
+            bg="#030712",
+            fg="#64748b"
+        )
+        lbl_copyright_notice.pack(side=tk.TOP, anchor="center", pady=(2, 0))
+
+        # Start Matrix Rain Animation Loop
+        update_matrix()
 
         # Prevent bypassing login window by closing it
         def on_close():
+            anim_running[0] = False
             login_win.destroy()
 
         login_win.protocol("WM_DELETE_WINDOW", on_close)
