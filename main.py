@@ -1015,6 +1015,10 @@ class AutonomousScalper:
                 )
 
                 # C. System Constitution Hierarchy Evaluation (Level 0 - Level 6)
+                price_info = self.conn.get_current_price(symbol)
+                is_market_open, _ = self._is_market_open_and_liquid(symbol, price_info)
+                is_symbol_tradable = True
+
                 constitution_payload = {
                     "market_open": is_market_open,
                     "symbol_tradable": is_symbol_tradable,
