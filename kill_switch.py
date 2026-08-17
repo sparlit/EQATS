@@ -70,10 +70,32 @@ class KillSwitch:
         
         # Load state from database
         self._load_state()
+
+    def _get_connection(self):
+        """Get database connection, ensuring tables are initialized if db path changed."""
+        current_db_path = getattr(config, 'DB_PATH', 'forex_scalper.db')
+        if current_db_path != self._db_path:
+            self._db_path = current_db_path
+            self._init_database()
+        else:
+            # Ensure tables exist even if DB was deleted and recreated
+            conn = sqlite3.connect(self._db_path)
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='kill_switch_state'")
+                if not cursor.fetchone():
+                    conn.close()
+                    self._init_database()
+                else:
+                    conn.close()
+            except sqlite3.OperationalError:
+                conn.close()
+                self._init_database()
+        return sqlite3.connect(self._db_path)
     
     def _init_database(self):
         """Initialize kill switch database table."""
-        conn = sqlite3.connect(self._db_path)
+        conn = sqlite3.connect(getattr(config, 'DB_PATH', self._db_path))
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -106,7 +128,7 @@ class KillSwitch:
     
     def _load_state(self):
         """Load kill switch state from database."""
-        conn = sqlite3.connect(self._db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute("SELECT state, activation_time, reason, triggered_by FROM kill_switch_state WHERE id = 1")
@@ -127,7 +149,7 @@ class KillSwitch:
     
     def _save_state(self):
         """Save kill switch state to database."""
-        conn = sqlite3.connect(self._db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -146,7 +168,7 @@ class KillSwitch:
     
     def _log_event(self, event: KillSwitchEvent):
         """Log kill switch event to database."""
-        conn = sqlite3.connect(self._db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -368,7 +390,7 @@ class KillSwitch:
         Returns:
             List of event dictionaries
         """
-        conn = sqlite3.connect(self._db_path)
+        conn = self._get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""

@@ -15,6 +15,7 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
 
     def setUp(self):
         # Use ':memory:' database for perfect test isolation and to prevent concurrent disk I/O / file locking errors
+        self.old_db_path = config.DB_PATH
         config.DB_PATH = ":memory:"
         config.SIMULATION_MODE = True
         config.MAX_CONCURRENT_TRADES = 3
@@ -25,7 +26,7 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         self.engine = eaqts_planes.init_core_engine(self.conn)
 
     def tearDown(self):
-        pass
+        config.DB_PATH = getattr(self, 'old_db_path', 'forex_scalper.db')
 
     def test_broker_disconnection_outage_containment(self):
         """Chaos: Injects sudden broker disconnection outage and verifies that risk checks caught it safely."""

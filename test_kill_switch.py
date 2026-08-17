@@ -116,7 +116,6 @@ def test_kill_switch():
     
     print(f"\n{'='*60}")
     print("[PASS] All kill switch tests passed!")
-    return 0
 
 if __name__ == '__main__':
     import sys
