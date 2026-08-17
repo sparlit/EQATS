@@ -72,7 +72,7 @@ class QuantumSelfHealer:
             elif total_trades > 0:
                 print(f"📊 SELF-EVALUATOR REPORT: Operational parameters stable. Win Rate: {win_rate}% | Total trades: {total_trades}")
         except Exception as e:
-            pass
+            print(f"⚠️ Self-Evaluator warning: {e}")
 
     def run_self_training_and_learning(self):
         """Self-Training & Self-Teaching: Triggers predictive neural network backpropagation optimizations."""
@@ -103,7 +103,7 @@ class QuantumSelfHealer:
 
                     self.total_evolutions += 1
         except Exception as e:
-            pass
+            print(f"⚠️ Self-Training warning: {e}")
 
     def run_self_adjust_and_fix(self):
         """Self-Adjusting & Self-Fixing: Auto-tunes risk configurations, spreads, and strategy coefficients."""
@@ -123,7 +123,7 @@ class QuantumSelfHealer:
                         config.MAX_SPREAD_PIPS = 3.0
                         print("⚙️ SELF-ADJUSTING & FIXING: Operational parameters restored to default liquid values.")
         except Exception as e:
-            pass
+            print(f"⚠️ Self-Adjust warning: {e}")
 
     def run_self_healing_and_db_vacuum(self):
         """Self-Healing: Clears database deadlocks, runs SQL WAL checkpointing, and resolves thread lock congestion."""

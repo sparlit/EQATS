@@ -12,7 +12,7 @@ class ScalperBrain:
     """
 
     def __init__(self):
-        pass
+        self.version = "3.0.0"
 
     def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """

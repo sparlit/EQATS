@@ -66,8 +66,8 @@ class TradeMemoryReflectionProtocol:
         try:
             import institutional_integrations.quantum_local_llm as qllm
             qllm.save_semantic_context(f"Trade_{ticket}", reflection_note, metadata=record)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"⚠️ Trade memory LLM context store note: {e}")
 
         return record
 

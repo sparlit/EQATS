@@ -3412,7 +3412,12 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         messagebox.showinfo("Telegram Settings Saved", "Telegram notification configurations saved successfully.")
 
     def _update_set_screen_data(self):
-        pass # Interactive controls are rendered statically in _show_set_screen
+        """Refreshes SET <GO> screen interactive inputs with active config state."""
+        if hasattr(self, "set_maxlines_ent") and self.set_maxlines_ent:
+            current_max = str(getattr(self, "max_console_lines", 150))
+            if self.set_maxlines_ent.get() != current_max:
+                self.set_maxlines_ent.delete(0, tk.END)
+                self.set_maxlines_ent.insert(0, current_max)
 
     def _show_ing_screen(self):
         """ING <GO>: Data Ingestion Service"""
@@ -4260,14 +4265,18 @@ SECURITY DOMAINS ENFORCED:
         """Highlights the entire row across all columns for full row selection."""
         if self.selected_watch_row and self.selected_watch_row in self.watch_row_widgets:
             for w, default_bg in self.watch_row_widgets[self.selected_watch_row]:
-                try: w.config(bg=default_bg)
-                except Exception: pass
+                try:
+                    w.config(bg=default_bg)
+                except tk.TclError:
+                    pass
 
         self.selected_watch_row = row_idx
         if row_idx in self.watch_row_widgets:
             for w, _ in self.watch_row_widgets[row_idx]:
-                try: w.config(bg="#1e3a8a")  # Highlight full row in royal blue
-                except Exception: pass
+                try:
+                    w.config(bg="#1e3a8a")  # Highlight full row in royal blue
+                except tk.TclError:
+                    pass
 
         self.selected_symbol_gp = symbol_name
         print(f"🎯 WATCHLIST FULL ROW SELECTED: Row #{row_idx} ({symbol_name})")

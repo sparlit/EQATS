@@ -11,7 +11,10 @@ def compute_black_scholes_greeks(spot, strike, tte_years, rate=0.04, iv=0.20, op
     if tte_years <= 0 or iv <= 0:
         return {"npv": max(0.0, spot - strike), "delta": 1.0 if spot > strike else 0.0, "gamma": 0.0, "vega": 0.0, "theta": 0.0}
 
-    d1 = (math.log(spot / strike) + (rate + 0.5 * iv ** 2) * tte_years) / (iv * math.sqrt(tte_years))
+    safe_strike = max(1e-5, strike)
+    safe_tte = max(1e-5, tte_years)
+    safe_iv = max(1e-5, iv)
+    d1 = (math.log(spot / safe_strike) + (rate + 0.5 * safe_iv ** 2) * safe_tte) / (safe_iv * math.sqrt(safe_tte))
     d2 = d1 - iv * math.sqrt(tte_years)
 
     # Standard normal CDF approximation

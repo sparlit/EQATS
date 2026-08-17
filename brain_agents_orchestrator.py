@@ -304,13 +304,15 @@ class AgenticBrainsOrchestrator:
                 try:
                     res = fut.result()
                     method_scores[res["method"]] = res["score"]
-                except Exception: pass
+                except Exception as e:
+                    print(f"⚠️ Method Agent evaluation error: {e}")
 
             for fut in concurrent.futures.as_completed(strategy_futures):
                 try:
                     res = fut.result()
                     strategy_scores[res["strategy"]] = res["score"]
-                except Exception: pass
+                except Exception as e:
+                    print(f"⚠️ Strategy Agent evaluation error: {e}")
 
         # 3. Evaluate Trading Mechanism Brain Agents
         risk_res = self.risk_assessment_agent.evaluate(scalper_instance)
