@@ -14,6 +14,7 @@ bcrypt>=4.0.0
 # Multi-Factor Authentication (TOTP)
 pyotp>=2.9.0
 qrcode>=7.4.0
+Pillow>=10.0.0
 
 # Input validation
 pydantic>=2.0.0

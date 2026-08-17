@@ -61,10 +61,13 @@ class TestScalperBrainAndConnector(unittest.TestCase):
         if os.path.exists("test_scalper_brain.db"):
             os.remove("test_scalper_brain.db")
         import config
+        self.old_db_path = config.DB_PATH
         config.DB_PATH = "test_scalper_brain.db"
         database.init_db()
 
     def tearDown(self):
+        import config
+        config.DB_PATH = getattr(self, 'old_db_path', 'forex_scalper.db')
         if os.path.exists("test_scalper_brain.db"):
             os.remove("test_scalper_brain.db")
 
@@ -114,12 +117,15 @@ class TestAutonomousScalperIntegration(unittest.TestCase):
         if os.path.exists("integration_test.db"):
             os.remove("integration_test.db")
         import config
+        self.old_db_path = config.DB_PATH
         config.DB_PATH = "integration_test.db"
         config.SIMULATION_MODE = True
         config.SYMBOLS = ["EURUSD", "GBPUSD"]
         database.init_db()
 
     def tearDown(self):
+        import config
+        config.DB_PATH = getattr(self, 'old_db_path', 'forex_scalper.db')
         if os.path.exists("integration_test.db"):
             os.remove("integration_test.db")
 
