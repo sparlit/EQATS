@@ -277,6 +277,8 @@ class MT5Connector(TradingConnector):
         }
 
     def modify_order(self, ticket, sl, tp):
+        if not self.mt5:
+            return False
         import MetaTrader5 as mt5
         # Fetch position info to get the symbol
         positions = self.mt5.positions_get(ticket=int(ticket))
@@ -327,6 +329,8 @@ class MT5Connector(TradingConnector):
         return True
 
     def get_open_orders(self):
+        if not self.mt5:
+            return []
         import MetaTrader5 as mt5
         positions = self.mt5.positions_get()
         if positions is None or len(positions) == 0:
