@@ -1,4 +1,4 @@
-10000.00|10000.00|0|London Session|Wellington FX | Sydney FX | Tokyo FX | Sydney ASX | Tokyo TSE | Hong Kong HKEX | Shanghai SSE|New York FX (02:14:49) | São Paulo B3 (03:14:49) | Mexican BMV (03:14:49)|Active Tracker
+10000.00|10000.00|0|London Session|Wellington FX | Sydney FX | Tokyo FX | Sydney ASX | Tokyo TSE | Hong Kong HKEX | Shanghai SSE|New York FX (02:06:11) | São Paulo B3 (03:06:11) | Mexican BMV (03:06:11)|Active Tracker
 SCANS_HEADER
-EURUSD|1.12922|1.12916|UP|49.4|0.00269|Breakout Setup: Waiting for: Inside Squeeze Channel [1.12376 - 1.13325] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.0ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.23798|1.24552|DOWN|53.6|0.00316|Breakout Setup: Waiting for: Inside Squeeze Channel [1.22914 - 1.24419] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.0ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.13085|1.12927|UP|52.2|0.00288|Breakout Setup: Waiting for: Inside Squeeze Channel [1.12579 - 1.13325] | Agentic Notes: Parallel Multi-Agent Sweep completed in 3.8ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.24160|1.24558|DOWN|62.6|0.00323|Breakout Setup: Waiting for: Inside Squeeze Channel [1.22914 - 1.24277] | Agentic Notes: Parallel Multi-Agent Sweep completed in 3.8ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
