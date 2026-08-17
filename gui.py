@@ -625,6 +625,15 @@ class ScalperGui:
 
         anim_running = [True]
 
+        # Center Container Frame (Glassmorphism card styled over canvas)
+        main_overlay = tk.Frame(login_win, bg="#05090e", bd=2, relief=tk.SOLID, highlightbackground="#00ffcc", highlightcolor="#00ffff")
+
+        # Position overlay in center of screen automatically above the background canvas
+        card_w = min(1100, int(screen_w * 0.85))
+        card_h = min(720, int(screen_h * 0.85))
+        main_overlay.place(relx=0.5, rely=0.5, anchor="center", width=card_w, height=card_h)
+        main_overlay.lift()
+
         def update_matrix():
             if not anim_running[0]:
                 return
@@ -634,7 +643,7 @@ class ScalperGui:
                 if cw < 50 or ch < 50:
                     cw, ch = screen_w, screen_h
 
-                # Fast matrix rain redraw loop clearing only background rain items, keeping overlay form intact!
+                # Fast matrix rain redraw loop clearing background rain items
                 matrix_canvas.delete("matrix_char")
 
                 num_cols = max(10, cw // col_width)
@@ -675,14 +684,6 @@ class ScalperGui:
             if anim_running[0]:
                 login_win.after(35, update_matrix)
 
-        # Center Container Frame (Glassmorphism card styled over canvas)
-        main_overlay = tk.Frame(matrix_canvas, bg="#05090e", bd=2, relief=tk.SOLID, highlightbackground="#00ffcc", highlightcolor="#00ffff")
-
-        # Position overlay in center of screen automatically
-        card_w = min(1100, int(screen_w * 0.85))
-        card_h = min(720, int(screen_h * 0.85))
-        overlay_window = matrix_canvas.create_window(screen_w // 2, screen_h // 2, window=main_overlay, width=card_w, height=card_h)
-
         last_resize = [0.0]
 
         def on_resize(event):
@@ -700,8 +701,8 @@ class ScalperGui:
                 if w > 100 and h > 100:
                     cw = min(1100, int(w * 0.88))
                     ch = min(740, int(h * 0.88))
-                    matrix_canvas.coords(overlay_window, w // 2, h // 2)
-                    matrix_canvas.itemconfig(overlay_window, width=cw, height=ch)
+                    main_overlay.place_configure(width=cw, height=ch)
+                    main_overlay.lift()
             except Exception:
                 pass
 
