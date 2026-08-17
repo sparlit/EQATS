@@ -616,10 +616,11 @@ class ScalperGui:
         matrix_canvas = tk.Canvas(login_win, bg="#000000", highlightthickness=0, bd=0)
         matrix_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Matrix rain animation parameters
+        # Matrix rain animation parameters (optimized for 60 FPS performance)
         char_set = "0123456789ABCDEFΞΨΩΣΠ$%#@&*<>[]{}|+=-~"
-        cols = max(20, screen_w // 18)
-        drops = [random.randint(-30, 0) for _ in range(cols)]
+        col_width = 28
+        cols = max(15, screen_w // col_width)
+        drops = [random.randint(-20, 0) for _ in range(cols)]
         colors = ["#00ff66", "#00ffcc", "#00ffff", "#38bdf8", "#ffaa00", "#ff007f", "#00ffaa", "#a855f7"]
 
         anim_running = [True]
@@ -633,46 +634,46 @@ class ScalperGui:
                 if cw < 50 or ch < 50:
                     cw, ch = screen_w, screen_h
 
-                # Semi-transparent trailing black overlay effect
-                matrix_canvas.create_rectangle(0, 0, cw, ch, fill="#020804", outline="", stipple="gray75")
+                # Fast matrix rain redraw loop clearing only background rain items, keeping overlay form intact!
+                matrix_canvas.delete("matrix_char")
 
-                num_cols = max(10, cw // 20)
+                num_cols = max(10, cw // col_width)
                 while len(drops) < num_cols:
-                    drops.append(random.randint(-30, 0))
+                    drops.append(random.randint(-20, 0))
 
                 for i in range(num_cols):
-                    x = i * 20 + 10
-                    y = drops[i] * 22
+                    x = i * col_width + 14
+                    y = drops[i] * 24
 
-                    # Random character & vibrant neon color selection
-                    char = random.choice(char_set)
-                    col = random.choice(colors) if random.random() > 0.3 else "#ffffff"
+                    # Draw 3 trailing trail characters
+                    for trail in range(3):
+                        ty = y - (trail * 24)
+                        if 0 <= ty <= ch + 24:
+                            if trail == 0:
+                                # Head character
+                                char = random.choice(char_set)
+                                col = random.choice(colors) if random.random() > 0.2 else "#ffffff"
+                                matrix_canvas.create_text(x, ty, text=char, fill=col, font=("Consolas", 12, "bold"), tags="matrix_char")
+                            elif trail == 1:
+                                # Mid character
+                                char = random.choice(char_set)
+                                matrix_canvas.create_text(x, ty, text=char, fill="#00bb55", font=("Consolas", 11), tags="matrix_char")
+                            else:
+                                # Dim tail character
+                                char = random.choice(char_set)
+                                matrix_canvas.create_text(x, ty, text=char, fill="#004411", font=("Consolas", 10), tags="matrix_char")
 
-                    # Draw leading bright character
-                    matrix_canvas.create_text(x, y, text=char, fill=col, font=("Consolas", 12, "bold"), tag="matrix_char")
-
-                    # Draw trailing dim character
-                    if drops[i] > 1:
-                        trail_char = random.choice(char_set)
-                        matrix_canvas.create_text(x, y - 22, text=trail_char, fill="#003311", font=("Consolas", 10), tag="matrix_char")
-
-                    # Reset drop when off screen
-                    if y > ch and random.random() > 0.95:
+                    # Move drop downward
+                    if y > ch + 60 and random.random() > 0.90:
                         drops[i] = random.randint(-15, 0)
                     else:
                         drops[i] += 1
-
-                # Clean up old matrix canvas items to maintain high FPS performance
-                items = matrix_canvas.find_withtag("matrix_char")
-                if len(items) > 1200:
-                    for item in items[:400]:
-                        matrix_canvas.delete(item)
 
             except Exception:
                 pass
 
             if anim_running[0]:
-                login_win.after(40, update_matrix)
+                login_win.after(35, update_matrix)
 
         # Center Container Frame (Glassmorphism card styled over canvas)
         main_overlay = tk.Frame(matrix_canvas, bg="#05090e", bd=2, relief=tk.SOLID, highlightbackground="#00ffcc", highlightcolor="#00ffff")
@@ -682,7 +683,17 @@ class ScalperGui:
         card_h = min(720, int(screen_h * 0.85))
         overlay_window = matrix_canvas.create_window(screen_w // 2, screen_h // 2, window=main_overlay, width=card_w, height=card_h)
 
+        last_resize = [0.0]
+
         def on_resize(event):
+            # Only process top-level window configure events to prevent child widget bubbling
+            if event.widget != login_win:
+                return
+            # Debounce resize calls to avoid thrashing during window events
+            now = time.time()
+            if now - last_resize[0] < 0.05:
+                return
+            last_resize[0] = now
             try:
                 w = event.width
                 h = event.height
