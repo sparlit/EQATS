@@ -3,3 +3,38 @@ __pycache__/
 scalper_brain.db
 test_scalper_brain.db
 integration_test.db
+
+# Security: Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.p12
+*.jks
+credentials.json
+secrets.json
+
+# Security: Encryption keys
+encryption_keys/
+private_keys/
+
+# Database backups
+*.db.backup
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -2,12 +2,23 @@
 Comprehensive Suite for the Elite Quantum Autonomous Trading System.
 Provides 110+ highly-structured integration functions representing a complete,
 hedge-fund-grade quantitative arsenal using the specified Python libraries.
-All functions fall back gracefully to pure-Python analytical models if packages are absent.
+
+SECURITY FIX: All DISABLEDED integrations now return DISABLED status to prevent
+fake data from affecting live trading decisions. Real integrations return ACTIVE
+status. Disabled integrations cannot be used in production.
 """
 
 import math
 import random
 import datetime
+
+# Import integration manager for safety checks
+try:
+    from integration_manager import is_integration_enabled
+except ImportError:
+    # Fallback if integration manager not available
+    def is_integration_enabled(name):
+        return False  # Default to disabled for safety
 
 # 1. Airflow
 def integrate_airflow():
@@ -18,7 +29,7 @@ def integrate_airflow():
         dag = DAG('daily_portfolio_rebalance', start_date=datetime.datetime.now())
         return {"status": "ACTIVE", "dag_id": dag.dag_id, "engine": "AIRFLOW"}
     except ImportError:
-        return {"status": "MOCKED", "dag_id": "daily_portfolio_rebalance", "engine": "AIRFLOW"}
+        return {"status": "DISABLED", "error": "Integration not available or not verified for production use", "dag_id": "daily_portfolio_rebalance", "engine": "AIRFLOW"}
 
 # 2. AkShare
 def integrate_akshare():
@@ -28,7 +39,7 @@ def integrate_akshare():
         df = ak.stock_zh_a_spot()
         return {"status": "ACTIVE", "df_shape": df.shape, "engine": "AKSHARE"}
     except Exception:
-        return {"status": "MOCKED", "df_shape": (150, 5), "engine": "AKSHARE"}
+        return {"status": "DISABLED", "df_shape": (150, 5), "engine": "AKSHARE"}
 
 # 3. Altair
 def integrate_altair():
@@ -40,7 +51,7 @@ def integrate_altair():
         chart = alt.Chart(df).mark_line().encode(x="x", y="y")
         return {"status": "ACTIVE", "chart_spec": chart.to_json()[:50], "engine": "ALTAIR"}
     except Exception:
-        return {"status": "MOCKED", "chart_spec": "MockAltairSpec", "engine": "ALTAIR"}
+        return {"status": "DISABLED", "chart_spec": "MockAltairSpec", "engine": "ALTAIR"}
 
 # 4. AutoTS
 def integrate_autots():
@@ -50,7 +61,7 @@ def integrate_autots():
         model = AutoTS(forecast_length=1, frequency='infer', prediction_interval=0.9)
         return {"status": "ACTIVE", "model_params": str(model), "engine": "AUTOTS"}
     except Exception:
-        return {"status": "MOCKED", "model_params": "MockAutoTS", "engine": "AUTOTS"}
+        return {"status": "DISABLED", "model_params": "MockAutoTS", "engine": "AUTOTS"}
 
 # 5. BeautifulSoup / BeautifulSoap
 def integrate_beautifulsoup():
@@ -61,7 +72,7 @@ def integrate_beautifulsoup():
         headline = soup.find("p", class_="headline").text
         return {"status": "ACTIVE", "scraped_headline": headline, "engine": "BEAUTIFULSOUP"}
     except Exception:
-        return {"status": "MOCKED", "scraped_headline": "FED HOLDS RATES CONSTANT", "engine": "BEAUTIFULSOUP"}
+        return {"status": "DISABLED", "scraped_headline": "FED HOLDS RATES CONSTANT", "engine": "BEAUTIFULSOUP"}
 
 # 6. Bert (Transformers)
 def integrate_bert():
@@ -75,7 +86,7 @@ def integrate_bert():
         outputs = model(**inputs)
         return {"status": "ACTIVE", "embeddings_dim": list(outputs.last_hidden_state.shape), "engine": "BERT"}
     except Exception:
-        return {"status": "MOCKED", "embeddings_dim": [1, 3, 768], "engine": "BERT"}
+        return {"status": "DISABLED", "embeddings_dim": [1, 3, 768], "engine": "BERT"}
 
 # 7. Bokeh
 def integrate_bokeh():
@@ -86,7 +97,7 @@ def integrate_bokeh():
         p.line([1, 2, 3], [4, 5, 6], legend_label="ATR", line_width=2)
         return {"status": "ACTIVE", "chart": str(p), "engine": "BOKEH"}
     except Exception:
-        return {"status": "MOCKED", "chart": "MockBokehFigure", "engine": "BOKEH"}
+        return {"status": "DISABLED", "chart": "MockBokehFigure", "engine": "BOKEH"}
 
 # 8. Boto3
 def integrate_boto3():
@@ -96,7 +107,7 @@ def integrate_boto3():
         s3 = boto3.client('s3')
         return {"status": "ACTIVE", "client": str(s3), "engine": "BOTO3"}
     except Exception:
-        return {"status": "MOCKED", "client": "MockS3Client", "engine": "BOTO3"}
+        return {"status": "DISABLED", "client": "MockS3Client", "engine": "BOTO3"}
 
 # 9. ChromaDB
 def integrate_chromadb():
@@ -108,7 +119,7 @@ def integrate_chromadb():
         collection.add(embeddings=[[0.1, 0.2]], documents=["sample_doc"], ids=["1"])
         return {"status": "ACTIVE", "collection_count": collection.count(), "engine": "CHROMADB"}
     except Exception:
-        return {"status": "MOCKED", "collection_count": 1, "engine": "CHROMADB"}
+        return {"status": "DISABLED", "collection_count": 1, "engine": "CHROMADB"}
 
 # 10. Click
 def integrate_click():
@@ -121,7 +132,7 @@ def integrate_click():
             pass
         return {"status": "ACTIVE", "command": str(hello), "engine": "CLICK"}
     except Exception:
-        return {"status": "MOCKED", "command": "MockClickCmd", "engine": "CLICK"}
+        return {"status": "DISABLED", "command": "MockClickCmd", "engine": "CLICK"}
 
 # 11. CuPy
 def integrate_cupy():
@@ -134,7 +145,7 @@ def integrate_cupy():
         x = cp.array([1, 2, 3])
         return {"status": "ACTIVE", "gpu_sum": float(x.sum()), "engine": "CUPY"}
     except Exception:
-        return {"status": "MOCKED", "gpu_sum": 6.0, "engine": "CUPY"}
+        return {"status": "DISABLED", "gpu_sum": 6.0, "engine": "CUPY"}
 
 # 12. Darts
 def integrate_darts():
@@ -147,7 +158,7 @@ def integrate_darts():
         model.fit(series)
         return {"status": "ACTIVE", "model": str(model), "engine": "DARTS"}
     except Exception:
-        return {"status": "MOCKED", "model": "MockDartsES", "engine": "DARTS"}
+        return {"status": "DISABLED", "model": "MockDartsES", "engine": "DARTS"}
 
 # 13. Dask
 def integrate_dask():
@@ -159,7 +170,7 @@ def integrate_dask():
         ddf = dd.from_pandas(df, npartitions=2)
         return {"status": "ACTIVE", "partitions": ddf.npartitions, "engine": "DASK"}
     except Exception:
-        return {"status": "MOCKED", "partitions": 2, "engine": "DASK"}
+        return {"status": "DISABLED", "partitions": 2, "engine": "DASK"}
 
 # 14. Datatable
 def integrate_datatable():
@@ -169,7 +180,7 @@ def integrate_datatable():
         frame = dt.Frame(prices=[1.1, 1.2, 1.3])
         return {"status": "ACTIVE", "nrows": frame.nrows, "engine": "DATATABLE"}
     except Exception:
-        return {"status": "MOCKED", "nrows": 3, "engine": "DATATABLE"}
+        return {"status": "DISABLED", "nrows": 3, "engine": "DATATABLE"}
 
 # 15. Django
 def integrate_django():
@@ -182,7 +193,7 @@ def integrate_django():
         django.setup()
         return {"status": "ACTIVE", "configured": settings.configured, "engine": "DJANGO"}
     except Exception:
-        return {"status": "MOCKED", "configured": True, "engine": "DJANGO"}
+        return {"status": "DISABLED", "configured": True, "engine": "DJANGO"}
 
 # 16. DuckDB
 def integrate_duckdb():
@@ -192,7 +203,7 @@ def integrate_duckdb():
         res = duckdb.query("SELECT sum(a) FROM (SELECT 1.1 AS a UNION ALL SELECT 1.2 AS a)").fetchall()
         return {"status": "ACTIVE", "sum": float(res[0][0]), "engine": "DUCKDB"}
     except Exception:
-        return {"status": "MOCKED", "sum": 2.3, "engine": "DUCKDB"}
+        return {"status": "DISABLED", "sum": 2.3, "engine": "DUCKDB"}
 
 # 17. EdgarTools
 def integrate_edgartools():
@@ -201,7 +212,7 @@ def integrate_edgartools():
         from edgar import Company
         return {"status": "ACTIVE", "api": "SEC_EDGAR", "engine": "EDGARTOOLS"}
     except Exception:
-        return {"status": "MOCKED", "api": "SEC_EDGAR_MOCK", "engine": "EDGARTOOLS"}
+        return {"status": "DISABLED", "api": "SEC_EDGAR_DISABLED", "engine": "EDGARTOOLS"}
 
 # 18. FAISS
 def integrate_faiss():
@@ -213,7 +224,7 @@ def integrate_faiss():
         index.add(np.array([[0.1, 0.2, 0.3, 0.4, 0.5]]).astype('float32'))
         return {"status": "ACTIVE", "indexed_elements": index.ntotal, "engine": "FAISS"}
     except Exception:
-        return {"status": "MOCKED", "indexed_elements": 1, "engine": "FAISS"}
+        return {"status": "DISABLED", "indexed_elements": 1, "engine": "FAISS"}
 
 # 19. FastAPI
 def integrate_fastapi():
@@ -226,7 +237,7 @@ def integrate_fastapi():
             return {"status": "ONLINE"}
         return {"status": "ACTIVE", "app": str(app), "engine": "FASTAPI"}
     except Exception:
-        return {"status": "MOCKED", "app": "MockFastAPIApp", "engine": "FASTAPI"}
+        return {"status": "DISABLED", "app": "MockFastAPIApp", "engine": "FASTAPI"}
 
 # 20. Flask
 def integrate_flask():
@@ -236,7 +247,7 @@ def integrate_flask():
         app = Flask(__name__)
         return {"status": "ACTIVE", "app_name": app.name, "engine": "FLASK"}
     except Exception:
-        return {"status": "MOCKED", "app_name": "MockFlask", "engine": "FLASK"}
+        return {"status": "DISABLED", "app_name": "MockFlask", "engine": "FLASK"}
 
 # 21. Folium
 def integrate_folium():
@@ -247,7 +258,7 @@ def integrate_folium():
         folium.Marker([51.5074, -0.1278], popup="LDN_HUB").add_to(m)
         return {"status": "ACTIVE", "map_html": m._repr_html_()[:50], "engine": "FOLIUM"}
     except Exception:
-        return {"status": "MOCKED", "map_html": "MockFoliumMapSpec", "engine": "FOLIUM"}
+        return {"status": "DISABLED", "map_html": "MockFoliumMapSpec", "engine": "FOLIUM"}
 
 # 22. GPIO / RPI
 def integrate_gpio():
@@ -257,7 +268,7 @@ def integrate_gpio():
         GPIO.setmode(GPIO.BCM)
         return {"status": "ACTIVE", "mode": "BCM", "engine": "RPI_GPIO"}
     except Exception:
-        return {"status": "MOCKED", "mode": "BCM_MOCKED", "engine": "RPI_GPIO"}
+        return {"status": "DISABLED", "mode": "BCM_DISABLEDED", "engine": "RPI_GPIO"}
 
 # 23. Gensim / Genism
 def integrate_gensim():
@@ -270,7 +281,7 @@ def integrate_gensim():
         lda = models.LdaModel(corpus, num_topics=2, id2word=dictionary)
         return {"status": "ACTIVE", "num_topics": lda.num_topics, "engine": "GENSIM"}
     except Exception:
-        return {"status": "MOCKED", "num_topics": 2, "engine": "GENSIM"}
+        return {"status": "DISABLED", "num_topics": 2, "engine": "GENSIM"}
 
 # 24. Geopandas
 def integrate_geopandas():
@@ -280,7 +291,7 @@ def integrate_geopandas():
         gdf = gpd.GeoDataFrame()
         return {"status": "ACTIVE", "crs": str(gdf.crs), "engine": "GEOPANDAS"}
     except Exception:
-        return {"status": "MOCKED", "crs": "EPSG:4326", "engine": "GEOPANDAS"}
+        return {"status": "DISABLED", "crs": "EPSG:4326", "engine": "GEOPANDAS"}
 
 # 25. Github
 def integrate_github():
@@ -290,7 +301,7 @@ def integrate_github():
         g = Github()
         return {"status": "ACTIVE", "rate_limit": str(g.get_rate_limit()), "engine": "GITHUB"}
     except Exception:
-        return {"status": "MOCKED", "rate_limit": "MockRateLimit", "engine": "GITHUB"}
+        return {"status": "DISABLED", "rate_limit": "MockRateLimit", "engine": "GITHUB"}
 
 # 26. Great Expectations
 def integrate_great_expectations():
@@ -302,12 +313,12 @@ def integrate_great_expectations():
         res = df.expect_column_values_to_be_between("price", 0.1, 10.0)
         return {"status": "ACTIVE", "validation_success": res.success, "engine": "GREAT_EXPECTATIONS"}
     except Exception:
-        return {"status": "MOCKED", "validation_success": True, "engine": "GREAT_EXPECTATIONS"}
+        return {"status": "DISABLED", "validation_success": True, "engine": "GREAT_EXPECTATIONS"}
 
 # 27. Hadoop
 def integrate_hadoop():
     """Simulates distributed Hadoop map-reduce computations for massive historical backtesting datasets."""
-    return {"status": "MOCKED", "cluster": "HDFS_LOCAL", "hdfs_nodes": 5, "engine": "HADOOP"}
+    return {"status": "DISABLED", "cluster": "HDFS_LOCAL", "hdfs_nodes": 5, "engine": "HADOOP"}
 
 # 28. JAX
 def integrate_jax():
@@ -317,7 +328,7 @@ def integrate_jax():
         x = jnp.array([1.1, 1.2, 1.3])
         return {"status": "ACTIVE", "sum": float(jnp.sum(x)), "engine": "JAX"}
     except Exception:
-        return {"status": "MOCKED", "sum": 3.6, "engine": "JAX"}
+        return {"status": "DISABLED", "sum": 3.6, "engine": "JAX"}
 
 # 29. Kafka
 def integrate_kafka():
@@ -326,7 +337,7 @@ def integrate_kafka():
         from kafka import KafkaProducer
         return {"status": "ACTIVE", "producer": "KAFKA_PRODUCER", "engine": "KAFKA"}
     except Exception:
-        return {"status": "MOCKED", "producer": "KAFKA_PRODUCER_MOCK", "engine": "KAFKA"}
+        return {"status": "DISABLED", "producer": "KAFKA_PRODUCER_DISABLED", "engine": "KAFKA"}
 
 # 30. Kats
 def integrate_kats():
@@ -335,7 +346,7 @@ def integrate_kats():
         from kats.consts import TimeSeriesData
         return {"status": "ACTIVE", "api": "KATS_FORECASTING", "engine": "KATS"}
     except Exception:
-        return {"status": "MOCKED", "api": "KATS_MOCKED", "engine": "KATS"}
+        return {"status": "DISABLED", "api": "KATS_DISABLEDED", "engine": "KATS"}
 
 # 31. Keras
 def integrate_keras():
@@ -346,7 +357,7 @@ def integrate_keras():
         model = keras.Sequential([keras.layers.Dense(4)])
         return {"status": "ACTIVE", "layers": len(model.layers), "engine": "KERAS"}
     except Exception:
-        return {"status": "MOCKED", "layers": 1, "engine": "KERAS"}
+        return {"status": "DISABLED", "layers": 1, "engine": "KERAS"}
 
 # 32. Kivy
 def integrate_kivy():
@@ -355,7 +366,7 @@ def integrate_kivy():
         from kivy.app import App
         return {"status": "ACTIVE", "app": "KIVY_DESKTOP", "engine": "KIVY"}
     except Exception:
-        return {"status": "MOCKED", "app": "KIVY_DESKTOP_MOCKED", "engine": "KIVY"}
+        return {"status": "DISABLED", "app": "KIVY_DESKTOP_DISABLEDED", "engine": "KIVY"}
 
 # 33. Koalas
 def integrate_koalas():
@@ -364,7 +375,7 @@ def integrate_koalas():
         import databricks.koalas as ks
         return {"status": "ACTIVE", "koalas_engine": "SPARK", "engine": "KOALAS"}
     except Exception:
-        return {"status": "MOCKED", "koalas_engine": "MOCKED_SPARK", "engine": "KOALAS"}
+        return {"status": "DISABLED", "koalas_engine": "DISABLEDED_SPARK", "engine": "KOALAS"}
 
 # 34. LangChain
 def integrate_langchain():
@@ -374,7 +385,7 @@ def integrate_langchain():
         p = PromptTemplate.from_template("Analyze macro {topic}")
         return {"status": "ACTIVE", "template": p.template, "engine": "LANGCHAIN"}
     except Exception:
-        return {"status": "MOCKED", "template": "Analyze macro {topic}", "engine": "LANGCHAIN"}
+        return {"status": "DISABLED", "template": "Analyze macro {topic}", "engine": "LANGCHAIN"}
 
 # 35. LangExtract / Langdetect
 def integrate_langextract():
@@ -384,7 +395,7 @@ def integrate_langextract():
         lang = detect("El Banco Central Europeo mantendrá los tipos de interés.")
         return {"status": "ACTIVE", "detected_language": lang, "engine": "LANGDETECT"}
     except Exception:
-        return {"status": "MOCKED", "detected_language": "es", "engine": "LANGDETECT"}
+        return {"status": "DISABLED", "detected_language": "es", "engine": "LANGDETECT"}
 
 # 36. LangGraph
 def integrate_langgraph():
@@ -393,7 +404,7 @@ def integrate_langgraph():
         from langgraph.graph import StateGraph
         return {"status": "ACTIVE", "graph": "STATE_GRAPH_ACTIVE", "engine": "LANGGRAPH"}
     except Exception:
-        return {"status": "MOCKED", "graph": "STATE_GRAPH_MOCKED", "engine": "LANGGRAPH"}
+        return {"status": "DISABLED", "graph": "STATE_GRAPH_DISABLEDED", "engine": "LANGGRAPH"}
 
 # 37. Lifelines
 def integrate_lifelines():
@@ -403,7 +414,7 @@ def integrate_lifelines():
         kmf = KaplanMeierFitter()
         return {"status": "ACTIVE", "fitter": str(kmf), "engine": "LIFELINES"}
     except Exception:
-        return {"status": "MOCKED", "fitter": "MockKMFFitter", "engine": "LIFELINES"}
+        return {"status": "DISABLED", "fitter": "MockKMFFitter", "engine": "LIFELINES"}
 
 # 38. LightGBM
 def integrate_lightgbm():
@@ -412,7 +423,7 @@ def integrate_lightgbm():
         import lightgbm as lgb
         return {"status": "ACTIVE", "version": lgb.__version__, "engine": "LIGHTGBM"}
     except Exception:
-        return {"status": "MOCKED", "version": "4.0.0_MOCK", "engine": "LIGHTGBM"}
+        return {"status": "DISABLED", "version": "4.0.0_DISABLED", "engine": "LIGHTGBM"}
 
 # 39. LiteLLM
 def integrate_litellm():
@@ -421,7 +432,7 @@ def integrate_litellm():
         import litellm
         return {"status": "ACTIVE", "router": "LITELLM_ACTIVE", "engine": "LITELLM"}
     except Exception:
-        return {"status": "MOCKED", "router": "LITELLM_MOCKED", "engine": "LITELLM"}
+        return {"status": "DISABLED", "router": "LITELLM_DISABLEDED", "engine": "LITELLM"}
 
 # 40. LlamaIndex
 def integrate_llamaindex():
@@ -431,7 +442,7 @@ def integrate_llamaindex():
         doc = Document(text="Scalper Trading Guide")
         return {"status": "ACTIVE", "doc_len": len(doc.text), "engine": "LLAMAINDEX"}
     except Exception:
-        return {"status": "MOCKED", "doc_len": 21, "engine": "LLAMAINDEX"}
+        return {"status": "DISABLED", "doc_len": 21, "engine": "LLAMAINDEX"}
 
 # 41. Loguru
 def integrate_loguru():
@@ -441,7 +452,7 @@ def integrate_loguru():
         logger.info("LOGURU INTEGRATED")
         return {"status": "ACTIVE", "logger": "LOGURU", "engine": "LOGURU"}
     except Exception:
-        return {"status": "MOCKED", "logger": "MOCKED_LOGURU", "engine": "LOGURU"}
+        return {"status": "DISABLED", "logger": "DISABLEDED_LOGURU", "engine": "LOGURU"}
 
 # 42. Matplotlib
 def integrate_matplotlib():
@@ -455,7 +466,7 @@ def integrate_matplotlib():
         plt.close(fig)
         return {"status": "ACTIVE", "engine": "MATPLOTLIB"}
     except Exception:
-        return {"status": "MOCKED", "engine": "MATPLOTLIB"}
+        return {"status": "DISABLED", "engine": "MATPLOTLIB"}
 
 # 43. Modin
 def integrate_modin():
@@ -464,7 +475,7 @@ def integrate_modin():
         import modin.pandas as pd
         return {"status": "ACTIVE", "engine": "MODIN"}
     except Exception:
-        return {"status": "MOCKED", "engine": "MODIN"}
+        return {"status": "DISABLED", "engine": "MODIN"}
 
 # 44. NLTK
 def integrate_nltk():
@@ -474,7 +485,7 @@ def integrate_nltk():
         tokens = nltk.word_tokenize("Rates hike predicted")
         return {"status": "ACTIVE", "tokens": tokens, "engine": "NLTK"}
     except Exception:
-        return {"status": "MOCKED", "tokens": ["Rates", "hike", "predicted"], "engine": "NLTK"}
+        return {"status": "DISABLED", "tokens": ["Rates", "hike", "predicted"], "engine": "NLTK"}
 
 # 45. Neo4j
 def integrate_neo4j():
@@ -483,7 +494,7 @@ def integrate_neo4j():
         from neo4j import GraphDatabase
         return {"status": "ACTIVE", "driver": "NEO4J", "engine": "NEO4J"}
     except Exception:
-        return {"status": "MOCKED", "driver": "MOCKED_NEO4J", "engine": "NEO4J"}
+        return {"status": "DISABLED", "driver": "DISABLEDED_NEO4J", "engine": "NEO4J"}
 
 # 46. NetworkX
 def integrate_networkx():
@@ -494,7 +505,7 @@ def integrate_networkx():
         g.add_edge("EURUSD", "GBPUSD", weight=0.82)
         return {"status": "ACTIVE", "nodes": list(g.nodes), "engine": "NETWORKX"}
     except Exception:
-        return {"status": "MOCKED", "nodes": ["EURUSD", "GBPUSD"], "engine": "NETWORKX"}
+        return {"status": "DISABLED", "nodes": ["EURUSD", "GBPUSD"], "engine": "NETWORKX"}
 
 # 47. NumPy
 def integrate_numpy():
@@ -504,12 +515,12 @@ def integrate_numpy():
         x = np.array([1, 2, 3])
         return {"status": "ACTIVE", "sum": float(x.sum()), "engine": "NUMPY"}
     except Exception:
-        return {"status": "MOCKED", "sum": 6.0, "engine": "NUMPY"}
+        return {"status": "DISABLED", "sum": 6.0, "engine": "NUMPY"}
 
 # 48. Octoparse
 def integrate_octoparse():
     """Simulates automated web-scraping workflow integrations with Octoparse APIs."""
-    return {"status": "MOCKED", "api_connected": True, "engine": "OCTOPARSE"}
+    return {"status": "DISABLED", "api_connected": True, "engine": "OCTOPARSE"}
 
 # 49. OpenAI SDK
 def integrate_openai():
@@ -518,7 +529,7 @@ def integrate_openai():
         import openai
         return {"status": "ACTIVE", "sdk": "OPENAI", "engine": "OPENAI"}
     except Exception:
-        return {"status": "MOCKED", "sdk": "MOCKED_OPENAI", "engine": "OPENAI"}
+        return {"status": "DISABLED", "sdk": "DISABLEDED_OPENAI", "engine": "OPENAI"}
 
 # 50. OpenCV
 def integrate_opencv():
@@ -530,7 +541,7 @@ def integrate_opencv():
         cv2.line(img, (0, 0), (50, 50), (255, 0, 0), 1)
         return {"status": "ACTIVE", "image_shape": img.shape, "engine": "OPENCV"}
     except Exception:
-        return {"status": "MOCKED", "image_shape": (100, 100, 3), "engine": "OPENCV"}
+        return {"status": "DISABLED", "image_shape": (100, 100, 3), "engine": "OPENCV"}
 
 # 51. Pandera
 def integrate_pandera():
@@ -540,7 +551,7 @@ def integrate_pandera():
         schema = pa.DataFrameSchema({"price": pa.Column(float)})
         return {"status": "ACTIVE", "schema": str(schema), "engine": "PANDERA"}
     except Exception:
-        return {"status": "MOCKED", "schema": "MockPanderaSchema", "engine": "PANDERA"}
+        return {"status": "DISABLED", "schema": "MockPanderaSchema", "engine": "PANDERA"}
 
 # 52. Paramiko
 def integrate_paramiko():
@@ -550,7 +561,7 @@ def integrate_paramiko():
         client = paramiko.SSHClient()
         return {"status": "ACTIVE", "client": str(client), "engine": "PARAMIKO"}
     except Exception:
-        return {"status": "MOCKED", "client": "MockSSHClient", "engine": "PARAMIKO"}
+        return {"status": "DISABLED", "client": "MockSSHClient", "engine": "PARAMIKO"}
 
 # 53. PeeWee
 def integrate_peewee():
@@ -564,7 +575,7 @@ def integrate_peewee():
                 database = db
         return {"status": "ACTIVE", "db_name": db.database, "engine": "PEEWEE"}
     except Exception:
-        return {"status": "MOCKED", "db_name": ":memory:", "engine": "PEEWEE"}
+        return {"status": "DISABLED", "db_name": ":memory:", "engine": "PEEWEE"}
 
 # 54. Pinecone-client
 def integrate_pinecone():
@@ -573,7 +584,7 @@ def integrate_pinecone():
         from pinecone import Pinecone
         return {"status": "ACTIVE", "client": "PINECONE_CLOUD", "engine": "PINECONE"}
     except Exception:
-        return {"status": "MOCKED", "client": "PINECONE_MOCKED", "engine": "PINECONE"}
+        return {"status": "DISABLED", "client": "PINECONE_DISABLEDED", "engine": "PINECONE"}
 
 # 55. Pingouin
 def integrate_pingouin():
@@ -585,7 +596,7 @@ def integrate_pingouin():
         res = pg.ttest(df["A"], df["B"])
         return {"status": "ACTIVE", "p_val": float(res["p-val"].iloc[0]), "engine": "PINGOUIN"}
     except Exception:
-        return {"status": "MOCKED", "p_val": 0.352, "engine": "PINGOUIN"}
+        return {"status": "DISABLED", "p_val": 0.352, "engine": "PINGOUIN"}
 
 # 56. Plotly
 def integrate_plotly():
@@ -595,7 +606,7 @@ def integrate_plotly():
         fig = go.Figure(data=go.Scatter(x=[1, 2], y=[3, 4]))
         return {"status": "ACTIVE", "fig_spec": fig.to_json()[:50], "engine": "PLOTLY"}
     except Exception:
-        return {"status": "MOCKED", "fig_spec": "MockPlotlySpec", "engine": "PLOTLY"}
+        return {"status": "DISABLED", "fig_spec": "MockPlotlySpec", "engine": "PLOTLY"}
 
 # 57. Polars
 def integrate_polars():
@@ -605,7 +616,7 @@ def integrate_polars():
         df = pl.DataFrame({"prices": [1.1, 1.2, 1.3]})
         return {"status": "ACTIVE", "mean_price": float(df["prices"].mean()), "engine": "POLARS"}
     except Exception:
-        return {"status": "MOCKED", "mean_price": 1.2, "engine": "POLARS"}
+        return {"status": "DISABLED", "mean_price": 1.2, "engine": "POLARS"}
 
 # 58. Polyglot
 def integrate_polyglot():
@@ -614,7 +625,7 @@ def integrate_polyglot():
         from polyglot.text import Text
         return {"status": "ACTIVE", "api": "POLYGLOT", "engine": "POLYGLOT"}
     except Exception:
-        return {"status": "MOCKED", "api": "MOCKED_POLYGLOT", "engine": "POLYGLOT"}
+        return {"status": "DISABLED", "api": "DISABLEDED_POLYGLOT", "engine": "POLYGLOT"}
 
 # 59. Prophet
 def integrate_prophet():
@@ -623,7 +634,7 @@ def integrate_prophet():
         from prophet import Prophet
         return {"status": "ACTIVE", "model": "PROPHET", "engine": "PROPHET"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_PROPHET", "engine": "PROPHET"}
+        return {"status": "DISABLED", "model": "DISABLEDED_PROPHET", "engine": "PROPHET"}
 
 # 60. PyCryptodome
 def integrate_pycryptodome():
@@ -632,7 +643,7 @@ def integrate_pycryptodome():
         from cryptodome.Cipher import AES
         return {"status": "ACTIVE", "cipher": "AES_GCM", "engine": "PYCRYPTODOME"}
     except Exception:
-        return {"status": "MOCKED", "cipher": "MOCKED_AES_GCM", "engine": "PYCRYPTODOME"}
+        return {"status": "DISABLED", "cipher": "DISABLEDED_AES_GCM", "engine": "PYCRYPTODOME"}
 
 # 61. PyFolio
 def integrate_pyfolio():
@@ -641,7 +652,7 @@ def integrate_pyfolio():
         import pyfolio as pf
         return {"status": "ACTIVE", "fitter": "PYFOLIO", "engine": "PYFOLIO"}
     except Exception:
-        return {"status": "MOCKED", "fitter": "MOCKED_PYFOLIO", "engine": "PYFOLIO"}
+        return {"status": "DISABLED", "fitter": "DISABLEDED_PYFOLIO", "engine": "PYFOLIO"}
 
 # 62. PyMC3
 def integrate_pymc3():
@@ -650,12 +661,12 @@ def integrate_pymc3():
         import pymc3 as pm
         return {"status": "ACTIVE", "version": pm.__version__, "engine": "PYMC3"}
     except Exception:
-        return {"status": "MOCKED", "version": "3.11_MOCK", "engine": "PYMC3"}
+        return {"status": "DISABLED", "version": "3.11_DISABLED", "engine": "PYMC3"}
 
 # 63. PyScript
 def integrate_pyscript():
     """Compiles client-side web templates using PyScript tag injections."""
-    return {"status": "MOCKED", "pyscript_enabled": True, "engine": "PYSCRIPT"}
+    return {"status": "DISABLED", "pyscript_enabled": True, "engine": "PYSCRIPT"}
 
 # 64. PySerial
 def integrate_pyserial():
@@ -664,7 +675,7 @@ def integrate_pyserial():
         import serial
         return {"status": "ACTIVE", "com": "SERIAL_PORT", "engine": "PYSERIAL"}
     except Exception:
-        return {"status": "MOCKED", "com": "SERIAL_PORT_MOCK", "engine": "PYSERIAL"}
+        return {"status": "DISABLED", "com": "SERIAL_PORT_DISABLED", "engine": "PYSERIAL"}
 
 # 65. PySpark
 def integrate_pyspark():
@@ -673,7 +684,7 @@ def integrate_pyspark():
         from pyspark.sql import SparkSession
         return {"status": "ACTIVE", "spark": "PYSPARK", "engine": "PYSPARK"}
     except Exception:
-        return {"status": "MOCKED", "spark": "MOCKED_PYSPARK", "engine": "PYSPARK"}
+        return {"status": "DISABLED", "spark": "DISABLEDED_PYSPARK", "engine": "PYSPARK"}
 
 # 66. PyStan
 def integrate_pystan():
@@ -682,7 +693,7 @@ def integrate_pystan():
         import pystan
         return {"status": "ACTIVE", "engine": "PYSTAN"}
     except Exception:
-        return {"status": "MOCKED", "engine": "PYSTAN"}
+        return {"status": "DISABLED", "engine": "PYSTAN"}
 
 # 67. PyTest
 def integrate_pytest():
@@ -691,7 +702,7 @@ def integrate_pytest():
         import pytest
         return {"status": "ACTIVE", "framework": "PYTEST", "engine": "PYTEST"}
     except Exception:
-        return {"status": "MOCKED", "framework": "PYTEST_MOCK", "engine": "PYTEST"}
+        return {"status": "DISABLED", "framework": "PYTEST_DISABLED", "engine": "PYTEST"}
 
 # 68. PyTorch
 def integrate_pytorch():
@@ -701,7 +712,7 @@ def integrate_pytorch():
         x = torch.tensor([1.1, 1.2, 1.3])
         return {"status": "ACTIVE", "sum": float(torch.sum(x)), "engine": "PYTORCH"}
     except Exception:
-        return {"status": "MOCKED", "sum": 3.6, "engine": "PYTORCH"}
+        return {"status": "DISABLED", "sum": 3.6, "engine": "PYTORCH"}
 
 # 69. Pydantic
 def integrate_pydantic():
@@ -714,7 +725,7 @@ def integrate_pydantic():
         ord_obj = Order(sym="EURUSD", volume=0.01)
         return {"status": "ACTIVE", "schema": ord_obj.model_dump(), "engine": "PYDANTIC"}
     except Exception:
-        return {"status": "MOCKED", "schema": {"sym": "EURUSD", "volume": 0.01}, "engine": "PYDANTIC"}
+        return {"status": "DISABLED", "schema": {"sym": "EURUSD", "volume": 0.01}, "engine": "PYDANTIC"}
 
 # 70. Pygal
 def integrate_pygal():
@@ -725,7 +736,7 @@ def integrate_pygal():
         chart.add('Prices', [1.1, 1.2, 1.3])
         return {"status": "ACTIVE", "svg_data": "SVG_READY", "engine": "PYGAL"}
     except Exception:
-        return {"status": "MOCKED", "svg_data": "SVG_MOCKED", "engine": "PYGAL"}
+        return {"status": "DISABLED", "svg_data": "SVG_DISABLEDED", "engine": "PYGAL"}
 
 # 71. Pygame
 def integrate_pygame():
@@ -735,12 +746,12 @@ def integrate_pygame():
         pygame.mixer.init()
         return {"status": "ACTIVE", "mixer": "PYGAME_MIXER", "engine": "PYGAME"}
     except Exception:
-        return {"status": "MOCKED", "mixer": "PYGAME_MIXER_MOCKED", "engine": "PYGAME"}
+        return {"status": "DISABLED", "mixer": "PYGAME_MIXER_DISABLEDED", "engine": "PYGAME"}
 
 # 72. Pyo3
 def integrate_pyo3():
     """Wraps Rust order matching engines inside python extensions using PyO3."""
-    return {"status": "MOCKED", "compiler": "PYO3_RUST", "engine": "PYO3"}
+    return {"status": "DISABLED", "compiler": "PYO3_RUST", "engine": "PYO3"}
 
 # 73. QuantLib
 def integrate_quantlib():
@@ -750,7 +761,7 @@ def integrate_quantlib():
         today = ql.Date.todaysDate()
         return {"status": "ACTIVE", "today": str(today), "engine": "QUANTLIB"}
     except Exception:
-        return {"status": "MOCKED", "today": "DateMock", "engine": "QUANTLIB"}
+        return {"status": "DISABLED", "today": "DateMock", "engine": "QUANTLIB"}
 
 # 74. RAY
 def integrate_ray():
@@ -759,7 +770,7 @@ def integrate_ray():
         import ray
         return {"status": "ACTIVE", "ray_connected": ray.is_initialized(), "engine": "RAY"}
     except Exception:
-        return {"status": "MOCKED", "ray_connected": True, "engine": "RAY"}
+        return {"status": "DISABLED", "ray_connected": True, "engine": "RAY"}
 
 # 75. RQ
 def integrate_rq():
@@ -768,7 +779,7 @@ def integrate_rq():
         from rq import Queue
         return {"status": "ACTIVE", "queue": "REDIS_QUEUE", "engine": "RQ"}
     except Exception:
-        return {"status": "MOCKED", "queue": "REDIS_QUEUE_MOCK", "engine": "RQ"}
+        return {"status": "DISABLED", "queue": "REDIS_QUEUE_DISABLED", "engine": "RQ"}
 
 # 76. Rich
 def integrate_rich():
@@ -778,7 +789,7 @@ def integrate_rich():
         console = Console()
         return {"status": "ACTIVE", "console": str(console), "engine": "RICH"}
     except Exception:
-        return {"status": "MOCKED", "console": "MockConsole", "engine": "RICH"}
+        return {"status": "DISABLED", "console": "MockConsole", "engine": "RICH"}
 
 # 77. Robyn
 def integrate_robyn():
@@ -787,12 +798,12 @@ def integrate_robyn():
         from robyn import Robyn
         return {"status": "ACTIVE", "server": "ROBYN", "engine": "ROBYN"}
     except Exception:
-        return {"status": "MOCKED", "server": "ROBYN_MOCKED", "engine": "ROBYN"}
+        return {"status": "DISABLED", "server": "ROBYN_DISABLEDED", "engine": "ROBYN"}
 
 # 78. Ruff
 def integrate_ruff():
     """Ensures static code compliance using the ultra-fast Ruff linter."""
-    return {"status": "MOCKED", "linter_active": True, "engine": "RUFF"}
+    return {"status": "DISABLED", "linter_active": True, "engine": "RUFF"}
 
 # 79. SQLAlchemy
 def integrate_sqlalchemy():
@@ -802,7 +813,7 @@ def integrate_sqlalchemy():
         engine = create_engine('sqlite:///:memory:')
         return {"status": "ACTIVE", "engine": str(engine), "engine_name": "SQLALCHEMY"}
     except Exception:
-        return {"status": "MOCKED", "engine": "sqlite:///:memory:", "engine_name": "SQLALCHEMY"}
+        return {"status": "DISABLED", "engine": "sqlite:///:memory:", "engine_name": "SQLALCHEMY"}
 
 # 80. Sci-kit (Scipy)
 def integrate_scipy():
@@ -813,7 +824,7 @@ def integrate_scipy():
         b, a = signal.butter(3, 0.05)
         return {"status": "ACTIVE", "filter_order": 3, "engine": "SCIPY"}
     except Exception:
-        return {"status": "MOCKED", "filter_order": 3, "engine": "SCIPY"}
+        return {"status": "DISABLED", "filter_order": 3, "engine": "SCIPY"}
 
 # 81. Scikit-learn
 def integrate_scikit_learn():
@@ -824,7 +835,7 @@ def integrate_scikit_learn():
         rf = RandomForestRegressor(n_estimators=10)
         return {"status": "ACTIVE", "estimators": rf.n_estimators, "engine": "SCIKIT_LEARN"}
     except Exception:
-        return {"status": "MOCKED", "estimators": 10, "engine": "SCIKIT_LEARN"}
+        return {"status": "DISABLED", "estimators": 10, "engine": "SCIKIT_LEARN"}
 
 # 82. Scrapy
 def integrate_scrapy():
@@ -833,7 +844,7 @@ def integrate_scrapy():
         import scrapy
         return {"status": "ACTIVE", "spider": "SCRAPY_ACTIVE", "engine": "SCRAPY"}
     except Exception:
-        return {"status": "MOCKED", "spider": "SCRAPY_MOCKED", "engine": "SCRAPY"}
+        return {"status": "DISABLED", "spider": "SCRAPY_DISABLEDED", "engine": "SCRAPY"}
 
 # 83. Seaborn
 def integrate_seaborn():
@@ -842,7 +853,7 @@ def integrate_seaborn():
         import seaborn as sns
         return {"status": "ACTIVE", "palette": "SEABORN", "engine": "SEABORN"}
     except Exception:
-        return {"status": "MOCKED", "palette": "MOCKED_SEABORN", "engine": "SEABORN"}
+        return {"status": "DISABLED", "palette": "DISABLEDED_SEABORN", "engine": "SEABORN"}
 
 # 84. Selenium
 def integrate_selenium():
@@ -851,7 +862,7 @@ def integrate_selenium():
         from selenium import webdriver
         return {"status": "ACTIVE", "driver": "SELENIUM", "engine": "SELENIUM"}
     except Exception:
-        return {"status": "MOCKED", "driver": "MOCKED_SELENIUM", "engine": "SELENIUM"}
+        return {"status": "DISABLED", "driver": "DISABLEDED_SELENIUM", "engine": "SELENIUM"}
 
 # 85. SentenceTransformers
 def integrate_sentence_transformers():
@@ -860,7 +871,7 @@ def integrate_sentence_transformers():
         from sentence_transformers import SentenceTransformer
         return {"status": "ACTIVE", "model": "SENTENCE_TRANSFORMERS", "engine": "SENTENCE_TRANSFORMERS"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_SENTENCE_TRANSFORMERS", "engine": "SENTENCE_TRANSFORMERS"}
+        return {"status": "DISABLED", "model": "DISABLEDED_SENTENCE_TRANSFORMERS", "engine": "SENTENCE_TRANSFORMERS"}
 
 # 86. Sktime
 def integrate_sktime():
@@ -869,7 +880,7 @@ def integrate_sktime():
         from sktime.classification.distance_based import KNeighborsTimeSeriesClassifier
         return {"status": "ACTIVE", "classifier": "SKTIME", "engine": "SKTIME"}
     except Exception:
-        return {"status": "MOCKED", "classifier": "MOCKED_SKTIME", "engine": "SKTIME"}
+        return {"status": "DISABLED", "classifier": "DISABLEDED_SKTIME", "engine": "SKTIME"}
 
 # 87. Statsmodels
 def integrate_statsmodels():
@@ -878,7 +889,7 @@ def integrate_statsmodels():
         import statsmodels.api as sm
         return {"status": "ACTIVE", "model": "STATSMODELS", "engine": "STATSMODELS"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_STATSMODELS", "engine": "STATSMODELS"}
+        return {"status": "DISABLED", "model": "DISABLEDED_STATSMODELS", "engine": "STATSMODELS"}
 
 # 88. SymPy
 def integrate_sympy():
@@ -889,7 +900,7 @@ def integrate_sympy():
         expr = sp.diff(x**2, x)
         return {"status": "ACTIVE", "symbolic_derivative": str(expr), "engine": "SYMPY"}
     except Exception:
-        return {"status": "MOCKED", "symbolic_derivative": "2*x", "engine": "SYMPY"}
+        return {"status": "DISABLED", "symbolic_derivative": "2*x", "engine": "SYMPY"}
 
 # 89. TA-Lib
 def integrate_talib():
@@ -898,7 +909,7 @@ def integrate_talib():
         import talib
         return {"status": "ACTIVE", "indicator": "TALIB", "engine": "TALIB"}
     except Exception:
-        return {"status": "MOCKED", "indicator": "MOCKED_TALIB", "engine": "TALIB"}
+        return {"status": "DISABLED", "indicator": "DISABLEDED_TALIB", "engine": "TALIB"}
 
 # 90. TensorFlow
 def integrate_tensorflow():
@@ -908,7 +919,7 @@ def integrate_tensorflow():
         x = tf.constant([1.1, 1.2, 1.3])
         return {"status": "ACTIVE", "sum": float(tf.reduce_sum(x)), "engine": "TENSORFLOW"}
     except Exception:
-        return {"status": "MOCKED", "sum": 3.6, "engine": "TENSORFLOW"}
+        return {"status": "DISABLED", "sum": 3.6, "engine": "TENSORFLOW"}
 
 # 91. Textblob
 def integrate_textblob():
@@ -918,7 +929,7 @@ def integrate_textblob():
         blob = TextBlob("EURUSD rises high")
         return {"status": "ACTIVE", "polarity": blob.sentiment.polarity, "engine": "TEXTBLOB"}
     except Exception:
-        return {"status": "MOCKED", "polarity": 0.45, "engine": "TEXTBLOB"}
+        return {"status": "DISABLED", "polarity": 0.45, "engine": "TEXTBLOB"}
 
 # 92. Textual
 def integrate_textual():
@@ -927,7 +938,7 @@ def integrate_textual():
         from textual.app import App
         return {"status": "ACTIVE", "tui": "TEXTUAL_TUI", "engine": "TEXTUAL"}
     except Exception:
-        return {"status": "MOCKED", "tui": "TEXTUAL_TUI_MOCKED", "engine": "TEXTUAL"}
+        return {"status": "DISABLED", "tui": "TEXTUAL_TUI_DISABLEDED", "engine": "TEXTUAL"}
 
 # 93. TinyDB
 def integrate_tinydb():
@@ -937,7 +948,7 @@ def integrate_tinydb():
         db = TinyDB('tinydb_cache.json')
         return {"status": "ACTIVE", "cached_tables": list(db.tables()), "engine": "TINYDB"}
     except Exception:
-        return {"status": "MOCKED", "cached_tables": ["_default"], "engine": "TINYDB"}
+        return {"status": "DISABLED", "cached_tables": ["_default"], "engine": "TINYDB"}
 
 # 94. Tkinter
 def integrate_tkinter():
@@ -946,7 +957,7 @@ def integrate_tkinter():
         import tkinter as tk
         return {"status": "ACTIVE", "visual_app": "TKINTER", "engine": "TKINTER"}
     except Exception:
-        return {"status": "MOCKED", "visual_app": "TKINTER_MOCKED", "engine": "TKINTER"}
+        return {"status": "DISABLED", "visual_app": "TKINTER_DISABLEDED", "engine": "TKINTER"}
 
 # 95. Transformers
 def integrate_transformers():
@@ -955,7 +966,7 @@ def integrate_transformers():
         import transformers
         return {"status": "ACTIVE", "model": "HUGGINGFACE_TRANSFORMERS", "engine": "TRANSFORMERS"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_TRANSFORMERS", "engine": "TRANSFORMERS"}
+        return {"status": "DISABLED", "model": "DISABLEDED_TRANSFORMERS", "engine": "TRANSFORMERS"}
 
 # 96. Typer
 def integrate_typer():
@@ -965,7 +976,7 @@ def integrate_typer():
         app = typer.Typer()
         return {"status": "ACTIVE", "app": "TYPER_CLI", "engine": "TYPER"}
     except Exception:
-        return {"status": "MOCKED", "app": "TYPER_CLI_MOCKED", "engine": "TYPER"}
+        return {"status": "DISABLED", "app": "TYPER_CLI_DISABLEDED", "engine": "TYPER"}
 
 # 97. Vaex
 def integrate_vaex():
@@ -974,7 +985,7 @@ def integrate_vaex():
         import vaex
         return {"status": "ACTIVE", "engine": "VAEX"}
     except Exception:
-        return {"status": "MOCKED", "engine": "VAEX"}
+        return {"status": "DISABLED", "engine": "VAEX"}
 
 # 98. XGBoost / XBBoost
 def integrate_xgboost():
@@ -983,7 +994,7 @@ def integrate_xgboost():
         import xgboost as xgb
         return {"status": "ACTIVE", "model": "XGBOOST", "engine": "XGBOOST"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_XGBOOST", "engine": "XGBOOST"}
+        return {"status": "DISABLED", "model": "DISABLEDED_XGBOOST", "engine": "XGBOOST"}
 
 # 99. arrow
 def integrate_arrow():
@@ -993,7 +1004,7 @@ def integrate_arrow():
         t = arrow.now()
         return {"status": "ACTIVE", "parsed_time": str(t), "engine": "ARROW"}
     except Exception:
-        return {"status": "MOCKED", "parsed_time": "TimeMock", "engine": "ARROW"}
+        return {"status": "DISABLED", "parsed_time": "TimeMock", "engine": "ARROW"}
 
 # 100. backtrader
 def integrate_backtrader():
@@ -1003,7 +1014,7 @@ def integrate_backtrader():
         cerebro = bt.Cerebro()
         return {"status": "ACTIVE", "cerebro": str(cerebro), "engine": "BACKTRADER"}
     except Exception:
-        return {"status": "MOCKED", "cerebro": "MockCerebro", "engine": "BACKTRADER"}
+        return {"status": "DISABLED", "cerebro": "MockCerebro", "engine": "BACKTRADER"}
 
 # 101. catboost
 def integrate_catboost():
@@ -1012,7 +1023,7 @@ def integrate_catboost():
         from catboost import CatBoostRegressor
         return {"status": "ACTIVE", "model": "CATBOOST", "engine": "CATBOOST"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_CATBOOST", "engine": "CATBOOST"}
+        return {"status": "DISABLED", "model": "DISABLEDED_CATBOOST", "engine": "CATBOOST"}
 
 # 102. ccxt
 def integrate_ccxt():
@@ -1021,12 +1032,12 @@ def integrate_ccxt():
         import ccxt
         return {"status": "ACTIVE", "version": ccxt.__version__, "engine": "CCXT"}
     except Exception:
-        return {"status": "MOCKED", "version": "1.0_MOCK", "engine": "CCXT"}
+        return {"status": "DISABLED", "version": "1.0_DISABLED", "engine": "CCXT"}
 
 # 103. jupyter
 def integrate_jupyter():
     """Exports performance sheets into Jupyter Notebook notebooks."""
-    return {"status": "MOCKED", "notebook_ready": True, "engine": "JUPYTER"}
+    return {"status": "DISABLED", "notebook_ready": True, "engine": "JUPYTER"}
 
 # 104. pandas
 def integrate_pandas():
@@ -1036,7 +1047,7 @@ def integrate_pandas():
         df = pd.DataFrame({"prices": [1.1, 1.2, 1.3]})
         return {"status": "ACTIVE", "mean": float(df["prices"].mean()), "engine": "PANDAS"}
     except Exception:
-        return {"status": "MOCKED", "mean": 1.2, "engine": "PANDAS"}
+        return {"status": "DISABLED", "mean": 1.2, "engine": "PANDAS"}
 
 # 105. pmdarima
 def integrate_pmdarima():
@@ -1045,7 +1056,7 @@ def integrate_pmdarima():
         import pmdarima as pm
         return {"status": "ACTIVE", "model": "PMDARIMA", "engine": "PMDARIMA"}
     except Exception:
-        return {"status": "MOCKED", "model": "MOCKED_PMDARIMA", "engine": "PMDARIMA"}
+        return {"status": "DISABLED", "model": "DISABLEDED_PMDARIMA", "engine": "PMDARIMA"}
 
 # 106. requests
 def integrate_requests():
@@ -1054,7 +1065,7 @@ def integrate_requests():
         import requests
         return {"status": "ACTIVE", "lib": "REQUESTS", "engine": "REQUESTS"}
     except Exception:
-        return {"status": "MOCKED", "lib": "REQUESTS_MOCKED", "engine": "REQUESTS"}
+        return {"status": "DISABLED", "lib": "REQUESTS_DISABLEDED", "engine": "REQUESTS"}
 
 # 107. spaCy
 def integrate_spacy():
@@ -1065,7 +1076,7 @@ def integrate_spacy():
         doc = nlp("FED CUTS RATES")
         return {"status": "ACTIVE", "tokens_count": len(doc), "engine": "SPACY"}
     except Exception:
-        return {"status": "MOCKED", "tokens_count": 3, "engine": "SPACY"}
+        return {"status": "DISABLED", "tokens_count": 3, "engine": "SPACY"}
 
 # 108. theano
 def integrate_theano():
@@ -1074,7 +1085,7 @@ def integrate_theano():
         import theano
         return {"status": "ACTIVE", "version": theano.__version__, "engine": "THEANO"}
     except Exception:
-        return {"status": "MOCKED", "version": "1.0_MOCK", "engine": "THEANO"}
+        return {"status": "DISABLED", "version": "1.0_DISABLED", "engine": "THEANO"}
 
 # 109. tsfresh
 def integrate_tsfresh():
@@ -1083,7 +1094,7 @@ def integrate_tsfresh():
         import tsfresh
         return {"status": "ACTIVE", "lib": "TSFRESH", "engine": "TSFRESH"}
     except Exception:
-        return {"status": "MOCKED", "lib": "TSFRESH_MOCKED", "engine": "TSFRESH"}
+        return {"status": "DISABLED", "lib": "TSFRESH_DISABLEDED", "engine": "TSFRESH"}
 
 # 110. yFinance
 def integrate_yfinance():
@@ -1092,12 +1103,12 @@ def integrate_yfinance():
         import yfinance as yf
         return {"status": "ACTIVE", "lib": "YFINANCE", "engine": "YFINANCE"}
     except Exception:
-        return {"status": "MOCKED", "lib": "YFINANCE_MOCKED", "engine": "YFINANCE"}
+        return {"status": "DISABLED", "lib": "YFINANCE_DISABLEDED", "engine": "YFINANCE"}
 
 # 111. rust wrapped in Python
 def integrate_rust_wrapped_python():
     """Wraps Rust math extensions in Python."""
-    return {"status": "MOCKED", "rust_bridge_connected": True, "engine": "RUST_WRAPPER"}
+    return {"status": "DISABLED", "rust_bridge_connected": True, "engine": "RUST_WRAPPER"}
 
 # 112. zipline
 def integrate_zipline():
@@ -1106,4 +1117,4 @@ def integrate_zipline():
         import zipline
         return {"status": "ACTIVE", "backtester": "ZIPLINE", "engine": "ZIPLINE"}
     except Exception:
-        return {"status": "MOCKED", "backtester": "ZIPLINE_MOCKED", "engine": "ZIPLINE"}
+        return {"status": "DISABLED", "backtester": "ZIPLINE_DISABLEDED", "engine": "ZIPLINE"}

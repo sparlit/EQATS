@@ -119,13 +119,28 @@ class QuantumSelfHealer:
             print(f"Self-adjustment warning: {e}")
 
     def run_self_healing_and_db_vacuum(self):
-        """Self-Healing: Clears database deadlocks, runs SQL vacuum maintenance, and resolves thread lock congestion."""
+        """
+        Self-Healing: Clears database deadlocks and resolves thread lock congestion.
+        
+        SECURITY FIX: SQLite VACUUM removed from main loop to prevent database contention
+        during live trading. VACUUM locks the entire database and should only be run
+        during scheduled maintenance windows, not in the continuous trading loop.
+        
+        Database maintenance (VACUUM) should be run separately using:
+        - Manual execution during maintenance windows
+        - Scheduled cron jobs or task scheduler
+        - Database backup/recovery procedures
+        """
         try:
+            # Check database connection health without VACUUM
             conn_db = database.get_connection()
             cursor = conn_db.cursor()
-            # Run vacuum optimization to heal index fragmentations and save storage space autonomously
-            cursor.execute("VACUUM")
+            
+            # Run a simple query to verify database is responsive
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            
             conn_db.close()
-            print("🩺 SELF-HEALING DATABASE: Executed SQLite VACUUM optimization. Database deadlocks successfully neutralized.")
+            print("🩺 SELF-HEALING DATABASE: Database connection health verified. VACUUM removed from main loop to prevent contention.")
         except Exception as e:
             print(f"Self-healing database warning: {e}")

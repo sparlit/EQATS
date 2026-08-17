@@ -4,33 +4,119 @@ import hashlib
 import hmac
 import base64
 import config
+import os
+from dotenv import load_dotenv
+from secure_encryption import encrypt_text, decrypt_text, get_encryption_manager
+from password_manager import get_password_manager, get_pin_manager
+from mfa_manager import get_mfa_manager, get_mfa_storage
+from input_validation import get_validator
 
-def hash_credential(secret_text, salt="EAQTS_SOVEREIGN_SALT_2026"):
-    """Generates a salt-based SHA-256 cryptographic digest for passwords and PINs."""
+# Load environment variables from .env file
+load_dotenv()
+
+def hash_credential(secret_text, salt=None, credential_type='password'):
+    """
+    Generates a secure hash for passwords and PINs using bcrypt.
+    
+    SECURITY: Upgraded from SHA-256 to bcrypt for password hashing.
+    Bcrypt provides automatic salting and is resistant to rainbow table attacks.
+    
+    Args:
+        secret_text: The credential to hash (password or PIN)
+        salt: Legacy parameter for backward compatibility (ignored, bcrypt handles salting)
+        credential_type: Type of credential ('password' or 'pin')
+        
+    Returns:
+        Bcrypt hash (60 characters)
+    """
     if not secret_text:
         secret_text = ""
-    salted_str = f"{secret_text}:{salt}"
-    return hashlib.sha256(salted_str.encode('utf-8')).hexdigest()
+    
+    try:
+        if credential_type == 'pin':
+            # Use PIN manager for PINs (faster, optimized for short strings)
+            pin_manager = get_pin_manager()
+            return pin_manager.hash_pin(secret_text)
+        else:
+            # Use password manager for passwords (more secure)
+            password_manager = get_password_manager()
+            return password_manager.hash_password(secret_text)
+    except Exception as e:
+        print(f"ERROR: Failed to hash credential: {e}")
+        # Fallback to empty string on error
+        return ""
 
-def encrypt_secret(plain_text, key_seed="EAQTS_CIPHER_KEY_2026"):
-    """Encrypts a string using reversible XOR-base64 ciphering for broker passwords."""
+
+def verify_credential(secret_text, hashed_credential, credential_type='password'):
+    """
+    Verifies a credential against a bcrypt hash.
+    
+    Args:
+        secret_text: The credential to verify
+        hashed_credential: The bcrypt hash to verify against
+        credential_type: Type of credential ('password' or 'pin')
+        
+    Returns:
+        True if credential matches, False otherwise
+    """
+    if not secret_text or not hashed_credential:
+        return False
+    
+    try:
+        if credential_type == 'pin':
+            pin_manager = get_pin_manager()
+            return pin_manager.verify_pin(secret_text, hashed_credential)
+        else:
+            password_manager = get_password_manager()
+            return password_manager.verify_password(secret_text, hashed_credential)
+    except Exception as e:
+        print(f"ERROR: Failed to verify credential: {e}")
+        return False
+
+def encrypt_secret(plain_text, key_seed=None):
+    """
+    Encrypts a string using AES-256-GCM encryption for broker passwords.
+    
+    SECURITY: Upgraded from weak XOR encryption to AES-256-GCM.
+    
+    Args:
+        plain_text: The text to encrypt
+        key_seed: Legacy parameter for backward compatibility (ignored)
+        
+    Returns:
+        Base64-encoded AES-256-GCM encrypted string
+    """
     if not plain_text:
         return ""
-    key_bytes = hashlib.sha256(key_seed.encode('utf-8')).digest()
-    plain_bytes = plain_text.encode('utf-8')
-    cipher_bytes = bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(plain_bytes)])
-    return base64.b64encode(cipher_bytes).decode('utf-8')
+    
+    try:
+        return encrypt_text(plain_text)
+    except Exception as e:
+        print(f"ERROR: Encryption failed: {e}")
+        # Fallback to empty string on error
+        return ""
 
-def decrypt_secret(cipher_text, key_seed="EAQTS_CIPHER_KEY_2026"):
-    """Decrypts a base64-XOR encrypted string back to plaintext."""
+def decrypt_secret(cipher_text, key_seed=None):
+    """
+    Decrypts an AES-256-GCM encrypted string back to plaintext.
+    
+    SECURITY: Upgraded from weak XOR encryption to AES-256-GCM.
+    
+    Args:
+        cipher_text: Base64-encoded encrypted string
+        key_seed: Legacy parameter for backward compatibility (ignored)
+        
+    Returns:
+        Decrypted plaintext, or empty string on failure
+    """
     if not cipher_text:
         return ""
+    
     try:
-        key_bytes = hashlib.sha256(key_seed.encode('utf-8')).digest()
-        cipher_bytes = base64.b64decode(cipher_text.encode('utf-8'))
-        plain_bytes = bytes([b ^ key_bytes[i % len(key_bytes)] for i, b in enumerate(cipher_bytes)])
-        return plain_bytes.decode('utf-8')
-    except Exception:
+        return decrypt_text(cipher_text)
+    except Exception as e:
+        print(f"ERROR: Decryption failed: {e}")
+        # Return empty string on failure for backward compatibility
         return ""
 
 def get_connection():
@@ -108,7 +194,7 @@ def init_db():
         password_hash TEXT NOT NULL,
         pin_hash TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',
-        mfa_enabled INTEGER DEFAULT 1,
+        mfa_enabled INTEGER DEFAULT 0,
         created_at TEXT NOT NULL
     )
     """)
@@ -143,42 +229,64 @@ def init_db():
         pass
 
     # Prepopulate default admin operator account if empty
+    # SECURITY: Now loads from environment variables instead of hardcoded values
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("""
-        INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            "QUANT_OPERATOR",
-            hash_credential("admin"),
-            hash_credential("741295"),
-            "SOVEREIGN_ADMIN",
-            1,
-            datetime.datetime.now().isoformat()
-        ))
+        admin_username = os.getenv('ADMIN_USERNAME')
+        admin_password = os.getenv('ADMIN_PASSWORD')
+        admin_pin = os.getenv('ADMIN_PIN')
+        
+        if not admin_username or not admin_password or not admin_pin:
+            print("WARNING: ADMIN_USERNAME, ADMIN_PASSWORD, or ADMIN_PIN not set in environment variables")
+            print("Please set these in your .env file or environment")
+            print("Skipping default admin account creation")
+        else:
+            cursor.execute("""
+            INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                admin_username,
+                hash_credential(admin_password, credential_type='password'),
+                hash_credential(admin_pin, credential_type='pin'),
+                "SOVEREIGN_ADMIN",
+                0,  # MFA disabled by default, user can enable later
+                datetime.datetime.now().isoformat()
+            ))
 
     # Prepopulate default broker credentials if empty
+    # SECURITY: Now loads from environment variables instead of hardcoded values
     cursor.execute("SELECT COUNT(*) FROM broker_credentials")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("""
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "Primary MetaTrader Gateway",
-            "EAQTS-Demo-Server",
-            "10928471",
-            encrypt_secret("demoPass123!"),
-            "1:100",
-            "Demo",
-            1,
-            datetime.datetime.now().isoformat()
-        ))
+        mt5_server = os.getenv('MT5_SERVER')
+        mt5_account_id = os.getenv('MT5_ACCOUNT_ID')
+        mt5_password = os.getenv('MT5_PASSWORD')
+        mt5_leverage = os.getenv('MT5_LEVERAGE', '1:100')
+        mt5_environment = os.getenv('MT5_ENVIRONMENT', 'Demo')
+        
+        if not mt5_server or not mt5_account_id or not mt5_password:
+            print("WARNING: MT5_SERVER, MT5_ACCOUNT_ID, or MT5_PASSWORD not set in environment variables")
+            print("Please set these in your .env file or environment")
+            print("Skipping default broker credentials creation")
+        else:
+            cursor.execute("""
+            INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                "Primary MetaTrader Gateway",
+                mt5_server,
+                mt5_account_id,
+                encrypt_secret(mt5_password),
+                mt5_leverage,
+                mt5_environment,
+                1,
+                datetime.datetime.now().isoformat()
+            ))
 
     conn.commit()
     conn.close()
 
 def verify_user_password(username, password_input):
-    """Verifies a user's password against the encrypted hash stored in SQLite."""
+    """Verifies a user's password against the bcrypt hash stored in SQLite."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
@@ -187,7 +295,7 @@ def verify_user_password(username, password_input):
 
     if not row:
         return False
-    return row['password_hash'] == hash_credential(password_input)
+    return verify_credential(password_input, row['password_hash'], 'password')
 
 def verify_user_pin(pin_input):
     """Verifies a secondary security PIN against active operators in SQLite."""
@@ -197,8 +305,11 @@ def verify_user_pin(pin_input):
     rows = cursor.fetchall()
     conn.close()
 
-    target_hash = hash_credential(pin_input)
-    return any(r['pin_hash'] == target_hash for r in rows)
+    # Check PIN against all users
+    for r in rows:
+        if verify_credential(pin_input, r['pin_hash'], 'pin'):
+            return True
+    return False
 
 def get_all_users():
     """Retrieves all registered user profiles."""
@@ -209,17 +320,27 @@ def get_all_users():
     conn.close()
     return [dict(r) for r in rows]
 
-def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
-    """Adds a new operator account with salt-hashed password and PIN."""
+def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=0):
+    """Adds a new operator account with bcrypt-hashed password and PIN."""
+    validator = get_validator()
+    
+    # Validate inputs
+    try:
+        validated_username = validator.validate_username(username)
+        validated_password = validator.validate_password(password)
+        validated_pin = validator.validate_pin(pin)
+    except Exception as e:
+        raise ValueError(f"Input validation failed: {e}")
+    
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
     """, (
-        username,
-        hash_credential(password),
-        hash_credential(pin),
+        validated_username,
+        hash_credential(validated_password, credential_type='password'),
+        hash_credential(validated_pin, credential_type='pin'),
         role,
         int(mfa_enabled),
         datetime.datetime.now().isoformat()
@@ -229,12 +350,33 @@ def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
 
 def update_user(username, new_password=None, new_pin=None, new_role=None):
     """Updates password, PIN, or role for an existing user account."""
+    validator = get_validator()
+    
+    # Validate inputs if provided
+    if new_password is not None:
+        try:
+            new_password = validator.validate_password(new_password)
+        except Exception as e:
+            raise ValueError(f"Password validation failed: {e}")
+    
+    if new_pin is not None:
+        try:
+            new_pin = validator.validate_pin(new_pin)
+        except Exception as e:
+            raise ValueError(f"PIN validation failed: {e}")
+    
     conn = get_connection()
     cursor = conn.cursor()
     if new_password:
-        cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (hash_credential(new_password), username))
+        cursor.execute(
+            "UPDATE users SET password_hash = ? WHERE username = ?", 
+            (hash_credential(new_password, credential_type='password'), username)
+        )
     if new_pin:
-        cursor.execute("UPDATE users SET pin_hash = ? WHERE username = ?", (hash_credential(new_pin), username))
+        cursor.execute(
+            "UPDATE users SET pin_hash = ? WHERE username = ?", 
+            (hash_credential(new_pin, credential_type='pin'), username)
+        )
     if new_role:
         cursor.execute("UPDATE users SET role = ? WHERE username = ?", (new_role, username))
     conn.commit()
@@ -247,6 +389,108 @@ def delete_user(username):
     cursor.execute("DELETE FROM users WHERE username = ?", (username,))
     conn.commit()
     conn.close()
+
+def setup_user_mfa(username):
+    """
+    Set up multi-factor authentication for a user.
+    
+    Args:
+        username: The username to set up MFA for
+        
+    Returns:
+        Dictionary with secret, QR code, and backup codes
+    """
+    mfa_manager = get_mfa_manager()
+    mfa_storage = get_mfa_storage()
+    
+    # Generate MFA setup data
+    mfa_data = mfa_manager.setup_user_mfa(username)
+    
+    # Save to database
+    mfa_storage.save_mfa_secret(
+        username,
+        mfa_data['secret'],
+        mfa_data['issuer']
+    )
+    
+    # Save backup codes
+    mfa_storage.save_backup_codes(username, mfa_data['backup_codes'])
+    
+    return mfa_data
+
+def verify_user_mfa(username, mfa_token):
+    """
+    Verify a user's MFA token.
+    
+    Args:
+        username: The username to verify
+        mfa_token: The TOTP token or backup code
+        
+    Returns:
+        True if MFA token is valid, False otherwise
+    """
+    mfa_manager = get_mfa_manager()
+    mfa_storage = get_mfa_storage()
+    
+    # First try as TOTP token
+    if mfa_manager.verify_token(username, mfa_token):
+        return True
+    
+    # Then try as backup code
+    if mfa_storage.verify_backup_code(username, mfa_token):
+        return True
+    
+    return False
+
+def disable_user_mfa(username):
+    """
+    Disable MFA for a user.
+    
+    Args:
+        username: The username to disable MFA for
+    """
+    mfa_manager = get_mfa_manager()
+    mfa_storage = get_mfa_storage()
+    
+    # Remove from manager
+    mfa_manager.disable_user_mfa(username)
+    
+    # Remove from database
+    mfa_storage.delete_user_mfa(username)
+
+def is_user_mfa_enabled(username):
+    """
+    Check if MFA is enabled for a user.
+    
+    Args:
+        username: The username to check
+        
+    Returns:
+        True if MFA is enabled, False otherwise
+    """
+    mfa_manager = get_mfa_manager()
+    return mfa_manager.is_mfa_enabled(username)
+
+def regenerate_user_backup_codes(username):
+    """
+    Regenerate backup codes for a user.
+    
+    Args:
+        username: The username to regenerate codes for
+        
+    Returns:
+        List of new backup codes
+    """
+    mfa_manager = get_mfa_manager()
+    mfa_storage = get_mfa_storage()
+    
+    # Generate new codes
+    new_codes = mfa_manager.regenerate_backup_codes(username)
+    
+    # Save to database
+    mfa_storage.save_backup_codes(username, new_codes)
+    
+    return new_codes
 
 def get_all_brokers():
     """Retrieves all registered broker profiles from SQLite."""
@@ -334,13 +578,17 @@ def get_broker_credentials():
     conn.close()
 
     if not row:
+        # SECURITY: Return empty dict instead of hardcoded credentials
+        # User must configure broker credentials via environment variables or GUI
+        print("WARNING: No active broker credentials found in database")
+        print("Please configure broker credentials using the GUI or environment variables")
         return {
-            "broker_name": "Primary MetaTrader Gateway",
-            "server": "EAQTS-Demo-Server",
-            "account_id": "10928471",
-            "password": "demoPass123!",
-            "leverage": "1:100",
-            "environment": "Demo"
+            "broker_name": None,
+            "server": None,
+            "account_id": None,
+            "password": None,
+            "leverage": None,
+            "environment": None
         }
 
     return {

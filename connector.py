@@ -4,6 +4,9 @@ import time
 import datetime
 import math
 import threading
+from input_validation import get_validator
+from kill_switch import get_kill_switch
+from typing import Dict, Any, Optional
 
 class TradingConnector(abc.ABC):
     """
@@ -94,187 +97,407 @@ class MT5Connector(TradingConnector):
     Direct connection with Windows MetaTrader 5 Terminal.
     Uses 'MetaTrader5' library. Note that this library only works on Windows.
     We import dynamically and gracefully fallback if unavailable.
+    
+    Features:
+    - Retry logic for transient failures
+    - Connection health monitoring
+    - Graceful degradation when MT5 unavailable
+    - Detailed error logging
     """
 
-    def __init__(self, demo_only=True):
+    def __init__(self, demo_only=True, max_retries=3, retry_delay=1.0):
         self.demo_only = demo_only
         self.mt5 = None
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.connection_healthy = False
+        self.last_error = None
+        self.error_count = 0
+        self.connection_time = None
 
     def connect(self):
-        try:
-            import MetaTrader5 as mt5
-            self.mt5 = mt5
-        except ImportError:
-            raise ImportError(
-                "MetaTrader5 package is not installed or not supported on this platform (requires Windows). "
-                "Please run in SIMULATION_MODE = True."
-            )
+        """
+        Initializes the connection to the terminal with retry logic.
+        
+        Returns:
+            True if successful, raises exception otherwise
+        """
+        for attempt in range(self.max_retries):
+            try:
+                import MetaTrader5 as mt5
+                self.mt5 = mt5
+            except ImportError:
+                raise ImportError(
+                    "MetaTrader5 package is not installed or not supported on this platform (requires Windows). "
+                    "Please run in SIMULATION_MODE = True."
+                )
 
-        if not self.mt5.initialize():
-            raise ConnectionError(f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}")
+            try:
+                if not self.mt5.initialize():
+                    error_msg = f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}"
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Connection attempt {attempt + 1} failed: {error_msg}. Retrying in {self.retry_delay}s...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        raise ConnectionError(error_msg)
 
-        account_info = self.mt5.account_info()
-        if account_info is None:
-            raise ConnectionError("Failed to retrieve MT5 account details. Is MT5 logged in?")
+                account_info = self.mt5.account_info()
+                if account_info is None:
+                    error_msg = "Failed to retrieve MT5 account details. Is MT5 logged in?"
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Connection attempt {attempt + 1} failed: {error_msg}. Retrying in {self.retry_delay}s...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        raise ConnectionError(error_msg)
 
-        # Check for Demo restriction if specified
-        if self.demo_only:
-            # trade_mode 0 = Demo, 1 = Contest, 2 = Real
-            if account_info.trade_mode == 2:
-                self.mt5.shutdown()
-                raise PermissionError("CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override.")
+                # Check for Demo restriction if specified
+                if self.demo_only:
+                    # trade_mode 0 = Demo, 1 = Contest, 2 = Real
+                    if account_info.trade_mode == 2:
+                        self.mt5.shutdown()
+                        raise PermissionError("CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override.")
 
-        print(f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}")
-        return True
+                self.connection_healthy = True
+                self.connection_time = datetime.datetime.now()
+                self.error_count = 0
+                print(f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}")
+                return True
+                
+            except Exception as e:
+                self.last_error = str(e)
+                self.error_count += 1
+                if attempt < self.max_retries - 1:
+                    print(f"[WARNING] Connection attempt {attempt + 1} failed: {e}. Retrying in {self.retry_delay}s...")
+                    time.sleep(self.retry_delay)
+                else:
+                    raise ConnectionError(f"Failed to connect after {self.max_retries} attempts: {e}")
 
     def is_connected(self):
+        """
+        Checks if the connection to the terminal is healthy and active.
+        Includes connection health monitoring.
+        """
         if not self.mt5:
+            self.connection_healthy = False
             return False
-        info = self.mt5.terminal_info()
-        return info is not None
+        
+        try:
+            info = self.mt5.terminal_info()
+            is_healthy = info is not None
+            self.connection_healthy = is_healthy
+            return is_healthy
+        except Exception as e:
+            self.last_error = f"Connection check failed: {e}"
+            self.connection_healthy = False
+            return False
 
     def disconnect(self):
-        if self.mt5:
-            self.mt5.shutdown()
-            print("MT5 Connection closed.")
+        """Disconnects safely from the terminal with error handling."""
+        try:
+            if self.mt5:
+                self.mt5.shutdown()
+                self.connection_healthy = False
+                print("MT5 Connection closed.")
+        except Exception as e:
+            print(f"[ERROR] Error during disconnect: {e}")
+            self.last_error = f"Disconnect error: {e}"
 
-    def get_account_info(self):
-        if not self.mt5:
+    def get_account_info(self) -> Dict[str, Any]:
+        """
+        Returns account information with error handling and fallback.
+        """
+        try:
+            if not self.mt5 or not self.is_connected():
+                print("[WARNING] MT5 not connected, returning fallback account info")
+                return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
+            
+            acc = self.mt5.account_info()
+            if acc is None:
+                print("[WARNING] Failed to retrieve account info, returning fallback")
+                return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
+            
+            return {
+                'balance': acc.balance,
+                'equity': acc.equity,
+                'currency': acc.currency,
+                'is_demo': acc.trade_mode != 2
+            }
+        except Exception as e:
+            self.last_error = f"Account info error: {e}"
+            self.error_count += 1
+            print(f"[ERROR] Error getting account info: {e}")
             return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
-        acc = self.mt5.account_info()
-        if acc is None:
-            return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
-        return {
-            'balance': acc.balance,
-            'equity': acc.equity,
-            'currency': acc.currency,
-            'is_demo': acc.trade_mode != 2
-        }
 
-    def get_history(self, symbol, count):
-        if not self.mt5:
-            return [{'open': 1.1000, 'high': 1.1010, 'low': 1.0990, 'close': 1.1000} for _ in range(count)]
-        # We fetch M1 copy_rates
-        import MetaTrader5 as mt5
-        timeframe = mt5.TIMEFRAME_M1
-        # copy_rates_from_pos gets bars starting from position 0 (the current candle) backwards
-        rates = self.mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
-        if rates is None or len(rates) == 0:
-            return []
+    def get_history(self, symbol: str, count: int) -> list:
+        """
+        Returns historical bar data with error handling and retry logic.
+        """
+        for attempt in range(self.max_retries):
+            try:
+                if not self.mt5 or not self.is_connected():
+                    print("[WARNING] MT5 not connected, returning fallback history")
+                    return [{'open': 1.1000, 'high': 1.1010, 'low': 1.0990, 'close': 1.1000} for _ in range(count)]
+                
+                import MetaTrader5 as mt5
+                timeframe = mt5.TIMEFRAME_M1
+                rates = self.mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
+                
+                if rates is None or len(rates) == 0:
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Failed to get history for {symbol}, attempt {attempt + 1}. Retrying...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        print(f"[WARNING] No history data available for {symbol}")
+                        return []
 
-        bars = []
-        for r in rates:
-            bars.append({
-                'open': float(r['open']),
-                'high': float(r['high']),
-                'low': float(r['low']),
-                'close': float(r['close'])
-            })
-        return bars
+                bars = []
+                for r in rates:
+                    bars.append({
+                        'open': float(r['open']),
+                        'high': float(r['high']),
+                        'low': float(r['low']),
+                        'close': float(r['close'])
+                    })
+                return bars
+                
+            except Exception as e:
+                self.last_error = f"History error for {symbol}: {e}"
+                self.error_count += 1
+                if attempt < self.max_retries - 1:
+                    print(f"[WARNING] Error getting history for {symbol}, attempt {attempt + 1}: {e}. Retrying...")
+                    time.sleep(self.retry_delay)
+                else:
+                    print(f"[ERROR] Failed to get history for {symbol} after {self.max_retries} attempts: {e}")
+                    return []
 
-    def get_current_price(self, symbol):
-        if not self.mt5:
+    def get_current_price(self, symbol: str) -> Dict[str, float]:
+        """
+        Returns current bid/ask price with error handling and fallback.
+        """
+        try:
+            if not self.mt5 or not self.is_connected():
+                print("[WARNING] MT5 not connected, returning fallback price")
+                base_p = 1.1000 if "EUR" in symbol else (1.3000 if "GBP" in symbol else (145.0 if "JPY" in symbol else (65000.0 if "BTC" in symbol else 2.5)))
+                return {'bid': base_p, 'ask': base_p + 0.0002}
+            
+            tick = self.mt5.symbol_info_tick(symbol)
+            if tick is None:
+                print(f"[WARNING] No tick data for {symbol}, trying fallback...")
+                # Fallback to last close price
+                rates = self.mt5.copy_rates_from_pos(symbol, self.mt5.TIMEFRAME_M1, 0, 1)
+                if rates is not None and len(rates) > 0:
+                    close_price = rates[0]['close']
+                    return {'bid': close_price, 'ask': close_price}
+                else:
+                    print(f"[WARNING] No price data available for {symbol}")
+                    return {'bid': 0.0, 'ask': 0.0}
+            
+            return {'bid': tick.bid, 'ask': tick.ask}
+            
+        except Exception as e:
+            self.last_error = f"Price error for {symbol}: {e}"
+            self.error_count += 1
+            print(f"[ERROR] Error getting price for {symbol}: {e}")
+            # Return fallback values
             base_p = 1.1000 if "EUR" in symbol else (1.3000 if "GBP" in symbol else (145.0 if "JPY" in symbol else (65000.0 if "BTC" in symbol else 2.5)))
             return {'bid': base_p, 'ask': base_p + 0.0002}
-        tick = self.mt5.symbol_info_tick(symbol)
-        if tick is None:
-            # Fallback
-            rates = self.mt5.copy_rates_from_pos(symbol, self.mt5.TIMEFRAME_M1, 0, 1)
-            if rates is not None and len(rates) > 0:
-                return {'bid': rates[0]['close'], 'ask': rates[0]['close']}
-            return {'bid': 0.0, 'ask': 0.0}
-        return {'bid': tick.bid, 'ask': tick.ask}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
-        import MetaTrader5 as mt5
-        price_info = self.get_current_price(symbol)
-        price = price_info['ask'] if order_type == 'BUY' else price_info['bid']
-        action = mt5.TRADE_ACTION_DEAL
-        type_mt5 = mt5.ORDER_TYPE_BUY if order_type == 'BUY' else mt5.ORDER_TYPE_SELL
+    def execute_order(self, symbol: str, order_type: str, lot_size: float, sl: Optional[float] = None, tp: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Places a trade order with comprehensive error handling and retry logic.
+        
+        Args:
+            symbol: Trading symbol
+            order_type: 'BUY' or 'SELL'
+            lot_size: Order lot size
+            sl: Stop loss price (optional)
+            tp: Take profit price (optional)
+            
+        Returns:
+            Dict with success status, ticket, price, and error message
+        """
+        # Validate inputs first
+        try:
+            validator = get_validator()
+            kill_switch = get_kill_switch()
+            
+            # Check kill switch before order execution
+            is_position_closing = False  # Assume new order for now
+            if not kill_switch.is_order_allowed(order_type, is_position_closing):
+                return {'success': False, 'ticket': '', 'price': 0.0, 'error': "Kill switch active: Order blocked"}
+            
+            # Validate inputs
+            validated_symbol = validator.validate_symbol(symbol)
+            validated_lots = validator.validate_lots(lot_size, symbol)
+            
+            # Validate order type
+            if order_type.upper() not in ['BUY', 'SELL']:
+                return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Invalid order type: {order_type}"}
+            
+            validated_order_type = order_type.upper()
+            
+            # Validate SL and TP if provided
+            if sl is not None:
+                sl = validator.validate_price(sl, symbol)
+            if tp is not None:
+                tp = validator.validate_price(tp, symbol)
+        except Exception as e:
+            self.last_error = f"Input validation failed: {e}"
+            self.error_count += 1
+            return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Input validation failed: {e}"}
+        
+        # Execute order with retry logic
+        for attempt in range(self.max_retries):
+            try:
+                if not self.mt5 or not self.is_connected():
+                    return {'success': False, 'ticket': '', 'price': 0.0, 'error': "MT5 not connected"}
+                
+                import MetaTrader5 as mt5
+                price_info = self.get_current_price(validated_symbol)
+                price = price_info['ask'] if validated_order_type == 'BUY' else price_info['bid']
+                
+                action = mt5.TRADE_ACTION_DEAL
+                type_mt5 = mt5.ORDER_TYPE_BUY if validated_order_type == 'BUY' else mt5.ORDER_TYPE_SELL
 
-        request = {
-            "action": action,
-            "symbol": symbol,
-            "volume": float(lot_size),
-            "type": type_mt5,
-            "price": float(price),
-            "sl": float(sl),
-            "tp": float(tp),
-            "deviation": 20,
-            "magic": 998822,
-            "comment": "Scalper Brain Bot",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
+                request = {
+                    "action": action,
+                    "symbol": validated_symbol,
+                    "volume": float(validated_lots),
+                    "type": type_mt5,
+                    "price": float(price),
+                    "sl": float(sl) if sl is not None else 0.0,
+                    "tp": float(tp) if tp is not None else 0.0,
+                    "deviation": 20,
+                    "magic": 998822,
+                    "comment": "Scalper Brain Bot",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_IOC,
+                }
 
-        result = self.mt5.order_send(request)
-        if result is None:
-            return {'success': False, 'ticket': '', 'price': 0.0, 'error': "Unknown MT5 order_send error."}
+                result = self.mt5.order_send(request)
+                if result is None:
+                    error_msg = f"Unknown MT5 order_send error. Last error: {self.mt5.last_error()}"
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Order attempt {attempt + 1} failed: {error_msg}. Retrying...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        return {'success': False, 'ticket': '', 'price': 0.0, 'error': error_msg}
 
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Order rejected. Code: {result.retcode}, Description: {result.comment}"}
+                if result.retcode != mt5.TRADE_RETCODE_DONE:
+                    error_msg = f"Order rejected. Code: {result.retcode}, Description: {result.comment}"
+                    # Don't retry on certain error codes (e.g., insufficient funds)
+                    if result.retcode in [mt5.TRADE_RETCODE_NO_MONEY, mt5.TRADE_RETCODE_REQUOTE]:
+                        return {'success': False, 'ticket': '', 'price': 0.0, 'error': error_msg}
+                    
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Order attempt {attempt + 1} rejected: {error_msg}. Retrying...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        return {'success': False, 'ticket': '', 'price': 0.0, 'error': error_msg}
 
-        return {
-            'success': True,
-            'ticket': str(result.order),
-            'price': float(result.price),
-            'error': ''
-        }
+                return {
+                    'success': True,
+                    'ticket': str(result.order),
+                    'price': float(result.price),
+                    'error': ''
+                }
+                
+            except Exception as e:
+                self.last_error = f"Order execution error: {e}"
+                self.error_count += 1
+                if attempt < self.max_retries - 1:
+                    print(f"[WARNING] Order attempt {attempt + 1} failed with exception: {e}. Retrying...")
+                    time.sleep(self.retry_delay)
+                else:
+                    return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Order execution failed: {e}"}
 
-    def close_order(self, ticket, reason="MANUAL"):
-        import MetaTrader5 as mt5
-        orders = self.get_open_orders()
-        target_order = None
-        for o in orders:
-            if str(o['ticket']) == str(ticket):
-                target_order = o
-                break
+    def close_order(self, ticket: str, reason: str = "MANUAL") -> Dict[str, Any]:
+        """
+        Closes an active order with error handling and retry logic.
+        """
+        for attempt in range(self.max_retries):
+            try:
+                if not self.mt5 or not self.is_connected():
+                    return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': "MT5 not connected"}
+                
+                import MetaTrader5 as mt5
+                orders = self.get_open_orders()
+                target_order = None
+                for o in orders:
+                    if str(o['ticket']) == str(ticket):
+                        target_order = o
+                        break
 
-        if not target_order:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Ticket {ticket} not found in open positions."}
+                if not target_order:
+                    return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Ticket {ticket} not found in open positions."}
 
-        symbol = target_order['symbol']
-        lot_size = target_order['lot_size']
-        direction = target_order['direction']
+                symbol = target_order['symbol']
+                lot_size = target_order['lot_size']
+                direction = target_order['direction']
 
-        # To close, we execute an opposite order
-        close_type = mt5.ORDER_TYPE_SELL if direction == 'BUY' else mt5.ORDER_TYPE_BUY
-        price_info = self.get_current_price(symbol)
-        price = price_info['bid'] if direction == 'BUY' else price_info['ask']
+                # To close, we execute an opposite order
+                close_type = mt5.ORDER_TYPE_SELL if direction == 'BUY' else mt5.ORDER_TYPE_BUY
+                price_info = self.get_current_price(symbol)
+                price = price_info['bid'] if direction == 'BUY' else price_info['ask']
 
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": float(lot_size),
-            "type": close_type,
-            "position": int(ticket),
-            "price": float(price),
-            "deviation": 20,
-            "magic": 998822,
-            "comment": f"Close {reason}",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
+                request = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": symbol,
+                    "volume": float(lot_size),
+                    "type": close_type,
+                    "position": int(ticket),
+                    "price": float(price),
+                    "deviation": 20,
+                    "magic": 998822,
+                    "comment": f"Close {reason}",
+                    "type_time": mt5.ORDER_TIME_GTC,
+                    "type_filling": mt5.ORDER_FILLING_IOC,
+                }
 
-        result = self.mt5.order_send(request)
-        if result is None:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': "Unknown error during position close."}
+                result = self.mt5.order_send(request)
+                if result is None:
+                    error_msg = f"Close order failed: {self.mt5.last_error()}"
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Close attempt {attempt + 1} failed: {error_msg}. Retrying...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': error_msg}
 
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Close request failed. Code: {result.retcode}"}
+                if result.retcode != mt5.TRADE_RETCODE_DONE:
+                    error_msg = f"Close rejected. Code: {result.retcode}, Description: {result.comment}"
+                    if attempt < self.max_retries - 1:
+                        print(f"[WARNING] Close attempt {attempt + 1} rejected: {error_msg}. Retrying...")
+                        time.sleep(self.retry_delay)
+                        continue
+                    else:
+                        return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': error_msg}
 
-        # Estimate profit (approximate, since broker calculates true value in account currency)
-        # For simplicity, we get standard profit from MT5 deal details later, or calculate it directly.
-        profit_est = (result.price - target_order['open_price']) * lot_size * 100000.0
-        if direction == 'SELL':
-            profit_est = -profit_est
+                # Estimate profit (approximate, since broker calculates true value in account currency)
+                profit_est = (result.price - target_order['open_price']) * lot_size * 100000.0
+                if direction == 'SELL':
+                    profit_est = -profit_est
 
-        return {
-            'success': True,
-            'price': float(result.price),
-            'profit': profit_est,
-            'error': ''
-        }
+                return {
+                    'success': True,
+                    'price': float(result.price),
+                    'profit': profit_est,
+                    'error': ''
+                }
+                
+            except Exception as e:
+                self.last_error = f"Close order error: {e}"
+                self.error_count += 1
+                if attempt < self.max_retries - 1:
+                    print(f"[WARNING] Close attempt {attempt + 1} failed with exception: {e}. Retrying...")
+                    time.sleep(self.retry_delay)
+                else:
+                    return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Close order failed: {e}"}
 
     def modify_order(self, ticket, sl, tp):
         import MetaTrader5 as mt5

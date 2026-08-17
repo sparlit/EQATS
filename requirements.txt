@@ -1,3 +1,22 @@
 # Requirements file for the Forex Scalper Bot
 # Note: On Windows, also run: pip install MetaTrader5
 # The MT5 module is included dynamically inside connector.py
+
+# Security and Environment Management
+python-dotenv>=1.0.0
+
+# Cryptography (for AES-256-GCM encryption)
+cryptography>=41.0.0
+
+# Password hashing (bcrypt)
+bcrypt>=4.0.0
+
+# Multi-Factor Authentication (TOTP)
+pyotp>=2.9.0
+qrcode>=7.4.0
+
+# Input validation
+pydantic>=2.0.0
+
+# External Data Feeds
+yfinance>=0.2.0
