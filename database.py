@@ -279,12 +279,12 @@ def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
 
 def update_user(username, new_password=None, new_pin=None, new_role=None):
     """Updates password, PIN, or role for an existing user account with lock retries."""
-    if new_password:
-        _execute_with_retry("UPDATE users SET password_hash = ? WHERE username = ?", (hash_credential(new_password), username))
-    if new_pin:
-        _execute_with_retry("UPDATE users SET pin_hash = ? WHERE username = ?", (hash_credential(new_pin), username))
-    if new_role:
-        _execute_with_retry("UPDATE users SET role = ? WHERE username = ?", (new_role, username))
+    if new_password is not None and str(new_password).strip():
+        _execute_with_retry("UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)", (hash_credential(str(new_password).strip()), username))
+    if new_pin is not None and str(new_pin).strip():
+        _execute_with_retry("UPDATE users SET pin_hash = ? WHERE LOWER(username) = LOWER(?)", (hash_credential(str(new_pin).strip()), username))
+    if new_role is not None and str(new_role).strip():
+        _execute_with_retry("UPDATE users SET role = ? WHERE LOWER(username) = LOWER(?)", (str(new_role).strip(), username))
 
 def delete_user(username):
     """Deletes a user account from SQLite with lock retries."""
