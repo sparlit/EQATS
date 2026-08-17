@@ -14,17 +14,17 @@ class TradingConnector(abc.ABC):
     @abc.abstractmethod
     def connect(self):
         """Initializes the connection to the terminal."""
-        pass
+        raise NotImplementedError("Subclasses must implement connect()")
 
     @abc.abstractmethod
     def is_connected(self):
         """Checks if the connection to the terminal is healthy and active."""
-        pass
+        raise NotImplementedError("Subclasses must implement is_connected()")
 
     @abc.abstractmethod
     def disconnect(self):
         """Disconnects safely from the terminal."""
-        pass
+        raise NotImplementedError("Subclasses must implement disconnect()")
 
     @abc.abstractmethod
     def get_account_info(self):
@@ -32,7 +32,7 @@ class TradingConnector(abc.ABC):
         Returns a dict containing account properties:
         { 'balance': float, 'equity': float, 'currency': str, 'is_demo': bool }
         """
-        pass
+        raise NotImplementedError("Subclasses must implement get_account_info()")
 
     @abc.abstractmethod
     def get_history(self, symbol, count):
@@ -40,12 +40,12 @@ class TradingConnector(abc.ABC):
         Returns list of dicts representing historical bar data, where each has:
         { 'open': float, 'high': float, 'low': float, 'close': float }
         """
-        pass
+        raise NotImplementedError("Subclasses must implement get_history()")
 
     @abc.abstractmethod
     def get_current_price(self, symbol):
         """Returns the current bid/ask price dict: { 'bid': float, 'ask': float }"""
-        pass
+        raise NotImplementedError("Subclasses must implement get_current_price()")
 
     @abc.abstractmethod
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
@@ -54,7 +54,7 @@ class TradingConnector(abc.ABC):
         order_type: 'BUY' or 'SELL'
         Returns: { 'success': bool, 'ticket': str, 'price': float, 'error': str }
         """
-        pass
+        raise NotImplementedError("Subclasses must implement execute_order()")
 
     @abc.abstractmethod
     def close_order(self, ticket, reason="MANUAL"):
@@ -62,7 +62,7 @@ class TradingConnector(abc.ABC):
         Closes an active order.
         Returns: { 'success': bool, 'price': float, 'profit': float, 'error': str }
         """
-        pass
+        raise NotImplementedError("Subclasses must implement close_order()")
 
     @abc.abstractmethod
     def modify_order(self, ticket, sl, tp):
@@ -70,7 +70,7 @@ class TradingConnector(abc.ABC):
         Modifies Stop Loss and Take Profit levels of an active trade.
         Returns: bool indicating success.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement modify_order()")
 
     @abc.abstractmethod
     def get_open_orders(self):
@@ -78,7 +78,7 @@ class TradingConnector(abc.ABC):
         Returns currently active open orders on the terminal:
         List of dicts: [ { 'ticket': str, 'symbol': str, 'direction': 'BUY'|'SELL', 'open_price': float, 'sl': float, 'tp': float, 'lot_size': float } ]
         """
-        pass
+        raise NotImplementedError("Subclasses must implement get_open_orders()")
 
     @abc.abstractmethod
     def draw_dashboard(self, symbol, data):
@@ -86,7 +86,7 @@ class TradingConnector(abc.ABC):
         Renders status labels directly on the specified symbol's chart in MT5.
         data: dict containing balance, equity, status, detail, time, active_count.
         """
-        pass
+        raise NotImplementedError("Subclasses must implement draw_dashboard()")
 
 
 class MT5Connector(TradingConnector):
@@ -359,10 +359,14 @@ class MT5Connector(TradingConnector):
     def draw_dashboard(self, symbol, data):
         """
         Draws dynamic status info. Note: Drawing direct GUI graphical objects is not supported
-        by the official MetaTrader5 Python library, so we print all responsive statistics to
-        the terminal console cleanly where you can easily monitor background processes.
+        by the official MetaTrader5 Python library, so we log all responsive statistics cleanly.
         """
-        pass
+        if data:
+            bal = data.get('balance', 0.0)
+            eq = data.get('equity', 0.0)
+            status = data.get('status', 'OK')
+            detail = data.get('detail', 'N/A')
+            print(f"📊 [MT5 DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f} | Bal: ${bal:,.2f} | Detail: {detail}")
 
 
 class SimulatorConnector(TradingConnector):
@@ -503,9 +507,11 @@ class SimulatorConnector(TradingConnector):
             return list(self.open_trades.values())
 
     def draw_dashboard(self, symbol, data):
-        # Simulator does not have a physical UI chart.
-        # We can mock this or print a clean status line.
-        pass
+        # Simulator does not have a physical UI chart; telemetry logged via dashboard/GUI.
+        if data:
+            eq = data.get('equity', 0.0)
+            status = data.get('status', 'OK')
+            print(f"🎮 [SIM DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f}")
 
     # --- SIMULATOR UTILITIES ---
     def tick(self):

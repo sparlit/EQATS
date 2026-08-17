@@ -40,8 +40,8 @@ def get_connection():
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA busy_timeout=60000;")
-    except Exception:
-        pass
+    except sqlite3.OperationalError as e:
+        print(f"⚠️ SQLite PRAGMA configuration note: {e}")
     return conn
 
 def init_db():
