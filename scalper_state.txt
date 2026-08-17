@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (01:24:50) | Dubai DFM (01:24:50) | London FX (02:24:50)|Active Tracker
+10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (01:00:12) | Dubai DFM (01:00:12) | London FX (02:00:12)|Active Tracker
 SCANS_HEADER
-EURUSD|1.12303|1.12904|DOWN|32.9|0.00270|Breakout Setup: Waiting for: Inside Squeeze Channel [1.12060 - 1.13325] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.3ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.24647|1.24572|UP|69.9|0.00329|Breakout Setup: Waiting for: Inside Squeeze Channel [1.22914 - 1.24649] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.3ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.11834|1.12896|DOWN|26.1|0.00293|Breakout Setup: Waiting for: Inside Squeeze Channel [1.11773 - 1.13325] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.6ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.24983|1.24579|UP|73.4|0.00371|Breakout Setup: Waiting for: Inside Squeeze Channel [1.22914 - 1.25184] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.6ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0

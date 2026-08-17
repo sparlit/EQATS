@@ -36,7 +36,8 @@ class ScalperGui:
         self.root.minsize(1050, 650)
 
         # Authenticate Operator before deiconifying Root Window
-        self._show_login_dialog()
+        if not self._show_login_dialog():
+            return
 
         # Authentic EQATS Quantum Terminal Style configuration
         self.bg_dark = "#000000"         # EQATS Pitch Black
@@ -661,9 +662,17 @@ class ScalperGui:
         login_win.wait_window()
 
         if authenticated[0]:
-            self.root.deiconify() # Deiconify main dashboard upon successful authentication
+            try:
+                self.root.deiconify() # Deiconify main dashboard upon successful authentication
+            except Exception:
+                pass
+            return True
         else:
-            self.root.destroy() # Exit application safely if authentication is declined/failed
+            try:
+                self.root.destroy() # Exit application safely if authentication is declined/failed
+            except Exception:
+                pass
+            return False
 
     def _prompt_secondary_pin(self) -> bool:
         """Prompts the operator for the secondary PIN code before granting access to Settings."""
