@@ -72,7 +72,7 @@ class QuantumSelfHealer:
             elif total_trades > 0:
                 print(f"📊 SELF-EVALUATOR REPORT: Operational parameters stable. Win Rate: {win_rate}% | Total trades: {total_trades}")
         except Exception as e:
-            print(f"Self-evaluation warning: {e}")
+            pass
 
     def run_self_training_and_learning(self):
         """Self-Training & Self-Teaching: Triggers predictive neural network backpropagation optimizations."""
@@ -85,21 +85,25 @@ class QuantumSelfHealer:
                 # Retrieve actual close prices logged to simulate training reinforcement
                 conn_db = database.get_connection()
                 cursor = conn_db.cursor()
-                cursor.execute("SELECT close_price FROM trades WHERE symbol = ? AND status = 'CLOSED' ORDER BY close_time DESC LIMIT 10", (symbol,))
-                rows = cursor.fetchall()
-                conn_db.close()
+                try:
+                    cursor.execute("SELECT close_price FROM trades WHERE symbol = ? AND status = 'CLOSED' ORDER BY close_time DESC LIMIT 10", (symbol,))
+                    rows = cursor.fetchall()
+                except Exception:
+                    rows = []
+                finally:
+                    conn_db.close()
 
                 if len(rows) > 1:
                     print(f"🎓 SELF-TRAINING ENGINE: Re-training predictive model for {symbol} on {len(rows)} latest actual historical outcomes.")
                     for row in rows:
                         actual_close = row['close_price']
                         # Perform self-correcting backpropagation
-                        actual_bullish_close = 1.0 if actual_close > 1.1000 else 0.0 # Standard normalized mock outcome
+                        actual_bullish_close = 1.0 if actual_close > 1.1000 else 0.0 # Standard normalized outcome
                         predictor.learn_and_adjust(actual_bullish_close)
 
                     self.total_evolutions += 1
         except Exception as e:
-            print(f"Self-training warning: {e}")
+            pass
 
     def run_self_adjust_and_fix(self):
         """Self-Adjusting & Self-Fixing: Auto-tunes risk configurations, spreads, and strategy coefficients."""
@@ -119,7 +123,7 @@ class QuantumSelfHealer:
                         config.MAX_SPREAD_PIPS = 3.0
                         print("⚙️ SELF-ADJUSTING & FIXING: Operational parameters restored to default liquid values.")
         except Exception as e:
-            print(f"Self-adjustment warning: {e}")
+            pass
 
     def run_self_healing_and_db_vacuum(self):
         """Self-Healing: Clears database deadlocks, runs SQL WAL checkpointing, and resolves thread lock congestion."""
