@@ -1,2 +1,5 @@
-10000.00|10000.00|0|Crypto Weekend Session (24/7)|None|None|Active Tracker
+10013.98|10009.35|1|New York Session|Frankfurt FX | London FX | Zurich FX | Frankfurt Xetra | London LSE | Euronext Paris | Johannesburg JSE|Wellington FX (00:15:58) | US After-Hours (00:15:58) | Sydney FX (02:15:58)|Active Tracker
+TRADE|100003|EURUSD|BUY|1.11441|1.11460|1.12213|4.63
 SCANS_HEADER
+EURUSD|1.11910|-|-|-|-|ACTIVE (BUY Ticket 100003)|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.34450|1.32292|UP|59.3|0.00368|Regime TRENDING (LOW) Voting: Neutral hold (Score: +0.26). AI Bias: BEARISH | Agentic Notes: Parallel Multi-Agent Sweep completed in 5.3ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 100.0%|0.0|0.0|0.0|0,0,0,0,0
