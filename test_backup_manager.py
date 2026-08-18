@@ -33,7 +33,7 @@ def test_backup_manager():
             print("   [PASS] Backup manager initialized correctly")
         else:
             print("   [FAIL] Backup directory not created")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 2: Create test data files
         print("\n2. Creating test data files...")
@@ -70,7 +70,7 @@ def test_backup_manager():
             print("   [PASS] Backup created successfully")
         else:
             print("   [FAIL] Backup creation failed")
-            return 1
+            assert False, "Test condition failed"
         
         backup_id = result['backup_id']
         
@@ -82,7 +82,7 @@ def test_backup_manager():
             print("   [PASS] Backup listed correctly")
         else:
             print("   [FAIL] Backup listing incorrect")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 5: Backup status
         print("\n5. Testing backup status...")
@@ -93,7 +93,7 @@ def test_backup_manager():
             print("   [PASS] Backup status correct")
         else:
             print("   [FAIL] Backup status incorrect")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 6: Modify original data
         print("\n6. Modifying original data...")
@@ -116,7 +116,7 @@ def test_backup_manager():
             print("   [PASS] Backup restored successfully")
         else:
             print("   [FAIL] Backup restore failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 8: Verify restored data
         print("\n8. Verifying restored data...")
@@ -127,7 +127,7 @@ def test_backup_manager():
             print("   [PASS] Data restored correctly")
         else:
             print("   [FAIL] Data not restored correctly")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 9: Create multiple backups
         print("\n9. Testing multiple backups...")
@@ -144,7 +144,7 @@ def test_backup_manager():
             print("   [PASS] Multiple backups created")
         else:
             print("   [FAIL] Multiple backups not created correctly")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 10: Backup cleanup
         print("\n10. Testing backup cleanup...")
@@ -157,7 +157,7 @@ def test_backup_manager():
             print("   [PASS] Old backups cleaned up")
         else:
             print("   [FAIL] Backup cleanup failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 11: Backup manifest verification
         print("\n11. Testing backup manifest...")
@@ -174,10 +174,10 @@ def test_backup_manager():
                 print("   [PASS] Backup manifest created correctly")
             else:
                 print("   [FAIL] Backup manifest incomplete")
-                return 1
+                assert False, "Test condition failed"
         else:
             print("   [FAIL] Backup manifest not found")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 12: Checksum calculation
         print("\n12. Testing checksum calculation...")
@@ -191,7 +191,7 @@ def test_backup_manager():
             print("   [PASS] Checksums calculated correctly")
         else:
             print("   [FAIL] Checksums not calculated")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 13: Backup without database
         print("\n13. Testing backup without database...")
@@ -204,7 +204,7 @@ def test_backup_manager():
             print("   [PASS] Backup works without database")
         else:
             print("   [FAIL] Backup failed without database")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 14: Restore non-existent backup
         print("\n14. Testing restore non-existent backup...")
@@ -215,11 +215,11 @@ def test_backup_manager():
             print("   [PASS] Non-existent backup handled correctly")
         else:
             print("   [FAIL] Non-existent backup not handled")
-            return 1
+            assert False, "Test condition failed"
         
         print(f"\n{'='*60}")
         print("[PASS] All backup systems tests passed!")
-        return 0
+        # Clean test exit
         
     finally:
         # Cleanup

@@ -3,7 +3,7 @@ Input Validation Module
 Provides comprehensive input validation using Pydantic models for all trading system inputs.
 """
 
-from pydantic import BaseModel, Field, validator, ValidationError as PydanticValidationError
+from pydantic import BaseModel, Field, field_validator, ValidationInfo, ValidationError as PydanticValidationError
 from typing import Optional, List, Dict, Any, Union
 from decimal import Decimal
 from datetime import datetime
@@ -19,8 +19,9 @@ class TradingSymbol(BaseModel):
     """Validated trading symbol."""
     symbol: str = Field(..., min_length=1, max_length=20, description="Trading symbol (e.g., EURUSD)")
     
-    @validator('symbol')
-    def validate_symbol_format(cls, v):
+    @field_validator('symbol')
+    @classmethod
+    def validate_symbol_format(cls, v: str) -> str:
         """Validate symbol format (e.g., EURUSD, XAUUSD)."""
         v = v.upper()
         if not re.match(r'^[A-Z]{6,10}$', v):
@@ -34,8 +35,9 @@ class PriceValidation(BaseModel):
     symbol: TradingSymbol
     timestamp: Optional[datetime] = None
     
-    @validator('price')
-    def validate_price_range(cls, v):
+    @field_validator('price')
+    @classmethod
+    def validate_price_range(cls, v: Decimal) -> Decimal:
         """Validate price is within reasonable range."""
         if v < Decimal('0.0001'):
             raise ValueError("Price too small (minimum 0.0001)")
@@ -49,8 +51,9 @@ class LotSizeValidation(BaseModel):
     lots: Decimal = Field(..., gt=0, description="Lot size must be positive")
     symbol: TradingSymbol
     
-    @validator('lots')
-    def validate_lot_size(cls, v):
+    @field_validator('lots')
+    @classmethod
+    def validate_lot_size(cls, v: Decimal) -> Decimal:
         """Validate lot size is within reasonable range."""
         if v < Decimal('0.01'):
             raise ValueError("Minimum lot size is 0.01")
@@ -66,12 +69,13 @@ class StopLossTakeProfitValidation(BaseModel):
     entry_price: Decimal = Field(..., gt=0, description="Entry price")
     symbol: TradingSymbol
     
-    @validator('stop_loss')
-    def validate_stop_loss(cls, v, values):
+    @field_validator('stop_loss')
+    @classmethod
+    def validate_stop_loss(cls, v: Optional[Decimal], info: ValidationInfo) -> Optional[Decimal]:
         """Validate stop loss is reasonable relative to entry price."""
         if v is None:
             return v
-        entry_price = values.get('entry_price')
+        entry_price = info.data.get('entry_price') if info.data else None
         if entry_price:
             # Stop loss should not be more than 50% away from entry
             distance = abs(v - entry_price) / entry_price
@@ -79,12 +83,13 @@ class StopLossTakeProfitValidation(BaseModel):
                 raise ValueError("Stop loss too far from entry price (max 50%)")
         return v
     
-    @validator('take_profit')
-    def validate_take_profit(cls, v, values):
+    @field_validator('take_profit')
+    @classmethod
+    def validate_take_profit(cls, v: Optional[Decimal], info: ValidationInfo) -> Optional[Decimal]:
         """Validate take profit is reasonable relative to entry price."""
         if v is None:
             return v
-        entry_price = values.get('entry_price')
+        entry_price = info.data.get('entry_price') if info.data else None
         if entry_price:
             # Take profit should not be more than 100% away from entry
             distance = abs(v - entry_price) / entry_price
@@ -103,16 +108,18 @@ class OrderValidation(BaseModel):
     take_profit: Optional[Decimal] = Field(None, gt=0, description="Take profit")
     comment: Optional[str] = Field(None, max_length=100, description="Order comment")
     
-    @validator('order_type')
-    def validate_order_type(cls, v):
+    @field_validator('order_type')
+    @classmethod
+    def validate_order_type(cls, v: str) -> str:
         """Validate order type is one of the allowed values."""
         valid_types = ['BUY', 'SELL', 'BUY_LIMIT', 'SELL_LIMIT', 'BUY_STOP', 'SELL_STOP']
         if v.upper() not in valid_types:
             raise ValueError(f"Invalid order type: {v}. Must be one of {valid_types}")
         return v.upper()
     
-    @validator('lots')
-    def validate_lots(cls, v):
+    @field_validator('lots')
+    @classmethod
+    def validate_lots(cls, v: Decimal) -> Decimal:
         """Validate lot size."""
         if v < Decimal('0.01'):
             raise ValueError("Minimum lot size is 0.01")
@@ -120,10 +127,11 @@ class OrderValidation(BaseModel):
             raise ValueError("Maximum lot size is 100")
         return v
     
-    @validator('price')
-    def validate_price(cls, v, values):
+    @field_validator('price')
+    @classmethod
+    def validate_price(cls, v: Optional[Decimal], info: ValidationInfo) -> Optional[Decimal]:
         """Validate price is required for limit/stop orders."""
-        order_type = values.get('order_type')
+        order_type = info.data.get('order_type') if info.data else None
         if order_type in ['BUY_LIMIT', 'SELL_LIMIT', 'BUY_STOP', 'SELL_STOP'] and v is None:
             raise ValueError(f"Price is required for {order_type} orders")
         return v
@@ -133,8 +141,9 @@ class UsernameValidation(BaseModel):
     """Validated username."""
     username: str = Field(..., min_length=3, max_length=50, description="Username")
     
-    @validator('username')
-    def validate_username_format(cls, v):
+    @field_validator('username')
+    @classmethod
+    def validate_username_format(cls, v: str) -> str:
         """Validate username format (alphanumeric and underscore only)."""
         if not re.match(r'^[a-zA-Z0-9_]+$', v):
             raise ValueError("Username can only contain letters, numbers, and underscores")
@@ -147,8 +156,9 @@ class PasswordValidation(BaseModel):
     """Validated password."""
     password: str = Field(..., min_length=8, max_length=128, description="Password")
     
-    @validator('password')
-    def validate_password_strength(cls, v):
+    @field_validator('password')
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
         """Validate password strength."""
         if not re.search(r'[A-Z]', v):
             raise ValueError("Password must contain at least one uppercase letter")
@@ -165,8 +175,9 @@ class PINValidation(BaseModel):
     """Validated PIN."""
     pin: str = Field(..., min_length=4, max_length=8, description="PIN")
     
-    @validator('pin')
-    def validate_pin_format(cls, v):
+    @field_validator('pin')
+    @classmethod
+    def validate_pin_format(cls, v: str) -> str:
         """Validate PIN is numeric only."""
         if not v.isdigit():
             raise ValueError("PIN must contain only digits")
@@ -177,8 +188,9 @@ class MFATokenValidation(BaseModel):
     """Validated MFA token."""
     token: str = Field(..., min_length=6, max_length=6, description="MFA token")
     
-    @validator('token')
-    def validate_token_format(cls, v):
+    @field_validator('token')
+    @classmethod
+    def validate_token_format(cls, v: str) -> str:
         """Validate token is 6-digit numeric."""
         if not v.isdigit():
             raise ValueError("MFA token must be 6 digits")
@@ -189,8 +201,9 @@ class BackupCodeValidation(BaseModel):
     """Validated backup code."""
     code: str = Field(..., min_length=8, max_length=8, description="Backup code")
     
-    @validator('code')
-    def validate_code_format(cls, v):
+    @field_validator('code')
+    @classmethod
+    def validate_code_format(cls, v: str) -> str:
         """Validate backup code format (8 alphanumeric characters)."""
         if not re.match(r'^[A-Z0-9]{8}$', v):
             raise ValueError("Backup code must be 8 alphanumeric characters")
@@ -202,8 +215,9 @@ class ConfigurationValidation(BaseModel):
     key: str = Field(..., min_length=1, max_length=100, description="Configuration key")
     value: str = Field(..., description="Configuration value")
     
-    @validator('key')
-    def validate_key_format(cls, v):
+    @field_validator('key')
+    @classmethod
+    def validate_key_format(cls, v: str) -> str:
         """Validate configuration key format."""
         if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
             raise ValueError("Configuration key can only contain letters, numbers, underscores, hyphens, and dots")
@@ -215,15 +229,17 @@ class APICredentialValidation(BaseModel):
     api_key: str = Field(..., min_length=16, max_length=256, description="API key")
     api_secret: str = Field(..., min_length=16, max_length=256, description="API secret")
     
-    @validator('api_key')
-    def validate_api_key(cls, v):
+    @field_validator('api_key')
+    @classmethod
+    def validate_api_key(cls, v: str) -> str:
         """Validate API key format."""
         if not re.match(r'^[a-zA-Z0-9_-]+$', v):
             raise ValueError("API key can only contain letters, numbers, underscores, and hyphens")
         return v
     
-    @validator('api_secret')
-    def validate_api_secret(cls, v):
+    @field_validator('api_secret')
+    @classmethod
+    def validate_api_secret(cls, v: str) -> str:
         """Validate API secret format."""
         if not re.match(r'^[a-zA-Z0-9_-]+$', v):
             raise ValueError("API secret can only contain letters, numbers, underscores, and hyphens")
@@ -234,8 +250,9 @@ class DateTimeValidation(BaseModel):
     """Validated datetime."""
     datetime_str: str = Field(..., description="DateTime string")
     
-    @validator('datetime_str')
-    def validate_datetime(cls, v):
+    @field_validator('datetime_str')
+    @classmethod
+    def validate_datetime(cls, v: str) -> str:
         """Validate datetime format."""
         try:
             datetime.fromisoformat(v)
@@ -248,8 +265,9 @@ class EmailValidation(BaseModel):
     """Validated email address."""
     email: str = Field(..., description="Email address")
     
-    @validator('email')
-    def validate_email_format(cls, v):
+    @field_validator('email')
+    @classmethod
+    def validate_email_format(cls, v: str) -> str:
         """Validate email format."""
         if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
             raise ValueError(f"Invalid email format: {v}")
@@ -260,8 +278,9 @@ class URLValidation(BaseModel):
     """Validated URL."""
     url: str = Field(..., description="URL")
     
-    @validator('url')
-    def validate_url_format(cls, v):
+    @field_validator('url')
+    @classmethod
+    def validate_url_format(cls, v: str) -> str:
         """Validate URL format."""
         if not re.match(r'^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?:/[^\s]*)?$', v):
             raise ValueError(f"Invalid URL format: {v}")
@@ -272,8 +291,9 @@ class PositiveIntegerValidation(BaseModel):
     """Validated positive integer."""
     value: int = Field(..., gt=0, description="Positive integer")
     
-    @validator('value')
-    def validate_positive(cls, v):
+    @field_validator('value')
+    @classmethod
+    def validate_positive(cls, v: int) -> int:
         """Validate value is positive."""
         if v <= 0:
             raise ValueError("Value must be positive")
@@ -284,8 +304,9 @@ class PercentageValidation(BaseModel):
     """Validated percentage."""
     percentage: Decimal = Field(..., ge=0, le=100, description="Percentage (0-100)")
     
-    @validator('percentage')
-    def validate_percentage(cls, v):
+    @field_validator('percentage')
+    @classmethod
+    def validate_percentage(cls, v: Decimal) -> Decimal:
         """Validate percentage is between 0 and 100."""
         if v < 0 or v > 100:
             raise ValueError("Percentage must be between 0 and 100")
@@ -365,7 +386,7 @@ class InputValidator:
                         order_data[field] = Decimal(str(order_data[field]))
             
             validated = OrderValidation(**order_data)
-            return validated.dict()
+            return validated.model_dump()
         except Exception as e:
             raise ValidationError(f"Invalid order: {e}")
     
