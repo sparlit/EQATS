@@ -31,7 +31,7 @@ def test_secure_encryption():
             print("   [PASS] Encrypt/decrypt works correctly")
         else:
             print("   [FAIL] Encrypt/decrypt failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Different encryption produces different ciphertext
         print("\n2. Testing encryption uniqueness...")
@@ -42,14 +42,14 @@ def test_secure_encryption():
             print("   [PASS] Encryption produces unique ciphertext")
         else:
             print("   [FAIL] Encryption not unique")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] All secure encryption tests passed")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Secure encryption test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_password_manager():
@@ -69,7 +69,7 @@ def test_password_manager():
             print("   [PASS] Password hashed correctly")
         else:
             print("   [FAIL] Password hashing failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Verify correct password
         print("\n2. Testing password verification (correct)...")
@@ -77,7 +77,7 @@ def test_password_manager():
             print("   [PASS] Correct password verified")
         else:
             print("   [FAIL] Correct password not verified")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Verify incorrect password
         print("\n3. Testing password verification (incorrect)...")
@@ -85,14 +85,14 @@ def test_password_manager():
             print("   [PASS] Incorrect password rejected")
         else:
             print("   [FAIL] Incorrect password accepted")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] All password manager tests passed")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Password manager test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_mfa_manager():
@@ -111,7 +111,7 @@ def test_mfa_manager():
             print("   [PASS] Secret generated correctly")
         else:
             print("   [FAIL] Secret generation failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Setup user MFA (includes backup codes and QR)
         print("\n2. Testing user MFA setup...")
@@ -121,7 +121,7 @@ def test_mfa_manager():
             print("   [PASS] User MFA setup works correctly")
         else:
             print("   [FAIL] User MFA setup failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Generate TOTP token
         print("\n3. Testing TOTP token generation...")
@@ -132,14 +132,14 @@ def test_mfa_manager():
             print("   [PASS] TOTP token generated correctly")
         else:
             print("   [FAIL] TOTP token generation failed")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] All MFA manager tests passed")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] MFA manager test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_input_validation():
@@ -159,7 +159,7 @@ def test_input_validation():
         try:
             validator.validate_symbol("INVALID!SYMBOL")
             print("   [FAIL] Invalid symbol accepted")
-            return False
+            assert False, "Test condition failed"
         except:
             print("   [PASS] Invalid symbol rejected")
         
@@ -171,7 +171,7 @@ def test_input_validation():
         try:
             validator.validate_lots(-0.1, "EURUSD")
             print("   [FAIL] Negative lots accepted")
-            return False
+            assert False, "Test condition failed"
         except:
             print("   [PASS] Negative lots rejected")
         
@@ -183,7 +183,7 @@ def test_input_validation():
         try:
             validator.validate_price(-1.0, "EURUSD")
             print("   [FAIL] Negative price accepted")
-            return False
+            assert False, "Test condition failed"
         except:
             print("   [PASS] Negative price rejected")
         
@@ -195,16 +195,16 @@ def test_input_validation():
         try:
             validator.validate_email("invalid-email")
             print("   [FAIL] Invalid email accepted")
-            return False
+            assert False, "Test condition failed"
         except:
             print("   [PASS] Invalid email rejected")
         
         print("\n[PASS] All input validation tests passed")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Input validation test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_kill_switch():
@@ -222,7 +222,7 @@ def test_kill_switch():
             print("   [PASS] Kill switch initialized correctly")
         else:
             print("   [FAIL] Kill switch active on initialization")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Activate kill switch
         print("\n2. Testing kill switch activation...")
@@ -232,7 +232,7 @@ def test_kill_switch():
             print("   [PASS] Kill switch activated correctly")
         else:
             print("   [FAIL] Kill switch not activated")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Check order blocking
         print("\n3. Testing order blocking...")
@@ -240,7 +240,7 @@ def test_kill_switch():
             print("   [PASS] Orders blocked when kill switch active")
         else:
             print("   [FAIL] Orders not blocked")
-            return False
+            assert False, "Test condition failed"
         
         # Test 4: Check position closing allowed
         print("\n4. Testing position closing allowed...")
@@ -248,7 +248,7 @@ def test_kill_switch():
             print("   [PASS] Position closing allowed")
         else:
             print("   [FAIL] Position closing not allowed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 5: Deactivate kill switch
         print("\n5. Testing kill switch deactivation...")
@@ -258,7 +258,7 @@ def test_kill_switch():
             print("   [PASS] Kill switch deactivated correctly")
         else:
             print("   [FAIL] Kill switch not deactivated")
-            return False
+            assert False, "Test condition failed"
         
         # Test 6: Check order allowed
         print("\n6. Testing order allowed...")
@@ -266,14 +266,14 @@ def test_kill_switch():
             print("   [PASS] Orders allowed when kill switch inactive")
         else:
             print("   [FAIL] Orders not allowed")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] All kill switch tests passed")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Kill switch test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def run_all_security_tests():
@@ -303,10 +303,10 @@ def run_all_security_tests():
     print("="*60)
     if all_passed:
         print("[PASS] All security tests passed!")
-        return 0
+        # Clean test exit
     else:
         print("[FAIL] Some security tests failed")
-        return 1
+        assert False, "Test condition failed"
 
 
 if __name__ == '__main__':

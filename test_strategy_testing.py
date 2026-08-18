@@ -25,7 +25,7 @@ def test_strategy_testing():
         print("   [PASS] Strategy tester initialized correctly")
     else:
         print("   [FAIL] Strategy tester initialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Set pass criteria
     print("\n2. Testing pass criteria setting...")
@@ -35,7 +35,7 @@ def test_strategy_testing():
         print("   [PASS] Pass criteria set correctly")
     else:
         print("   [FAIL] Pass criteria not set")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Test single strategy
     print("\n3. Testing single strategy test...")
@@ -61,7 +61,7 @@ def test_strategy_testing():
         print("   [PASS] Single strategy test works")
     else:
         print("   [FAIL] Single strategy test failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Test multiple strategies
     print("\n4. Testing multiple strategies comparison...")
@@ -77,7 +77,7 @@ def test_strategy_testing():
         print("   [PASS] Multiple strategies compared correctly")
     else:
         print("   [FAIL] Multiple strategies comparison failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Get best strategy
     print("\n5. Testing best strategy retrieval...")
@@ -88,7 +88,7 @@ def test_strategy_testing():
         print("   [PASS] Best strategy retrieved correctly")
     else:
         print("   [FAIL] Best strategy retrieval failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Get summary
     print("\n6. Testing summary generation...")
@@ -100,7 +100,7 @@ def test_strategy_testing():
         print("   [PASS] Summary generated correctly")
     else:
         print("   [FAIL] Summary generation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Criteria checking
     print("\n7. Testing criteria checking...")
@@ -119,7 +119,7 @@ def test_strategy_testing():
         print("   [PASS] Criteria checking works")
     else:
         print("   [FAIL] Criteria checking failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Save results
     print("\n8. Testing results saving...")
@@ -129,7 +129,7 @@ def test_strategy_testing():
         print("   [PASS] Results saved correctly")
     else:
         print("   [FAIL] Results saving failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_strategy_results.json"):
@@ -142,7 +142,7 @@ def test_strategy_testing():
         print("   [PASS] Global tester instance works")
     else:
         print("   [FAIL] Global tester instance failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Empty results handling
     print("\n10. Testing empty results handling...")
@@ -156,11 +156,11 @@ def test_strategy_testing():
         print("   [PASS] Empty results handled correctly")
     else:
         print("   [FAIL] Empty results not handled")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All strategy testing tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_strategy_testing())
