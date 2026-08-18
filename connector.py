@@ -85,6 +85,16 @@ class TradingConnector(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def fetch_all_symbols(self):
+        """Fetches all tradable instrument symbols from the connected broker."""
+        pass
+
+    @abc.abstractmethod
+    def fetch_and_register_broker_symbols(self):
+        """Auto-fetches and registers symbols into Master Symbology database."""
+        pass
+
+    @abc.abstractmethod
     def draw_dashboard(self, symbol, data):
         """
         Renders status labels directly on the specified symbol's chart in MT5.
@@ -577,6 +587,30 @@ class MT5Connector(TradingConnector):
                 })
         return orders_list
 
+    def fetch_all_symbols(self) -> list:
+        """
+        Queries all available tradable symbols directly from MT5 terminal using symbols_get().
+        """
+        try:
+            if not self.mt5 or not self.is_connected():
+                return ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
+            symbols_data = self.mt5.symbols_get()
+            if not symbols_data:
+                return []
+            return [s.name for s in symbols_data]
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch symbols from MT5: {e}")
+            return ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
+
+    def fetch_and_register_broker_symbols(self) -> int:
+        """
+        Auto-fetches symbol list from MT5 broker and registers them in Master Symbology database.
+        """
+        symbol_list = self.fetch_all_symbols()
+        if not symbol_list:
+            return 0
+        return self.mapper.auto_discover_and_map_instruments(symbol_list, broker_id=self.broker_id)
+
     def draw_dashboard(self, symbol, data):
         """
         Draws dynamic status info. Note: Drawing direct GUI graphical objects is not supported
@@ -722,6 +756,14 @@ class SimulatorConnector(TradingConnector):
     def get_open_orders(self):
         with self.lock:
             return list(self.open_trades.values())
+
+    def fetch_all_symbols(self) -> list:
+        return list(self.historical_prices.keys())
+
+    def fetch_and_register_broker_symbols(self) -> int:
+        symbol_list = self.fetch_all_symbols()
+        mapper = get_symbol_mapper(broker_id="SIMULATOR_BROKER")
+        return mapper.auto_discover_and_map_instruments(symbol_list, broker_id="SIMULATOR_BROKER")
 
     def draw_dashboard(self, symbol, data):
         # Simulator does not have a physical UI chart.

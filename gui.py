@@ -2347,6 +2347,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         tk.Button(b_btn_box, text="➕ ADD BROKER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_broker_profile).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(b_btn_box, text="⚡ SET ACTIVE GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._set_active_broker_profile).pack(side=tk.LEFT, padx=5)
+        tk.Button(b_btn_box, text="🔄 AUTO-FETCH SYMBOLS", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._on_auto_fetch_symbols).pack(side=tk.LEFT, padx=5)
         tk.Button(b_btn_box, text="🗑️ DELETE BROKER", font=("Consolas", 8, "bold"), bg="#991b1b", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._delete_broker_profile).pack(side=tk.LEFT, padx=5)
 
         # 3. User Controls & Feature Permissions Tab
@@ -2577,6 +2578,18 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 self._refresh_broker_tree()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delete broker: {e}")
+
+    def _on_auto_fetch_symbols(self):
+        """Auto-fetches tradable instruments from connected broker and maps to Master Symbology."""
+        try:
+            conn = getattr(self, "scalper_conn", None)
+            if not conn:
+                import connector
+                conn = connector.SimulatorConnector() if config.SIMULATION_MODE else connector.MT5Connector()
+            count = conn.fetch_and_register_broker_symbols()
+            messagebox.showinfo("Auto-Fetch Symbols", f"Successfully auto-discovered and registered {count} tradable symbols into Master Symbology database!")
+        except Exception as e:
+            messagebox.showerror("Auto-Fetch Error", f"Failed to auto-fetch symbols from broker: {e}")
 
     def _save_broker_credentials(self):
         bname = self.cfg_bname_ent.get().strip() or "Primary Gateway"
