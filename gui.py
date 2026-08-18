@@ -4874,6 +4874,7 @@ SECURITY DOMAINS ENFORCED:
 
         tk.Button(ctrl_frame, text="⚡ RUN PARALLEL AGENT SWEEP", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_parallel_agent_sweep).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(ctrl_frame, text="📊 GENERATE ECOSYSTEM REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_ecosystem_report).pack(side=tk.LEFT, padx=5)
+        tk.Button(ctrl_frame, text="🛡️ VIBE HEDGE FUND PRESETS", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._show_vibe_presets_dialog).pack(side=tk.LEFT, padx=5)
 
         # Multi-Subtab Notebook for Agents & Brains
         self.eco_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
@@ -4983,6 +4984,28 @@ SECURITY DOMAINS ENFORCED:
         for name, cat, score in strats:
             st = "🟢 OPTIMAL" if score >= 80 else ("🟡 NOMINAL" if score >= 60 else "🔴 LOW")
             self.eco_strat_tree.insert("", tk.END, values=(name, cat, f"{score:.1f}", st))
+
+    def _show_vibe_presets_dialog(self):
+        """Displays Vibe-Trading hedge fund preset options."""
+        from institutional_integrations.quant_ecosystem_adapter import VibeHedgeFundPresets
+        vibe = VibeHedgeFundPresets()
+
+        preset_win = tk.Toplevel(self.root)
+        preset_win.title("VIBE-TRADING — HEDGE FUND PRESET MATRIX")
+        preset_win.geometry("600x420")
+        preset_win.configure(bg=self.bg_dark)
+
+        lbl = tk.Label(preset_win, text="VIBE-TRADING MULTI-AGENT HEDGE FUND SKILL PRESETS", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl.pack(padx=15, pady=(15, 5))
+
+        txt = tk.Text(preset_win, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, wrap=tk.WORD)
+        txt.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+
+        for key, p in vibe.PRESETS.items():
+            txt.insert(tk.END, f"Preset: {key} ({p['name']})\n")
+            txt.insert(tk.END, f"  Max Leverage: {p['leverage']} | Max Drawdown Ceiling: {p['max_drawdown']}%\n")
+            txt.insert(tk.END, f"  Active Brain Agents: {', '.join(p['active_agents'])}\n")
+            txt.insert(tk.END, f"  Strategy Allocation Matrix: {p['allocation']}\n\n")
 
     def _show_tzconv_screen(self):
         """TZCONV <GO>: Forex Market Time Zone & Timeline Converter"""
