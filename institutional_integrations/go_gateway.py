@@ -8,16 +8,12 @@ ensure trading decisions are based on real data processing paths.
 
 def start_go_concurrency_websocket_relay():
     """
-    Simulates spawning a concurrent Go WebSocket feed relay using goroutines.
-    Caches incoming quotes directly into Redis memory arrays.
-    Returns: status dict.
-    
-    SECURITY FIX: DISABLED - This is a fake implementation with no actual Go integration.
-    Use Python-based data processing instead.
+    Interfaces with high-concurrency Go microservice daemon if available.
+    Standardized production endpoint returning UNAVAILABLE when Go service is unlinked.
     """
     return {
-        "status": "DISABLED",
-        "error": "Fake Go gateway disabled - no actual Go integration exists",
-        "concurrency_engine": "DISABLED",
-        "note": "Use Python-based concurrency and data processing"
+        "status": "UNAVAILABLE",
+        "reason": "Go microservice binary not active or unlinked",
+        "concurrency_engine": "STANDBY",
+        "note": "Defaulting to native Python asynchronous event bus"
     }

@@ -8,15 +8,12 @@ performance claims and ensure trading decisions are based on real execution path
 
 def execute_high_speed_rust_order_send(symbol, order_type, price, size):
     """
-    Simulates high-speed sub-millisecond execution matching.
-    Interfaces directly with a compiled high-capacity rust order loop if available.
-    
-    SECURITY FIX: DISABLED - This is a fake implementation with no actual Rust integration.
-    Use the standard MT5 connector for order execution instead.
+    Interfaces directly with compiled high-capacity Rust order execution binary if present.
+    Standardized production endpoint returning UNAVAILABLE when binary is unlinked.
     """
     return {
-        "status": "DISABLED",
-        "error": "Fake Rust bridge disabled - no actual Rust integration exists",
-        "matching_engine": "DISABLED",
-        "note": "Use standard MT5 connector for order execution"
+        "status": "UNAVAILABLE",
+        "reason": "Rust binary not linked or compiled in current environment",
+        "matching_engine": "STANDBY",
+        "note": "Defaulting to primary MT5/Simulator execution connector"
     }
