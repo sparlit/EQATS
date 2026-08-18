@@ -1611,17 +1611,9 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
             self.candlestick_canvas.create_line(chart_w, 0, chart_w, chart_h, fill="#2d2d2d")
             self.candlestick_canvas.create_line(0, chart_h, chart_w, chart_h, fill="#2d2d2d")
 
-            # Generate beautiful real-time mock candle series
-            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list or len(self.candlestick_data_list) == 0:
+            # Initialize candle series safely without random mock generators
+            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list:
                 self.candlestick_data_list = []
-                base = 1.10200 if "JPY" not in self.selected_symbol_gp else 145.50
-                for index in range(25):
-                    op = base + random.uniform(-0.0005, 0.0005) if "JPY" not in self.selected_symbol_gp else base + random.uniform(-0.05, 0.05)
-                    cl = op + random.uniform(-0.0006, 0.0006) if "JPY" not in self.selected_symbol_gp else op + random.uniform(-0.06, 0.06)
-                    hi = max(op, cl) + random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else max(op, cl) + random.uniform(0.01, 0.03)
-                    lo = min(op, cl) - random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else min(op, cl) - random.uniform(0.01, 0.03)
-                    self.candlestick_data_list.append({"open": op, "high": hi, "low": lo, "close": cl})
-                    base = cl
             elif new_tick:
                 # Append a new tick movement or transition to a new candle only on tick update!
                 last = self.candlestick_data_list[-1]
@@ -5654,24 +5646,6 @@ SECURITY DOMAINS ENFORCED:
             cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
             rows = cursor.fetchall()
             conn.close()
-
-            # If database is empty, seed some initial news headlines dynamically so there are zero stubs
-            if not rows:
-                initial_headlines = [
-                    ("US Core CPI MoM Comes In At 0.2% aligned with forecasts", "NEUTRAL"),
-                    ("FOMC Meeting Minutes hint at cautious approach to interest rate cuts", "BEARISH"),
-                    ("ECB rate cut speculation intensifies after eurozone economic activity data", "BULLISH"),
-                    ("Geopolitical risk spikes in Middle East boosting safe haven metals flows", "BULLISH"),
-                    ("Bitcoin breaks recent range consolidation as ETF spot net inflows mount", "BULLISH")
-                ]
-                for h, s in initial_headlines:
-                    database.log_news_headline(h, s)
-                # Query again
-                conn = database.get_connection()
-                cursor = conn.cursor()
-                cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
-                rows = cursor.fetchall()
-                conn.close()
 
             for row in rows:
                 time_str = row["timestamp"].split("T")[-1][:8] if "T" in row["timestamp"] else row["timestamp"][:8]
