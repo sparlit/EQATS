@@ -6,6 +6,7 @@ import math
 import threading
 from input_validation import get_validator
 from kill_switch import get_kill_switch
+from symbol_mapper import get_symbol_mapper
 from typing import Dict, Any, Optional
 
 class TradingConnector(abc.ABC):
@@ -105,8 +106,9 @@ class MT5Connector(TradingConnector):
     - Detailed error logging
     """
 
-    def __init__(self, demo_only=True, max_retries=3, retry_delay=1.0):
+    def __init__(self, demo_only=True, max_retries=3, retry_delay=1.0, broker_id="MT5_BROKER"):
         self.demo_only = demo_only
+        self.broker_id = broker_id
         self.mt5 = None
         self.max_retries = max_retries
         self.retry_delay = retry_delay
@@ -114,6 +116,7 @@ class MT5Connector(TradingConnector):
         self.last_error = None
         self.error_count = 0
         self.connection_time = None
+        self.mapper = get_symbol_mapper(broker_id=self.broker_id)
 
     def connect(self):
         """
@@ -275,15 +278,17 @@ class MT5Connector(TradingConnector):
 
     def get_current_price(self, symbol: str) -> Dict[str, float]:
         """
-        Returns current bid/ask price with error handling and fallback.
+        Returns current bid/ask price with error handling and symbol translation adapter.
+        Accepts internal Master Symbol or broker-specific symbol.
         """
+        broker_symbol = self.mapper.to_broker_symbol(symbol, self.broker_id)
         try:
             if not self.mt5 or not self.is_connected():
                 print("[WARNING] MT5 not connected, returning fallback price")
                 base_p = 1.1000 if "EUR" in symbol else (1.3000 if "GBP" in symbol else (145.0 if "JPY" in symbol else (65000.0 if "BTC" in symbol else 2.5)))
                 return {'bid': base_p, 'ask': base_p + 0.0002}
             
-            tick = self.mt5.symbol_info_tick(symbol)
+            tick = self.mt5.symbol_info_tick(broker_symbol)
             if tick is None:
                 print(f"[WARNING] No tick data for {symbol}, trying fallback...")
                 # Fallback to last close price
@@ -307,7 +312,7 @@ class MT5Connector(TradingConnector):
 
     def execute_order(self, symbol: str, order_type: str, lot_size: float, sl: Optional[float] = None, tp: Optional[float] = None) -> Dict[str, Any]:
         """
-        Places a trade order with comprehensive error handling and retry logic.
+        Places a trade order with Master Symbology translation, risk checks, and error handling.
         
         Args:
             symbol: Trading symbol
@@ -349,14 +354,15 @@ class MT5Connector(TradingConnector):
             self.error_count += 1
             return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Input validation failed: {e}"}
         
-        # Execute order with retry logic
+        # Execute order with Master Symbology translation and retry logic
+        broker_symbol = self.mapper.to_broker_symbol(validated_symbol, self.broker_id)
         for attempt in range(self.max_retries):
             try:
                 if not self.mt5 or not self.is_connected():
                     return {'success': False, 'ticket': '', 'price': 0.0, 'error': "MT5 not connected"}
                 
                 import MetaTrader5 as mt5
-                price_info = self.get_current_price(validated_symbol)
+                price_info = self.get_current_price(broker_symbol)
                 price = price_info['ask'] if validated_order_type == 'BUY' else price_info['bid']
                 
                 action = mt5.TRADE_ACTION_DEAL
@@ -364,7 +370,7 @@ class MT5Connector(TradingConnector):
 
                 request = {
                     "action": action,
-                    "symbol": validated_symbol,
+                    "symbol": broker_symbol,
                     "volume": float(validated_lots),
                     "type": type_mt5,
                     "price": float(price),

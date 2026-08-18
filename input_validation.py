@@ -17,15 +17,15 @@ class ValidationError(Exception):
 
 class TradingSymbol(BaseModel):
     """Validated trading symbol."""
-    symbol: str = Field(..., min_length=1, max_length=20, description="Trading symbol (e.g., EURUSD)")
+    symbol: str = Field(..., min_length=1, max_length=30, description="Trading symbol (e.g., EURUSD, EUR_USD, FX:EUR_USD)")
     
     @field_validator('symbol')
     @classmethod
     def validate_symbol_format(cls, v: str) -> str:
-        """Validate symbol format (e.g., EURUSD, XAUUSD)."""
+        """Validate symbol format (supports Master Symbology like EUR_USD, XAU_USD, FX:EUR_USD)."""
         v = v.upper()
-        if not re.match(r'^[A-Z]{6,10}$', v):
-            raise ValueError(f"Invalid symbol format: {v}. Expected format like EURUSD or XAUUSD")
+        if not re.match(r'^(?:[A-Z0-9]+:)?([A-Z0-9]{3,6}_[A-Z0-9]{3,6}|[A-Z0-9]{3,12})(?:\.[a-zA-Z0-9_]+)?$', v):
+            raise ValueError(f"Invalid symbol format: {v}. Expected format like EURUSD, EUR_USD, or FX:EUR_USD")
         return v
 
 
