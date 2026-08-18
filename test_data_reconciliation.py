@@ -23,7 +23,7 @@ def test_data_reconciliation():
         print("   [PASS] Balance reconciliation (matching) correct")
     else:
         print("   [FAIL] Balance reconciliation (matching) failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Balance reconciliation - discrepancy
     print("\n2. Testing balance reconciliation (discrepancy)...")
@@ -34,7 +34,7 @@ def test_data_reconciliation():
         print("   [PASS] Balance discrepancy detected")
     else:
         print("   [FAIL] Balance discrepancy not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Position reconciliation - matching
     print("\n3. Testing position reconciliation (matching)...")
@@ -51,7 +51,7 @@ def test_data_reconciliation():
         print("   [PASS] Position reconciliation (matching) correct")
     else:
         print("   [FAIL] Position reconciliation (matching) failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Position reconciliation - missing broker position
     print("\n4. Testing position reconciliation (missing broker position)...")
@@ -66,7 +66,7 @@ def test_data_reconciliation():
         print("   [PASS] Missing broker position detected")
     else:
         print("   [FAIL] Missing broker position not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Position reconciliation - orphan broker position
     print("\n5. Testing position reconciliation (orphan broker position)...")
@@ -81,7 +81,7 @@ def test_data_reconciliation():
         print("   [PASS] Orphan broker position detected")
     else:
         print("   [FAIL] Orphan broker position not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Order reconciliation - matching
     print("\n6. Testing order reconciliation (matching)...")
@@ -98,7 +98,7 @@ def test_data_reconciliation():
         print("   [PASS] Order reconciliation (matching) correct")
     else:
         print("   [FAIL] Order reconciliation (matching) failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Order reconciliation - state mismatch
     print("\n7. Testing order reconciliation (state mismatch)...")
@@ -115,7 +115,7 @@ def test_data_reconciliation():
         print("   [PASS] Order state mismatch detected")
     else:
         print("   [FAIL] Order state mismatch not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Order reconciliation - terminal state okay
     print("\n8. Testing order reconciliation (terminal state okay)...")
@@ -130,7 +130,7 @@ def test_data_reconciliation():
         print("   [PASS] Terminal order handled correctly")
     else:
         print("   [FAIL] Terminal order not handled correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Trade reconciliation - matching
     print("\n9. Testing trade reconciliation (matching)...")
@@ -147,7 +147,7 @@ def test_data_reconciliation():
         print("   [PASS] Trade reconciliation (matching) correct")
     else:
         print("   [FAIL] Trade reconciliation (matching) failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Trade reconciliation - price mismatch
     print("\n10. Testing trade reconciliation (price mismatch)...")
@@ -164,7 +164,7 @@ def test_data_reconciliation():
         print("   [PASS] Trade price mismatch detected")
     else:
         print("   [FAIL] Trade price mismatch not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Full reconciliation
     print("\n11. Testing full reconciliation...")
@@ -190,7 +190,7 @@ def test_data_reconciliation():
         print("   [PASS] Full reconciliation correct")
     else:
         print("   [FAIL] Full reconciliation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Full reconciliation with discrepancies
     print("\n12. Testing full reconciliation with discrepancies...")
@@ -215,7 +215,7 @@ def test_data_reconciliation():
         print("   [PASS] Discrepancies detected in full reconciliation")
     else:
         print("   [FAIL] Discrepancies not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 13: Reconciliation history
     print("\n13. Testing reconciliation history...")
@@ -225,7 +225,7 @@ def test_data_reconciliation():
         print("   [PASS] Reconciliation history tracked")
     else:
         print("   [FAIL] Reconciliation history not tracked")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 14: Should block trading
     print("\n14. Testing trading block decision...")
@@ -236,7 +236,7 @@ def test_data_reconciliation():
         print("   [PASS] Trading block decision correct")
     else:
         print("   [FAIL] Trading block decision incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 15: ReconciliationResult class
     print("\n15. Testing ReconciliationResult class...")
@@ -249,11 +249,11 @@ def test_data_reconciliation():
         print("   [PASS] ReconciliationResult works correctly")
     else:
         print("   [FAIL] ReconciliationResult failed")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All data reconciliation tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_data_reconciliation())

@@ -21,7 +21,7 @@ def test_performance_metrics():
         print("   [PASS] Metrics initialized correctly")
     else:
         print("   [FAIL] Metrics initialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Record order metrics
     print("\n2. Testing order metrics recording...")
@@ -33,7 +33,7 @@ def test_performance_metrics():
         print("   [PASS] Order metrics recorded correctly")
     else:
         print("   [FAIL] Order metrics not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Record latency metrics
     print("\n3. Testing latency metrics recording...")
@@ -46,7 +46,7 @@ def test_performance_metrics():
         print("   [PASS] Latency metrics recorded correctly")
     else:
         print("   [FAIL] Latency metrics not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Record P&L metrics
     print("\n4. Testing P&L metrics recording...")
@@ -56,7 +56,7 @@ def test_performance_metrics():
         print("   [PASS] P&L metrics recorded correctly")
     else:
         print("   [FAIL] P&L metrics not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Calculate derived metrics
     print("\n5. Testing derived metrics calculation...")
@@ -83,7 +83,7 @@ def test_performance_metrics():
         print("   [PASS] Data quality metrics recorded correctly")
     else:
         print("   [FAIL] Data quality metrics not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Record risk metrics
     print("\n7. Testing risk metrics recording...")
@@ -94,7 +94,7 @@ def test_performance_metrics():
         print("   [PASS] Risk metrics recorded correctly")
     else:
         print("   [FAIL] Risk metrics not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Metrics summary
     print("\n8. Testing metrics summary...")
@@ -104,7 +104,7 @@ def test_performance_metrics():
         print("   [PASS] Metrics summary generated correctly")
     else:
         print("   [FAIL] Metrics summary not generated")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Metrics snapshot
     print("\n9. Testing metrics snapshot...")
@@ -115,7 +115,7 @@ def test_performance_metrics():
         print("   [PASS] Metrics snapshot works correctly")
     else:
         print("   [FAIL] Metrics snapshot failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Percentile latency
     print("\n10. Testing percentile latency calculation...")
@@ -128,7 +128,7 @@ def test_performance_metrics():
         print("   [PASS] Percentile latency calculated correctly")
     else:
         print("   [FAIL] Percentile latency not calculated")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Unrealized P&L
     print("\n11. Testing unrealized P&L recording...")
@@ -140,7 +140,7 @@ def test_performance_metrics():
         print("   [PASS] Unrealized P&L recorded correctly")
     else:
         print("   [FAIL] Unrealized P&L not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Sharpe ratio
     print("\n12. Testing Sharpe ratio calculation...")
@@ -156,7 +156,7 @@ def test_performance_metrics():
         print("   [PASS] Metrics reset correctly")
     else:
         print("   [FAIL] Metrics reset failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 14: Persistence
     print("\n14. Testing metrics persistence...")
@@ -174,7 +174,7 @@ def test_performance_metrics():
         print("   [PASS] Metrics persistence works correctly")
     else:
         print("   [FAIL] Metrics persistence failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_metrics.json"):
@@ -182,7 +182,7 @@ def test_performance_metrics():
     
     print(f"\n{'='*60}")
     print("[PASS] All performance metrics tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_performance_metrics())

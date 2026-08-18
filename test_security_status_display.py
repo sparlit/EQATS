@@ -21,7 +21,7 @@ def test_security_status_display():
         print("   [PASS] Security status initialized correctly")
     else:
         print("   [FAIL] Security status initialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Update encryption status
     print("\n2. Testing encryption status update...")
@@ -32,7 +32,7 @@ def test_security_status_display():
         print("   [PASS] Encryption status updated correctly")
     else:
         print("   [FAIL] Encryption status update failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Update authentication status
     print("\n3. Testing authentication status update...")
@@ -43,7 +43,7 @@ def test_security_status_display():
         print("   [PASS] Authentication status updated correctly")
     else:
         print("   [FAIL] Authentication status update failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Update risk control status
     print("\n4. Testing risk control status update...")
@@ -54,7 +54,7 @@ def test_security_status_display():
         print("   [PASS] Risk control status updated correctly")
     else:
         print("   [FAIL] Risk control status update failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Update data integrity status
     print("\n5. Testing data integrity status update...")
@@ -64,7 +64,7 @@ def test_security_status_display():
         print("   [PASS] Data integrity status updated correctly")
     else:
         print("   [FAIL] Data integrity status update failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Update system health
     print("\n6. Testing system health update...")
@@ -75,7 +75,7 @@ def test_security_status_display():
         print("   [PASS] System health updated correctly")
     else:
         print("   [FAIL] System health update failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Get overall status
     print("\n7. Testing overall status calculation...")
@@ -85,7 +85,7 @@ def test_security_status_display():
         print("   [PASS] Overall status calculated correctly")
     else:
         print("   [FAIL] Overall status calculation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Test critical status
     print("\n8. Testing critical status detection...")
@@ -96,7 +96,7 @@ def test_security_status_display():
         print("   [PASS] Critical status detected correctly")
     else:
         print("   [FAIL] Critical status not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Reset for next test
     ss.update_risk_control_status(kill_switch_active=False, position_limits=True, daily_loss=True)
@@ -109,7 +109,7 @@ def test_security_status_display():
         print("   [PASS] Status summary generated correctly")
     else:
         print("   [FAIL] Status summary generation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Get GUI display data
     print("\n10. Testing GUI display data...")
@@ -120,7 +120,7 @@ def test_security_status_display():
         print("   [PASS] GUI display data generated correctly")
     else:
         print("   [FAIL] GUI display data generation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Test warning status
     print("\n11. Testing warning status detection...")
@@ -131,7 +131,7 @@ def test_security_status_display():
         print("   [PASS] Warning/critical status detected correctly")
     else:
         print("   [FAIL] Warning/critical status not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Reset
     ss.update_system_health(uptime=3600.0, error_count=2, alert_count=1)
@@ -149,7 +149,7 @@ def test_security_status_display():
         print("   [PASS] Status persistence works correctly")
     else:
         print("   [FAIL] Status persistence failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_security_status.json"):
@@ -162,7 +162,7 @@ def test_security_status_display():
         print("   [PASS] Global instance works")
     else:
         print("   [FAIL] Global instance failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 14: Unknown status handling
     print("\n14. Testing unknown status handling...")
@@ -174,7 +174,7 @@ def test_security_status_display():
         print("   [PASS] Unknown/Warning status handled correctly")
     else:
         print("   [FAIL] Unknown/Warning status not handled")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 15: Data integrity with disabled components
     print("\n15. Testing data integrity with disabled components...")
@@ -185,11 +185,11 @@ def test_security_status_display():
         print("   [PASS] Disabled component status detected correctly")
     else:
         print("   [FAIL] Disabled component status not detected")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All security status display tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_security_status_display())
