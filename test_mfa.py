@@ -56,10 +56,10 @@ def test_mfa():
     print(f"\n{'='*60}")
     if all_passed:
         print("[PASS] All MFA tests passed!")
-        return 0
+        # Clean test exit
     else:
         print("[FAIL] Some MFA tests failed!")
-        return 1
+        assert False, "Test condition failed"
 
 if __name__ == '__main__':
     import sys

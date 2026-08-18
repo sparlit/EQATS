@@ -24,7 +24,7 @@ def test_position_manager():
         print("   [PASS] Position created correctly")
     else:
         print("   [FAIL] Position not created correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Position profit calculation
     print("\n2. Testing position profit calculation...")
@@ -35,7 +35,7 @@ def test_position_manager():
         print("   [PASS] Profit calculated correctly")
     else:
         print("   [FAIL] Profit not calculated correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Position close
     print("\n3. Testing position close...")
@@ -47,7 +47,7 @@ def test_position_manager():
         print("   [PASS] Position closed correctly")
     else:
         print("   [FAIL] Position not closed correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Position serialization
     print("\n4. Testing position serialization...")
@@ -61,7 +61,7 @@ def test_position_manager():
         print("   [PASS] Position serialization works correctly")
     else:
         print("   [FAIL] Position serialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Position manager
     print("\n5. Testing position manager...")
@@ -79,7 +79,7 @@ def test_position_manager():
         print("   [PASS] Position manager works correctly")
     else:
         print("   [FAIL] Position manager failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Position limits
     print("\n6. Testing position limits...")
@@ -90,7 +90,7 @@ def test_position_manager():
         print("   [PASS] Position limit set correctly")
     else:
         print("   [FAIL] Position limit not set correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Position limit check
     print("\n7. Testing position limit check...")
@@ -102,7 +102,7 @@ def test_position_manager():
         print("   [PASS] Position within limits")
     else:
         print("   [FAIL] Position incorrectly rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Position limit exceeded
     print("\n8. Testing position limit exceeded...")
@@ -119,7 +119,7 @@ def test_position_manager():
         print("   [PASS] Position limit enforced")
     else:
         print("   [FAIL] Position limit not enforced")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Symbol exposure calculation
     print("\n9. Testing symbol exposure calculation...")
@@ -133,7 +133,7 @@ def test_position_manager():
         print("   [PASS] Exposure calculated correctly")
     else:
         print("   [FAIL] Exposure not calculated correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Total exposure calculation
     print("\n10. Testing total exposure calculation...")
@@ -146,7 +146,7 @@ def test_position_manager():
         print("   [PASS] Total exposure calculated correctly")
     else:
         print("   [FAIL] Total exposure not calculated correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Total P&L calculation
     print("\n11. Testing total P&L calculation...")
@@ -167,7 +167,7 @@ def test_position_manager():
         print("   [PASS] Total P&L calculated correctly")
     else:
         print("   [FAIL] Total P&L not calculated correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Position summary
     print("\n12. Testing position summary...")
@@ -180,7 +180,7 @@ def test_position_manager():
         print("   [PASS] Position summary correct")
     else:
         print("   [FAIL] Position summary incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 13: Get positions by symbol
     print("\n13. Testing get positions by symbol...")
@@ -190,7 +190,7 @@ def test_position_manager():
         print("   [PASS] Symbol filtering works correctly")
     else:
         print("   [FAIL] Symbol filtering failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 14: Update position prices
     print("\n14. Testing update position prices...")
@@ -203,7 +203,7 @@ def test_position_manager():
         print("   [PASS] Position prices updated correctly")
     else:
         print("   [FAIL] Position prices not updated")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 15: Position persistence
     print("\n15. Testing position persistence...")
@@ -221,7 +221,7 @@ def test_position_manager():
         print("   [PASS] Position persistence works correctly")
     else:
         print("   [FAIL] Position persistence failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_positions.json"):
@@ -229,7 +229,7 @@ def test_position_manager():
     
     print(f"\n{'='*60}")
     print("[PASS] All position tracking tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_position_manager())

@@ -32,7 +32,7 @@ def test_model_persistence():
         print("   [PASS] Predictor starts untrained")
     else:
         print("   [FAIL] Predictor not starting in expected state")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Train the predictor
     print("\n2. Training predictor...")
@@ -46,7 +46,7 @@ def test_model_persistence():
         print("   [PASS] Predictor has training data")
     else:
         print("   [FAIL] Predictor has no training data")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Check model was auto-saved
     print("\n3. Checking auto-save...")
@@ -56,7 +56,7 @@ def test_model_persistence():
         print(f"   [PASS] Model file created: {model_file}")
     else:
         print(f"   [FAIL] Model file not created")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Clear registry
     print("\n4. Clearing predictor registry...")
@@ -75,7 +75,7 @@ def test_model_persistence():
         print("   [PASS] Model loaded with training data")
     else:
         print("   [FAIL] Model did not load correctly")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Verify model state
     print("\n6. Verifying model state...")
@@ -84,7 +84,7 @@ def test_model_persistence():
         print("   [PASS] Model state preserved")
     else:
         print("   [FAIL] Model state not preserved")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Get all predictor info
     print("\n7. Getting all predictor info...")
@@ -94,7 +94,7 @@ def test_model_persistence():
         print("   [PASS] Predictor info accessible")
     else:
         print("   [FAIL] Predictor info not accessible")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     print("\n8. Cleaning up test files...")
@@ -108,7 +108,7 @@ def test_model_persistence():
     
     print(f"\n{'='*60}")
     print("[PASS] All model persistence tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     import sys

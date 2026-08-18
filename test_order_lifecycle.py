@@ -43,7 +43,7 @@ def test_order_state_machine():
     try:
         sm2.transition_to(OrderState.FILLED, reason="Direct fill")
         print("   [FAIL] Invalid transition was allowed")
-        return 1
+        assert False, "Test condition failed"
     except OrderTransitionError as e:
         print(f"   Caught expected error: {e}")
         print("   [PASS] Invalid transition blocked")
@@ -69,7 +69,7 @@ def test_order_state_machine():
         print("   [PASS] State checks work correctly")
     else:
         print("   [FAIL] State checks incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Order lifecycle
     print("\n4. Testing order lifecycle...")
@@ -107,7 +107,7 @@ def test_order_state_machine():
         print("   [PASS] Partial fill works correctly")
     else:
         print("   [FAIL] Partial fill incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Order cancellation
     print("\n6. Testing order cancellation...")
@@ -123,7 +123,7 @@ def test_order_state_machine():
         print("   [PASS] Order cancellation works correctly")
     else:
         print("   [FAIL] Order cancellation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Order rejection
     print("\n7. Testing order rejection...")
@@ -137,7 +137,7 @@ def test_order_state_machine():
         print("   [PASS] Order rejection works correctly")
     else:
         print("   [FAIL] Order rejection failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Order modification
     print("\n8. Testing order modification...")
@@ -155,7 +155,7 @@ def test_order_state_machine():
         print("   [PASS] Order modification works correctly")
     else:
         print("   [FAIL] Order modification failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Cannot modify terminal state
     print("\n9. Testing modification restriction on terminal state...")
@@ -171,7 +171,7 @@ def test_order_state_machine():
         print("   [PASS] Modification correctly blocked in terminal state")
     else:
         print("   [FAIL] Modification allowed in terminal state")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Order registry
     print("\n10. Testing order registry...")
@@ -190,7 +190,7 @@ def test_order_state_machine():
         print("   [PASS] Order registry works correctly")
     else:
         print("   [FAIL] Order registry incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Order serialization
     print("\n11. Testing order serialization...")
@@ -205,7 +205,7 @@ def test_order_state_machine():
         print("   [PASS] Order serialization works correctly")
     else:
         print("   [FAIL] Order serialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: State history
     print("\n12. Testing state history...")
@@ -222,11 +222,11 @@ def test_order_state_machine():
         print("   [PASS] State history tracked correctly")
     else:
         print("   [FAIL] State history not tracked")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All order state machine tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_order_state_machine())
