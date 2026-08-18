@@ -24,7 +24,7 @@ def test_data_freshness():
         print("   [PASS] Timestamp updated correctly")
     else:
         print("   [FAIL] Timestamp not updated")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Get data age
     print("\n2. Testing data age calculation...")
@@ -35,7 +35,7 @@ def test_data_freshness():
         print("   [PASS] Data age calculated correctly")
     else:
         print("   [FAIL] Data age not calculated")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Check freshness
     print("\n3. Testing freshness check...")
@@ -47,7 +47,7 @@ def test_data_freshness():
         print("   [PASS] Freshness check correct")
     else:
         print("   [FAIL] Freshness check incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Custom freshness threshold
     print("\n4. Testing custom freshness threshold...")
@@ -59,7 +59,7 @@ def test_data_freshness():
         print("   [PASS] Custom threshold set correctly")
     else:
         print("   [FAIL] Custom threshold not set")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Stale data detection
     print("\n5. Testing stale data detection...")
@@ -74,7 +74,7 @@ def test_data_freshness():
         print("   [PASS] Stale data detected")
     else:
         print("   [FAIL] Stale data not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Check all symbols
     print("\n6. Testing check all symbols...")
@@ -86,7 +86,7 @@ def test_data_freshness():
         print("   [PASS] All symbols checked correctly")
     else:
         print("   [FAIL] All symbols check failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Get stale symbols
     print("\n7. Testing get stale symbols...")
@@ -96,7 +96,7 @@ def test_data_freshness():
         print("   [PASS] Stale symbols retrieved correctly")
     else:
         print("   [FAIL] Stale symbols not retrieved")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Freshness summary
     print("\n8. Testing freshness summary...")
@@ -107,7 +107,7 @@ def test_data_freshness():
         print("   [PASS] Freshness summary correct")
     else:
         print("   [FAIL] Freshness summary incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Should block trading
     print("\n9. Testing trading block decision...")
@@ -117,7 +117,7 @@ def test_data_freshness():
         print("   [PASS] Trading block decision correct")
     else:
         print("   [FAIL] Trading block decision incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Warning threshold
     print("\n10. Testing warning threshold...")
@@ -133,7 +133,7 @@ def test_data_freshness():
         print("   [PASS] Warning threshold correct")
     else:
         print("   [FAIL] Warning threshold incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Data quality tracker
     print("\n11. Testing data quality tracker...")
@@ -145,7 +145,7 @@ def test_data_freshness():
         print("   [PASS] Quality score updated correctly")
     else:
         print("   [FAIL] Quality score not updated")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Record error
     print("\n12. Testing error recording...")
@@ -156,7 +156,7 @@ def test_data_freshness():
         print("   [PASS] Error recorded correctly")
     else:
         print("   [FAIL] Error not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 13: Record gap
     print("\n13. Testing gap recording...")
@@ -167,7 +167,7 @@ def test_data_freshness():
         print("   [PASS] Gap recorded correctly")
     else:
         print("   [FAIL] Gap not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 14: Quality summary
     print("\n14. Testing quality summary...")
@@ -180,7 +180,7 @@ def test_data_freshness():
         print("   [PASS] Quality summary correct")
     else:
         print("   [FAIL] Quality summary incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 15: Data acceptability
     print("\n15. Testing data acceptability...")
@@ -190,7 +190,7 @@ def test_data_freshness():
         print("   [PASS] Data acceptability correct")
     else:
         print("   [FAIL] Data acceptability incorrect")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 16: Unacceptable data
     print("\n16. Testing unacceptable data...")
@@ -201,7 +201,7 @@ def test_data_freshness():
         print("   [PASS] Unacceptable data detected")
     else:
         print("   [FAIL] Unacceptable data not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 17: Reset tracking
     print("\n17. Testing reset tracking...")
@@ -212,7 +212,7 @@ def test_data_freshness():
         print("   [PASS] Reset tracking works correctly")
     else:
         print("   [FAIL] Reset tracking failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 18: Time until stale
     print("\n18. Testing time until stale calculation...")
@@ -226,11 +226,11 @@ def test_data_freshness():
         print("   [PASS] Time until stale calculated correctly")
     else:
         print("   [FAIL] Time until stale not calculated")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All data freshness monitoring tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_data_freshness())
