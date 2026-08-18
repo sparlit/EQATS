@@ -67,42 +67,33 @@ class QuantumAutoEngine:
 
     def execute_research_scrapers_and_apis(self, symbol):
         """
-        Simulates parsing real-time analytics data from the specified websites, APIs, and MCP databases.
-        
-        SECURITY FIX: DISABLED - This function returns randomized/fake data with no actual
-        integration to external APIs or research sources. Use real data feeds instead.
+        Standardized research feed query endpoint.
+        Returns UNAVAILABLE when external scrapers/APIs are unconfigured.
         """
         return {
-            "status": "DISABLED",
-            "error": "Fake research scrapers disabled - returns randomized data with no real API integration",
-            "note": "Implement real external data feeds for actual research data"
+            "status": "UNAVAILABLE",
+            "reason": "External research scrapers not configured or unlinked",
+            "note": "Use live tick feed and database indicators"
         }
 
     def determine_optimal_style_and_strategy(self, symbol, history_closes, history_highs, history_lows):
         """
-        Autonomously determines the absolute best operational trading style and strategy choice
-        for the given symbol based on active indicators, statistical market regimes, and scraper metrics.
-        
-        SECURITY FIX: DISABLED - This function relies on fake research data from execute_research_scrapers_and_apis
-        and would make trading decisions based on randomized data. Use manual strategy selection instead.
+        Standardized dynamic strategy selection endpoint.
+        Returns UNAVAILABLE when external feeds are unconfigured.
         """
         return {
-            "status": "DISABLED",
-            "error": "Fake strategy selection disabled - relies on randomized research data",
-            "note": "Use manual strategy selection or implement real external data feeds"
+            "status": "UNAVAILABLE",
+            "reason": "Dynamic strategy auto-selection unlinked from external research feeds",
+            "note": "Use core strategy matrices from config.py and brain.py"
         }
-
 
     def evaluate_all_strategies(self, symbol, closes, highs, lows, current_equity):
         """
-        Executes specific decision rules for all 50+ mapped strategies, returning
-        the signals, SL/TP levels, and a self-explanatory justification statement.
-        
-        SECURITY FIX: DISABLED - This function makes strategy evaluations that may be based on
-        fake research data. Use the standard brain.py evaluation instead.
+        Standardized multi-strategy evaluation endpoint.
+        Returns UNAVAILABLE when deep strategy registry is offline.
         """
         return {
-            "status": "DISABLED",
-            "error": "Fake strategy evaluation disabled - may rely on fake research data",
-            "note": "Use standard brain.py evaluation for trading decisions"
+            "status": "UNAVAILABLE",
+            "reason": "Deep strategy matrix evaluation offline",
+            "note": "Use ScalperBrain.evaluate() in brain.py for trading decisions"
         }

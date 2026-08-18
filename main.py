@@ -825,8 +825,14 @@ class AutonomousScalper:
                 print(f"Warning: Reconnection attempt failed: {e}")
                 return
 
-        # Log heartbeat metrics on the Operations plane
+        # Log heartbeat metrics on the Operations plane and trigger non-blocking online DB maintenance
         self.engine.resilience.log_heartbeat(0.12)
+        try:
+            from database_infrastructure import get_database_infrastructure
+            db_infra = get_database_infrastructure()
+            db_infra.run_online_maintenance()
+        except Exception as db_err:
+            print(f"Warning: Online DB maintenance exception: {db_err}")
 
         # A. Check and update the daily drawdown start baseline
         current_date = datetime.date.today().isoformat()

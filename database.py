@@ -5,6 +5,7 @@ import hmac
 import base64
 import config
 import os
+from typing import Optional, Dict, List, Any
 from dotenv import load_dotenv
 from secure_encryption import encrypt_text, decrypt_text, get_encryption_manager
 from password_manager import get_password_manager, get_pin_manager
@@ -120,14 +121,16 @@ def decrypt_secret(cipher_text, key_seed=None):
         return ""
 
 def get_connection():
-    """Returns a connection to the SQLite database."""
-    conn = sqlite3.connect(config.DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Returns a thread-safe WAL connection managed by DatabaseInfrastructure."""
+    from database_infrastructure import get_database_infrastructure
+    infra = get_database_infrastructure()
+    return infra.get_connection()
 
 def init_db():
-    """Initializes database tables if they do not exist."""
-    conn = get_connection()
+    """Initializes database tables and executes migrations via DatabaseInfrastructure."""
+    from database_infrastructure import get_database_infrastructure
+    infra = get_database_infrastructure()
+    conn = infra.get_connection()
     cursor = conn.cursor()
 
     # Table for storing market assessments made by the brain
@@ -211,6 +214,20 @@ def init_db():
         environment TEXT DEFAULT 'Demo',
         is_active INTEGER DEFAULT 1,
         updated_at TEXT NOT NULL
+    )
+    """)
+
+    # Table for storing Master Symbology translation mappings
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS symbol_mappings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        internal_symbol TEXT NOT NULL,
+        broker_id TEXT NOT NULL,
+        broker_symbol TEXT NOT NULL,
+        pip_size REAL DEFAULT 0.0001,
+        contract_size REAL DEFAULT 100000.0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(internal_symbol, broker_id)
     )
     """)
 
@@ -666,6 +683,122 @@ def get_open_trades():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+# ==============================================================================
+# MASTER SYMBOLOGY & BROKER TRANSLATION HELPERS
+# ==============================================================================
+
+def add_symbol_mapping(internal_symbol: str, broker_id: str, broker_symbol: str, pip_size: float = 0.0001, contract_size: float = 100000.0) -> bool:
+    """
+    Adds or updates a master symbol mapping in the database.
+    """
+    now_str = datetime.datetime.now().isoformat()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO symbol_mappings (internal_symbol, broker_id, broker_symbol, pip_size, contract_size, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(internal_symbol, broker_id) DO UPDATE SET
+                broker_symbol=excluded.broker_symbol,
+                pip_size=excluded.pip_size,
+                contract_size=excluded.contract_size,
+                updated_at=excluded.updated_at
+        """, (internal_symbol.upper(), broker_id.upper(), broker_symbol, pip_size, contract_size, now_str))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error adding symbol mapping: {e}")
+        return False
+
+
+def get_broker_symbol(internal_symbol: str, broker_id: str) -> Optional[str]:
+    """
+    Translates an internal master symbol (e.g. EUR_USD) to a broker-specific symbol (e.g. EURUSD.raw).
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT broker_symbol FROM symbol_mappings WHERE UPPER(internal_symbol) = UPPER(?) AND UPPER(broker_id) = UPPER(?)",
+            (internal_symbol, broker_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row["broker_symbol"] if row else None
+    except Exception as e:
+        print(f"Error retrieving broker symbol: {e}")
+        return None
+
+
+def get_internal_symbol(broker_symbol: str, broker_id: str) -> Optional[str]:
+    """
+    Translates a broker-specific symbol (e.g. EURUSD.raw) back to internal master symbology.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT internal_symbol FROM symbol_mappings WHERE broker_symbol = ? AND UPPER(broker_id) = UPPER(?)",
+            (broker_symbol, broker_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row["internal_symbol"] if row else None
+    except Exception as e:
+        print(f"Error retrieving internal symbol: {e}")
+        return None
+
+
+def get_symbol_mapping(internal_symbol: str, broker_id: str) -> Optional[dict]:
+    """
+    Retrieves full mapping details including contract size and pip scale for risk calculations.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT internal_symbol, broker_id, broker_symbol, pip_size, contract_size FROM symbol_mappings WHERE UPPER(internal_symbol) = UPPER(?) AND UPPER(broker_id) = UPPER(?)",
+            (internal_symbol, broker_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                "internal_symbol": row["internal_symbol"],
+                "broker_id": row["broker_id"],
+                "broker_symbol": row["broker_symbol"],
+                "pip_size": row["pip_size"],
+                "contract_size": row["contract_size"]
+            }
+        return None
+    except Exception as e:
+        print(f"Error retrieving symbol mapping: {e}")
+        return None
+
+
+def get_all_symbol_mappings(broker_id: Optional[str] = None) -> list:
+    """
+    Retrieves all symbol mappings, optionally filtered by broker_id.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        if broker_id:
+            cursor.execute(
+                "SELECT internal_symbol, broker_id, broker_symbol, pip_size, contract_size FROM symbol_mappings WHERE UPPER(broker_id) = UPPER(?)",
+                (broker_id,)
+            )
+        else:
+            cursor.execute("SELECT internal_symbol, broker_id, broker_symbol, pip_size, contract_size FROM symbol_mappings")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"Error retrieving all symbol mappings: {e}")
+        return []
 
 def log_news_headline(headline, sentiment):
     """Logs a macro headline with its parsed sentiment classification."""
