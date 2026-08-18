@@ -261,8 +261,29 @@ class ReleaseGateRunner:
 
     def _check_g28_zero_stub(self):
         """G28: Runs programmatical search for common stub patterns like '# TODO' in key paths."""
-        # Clean production verification check
-        return True, "Zero stubs and placeholders verified in production modules."
+        key_files = [
+            "main.py", "brain.py", "connector.py", "database.py",
+            "gui.py", "eaqts_planes.py", "indicators.py"
+        ]
+        stub_patterns = ["# TODO", "# FIXME", "NotImplementedError"]
+        found_stubs = []
+
+        for fname in key_files:
+            if not os.path.exists(fname):
+                continue
+            try:
+                with open(fname, "r", encoding="utf-8") as f:
+                    for line_num, line in enumerate(f, 1):
+                        for pattern in stub_patterns:
+                            if pattern in line:
+                                found_stubs.append(f"{fname}:{line_num} ({pattern})")
+            except Exception as e:
+                return False, f"Failed to read file {fname}: {e}"
+
+        if found_stubs:
+            return False, f"Stubs/placeholders detected in production files: {', '.join(found_stubs[:5])}"
+
+        return True, "Zero stubs and placeholders verified programmatically across production modules."
 
     def _check_g29_final_independent_audit(self):
         """G29: Verifies all G01-G28 gates are successfully passed and signed off."""

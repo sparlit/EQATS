@@ -25,7 +25,7 @@ def test_backtesting_framework():
         print("   [PASS] Backtest engine initialized correctly")
     else:
         print("   [FAIL] Backtest engine initialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Open position
     print("\n2. Testing position opening...")
@@ -36,7 +36,7 @@ def test_backtesting_framework():
         print("   [PASS] Position opened correctly")
     else:
         print("   [FAIL] Position opening failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Close position
     print("\n3. Testing position closing...")
@@ -47,7 +47,7 @@ def test_backtesting_framework():
         print("   [PASS] Position closed correctly")
     else:
         print("   [FAIL] Position closing failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Check trade details
     print("\n4. Testing trade details...")
@@ -58,7 +58,7 @@ def test_backtesting_framework():
         print("   [PASS] Trade details recorded correctly")
     else:
         print("   [FAIL] Trade details not recorded")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Reset engine
     print("\n5. Testing engine reset...")
@@ -70,7 +70,7 @@ def test_backtesting_framework():
         print("   [PASS] Engine reset correctly")
     else:
         print("   [FAIL] Engine reset failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Multiple trades
     print("\n6. Testing multiple trades...")
@@ -84,7 +84,7 @@ def test_backtesting_framework():
         print("   [PASS] Multiple trades handled correctly")
     else:
         print("   [FAIL] Multiple trades not handled")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Equity curve
     print("\n7. Testing equity curve...")
@@ -94,7 +94,7 @@ def test_backtesting_framework():
         print("   [PASS] Equity curve tracked correctly")
     else:
         print("   [FAIL] Equity curve not tracked")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Stop loss execution
     print("\n8. Testing stop loss execution...")
@@ -108,7 +108,7 @@ def test_backtesting_framework():
         print("   [PASS] Stop loss executed correctly")
     else:
         print("   [FAIL] Stop loss not executed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Take profit execution
     print("\n9. Testing take profit execution...")
@@ -122,7 +122,7 @@ def test_backtesting_framework():
         print("   [PASS] Take profit executed correctly")
     else:
         print("   [FAIL] Take profit not executed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Backtest results calculation
     print("\n10. Testing backtest results calculation...")
@@ -140,7 +140,7 @@ def test_backtesting_framework():
         print("   [PASS] Results calculated correctly")
     else:
         print("   [FAIL] Results calculation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Strategy parameters
     print("\n11. Testing strategy parameters...")
@@ -150,7 +150,7 @@ def test_backtesting_framework():
         print("   [PASS] Strategy parameters set correctly")
     else:
         print("   [FAIL] Strategy parameters not set")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Run backtest with sample data
     print("\n12. Testing backtest run with sample data...")
@@ -177,7 +177,7 @@ def test_backtesting_framework():
         print("   [PASS] Results saved correctly")
     else:
         print("   [FAIL] Results saving failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_backtest_results.json"):
@@ -190,7 +190,7 @@ def test_backtesting_framework():
         print("   [PASS] Global engine instance works")
     else:
         print("   [FAIL] Global engine instance failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 15: Commission calculation
     print("\n15. Testing commission calculation...")
@@ -203,11 +203,11 @@ def test_backtesting_framework():
         print("   [PASS] Commission calculated correctly")
     else:
         print("   [FAIL] Commission not calculated")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All backtesting framework tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_backtesting_framework())

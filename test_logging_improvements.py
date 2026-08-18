@@ -28,7 +28,7 @@ def test_logging_improvements():
             print("   [PASS] Logger initialized correctly")
         else:
             print("   [FAIL] Logger initialization failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 2: Component loggers
         print("\n2. Testing component loggers...")
@@ -39,7 +39,7 @@ def test_logging_improvements():
             print("   [PASS] Component loggers created correctly")
         else:
             print("   [FAIL] Component loggers creation failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 3: Log order
         print("\n3. Testing order logging...")
@@ -86,7 +86,7 @@ def test_logging_improvements():
             print("   [PASS] Log level changed correctly")
         else:
             print("   [FAIL] Log level change failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 11: Get log files
         print("\n11. Testing log file paths...")
@@ -96,7 +96,7 @@ def test_logging_improvements():
             print("   [PASS] Log file paths retrieved correctly")
         else:
             print("   [FAIL] Log file paths retrieval failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 12: Verify log files created
         print("\n12. Testing log file creation...")
@@ -110,7 +110,7 @@ def test_logging_improvements():
             print("   [PASS] All log files created")
         else:
             print("   [FAIL] Some log files not created")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 13: Global logger
         print("\n13. Testing global logger instance...")
@@ -119,7 +119,7 @@ def test_logging_improvements():
             print("   [PASS] Global logger instance works")
         else:
             print("   [FAIL] Global logger instance failed")
-            return 1
+            assert False, "Test condition failed"
         
         # Test 14: Setup logging function
         print("\n14. Testing setup_logging function...")
@@ -128,11 +128,11 @@ def test_logging_improvements():
             print("   [PASS] setup_logging function works")
         else:
             print("   [FAIL] setup_logging function failed")
-            return 1
+            assert False, "Test condition failed"
         
         print(f"\n{'='*60}")
         print("[PASS] All logging improvements tests passed!")
-        return 0
+        # Clean test exit
         
     finally:
         # Cleanup
