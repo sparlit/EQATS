@@ -21,7 +21,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Validation feedback initialized correctly")
     else:
         print("   [FAIL] Validation feedback initialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Add order validation
     print("\n2. Testing order validation feedback...")
@@ -37,7 +37,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Order validation feedback added correctly")
     else:
         print("   [FAIL] Order validation feedback failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Add position validation
     print("\n3. Testing position validation feedback...")
@@ -53,7 +53,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Position validation feedback added correctly")
     else:
         print("   [FAIL] Position validation feedback failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Add data validation
     print("\n4. Testing data validation feedback...")
@@ -70,7 +70,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Data validation feedback added correctly")
     else:
         print("   [FAIL] Data validation feedback failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Add risk validation
     print("\n5. Testing risk validation feedback...")
@@ -86,7 +86,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Risk validation feedback added correctly")
     else:
         print("   [FAIL] Risk validation feedback failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Get overall status
     print("\n6. Testing overall status calculation...")
@@ -97,7 +97,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Overall status calculated correctly")
     else:
         print("   [FAIL] Overall status calculation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Test invalid status
     print("\n7. Testing invalid status detection...")
@@ -113,7 +113,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Invalid status detected correctly")
     else:
         print("   [FAIL] Invalid status not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Reset for next test
     vf.add_order_validation(
@@ -131,7 +131,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Feedback summary generated correctly")
     else:
         print("   [FAIL] Feedback summary generation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Get GUI display data
     print("\n9. Testing GUI display data...")
@@ -142,7 +142,7 @@ def test_validation_feedback_gui():
         print("   [PASS] GUI display data generated correctly")
     else:
         print("   [FAIL] GUI display data generation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Get error count
     print("\n10. Testing error count...")
@@ -158,7 +158,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Error count calculated correctly")
     else:
         print("   [FAIL] Error count calculation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 11: Get warning count
     print("\n11. Testing warning count...")
@@ -168,7 +168,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Warning count calculated correctly")
     else:
         print("   [FAIL] Warning count calculation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Clear feedback
     print("\n12. Testing feedback clearing...")
@@ -178,7 +178,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Feedback cleared correctly")
     else:
         print("   [FAIL] Feedback clearing failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 13: Persistence
     print("\n13. Testing feedback persistence...")
@@ -200,7 +200,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Feedback persistence works correctly")
     else:
         print("   [FAIL] Feedback persistence failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_validation_feedback.json"):
@@ -213,7 +213,7 @@ def test_validation_feedback_gui():
         print("   [PASS] Global instance works")
     else:
         print("   [FAIL] Global instance failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 15: All valid status
     print("\n15. Testing all valid status...")
@@ -229,11 +229,11 @@ def test_validation_feedback_gui():
         print("   [PASS] All valid status detected correctly")
     else:
         print("   [FAIL] All valid status not detected")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All validation feedback GUI tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_validation_feedback_gui())

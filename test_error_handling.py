@@ -37,11 +37,11 @@ def test_connector_error_handling():
             print(f"   [INFO] Other error: {e}")
         
         print("\n[PASS] Connector error handling tests completed")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_data_validation_error_handling():
@@ -66,7 +66,7 @@ def test_data_validation_error_handling():
             print("   [PASS] None values handled correctly")
         else:
             print("   [FAIL] None values not handled")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Handle insufficient data
         print("\n2. Testing insufficient data handling...")
@@ -104,14 +104,14 @@ def test_data_validation_error_handling():
             print("   [PASS] Invalid OHLCV handled correctly")
         else:
             print("   [FAIL] Invalid OHLCV not handled")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Data validation error handling works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_order_lifecycle_error_handling():
@@ -129,7 +129,7 @@ def test_order_lifecycle_error_handling():
             # Try to transition from PENDING to FILLED (invalid)
             order.state_machine.transition_to(OrderState.FILLED)
             print("   [FAIL] Invalid transition allowed")
-            return False
+            assert False, "Test condition failed"
         except OrderTransitionError as e:
             print(f"   [PASS] Invalid transition blocked: {e}")
         
@@ -149,11 +149,11 @@ def test_order_lifecycle_error_handling():
         print("   [PASS] Terminal state cancellation check works")
         
         print("\n[PASS] Order lifecycle error handling works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_risk_controls_error_handling():
@@ -171,7 +171,7 @@ def test_risk_controls_error_handling():
         try:
             rc.validate_lot_size("INVALID!SYMBOL", 0.1)
             print("   [FAIL] Invalid symbol accepted")
-            return False
+            assert False, "Test condition failed"
         except Exception as e:
             print(f"   [PASS] Invalid symbol rejected")
         
@@ -183,7 +183,7 @@ def test_risk_controls_error_handling():
             print("   [PASS] Negative lot size rejected")
         else:
             print("   [FAIL] Negative lot size accepted")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Handle excessive price deviation
         print("\n3. Testing excessive price deviation handling...")
@@ -193,7 +193,7 @@ def test_risk_controls_error_handling():
             print("   [PASS] Excessive deviation rejected")
         else:
             print("   [FAIL] Excessive deviation accepted")
-            return False
+            assert False, "Test condition failed"
         
         # Test 4: Handle zero market price
         print("\n4. Testing zero market price handling...")
@@ -203,14 +203,14 @@ def test_risk_controls_error_handling():
             print("   [PASS] Zero market price handled")
         else:
             print("   [FAIL] Zero market price not handled")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Risk controls error handling works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_backup_error_handling():
@@ -230,7 +230,7 @@ def test_backup_error_handling():
             print("   [PASS] Non-existent backup handled correctly")
         else:
             print("   [FAIL] Non-existent backup not handled")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Handle missing database
         print("\n2. Testing missing database handling...")
@@ -248,11 +248,11 @@ def test_backup_error_handling():
         print("   [PASS] File error handling verified via restore test")
         
         print("\n[PASS] Backup error handling works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_position_manager_error_handling():
@@ -272,7 +272,7 @@ def test_position_manager_error_handling():
             print("   [PASS] Non-existent position handled correctly")
         else:
             print("   [FAIL] Non-existent position not handled")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Handle remove non-existent position
         print("\n2. Testing remove non-existent position handling...")
@@ -282,7 +282,7 @@ def test_position_manager_error_handling():
             print("   [PASS] Remove non-existent handled correctly")
         else:
             print("   [FAIL] Remove non-existent not handled")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Handle position update with invalid price
         print("\n3. Testing invalid price update handling...")
@@ -303,14 +303,14 @@ def test_position_manager_error_handling():
             print("   [PASS] Limit check works with no positions")
         else:
             print("   [FAIL] Limit check failed with no positions")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Position manager error handling works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_security_error_handling():
@@ -328,7 +328,7 @@ def test_security_error_handling():
         try:
             pm.hash_password("")
             print("   [FAIL] Empty password accepted")
-            return False
+            assert False, "Test condition failed"
         except ValueError as e:
             print(f"   [PASS] Empty password rejected: {e}")
         
@@ -340,7 +340,7 @@ def test_security_error_handling():
             print("   [PASS] Wrong password rejected")
         else:
             print("   [FAIL] Wrong password accepted")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Handle invalid symbol validation
         print("\n3. Testing invalid symbol validation...")
@@ -349,7 +349,7 @@ def test_security_error_handling():
         try:
             validator.validate_symbol("INVALID@SYMBOL")
             print("   [FAIL] Invalid symbol accepted")
-            return False
+            assert False, "Test condition failed"
         except Exception as e:
             print(f"   [PASS] Invalid symbol rejected: {e}")
         
@@ -358,11 +358,11 @@ def test_security_error_handling():
         print("   [SKIP] Encryption requires environment variable")
         
         print("\n[PASS] Security error handling works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Error handling test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def run_all_error_handling_tests():
@@ -394,10 +394,10 @@ def run_all_error_handling_tests():
     print("="*60)
     if all_passed:
         print("[PASS] All error handling tests passed!")
-        return 0
+        # Clean test exit
     else:
         print("[FAIL] Some error handling tests failed")
-        return 1
+        assert False, "Test condition failed"
 
 
 if __name__ == '__main__':
