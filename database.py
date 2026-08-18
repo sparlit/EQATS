@@ -121,14 +121,16 @@ def decrypt_secret(cipher_text, key_seed=None):
         return ""
 
 def get_connection():
-    """Returns a connection to the SQLite database."""
-    conn = sqlite3.connect(config.DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Returns a thread-safe WAL connection managed by DatabaseInfrastructure."""
+    from database_infrastructure import get_database_infrastructure
+    infra = get_database_infrastructure()
+    return infra.get_connection()
 
 def init_db():
-    """Initializes database tables if they do not exist."""
-    conn = get_connection()
+    """Initializes database tables and executes migrations via DatabaseInfrastructure."""
+    from database_infrastructure import get_database_infrastructure
+    infra = get_database_infrastructure()
+    conn = infra.get_connection()
     cursor = conn.cursor()
 
     # Table for storing market assessments made by the brain
