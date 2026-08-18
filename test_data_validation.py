@@ -28,7 +28,7 @@ def test_data_validator():
         print("   [PASS] Valid data accepted")
     else:
         print("   [FAIL] Valid data rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Insufficient data points
     print("\n2. Testing insufficient data points...")
@@ -40,7 +40,7 @@ def test_data_validator():
         print("   [PASS] Insufficient data rejected")
     else:
         print("   [FAIL] Insufficient data not rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Data with None values
     print("\n3. Testing data with None values...")
@@ -53,7 +53,7 @@ def test_data_validator():
         print("   [PASS] None values detected")
     else:
         print("   [FAIL] None values not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Data with excessive price jump
     print("\n4. Testing excessive price jump...")
@@ -65,7 +65,7 @@ def test_data_validator():
         print("   [PASS] Excessive jump detected")
     else:
         print("   [FAIL] Excessive jump not detected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Timestamp validation
     print("\n5. Testing timestamp validation...")
@@ -77,7 +77,7 @@ def test_data_validator():
         print("   [PASS] Fresh timestamp accepted")
     else:
         print("   [FAIL] Fresh timestamp rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Stale timestamp
     print("\n6. Testing stale timestamp...")
@@ -90,7 +90,7 @@ def test_data_validator():
         print("   [PASS] Stale timestamp rejected")
     else:
         print("   [FAIL] Stale timestamp not rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Completeness validation
     print("\n7. Testing completeness validation...")
@@ -103,7 +103,7 @@ def test_data_validator():
         print("   [PASS] Complete data accepted")
     else:
         print("   [FAIL] Complete data rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Incomplete data
     print("\n8. Testing incomplete data...")
@@ -115,7 +115,7 @@ def test_data_validator():
         print("   [PASS] Incomplete data rejected")
     else:
         print("   [FAIL] Incomplete data not rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: OHLCV consistency validation
     print("\n9. Testing OHLCV consistency...")
@@ -130,7 +130,7 @@ def test_data_validator():
         print("   [PASS] Consistent OHLCV accepted")
     else:
         print("   [FAIL] Consistent OHLCV rejected")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Invalid OHLCV (high < low)
     print("\n10. Testing invalid OHLCV (high < low)...")
@@ -144,11 +144,11 @@ def test_data_validator():
         print("   [PASS] Invalid OHLCV detected")
     else:
         print("   [FAIL] Invalid OHLCV not detected")
-        return 1
+        assert False, "Test condition failed"
     
     print(f"\n{'='*60}")
     print("[PASS] All data validation tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_data_validator())

@@ -31,7 +31,7 @@ def test_order_lifecycle_with_risk_controls():
             print("   [PASS] Order validation passed")
         else:
             print("   [FAIL] Order validation failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Create and submit order
         print("\n2. Testing order creation and submission...")
@@ -41,7 +41,7 @@ def test_order_lifecycle_with_risk_controls():
             print("   [PASS] Order submitted successfully")
         else:
             print("   [FAIL] Order submission failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Risk limit prevents excessive order
         print("\n3. Testing risk limit enforcement...")
@@ -55,7 +55,7 @@ def test_order_lifecycle_with_risk_controls():
             print("   [PASS] Risk limit enforced")
         else:
             print("   [FAIL] Risk limit not enforced")
-            return False
+            assert False, "Test condition failed"
         
         # Test 4: Fat-finger detection on order
         print("\n4. Testing fat-finger detection on order...")
@@ -65,14 +65,14 @@ def test_order_lifecycle_with_risk_controls():
             print("   [PASS] Fat-finger detected")
         else:
             print("   [FAIL] Fat-finger not detected")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Order lifecycle with risk controls integration works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Integration test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_position_tracking_with_reconciliation():
@@ -97,7 +97,7 @@ def test_position_tracking_with_reconciliation():
             print("   [PASS] Positions tracked correctly")
         else:
             print("   [FAIL] Position tracking failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Reconcile local positions with "broker" positions
         print("\n2. Testing position reconciliation...")
@@ -119,7 +119,7 @@ def test_position_tracking_with_reconciliation():
             print("   [PASS] Position reconciliation passed")
         else:
             print("   [FAIL] Position reconciliation failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Detect position discrepancy
         print("\n3. Testing position discrepancy detection...")
@@ -134,7 +134,7 @@ def test_position_tracking_with_reconciliation():
             print("   [PASS] Position discrepancy detected")
         else:
             print("   [FAIL] Position discrepancy not detected")
-            return False
+            assert False, "Test condition failed"
         
         # Test 4: Update position prices
         print("\n4. Testing position price updates...")
@@ -146,14 +146,14 @@ def test_position_tracking_with_reconciliation():
             print("   [PASS] Position prices updated correctly")
         else:
             print("   [FAIL] Position prices not updated")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Position tracking with reconciliation integration works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Integration test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_data_validation_with_freshness():
@@ -192,7 +192,7 @@ def test_data_validation_with_freshness():
             print("   [PASS] Fresh data validated correctly")
         else:
             print("   [FAIL] Fresh data validation failed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Reject stale data
         print("\n2. Testing stale data rejection...")
@@ -207,7 +207,7 @@ def test_data_validation_with_freshness():
             print("   [PASS] Stale data detected")
         else:
             print("   [FAIL] Stale data not detected")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Block trading on stale data
         print("\n3. Testing trading block on stale data...")
@@ -217,7 +217,7 @@ def test_data_validation_with_freshness():
             print("   [PASS] Trading blocked on stale data")
         else:
             print("   [FAIL] Trading not blocked on stale data")
-            return False
+            assert False, "Test condition failed"
         
         # Test 4: Data quality tracking
         print("\n4. Testing data quality tracking...")
@@ -232,14 +232,14 @@ def test_data_validation_with_freshness():
             print("   [PASS] Data quality tracked correctly")
         else:
             print("   [FAIL] Data quality not tracked")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Data validation with freshness monitoring integration works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Integration test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_kill_switch_with_order_blocking():
@@ -264,7 +264,7 @@ def test_kill_switch_with_order_blocking():
             print("   [PASS] Kill switch activated")
         else:
             print("   [FAIL] Kill switch not activated")
-            return False
+            assert False, "Test condition failed"
         
         # Test 2: Block new order
         print("\n2. Testing new order blocking...")
@@ -272,7 +272,7 @@ def test_kill_switch_with_order_blocking():
             print("   [PASS] New order blocked")
         else:
             print("   [FAIL] New order not blocked")
-            return False
+            assert False, "Test condition failed"
         
         # Test 3: Allow position closing
         print("\n3. Testing position closing allowed...")
@@ -280,7 +280,7 @@ def test_kill_switch_with_order_blocking():
             print("   [PASS] Position closing allowed")
         else:
             print("   [FAIL] Position closing not allowed")
-            return False
+            assert False, "Test condition failed"
         
         # Test 4: Deactivate kill switch
         print("\n4. Testing kill switch deactivation...")
@@ -290,7 +290,7 @@ def test_kill_switch_with_order_blocking():
             print("   [PASS] Kill switch deactivated")
         else:
             print("   [FAIL] Kill switch not deactivated")
-            return False
+            assert False, "Test condition failed"
         
         # Test 5: Allow orders after deactivation
         print("\n5. Testing order allowed after deactivation...")
@@ -298,14 +298,14 @@ def test_kill_switch_with_order_blocking():
             print("   [PASS] Orders allowed after deactivation")
         else:
             print("   [FAIL] Orders not allowed after deactivation")
-            return False
+            assert False, "Test condition failed"
         
         print("\n[PASS] Kill switch with order blocking integration works correctly")
-        return True
+        # Clean test exit
         
     except Exception as e:
         print(f"   [ERROR] Integration test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def test_backup_restore_with_positions():
@@ -340,7 +340,7 @@ def test_backup_restore_with_positions():
                 print("   [PASS] Position data saved")
             else:
                 print("   [FAIL] Position data not saved")
-                return False
+                assert False, "Test condition failed"
             
             # Test 2: Create backup
             print("\n2. Creating backup...")
@@ -351,7 +351,7 @@ def test_backup_restore_with_positions():
                 print("   [PASS] Backup created successfully")
             else:
                 print("   [FAIL] Backup creation failed")
-                return False
+                assert False, "Test condition failed"
             
             backup_id = backup_result['backup_id']
             
@@ -365,7 +365,7 @@ def test_backup_restore_with_positions():
                 print("   [PASS] Data modified")
             else:
                 print("   [FAIL] Data modification failed")
-                return False
+                assert False, "Test condition failed"
             
             # Test 4: Restore backup
             print("\n4. Restoring backup...")
@@ -375,7 +375,7 @@ def test_backup_restore_with_positions():
                 print("   [PASS] Backup restored successfully")
             else:
                 print("   [FAIL] Backup restore failed")
-                return False
+                assert False, "Test condition failed"
             
             # Test 5: Verify restored data
             print("\n5. Verifying restored data...")
@@ -386,10 +386,10 @@ def test_backup_restore_with_positions():
                 print("   [PASS] Data restored correctly")
             else:
                 print("   [FAIL] Data not restored correctly")
-                return False
+                assert False, "Test condition failed"
             
             print("\n[PASS] Backup/restore with position data integration works correctly")
-            return True
+            # Clean test exit
             
         finally:
             os.chdir(original_dir)
@@ -397,7 +397,7 @@ def test_backup_restore_with_positions():
         
     except Exception as e:
         print(f"   [ERROR] Integration test failed: {e}")
-        return False
+        assert False, "Test condition failed"
 
 
 def run_all_integration_tests():
@@ -427,10 +427,10 @@ def run_all_integration_tests():
     print("="*60)
     if all_passed:
         print("[PASS] All integration tests passed!")
-        return 0
+        # Clean test exit
     else:
         print("[FAIL] Some integration tests failed")
-        return 1
+        assert False, "Test condition failed"
 
 
 if __name__ == '__main__':
