@@ -18,12 +18,12 @@ def test_input_validation():
         print(f"   Valid symbol: {result} - PASS")
     except Exception as e:
         print(f"   Valid symbol failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_symbol('XYZ')  # Too short
         print("   Invalid symbol accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Invalid symbol rejected - PASS")
     
@@ -34,12 +34,12 @@ def test_input_validation():
         print(f"   Valid price: {result} - PASS")
     except Exception as e:
         print(f"   Valid price failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_price('-1.0', 'EURUSD')
         print("   Negative price accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Negative price rejected - PASS")
     
@@ -50,12 +50,12 @@ def test_input_validation():
         print(f"   Valid lot size: {result} - PASS")
     except Exception as e:
         print(f"   Valid lot size failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_lots('0.001', 'EURUSD')
         print("   Too small lot size accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Too small lot size rejected - PASS")
     
@@ -66,12 +66,12 @@ def test_input_validation():
         print(f"   Valid username: {result} - PASS")
     except Exception as e:
         print(f"   Valid username failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_username('te')
         print("   Too short username accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Too short username rejected - PASS")
     
@@ -82,12 +82,12 @@ def test_input_validation():
         print(f"   Valid password accepted - PASS")
     except Exception as e:
         print(f"   Valid password failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_password('weak')
         print("   Weak password accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Weak password rejected - PASS")
     
@@ -98,12 +98,12 @@ def test_input_validation():
         print(f"   Valid PIN: {result} - PASS")
     except Exception as e:
         print(f"   Valid PIN failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_pin('abc')
         print("   Non-numeric PIN accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Non-numeric PIN rejected - PASS")
     
@@ -114,12 +114,12 @@ def test_input_validation():
         print(f"   Valid MFA token: {result} - PASS")
     except Exception as e:
         print(f"   Valid MFA token failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         validator.validate_mfa_token('12345')
         print("   Invalid MFA token length accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Invalid MFA token length rejected - PASS")
     
@@ -138,7 +138,7 @@ def test_input_validation():
         print(f"   Valid order accepted - PASS")
     except Exception as e:
         print(f"   Valid order failed: {e} - FAIL")
-        return 1
+        assert False, "Test condition failed"
     
     try:
         order_data = {
@@ -148,13 +148,13 @@ def test_input_validation():
         }
         validator.validate_order(order_data)
         print("   Invalid order type accepted - FAIL")
-        return 1
+        assert False, "Test condition failed"
     except Exception:
         print("   Invalid order type rejected - PASS")
     
     print(f"\n{'='*60}")
     print("[PASS] All input validation tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     import sys

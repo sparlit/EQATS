@@ -85,7 +85,7 @@ class AlertHandler:
     
     def handle_alert(self, alert: Alert) -> bool:
         """
-        Handle an alert.
+        Handle an alert. Base class returns False; subclasses override with custom dispatch logic.
         
         Args:
             alert: The alert to handle
@@ -93,7 +93,7 @@ class AlertHandler:
         Returns:
             True if handled successfully, False otherwise
         """
-        raise NotImplementedError("Subclasses must implement handle_alert")
+        return False
 
 
 class ConsoleAlertHandler(AlertHandler):
