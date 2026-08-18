@@ -825,8 +825,14 @@ class AutonomousScalper:
                 print(f"Warning: Reconnection attempt failed: {e}")
                 return
 
-        # Log heartbeat metrics on the Operations plane
+        # Log heartbeat metrics on the Operations plane and trigger non-blocking online DB maintenance
         self.engine.resilience.log_heartbeat(0.12)
+        try:
+            from database_infrastructure import get_database_infrastructure
+            db_infra = get_database_infrastructure()
+            db_infra.run_online_maintenance()
+        except Exception as db_err:
+            print(f"Warning: Online DB maintenance exception: {db_err}")
 
         # A. Check and update the daily drawdown start baseline
         current_date = datetime.date.today().isoformat()
@@ -1134,21 +1140,30 @@ class AutonomousScalper:
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Elite Quantum Autonomous Trading System (EAQTS)")
+    parser.add_argument("--headless", action="store_true", help="Force headless CLI execution mode (for Docker, VPS, and cloud deployments)")
+    args, unknown = parser.parse_known_args()
+
+    if args.headless:
+        config.HEADLESS_MODE = True
+
     # Check if we should launch in GUI mode or fallback to classic CLI mode
-    use_gui = True
-    try:
-        import tkinter as tk
-        if os.name != 'nt' and not os.environ.get('DISPLAY'):
+    use_gui = not config.HEADLESS_MODE
+    if use_gui:
+        try:
+            import tkinter as tk
+            if os.name != 'nt' and not os.environ.get('DISPLAY'):
+                use_gui = False
+        except ImportError:
             use_gui = False
-    except ImportError:
-        use_gui = False
 
     if use_gui:
         print("Launching Scalper Brain in Desktop GUI Mode...")
         import gui
         gui.launch_gui()
     else:
-        print("No GUI environment detected or supported. Launching in CLASSIC CONSOLE MODE...")
+        print("Launching Scalper Brain in HEADLESS CONTAINER / CLI MODE...")
         scalper = AutonomousScalper()
         if scalper.start():
             try:

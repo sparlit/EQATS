@@ -15,3 +15,4 @@ from .comprehensive_suite import *
 from .quantum_quantum_engine import QuantumAutoEngine
 from .brain_self_healer import QuantumSelfHealer
 from .go_gateway import start_go_concurrency_websocket_relay
+from .quant_ecosystem_adapter import FinRobotSentimentEngine, VibeHedgeFundPresets, QlibMLPipelineAdapter, BacktraderFreqtradeBridge

@@ -9,6 +9,13 @@ SIMULATION_MODE = False
 # Safety setting. If False, the bot can trade on a Live / Real account.
 DEMO_ACCOUNT_ONLY = True
 
+# Broker Terminal Path & Single Broker Enforcement
+MT5_TERMINAL_PATH = os.environ.get("MT5_TERMINAL_PATH", "")  # Path to specific MetaTrader terminal executable (e.g. C:\Program Files\MetaTrader 5\terminal64.exe)
+SINGLE_BROKER_ONLY = True  # Enforce trading strictly on single active broker profile
+
+# Cross-Platform Headless / Container Deployment Mode
+HEADLESS_MODE = os.environ.get("HEADLESS_MODE", "0").lower() in ("1", "true", "yes")  # True for CLI/Docker/VPS server mode without Tkinter GUI
+
 # 2. Assets to Trade
 # Fully expanded list including Majors, Minors, Metals (Gold, Silver), and Cryptos
 SYMBOLS = [

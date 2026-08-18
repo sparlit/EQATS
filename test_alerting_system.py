@@ -25,7 +25,7 @@ def test_alerting_system():
         print("   [PASS] Alert manager initialized correctly")
     else:
         print("   [FAIL] Alert manager initialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 2: Create alert
     print("\n2. Testing alert creation...")
@@ -40,7 +40,7 @@ def test_alerting_system():
         print("   [PASS] Alert created correctly")
     else:
         print("   [FAIL] Alert creation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 3: Get active alerts
     print("\n3. Testing active alerts retrieval...")
@@ -50,7 +50,7 @@ def test_alerting_system():
         print("   [PASS] Active alerts retrieved correctly")
     else:
         print("   [FAIL] Active alerts retrieval failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 4: Acknowledge alert
     print("\n4. Testing alert acknowledgment...")
@@ -61,7 +61,7 @@ def test_alerting_system():
         print("   [PASS] Alert acknowledgment works correctly")
     else:
         print("   [FAIL] Alert acknowledgment failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 5: Get alerts by severity
     print("\n5. Testing alerts by severity retrieval...")
@@ -74,7 +74,7 @@ def test_alerting_system():
         print("   [PASS] Alerts by severity retrieved correctly")
     else:
         print("   [FAIL] Alerts by severity retrieval failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 6: Get alerts by type
     print("\n6. Testing alerts by type retrieval...")
@@ -86,7 +86,7 @@ def test_alerting_system():
         print("   [PASS] Alerts by type retrieved correctly")
     else:
         print("   [FAIL] Alerts by type retrieval failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 7: Alert summary
     print("\n7. Testing alert summary...")
@@ -98,7 +98,7 @@ def test_alerting_system():
         print("   [PASS] Alert summary generated correctly")
     else:
         print("   [FAIL] Alert summary generation failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 8: Alert serialization
     print("\n8. Testing alert serialization...")
@@ -109,7 +109,7 @@ def test_alerting_system():
         print("   [PASS] Alert serialization works correctly")
     else:
         print("   [FAIL] Alert serialization failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 9: Alert history
     print("\n9. Testing alert history...")
@@ -119,7 +119,7 @@ def test_alerting_system():
         print("   [PASS] Alert history tracked correctly")
     else:
         print("   [FAIL] Alert history not tracked")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 10: Clear acknowledged alerts
     print("\n10. Testing clear acknowledged alerts...")
@@ -141,7 +141,7 @@ def test_alerting_system():
         print("   [PASS] Convenience functions work correctly")
     else:
         print("   [FAIL] Convenience functions failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Test 12: Specific alert functions
     print("\n12. Testing specific alert functions...")
@@ -180,7 +180,7 @@ def test_alerting_system():
         print("   [PASS] Alert persistence works correctly")
     else:
         print("   [FAIL] Alert persistence failed")
-        return 1
+        assert False, "Test condition failed"
     
     # Cleanup
     if os.path.exists("test_alerts.json"):
@@ -188,7 +188,7 @@ def test_alerting_system():
     
     print(f"\n{'='*60}")
     print("[PASS] All alerting system tests passed!")
-    return 0
+    # Clean test exit
 
 if __name__ == '__main__':
     sys.exit(test_alerting_system())

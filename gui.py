@@ -1611,17 +1611,9 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
             self.candlestick_canvas.create_line(chart_w, 0, chart_w, chart_h, fill="#2d2d2d")
             self.candlestick_canvas.create_line(0, chart_h, chart_w, chart_h, fill="#2d2d2d")
 
-            # Generate beautiful real-time mock candle series
-            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list or len(self.candlestick_data_list) == 0:
+            # Initialize candle series safely without random mock generators
+            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list:
                 self.candlestick_data_list = []
-                base = 1.10200 if "JPY" not in self.selected_symbol_gp else 145.50
-                for index in range(25):
-                    op = base + random.uniform(-0.0005, 0.0005) if "JPY" not in self.selected_symbol_gp else base + random.uniform(-0.05, 0.05)
-                    cl = op + random.uniform(-0.0006, 0.0006) if "JPY" not in self.selected_symbol_gp else op + random.uniform(-0.06, 0.06)
-                    hi = max(op, cl) + random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else max(op, cl) + random.uniform(0.01, 0.03)
-                    lo = min(op, cl) - random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else min(op, cl) - random.uniform(0.01, 0.03)
-                    self.candlestick_data_list.append({"open": op, "high": hi, "low": lo, "close": cl})
-                    base = cl
             elif new_tick:
                 # Append a new tick movement or transition to a new candle only on tick update!
                 last = self.candlestick_data_list[-1]
@@ -2350,11 +2342,29 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         lev_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         lev_menu.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
+        tk.Label(bf_inputs, text="Protocol Type:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=2)
+        self.cfg_bproto_var = tk.StringVar(value=b_creds.get("protocol_type", "MT5"))
+        proto_menu = tk.OptionMenu(bf_inputs, self.cfg_bproto_var, "MT5", "FIX", "REST_WEBSOCKET", "CTRADER", "IBKR", "CCXT", "SIMULATOR")
+        proto_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        proto_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
+        proto_menu.grid(row=3, column=1, sticky="w", padx=5, pady=2)
+
+        tk.Label(bf_inputs, text="API Key / Key:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_bapikey_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        self.cfg_bapikey_ent.grid(row=3, column=3, sticky="w", padx=5, pady=2)
+        self.cfg_bapikey_ent.insert(0, b_creds.get("api_key", ""))
+
+        tk.Label(bf_inputs, text="Terminal Path:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=2)
+        self.cfg_bpath_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=52)
+        self.cfg_bpath_ent.grid(row=4, column=1, columnspan=3, sticky="w", padx=5, pady=2)
+        self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
+
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
-        b_btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
+        b_btn_box.grid(row=5, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
         tk.Button(b_btn_box, text="➕ ADD BROKER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_broker_profile).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(b_btn_box, text="⚡ SET ACTIVE GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._set_active_broker_profile).pack(side=tk.LEFT, padx=5)
+        tk.Button(b_btn_box, text="🔄 AUTO-FETCH SYMBOLS", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._on_auto_fetch_symbols).pack(side=tk.LEFT, padx=5)
         tk.Button(b_btn_box, text="🗑️ DELETE BROKER", font=("Consolas", 8, "bold"), bg="#991b1b", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._delete_broker_profile).pack(side=tk.LEFT, padx=5)
 
         # 3. User Controls & Feature Permissions Tab
@@ -2408,6 +2418,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_feat_mtf = tk.BooleanVar(value=True)
         self.cfg_feat_chaos = tk.BooleanVar(value=True)
         self.cfg_feat_alerts = tk.BooleanVar(value=True)
+        self.cfg_feat_single_broker = tk.BooleanVar(value=getattr(config, 'SINGLE_BROKER_ONLY', True))
 
         chk_opts = [
             ("Enable Autonomous Algo Order Execution", self.cfg_feat_algo),
@@ -2421,6 +2432,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             ("Enable MTF Confluence Matrix Signal Generator", self.cfg_feat_mtf),
             ("Enable Chaos Fault Injection Containment Framework", self.cfg_feat_chaos),
             ("Enable Real-Time Messaging Alerts Dispatcher", self.cfg_feat_alerts),
+            ("Enable Single-Broker Only Mode (Strict Account Lock)", self.cfg_feat_single_broker),
         ]
 
         for text_lbl, var_ref in chk_opts:
@@ -2535,6 +2547,9 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 self.cfg_bacc_ent.insert(0, str(vals[3]))
                 self.cfg_benv_var.set(str(vals[4]))
                 self.cfg_lev_var.set(str(vals[5]))
+                if len(vals) >= 7:
+                    self.cfg_bpath_ent.delete(0, tk.END)
+                    self.cfg_bpath_ent.insert(0, str(vals[6]))
 
     def _add_broker_profile(self):
         bname = self.cfg_bname_ent.get().strip() or "New Gateway"
@@ -2543,14 +2558,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         pwd = self.cfg_bpwd_ent.get().strip()
         env = self.cfg_benv_var.get()
         lev = self.cfg_lev_var.get()
+        term_path = self.cfg_bpath_ent.get().strip()
+        proto = self.cfg_bproto_var.get()
+        apikey = self.cfg_bapikey_ent.get().strip()
 
         if not server or not acc or not pwd:
             messagebox.showerror("Error", "Please provide Server Name, Account ID, and Broker Password.")
             return
 
         try:
-            database.add_broker_account(broker_name=bname, server=server, account_id=acc, password=pwd, leverage=lev, environment=env, is_active=1)
-            messagebox.showinfo("Broker Added", f"Successfully created and activated broker profile '{bname}' ({server}).")
+            database.add_broker_account(broker_name=bname, server=server, account_id=acc, password=pwd, leverage=lev, environment=env, is_active=1, terminal_path=term_path, protocol_type=proto, api_key=apikey)
+            messagebox.showinfo("Broker Added", f"Successfully created and activated broker profile '{bname}' ({server}, {proto}).")
             self._refresh_broker_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add broker profile: {e}")
@@ -2586,6 +2604,18 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delete broker: {e}")
 
+    def _on_auto_fetch_symbols(self):
+        """Auto-fetches tradable instruments from connected broker and maps to Master Symbology."""
+        try:
+            conn = getattr(self, "scalper_conn", None)
+            if not conn:
+                import connector
+                conn = connector.SimulatorConnector() if config.SIMULATION_MODE else connector.MT5Connector()
+            count = conn.fetch_and_register_broker_symbols()
+            messagebox.showinfo("Auto-Fetch Symbols", f"Successfully auto-discovered and registered {count} tradable symbols into Master Symbology database!")
+        except Exception as e:
+            messagebox.showerror("Auto-Fetch Error", f"Failed to auto-fetch symbols from broker: {e}")
+
     def _save_broker_credentials(self):
         bname = self.cfg_bname_ent.get().strip() or "Primary Gateway"
         server = self.cfg_bserver_ent.get().strip()
@@ -2593,15 +2623,19 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         pwd = self.cfg_bpwd_ent.get().strip()
         lev = self.cfg_lev_var.get()
         env = self.cfg_benv_var.get()
+        term_path = self.cfg_bpath_ent.get().strip()
+        proto = self.cfg_bproto_var.get()
+        apikey = self.cfg_bapikey_ent.get().strip()
 
-        database.save_broker_credentials(server, acc, pwd, lev, broker_name=bname, environment=env)
-        messagebox.showinfo("Broker Gateway Saved", f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
+        database.save_broker_credentials(server, acc, pwd, lev, broker_name=bname, environment=env, terminal_path=term_path, protocol_type=proto, api_key=apikey)
+        messagebox.showinfo("Broker Gateway Saved", f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nProtocol: {proto}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}\nTerminal Path: {term_path}")
         self._refresh_broker_tree()
 
     def _save_feature_permissions(self):
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
         config.BLOCK_ROLLOVER_HOUR = self.cfg_feat_rollover.get()
         config.BLOCK_WEEKENDS = self.cfg_feat_weekend.get()
+        config.SINGLE_BROKER_ONLY = self.cfg_feat_single_broker.get()
         messagebox.showinfo("Feature Permissions Saved", "System feature permissions and autonomous safety controls updated successfully.")
 
     def _show_set_screen(self):
@@ -4869,6 +4903,7 @@ SECURITY DOMAINS ENFORCED:
 
         tk.Button(ctrl_frame, text="⚡ RUN PARALLEL AGENT SWEEP", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_parallel_agent_sweep).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(ctrl_frame, text="📊 GENERATE ECOSYSTEM REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_ecosystem_report).pack(side=tk.LEFT, padx=5)
+        tk.Button(ctrl_frame, text="🛡️ VIBE HEDGE FUND PRESETS", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._show_vibe_presets_dialog).pack(side=tk.LEFT, padx=5)
 
         # Multi-Subtab Notebook for Agents & Brains
         self.eco_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
@@ -4978,6 +5013,28 @@ SECURITY DOMAINS ENFORCED:
         for name, cat, score in strats:
             st = "🟢 OPTIMAL" if score >= 80 else ("🟡 NOMINAL" if score >= 60 else "🔴 LOW")
             self.eco_strat_tree.insert("", tk.END, values=(name, cat, f"{score:.1f}", st))
+
+    def _show_vibe_presets_dialog(self):
+        """Displays Vibe-Trading hedge fund preset options."""
+        from institutional_integrations.quant_ecosystem_adapter import VibeHedgeFundPresets
+        vibe = VibeHedgeFundPresets()
+
+        preset_win = tk.Toplevel(self.root)
+        preset_win.title("VIBE-TRADING — HEDGE FUND PRESET MATRIX")
+        preset_win.geometry("600x420")
+        preset_win.configure(bg=self.bg_dark)
+
+        lbl = tk.Label(preset_win, text="VIBE-TRADING MULTI-AGENT HEDGE FUND SKILL PRESETS", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl.pack(padx=15, pady=(15, 5))
+
+        txt = tk.Text(preset_win, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, wrap=tk.WORD)
+        txt.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+
+        for key, p in vibe.PRESETS.items():
+            txt.insert(tk.END, f"Preset: {key} ({p['name']})\n")
+            txt.insert(tk.END, f"  Max Leverage: {p['leverage']} | Max Drawdown Ceiling: {p['max_drawdown']}%\n")
+            txt.insert(tk.END, f"  Active Brain Agents: {', '.join(p['active_agents'])}\n")
+            txt.insert(tk.END, f"  Strategy Allocation Matrix: {p['allocation']}\n\n")
 
     def _show_tzconv_screen(self):
         """TZCONV <GO>: Forex Market Time Zone & Timeline Converter"""
@@ -5654,24 +5711,6 @@ SECURITY DOMAINS ENFORCED:
             cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
             rows = cursor.fetchall()
             conn.close()
-
-            # If database is empty, seed some initial news headlines dynamically so there are zero stubs
-            if not rows:
-                initial_headlines = [
-                    ("US Core CPI MoM Comes In At 0.2% aligned with forecasts", "NEUTRAL"),
-                    ("FOMC Meeting Minutes hint at cautious approach to interest rate cuts", "BEARISH"),
-                    ("ECB rate cut speculation intensifies after eurozone economic activity data", "BULLISH"),
-                    ("Geopolitical risk spikes in Middle East boosting safe haven metals flows", "BULLISH"),
-                    ("Bitcoin breaks recent range consolidation as ETF spot net inflows mount", "BULLISH")
-                ]
-                for h, s in initial_headlines:
-                    database.log_news_headline(h, s)
-                # Query again
-                conn = database.get_connection()
-                cursor = conn.cursor()
-                cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
-                rows = cursor.fetchall()
-                conn.close()
 
             for row in rows:
                 time_str = row["timestamp"].split("T")[-1][:8] if "T" in row["timestamp"] else row["timestamp"][:8]

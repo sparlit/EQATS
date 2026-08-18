@@ -41,6 +41,16 @@ class ScalperBrain:
 
         current_price = closes[-1]
 
+        # Qlib Alpha158 Quantitative Factor Calculation
+        qlib_alpha_score = 0.5
+        try:
+            from institutional_integrations.quant_ecosystem_adapter import QlibMLPipelineAdapter
+            qlib_adapter = QlibMLPipelineAdapter()
+            alpha158_feats = qlib_adapter.compute_alpha158_features(closes, highs, lows)
+            qlib_alpha_score = alpha158_feats.get("alpha158_score", 0.5)
+        except Exception:
+            pass
+
         # Calculate all active indicators
         ema_long = indicators.calculate_ema(closes, config.EMA_LONG_PERIOD)
         ema_short = indicators.calculate_ema(closes, config.EMA_SHORT_PERIOD)

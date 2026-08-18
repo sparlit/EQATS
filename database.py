@@ -5,6 +5,7 @@ import hmac
 import base64
 import config
 import os
+from typing import Optional, Dict, List, Any
 from dotenv import load_dotenv
 from secure_encryption import encrypt_text, decrypt_text, get_encryption_manager
 from password_manager import get_password_manager, get_pin_manager
@@ -120,14 +121,16 @@ def decrypt_secret(cipher_text, key_seed=None):
         return ""
 
 def get_connection():
-    """Returns a connection to the SQLite database."""
-    conn = sqlite3.connect(config.DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Returns a thread-safe WAL connection managed by DatabaseInfrastructure."""
+    from database_infrastructure import get_database_infrastructure
+    infra = get_database_infrastructure()
+    return infra.get_connection()
 
 def init_db():
-    """Initializes database tables if they do not exist."""
-    conn = get_connection()
+    """Initializes database tables and executes migrations via DatabaseInfrastructure."""
+    from database_infrastructure import get_database_infrastructure
+    infra = get_database_infrastructure()
+    conn = infra.get_connection()
     cursor = conn.cursor()
 
     # Table for storing market assessments made by the brain
@@ -209,8 +212,41 @@ def init_db():
         password_encrypted TEXT NOT NULL,
         leverage TEXT NOT NULL,
         environment TEXT DEFAULT 'Demo',
+        terminal_path TEXT DEFAULT '',
+        protocol_type TEXT DEFAULT 'MT5',
+        api_key TEXT DEFAULT '',
+        api_secret TEXT DEFAULT '',
+        rest_url TEXT DEFAULT '',
+        ws_url TEXT DEFAULT '',
+        extra_params TEXT DEFAULT '{}',
         is_active INTEGER DEFAULT 1,
         updated_at TEXT NOT NULL
+    )
+    """)
+
+    # Table for storing Kill Switch state and audit trail
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS kill_switch_state (
+        id INTEGER PRIMARY KEY,
+        state TEXT NOT NULL,
+        activation_time TEXT,
+        reason TEXT,
+        triggered_by TEXT,
+        details TEXT
+    )
+    """)
+
+    # Table for storing Master Symbology translation mappings
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS symbol_mappings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        internal_symbol TEXT NOT NULL,
+        broker_id TEXT NOT NULL,
+        broker_symbol TEXT NOT NULL,
+        pip_size REAL DEFAULT 0.0001,
+        contract_size REAL DEFAULT 100000.0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(internal_symbol, broker_id)
     )
     """)
 
@@ -225,6 +261,10 @@ def init_db():
         pass
     try:
         cursor.execute("ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN terminal_path TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
 
@@ -496,26 +536,33 @@ def get_all_brokers():
     """Retrieves all registered broker profiles from SQLite."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at FROM broker_credentials ORDER BY id ASC")
+    cursor.execute("SELECT * FROM broker_credentials ORDER BY id ASC")
     rows = cursor.fetchall()
     conn.close()
 
     brokers = []
     for r in rows:
         b = dict(r)
-        b["password"] = decrypt_secret(b["password_encrypted"])
+        if "password_encrypted" in b and b["password_encrypted"]:
+            b["password"] = decrypt_secret(b["password_encrypted"])
+        else:
+            b["password"] = ""
+        if "terminal_path" not in b or b["terminal_path"] is None:
+            b["terminal_path"] = ""
+        if "protocol_type" not in b or b["protocol_type"] is None:
+            b["protocol_type"] = "MT5"
         brokers.append(b)
     return brokers
 
-def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", is_active=0):
+def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", is_active=0, terminal_path="", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url=""):
     """Adds a new broker gateway configuration into SQLite."""
     conn = get_connection()
     cursor = conn.cursor()
     if is_active:
         cursor.execute("UPDATE broker_credentials SET is_active = 0")
     cursor.execute("""
-    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, terminal_path, protocol_type, api_key, api_secret, rest_url, ws_url, is_active, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         broker_name,
         server,
@@ -523,6 +570,12 @@ def add_broker_account(broker_name, server, account_id, password, leverage="1:10
         encrypt_secret(password),
         leverage,
         environment,
+        terminal_path,
+        protocol_type,
+        api_key,
+        api_secret,
+        rest_url,
+        ws_url,
         1 if is_active else 0,
         datetime.datetime.now().isoformat()
     ))
@@ -546,7 +599,7 @@ def delete_broker_account(broker_id):
     conn.commit()
     conn.close()
 
-def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo"):
+def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo", terminal_path="", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url=""):
     """Saves or updates primary active broker parameters in SQLite."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -555,14 +608,14 @@ def save_broker_credentials(server, account_id, password, leverage, broker_name=
     if row:
         cursor.execute("""
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, terminal_path = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, updated_at = ?
         WHERE id = ?
-        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat(), row['id']))
+        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, terminal_path, protocol_type, api_key, api_secret, rest_url, ws_url, datetime.datetime.now().isoformat(), row['id']))
     else:
         cursor.execute("""
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat()))
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, terminal_path, protocol_type, api_key, api_secret, rest_url, ws_url, is_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, terminal_path, protocol_type, api_key, api_secret, rest_url, ws_url, datetime.datetime.now().isoformat()))
     conn.commit()
     conn.close()
 
@@ -570,10 +623,10 @@ def get_broker_credentials():
     """Retrieves active broker connection parameters and decrypts the password."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment FROM broker_credentials WHERE is_active = 1 LIMIT 1")
+    cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment, terminal_path, protocol_type, api_key, api_secret, rest_url, ws_url FROM broker_credentials WHERE is_active = 1 LIMIT 1")
     row = cursor.fetchone()
     if not row:
-        cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment FROM broker_credentials ORDER BY id DESC LIMIT 1")
+        cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment, terminal_path, protocol_type, api_key, api_secret, rest_url, ws_url FROM broker_credentials ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
     conn.close()
 
@@ -588,16 +641,29 @@ def get_broker_credentials():
             "account_id": None,
             "password": None,
             "leverage": None,
-            "environment": None
+            "environment": None,
+            "terminal_path": "",
+            "protocol_type": "MT5",
+            "api_key": "",
+            "api_secret": "",
+            "rest_url": "",
+            "ws_url": ""
         }
 
+    keys = row.keys()
     return {
-        "broker_name": row["broker_name"] if "broker_name" in row.keys() and row["broker_name"] else "Primary Gateway",
+        "broker_name": row["broker_name"] if "broker_name" in keys and row["broker_name"] else "Primary Gateway",
         "server": row["server"],
         "account_id": row["account_id"],
         "password": decrypt_secret(row["password_encrypted"]),
         "leverage": row["leverage"],
-        "environment": row["environment"] if "environment" in row.keys() and row["environment"] else "Demo"
+        "environment": row["environment"] if "environment" in keys and row["environment"] else "Demo",
+        "terminal_path": row["terminal_path"] if "terminal_path" in keys and row["terminal_path"] else "",
+        "protocol_type": row["protocol_type"] if "protocol_type" in keys and row["protocol_type"] else "MT5",
+        "api_key": row["api_key"] if "api_key" in keys and row["api_key"] else "",
+        "api_secret": row["api_secret"] if "api_secret" in keys and row["api_secret"] else "",
+        "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
+        "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else ""
     }
 
 def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):
@@ -666,6 +732,122 @@ def get_open_trades():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+# ==============================================================================
+# MASTER SYMBOLOGY & BROKER TRANSLATION HELPERS
+# ==============================================================================
+
+def add_symbol_mapping(internal_symbol: str, broker_id: str, broker_symbol: str, pip_size: float = 0.0001, contract_size: float = 100000.0) -> bool:
+    """
+    Adds or updates a master symbol mapping in the database.
+    """
+    now_str = datetime.datetime.now().isoformat()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO symbol_mappings (internal_symbol, broker_id, broker_symbol, pip_size, contract_size, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(internal_symbol, broker_id) DO UPDATE SET
+                broker_symbol=excluded.broker_symbol,
+                pip_size=excluded.pip_size,
+                contract_size=excluded.contract_size,
+                updated_at=excluded.updated_at
+        """, (internal_symbol.upper(), broker_id.upper(), broker_symbol, pip_size, contract_size, now_str))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error adding symbol mapping: {e}")
+        return False
+
+
+def get_broker_symbol(internal_symbol: str, broker_id: str) -> Optional[str]:
+    """
+    Translates an internal master symbol (e.g. EUR_USD) to a broker-specific symbol (e.g. EURUSD.raw).
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT broker_symbol FROM symbol_mappings WHERE UPPER(internal_symbol) = UPPER(?) AND UPPER(broker_id) = UPPER(?)",
+            (internal_symbol, broker_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row["broker_symbol"] if row else None
+    except Exception as e:
+        print(f"Error retrieving broker symbol: {e}")
+        return None
+
+
+def get_internal_symbol(broker_symbol: str, broker_id: str) -> Optional[str]:
+    """
+    Translates a broker-specific symbol (e.g. EURUSD.raw) back to internal master symbology.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT internal_symbol FROM symbol_mappings WHERE broker_symbol = ? AND UPPER(broker_id) = UPPER(?)",
+            (broker_symbol, broker_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row["internal_symbol"] if row else None
+    except Exception as e:
+        print(f"Error retrieving internal symbol: {e}")
+        return None
+
+
+def get_symbol_mapping(internal_symbol: str, broker_id: str) -> Optional[dict]:
+    """
+    Retrieves full mapping details including contract size and pip scale for risk calculations.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT internal_symbol, broker_id, broker_symbol, pip_size, contract_size FROM symbol_mappings WHERE UPPER(internal_symbol) = UPPER(?) AND UPPER(broker_id) = UPPER(?)",
+            (internal_symbol, broker_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                "internal_symbol": row["internal_symbol"],
+                "broker_id": row["broker_id"],
+                "broker_symbol": row["broker_symbol"],
+                "pip_size": row["pip_size"],
+                "contract_size": row["contract_size"]
+            }
+        return None
+    except Exception as e:
+        print(f"Error retrieving symbol mapping: {e}")
+        return None
+
+
+def get_all_symbol_mappings(broker_id: Optional[str] = None) -> list:
+    """
+    Retrieves all symbol mappings, optionally filtered by broker_id.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        if broker_id:
+            cursor.execute(
+                "SELECT internal_symbol, broker_id, broker_symbol, pip_size, contract_size FROM symbol_mappings WHERE UPPER(broker_id) = UPPER(?)",
+                (broker_id,)
+            )
+        else:
+            cursor.execute("SELECT internal_symbol, broker_id, broker_symbol, pip_size, contract_size FROM symbol_mappings")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"Error retrieving all symbol mappings: {e}")
+        return []
 
 def log_news_headline(headline, sentiment):
     """Logs a macro headline with its parsed sentiment classification."""
