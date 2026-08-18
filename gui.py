@@ -2585,7 +2585,11 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             conn = getattr(self, "scalper_conn", None)
             if not conn:
                 import connector
-                conn = connector.SimulatorConnector() if config.SIMULATION_MODE else connector.MT5Connector()
+                if getattr(config, 'SIMULATION_MODE', False):
+                    broker_type = 'SIMULATOR'
+                else:
+                    broker_type = os.environ.get('BROKER_TYPE', getattr(config, 'BROKER_TYPE', 'MT5'))
+                conn = connector.get_connector(broker_type=broker_type)
             count = conn.fetch_and_register_broker_symbols()
             messagebox.showinfo("Auto-Fetch Symbols", f"Successfully auto-discovered and registered {count} tradable symbols into Master Symbology database!")
         except Exception as e:

@@ -2,9 +2,17 @@ import os
 
 # Configuration file for the Forex Scalper Bot
 
-# 1. Operational Mode
-# Set to True for running in testing / paper trading simulation. Set to False for Windows MT5 integration.
+# 1. Operational Mode & Universal Broker Architecture
+# Set to True for running in testing / paper trading simulation. Set to False for Live execution.
 SIMULATION_MODE = False
+
+# Universal Broker Gateway Selection
+# Supported: "SIMULATOR", "MT5", "REST", "CCXT", "FIX", "MT4_GATEWAY"
+BROKER_TYPE = os.environ.get("BROKER_TYPE", "SIMULATOR" if SIMULATION_MODE else "MT5")
+BROKER_API_KEY = os.environ.get("BROKER_API_KEY", "")
+BROKER_API_SECRET = os.environ.get("BROKER_API_SECRET", "")
+BROKER_API_URL = os.environ.get("BROKER_API_URL", "https://api.broker.com")
+BROKER_ACCOUNT_ID = os.environ.get("BROKER_ACCOUNT_ID", "DEMO_ACC_01")
 
 # Safety setting. If False, the bot can trade on a Live / Real account.
 DEMO_ACCOUNT_ONLY = True

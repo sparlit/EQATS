@@ -24,13 +24,21 @@ class AutonomousScalper:
         # 1. Initialize SQLite Database
         database.init_db()
 
-        # 2. Setup chosen connector (Live MT5 or High-Fidelity Simulator)
-        if config.SIMULATION_MODE:
-            print("--- RUNNING IN SIMULATION MODE (PAPER TRADING) ---")
-            self.conn = connector.SimulatorConnector(initial_balance=10000.0)
+        # 2. Setup chosen universal broker connector
+        if getattr(config, 'SIMULATION_MODE', False):
+            broker_type = 'SIMULATOR'
         else:
-            print("--- RUNNING IN LIVE MT5 WINDOWS MODE ---")
-            self.conn = connector.MT5Connector(demo_only=config.DEMO_ACCOUNT_ONLY)
+            broker_type = os.environ.get('BROKER_TYPE', getattr(config, 'BROKER_TYPE', 'MT5'))
+        print(f"--- RUNNING WITH BROKER CONNECTOR: {broker_type.upper()} ---")
+        self.conn = connector.get_connector(
+            broker_type=broker_type,
+            demo_only=config.DEMO_ACCOUNT_ONLY,
+            initial_balance=10000.0,
+            api_url=getattr(config, 'BROKER_API_URL', 'https://api.broker.com'),
+            api_key=getattr(config, 'BROKER_API_KEY', ''),
+            api_secret=getattr(config, 'BROKER_API_SECRET', ''),
+            account_id=getattr(config, 'BROKER_ACCOUNT_ID', 'DEMO_ACC_01')
+        )
 
         # 3. Instantiate the EAQTS 3.0 Unified 9 Planes Engine
         self.engine = eaqts_planes.init_core_engine(self.conn)
