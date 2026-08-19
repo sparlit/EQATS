@@ -428,6 +428,19 @@ class ScalperBrain:
                 decision = "HOLD"
                 explanation = f"Regime {reg_state} ({reg_vol}) Voting: Neutral hold (Score: {normalized_score:+.2f}). AI Bias: {ai_pred_direction}"
 
+        # Option 2A: Symbol-Specific Loss Protection Gate
+        # Block all new entries / setups on this symbol if any existing open trade on this symbol is running in floating loss.
+        try:
+            open_trades = database.get_open_trades()
+            symbol_open_trades = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
+            for open_t in symbol_open_trades:
+                if open_t.get('profit') is not None and open_t.get('profit') < 0:
+                    decision = "HOLD"
+                    explanation = f"HOLD (Symbol Loss Protection Gate: Trade #{open_t.get('ticket')} on {symbol} is in floating loss ${open_t.get('profit'):.2f})"
+                    break
+        except Exception as e:
+            print(f"Warning: Symbol loss gate check error: {e}")
+
         # Apply Institutional NLP Sentiment-News Veto Filter
         try:
             prevailing_sentiment = database.get_prevailing_news_sentiment()
@@ -484,6 +497,10 @@ class ScalperBrain:
             tp = current_price - (sl_distance * adaptive_rr)
             lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
 
+        # Enforce strict 0.01 lots fixed lot size for scalper positions
+        if decision in ["BUY", "SELL"]:
+            lot_size = 0.01
+
         # Apply Multi-Agent Brain Orchestrator Directive Modifiers
         if brain_directive is None:
             try:
@@ -492,19 +509,8 @@ class ScalperBrain:
             except Exception:
                 brain_directive = None
 
-        if brain_directive and hasattr(brain_directive, "risk_ceiling_modifier"):
-            lot_size = lot_size * brain_directive.risk_ceiling_modifier * getattr(brain_directive, "lot_multiplier", 1.0)
-            if hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
-                explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
-
-        # Enforce initial lot size as 0.01 lots for first trade across all symbols
-        try:
-            open_trades = database.get_open_trades()
-            symbol_open = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
-            if not symbol_open and decision in ["BUY", "SELL"]:
-                lot_size = 0.01
-        except Exception:
-            pass
+        if brain_directive and hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
+            explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
 
         database.log_assessment(
             symbol=symbol,
@@ -530,19 +536,9 @@ class ScalperBrain:
 
     def _calculate_lot_size(self, symbol, equity, sl_distance):
         """
-        Calculates the appropriate lot size to risk on current equity using
-        mathematical Kelly Criterion optimization and Performance-Adaptive Risk Sizing.
-        Enforces 0.01 lots as initial position size for first trade across all symbols.
+        Returns fixed 0.01 lot size for scalper position execution.
         """
-        try:
-            open_trades = database.get_open_trades()
-            symbol_open = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
-            if not symbol_open:
-                return 0.01
-        except Exception:
-            pass
-
-        base_risk_pct = config.RISK_PER_TRADE_PERCENT
+        return 0.01
         using_kelly = False
         kelly_val = 0.0
 
