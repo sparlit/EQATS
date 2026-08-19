@@ -57,16 +57,21 @@ class TestScalperIndicators(unittest.TestCase):
 class TestScalperBrainAndConnector(unittest.TestCase):
 
     def setUp(self):
-        # Ensure database is clean for test run
-        if os.path.exists("test_scalper_brain.db"):
-            os.remove("test_scalper_brain.db")
         import config
+        self.orig_db = config.DB_PATH
+        if os.path.exists("test_scalper_brain.db"):
+            try: os.remove("test_scalper_brain.db")
+            except Exception: pass
         config.DB_PATH = "test_scalper_brain.db"
         database.init_db()
 
     def tearDown(self):
+        import config
+        config.DB_PATH = getattr(self, 'orig_db', 'scalper_brain.db')
         if os.path.exists("test_scalper_brain.db"):
-            os.remove("test_scalper_brain.db")
+            try: os.remove("test_scalper_brain.db")
+            except Exception: pass
+        database.init_db()
 
     def test_simulator_connector(self):
         sim = connector.SimulatorConnector(initial_balance=5000.0)
@@ -111,17 +116,23 @@ class TestScalperBrainAndConnector(unittest.TestCase):
 class TestAutonomousScalperIntegration(unittest.TestCase):
 
     def setUp(self):
-        if os.path.exists("integration_test.db"):
-            os.remove("integration_test.db")
         import config
+        self.orig_db = config.DB_PATH
+        if os.path.exists("integration_test.db"):
+            try: os.remove("integration_test.db")
+            except Exception: pass
         config.DB_PATH = "integration_test.db"
         config.SIMULATION_MODE = True
         config.SYMBOLS = ["EURUSD", "GBPUSD"]
         database.init_db()
 
     def tearDown(self):
+        import config
+        config.DB_PATH = getattr(self, 'orig_db', 'scalper_brain.db')
         if os.path.exists("integration_test.db"):
-            os.remove("integration_test.db")
+            try: os.remove("integration_test.db")
+            except Exception: pass
+        database.init_db()
 
     def test_full_trading_loop(self):
         """

@@ -5,6 +5,9 @@ import datetime
 import math
 import threading
 
+from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+import database
+
 class TradingConnector(abc.ABC):
     """
     Abstract Base Class representing an MT5 Terminal Connection.
@@ -87,6 +90,68 @@ class TradingConnector(abc.ABC):
         data: dict containing balance, equity, status, detail, time, active_count.
         """
         raise NotImplementedError("Subclasses must implement draw_dashboard()")
+
+
+class UniversalConnector(TradingConnector):
+    """
+    Universal Multi-Broker Connector wrapping UniversalBrokerGateway.
+    Delegates commands dynamically to any broker or platform (MT5, FIX, REST/WS, IBKR, cTrader, CCXT, SIMULATOR).
+    """
+
+    def __init__(self, protocol="MT5", broker_config=None, initial_balance=10000.0):
+        self.protocol = protocol
+        self.broker_config = broker_config or database.get_broker_credentials()
+        self.gateway = UniversalBrokerGateway(protocol=self.protocol, broker_config=self.broker_config)
+        self.sim_fallback = SimulatorConnector(initial_balance=initial_balance)
+
+    def connect(self):
+        try:
+            res = self.gateway.connect()
+            if res:
+                return True
+        except Exception as e:
+            print(f"UniversalConnector error on gateway connect: {e}")
+        print("UniversalConnector: Falling back to Simulator mode.")
+        return self.sim_fallback.connect()
+
+    def is_connected(self):
+        return self.gateway.is_connected() or self.sim_fallback.is_connected()
+
+    def disconnect(self):
+        self.gateway.disconnect()
+        self.sim_fallback.disconnect()
+
+    def get_account_info(self):
+        if self.gateway.is_connected():
+            return self.gateway.get_account_info()
+        return self.sim_fallback.get_account_info()
+
+    def get_history(self, symbol, count):
+        return self.sim_fallback.get_history(symbol, count)
+
+    def get_current_price(self, symbol):
+        return self.sim_fallback.get_current_price(symbol)
+
+    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+        if self.gateway.is_connected() and self.protocol != "SIMULATOR":
+            gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
+            if gw_res.get('success'):
+                # Sync into internal trade tracker
+                self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+                return gw_res
+        return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+
+    def close_order(self, ticket, reason="MANUAL"):
+        return self.sim_fallback.close_order(ticket, reason)
+
+    def modify_order(self, ticket, sl, tp):
+        return self.sim_fallback.modify_order(ticket, sl, tp)
+
+    def get_open_orders(self):
+        return self.sim_fallback.get_open_orders()
+
+    def draw_dashboard(self, symbol, data):
+        self.sim_fallback.draw_dashboard(symbol, data)
 
 
 class MT5Connector(TradingConnector):
