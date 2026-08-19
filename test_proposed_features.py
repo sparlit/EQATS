@@ -79,3 +79,79 @@ def test_backtester_and_alerts():
     dispatcher = MultiChannelAlertDispatcher()
     alert_res = dispatcher.dispatch_alert("TEST_TITLE", "Test messageBody", severity="WARNING", channels=["TELEGRAM", "WHATSAPP", "TTS"])
     assert alert_res["channel_status"]["WHATSAPP"] is True
+
+def setup_module():
+    import config
+    import database
+    config.DB_PATH = "test_proposed_features.db"
+    database.init_db()
+
+def test_customizable_leverage_persistence():
+    import database
+    database.init_db()
+
+    # Test saving custom leverage entries
+    database.save_broker_credentials("TestServer", "123456", "pwd123", "1:888", broker_name="Custom Gateway", environment="Demo")
+    creds = database.get_broker_credentials()
+    assert creds["leverage"] == "1:888"
+
+    database.save_broker_credentials("TestServer", "123456", "pwd123", "1:10000", broker_name="High Lev Gateway", environment="Demo")
+    creds2 = database.get_broker_credentials()
+    assert creds2["leverage"] == "1:10000"
+
+def test_fixed_001_lot_position_sizing():
+    import brain
+    scalper_brain = brain.ScalperBrain()
+
+    # Generate dummy price history
+    bars = [{'open': 1.1000 + i * 0.0001, 'high': 1.1005 + i * 0.0001, 'low': 1.0995 + i * 0.0001, 'close': 1.1002 + i * 0.0001} for i in range(210)]
+
+    # Test with $10,000 equity
+    res1 = scalper_brain.evaluate("EURUSD", bars, 10000.0)
+    if res1["decision"] in ["BUY", "SELL"]:
+        assert res1["lot_size"] == 0.01
+
+    # Test with $100,000 equity
+    res2 = scalper_brain.evaluate("XAUUSD", bars, 100000.0)
+    if res2["decision"] in ["BUY", "SELL"]:
+        assert res2["lot_size"] == 0.01
+
+    # Test _calculate_lot_size direct helper
+    assert scalper_brain._calculate_lot_size("EURUSD", 50000.0, 0.0020) == 0.01
+
+def test_symbol_floating_loss_protection_gate():
+    import database
+    import brain
+    import time
+    database.init_db()
+
+    # Log an open trade running in floating loss
+    ticket_id = f"TEST_LOSS_{int(time.time() * 1000)}"
+    database.log_trade_open(ticket_id, "EURUSD", "BUY", 1.1500, 1.1400, 1.1600, 0.01)
+
+    scalper_brain = brain.ScalperBrain()
+    # History with current price = 1.1000 (< entry 1.1500, so BUY in loss)
+    bars = [{'open': 1.1000 + i * 0.00001, 'high': 1.1005 + i * 0.00001, 'low': 1.0995 + i * 0.00001, 'close': 1.1002 + i * 0.00001} for i in range(210)]
+
+    res = scalper_brain.evaluate("EURUSD", bars, 10000.0)
+    assert res["decision"] == "HOLD"
+    assert "Symbol Floating Loss Protection Gate Active" in res["explanation"]
+
+    # Cleanup open trade
+    database.log_trade_close(ticket_id, 1.1002, -498.0, "TEST_CLOSE")
+
+def test_universal_broker_adapter_and_connector():
+    from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+    from connector import UniversalConnector
+
+    gw = UniversalBrokerGateway(protocol="SIMULATOR")
+    assert gw.connect() is True
+    assert gw.is_connected() is True
+    acc = gw.get_account_info()
+    assert "balance" in acc
+
+    conn = UniversalConnector(protocol="SIMULATOR")
+    assert conn.connect() is True
+    assert conn.is_connected() is True
+    exec_res = conn.execute_order("EURUSD", "BUY", 0.01, 1.0900, 1.1100)
+    assert exec_res["success"] is True
