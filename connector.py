@@ -175,8 +175,41 @@ class MT5Connector(TradingConnector):
                 "Please run in SIMULATION_MODE = True."
             )
 
-        if not self.mt5.initialize():
+        creds = database.get_broker_credentials()
+        path = creds.get("terminal_path") or getattr(config, "MT5_TERMINAL_PATH", None)
+        server = creds.get("server")
+        login = creds.get("account_id")
+        password = creds.get("password")
+
+        init_kwargs = {}
+        if path and str(path).strip():
+            init_kwargs["path"] = str(path).strip()
+        if login and str(login).strip() and str(login).isdigit():
+            init_kwargs["login"] = int(str(login).strip())
+        if password and str(password).strip():
+            init_kwargs["password"] = str(password).strip()
+        if server and str(server).strip() and server != "EAQTS-Demo-Server":
+            init_kwargs["server"] = str(server).strip()
+
+        initialized = False
+        if init_kwargs:
+            try:
+                initialized = self.mt5.initialize(**init_kwargs)
+            except Exception as e:
+                print(f"Warning: mt5.initialize with credentials failed ({e}), attempting default initialize().")
+
+        if not initialized:
+            initialized = self.mt5.initialize()
+
+        if not initialized:
             raise ConnectionError(f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}")
+
+        if login and str(login).isdigit() and password and str(password).strip():
+            try:
+                login_id = int(str(login).strip())
+                self.mt5.login(login=login_id, password=str(password).strip(), server=str(server).strip() if server else "")
+            except Exception:
+                pass
 
         account_info = self.mt5.account_info()
         if account_info is None:
