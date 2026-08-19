@@ -2937,11 +2937,10 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         env_menu.grid(row=2, column=1, sticky="w", padx=5, pady=2)
 
         tk.Label(bf_inputs, text="Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
-        self.cfg_lev_var = tk.StringVar(value=b_creds["leverage"])
-        lev_menu = tk.OptionMenu(bf_inputs, self.cfg_lev_var, "1:50", "1:100", "1:200", "1:500")
-        lev_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
-        lev_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
-        lev_menu.grid(row=2, column=3, sticky="w", padx=5, pady=2)
+        self.cfg_lev_var = tk.StringVar(value=b_creds.get("leverage", "1:100"))
+        leverage_options = ["1:1", "1:10", "1:20", "1:50", "1:100", "1:200", "1:500", "1:1000", "1:2000", "1:3000", "1:5000", "1:10000"]
+        self.cfg_lev_combo = ttk.Combobox(bf_inputs, textvariable=self.cfg_lev_var, values=leverage_options, font=("Consolas", 8, "bold"), width=12)
+        self.cfg_lev_combo.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
         b_btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
