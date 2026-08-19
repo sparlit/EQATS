@@ -64,6 +64,58 @@ class ScalperBrain:
 
         trend_direction = "UP" if current_price > ema_long else "DOWN"
 
+        # --- Symbol-Specific Floating Loss Protection Gate & Pyramiding Gate ---
+        try:
+            open_trades = database.get_open_trades()
+            symbol_trades = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
+            if symbol_trades:
+                any_loss = False
+                all_profit_1atr = True
+                for t in symbol_trades:
+                    direction = t.get('direction', 'BUY')
+                    open_price = float(t.get('open_price', current_price))
+                    p_diff = (current_price - open_price) if direction == 'BUY' else (open_price - current_price)
+                    if p_diff < 0:
+                        any_loss = True
+                        all_profit_1atr = False
+                        break
+                    elif p_diff < atr_val:
+                        all_profit_1atr = False
+
+                if any_loss:
+                    msg = f"HOLD (Symbol Floating Loss Protection Gate Active: open position on {symbol} in loss)"
+                    database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                    return {
+                        'decision': 'HOLD',
+                        'lot_size': 0.0,
+                        'sl': 0.0,
+                        'tp': 0.0,
+                        'explanation': msg,
+                        'indicators': {
+                            'ema_long': round(ema_long, 5),
+                            'rsi': round(rsi_val, 2),
+                            'atr': round(atr_val, 5)
+                        }
+                    }
+
+                if not all_profit_1atr:
+                    msg = f"HOLD (Pyramiding Gate: existing positions on {symbol} profit < 1.0x ATR threshold)"
+                    database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                    return {
+                        'decision': 'HOLD',
+                        'lot_size': 0.0,
+                        'sl': 0.0,
+                        'tp': 0.0,
+                        'explanation': msg,
+                        'indicators': {
+                            'ema_long': round(ema_long, 5),
+                            'rsi': round(rsi_val, 2),
+                            'atr': round(atr_val, 5)
+                        }
+                    }
+        except Exception as e:
+            print(f"Warning: Symbol floating loss check error: {e}")
+
         # --- AI Predictor Integration and Learning ---
         predictor = predictive_brain.get_symbol_predictor(symbol)
 
@@ -468,11 +520,11 @@ class ScalperBrain:
         if decision == "BUY":
             sl = current_price - sl_distance
             tp = current_price + (sl_distance * adaptive_rr)
-            lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
+            lot_size = 0.01
         elif decision == "SELL":
             sl = current_price + sl_distance
             tp = current_price - (sl_distance * adaptive_rr)
-            lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
+            lot_size = 0.01
 
         # Apply Multi-Agent Brain Orchestrator Directive Modifiers
         if brain_directive is None:
@@ -482,19 +534,9 @@ class ScalperBrain:
             except Exception:
                 brain_directive = None
 
-        if brain_directive and hasattr(brain_directive, "risk_ceiling_modifier"):
-            lot_size = lot_size * brain_directive.risk_ceiling_modifier * getattr(brain_directive, "lot_multiplier", 1.0)
+        if brain_directive:
             if hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
                 explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
-
-        # Enforce initial lot size as 0.01 lots for first trade across all symbols
-        try:
-            open_trades = database.get_open_trades()
-            symbol_open = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
-            if not symbol_open and decision in ["BUY", "SELL"]:
-                lot_size = 0.01
-        except Exception:
-            pass
 
         database.log_assessment(
             symbol=symbol,
@@ -520,106 +562,7 @@ class ScalperBrain:
 
     def _calculate_lot_size(self, symbol, equity, sl_distance):
         """
-        Calculates the appropriate lot size to risk on current equity using
-        mathematical Kelly Criterion optimization and Performance-Adaptive Risk Sizing.
-        Enforces 0.01 lots as initial position size for first trade across all symbols.
+        Calculates position size. Enforces strict 0.01 lots fixed position sizing
+        across all trade evaluations and position sizing calculations.
         """
-        try:
-            open_trades = database.get_open_trades()
-            symbol_open = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
-            if not symbol_open:
-                return 0.01
-        except Exception:
-            pass
-
-        base_risk_pct = config.RISK_PER_TRADE_PERCENT
-        using_kelly = False
-        kelly_val = 0.0
-
-        # Query past trade stats to calculate Kelly Sizing mathematically if history is rich
-        try:
-            conn_db = database.get_connection()
-            cursor = conn_db.cursor()
-            cursor.execute("SELECT profit FROM trades WHERE status = 'CLOSED'")
-            rows = cursor.fetchall()
-            conn_db.close()
-
-            if len(rows) >= 10:
-                profits = [r['profit'] for r in rows if r['profit'] is not None]
-                wins = [p for p in profits if p > 0.0]
-                losses = [abs(p) for p in profits if p <= 0.0]
-
-                if len(profits) >= 10 and len(wins) > 0 and len(losses) > 0:
-                    win_rate = len(wins) / len(profits)
-                    avg_win = sum(wins) / len(wins)
-                    avg_loss = sum(losses) / len(losses)
-                    profit_factor = avg_win / avg_loss if avg_loss > 0 else 1.0
-
-                    # Standard Kelly formula: K% = W - ((1 - W) / R)
-                    kelly_fraction = win_rate - ((1.0 - win_rate) / profit_factor) if profit_factor > 0 else 0.0
-
-                    if kelly_fraction > 0:
-                        # Kelly 2.0: Subtract Expected Shortfall (CVaR) tail risk multiplier to stabilize sizing
-                        sorted_losses = sorted(losses) if losses else [0.0]
-                        var_idx = int(len(sorted_losses) * 0.95)
-                        cvar_tail_risk = sum(sorted_losses[var_idx:]) / len(sorted_losses[var_idx:]) if len(sorted_losses) - var_idx > 0 else 0.01
-
-                        # Normalize CVaR to fraction and apply as risk penalty
-                        cvar_penalty = min(0.10, cvar_tail_risk / (equity if equity > 0 else 10000.0))
-                        kelly_fraction_cvar = max(0.01, kelly_fraction - cvar_penalty)
-
-                        # Use Quarter-Kelly fraction to ensure safe risk boundaries
-                        base_risk_pct = (kelly_fraction_cvar * 0.25) * 100.0
-                        # Cap risk at hard ceilings [0.1%, 1.5%]
-                        base_risk_pct = max(0.1, min(base_risk_pct, 1.5))
-                        using_kelly = True
-                        kelly_val = kelly_fraction_cvar
-                    else:
-                        base_risk_pct = 0.25 # Underperforming: reduce risk fraction to Quarter-Percent
-
-            # Fallback to Streak-Adaptive Downscaling if not rich history or experiencing dynamic streaks
-            if not using_kelly:
-                recent_trades = database.get_recent_performance(count=4)
-                if len(recent_trades) >= 3:
-                    losses_count = sum(1 for t in recent_trades if t['profit'] is not None and t['profit'] < 0)
-                    if losses_count == 3:
-                        base_risk_pct = base_risk_pct * 0.5
-                        print(f"🛡️ PERFORMANCE ADAPTATION: Drawdown streak detected (3 losses). Downscaling trade risk to {base_risk_pct:.2f}% to protect equity.")
-                    elif losses_count >= 4:
-                        base_risk_pct = base_risk_pct * 0.25
-                        print(f"🛡️ PERFORMANCE ADAPTATION: Severe Drawdown streak detected (4 losses). Downscaling trade risk to {base_risk_pct:.2f}% to preserve capital.")
-        except Exception as e:
-            print(f"Warning: Kelly/Sizing adaptation calculation error: {e}")
-
-        if using_kelly:
-            print(f"🧮 KELLY CRITERION SIZING: Optimizing risk fraction to {base_risk_pct:.2f}% based on Kelly mathematical edge (K={kelly_val:.4f}).")
-
-        risk_amount = equity * (base_risk_pct / 100.0)
-
-        # Contract size mapping
-        contract_size = 100000.0  # Default to Forex standard lot size
-
-        symbol_upper = symbol.upper()
-        if "USD" in symbol_upper:
-            # Let's adjust contract sizes
-            if "XAU" in symbol_upper or "GOLD" in symbol_upper:
-                contract_size = 100.0
-            elif "XAG" in symbol_upper or "SILVER" in symbol_upper:
-                contract_size = 5000.0
-            elif any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
-                contract_size = 1.0
-            elif "JPY" in symbol_upper:
-                # USDJPY contract is 100,000, but pip is 0.01 (divide by 100 to scale with USD)
-                contract_size = 100000.0 / 100.0
-
-        # Risk per 1 standard lot = contract_size * sl_distance
-        risk_per_lot = contract_size * sl_distance
-
-        if risk_per_lot <= 0:
-            return 0.01
-
-        lot_size = risk_amount / risk_per_lot
-
-        # Limit lot sizes to reasonable bounds [0.01, 10.0]
-        lot_size = max(0.01, min(lot_size, 10.0))
-        return lot_size
+        return 0.01
