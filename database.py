@@ -128,6 +128,11 @@ def init_db():
         password_encrypted TEXT NOT NULL,
         leverage TEXT NOT NULL,
         environment TEXT DEFAULT 'Demo',
+        protocol_type TEXT DEFAULT 'MT5',
+        api_key TEXT DEFAULT '',
+        api_secret TEXT DEFAULT '',
+        rest_url TEXT DEFAULT '',
+        ws_url TEXT DEFAULT '',
         is_active INTEGER DEFAULT 1,
         updated_at TEXT NOT NULL
     )
@@ -144,6 +149,26 @@ def init_db():
         pass
     try:
         cursor.execute("ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN api_key TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
 
@@ -256,6 +281,15 @@ def _execute_with_retry(query, params=(), commit=True):
             conn.close()
             return True
         except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                init_db()
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                if commit:
+                    conn.commit()
+                conn.close()
+                return True
             if "locked" in str(e).lower() and attempt < max_retries - 1:
                 time.sleep(0.2 * (attempt + 1))
             else:
@@ -292,26 +326,34 @@ def delete_user(username):
 
 def get_all_brokers():
     """Retrieves all registered broker profiles from SQLite."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at FROM broker_credentials ORDER BY id ASC")
-    rows = cursor.fetchall()
-    conn.close()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM broker_credentials ORDER BY id ASC")
+        rows = cursor.fetchall()
+        conn.close()
+    except sqlite3.OperationalError:
+        init_db()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM broker_credentials ORDER BY id ASC")
+        rows = cursor.fetchall()
+        conn.close()
 
     brokers = []
     for r in rows:
         b = dict(r)
-        b["password"] = decrypt_secret(b["password_encrypted"])
+        b["password"] = decrypt_secret(b.get("password_encrypted", ""))
         brokers.append(b)
     return brokers
 
-def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", is_active=0):
+def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url="", is_active=0):
     """Adds a new broker gateway configuration into SQLite with lock retries."""
     if is_active:
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry("""
-    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, is_active, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         broker_name,
         server,
@@ -319,6 +361,11 @@ def add_broker_account(broker_name, server, account_id, password, leverage="1:10
         encrypt_secret(password),
         leverage,
         environment,
+        protocol_type,
+        api_key,
+        encrypt_secret(api_secret) if api_secret else "",
+        rest_url,
+        ws_url,
         1 if is_active else 0,
         datetime.datetime.now().isoformat()
     ))
@@ -332,7 +379,7 @@ def delete_broker_account(broker_id):
     """Deletes a broker profile from SQLite with lock retries."""
     _execute_with_retry("DELETE FROM broker_credentials WHERE id = ?", (broker_id,))
 
-def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo"):
+def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url=""):
     """Saves or updates primary active broker parameters in SQLite with lock retries."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -340,28 +387,42 @@ def save_broker_credentials(server, account_id, password, leverage, broker_name=
     row = cursor.fetchone()
     conn.close()
 
+    enc_pwd = encrypt_secret(password)
+    enc_secret = encrypt_secret(api_secret) if api_secret else ""
+
     if row:
         _execute_with_retry("""
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, updated_at = ?
         WHERE id = ?
-        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat(), row['id']))
+        """, (broker_name, server, account_id, enc_pwd, leverage, environment, protocol_type, api_key, enc_secret, rest_url, ws_url, datetime.datetime.now().isoformat(), row['id']))
     else:
         _execute_with_retry("""
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-        """, (broker_name, server, account_id, encrypt_secret(password), leverage, environment, datetime.datetime.now().isoformat()))
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, is_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        """, (broker_name, server, account_id, enc_pwd, leverage, environment, protocol_type, api_key, enc_secret, rest_url, ws_url, datetime.datetime.now().isoformat()))
 
 def get_broker_credentials():
-    """Retrieves active broker connection parameters and decrypts the password."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment FROM broker_credentials WHERE is_active = 1 LIMIT 1")
-    row = cursor.fetchone()
-    if not row:
-        cursor.execute("SELECT broker_name, server, account_id, password_encrypted, leverage, environment FROM broker_credentials ORDER BY id DESC LIMIT 1")
+    """Retrieves active broker connection parameters and decrypts secrets."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 LIMIT 1")
         row = cursor.fetchone()
-    conn.close()
+        if not row:
+            cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+        conn.close()
+    except sqlite3.OperationalError:
+        init_db()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 LIMIT 1")
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+        conn.close()
 
     if not row:
         return {
@@ -370,16 +431,27 @@ def get_broker_credentials():
             "account_id": "10928471",
             "password": "demoPass123!",
             "leverage": "1:100",
-            "environment": "Demo"
+            "environment": "Demo",
+            "protocol_type": "MT5",
+            "api_key": "",
+            "api_secret": "",
+            "rest_url": "",
+            "ws_url": ""
         }
 
+    keys = row.keys() if hasattr(row, "keys") else []
     return {
-        "broker_name": row["broker_name"] if "broker_name" in row.keys() and row["broker_name"] else "Primary Gateway",
-        "server": row["server"],
-        "account_id": row["account_id"],
-        "password": decrypt_secret(row["password_encrypted"]),
-        "leverage": row["leverage"],
-        "environment": row["environment"] if "environment" in row.keys() and row["environment"] else "Demo"
+        "broker_name": row["broker_name"] if "broker_name" in keys and row["broker_name"] else "Primary Gateway",
+        "server": row["server"] if "server" in keys else "EAQTS-Demo-Server",
+        "account_id": row["account_id"] if "account_id" in keys else "10928471",
+        "password": decrypt_secret(row["password_encrypted"]) if "password_encrypted" in keys else "",
+        "leverage": row["leverage"] if "leverage" in keys else "1:100",
+        "environment": row["environment"] if "environment" in keys and row["environment"] else "Demo",
+        "protocol_type": row["protocol_type"] if "protocol_type" in keys and row["protocol_type"] else "MT5",
+        "api_key": row["api_key"] if "api_key" in keys and row["api_key"] else "",
+        "api_secret": decrypt_secret(row["api_secret"]) if "api_secret" in keys and row["api_secret"] else "",
+        "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
+        "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else ""
     }
 
 def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):

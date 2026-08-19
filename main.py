@@ -155,31 +155,35 @@ class AutonomousScalper:
 
             risk_dist = abs(entry_price - current_sl)
 
-            if direction == "BUY":
-                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR is touched
-                if bid >= entry_price + risk_dist and current_sl < entry_price + 0.00001:
-                    success = self.conn.modify_order(ticket, round(entry_price, 5), current_tp)
-                    if success:
-                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on BUY {symbol} (Ticket {ticket}) at 1:1 RR!")
-                        current_sl = entry_price # update local ref for trailing step below
+            spread_buffer = max(0.00001, ask - bid)
+            trigger_distance = min(atr_val, risk_dist) if risk_dist > 0 else atr_val
 
-                # 2. Dynamic Trailing Stop
+            if direction == "BUY":
+                # 1. Breakeven Profit Lock: Move SL to Entry Price + spread buffer once 1.0x ATR / 1:1 RR is reached
+                be_sl = entry_price + spread_buffer
+                if bid >= entry_price + trigger_distance and current_sl < be_sl:
+                    success = self.conn.modify_order(ticket, round(be_sl, 5), current_tp)
+                    if success:
+                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry + spread buffer ({be_sl:.5f}) on BUY {symbol} (Ticket {ticket}) at +1.0x ATR!")
+                        current_sl = be_sl
+
+                # 2. Dynamic ATR Trailing Stop
                 target_sl = bid - trail_dist
                 if target_sl > current_sl + 0.00005:
                     success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
                     if success:
                         print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)")
             elif direction == "SELL":
-                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR is touched
-                if ask <= entry_price - risk_dist and (current_sl == 0 or current_sl > entry_price - 0.00001):
-                    success = self.conn.modify_order(ticket, round(entry_price, 5), current_tp)
+                # 1. Breakeven Profit Lock: Move SL to Entry Price - spread buffer once 1.0x ATR / 1:1 RR is reached
+                be_sl = entry_price - spread_buffer
+                if ask <= entry_price - trigger_distance and (current_sl == 0 or current_sl > be_sl):
+                    success = self.conn.modify_order(ticket, round(be_sl, 5), current_tp)
                     if success:
-                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on SELL {symbol} (Ticket {ticket}) at 1:1 RR!")
-                        current_sl = entry_price # update local ref
+                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry - spread buffer ({be_sl:.5f}) on SELL {symbol} (Ticket {ticket}) at +1.0x ATR!")
+                        current_sl = be_sl
 
-                # 2. Dynamic Trailing Stop
+                # 2. Dynamic ATR Trailing Stop
                 target_sl = ask + trail_dist
-                # For SELL, target SL must be lower than current SL (or if current SL is 0)
                 if current_sl == 0 or target_sl < current_sl - 0.00005:
                     success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
                     if success:
@@ -691,63 +695,6 @@ class AutonomousScalper:
         # Notify Data Plane of incoming tick
         self.engine.data.store_price(symbol, current_price - 0.0001, current_price + 0.0001)
 
-        # Check if we already have an open trade on this exact symbol
-        has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
-        if has_active_symbol:
-            trade_info = [p for p in active_positions if p['symbol'].upper() == symbol.upper()][0]
-
-            # Dynamic Grid Trading Cost-Averaging Logic Expansion!
-            if config.ACTIVE_STRATEGY == "GRID_TRADE":
-                symbol_trades = [p for p in active_positions if p['symbol'].upper() == symbol.upper()]
-                if len(symbol_trades) < config.GRID_MAX_LEVELS:
-                    last_trade = symbol_trades[-1]
-                    entry_p = last_trade['open_price']
-                    direction = last_trade['direction']
-
-                    atr_val = indicators.calculate_atr([b['high'] for b in history], [b['low'] for b in history], [b['close'] for b in history], config.ATR_PERIOD) or 0.0010
-                    grid_spacing = atr_val * config.GRID_SPACING_ATR_MULT
-
-                    price_info = self.conn.get_current_price(symbol)
-                    current_p = price_info['bid'] if direction == "BUY" else price_info['ask']
-
-                    should_add_grid = False
-                    if direction == "BUY" and current_p <= entry_p - grid_spacing:
-                        should_add_grid = True
-                    elif direction == "SELL" and current_p >= entry_p + grid_spacing:
-                        should_add_grid = True
-
-                    if should_add_grid and len(active_positions) < config.MAX_CONCURRENT_TRADES:
-                        with self.trade_lock:
-                            lot = last_trade['lot_size']
-                            sl_new = current_p - (grid_spacing * 2) if direction == "BUY" else current_p + (grid_spacing * 2)
-                            tp_new = current_p + (grid_spacing * 3) if direction == "BUY" else current_p - (grid_spacing * 3)
-
-                            res = self.conn.execute_order(symbol, direction, lot, sl_new, tp_new)
-                            if res['success']:
-                                database.log_trade_open(res['ticket'], symbol, direction, res['price'], sl_new, tp_new, lot)
-                                print(f"🧱 GRID COST-AVERAGING PLACEMENT: Added layer {len(symbol_trades)+1} on {symbol} {direction} (Ticket {res['ticket']}) at {res['price']:.5f}")
-                                active_positions.append({
-                                    'ticket': res['ticket'],
-                                    'symbol': symbol,
-                                    'direction': direction,
-                                    'open_price': res['price'],
-                                    'sl': sl_new,
-                                    'tp': tp_new,
-                                    'lot_size': lot
-                                })
-
-            return {
-                "symbol": symbol,
-                "price": f"{current_price:.5f}",
-                "ema200": "-",
-                "trend": "-",
-                "rsi": "-",
-                "atr": "-",
-                "status": f"ACTIVE ({trade_info['direction']} Ticket {trade_info['ticket']})",
-                "decision": "HOLD",
-                "analysis": None,
-                "nn_state": None
-            }
 
         # Autonomously select optimal trading style and strategy dynamically first!
         try:

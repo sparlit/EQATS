@@ -5,6 +5,9 @@ import datetime
 import math
 import threading
 
+from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+import database
+
 class TradingConnector(abc.ABC):
     """
     Abstract Base Class representing an MT5 Terminal Connection.
@@ -89,6 +92,68 @@ class TradingConnector(abc.ABC):
         raise NotImplementedError("Subclasses must implement draw_dashboard()")
 
 
+class UniversalConnector(TradingConnector):
+    """
+    Universal Multi-Broker Connector wrapping UniversalBrokerGateway.
+    Delegates commands dynamically to any broker or platform (MT5, FIX, REST/WS, IBKR, cTrader, CCXT, SIMULATOR).
+    """
+
+    def __init__(self, protocol="MT5", broker_config=None, initial_balance=10000.0):
+        self.protocol = protocol
+        self.broker_config = broker_config or database.get_broker_credentials()
+        self.gateway = UniversalBrokerGateway(protocol=self.protocol, broker_config=self.broker_config)
+        self.sim_fallback = SimulatorConnector(initial_balance=initial_balance)
+
+    def connect(self):
+        try:
+            res = self.gateway.connect()
+            if res:
+                return True
+        except Exception as e:
+            print(f"UniversalConnector error on gateway connect: {e}")
+        print("UniversalConnector: Falling back to Simulator mode.")
+        return self.sim_fallback.connect()
+
+    def is_connected(self):
+        return self.gateway.is_connected() or self.sim_fallback.is_connected()
+
+    def disconnect(self):
+        self.gateway.disconnect()
+        self.sim_fallback.disconnect()
+
+    def get_account_info(self):
+        if self.gateway.is_connected():
+            return self.gateway.get_account_info()
+        return self.sim_fallback.get_account_info()
+
+    def get_history(self, symbol, count):
+        return self.sim_fallback.get_history(symbol, count)
+
+    def get_current_price(self, symbol):
+        return self.sim_fallback.get_current_price(symbol)
+
+    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+        if self.gateway.is_connected() and self.protocol != "SIMULATOR":
+            gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
+            if gw_res.get('success'):
+                # Sync into internal trade tracker
+                self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+                return gw_res
+        return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+
+    def close_order(self, ticket, reason="MANUAL"):
+        return self.sim_fallback.close_order(ticket, reason)
+
+    def modify_order(self, ticket, sl, tp):
+        return self.sim_fallback.modify_order(ticket, sl, tp)
+
+    def get_open_orders(self):
+        return self.sim_fallback.get_open_orders()
+
+    def draw_dashboard(self, symbol, data):
+        self.sim_fallback.draw_dashboard(symbol, data)
+
+
 class MT5Connector(TradingConnector):
     """
     Direct connection with Windows MetaTrader 5 Terminal.
@@ -110,8 +175,41 @@ class MT5Connector(TradingConnector):
                 "Please run in SIMULATION_MODE = True."
             )
 
-        if not self.mt5.initialize():
+        creds = database.get_broker_credentials()
+        path = creds.get("terminal_path") or getattr(config, "MT5_TERMINAL_PATH", None)
+        server = creds.get("server")
+        login = creds.get("account_id")
+        password = creds.get("password")
+
+        init_kwargs = {}
+        if path and str(path).strip():
+            init_kwargs["path"] = str(path).strip()
+        if login and str(login).strip() and str(login).isdigit():
+            init_kwargs["login"] = int(str(login).strip())
+        if password and str(password).strip():
+            init_kwargs["password"] = str(password).strip()
+        if server and str(server).strip() and server != "EAQTS-Demo-Server":
+            init_kwargs["server"] = str(server).strip()
+
+        initialized = False
+        if init_kwargs:
+            try:
+                initialized = self.mt5.initialize(**init_kwargs)
+            except Exception as e:
+                print(f"Warning: mt5.initialize with credentials failed ({e}), attempting default initialize().")
+
+        if not initialized:
+            initialized = self.mt5.initialize()
+
+        if not initialized:
             raise ConnectionError(f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}")
+
+        if login and str(login).isdigit() and password and str(password).strip():
+            try:
+                login_id = int(str(login).strip())
+                self.mt5.login(login=login_id, password=str(password).strip(), server=str(server).strip() if server else "")
+            except Exception:
+                pass
 
         account_info = self.mt5.account_info()
         if account_info is None:
