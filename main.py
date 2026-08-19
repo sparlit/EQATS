@@ -161,14 +161,15 @@ class AutonomousScalper:
             if entry_price <= 0:
                 continue
 
-            risk_dist = abs(entry_price - current_sl)
+            risk_dist = abs(entry_price - current_sl) if current_sl > 0 else atr_val
+            trigger_dist = max(risk_dist, atr_val)
 
             if direction == "BUY":
-                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR is touched
-                if bid >= entry_price + risk_dist and current_sl < entry_price + 0.00001:
+                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR or +1.0x ATR profit is touched
+                if bid >= entry_price + trigger_dist and current_sl < entry_price + 0.00001:
                     success = self.conn.modify_order(ticket, round(entry_price, 5), current_tp)
                     if success:
-                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on BUY {symbol} (Ticket {ticket}) at 1:1 RR!")
+                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on BUY {symbol} (Ticket {ticket}) at +1.0x ATR/RR!")
                         current_sl = entry_price # update local ref for trailing step below
 
                 # 2. Dynamic Trailing Stop
@@ -178,11 +179,11 @@ class AutonomousScalper:
                     if success:
                         print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)")
             elif direction == "SELL":
-                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR is touched
-                if ask <= entry_price - risk_dist and (current_sl == 0 or current_sl > entry_price - 0.00001):
+                # 1. Breakeven Profit Lock: Move SL to Entry Price once 1:1 RR or +1.0x ATR profit is touched
+                if ask <= entry_price - trigger_dist and (current_sl == 0 or current_sl > entry_price - 0.00001):
                     success = self.conn.modify_order(ticket, round(entry_price, 5), current_tp)
                     if success:
-                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on SELL {symbol} (Ticket {ticket}) at 1:1 RR!")
+                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry price ({entry_price:.5f}) on SELL {symbol} (Ticket {ticket}) at +1.0x ATR/RR!")
                         current_sl = entry_price # update local ref
 
                 # 2. Dynamic Trailing Stop
@@ -700,9 +701,49 @@ class AutonomousScalper:
         self.engine.data.store_price(symbol, current_price - 0.0001, current_price + 0.0001)
 
         # Check if we already have an open trade on this exact symbol
-        has_active_symbol = any(p['symbol'].upper() == symbol.upper() for p in active_positions)
+        symbol_trades = [p for p in active_positions if p['symbol'].upper() == symbol.upper()]
+        has_active_symbol = len(symbol_trades) > 0
         if has_active_symbol:
-            trade_info = [p for p in active_positions if p['symbol'].upper() == symbol.upper()][0]
+            trade_info = symbol_trades[0]
+
+            # Option 1A: Dynamic Volatility-Based Pyramiding Rule
+            # Allow adding a pyramid position (fixed 0.01 lot) if ALL existing open trades on this symbol
+            # are in profit by at least 1.0x ATR and the fresh brain analysis maintains strong signal alignment.
+            atr_val_pyramid = indicators.calculate_atr([b['high'] for b in history], [b['low'] for b in history], [b['close'] for b in history], config.ATR_PERIOD) or 0.0010
+            price_info_pyr = self.conn.get_current_price(symbol)
+
+            can_pyramid = True
+            for st in symbol_trades:
+                open_p = st.get('open_price', 0.0)
+                direction = st.get('direction', 'BUY')
+                current_p = price_info_pyr['bid'] if direction == "BUY" else price_info_pyr['ask']
+                profit_dist = (current_p - open_p) if direction == "BUY" else (open_p - current_p)
+                if profit_dist < (1.0 * atr_val_pyramid):
+                    can_pyramid = False
+                    break
+
+            if can_pyramid and len(active_positions) < config.MAX_CONCURRENT_TRADES:
+                pyr_analysis = self.brain.evaluate(symbol, history, current_equity)
+                pyr_decision = pyr_analysis['decision']
+                # Pyramid direction must align with primary trade direction
+                primary_dir = trade_info['direction']
+                if pyr_decision == primary_dir:
+                    sl_pyr = pyr_analysis['sl']
+                    tp_pyr = pyr_analysis['tp']
+                    with self.trade_lock:
+                        res_pyr = self.conn.execute_order(symbol, pyr_decision, 0.01, sl_pyr, tp_pyr)
+                        if res_pyr['success']:
+                            database.log_trade_open(res_pyr['ticket'], symbol, pyr_decision, res_pyr['price'], sl_pyr, tp_pyr, 0.01)
+                            print(f"🔺 VOLATILITY PYRAMID ENTRY: Added 0.01 lot position #{len(symbol_trades)+1} on {symbol} {pyr_decision} (Ticket {res_pyr['ticket']}) at {res_pyr['price']:.5f} (All open positions in profit >= 1.0x ATR)")
+                            active_positions.append({
+                                'ticket': res_pyr['ticket'],
+                                'symbol': symbol,
+                                'direction': pyr_decision,
+                                'open_price': res_pyr['price'],
+                                'sl': sl_pyr,
+                                'tp': tp_pyr,
+                                'lot_size': 0.01
+                            })
 
             # Dynamic Grid Trading Cost-Averaging Logic Expansion!
             if config.ACTIVE_STRATEGY == "GRID_TRADE":
