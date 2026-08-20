@@ -115,7 +115,7 @@ def insert_vector_embedding(vector_id, float_vector):
             ids=[str(vector_id)]
         )
         indexed["chromadb"] = True
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Diagnostics: ChromaDB embedding insert failed or uninstalled: {e}")
 
     return indexed
