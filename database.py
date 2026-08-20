@@ -44,12 +44,19 @@ def get_connection():
         print(f"⚠️ SQLite PRAGMA configuration note: {e}")
     return conn
 
-def checkpoint_wal():
+_tick_write_counter = 0
+
+def checkpoint_wal(force=False):
     """Performs a passive WAL checkpoint to optimize SQLite database size and flush log entries."""
+    global _tick_write_counter
     try:
-        conn = get_connection()
-        conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
-        conn.close()
+        _tick_write_counter += 1
+        if force or (_tick_write_counter % 100 == 0):
+            conn = get_connection()
+            conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
+            conn.close()
+            if force or (_tick_write_counter % 1000 == 0):
+                print(f"🧹 SQLite WAL Checkpoint executed at write count {_tick_write_counter}.")
         return True
     except Exception as e:
         print(f"⚠️ WAL Checkpoint note: {e}")
