@@ -33,8 +33,8 @@ def calculate_portfolio_weights(returns_dict):
             import polars as pl
             p_data = {sym: np.array(ret_arrays[i]) for i, sym in enumerate(symbols)}
             pl_df = pl.DataFrame(p_data)
-        except ImportError:
-            pass
+        except ImportError as e:
+            print(f"Diagnostics: Polars optional import skipped: {e}")
 
         # Calculate Covariance Matrix
         cov_matrix = np.cov(ret_arrays)
@@ -45,8 +45,8 @@ def calculate_portfolio_weights(returns_dict):
             import jax.numpy as jnp
             cov_j = jnp.array(cov_matrix)
             mean_j = jnp.array(mean_returns)
-        except ImportError:
-            pass
+        except ImportError as e:
+            print(f"Diagnostics: JAX optional import skipped: {e}")
 
         # Mean-Variance allocation optimization (simplified analytic Sharpe solver)
         inv_cov = np.linalg.pinv(cov_matrix) if n > 1 else np.array([[1.0]])
