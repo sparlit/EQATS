@@ -347,8 +347,26 @@ def get_all_brokers():
         brokers.append(b)
     return brokers
 
+def normalize_leverage(leverage_str: str) -> str:
+    """
+    Normalizes leverage string input into standard '1:N' format.
+    E.g. '1:888' -> '1:888', '888' -> '1:888', '1:10000' -> '1:10000'.
+    Fallback to '1:100' if invalid or unparseable.
+    """
+    if not leverage_str:
+        return "1:100"
+    s = str(leverage_str).strip()
+    if ":" in s:
+        parts = s.split(":")
+        if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) > 0:
+            return f"1:{int(parts[1])}"
+    elif s.isdigit() and int(s) > 0:
+        return f"1:{int(s)}"
+    return "1:100"
+
 def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url="", is_active=0):
     """Adds a new broker gateway configuration into SQLite with lock retries."""
+    leverage = normalize_leverage(leverage)
     if is_active:
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry("""
@@ -381,6 +399,7 @@ def delete_broker_account(broker_id):
 
 def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url=""):
     """Saves or updates primary active broker parameters in SQLite with lock retries."""
+    leverage = normalize_leverage(leverage)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM broker_credentials WHERE is_active = 1 LIMIT 1")

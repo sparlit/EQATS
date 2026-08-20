@@ -73,13 +73,21 @@ class ScalperBrain:
                 all_profit_1atr = True
                 for t in symbol_trades:
                     direction = t.get('direction', 'BUY')
+                    trade_profit = t.get('profit')
                     open_price = float(t.get('open_price', current_price))
                     p_diff = (current_price - open_price) if direction == 'BUY' else (open_price - current_price)
-                    if p_diff < 0:
+
+                    if trade_profit is not None:
+                        is_losing = float(trade_profit) < 0
+                    else:
+                        is_losing = p_diff < 0
+
+                    if is_losing:
                         any_loss = True
                         all_profit_1atr = False
                         break
-                    elif p_diff < atr_val:
+
+                    if p_diff < atr_val:
                         all_profit_1atr = False
 
                 if any_loss:
