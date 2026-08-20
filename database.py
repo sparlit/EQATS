@@ -44,6 +44,17 @@ def get_connection():
         print(f"⚠️ SQLite PRAGMA configuration note: {e}")
     return conn
 
+def checkpoint_wal():
+    """Performs a passive WAL checkpoint to optimize SQLite database size and flush log entries."""
+    try:
+        conn = get_connection()
+        conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"⚠️ WAL Checkpoint note: {e}")
+        return False
+
 def init_db():
     """Initializes database tables if they do not exist."""
     conn = get_connection()
