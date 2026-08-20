@@ -2,6 +2,10 @@ import pytest
 import indicators
 import institutional_integrations.smc_ict_engine as smc
 import institutional_integrations.trade_memory_protocol as tmp
+from institutional_integrations.drl_execution_agent import DRLExecutionPolicyAgent
+from institutional_integrations.portfolio_optimizer import BlackLittermanOptimizer
+from institutional_integrations.databases import QuestDBILPTickAdapter
+from institutional_integrations.web_api import SocketIPCBridge, TelemetryStreamServer
 
 def test_smc_ict_order_block_and_fvg_detection():
     # Build dummy bar series with bullish displacement
@@ -81,3 +85,59 @@ def test_indicators_smc_wrapper():
     smc_res = indicators.get_smc_analysis(history_bars)
     assert "order_blocks" in smc_res
     assert "confluence_score" in smc_res
+
+def test_drl_sac_ddpg_execution_agent():
+    agent = DRLExecutionPolicyAgent()
+    state = {
+        "floating_pnl_pct": 2.0,
+        "atr_vol": 0.0015,
+        "rsi": 75.0,
+        "order_book_imbalance": 0.6,
+        "spread_pips": 2.5
+    }
+    action = agent.select_action(state)
+    assert action["policy_type"] == "SAC_DDPG_CONTINUOUS_L2"
+    assert action["slice_count"] >= 2
+    assert action["partial_close_ratio"] > 0.0
+
+    reward = agent.compute_reward(10000.0, 10200.0, 10.0, 0.5)
+    assert isinstance(reward, float)
+
+    update_res = agent.update_critic_actor_soft(state, action, reward, state)
+    assert update_res["status"] == "UPDATED"
+
+def test_cvxpy_qaoa_portfolio_optimizer():
+    opt = BlackLittermanOptimizer()
+    assets = ["EURUSD", "GBPUSD", "XAUUSD"]
+    caps = {"EURUSD": 1000, "GBPUSD": 800, "XAUUSD": 1200}
+    views = {"EURUSD": 0.02, "GBPUSD": 0.01, "XAUUSD": 0.03}
+    confs = {"EURUSD": 0.8, "GBPUSD": 0.6, "XAUUSD": 0.9}
+
+    weights = opt.optimize(assets, caps, None, views, confs)
+    assert len(weights) == 3
+    assert abs(sum(weights.values()) - 1.0) < 0.05
+
+    qaoa_weights = opt.optimize_quantum_qaoa(assets, views)
+    assert len(qaoa_weights) == 3
+    assert abs(sum(qaoa_weights.values()) - 1.0) < 0.05
+
+def test_questdb_ilp_tick_adapter():
+    adapter = QuestDBILPTickAdapter(port=9999)  # Intentional closed port to test fallback
+    line = adapter.format_ilp_line("EURUSD", 1.0850, 1.0851, 100.0, 0.2)
+    assert "ticks_l2,symbol=EURUSD" in line
+    assert "bid=1.085" in line
+
+    res = adapter.stream_tick("EURUSD", 1.0850, 1.0851, 100.0, 0.2)
+    assert res["status"] in ["SUCCESS", "FALLBACK"]
+    if res["status"] == "FALLBACK":
+        assert res["buffer_size"] >= 1
+
+def test_socket_ipc_bridge_and_telemetry_stream():
+    ipc = SocketIPCBridge(port=15555)
+    push_res = ipc.push_state(10000.0, 10000.0, [], [], "London")
+    assert push_res["status"] == "PUSHED"
+
+    streamer = TelemetryStreamServer()
+    payload = streamer.build_telemetry_payload("2024-05-01 12:00:00", 10000.0, 10000.0, [], [], {"win_rate": 60.0, "net_profit": 500.0})
+    assert payload["account"]["equity"] == 10000.0
+    assert payload["account"]["win_rate"] == 60.0
