@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (01:03:23) | Dubai DFM (01:03:23) | London FX (02:03:23)|Active Tracker
+10000.00|10000.00|0|London Session|Sydney FX | Tokyo FX | Hong Kong FX | Singapore FX | Sydney ASX | Tokyo TSE | Hong Kong HKEX | Shanghai SSE|New York FX (01:42:53) | São Paulo B3 (02:42:53) | Mexican BMV (02:42:53)|Active Tracker
 SCANS_HEADER
-EURUSD|1.14149|1.13839|UP|38.7|0.00314|Breakout Setup: Waiting for: Inside Squeeze Channel [1.13700 - 1.15397] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.4ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.23370|1.25536|DOWN|34.9|0.00333|Breakout Setup: Waiting for: Inside Squeeze Channel [1.23060 - 1.25360] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.4ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.07229|1.09208|DOWN|25.1|0.00290|Consensus SELL vetoed: AI predicts Bullish candle (66.67% acc). Score: -0.48 | Agentic Notes: Parallel Multi-Agent Sweep completed in 6.0ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.29534|1.27592|UP|59.2|0.00327|Regime TRENDING (LOW) Voting: Neutral hold (Score: +0.22). AI Bias: BULLISH | Agentic Notes: Parallel Multi-Agent Sweep completed in 6.0ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0

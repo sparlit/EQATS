@@ -240,6 +240,25 @@ class AutonomousScalper:
             pip_size = 1.0
 
         spread_pips = spread / pip_size
+
+        # Dynamic Spread Volatility Spike Breaker: Track rolling average spread per symbol
+        if not hasattr(self, '_symbol_avg_spreads'):
+            self._symbol_avg_spreads = {}
+
+        sym_upper = symbol.upper()
+        if sym_upper not in self._symbol_avg_spreads:
+            self._symbol_avg_spreads[sym_upper] = [spread_pips]
+        else:
+            self._symbol_avg_spreads[sym_upper].append(spread_pips)
+            if len(self._symbol_avg_spreads[sym_upper]) > 20:
+                self._symbol_avg_spreads[sym_upper].pop(0)
+
+        avg_spread = sum(self._symbol_avg_spreads[sym_upper]) / len(self._symbol_avg_spreads[sym_upper])
+
+        # Check 2.5x rolling average spread spike breaker first
+        if len(self._symbol_avg_spreads[sym_upper]) >= 5 and spread_pips > (2.5 * avg_spread) and spread_pips > 3.0:
+            return False, f"Liquidity Filter (Spread Volatility Spike Breaker): Spread ({spread_pips:.1f} pips) exceeds 2.5x 20-period avg spread ({avg_spread:.1f} pips)."
+
         if spread_pips > config.MAX_SPREAD_PIPS:
             return False, f"Liquidity Filter: Spread is too wide ({spread_pips:.1f} pips > {config.MAX_SPREAD_PIPS:.1f} limit)."
 
@@ -445,231 +464,8 @@ class AutonomousScalper:
             print(f"Warning: Failed to write EA state file: {e}")
 
     def _generate_html_dashboard(self, current_time, equity, balance, active_positions, scans):
-        """Generates a responsive and beautiful HTML dashboard file with live analytics."""
-        perf = database.get_all_time_performance()
-        timeline = self._get_sessions_timeline()
-        html_content = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="5">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scalper Brain Live Dashboard</title>
-    <style>
-        body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f172a;
-            color: #f1f5f9;
-            margin: 0;
-            padding: 20px;
-        }}
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-        }}
-        header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #1e293b;
-            padding-bottom: 20px;
-            margin-bottom: 25px;
-        }}
-        h1 {{
-            margin: 0;
-            font-size: 24px;
-            color: #38bdf8;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }}
-        .badge {{
-            background-color: #22c55e;
-            color: #ffffff;
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 12px;
-            font-weight: bold;
-        }}
-        .badge.sim {{
-            background-color: #eab308;
-        }}
-        .metrics-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }}
-        .card {{
-            background-color: #1e293b;
-            border-radius: 8px;
-            padding: 15px 20px;
-            border: 1px solid #334155;
-        }}
-        .card-label {{
-            font-size: 13px;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 5px;
-        }}
-        .card-val {{
-            font-size: 24px;
-            font-weight: bold;
-            color: #f8fafc;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            background-color: #1e293b;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #334155;
-            margin-bottom: 25px;
-        }}
-        th, td {{
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #334155;
-        }}
-        th {{
-            background-color: #0f172a;
-            color: #38bdf8;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }}
-        tr:last-child td {{
-            border-bottom: none;
-        }}
-        .status-badge {{
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }}
-        .status-badge.hold {{
-            background-color: #475569;
-            color: #cbd5e1;
-        }}
-        .status-badge.active {{
-            background-color: #1d4ed8;
-            color: #ffffff;
-        }}
-        .status-badge.buy {{
-            background-color: #15803d;
-            color: #ffffff;
-        }}
-        .status-badge.sell {{
-            background-color: #b91c1c;
-            color: #ffffff;
-        }}
-        .time-text {{
-            font-size: 12px;
-            color: #64748b;
-            text-align: right;
-            margin-top: 10px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🤖 SCALPER BRAIN <span class="badge {'sim' if config.SIMULATION_MODE else ''}">{'SIMULATION MODE' if config.SIMULATION_MODE else 'MT5 LIVE/DEMO'}</span></h1>
-            <div style="text-align: right; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
-                <span class="status-badge active" style="background-color: #00ff00; color: #000000; font-family: monospace; font-weight: bold;">[ACTIVE] {timeline['active']}</span>
-                <span class="status-badge hold" style="background-color: #555555; color: #ffffff; font-family: monospace; font-weight: bold;">[CLOSED <= 4H] {timeline['previous']}</span>
-                <span class="status-badge active" style="background-color: #ff9900; color: #000000; font-family: monospace; font-weight: bold;">[UPCOMING] {timeline['next_session']}</span>
-            </div>
-        </header>
-
-        <div class="metrics-grid">
-            <div class="card">
-                <div class="card-label">Account Balance</div>
-                <div class="card-val">${balance:,.2f} USD</div>
-            </div>
-            <div class="card">
-                <div class="card-label">Account Equity</div>
-                <div class="card-val" style="color: #38bdf8;">${equity:,.2f} USD</div>
-            </div>
-            <div class="card">
-                <div class="card-label">Open Positions</div>
-                <div class="card-val">{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}</div>
-            </div>
-            <div class="card">
-                <div class="card-label">Active Market Session</div>
-                <div class="card-val" style="color: #eab308; font-size: 20px;">{self._get_current_session()}</div>
-            </div>
-            <div class="card">
-                <div class="card-label">Brain Performance Analytics</div>
-                <div class="card-val" style="font-size: 15px; color: #38bdf8;">
-                    Win Rate: {perf['win_rate']}% | Net Profit: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)
-                </div>
-            </div>
-        </div>
-
-        <h2 style="font-size: 18px; color: #38bdf8; margin-bottom: 15px;">🔍 Multi-Asset Cognitive Scan Summary</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Symbol</th>
-                    <th>Current Price</th>
-                    <th>EMA-200 (Trend)</th>
-                    <th>Trend Bias</th>
-                    <th>RSI Index</th>
-                    <th>ATR Volatility</th>
-                    <th>Input Weights (Avg)</th>
-                    <th>Output Weights (Avg)</th>
-                    <th>Neurons Activations</th>
-                    <th>Current Status</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-
-        for scan in scans:
-            status_badge_class = "hold"
-            if "ACTIVE" in scan['status']:
-                status_badge_class = "active"
-            elif "BUY" in scan['status'] or "Executing BUY" in scan['status']:
-                status_badge_class = "buy"
-            elif "SELL" in scan['status'] or "Executing SELL" in scan['status']:
-                status_badge_class = "sell"
-
-            html_content += f"""
-                <tr>
-                    <td style="font-weight: bold; color: #38bdf8;">{scan['symbol']}</td>
-                    <td>{scan['price']}</td>
-                    <td>{scan['ema200']}</td>
-                    <td>{scan['trend']}</td>
-                    <td>{scan['rsi']}</td>
-                    <td>{scan['atr']}</td>
-                    <td>{scan.get('avg_w_ih', 0.0):.4f}</td>
-                    <td>{scan.get('avg_w_ho', 0.0):.4f}</td>
-                    <td style="font-family: monospace; font-size: 12px; color: #eab308;">[{scan.get('hidden_activations', '0,0,0,0,0')}]</td>
-                    <td><span class="status-badge {status_badge_class}">{scan['status']}</span></td>
-                </tr>
-            """
-
-        html_content += f"""
-            </tbody>
-        </table>
-
-        <div class="time-text">
-            Last Updated: {current_time} (Dashboard auto-refreshes every 5 seconds)
-        </div>
-    </div>
-</body>
-</html>
-        """
-
-        try:
-            with open("dashboard.html", "w", encoding="utf-8") as f:
-                f.write(html_content)
-        except Exception as e:
-            print(f"Warning: Failed to write dashboard.html: {e}")
+        """Web dashboard removed. Native desktop dashboard and MT5 terminal platform maintained."""
+        pass
 
     def evaluate_symbol_worker(self, symbol, active_positions, current_equity, trading_available):
         """

@@ -269,29 +269,50 @@ def get_all_users():
 import time
 
 def _execute_with_retry(query, params=(), commit=True):
-    """Executes a database query with automatic retries on database lock operational errors."""
+    """Executes a database write query using connection context manager with automatic retries and exponential backoff."""
     max_retries = 5
     for attempt in range(max_retries):
         try:
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            if commit:
-                conn.commit()
-            conn.close()
-            return True
-        except sqlite3.OperationalError as e:
-            if "no such table" in str(e).lower():
-                init_db()
-                conn = get_connection()
+            with get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 if commit:
                     conn.commit()
-                conn.close()
+            return True
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                init_db()
+                with get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(query, params)
+                    if commit:
+                        conn.commit()
                 return True
             if "locked" in str(e).lower() and attempt < max_retries - 1:
-                time.sleep(0.2 * (attempt + 1))
+                time.sleep(0.1 * (2 ** attempt))
+            else:
+                raise e
+
+def _fetch_with_retry(query, params=(), fetch_all=True):
+    """Executes a database read query using connection context manager with automatic retries and exponential backoff."""
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                res = cursor.fetchall() if fetch_all else cursor.fetchone()
+            return res
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                init_db()
+                with get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(query, params)
+                    res = cursor.fetchall() if fetch_all else cursor.fetchone()
+                return res
+            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(0.1 * (2 ** attempt))
             else:
                 raise e
 
