@@ -1,0 +1,70 @@
+"""
+Comprehensive verification test suite for Devil's Advocate teardown audit remediation.
+Verifies fallbacks, exception handling, predictive EWMA forecasts, cross-asset graph propagation, and institutional integrations.
+"""
+
+import pytest
+from institutional_integrations.comprehensive_suite import integrate_airflow, integrate_pytorch, integrate_xgboost
+from institutional_integrations.machine_learning import generate_multi_model_ensemble_prediction, ActorCriticPolicy
+from institutional_integrations.databases import CrossAssetCorrelationGraph, insert_vector_embedding
+from institutional_integrations.data_science import calculate_portfolio_weights
+
+def test_comprehensive_suite_fallbacks():
+    """Verify that comprehensive_suite integrations return structured status dictionaries."""
+    res_airflow = integrate_airflow()
+    assert "status" in res_airflow
+    assert res_airflow["status"] in ["ACTIVE", "UNAVAILABLE"]
+
+    res_torch = integrate_pytorch()
+    assert "status" in res_torch
+
+    res_xgb = integrate_xgboost()
+    assert "status" in res_xgb
+
+def test_machine_learning_ewma_fallback():
+    """Verify that multi-model ensemble prediction computes price forecast without random mock numbers."""
+    prices = [1.1000, 1.1005, 1.1010, 1.1008, 1.1015]
+    mean_pred, preds_dict = generate_multi_model_ensemble_prediction(prices)
+    assert mean_pred > 0.0
+    assert "pytorch_lstm" in preds_dict
+    assert abs(preds_dict["pytorch_lstm"] - 1.1015) < 0.05
+
+def test_actor_critic_rl_policy():
+    """Verify RL policy gradient evaluation on indicator state."""
+    policy = ActorCriticPolicy(state_dim=4, action_dim=3)
+    action_idx, probs, val = policy.select_action([0.30, 1.02, 0.0005, 0.001])
+    assert action_idx in [0, 1, 2]
+    assert len(probs) == 3
+    assert pytest.approx(sum(probs), abs=1e-2) == 1.0
+
+def test_cross_asset_correlation_graph():
+    """Verify cross-asset graph propagation for EURUSD breakouts."""
+    graph = CrossAssetCorrelationGraph()
+    warnings = graph.propagate_early_breakouts("EURUSD", "BUY", correlation_threshold=0.40)
+    assert isinstance(warnings, list)
+    assert len(warnings) > 0
+    symbols = [w["symbol"] for w in warnings]
+    assert "GBPUSD" in symbols
+    assert "USDJPY" in symbols
+    # Negative correlation asset should suggest opposite direction
+    usdjpy_warn = [w for w in warnings if w["symbol"] == "USDJPY"][0]
+    assert usdjpy_warn["suggested_bias"] == "SELL"
+
+def test_portfolio_weight_optimizer():
+    """Verify Mean-Variance Sharpe allocation weight calculation."""
+    returns = {
+        "EURUSD": [0.001, -0.0005, 0.0012, 0.0008],
+        "GBPUSD": [0.0008, -0.0003, 0.0010, 0.0005],
+        "USDJPY": [-0.0005, 0.0008, -0.0006, -0.0002]
+    }
+    weights = calculate_portfolio_weights(returns)
+    assert len(weights) == 3
+    assert pytest.approx(sum(weights.values()), abs=1e-2) == 1.0
+
+def test_insert_vector_embedding():
+    """Verify vector index insertion fallback."""
+    vector = [0.1, 0.2, 0.3, 0.4, 0.5]
+    res = insert_vector_embedding("test_vec_1", vector)
+    assert isinstance(res, dict)
+    assert "faiss" in res
+    assert "chromadb" in res

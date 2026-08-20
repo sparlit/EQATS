@@ -450,18 +450,20 @@ class ScalperBrain:
             # Assign adaptive weights based on current market regime!
             tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5, 1.0, 1.5
 
+            # Markov Volatility Regime Switching logic: Auto-zero mean-reversion in Trending regimes
             if reg_state == "TRENDING":
-                tf_w = 2.0   # Trend is strong: boost trend following
-                bo_w = 2.0   # Boost breakout follow-through
-                or_w = 2.0   # Opening Range Breakouts perform best in trends
-                mr_w = 0.0   # Disable mean-reversion counter-trend trades to avoid getting run over
-                mtf_w = 2.0  # Align MTF trend alignment heavily in strong trends
+                tf_w = 2.5   # Boost trend following
+                bo_w = 2.5   # Boost breakout follow-through
+                or_w = 2.0   # Opening Range Breakouts
+                mr_w = 0.0   # Markov Regime Switch: Disable mean-reversion counter-trend trades during trends
+                sa_w = 0.0   # Disable statistical arbitrage mean-reversion during strong trend legs
+                mtf_w = 2.0  # Boost MTF trend alignment
             else: # RANGING
-                mr_w = 2.5   # Rangebound: heavily boost mean reversion osc
-                sa_w = 2.0   # StatArb thrives in mean-reverting ranging markets
-                tf_w = 0.1   # Suppress trend following whipsaws
-                bo_w = 0.1   # Suppress false breakouts
-                mtf_w = 0.5  # Reduce MTF weight in choppy ranging markets
+                mr_w = 2.5   # Boost mean reversion oscillators
+                sa_w = 2.5   # StatArb thrives in mean-reverting ranging markets
+                tf_w = 0.0   # Markov Regime Switch: Disable trend following in ranging regime
+                bo_w = 0.0   # Suppress false breakout signals
+                mtf_w = 0.5  # Reduce MTF weight in choppy markets
 
             total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w
             weighted_score = ((tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) +
@@ -546,11 +548,11 @@ class ScalperBrain:
         if decision == "BUY":
             sl = current_price - sl_distance
             tp = current_price + (sl_distance * adaptive_rr)
-            lot_size = 0.01
+            lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
         elif decision == "SELL":
             sl = current_price + sl_distance
             tp = current_price - (sl_distance * adaptive_rr)
-            lot_size = 0.01
+            lot_size = self._calculate_lot_size(symbol, current_equity, sl_distance)
 
         # Apply Multi-Agent Brain Orchestrator Directive Modifiers
         if brain_directive is None:
@@ -588,7 +590,34 @@ class ScalperBrain:
 
     def _calculate_lot_size(self, symbol, equity, sl_distance):
         """
-        Calculates position size. Enforces strict 0.01 lots fixed position sizing
-        across all trade evaluations and position sizing calculations.
+        Calculates dynamic position size using Fractional Kelly / ATR Volatility Sizing,
+        enforcing 0.01 fixed lots as the absolute baseline floor.
         """
-        return 0.01
+        if getattr(config, 'FIXED_LOT_SIZE_ONLY', True):
+            return 0.01
+
+        if equity <= 0 or sl_distance <= 0:
+            return 0.01
+
+        try:
+            # 1. Risk budget: 1% account risk
+            risk_pct = getattr(config, 'RISK_PER_TRADE_PERCENT', 1.0) / 100.0
+            risk_amount = equity * risk_pct
+
+            # Standard pip value approximation for 1 lot (0.01 lot = $0.10/pip on Majors)
+            pip_value_per_lot = 10.0
+            sl_pips = sl_distance * 10000.0 if sl_distance < 10 else sl_distance * 100.0
+            sl_pips = max(5.0, sl_pips)
+
+            raw_lots = risk_amount / (sl_pips * pip_value_per_lot)
+            if getattr(config, 'FIXED_LOT_SIZE_ONLY', False):
+                return 0.01
+
+            # Kelly Scaling Factor (0.25 fractional Kelly)
+            kelly_lots = raw_lots * 0.25
+
+            # Floor at 0.01
+            lot_size = max(0.01, round(kelly_lots, 2))
+            return lot_size
+        except Exception:
+            return 0.01

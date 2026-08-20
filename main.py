@@ -240,6 +240,25 @@ class AutonomousScalper:
             pip_size = 1.0
 
         spread_pips = spread / pip_size
+
+        # Dynamic Spread Volatility Spike Breaker: Track rolling average spread per symbol
+        if not hasattr(self, '_symbol_avg_spreads'):
+            self._symbol_avg_spreads = {}
+
+        sym_upper = symbol.upper()
+        if sym_upper not in self._symbol_avg_spreads:
+            self._symbol_avg_spreads[sym_upper] = [spread_pips]
+        else:
+            self._symbol_avg_spreads[sym_upper].append(spread_pips)
+            if len(self._symbol_avg_spreads[sym_upper]) > 20:
+                self._symbol_avg_spreads[sym_upper].pop(0)
+
+        avg_spread = sum(self._symbol_avg_spreads[sym_upper]) / len(self._symbol_avg_spreads[sym_upper])
+
+        # Check 2.5x rolling average spread spike breaker first
+        if len(self._symbol_avg_spreads[sym_upper]) >= 5 and spread_pips > (2.5 * avg_spread) and spread_pips > 3.0:
+            return False, f"Liquidity Filter (Spread Volatility Spike Breaker): Spread ({spread_pips:.1f} pips) exceeds 2.5x 20-period avg spread ({avg_spread:.1f} pips)."
+
         if spread_pips > config.MAX_SPREAD_PIPS:
             return False, f"Liquidity Filter: Spread is too wide ({spread_pips:.1f} pips > {config.MAX_SPREAD_PIPS:.1f} limit)."
 

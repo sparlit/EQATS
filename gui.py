@@ -1508,6 +1508,13 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
         self._update_dom_screen_data()
 
     def _update_dom_screen_data(self):
+        """Updates DOM screen data with 100ms debouncing/throttling for UI smooth rendering."""
+        import time
+        now = time.time()
+        if hasattr(self, "_last_dom_redraw_time") and (now - self._last_dom_redraw_time) < 0.10:
+            return
+        self._last_dom_redraw_time = now
+
         if not hasattr(self, "dom_tree") or not self.dom_tree: return
         self.dom_tree.delete(*self.dom_tree.get_children())
 
