@@ -181,3 +181,34 @@ def get_symbol_predictor(symbol):
     if sym_upper not in _predictor_registry:
         _predictor_registry[sym_upper] = NeuralNetworkPredictor()
     return _predictor_registry[sym_upper]
+
+
+def batch_predict_symbols_parallel(symbol_inputs_map):
+    """
+    Runs parallel multi-symbol neural network predictions across worker threads.
+    symbol_inputs_map: dict of { 'EURUSD': [x1, x2, x3, x4, x5, x6], ... }
+    Returns: dict of { 'EURUSD': bullish_probability_float, ... }
+    """
+    import concurrent.futures
+
+    def _predict_single(sym_and_inputs):
+        sym, inputs = sym_and_inputs
+        predictor = get_symbol_predictor(sym)
+        prob = predictor.predict(inputs)
+        return sym, prob
+
+    results = {}
+    if not symbol_inputs_map:
+        return results
+
+    max_workers = min(8, max(1, len(symbol_inputs_map)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_predict_single, item) for item in symbol_inputs_map.items()]
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                sym, prob = fut.result()
+                results[sym] = prob
+            except Exception as e:
+                print(f"Diagnostics: Parallel batch predict worker exception: {e}")
+
+    return results

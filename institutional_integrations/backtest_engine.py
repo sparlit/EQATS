@@ -110,25 +110,42 @@ class EventDrivenBacktester:
         }
 
     def walk_forward_optimization(self, historical_bars, param_grid=[(15, 30), (20, 40), (25, 50)]):
-        """Walk-forward optimization across parameter grids."""
+        """
+        Executes parallel walk-forward optimization across parameter grids
+        utilizing concurrent ThreadPoolExecutor worker pipelines.
+        """
+        import concurrent.futures
+
+        def dummy_strategy(bars):
+            closes = [b['close'] for b in bars]
+            if len(closes) >= 5:
+                if closes[-1] > closes[-5]:
+                    return 'BUY'
+                elif closes[-1] < closes[-5]:
+                    return 'SELL'
+            return 'HOLD'
+
+        def eval_param_pair(sl_tp):
+            sl, tp = sl_tp
+            res = self.run_backtest(historical_bars, dummy_strategy, sl_pips=sl, tp_pips=tp)
+            return (sl, tp), res
+
         best_sharpe = -999.0
         best_params = None
         best_results = None
 
-        def dummy_strategy(bars):
-            closes = [b['close'] for b in bars]
-            if closes[-1] > closes[-5]:
-                return 'BUY'
-            elif closes[-1] < closes[-5]:
-                return 'SELL'
-            return 'HOLD'
-
-        for sl, tp in param_grid:
-            res = self.run_backtest(historical_bars, dummy_strategy, sl_pips=sl, tp_pips=tp)
-            if res["sharpe_ratio"] > best_sharpe:
-                best_sharpe = res["sharpe_ratio"]
-                best_params = (sl, tp)
-                best_results = res
+        max_workers = min(8, max(1, len(param_grid)))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(eval_param_pair, pair) for pair in param_grid]
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    (sl, tp), res = fut.result()
+                    if res["sharpe_ratio"] > best_sharpe:
+                        best_sharpe = res["sharpe_ratio"]
+                        best_params = (sl, tp)
+                        best_results = res
+                except Exception as e:
+                    print(f"Diagnostics: Walk-forward parallel task failed: {e}")
 
         return {
             "best_params_sl_tp": best_params,
