@@ -30,7 +30,7 @@
     },
     "CREATOR": {
       "status": "COMPLETE",
-      "test_results": "64/64 PASSED (100% Green, 0 Warnings)"
+      "test_results": "64/64 PASSED (100% Green)"
     },
     "CRITIC": {
       "status": "COMPLETE",
