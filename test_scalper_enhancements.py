@@ -18,6 +18,23 @@ def teardown_module():
         except Exception:
             pass
 
+def test_normalize_leverage_helper():
+    """Verifies normalize_leverage helper handles raw numbers, 1:N format, invalid strings, and fallbacks."""
+    assert database.normalize_leverage("1:888") == "1:888"
+    assert database.normalize_leverage("888") == "1:888"
+    assert database.normalize_leverage("1:10000") == "1:10000"
+    assert database.normalize_leverage("500") == "1:500"
+    assert database.normalize_leverage("invalid") == "1:100"
+    assert database.normalize_leverage("") == "1:100"
+    assert database.normalize_leverage(None) == "1:100"
+
+def test_add_broker_account_leverage_normalization():
+    """Verifies add_broker_account normalizes unformatted leverage inputs before persisting to SQLite."""
+    database.init_db()
+    database.add_broker_account("Test Gateway", "ServerA", "12345", "pass", leverage="888", environment="Demo", is_active=1)
+    creds = database.get_broker_credentials()
+    assert creds["leverage"] == "1:888"
+
 def test_leverage_persistence_and_custom_options():
     """Verifies leverage selection persistence (1:1 to 1:3000 / 1:10000) in SQLite database."""
     database.init_db()
