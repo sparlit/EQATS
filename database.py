@@ -176,7 +176,7 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
         cursor.execute("""
-        INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
+        INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """, (
             "QUANT_OPERATOR",
@@ -191,7 +191,7 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM broker_credentials")
     if cursor.fetchone()[0] == 0:
         cursor.execute("""
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
+        INSERT OR IGNORE INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             "Primary MetaTrader Gateway",

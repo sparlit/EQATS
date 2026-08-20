@@ -67,6 +67,24 @@ class ScalperBrain:
         # --- Symbol-Specific Floating Loss Protection Gate & Pyramiding Gate ---
         try:
             open_trades = database.get_open_trades()
+
+            # Global concurrent trades check against config.MAX_CONCURRENT_TRADES
+            if len(open_trades) >= getattr(config, 'MAX_CONCURRENT_TRADES', 10):
+                msg = f"HOLD (Global Max Concurrent Trades Limit Reached: {len(open_trades)}/{getattr(config, 'MAX_CONCURRENT_TRADES', 10)})"
+                database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                return {
+                    'decision': 'HOLD',
+                    'lot_size': 0.0,
+                    'sl': 0.0,
+                    'tp': 0.0,
+                    'explanation': msg,
+                    'indicators': {
+                        'ema_long': round(ema_long, 5),
+                        'rsi': round(rsi_val, 2),
+                        'atr': round(atr_val, 5)
+                    }
+                }
+
             symbol_trades = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
             if symbol_trades:
                 any_loss = False
