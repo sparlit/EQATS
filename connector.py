@@ -5,8 +5,9 @@ import datetime
 import math
 import threading
 
-from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+import config
 import database
+from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
 
 class TradingConnector(abc.ABC):
     """
