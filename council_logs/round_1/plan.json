@@ -1,0 +1,54 @@
+{
+  "round": 1,
+  "role": "PLANNER",
+  "goal": "Execute Council Round 1: Perform full project autopsy, system re-architecture, parallel processing validation, documentation writing, and critic synthesis.",
+  "steps": [
+    {
+      "step_number": 1,
+      "name": "ANALYST: Full System Teardown & Issue Classification",
+      "description": "Perform forensic audit across code, logic, data flow, dependencies, and performance bottlenecks. Output structured analysis to council_logs/round_1/analysis.json.",
+      "acceptance_criteria": "JSON file exists in council_logs/round_1/analysis.json with categorized issues [CRITICAL, HIGH, MEDIUM, LOW], gap analysis, and risk mitigations."
+    },
+    {
+      "step_number": 2,
+      "name": "PLANNER: Create Action Plan & Acceptance Criteria",
+      "description": "Formulate execution steps, deliverables, break conditions, and verification criteria in plan.json.",
+      "acceptance_criteria": "plan.json and council_logs/round_1/plan.json created with step details and clear acceptance metrics."
+    },
+    {
+      "step_number": 3,
+      "name": "DESIGNER: Re-Architect System Structure & Multiprocessing Pipelines",
+      "description": "Document optimized folder hierarchy, data models, IPC protocols, multi-agent process pool execution, and risk invariants in design.md.",
+      "acceptance_criteria": "design.md and council_logs/round_1/design.md generated with ASCII architecture flow diagram and system data models."
+    },
+    {
+      "step_number": 4,
+      "name": "WRITER: Create Production Grade Documentation",
+      "description": "Write docs/ARCHITECTURE.md, docs/RUNBOOK.md, and docs/DEPLOYMENT.md covering 24x7 VPS operation, recovery procedures, and API references.",
+      "acceptance_criteria": "docs/ directory contains comprehensive Markdown guides for system architecture, operational runbook, and deployment."
+    },
+    {
+      "step_number": 5,
+      "name": "CREATOR: Code Verification & Test Execution",
+      "description": "Run Pytest test suite across all 64 unit and integration tests to ensure zero failures and zero regressions.",
+      "acceptance_criteria": "64/64 pytest cases pass with 100% green status."
+    },
+    {
+      "step_number": 6,
+      "name": "CRITIC: Code Review & Vulnerability Teardown",
+      "description": "Review codebase changes, document 3 potential flaws, and specify exact remediation strategies.",
+      "acceptance_criteria": "Critic report generated with 3 actionable improvements."
+    },
+    {
+      "step_number": 7,
+      "name": "SYNTHESIZER: Round Completion & Roadmap Updating",
+      "description": "Consolidate round deliverables, update TODO_TASKS.md, and output round_summary.json.",
+      "acceptance_criteria": "round_summary.json and council_logs/round_1/round_summary.json generated with status 'done'."
+    }
+  ],
+  "break_conditions": [
+    "User explicit 'STOP' command",
+    "Synthesizer sets 'status': 'done' in round_summary.json",
+    "Max 20 rounds reached"
+  ]
+}
