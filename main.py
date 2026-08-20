@@ -173,6 +173,7 @@ class AutonomousScalper:
                     success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
                     if success:
                         print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)")
+                        current_sl = target_sl
             elif direction == "SELL":
                 # 1. Breakeven Profit Lock: Move SL to Entry Price - spread buffer once 1.0x ATR / 1:1 RR is reached
                 be_sl = entry_price - spread_buffer
@@ -188,6 +189,7 @@ class AutonomousScalper:
                     success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
                     if success:
                         print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on SELL {symbol} (Ticket {ticket}) down to {target_sl:.5f} (Locked profits!)")
+                        current_sl = target_sl
 
     def _is_market_open_and_liquid(self, symbol, price_info):
         """
