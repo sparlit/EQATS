@@ -5,6 +5,7 @@ import institutional_integrations.trade_memory_protocol as tmp
 from institutional_integrations.drl_execution_agent import DRLExecutionPolicyAgent
 from institutional_integrations.portfolio_optimizer import BlackLittermanOptimizer
 from institutional_integrations.databases import QuestDBILPTickAdapter
+from institutional_integrations.web_api import SocketIPCBridge, TelemetryStreamServer
 
 def test_smc_ict_order_block_and_fvg_detection():
     # Build dummy bar series with bullish displacement
@@ -130,3 +131,13 @@ def test_questdb_ilp_tick_adapter():
     assert res["status"] in ["SUCCESS", "FALLBACK"]
     if res["status"] == "FALLBACK":
         assert res["buffer_size"] >= 1
+
+def test_socket_ipc_bridge_and_telemetry_stream():
+    ipc = SocketIPCBridge(port=15555)
+    push_res = ipc.push_state(10000.0, 10000.0, [], [], "London")
+    assert push_res["status"] == "PUSHED"
+
+    streamer = TelemetryStreamServer()
+    payload = streamer.build_telemetry_payload("2024-05-01 12:00:00", 10000.0, 10000.0, [], [], {"win_rate": 60.0, "net_profit": 500.0})
+    assert payload["account"]["equity"] == 10000.0
+    assert payload["account"]["win_rate"] == 60.0
