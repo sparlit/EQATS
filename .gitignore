@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
