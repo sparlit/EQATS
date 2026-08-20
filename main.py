@@ -891,12 +891,14 @@ class AutonomousScalper:
 
         # High-Performance Parallel processing bypassing the GIL using ProcessPoolExecutor falling back to ThreadPoolExecutor
         import concurrent.futures
+        import multiprocessing as mp
         pool_workers = min(12, max(1, len(active_symbols))) # Optimized for Performance hybrid cores (12 logical threads)
         parallel_success = False
 
         try:
-            # Attempt true parallel execution bypassing GIL via ProcessPoolExecutor
-            with concurrent.futures.ProcessPoolExecutor(max_workers=pool_workers) as executor:
+            # Use 'spawn' context to prevent multi-threaded fork deprecation warnings
+            ctx = mp.get_context('spawn')
+            with concurrent.futures.ProcessPoolExecutor(max_workers=pool_workers, mp_context=ctx) as executor:
                 future_to_symbol = {
                     executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
                     for symbol in active_symbols
