@@ -1,4 +1,4 @@
-10000.00|10000.00|0|Global 24-Hour Interbank Session|New York FX | São Paulo B3 | Mexican BMV | US NYSE/NASDAQ | CME Futures|Sydney FX (00:06:05) | Tokyo FX (01:06:05) | Sydney ASX (02:06:05)|Active Tracker
+10000.00|10000.00|0|Tokyo Session|US After-Hours|Frankfurt FX (01:03:23) | Dubai DFM (01:03:23) | London FX (02:03:23)|Active Tracker
 SCANS_HEADER
-EURUSD|1.13873|1.13845|UP|31.4|0.00290|Breakout Setup: Waiting for: Inside Squeeze Channel [1.13757 - 1.15397] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.2ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.23839|1.25563|DOWN|38.9|0.00296|Breakout Setup: Waiting for: Inside Squeeze Channel [1.23375 - 1.25360] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.2ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.14149|1.13839|UP|38.7|0.00314|Breakout Setup: Waiting for: Inside Squeeze Channel [1.13700 - 1.15397] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.4ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.23370|1.25536|DOWN|34.9|0.00333|Breakout Setup: Waiting for: Inside Squeeze Channel [1.23060 - 1.25360] | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.4ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
