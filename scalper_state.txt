@@ -1,4 +1,4 @@
-10000.00|10000.00|0|London + New York Overlap|Hong Kong FX | Singapore FX | Dubai DFM | Saudi Tadawul | US Pre-Market|Wellington FX (06:19:28) | US After-Hours (06:19:28) | Sydney FX (08:19:28)|Active Tracker
+10000.00|10000.00|0|London + New York Overlap|Hong Kong FX | Singapore FX | Dubai DFM | Saudi Tadawul | US Pre-Market|Wellington FX (05:57:00) | US After-Hours (05:57:00) | Sydney FX (07:57:00)|Active Tracker
 SCANS_HEADER
-EURUSD|1.07229|1.09208|DOWN|25.1|0.00290|Consensus SELL vetoed: AI predicts Bullish candle (66.67% acc). Score: -0.48 | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.0ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
-GBPUSD|1.29534|1.27592|UP|59.2|0.00327|Regime TRENDING (LOW) Voting: Neutral hold (Score: +0.22). AI Bias: BULLISH | Agentic Notes: Parallel Multi-Agent Sweep completed in 4.0ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+EURUSD|1.07229|1.09208|DOWN|25.1|0.00290|Consensus SELL vetoed: AI predicts Bullish candle (66.67% acc). Score: -0.48 | Agentic Notes: Parallel Multi-Agent Sweep completed in 3.7ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0
+GBPUSD|1.29534|1.27592|UP|59.2|0.00327|Regime TRENDING (LOW) Voting: Neutral hold (Score: +0.22). AI Bias: BULLISH | Agentic Notes: Parallel Multi-Agent Sweep completed in 3.7ms for EURUSD.; Optimal Style: SCALPING | Macro: NEUTRAL | WinRate: 0.0%|0.0|0.0|0.0|0,0,0,0,0

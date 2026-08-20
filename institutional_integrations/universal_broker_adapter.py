@@ -147,21 +147,29 @@ class UniversalBrokerGateway:
         }
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
-        """Executes trade order using active protocol route with socket 3.0s timeout guards and explicit exception diagnostics."""
+        """Executes trade order using active protocol route with retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
         if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, 'rest_url') and self.rest_url:
-            try:
-                import urllib.request
-                import socket
-                payload = json.dumps({"symbol": symbol, "side": order_type, "volume": lot_size, "sl": sl, "tp": tp}).encode('utf-8')
-                req = urllib.request.Request(f"{self.rest_url}/v1/order", data=payload, headers={'Content-Type': 'application/json'})
-                with urllib.request.urlopen(req, timeout=3.0) as resp:
-                    res_data = json.loads(resp.read().decode('utf-8'))
-                    return {'success': True, 'ticket': str(res_data.get("ticket", "REST_1001")), 'price': float(res_data.get("price", 0.0)), 'error': '', 'protocol': self.protocol}
-            except (socket.timeout, TimeoutError) as e:
-                print(f"Diagnostics: Universal Broker REST Gateway socket timeout (3.0s limit exceeded) for {symbol}: {e}")
-                return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Socket Timeout 3.0s: {e}"}
-            except Exception as e:
-                print(f"Diagnostics: Universal Broker REST Gateway order execution exception: {e}")
+            import urllib.request
+            import socket
+            payload = json.dumps({"symbol": symbol, "side": order_type, "volume": lot_size, "sl": sl, "tp": tp}).encode('utf-8')
+            req = urllib.request.Request(f"{self.rest_url}/v1/order", data=payload, headers={'Content-Type': 'application/json'})
+
+            max_attempts = 2
+            for attempt in range(max_attempts):
+                try:
+                    with urllib.request.urlopen(req, timeout=3.0) as resp:
+                        res_data = json.loads(resp.read().decode('utf-8'))
+                        return {'success': True, 'ticket': str(res_data.get("ticket", "REST_1001")), 'price': float(res_data.get("price", 0.0)), 'error': '', 'protocol': self.protocol}
+                except (socket.timeout, TimeoutError) as e:
+                    print(f"Diagnostics: Universal Broker REST Gateway socket timeout (attempt {attempt+1}/{max_attempts}) for {symbol}: {e}")
+                    if attempt < max_attempts - 1:
+                        time.sleep(0.2)
+                    else:
+                        return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Socket Timeout 3.0s: {e}"}
+                except Exception as e:
+                    print(f"Diagnostics: Universal Broker REST Gateway order execution exception (attempt {attempt+1}/{max_attempts}): {e}")
+                    if attempt < max_attempts - 1:
+                        time.sleep(0.2)
 
         if self.protocol == "FIX" and self.fix_engine:
             try:
