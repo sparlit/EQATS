@@ -144,11 +144,53 @@ def detect_liquidity_sweeps(highs, lows, closes, lookback=20):
         "ssl_level": recent_low
     }
 
+class FVGCacheEngine:
+    """Active Fair Value Gap Ring-Buffer Cache Engine."""
+    def __init__(self, max_capacity=50):
+        self.max_capacity = max_capacity
+        self.bullish_cache = []
+        self.bearish_cache = []
+        self.last_bar_count = 0
+
+    def update_incremental(self, highs, lows, closes):
+        """Incrementally checks for new FVGs or mitigations on bar close."""
+        if len(closes) < 3:
+            return
+
+        c1_h, c1_l = highs[-3], lows[-3]
+        c3_h, c3_l = highs[-1], lows[-1]
+
+        # Check Bullish FVG creation
+        if c3_l > c1_h:
+            gap = {"bottom": c1_h, "top": c3_l, "idx": len(closes)-1, "mitigated": False}
+            if not any(g["idx"] == gap["idx"] for g in self.bullish_cache):
+                self.bullish_cache.append(gap)
+
+        # Check Bearish FVG creation
+        if c1_l > c3_h:
+            gap = {"bottom": c3_h, "top": c1_l, "idx": len(closes)-1, "mitigated": False}
+            if not any(g["idx"] == gap["idx"] for g in self.bearish_cache):
+                self.bearish_cache.append(gap)
+
+        # Mitigate active gaps
+        curr_p = closes[-1]
+        for g in self.bullish_cache:
+            if curr_p <= g["bottom"]:
+                g["mitigated"] = True
+        for g in self.bearish_cache:
+            if curr_p >= g["top"]:
+                g["mitigated"] = True
+
+        # Ring buffer retention
+        self.bullish_cache = [g for g in self.bullish_cache if not g["mitigated"]][-self.max_capacity:]
+        self.bearish_cache = [g for g in self.bearish_cache if not g["mitigated"]][-self.max_capacity:]
+
 class SmartMoneyConceptsEngine:
     """Consolidated SMC/ICT Analysis Engine."""
 
     def __init__(self):
         self.engine_version = "3.0.0"
+        self.fvg_cache = FVGCacheEngine()
 
     def analyze(self, history_bars):
         """
