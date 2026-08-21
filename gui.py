@@ -3865,7 +3865,7 @@ Self-Healing Daemon Status:  RUNNING (QuantumSelfHealer active loop)
 Database File Size:          {db_size_kb:.2f} KB (Active transactions)
 CPU load allocation:         0.5% - 4.5% (High performance parallel GIL bypass)
 API REST Response Ping:      {random.randint(12, 35)}ms (High-speed simulation)
-MT5 State-Pipe Status:       Sync established ({config.MT5_COMMON_FILES_PATH}/scalper_state.txt)
+MT5 Socket IPC Status:       Push streaming active (SocketIPCBridge / WebSockets)
 ================================================================================
 """
         self.mon_text.insert(tk.END, mon_data)
