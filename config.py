@@ -1,6 +1,9 @@
 import os
+import logging
 
 # Configuration file for the Forex Scalper Bot
+
+_log = logging.getLogger("config")
 
 # 1. Operational Mode
 # Set to True for running in testing / paper trading simulation. Set to False for Windows MT5 integration.
@@ -100,8 +103,8 @@ if os.name == 'nt' and "APPDATA" in os.environ:
     try:
         os.makedirs(standard_mt5_common_path, exist_ok=True)
         MT5_COMMON_FILES_PATH = standard_mt5_common_path
-    except Exception:
-        pass
+    except Exception as e:
+        _log.debug("Cannot use standard MT5 common path %r, falling back to cwd: %s", standard_mt5_common_path, e)
 
 # 6. Telegram Notifications
 TELEGRAM_ENABLED = False

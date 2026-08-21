@@ -6,9 +6,12 @@ import time
 import datetime
 import os
 import random
+import logging
 import config
 import database
 import main
+
+_log = logging.getLogger("gui")
 
 class ScalperGui:
     """
@@ -2263,10 +2266,14 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             m_val = 1
             if tf.startswith("M"):
                 try: m_val = int(tf[1:])
-                except: m_val = 1
+                except Exception as e:
+                    _log.debug("Invalid minute timeframe %r, defaulting to 1: %s", tf, e)
+                    m_val = 1
             elif tf.startswith("H"):
                 try: m_val = int(tf[1:]) * 60
-                except: m_val = 60
+                except Exception as e:
+                    _log.debug("Invalid hour timeframe %r, defaulting to 60: %s", tf, e)
+                    m_val = 60
             elif tf.startswith("D"):
                 m_val = 1440
             elif tf.startswith("W"):

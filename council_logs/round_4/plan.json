@@ -1,0 +1,64 @@
+{
+  "round": 4,
+  "role": "PLANNER",
+  "timestamp": "2026-08-21T14:33:00+03:00",
+  "goal": "Round 4 — Post-Round-3 hardening: remediate MEDIUM/LOW issues, close documentation gaps, add WebSocket telemetry integration test, and add circuit-breaker resilience to retry paths.",
+  "steps": [
+    {
+      "step_number": 1,
+      "name": "Remediate M-001: bare except clauses in gui.py",
+      "description": "Replace bare except: in gui.py:2266-2275 with except Exception as e: logger.exception(e)",
+      "acceptance_criteria": "No bare except remains in gui.py; pytest 64/64 green"
+    },
+    {
+      "step_number": 2,
+      "name": "Remediate M-002: silent pass handlers",
+      "description": "Add logger.debug() to silent `pass` blocks in config.py, connector.py, database.py — only where a logger is in scope",
+      "acceptance_criteria": "Silent pass count reduced from 46 to <= 8 (those without an in-scope logger are left alone with a TODO)"
+    },
+    {
+      "step_number": 3,
+      "name": "Close gap: INSTITUTIONAL_INTEGRATIONS.md",
+      "description": "Document the 30 institutional integration modules by category with one-line purpose each",
+      "acceptance_criteria": "docs/INSTITUTIONAL_INTEGRATIONS.md exists, lists all 30 modules, < 200 lines"
+    },
+    {
+      "step_number": 4,
+      "name": "Close gap: WebSocket telemetry integration test",
+      "description": "Add test_websocket_telemetry.py covering the live WS server added in commit 8f62709",
+      "acceptance_criteria": "New test file collects >=1 test, pytest total >= 65 tests, all green"
+    },
+    {
+      "step_number": 5,
+      "name": "Close gap: Circuit breaker documentation",
+      "description": "Add CIRCUIT_BREAKER.md documenting when/where a future circuit breaker should sit on the retry paths",
+      "acceptance_criteria": "docs/CIRCUIT_BREAKER.md exists, < 100 lines, references gateway retry code"
+    },
+    {
+      "step_number": 6,
+      "name": "Cleanup L-001: gitignore Nuitka crash report",
+      "description": "Append *.xml (or specifically nuitka-crash-report.xml) to .gitignore and untrack the file",
+      "acceptance_criteria": "git status clean (no untracked .xml files)"
+    },
+    {
+      "step_number": 7,
+      "name": "Full test run + round summary",
+      "description": "Run pytest, write council_logs/round_4/round_summary.json, update main tracking issue with PR link",
+      "acceptance_criteria": "All tests green, round_summary.json status=done, commit made"
+    }
+  ],
+  "break_conditions": [
+    "User 'STOP' on Issue #1",
+    "Synthesizer sets status:done with all 7 success criteria met",
+    "current_round > 20"
+  ],
+  "success_criteria": [
+    "All 64+ tests pass",
+    "Zero bare except clauses remain in production code",
+    "All 30 institutional modules documented",
+    "WebSocket telemetry has an integration test",
+    "Circuit breaker pattern documented",
+    "Working tree clean of untracked build artifacts",
+    "Round 4 commit + PR opened on council-round-4 branch"
+  ]
+}

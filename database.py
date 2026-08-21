@@ -3,7 +3,10 @@ import datetime
 import hashlib
 import hmac
 import base64
+import logging
 import config
+
+_log = logging.getLogger("database")
 
 def hash_credential(secret_text, salt="EAQTS_SOVEREIGN_SALT_2026"):
     """Generates a salt-based SHA-256 cryptographic digest for passwords and PINs."""
@@ -157,38 +160,22 @@ def init_db():
     """)
 
     # Alter table if existing schema lacks new multi-broker columns
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN api_key TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
+    _SCHEMA_ALTERS = [
+        ("ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'", "broker_name"),
+        ("ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'", "environment"),
+        ("ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1", "is_active"),
+        ("ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'", "protocol_type"),
+        ("ALTER TABLE broker_credentials ADD COLUMN api_key TEXT DEFAULT ''", "api_key"),
+        ("ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''", "api_secret"),
+        ("ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''", "rest_url"),
+        ("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''", "ws_url"),
+    ]
+    for _sql, _col in _SCHEMA_ALTERS:
+        try:
+            cursor.execute(_sql)
+        except sqlite3.OperationalError:
+            # Column already exists — expected when migrating existing DBs
+            _log.debug("Schema column %s already present, skipping.", _col)
 
     # Prepopulate default admin operator account if empty
     cursor.execute("SELECT COUNT(*) FROM users")
