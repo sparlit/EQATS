@@ -1,27 +1,24 @@
-import pytest
-import config
-import connector
 import brain
+import connector
+import database
 from brain_agents_orchestrator import (
+    AgenticBrainsOrchestrator,
+    AnalystBrainAgent,
     BrainAgentContext,
     BrainOrchestratorDirective,
-    ResearchBrainAgent,
-    AnalystBrainAgent,
-    PredictionBrainAgent,
-    ScalpingMethodAgent,
     DayTradingMethodAgent,
-    SwingTradingMethodAgent,
-    PositionTradingMethodAgent,
-    TrendFollowingStrategyAgent,
+    LotManagementBrainAgent,
     MeanReversionStrategyAgent,
     MtfConfluenceStrategyAgent,
+    PositionTradingMethodAgent,
+    PredictionBrainAgent,
+    ResearchBrainAgent,
     RiskAssessmentBrainAgent,
-    LotManagementBrainAgent,
-    AgenticBrainsOrchestrator,
-    global_brain_orchestrator
+    ScalpingMethodAgent,
+    SwingTradingMethodAgent,
+    TrendFollowingStrategyAgent,
 )
 
-import database
 
 class DummyScalper:
     def __init__(self):

@@ -7,6 +7,7 @@ calculates rolling accuracy, and adjusts its weights via backpropagation.
 import math
 import random
 
+
 class NeuralNetworkPredictor:
     """
     Lightweight, high-performance Multi-Layer Perceptron (MLP) Neural Network.

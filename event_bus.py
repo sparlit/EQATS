@@ -1,7 +1,8 @@
 import datetime
-import uuid
 import hashlib
 import json
+import uuid
+
 
 class Event:
     """

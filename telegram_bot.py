@@ -1,7 +1,9 @@
-import urllib.request
-import urllib.parse
 import json
+import urllib.parse
+import urllib.request
+
 import config
+
 
 def send_telegram_message(message):
     """

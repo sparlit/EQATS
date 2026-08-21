@@ -36,5 +36,5 @@ python -c "import database_infrastructure; database_infrastructure.DatabaseInfra
 ### Telemetry & Diagnostics
 Check live system diagnostic logs:
 ```bash
-tail -f scalper_state.txt
+python3 institutional_integrations/web_api.py
 ```

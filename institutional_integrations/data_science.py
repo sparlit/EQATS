@@ -4,7 +4,6 @@ Integrates NumPy, Pandas, Polars, Vaex, Dask, JAX, Statsmodels, and Pingouin.
 Implements Markowitz Efficient Frontier Mean-Variance Portfolio Optimization.
 """
 
-import math
 
 def calculate_portfolio_weights(returns_dict):
     """
@@ -73,8 +72,8 @@ def perform_statistical_pingouin_test(returns_a, returns_b):
     Performs standard parametric t-test between two return streams using Pingouin.
     """
     try:
-        import pingouin as pg
         import pandas as pd
+        import pingouin as pg
         df = pd.DataFrame({"A": returns_a, "B": returns_b})
         res = pg.ttest(df["A"], df["B"])
         return {

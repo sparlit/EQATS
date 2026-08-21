@@ -5,11 +5,8 @@ calculates Maximum Favorable Excursion (MFE) / Maximum Adverse Excursion (MAE),
 computes trade efficiency scores, and updates AI Brain Agent memory buffers.
 """
 
-import time
 import datetime
-import math
-import database
-import config
+
 
 class TradeMemoryReflectionProtocol:
     """Manages trade reflections, post-mortems, and cognitive memory buffers."""

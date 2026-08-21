@@ -1,8 +1,9 @@
-import time
 import datetime
-import database
+
 import config
-from event_bus import global_event_bus, Event
+import database
+from event_bus import Event, global_event_bus
+
 
 class TradingSystemSupervisorAgent:
     """
@@ -137,7 +138,7 @@ class TradingSystemSupervisorAgent:
                 model_deductions += 20.0
                 interventions.append(f"Model win-rate degraded to {win_rate}%. Downscaling trade risk fractions.")
 
-        except Exception as e:
+        except Exception:
             model_deductions += 10.0
 
         self.model_health = max(0.0, 100.0 - model_deductions)

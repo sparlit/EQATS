@@ -6,6 +6,7 @@ and mean-reversion long/short pairs signals across correlated assets.
 
 import math
 
+
 def run_johansen_cointegration_test(pair_a_prices, pair_b_prices):
     """
     Computes statistical co-integration test between two price series.
