@@ -23,7 +23,7 @@ This document provides a highly-detailed, state-of-the-art visual flowchart and 
                                                 │ Real-Time / Historical Rates
                                                 ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        ELITE AUTONOMOUS QUANTUM TRADING SYSTEM                         │
+│                         ELITE QUANTUM AUTONOMOUS TRADING SYSTEM                        │
 │                                                                                        │
 │  [CORE ORCHESTRATOR] — tick_and_execute() Loop (Every config.CHECK_INTERVAL_SECONDS)    │
 │                                                                                        │

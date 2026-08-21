@@ -1,8 +1,8 @@
-# Operations Dashboard Guide — EQATS Quantum Terminal (`gui.py`)
+# Operations Dashboard Guide — EQATS Quantum Terminal (`gui.py`) — EAQTS Version 6.0
 
 ## Overview
 
-The `gui.py` desktop GUI is the primary operational command terminal for the **Elite Quantum Autonomous Trading System (EAQTS / EQATS)**. Built in Tkinter, it provides a 6,419 LOC multi-sheet desktop interface for real-time market monitoring, algorithmic strategy selection, neural network telemetry, risk controls, and emergency manual overrides.
+The `gui.py` desktop GUI is the primary operational command terminal for the **Elite Quantum Autonomous Trading System (EAQTS / EQATS Version 6.0)**. Built in Tkinter, it provides a multi-sheet desktop interface for real-time market monitoring, algorithmic strategy selection, neural network telemetry, risk controls, and emergency manual overrides.
 
 ```
 +-------------------------------------------------------------------------------+

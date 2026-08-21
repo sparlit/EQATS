@@ -34,7 +34,7 @@ class ScalperGui:
         except Exception as e:
             print(f"Warning: Database initialization error: {e}")
 
-        self.root.title("ELITE AUTONOMOUS QUANTUM TRADING SYSTEM - QUANTUM TERMINAL")
+        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM - QUANTUM TERMINAL")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
 
@@ -77,35 +77,7 @@ class ScalperGui:
         # Historical price tracking for GP screen (rolling 30 points)
         self.price_history_gp = []
 
-        # Simulated macroeconomic indices data for WEI screen
-        self.wei_data = {
-            "DXY": {"name": "US DOLLAR INDEX", "last": 104.250, "change": 0.120, "pct": 0.12},
-            "EXY": {"name": "EURO FX INDEX", "last": 108.400, "change": -0.080, "pct": -0.07},
-            "JXY": {"name": "YEN FX INDEX", "last": 64.120, "change": -0.220, "pct": -0.34},
-            "BXY": {"name": "POUND FX INDEX", "last": 126.850, "change": 0.050, "pct": 0.04},
-            "SPX": {"name": "S&P 500 INDEX", "last": 5117.20, "change": 14.50, "pct": 0.28},
-            "CCMP": {"name": "NASDAQ COMPOSITE", "last": 16082.30, "change": 85.10, "pct": 0.53},
-            "GC1": {"name": "GOLD FUTURES COMEX", "last": 2032.40, "change": 11.20, "pct": 0.55},
-            "BTCUSD": {"name": "BITCOIN SPOT INDEX", "last": 62140.00, "change": 845.00, "pct": 1.38},
-            "ETHUSD": {"name": "ETHEREUM SPOT INDEX", "last": 3425.50, "change": -12.40, "pct": -0.36}
-        }
-
-        # News feed stories for NEWS screen
-        self.news_stories = [
-            {"time": "14:32:10", "headline": "FED HOLDS RATES CONSTANT; HINTS AT DELAYED RATE DECREASES", "source": "EAQTS", "sentiment": "NEUTRAL"},
-            {"time": "14:28:45", "headline": "EUROPEAN CENTRAL BANK SIGNALS RATE PEAK HAS LIKELY PASSED", "source": "EAQTS", "sentiment": "BULLISH"},
-            {"time": "14:15:20", "headline": "MIDDLE-EAST TENSIONS FLARE; SAUDI OIL FLOWS UNINTERRUPTED FOR NOW", "source": "DJ", "sentiment": "BEARISH"},
-            {"time": "13:58:00", "headline": "BANK OF JAPAN STICKING TO ULTRA-LOOSE MONETARY STANCE", "source": "EAQTS", "sentiment": "BEARISH"},
-            {"time": "13:42:15", "headline": "US CORE CPI MOM RISES 0.3% HIGHER THAN FORECASTS; YIELDS SPIKE", "source": "EAQTS", "sentiment": "BEARISH"},
-            {"time": "13:20:00", "headline": "SEC OFFICIALLY APPROVES SPOT ETHEREUM ETFS IN UNEXPECTED REVERSAL", "source": "EAQTS", "sentiment": "BULLISH"}
-        ]
-
-        # Prepopulate the database with initial headlines
-        try:
-            for story in self.news_stories:
-                database.log_news_headline(story["headline"], story["sentiment"])
-        except Exception as e:
-            print(f"Warning: Failed to prepopulate database news: {e}")
+        # Dynamic market & news feed states managed via active connector and database
 
         # Build UI layout
         self._build_header()
@@ -718,7 +690,7 @@ class ScalperGui:
 
         lbl_header_title = tk.Label(
             header_frame,
-            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v3.0 / v5.0)",
+            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)",
             font=("Consolas", 15, "bold"),
             bg="#030712",
             fg="#00ffcc"
@@ -1356,7 +1328,7 @@ class ScalperGui:
         sb.config(command=text_widget.yview)
 
         help_content = """================================================================================
-          ELITE AUTONOMOUS QUANTUM TRADING SYSTEM (EAQTS VERSION 5.0)
+          ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
                COMPLETE OPERATIONAL DIRECTORY & COMMAND MANUAL
 ================================================================================
 
@@ -6244,27 +6216,49 @@ SECURITY DOMAINS ENFORCED:
 
         self.wei_tree.delete(*self.wei_tree.get_children())
 
-        # Bind top active Majors to real-time rates directly from connector!
-        majors = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "BTCUSD"]
-        for symbol in majors:
+        # Fetch live market pricing across all configured instruments and external rates
+        from institutional_integrations.web_api import fetch_yfinance_external_rates
+        ext_rates = fetch_yfinance_external_rates()
+
+        macro_assets = [
+            ("DXY", "US DOLLAR INDEX"),
+            ("SPX", "S&P 500 INDEX"),
+            ("EURUSD", "EURO SPOT FX"),
+            ("GBPUSD", "POUND SPOT FX"),
+            ("USDJPY", "YEN SPOT FX"),
+            ("AUDUSD", "Aussie SPOT FX"),
+            ("USDCAD", "Loonie SPOT FX"),
+            ("XAUUSD", "GOLD BULLION SPOT"),
+            ("BTCUSD", "BITCOIN SPOT INDEX"),
+            ("ETHUSD", "ETHEREUM SPOT INDEX")
+        ]
+
+        for symbol, name in macro_assets:
             try:
                 price_info = self.scalper.conn.get_current_price(symbol)
-                last_price = price_info["bid"]
-                # Compute daily change relative to a simulated previous close
-                change = price_info["bid"] - price_info["ask"] # actual spread
-                pct = (change / last_price) * 100.0 if last_price > 0 else 0.0
+                last_price = price_info.get("bid", 0.0)
 
-                color_tag = "green" if change >= 0 else "red"
-                self.wei_tree.insert("", tk.END, values=(
-                    symbol,
-                    f"{symbol} Major FX",
-                    f"{last_price:,.5f}" if last_price < 100 else f"{last_price:,.2f}",
-                    f"{change:+.5f}" if last_price < 100 else f"{change:+.2f}",
-                    f"{pct:+.4f}%",
-                    "OPEN"
-                ), tags=(color_tag,))
-            except Exception:
-                pass
+                # Fallback to external rates if connector price is uninitialized
+                if last_price <= 0 and symbol in ext_rates:
+                    last_price = ext_rates[symbol]
+
+                if last_price > 0:
+                    history = self.scalper.conn.get_history(symbol, 5)
+                    prev_close = history[0]["close"] if history else (last_price * 0.999)
+                    change = last_price - prev_close
+                    pct = (change / prev_close) * 100.0 if prev_close > 0 else 0.0
+
+                    color_tag = "green" if change >= 0 else "red"
+                    self.wei_tree.insert("", tk.END, values=(
+                        symbol,
+                        name,
+                        f"{last_price:,.5f}" if last_price < 100 else f"{last_price:,.2f}",
+                        f"{change:+.5f}" if last_price < 100 else f"{change:+.2f}",
+                        f"{pct:+.2f}%",
+                        "LIVE"
+                    ), tags=(color_tag,))
+            except Exception as e:
+                _log.debug("WEI screen update error for %s: %s", symbol, e)
 
         self.wei_tree.tag_configure("green", foreground=self.fg_green)
         self.wei_tree.tag_configure("red", foreground=self.fg_red)

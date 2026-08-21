@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Scalper Brain"
 #property link      "https://github.com/scalper"
-#property version   "3.00"
+#property version   "6.00"
 #property description "Autonomous Scalper Brain EA - Zero-Latency Socket IPC & On-Chart Interactive HUD"
 #property indicator_chart_window
 
