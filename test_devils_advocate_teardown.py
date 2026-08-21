@@ -4,10 +4,22 @@ Verifies fallbacks, exception handling, predictive EWMA forecasts, cross-asset g
 """
 
 import pytest
-from institutional_integrations.comprehensive_suite import integrate_airflow, integrate_pytorch, integrate_xgboost
-from institutional_integrations.machine_learning import generate_multi_model_ensemble_prediction, ActorCriticPolicy
-from institutional_integrations.databases import CrossAssetCorrelationGraph, insert_vector_embedding
+
+from institutional_integrations.comprehensive_suite import (
+    integrate_airflow,
+    integrate_pytorch,
+    integrate_xgboost,
+)
 from institutional_integrations.data_science import calculate_portfolio_weights
+from institutional_integrations.databases import (
+    CrossAssetCorrelationGraph,
+    insert_vector_embedding,
+)
+from institutional_integrations.machine_learning import (
+    ActorCriticPolicy,
+    generate_multi_model_ensemble_prediction,
+)
+
 
 def test_comprehensive_suite_fallbacks():
     """Verify that comprehensive_suite integrations return structured status dictionaries."""

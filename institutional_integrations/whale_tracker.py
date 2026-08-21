@@ -4,8 +4,9 @@ Parses large wallet transfers (whale transfers), exchange net inflows/outflows,
 derivative funding rates, and liquidation heatmaps.
 """
 
-import time
 import random
+import time
+
 
 class WhaleLiquidityTracker:
     """Tracks on-chain whale activity, funding rates, and liquidation pools."""

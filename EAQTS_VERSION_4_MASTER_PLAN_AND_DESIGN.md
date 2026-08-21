@@ -1,4 +1,4 @@
-# ELITE AUTONOMOUS QUANTUM TRADING SYSTEM
+# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM
 ## EAQTS VERSION 4.0
 ### Master Architecture, Engineering, AI, Trading, Risk, Execution, Data, Security, Validation and Autonomous Evolution Specification & System Audit
 

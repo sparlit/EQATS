@@ -3,10 +3,10 @@ Institutional Database, Vector Index, and QuestDB Time Series Core.
 Integrates SQLAlchemy, DuckDB, QuestDB ILP, TinyDB, Neo4j, Pinecone, ChromaDB, FAISS, and PySpark/Hadoop.
 """
 
-import os
 import socket
 import time
 from collections import deque
+
 
 class QuestDBILPTickAdapter:
     """
@@ -126,6 +126,7 @@ def query_high_speed_analytical_duckdb(sql_query):
     """
     try:
         import duckdb
+
         import config
         # DuckDB can connect directly and query SQLite databases incredibly quickly!
         conn = duckdb.connect()
@@ -145,8 +146,8 @@ def insert_vector_embedding(vector_id, float_vector):
     indexed = {"faiss": False, "chromadb": False}
 
     try:
-        import numpy as np
         import faiss
+        import numpy as np
 
         # Initialize a flat L2 index for 5-dimensional hidden layer activations
         d = len(float_vector)

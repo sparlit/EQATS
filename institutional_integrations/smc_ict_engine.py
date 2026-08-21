@@ -4,7 +4,6 @@ Analyzes Order Blocks (OB), Fair Value Gaps (FVG), Market Structure Shifts (MSS 
 and Liquidity Sweeps (BSL / SSL) with 0% mock stubs.
 """
 
-import math
 
 def detect_order_blocks(opens, highs, lows, closes, lookback=30):
     """

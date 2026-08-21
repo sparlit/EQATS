@@ -4,7 +4,6 @@ Constructs Directed Acyclic Graphs (DAGs) and computes Pearl's Do-Calculus causa
 to filter out spurious statistical correlations from macroeconomic drivers.
 """
 
-import math
 
 class CausalInferenceEngine:
     """Causal DAG builder and Pearl Do-Calculus intervention solver."""

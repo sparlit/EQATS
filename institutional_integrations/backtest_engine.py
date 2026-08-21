@@ -5,7 +5,7 @@ and generates performance metrics (Sharpe Ratio, Sortino, Profit Factor, Max Dra
 """
 
 import math
-import random
+
 
 class EventDrivenBacktester:
     """Event-driven historical backtester and walk-forward optimizer."""

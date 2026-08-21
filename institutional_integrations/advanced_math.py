@@ -5,6 +5,7 @@ Integrates QuantLib, PyMC3, and PyStan.
 
 import math
 
+
 def calculate_markov_regime_switching_probability(prices):
     """
     Implements a statistical Markov-Switching Autoregressive (MSAR) Volatility Regime Model.
