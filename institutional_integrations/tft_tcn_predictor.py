@@ -6,6 +6,7 @@ Provides deep multi-horizon forecasting pipelines and dilated causal convolution
 import math
 import random
 
+
 class TemporalFusionTransformer:
     """Simulated Temporal Fusion Transformer for multi-horizon price forecasting."""
 

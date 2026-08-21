@@ -1,10 +1,11 @@
-import pytest
 import os
 import time
+
+import brain
 import config
 import database
-import brain
 import main
+
 
 def setup_module():
     config.DB_PATH = "test_scalper_enhancements.db"

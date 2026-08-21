@@ -1,4 +1,4 @@
-# TODO LIST: ELITE AUTONOMOUS QUANTUM TRADING SYSTEM (EAQTS v5.0)
+# TODO LIST: ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
 
 This document tracks all completed core system features, Devil's Advocate teardown audit remediations, code refactorings, multiprocessing pipelines, and open strategic roadmap tasks for institutional hedge-fund scale deployment.
 

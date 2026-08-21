@@ -1,9 +1,21 @@
-import pytest
-from institutional_integrations.cointegration_pairs import run_johansen_cointegration_test, calculate_z_score_spread, evaluate_pairs_arbitrage_signal
-from institutional_integrations.order_flow_imbalance import calculate_vpin, detect_bid_ask_imbalance, predict_short_term_book_pressure
-from institutional_integrations.options_gex_engine import compute_black_scholes_greeks, calculate_aggregate_gex, detect_gamma_flip_level
 from institutional_integrations.causal_inference_engine import CausalInferenceEngine
+from institutional_integrations.cointegration_pairs import (
+    calculate_z_score_spread,
+    evaluate_pairs_arbitrage_signal,
+    run_johansen_cointegration_test,
+)
+from institutional_integrations.options_gex_engine import (
+    calculate_aggregate_gex,
+    compute_black_scholes_greeks,
+    detect_gamma_flip_level,
+)
+from institutional_integrations.order_flow_imbalance import (
+    calculate_vpin,
+    detect_bid_ask_imbalance,
+    predict_short_term_book_pressure,
+)
 from institutional_integrations.spatial_supply_chain import SpatialSupplyChainAnalytics
+
 
 def test_cointegration_and_stat_arb():
     prices_a = [1.1000 + i*0.0005 for i in range(30)]

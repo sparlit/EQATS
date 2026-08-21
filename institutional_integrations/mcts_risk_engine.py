@@ -7,8 +7,6 @@ Evaluates portfolio survival, drawdown limits, and margin buffers across histori
 - 2023 SVB Bank Run Crisis (-10% Credit / Crypto Squeeze)
 """
 
-import math
-import random
 
 class BlackSwanStressEngine:
     """Simulates severe tail risk scenarios and stress tests portfolio equity."""

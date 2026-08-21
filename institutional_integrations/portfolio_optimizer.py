@@ -4,7 +4,6 @@ Combines market equilibrium returns with AI Brain directional views, uncertainty
 and quadratic constraints to solve for optimal portfolio weights across asset baskets.
 """
 
-import math
 
 class BlackLittermanOptimizer:
     """Bayesian Black-Litterman Portfolio Asset Allocator."""
@@ -79,7 +78,6 @@ class BlackLittermanOptimizer:
 
         # Try Qiskit QAOA solver if installed, otherwise run simulated state-vector annealing
         try:
-            import numpy as np
             # Simulate QAOA gamma/beta parameter energy minimization
             costs = []
             gamma = 0.5

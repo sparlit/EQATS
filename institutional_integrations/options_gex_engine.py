@@ -6,6 +6,7 @@ and Zero-Gamma flip levels across strike prices.
 
 import math
 
+
 def compute_black_scholes_greeks(spot, strike, tte_years, rate=0.04, iv=0.20, option_type="CALL"):
     """Calculates Black-Scholes NPV, Delta, Gamma, Vega, Theta, and Rho."""
     if tte_years <= 0 or iv <= 0:

@@ -5,8 +5,7 @@ to minimize market impact and execution slippage across ECN venues.
 """
 
 import math
-import random
-import time
+
 
 class ExecutionSlicer:
     """Institutional execution slicing algorithms manager."""
