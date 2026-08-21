@@ -5,6 +5,7 @@ and Liquidity Sweeps (BSL / SSL) with 0% mock stubs.
 """
 
 
+
 def detect_order_blocks(opens, highs, lows, closes, lookback=30):
     """
     Detects institutional Order Blocks (OB).
@@ -20,33 +21,33 @@ def detect_order_blocks(opens, highs, lows, closes, lookback=30):
 
     for i in range(start_idx + 2, len(closes) - 1):
         # Displacement check: current move is >= 1.5x average candle body
-        avg_body = sum(abs(closes[j] - opens[j]) for j in range(max(0, i - 10), i)) / 10.0
+        avg_body = (
+            sum(abs(closes[j] - opens[j]) for j in range(max(0, i - 10), i)) / 10.0
+        )
         curr_body = abs(closes[i] - opens[i])
 
         if curr_body >= avg_body * 1.5:
             # Bullish displacement
-            if closes[i] > opens[i] and closes[i-1] < opens[i-1]:
+            if closes[i] > opens[i] and closes[i - 1] < opens[i - 1]:
                 bullish_ob = {
-                    "high": highs[i-1],
-                    "low": lows[i-1],
-                    "open": opens[i-1],
-                    "close": closes[i-1],
-                    "idx": i-1
+                    "high": highs[i - 1],
+                    "low": lows[i - 1],
+                    "open": opens[i - 1],
+                    "close": closes[i - 1],
+                    "idx": i - 1,
                 }
             # Bearish displacement
-            elif closes[i] < opens[i] and closes[i-1] > opens[i-1]:
+            elif closes[i] < opens[i] and closes[i - 1] > opens[i - 1]:
                 bearish_ob = {
-                    "high": highs[i-1],
-                    "low": lows[i-1],
-                    "open": opens[i-1],
-                    "close": closes[i-1],
-                    "idx": i-1
+                    "high": highs[i - 1],
+                    "low": lows[i - 1],
+                    "open": opens[i - 1],
+                    "close": closes[i - 1],
+                    "idx": i - 1,
                 }
 
-    return {
-        "bullish_ob": bullish_ob,
-        "bearish_ob": bearish_ob
-    }
+    return {"bullish_ob": bullish_ob, "bearish_ob": bearish_ob}
+
 
 def detect_fair_value_gaps(highs, lows, closes, lookback=20):
     """
@@ -62,34 +63,26 @@ def detect_fair_value_gaps(highs, lows, closes, lookback=20):
     bearish_fvgs = []
 
     for i in range(start_idx, len(closes)):
-        c1_high = highs[i-2]
-        c1_low = lows[i-2]
+        c1_high = highs[i - 2]
+        c1_low = lows[i - 2]
         c3_high = highs[i]
         c3_low = lows[i]
 
         # Bullish FVG
         if c3_low > c1_high:
             gap_size = c3_low - c1_high
-            bullish_fvgs.append({
-                "bottom": c1_high,
-                "top": c3_low,
-                "size": gap_size,
-                "idx": i
-            })
+            bullish_fvgs.append(
+                {"bottom": c1_high, "top": c3_low, "size": gap_size, "idx": i}
+            )
         # Bearish FVG
         elif c1_low > c3_high:
             gap_size = c1_low - c3_high
-            bearish_fvgs.append({
-                "bottom": c3_high,
-                "top": c1_low,
-                "size": gap_size,
-                "idx": i
-            })
+            bearish_fvgs.append(
+                {"bottom": c3_high, "top": c1_low, "size": gap_size, "idx": i}
+            )
 
-    return {
-        "bullish_fvgs": bullish_fvgs[-3:],
-        "bearish_fvgs": bearish_fvgs[-3:]
-    }
+    return {"bullish_fvgs": bullish_fvgs[-3:], "bearish_fvgs": bearish_fvgs[-3:]}
+
 
 def detect_market_structure_shift(highs, lows, closes, lookback=30):
     """
@@ -117,6 +110,7 @@ def detect_market_structure_shift(highs, lows, closes, lookback=30):
 
     return {"mss_status": "NEUTRAL", "break_level": None}
 
+
 def detect_liquidity_sweeps(highs, lows, closes, lookback=20):
     """
     Detects Buy-Side Liquidity (BSL) and Sell-Side Liquidity (SSL) sweeps.
@@ -140,11 +134,13 @@ def detect_liquidity_sweeps(highs, lows, closes, lookback=20):
         "bsl_sweep": bsl_sweep,
         "ssl_sweep": ssl_sweep,
         "bsl_level": recent_high,
-        "ssl_level": recent_low
+        "ssl_level": recent_low,
     }
+
 
 class FVGCacheEngine:
     """Active Fair Value Gap Ring-Buffer Cache Engine."""
+
     def __init__(self, max_capacity=50):
         self.max_capacity = max_capacity
         self.bullish_cache = []
@@ -161,13 +157,23 @@ class FVGCacheEngine:
 
         # Check Bullish FVG creation
         if c3_l > c1_h:
-            gap = {"bottom": c1_h, "top": c3_l, "idx": len(closes)-1, "mitigated": False}
+            gap = {
+                "bottom": c1_h,
+                "top": c3_l,
+                "idx": len(closes) - 1,
+                "mitigated": False,
+            }
             if not any(g["idx"] == gap["idx"] for g in self.bullish_cache):
                 self.bullish_cache.append(gap)
 
         # Check Bearish FVG creation
         if c1_l > c3_h:
-            gap = {"bottom": c3_h, "top": c1_l, "idx": len(closes)-1, "mitigated": False}
+            gap = {
+                "bottom": c3_h,
+                "top": c1_l,
+                "idx": len(closes) - 1,
+                "mitigated": False,
+            }
             if not any(g["idx"] == gap["idx"] for g in self.bearish_cache):
                 self.bearish_cache.append(gap)
 
@@ -181,8 +187,13 @@ class FVGCacheEngine:
                 g["mitigated"] = True
 
         # Ring buffer retention
-        self.bullish_cache = [g for g in self.bullish_cache if not g["mitigated"]][-self.max_capacity:]
-        self.bearish_cache = [g for g in self.bearish_cache if not g["mitigated"]][-self.max_capacity:]
+        self.bullish_cache = [g for g in self.bullish_cache if not g["mitigated"]][
+            -self.max_capacity :
+        ]
+        self.bearish_cache = [g for g in self.bearish_cache if not g["mitigated"]][
+            -self.max_capacity :
+        ]
+
 
 class SmartMoneyConceptsEngine:
     """Consolidated SMC/ICT Analysis Engine."""
@@ -203,13 +214,13 @@ class SmartMoneyConceptsEngine:
                 "mss": {"mss_status": "NEUTRAL", "break_level": None},
                 "liquidity_sweeps": {"bsl_sweep": False, "ssl_sweep": False},
                 "bias": "NEUTRAL",
-                "confluence_score": 50.0
+                "confluence_score": 50.0,
             }
 
-        opens = [b['open'] for b in history_bars]
-        highs = [b['high'] for b in history_bars]
-        lows = [b['low'] for b in history_bars]
-        closes = [b['close'] for b in history_bars]
+        opens = [b["open"] for b in history_bars]
+        highs = [b["high"] for b in history_bars]
+        lows = [b["low"] for b in history_bars]
+        closes = [b["close"] for b in history_bars]
 
         obs = detect_order_blocks(opens, highs, lows, closes)
         fvgs = detect_fair_value_gaps(highs, lows, closes)
@@ -220,18 +231,26 @@ class SmartMoneyConceptsEngine:
         bullish_points = 0
         bearish_points = 0
 
-        if mss['mss_status'] == "BULLISH_MSS": bullish_points += 2
-        elif mss['mss_status'] == "BEARISH_MSS": bearish_points += 2
+        if mss["mss_status"] == "BULLISH_MSS":
+            bullish_points += 2
+        elif mss["mss_status"] == "BEARISH_MSS":
+            bearish_points += 2
 
-        if sweeps['ssl_sweep']: bullish_points += 2  # SSL Sweep = Liquidity taken before up move
-        if sweeps['bsl_sweep']: bearish_points += 2  # BSL Sweep = Liquidity taken before down move
+        if sweeps["ssl_sweep"]:
+            bullish_points += 2  # SSL Sweep = Liquidity taken before up move
+        if sweeps["bsl_sweep"]:
+            bearish_points += 2  # BSL Sweep = Liquidity taken before down move
 
-        if fvgs['bullish_fvgs']: bullish_points += 1
-        if fvgs['bearish_fvgs']: bearish_points += 1
+        if fvgs["bullish_fvgs"]:
+            bullish_points += 1
+        if fvgs["bearish_fvgs"]:
+            bearish_points += 1
 
         bias = "NEUTRAL"
-        if bullish_points > bearish_points: bias = "BULLISH"
-        elif bearish_points > bullish_points: bias = "BEARISH"
+        if bullish_points > bearish_points:
+            bias = "BULLISH"
+        elif bearish_points > bullish_points:
+            bias = "BEARISH"
 
         score = min(95.0, max(30.0, 50.0 + (bullish_points - bearish_points) * 10.0))
 
@@ -241,8 +260,9 @@ class SmartMoneyConceptsEngine:
             "mss": mss,
             "liquidity_sweeps": sweeps,
             "bias": bias,
-            "confluence_score": round(score, 1)
+            "confluence_score": round(score, 1),
         }
+
 
 # Global Singleton Engine
 global_smc_engine = SmartMoneyConceptsEngine()

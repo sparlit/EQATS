@@ -11,24 +11,55 @@ import unittest.mock as mock
 try:
     import tkinter as tk
 except ModuleNotFoundError:
+
     class DummyWidget:
         def __init__(self, *args, **kwargs):
             pass
-        def pack(self, *args, **kwargs): pass
-        def grid(self, *args, **kwargs): pass
-        def place(self, *args, **kwargs): pass
-        def config(self, *args, **kwargs): pass
-        def configure(self, *args, **kwargs): pass
-        def bind(self, *args, **kwargs): pass
-        def winfo_children(self): return []
-        def winfo_width(self): return 500
-        def winfo_height(self): return 400
-        def delete(self, *args, **kwargs): pass
-        def insert(self, *args, **kwargs): pass
-        def see(self, *args, **kwargs): pass
-        def get(self): return ""
-        def __getitem__(self, item): return DummyWidget()
-        def __getattr__(self, name): return lambda *args, **kwargs: None
+
+        def pack(self, *args, **kwargs):
+            pass
+
+        def grid(self, *args, **kwargs):
+            pass
+
+        def place(self, *args, **kwargs):
+            pass
+
+        def config(self, *args, **kwargs):
+            pass
+
+        def configure(self, *args, **kwargs):
+            pass
+
+        def bind(self, *args, **kwargs):
+            pass
+
+        def winfo_children(self):
+            return []
+
+        def winfo_width(self):
+            return 500
+
+        def winfo_height(self):
+            return 400
+
+        def delete(self, *args, **kwargs):
+            pass
+
+        def insert(self, *args, **kwargs):
+            pass
+
+        def see(self, *args, **kwargs):
+            pass
+
+        def get(self):
+            return ""
+
+        def __getitem__(self, item):
+            return DummyWidget()
+
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
 
     tk = mock.MagicMock()
     tk.Tk = DummyWidget
@@ -77,6 +108,7 @@ import database
 def test_gui_module_imports_and_logger():
     """Verifies gui module import and logger configuration."""
     import gui
+
     assert hasattr(gui, "ScalperGui")
     assert hasattr(gui, "_log")
     assert gui._log.name == "gui"
@@ -93,6 +125,7 @@ def test_gui_data_flow_updates_without_display():
     with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True):
         with mock.patch("main.AutonomousScalper", return_value=mock_scalper):
             import gui
+
             app = gui.ScalperGui(mock_root)
 
             # Test strategy and style change handlers
@@ -133,12 +166,13 @@ def test_gui_screen_data_update_handlers():
     mock_scalper.conn.get_current_price.return_value = {"bid": 1.1000, "ask": 1.1002}
     mock_scalper.conn.get_historical_ticks.return_value = [
         {"bid": 1.1000, "ask": 1.1002, "volume": 15},
-        {"bid": 1.1001, "ask": 1.1003, "volume": 20}
+        {"bid": 1.1001, "ask": 1.1003, "volume": 20},
     ]
 
     with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True):
         with mock.patch("main.AutonomousScalper", return_value=mock_scalper):
             import gui
+
             app = gui.ScalperGui(mock_root)
 
             # DOM screen data update

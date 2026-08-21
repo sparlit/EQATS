@@ -5,6 +5,7 @@ Implements Markowitz Efficient Frontier Mean-Variance Portfolio Optimization.
 """
 
 
+
 def calculate_portfolio_weights(returns_dict):
     """
     Computes optimal portfolio allocation weights using JAX and NumPy.
@@ -20,6 +21,7 @@ def calculate_portfolio_weights(returns_dict):
 
     try:
         import numpy as np
+
         # Simulate asset historical return arrays
         ret_arrays = []
         for sym in symbols:
@@ -30,6 +32,7 @@ def calculate_portfolio_weights(returns_dict):
         # Polars / Pandas dataframes
         try:
             import polars as pl
+
             p_data = {sym: np.array(ret_arrays[i]) for i, sym in enumerate(symbols)}
             pl_df = pl.DataFrame(p_data)
         except ImportError as e:
@@ -42,6 +45,7 @@ def calculate_portfolio_weights(returns_dict):
         # JAX Acceleration if available
         try:
             import jax.numpy as jnp
+
             cov_j = jnp.array(cov_matrix)
             mean_j = jnp.array(mean_returns)
         except ImportError as e:
@@ -73,13 +77,17 @@ def perform_statistical_pingouin_test(returns_a, returns_b):
     """
     try:
         import pandas as pd
+<<<<<<< Updated upstream
         import pingouin as pg
+=======
+
+>>>>>>> Stashed changes
         df = pd.DataFrame({"A": returns_a, "B": returns_b})
         res = pg.ttest(df["A"], df["B"])
         return {
             "p_val": float(res["p-val"].iloc[0]),
             "cohen_d": float(res["cohen-d"].iloc[0]),
-            "power": float(res["power"].iloc[0])
+            "power": float(res["power"].iloc[0]),
         }
     except Exception:
         # Graceful fallback t-test estimate

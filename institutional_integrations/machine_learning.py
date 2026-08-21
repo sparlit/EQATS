@@ -4,12 +4,14 @@ Integrates PyTorch, TensorFlow, Keras, Scikit-learn, XGBoost, LightGBM, CatBoost
 """
 
 
+
 class ActorCriticPolicy:
     """
     Proximal Policy Optimization (PPO) Actor-Critic Reinforcement Learning Network.
     - Actor Network: Map states (indicators) to action probability distributions [HOLD, BUY, SELL].
     - Value Network: Estimating the value function (expected Sharpe yield).
     """
+
     def __init__(self, state_dim=4, action_dim=3):
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -23,13 +25,11 @@ class ActorCriticPolicy:
                 nn.Linear(state_dim, 16),
                 nn.ReLU(),
                 nn.Linear(16, action_dim),
-                nn.Softmax(dim=-1)
+                nn.Softmax(dim=-1),
             )
             # Critic network layers
             self.critic = nn.Sequential(
-                nn.Linear(state_dim, 16),
-                nn.ReLU(),
-                nn.Linear(16, 1)
+                nn.Linear(state_dim, 16), nn.ReLU(), nn.Linear(16, 1)
             )
             self.torch_active = True
         except ImportError:
@@ -43,6 +43,7 @@ class ActorCriticPolicy:
         if self.torch_active:
             try:
                 import torch
+
                 state_t = torch.FloatTensor(state_list).unsqueeze(0)
                 probs = self.actor(state_t).squeeze(0).tolist()
                 val = self.critic(state_t).item()
@@ -102,29 +103,40 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         "xgboost_regressor": current_price * 0.9998,
         "lightgbm": current_price * 1.0002,
         "catboost": current_price * 1.0004,
-        "prophet_time_series": current_price * 1.0001
+        "prophet_time_series": current_price * 1.0001,
     }
 
     try:
         # PyTorch model prediction structure
         import torch
         import torch.nn as nn
+
         class LSTM(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.lstm = nn.LSTM(1, 10, batch_first=True)
                 self.linear = nn.Linear(10, 1)
+
             def forward(self, x):
                 out, _ = self.lstm(x)
                 return self.linear(out[:, -1, :])
 
         model = LSTM()
         # Feed actual price sequence
-        p_tensor = torch.FloatTensor(prices[-10:] if len(prices) >= 10 else prices).view(1, -1, 1)
+        p_tensor = torch.FloatTensor(
+            prices[-10:] if len(prices) >= 10 else prices
+        ).view(1, -1, 1)
         pred_torch = model(p_tensor).item()
         # Scale output reasonably to price delta
+<<<<<<< Updated upstream
         predictions["pytorch_lstm"] = current_price + (pred_torch * 0.0001 * current_price)
     except Exception:
+=======
+        predictions["pytorch_lstm"] = current_price + (
+            pred_torch * 0.0001 * current_price
+        )
+    except Exception as e:
+>>>>>>> Stashed changes
         # Holt-Winters / Exponential Smoothing dynamic analytical fallback
         alpha = 0.3
         ewma = prices[0]
@@ -136,9 +148,15 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         # TensorFlow Keras model
         import tensorflow as tf
         from tensorflow.keras.layers import Dense
+<<<<<<< Updated upstream
         from tensorflow.keras.models import Sequential
         tf_model = Sequential([Dense(8, activation='relu'), Dense(1)])
         tf_model.compile(optimizer='adam', loss='mse')
+=======
+
+        tf_model = Sequential([Dense(8, activation="relu"), Dense(1)])
+        tf_model.compile(optimizer="adam", loss="mse")
+>>>>>>> Stashed changes
         # Fast predict
         pred_tf = tf_model.predict(tf.constant([[p] for p in prices[-5:]]))[-1][0]
         predictions["tensorflow_keras"] = float(pred_tf)
@@ -148,10 +166,14 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
     try:
         # XGBoost & LightGBM
         import lightgbm as lgb
+<<<<<<< Updated upstream
         import xgboost as xgb
+=======
+>>>>>>> Stashed changes
 
         # Extract features using tsfresh or sklearn
         from sklearn.ensemble import RandomForestRegressor
+
         pass
     except ImportError:
         pass

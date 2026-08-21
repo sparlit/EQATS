@@ -7,6 +7,7 @@ import eaqts_planes
 import main
 
 
+
 class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
     """
     Exhaustive programmatic test suite verifying EAQTS Version 3.0 Chaos Engineering,
@@ -41,7 +42,7 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         """Stress: Injects extreme spread spikes (liquidity shock) and ensures execution blocks entry."""
         old_bw = config.BLOCK_WEEKENDS
         old_ro = config.BLOCK_ROLLOVER_HOUR
-        config.BLOCK_WEEKENDS = False # Temporarily bypass session time filters for isolated spread unit test
+        config.BLOCK_WEEKENDS = False  # Temporarily bypass session time filters for isolated spread unit test
         config.BLOCK_ROLLOVER_HOUR = False
         try:
             scalper = main.AutonomousScalper()
@@ -49,13 +50,21 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
 
             # Under normal conditions (spread = 0.0002 / 2 pips <= MAX_SPREAD_PIPS)
             price_info_ok = {"bid": 1.1000, "ask": 1.1002}
-            is_safe, reason = scalper._is_market_open_and_liquid("EURUSD", price_info_ok)
-            self.assertTrue(is_safe, f"Should be safe under normal spread. Reason: {reason}")
+            is_safe, reason = scalper._is_market_open_and_liquid(
+                "EURUSD", price_info_ok
+            )
+            self.assertTrue(
+                is_safe, f"Should be safe under normal spread. Reason: {reason}"
+            )
 
             # Under spread shock (spread = 0.0050 / 50 pips > MAX_SPREAD_PIPS)
             price_info_shock = {"bid": 1.1000, "ask": 1.1050}
-            is_safe_shock, reason_shock = scalper._is_market_open_and_liquid("EURUSD", price_info_shock)
-            self.assertFalse(is_safe_shock, "Should block trade under extreme spread shock.")
+            is_safe_shock, reason_shock = scalper._is_market_open_and_liquid(
+                "EURUSD", price_info_shock
+            )
+            self.assertFalse(
+                is_safe_shock, "Should block trade under extreme spread shock."
+            )
             self.assertIn("Liquidity Filter", reason_shock)
         finally:
             config.BLOCK_WEEKENDS = old_bw
@@ -64,23 +73,44 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
     def test_fat_finger_protection_limits(self):
         """Safety: Verifies fat-finger size limits block hazardous orders."""
         # Standard size (0.5 lots) is allowed
-        self.assertTrue(self.engine.execution.validate_fat_finger("EURUSD", 0.5, 1.1000))
+        self.assertTrue(
+            self.engine.execution.validate_fat_finger("EURUSD", 0.5, 1.1000)
+        )
         # Extreme size (10.0 lots) is blocked
-        self.assertFalse(self.engine.execution.validate_fat_finger("EURUSD", 10.0, 1.1000))
+        self.assertFalse(
+            self.engine.execution.validate_fat_finger("EURUSD", 10.0, 1.1000)
+        )
         # Negative size is blocked
-        self.assertFalse(self.engine.execution.validate_fat_finger("EURUSD", -1.0, 1.1000))
+        self.assertFalse(
+            self.engine.execution.validate_fat_finger("EURUSD", -1.0, 1.1000)
+        )
 
     def test_self_trade_prevention_enforcement(self):
         """Safety: Verifies self-trade prevention blocks opposing positions on same symbol."""
         open_positions = [
-            {"symbol": "EURUSD", "direction": "BUY", "ticket": 10001, "open_price": 1.1000, "sl": 1.0900, "tp": 1.1200, "lot_size": 0.5}
+            {
+                "symbol": "EURUSD",
+                "direction": "BUY",
+                "ticket": 10001,
+                "open_price": 1.1000,
+                "sl": 1.0900,
+                "tp": 1.1200,
+                "lot_size": 0.5,
+            }
         ]
         # Opposing side (SELL) for the same asset is blocked
-        is_conflict = self.engine.execution.prevent_self_trade("EURUSD", "SELL", open_positions)
-        self.assertTrue(is_conflict, "Opposing order side on same symbol must trigger conflict block.")
+        is_conflict = self.engine.execution.prevent_self_trade(
+            "EURUSD", "SELL", open_positions
+        )
+        self.assertTrue(
+            is_conflict,
+            "Opposing order side on same symbol must trigger conflict block.",
+        )
 
         # Same side (BUY) for the same asset is not blocked by self-trade check (other limits may apply)
-        is_no_conflict = self.engine.execution.prevent_self_trade("EURUSD", "BUY", open_positions)
+        is_no_conflict = self.engine.execution.prevent_self_trade(
+            "EURUSD", "BUY", open_positions
+        )
         self.assertFalse(is_no_conflict)
 
     def test_configuration_transactional_rollback(self):
@@ -91,16 +121,20 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         success = self.engine.control.propose_config_change(
             author_id="AUDITOR_AGENT",
             proposed_updates={"MAX_CONCURRENT_TRADES": -10},
-            signature="RSA_SIG"
+            signature="RSA_SIG",
         )
         self.assertFalse(success, "Invalid config transaction must fail.")
-        self.assertEqual(config.MAX_CONCURRENT_TRADES, original_trades_limit, "Config must roll back cleanly.")
+        self.assertEqual(
+            config.MAX_CONCURRENT_TRADES,
+            original_trades_limit,
+            "Config must roll back cleanly.",
+        )
 
         # Propose valid config change
         success_valid = self.engine.control.propose_config_change(
             author_id="AUDITOR_AGENT",
             proposed_updates={"MAX_CONCURRENT_TRADES": 5},
-            signature="RSA_SIG"
+            signature="RSA_SIG",
         )
         self.assertTrue(success_valid, "Valid config change must succeed.")
         self.assertEqual(config.MAX_CONCURRENT_TRADES, 5)
@@ -135,40 +169,54 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         """Safety: Verifies unresolvable state disagreements trigger a risk freeze and invariant violation."""
         # Agreement setup: Tech trend matches AI trend -> Success
         agreement_decisions = {"technical_trend": "UP", "ai_trend": "UP"}
-        self.assertTrue(self.engine.safety.verify_component_agreement(agreement_decisions))
+        self.assertTrue(
+            self.engine.safety.verify_component_agreement(agreement_decisions)
+        )
 
         # Disagreement setup: Tech trend (UP) conflicts with AI trend (DOWN) -> Risk Freeze
         disagreement_decisions = {"technical_trend": "UP", "ai_trend": "DOWN"}
-        self.assertFalse(self.engine.safety.verify_component_agreement(disagreement_decisions))
+        self.assertFalse(
+            self.engine.safety.verify_component_agreement(disagreement_decisions)
+        )
 
         # Test that evaluating invariants with disagreement results in INV-015 violation
         violations = self.engine.safety.evaluate_invariants(
             current_risk=1.0,
             active_count=1,
             has_reconciliation_mismatch=False,
-            has_disagreement=True
+            has_disagreement=True,
         )
-        self.assertIn("INV-015", violations, "Should raise disagreement invariant violation INV-015.")
+        self.assertIn(
+            "INV-015",
+            violations,
+            "Should raise disagreement invariant violation INV-015.",
+        )
 
     def test_continuous_reconciliation_mismatch_freeze(self):
         """Resilience: Verifies active position mismatches raise invariant violation INV-013 to block risk."""
-        db_positions = [
-            {"ticket": 50001, "symbol": "EURUSD", "direction": "BUY"}
-        ]
-        connector_positions = [] # Mismatch: connector has no open position!
+        db_positions = [{"ticket": 50001, "symbol": "EURUSD", "direction": "BUY"}]
+        connector_positions = []  # Mismatch: connector has no open position!
 
         # Reconciliation check fails due to discrepancy
-        reconciled = self.engine.resilience.reconcile_positions(db_positions, connector_positions)
-        self.assertFalse(reconciled, "Should fail reconciliation when position discrepancy exists.")
+        reconciled = self.engine.resilience.reconcile_positions(
+            db_positions, connector_positions
+        )
+        self.assertFalse(
+            reconciled, "Should fail reconciliation when position discrepancy exists."
+        )
 
         # Test that evaluating invariants with mismatch results in INV-013 violation
         violations = self.engine.safety.evaluate_invariants(
             current_risk=1.0,
             active_count=1,
             has_reconciliation_mismatch=True,
-            has_disagreement=False
+            has_disagreement=False,
         )
-        self.assertIn("INV-013", violations, "Should raise reconciliation invariant violation INV-013.")
+        self.assertIn(
+            "INV-013",
+            violations,
+            "Should raise reconciliation invariant violation INV-013.",
+        )
 
     def test_decision_quality_and_luck_attribution(self):
         """Learning: Verifies decision quality scores and luck vs. skill performance attribution."""
@@ -178,11 +226,18 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         # 1. Quality scores
         score_ok = self.engine.learning.evaluate_decision_quality(case_profitable)
         score_fail = self.engine.learning.evaluate_decision_quality(case_unprofitable)
-        self.assertGreater(score_ok["decision_quality_score"], score_fail["decision_quality_score"])
+        self.assertGreater(
+            score_ok["decision_quality_score"], score_fail["decision_quality_score"]
+        )
 
         # 2. Luck vs Skill attribution
-        self.assertEqual(self.engine.learning.attribute_luck_vs_skill(case_profitable), "SKILL")
-        self.assertEqual(self.engine.learning.attribute_luck_vs_skill(case_unprofitable), "LUCK")
+        self.assertEqual(
+            self.engine.learning.attribute_luck_vs_skill(case_profitable), "SKILL"
+        )
+        self.assertEqual(
+            self.engine.learning.attribute_luck_vs_skill(case_unprofitable), "LUCK"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

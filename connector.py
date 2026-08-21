@@ -9,6 +9,7 @@ from institutional_integrations.universal_broker_adapter import UniversalBrokerG
 
 _log = logging.getLogger("connector")
 
+
 class TradingConnector(abc.ABC):
     """
     Abstract Base Class representing an MT5 Terminal Connection.
@@ -102,7 +103,9 @@ class UniversalConnector(TradingConnector):
     def __init__(self, protocol="MT5", broker_config=None, initial_balance=10000.0):
         self.protocol = protocol
         self.broker_config = broker_config or database.get_broker_credentials()
-        self.gateway = UniversalBrokerGateway(protocol=self.protocol, broker_config=self.broker_config)
+        self.gateway = UniversalBrokerGateway(
+            protocol=self.protocol, broker_config=self.broker_config
+        )
         self.sim_fallback = SimulatorConnector(initial_balance=initial_balance)
 
     def connect(self):
@@ -136,7 +139,7 @@ class UniversalConnector(TradingConnector):
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         if self.gateway.is_connected() and self.protocol != "SIMULATOR":
             gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
-            if gw_res.get('success'):
+            if gw_res.get("success"):
                 # Sync into internal trade tracker
                 self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
                 return gw_res
@@ -169,6 +172,7 @@ class MT5Connector(TradingConnector):
     def connect(self):
         try:
             import MetaTrader5 as mt5
+
             self.mt5 = mt5
         except ImportError:
             raise ImportError(
@@ -197,33 +201,47 @@ class MT5Connector(TradingConnector):
             try:
                 initialized = self.mt5.initialize(**init_kwargs)
             except Exception as e:
-                print(f"Warning: mt5.initialize with credentials failed ({e}), attempting default initialize().")
+                print(
+                    f"Warning: mt5.initialize with credentials failed ({e}), attempting default initialize()."
+                )
 
         if not initialized:
             initialized = self.mt5.initialize()
 
         if not initialized:
-            raise ConnectionError(f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}")
+            raise ConnectionError(
+                f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}"
+            )
 
         if login and str(login).isdigit() and password and str(password).strip():
             try:
                 login_id = int(str(login).strip())
-                self.mt5.login(login=login_id, password=str(password).strip(), server=str(server).strip() if server else "")
+                self.mt5.login(
+                    login=login_id,
+                    password=str(password).strip(),
+                    server=str(server).strip() if server else "",
+                )
             except Exception as e:
                 _log.warning("MT5 login attempt failed (will probe anyway): %s", e)
 
         account_info = self.mt5.account_info()
         if account_info is None:
-            raise ConnectionError("Failed to retrieve MT5 account details. Is MT5 logged in?")
+            raise ConnectionError(
+                "Failed to retrieve MT5 account details. Is MT5 logged in?"
+            )
 
         # Check for Demo restriction if specified
         if self.demo_only:
             # trade_mode 0 = Demo, 1 = Contest, 2 = Real
             if account_info.trade_mode == 2:
                 self.mt5.shutdown()
-                raise PermissionError("CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override.")
+                raise PermissionError(
+                    "CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override."
+                )
 
-        print(f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}")
+        print(
+            f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}"
+        )
         return True
 
     def is_connected(self):
@@ -239,22 +257,36 @@ class MT5Connector(TradingConnector):
 
     def get_account_info(self):
         if not self.mt5:
-            return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
+            return {
+                "balance": 10000.0,
+                "equity": 10000.0,
+                "currency": "USD",
+                "is_demo": True,
+            }
         acc = self.mt5.account_info()
         if acc is None:
-            return {'balance': 10000.0, 'equity': 10000.0, 'currency': "USD", 'is_demo': True}
+            return {
+                "balance": 10000.0,
+                "equity": 10000.0,
+                "currency": "USD",
+                "is_demo": True,
+            }
         return {
-            'balance': acc.balance,
-            'equity': acc.equity,
-            'currency': acc.currency,
-            'is_demo': acc.trade_mode != 2
+            "balance": acc.balance,
+            "equity": acc.equity,
+            "currency": acc.currency,
+            "is_demo": acc.trade_mode != 2,
         }
 
     def get_history(self, symbol, count):
         if not self.mt5:
-            return [{'open': 1.1000, 'high': 1.1010, 'low': 1.0990, 'close': 1.1000} for _ in range(count)]
+            return [
+                {"open": 1.1000, "high": 1.1010, "low": 1.0990, "close": 1.1000}
+                for _ in range(count)
+            ]
         # We fetch M1 copy_rates
         import MetaTrader5 as mt5
+
         timeframe = mt5.TIMEFRAME_M1
         # copy_rates_from_pos gets bars starting from position 0 (the current candle) backwards
         rates = self.mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
@@ -263,35 +295,55 @@ class MT5Connector(TradingConnector):
 
         bars = []
         for r in rates:
-            bars.append({
-                'open': float(r['open']),
-                'high': float(r['high']),
-                'low': float(r['low']),
-                'close': float(r['close'])
-            })
+            bars.append(
+                {
+                    "open": float(r["open"]),
+                    "high": float(r["high"]),
+                    "low": float(r["low"]),
+                    "close": float(r["close"]),
+                }
+            )
         return bars
 
     def get_current_price(self, symbol):
         if not self.mt5:
-            base_p = 1.1000 if "EUR" in symbol else (1.3000 if "GBP" in symbol else (145.0 if "JPY" in symbol else (65000.0 if "BTC" in symbol else 2.5)))
-            return {'bid': base_p, 'ask': base_p + 0.0002}
+            base_p = (
+                1.1000
+                if "EUR" in symbol
+                else (
+                    1.3000
+                    if "GBP" in symbol
+                    else (
+                        145.0
+                        if "JPY" in symbol
+                        else (65000.0 if "BTC" in symbol else 2.5)
+                    )
+                )
+            )
+            return {"bid": base_p, "ask": base_p + 0.0002}
         tick = self.mt5.symbol_info_tick(symbol)
         if tick is None:
             # Fallback
             rates = self.mt5.copy_rates_from_pos(symbol, self.mt5.TIMEFRAME_M1, 0, 1)
             if rates is not None and len(rates) > 0:
-                return {'bid': rates[0]['close'], 'ask': rates[0]['close']}
-            return {'bid': 0.0, 'ask': 0.0}
-        return {'bid': tick.bid, 'ask': tick.ask}
+                return {"bid": rates[0]["close"], "ask": rates[0]["close"]}
+            return {"bid": 0.0, "ask": 0.0}
+        return {"bid": tick.bid, "ask": tick.ask}
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         if not self.mt5:
-            return {'success': False, 'ticket': '', 'price': 0.0, 'error': "MT5 not connected."}
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": "MT5 not connected.",
+            }
         import MetaTrader5 as mt5
+
         price_info = self.get_current_price(symbol)
-        price = price_info['ask'] if order_type == 'BUY' else price_info['bid']
+        price = price_info["ask"] if order_type == "BUY" else price_info["bid"]
         action = mt5.TRADE_ACTION_DEAL
-        type_mt5 = mt5.ORDER_TYPE_BUY if order_type == 'BUY' else mt5.ORDER_TYPE_SELL
+        type_mt5 = mt5.ORDER_TYPE_BUY if order_type == "BUY" else mt5.ORDER_TYPE_SELL
 
         request = {
             "action": action,
@@ -310,40 +362,61 @@ class MT5Connector(TradingConnector):
 
         result = self.mt5.order_send(request)
         if result is None:
-            return {'success': False, 'ticket': '', 'price': 0.0, 'error': "Unknown MT5 order_send error."}
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": "Unknown MT5 order_send error.",
+            }
 
         if result.retcode != mt5.TRADE_RETCODE_DONE:
-            return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Order rejected. Code: {result.retcode}, Description: {result.comment}"}
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"Order rejected. Code: {result.retcode}, Description: {result.comment}",
+            }
 
         return {
-            'success': True,
-            'ticket': str(result.order),
-            'price': float(result.price),
-            'error': ''
+            "success": True,
+            "ticket": str(result.order),
+            "price": float(result.price),
+            "error": "",
         }
 
     def close_order(self, ticket, reason="MANUAL"):
         if not self.mt5:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': "MT5 not connected."}
+            return {
+                "success": False,
+                "price": 0.0,
+                "profit": 0.0,
+                "error": "MT5 not connected.",
+            }
         import MetaTrader5 as mt5
+
         orders = self.get_open_orders()
         target_order = None
         for o in orders:
-            if str(o['ticket']) == str(ticket):
+            if str(o["ticket"]) == str(ticket):
                 target_order = o
                 break
 
         if not target_order:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Ticket {ticket} not found in open positions."}
+            return {
+                "success": False,
+                "price": 0.0,
+                "profit": 0.0,
+                "error": f"Ticket {ticket} not found in open positions.",
+            }
 
-        symbol = target_order['symbol']
-        lot_size = target_order['lot_size']
-        direction = target_order['direction']
+        symbol = target_order["symbol"]
+        lot_size = target_order["lot_size"]
+        direction = target_order["direction"]
 
         # To close, we execute an opposite order
-        close_type = mt5.ORDER_TYPE_SELL if direction == 'BUY' else mt5.ORDER_TYPE_BUY
+        close_type = mt5.ORDER_TYPE_SELL if direction == "BUY" else mt5.ORDER_TYPE_BUY
         price_info = self.get_current_price(symbol)
-        price = price_info['bid'] if direction == 'BUY' else price_info['ask']
+        price = price_info["bid"] if direction == "BUY" else price_info["ask"]
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -361,28 +434,39 @@ class MT5Connector(TradingConnector):
 
         result = self.mt5.order_send(request)
         if result is None:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': "Unknown error during position close."}
+            return {
+                "success": False,
+                "price": 0.0,
+                "profit": 0.0,
+                "error": "Unknown error during position close.",
+            }
 
         if result.retcode != mt5.TRADE_RETCODE_DONE:
-            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Close request failed. Code: {result.retcode}"}
+            return {
+                "success": False,
+                "price": 0.0,
+                "profit": 0.0,
+                "error": f"Close request failed. Code: {result.retcode}",
+            }
 
         # Estimate profit (approximate, since broker calculates true value in account currency)
         # For simplicity, we get standard profit from MT5 deal details later, or calculate it directly.
-        profit_est = (result.price - target_order['open_price']) * lot_size * 100000.0
-        if direction == 'SELL':
+        profit_est = (result.price - target_order["open_price"]) * lot_size * 100000.0
+        if direction == "SELL":
             profit_est = -profit_est
 
         return {
-            'success': True,
-            'price': float(result.price),
-            'profit': profit_est,
-            'error': ''
+            "success": True,
+            "price": float(result.price),
+            "profit": profit_est,
+            "error": "",
         }
 
     def modify_order(self, ticket, sl, tp):
         if not self.mt5:
             return False
         import MetaTrader5 as mt5
+
         # Fetch position info to get the symbol
         positions = self.mt5.positions_get(ticket=int(ticket))
         if not positions or len(positions) == 0:
@@ -397,7 +481,7 @@ class MT5Connector(TradingConnector):
         point = info.point if info else 0.00001
 
         price_info = self.get_current_price(symbol)
-        curr_price = price_info['bid'] if direction == "BUY" else price_info['ask']
+        curr_price = price_info["bid"] if direction == "BUY" else price_info["ask"]
 
         # Enforce minimum stop distance (add small 5 point safety buffer to be completely safe)
         min_distance = (stops_level + 5) * point
@@ -407,7 +491,7 @@ class MT5Connector(TradingConnector):
             if direction == "BUY":
                 if sl > curr_price - min_distance:
                     sl = curr_price - min_distance
-            else: # SELL
+            else:  # SELL
                 if sl < curr_price + min_distance:
                     sl = curr_price + min_distance
 
@@ -416,7 +500,7 @@ class MT5Connector(TradingConnector):
             if direction == "BUY":
                 if tp < curr_price + min_distance:
                     tp = curr_price + min_distance
-            else: # SELL
+            else:  # SELL
                 if tp > curr_price - min_distance:
                     tp = curr_price - min_distance
 
@@ -435,6 +519,7 @@ class MT5Connector(TradingConnector):
         if not self.mt5:
             return []
         import MetaTrader5 as mt5
+
         positions = self.mt5.positions_get()
         if positions is None or len(positions) == 0:
             return []
@@ -442,17 +527,19 @@ class MT5Connector(TradingConnector):
         orders_list = []
         for pos in positions:
             # Filter positions by magic number autonomously
-            if getattr(pos, 'magic', 0) == 998822:
-                direction = 'BUY' if pos.type == mt5.POSITION_TYPE_BUY else 'SELL'
-                orders_list.append({
-                    'ticket': str(pos.ticket),
-                    'symbol': pos.symbol,
-                    'direction': direction,
-                    'open_price': pos.price_open,
-                    'sl': pos.sl,
-                    'tp': pos.tp,
-                    'lot_size': pos.volume
-                })
+            if getattr(pos, "magic", 0) == 998822:
+                direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
+                orders_list.append(
+                    {
+                        "ticket": str(pos.ticket),
+                        "symbol": pos.symbol,
+                        "direction": direction,
+                        "open_price": pos.price_open,
+                        "sl": pos.sl,
+                        "tp": pos.tp,
+                        "lot_size": pos.volume,
+                    }
+                )
         return orders_list
 
     def draw_dashboard(self, symbol, data):
@@ -461,11 +548,13 @@ class MT5Connector(TradingConnector):
         by the official MetaTrader5 Python library, so we log all responsive statistics cleanly.
         """
         if data:
-            bal = data.get('balance', 0.0)
-            eq = data.get('equity', 0.0)
-            status = data.get('status', 'OK')
-            detail = data.get('detail', 'N/A')
-            print(f"📊 [MT5 DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f} | Bal: ${bal:,.2f} | Detail: {detail}")
+            bal = data.get("balance", 0.0)
+            eq = data.get("equity", 0.0)
+            status = data.get("status", "OK")
+            detail = data.get("detail", "N/A")
+            print(
+                f"📊 [MT5 DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f} | Bal: ${bal:,.2f} | Detail: {detail}"
+            )
 
 
 class SimulatorConnector(TradingConnector):
@@ -506,22 +595,24 @@ class SimulatorConnector(TradingConnector):
             # Recalculate equity based on current floating profits
             floating_profit = 0.0
             for ticket, trade in self.open_trades.items():
-                prices = self.get_current_price(trade['symbol'])
-                current_price = prices['bid'] if trade['direction'] == 'BUY' else prices['ask']
+                prices = self.get_current_price(trade["symbol"])
+                current_price = (
+                    prices["bid"] if trade["direction"] == "BUY" else prices["ask"]
+                )
 
-                p_diff = current_price - trade['open_price']
-                if trade['direction'] == 'SELL':
+                p_diff = current_price - trade["open_price"]
+                if trade["direction"] == "SELL":
                     p_diff = -p_diff
 
-                contract_mult = self._get_contract_multiplier(trade['symbol'])
-                floating_profit += p_diff * trade['lot_size'] * contract_mult
+                contract_mult = self._get_contract_multiplier(trade["symbol"])
+                floating_profit += p_diff * trade["lot_size"] * contract_mult
 
             self.equity = self.balance + floating_profit
             return {
-                'balance': round(self.balance, 2),
-                'equity': round(self.equity, 2),
-                'currency': self.currency,
-                'is_demo': True
+                "balance": round(self.balance, 2),
+                "equity": round(self.equity, 2),
+                "currency": self.currency,
+                "is_demo": True,
             }
 
     def get_history(self, symbol, count):
@@ -532,64 +623,66 @@ class SimulatorConnector(TradingConnector):
     def get_current_price(self, symbol):
         bars = self.get_history(symbol, 1)
         if len(bars) == 0:
-            return {'bid': 1.0, 'ask': 1.0}
-        last_price = bars[0]['close']
+            return {"bid": 1.0, "ask": 1.0}
+        last_price = bars[0]["close"]
         # Simulated small bid/ask spread
-        spread = last_price * 0.0001 # 0.01% spread
+        spread = last_price * 0.0001  # 0.01% spread
         return {
-            'bid': round(last_price - spread/2.0, 5),
-            'ask': round(last_price + spread/2.0, 5)
+            "bid": round(last_price - spread / 2.0, 5),
+            "ask": round(last_price + spread / 2.0, 5),
         }
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         with self.lock:
             prices = self.get_current_price(symbol)
-            open_price = prices['ask'] if order_type == 'BUY' else prices['bid']
+            open_price = prices["ask"] if order_type == "BUY" else prices["bid"]
 
             ticket = str(self.ticket_counter)
             self.ticket_counter += 1
 
             self.open_trades[ticket] = {
-                'ticket': ticket,
-                'symbol': symbol,
-                'direction': order_type,
-                'open_price': open_price,
-                'sl': sl,
-                'tp': tp,
-                'lot_size': lot_size
+                "ticket": ticket,
+                "symbol": symbol,
+                "direction": order_type,
+                "open_price": open_price,
+                "sl": sl,
+                "tp": tp,
+                "lot_size": lot_size,
             }
 
-            return {
-                'success': True,
-                'ticket': ticket,
-                'price': open_price,
-                'error': ''
-            }
+            return {"success": True, "ticket": ticket, "price": open_price, "error": ""}
 
     def close_order(self, ticket, reason="MANUAL"):
         with self.lock:
             if ticket not in self.open_trades:
-                return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f"Ticket {ticket} not found."}
+                return {
+                    "success": False,
+                    "price": 0.0,
+                    "profit": 0.0,
+                    "error": f"Ticket {ticket} not found.",
+                }
 
             trade = self.open_trades.pop(ticket)
-            prices = self.get_current_price(trade['symbol'])
-            close_price = prices['bid'] if trade['direction'] == 'BUY' else prices['ask']
+            prices = self.get_current_price(trade["symbol"])
+            close_price = (
+                prices["bid"] if trade["direction"] == "BUY" else prices["ask"]
+            )
 
-            p_diff = close_price - trade['open_price']
-            if trade['direction'] == 'SELL':
+            p_diff = close_price - trade["open_price"]
+            if trade["direction"] == "SELL":
                 p_diff = -p_diff
 
-            contract_mult = self._get_contract_multiplier(trade['symbol'])
-            profit = p_diff * trade['lot_size'] * contract_mult
+            contract_mult = self._get_contract_multiplier(trade["symbol"])
+            profit = p_diff * trade["lot_size"] * contract_mult
 
             self.balance += profit
             self.equity = self.balance
 
             return {
-                'success': True,
-                'price': close_price,
-                'profit': round(profit, 2),
-                'error': ''
+                "success": True,
+                "price": close_price,
+                "profit": round(profit, 2),
+                "error": "",
             }
 
     def modify_order(self, ticket, sl, tp):
@@ -597,8 +690,8 @@ class SimulatorConnector(TradingConnector):
             ticket_str = str(ticket)
             if ticket_str not in self.open_trades:
                 return False
-            self.open_trades[ticket_str]['sl'] = sl
-            self.open_trades[ticket_str]['tp'] = tp
+            self.open_trades[ticket_str]["sl"] = sl
+            self.open_trades[ticket_str]["tp"] = tp
             return True
 
     def get_open_orders(self):
@@ -608,9 +701,11 @@ class SimulatorConnector(TradingConnector):
     def draw_dashboard(self, symbol, data):
         # Simulator does not have a physical UI chart; telemetry logged via dashboard/GUI.
         if data:
-            eq = data.get('equity', 0.0)
-            status = data.get('status', 'OK')
-            print(f"🎮 [SIM DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f}")
+            eq = data.get("equity", 0.0)
+            status = data.get("status", "OK")
+            print(
+                f"🎮 [SIM DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f}"
+            )
 
     # --- SIMULATOR UTILITIES ---
     def tick(self):
@@ -622,23 +717,29 @@ class SimulatorConnector(TradingConnector):
         for symbol in self.historical_prices:
             # Append a new random candle following a random walk with trend bias
             last_bars = self.historical_prices[symbol]
-            last_close = last_bars[-1]['close']
+            last_close = last_bars[-1]["close"]
 
             # Simulated return: small random walk with slightly positive trend
-            ret = random.normalvariate(0.0001, 0.002) # standard deviation of 0.2%
+            ret = random.normalvariate(0.0001, 0.002)  # standard deviation of 0.2%
             new_close = last_close * (1 + ret)
             new_open = last_close
 
             # Create a mock bar
-            new_high = max(new_open, new_close) * (1 + abs(random.normalvariate(0.0, 0.001)))
-            new_low = min(new_open, new_close) * (1 - abs(random.normalvariate(0.0, 0.001)))
+            new_high = max(new_open, new_close) * (
+                1 + abs(random.normalvariate(0.0, 0.001))
+            )
+            new_low = min(new_open, new_close) * (
+                1 - abs(random.normalvariate(0.0, 0.001))
+            )
 
-            last_bars.append({
-                'open': round(new_open, 5),
-                'high': round(new_high, 5),
-                'low': round(new_low, 5),
-                'close': round(new_close, 5)
-            })
+            last_bars.append(
+                {
+                    "open": round(new_open, 5),
+                    "high": round(new_high, 5),
+                    "low": round(new_low, 5),
+                    "close": round(new_close, 5),
+                }
+            )
             # Keep historical series capped to last 300 entries to save memory
             if len(last_bars) > 300:
                 self.historical_prices[symbol] = last_bars[-300:]
@@ -646,34 +747,34 @@ class SimulatorConnector(TradingConnector):
         with self.lock:
             # Evaluate if SL or TP are hit
             for ticket, trade in list(self.open_trades.items()):
-                symbol = trade['symbol']
+                symbol = trade["symbol"]
                 last_bar = self.historical_prices[symbol][-1]
-                high = last_bar['high']
-                low = last_bar['low']
-                direction = trade['direction']
-                sl = trade['sl']
-                tp = trade['tp']
+                high = last_bar["high"]
+                low = last_bar["low"]
+                direction = trade["direction"]
+                sl = trade["sl"]
+                tp = trade["tp"]
 
                 # Check if BOTH SL and TP are hit in the same high-volatility range
                 both_hit = False
-                if direction == 'BUY':
+                if direction == "BUY":
                     if low <= sl and high >= tp:
                         both_hit = True
-                elif direction == 'SELL':
+                elif direction == "SELL":
                     if high >= sl and low <= tp:
                         both_hit = True
 
                 if both_hit:
                     # Resolve double-hit ambiguity using the candle direction as a heuristic
-                    is_green = (last_bar['close'] >= last_bar['open'])
-                    if direction == 'BUY':
+                    is_green = last_bar["close"] >= last_bar["open"]
+                    if direction == "BUY":
                         if is_green:
                             # Assume price went up first to hit TP
                             self._process_hit(ticket, tp, "TP")
                         else:
                             # Assume price went down first to hit SL (conservative)
                             self._process_hit(ticket, sl, "SL")
-                    else: # SELL
+                    else:  # SELL
                         if not is_green:
                             # Assume price went down first to hit TP
                             self._process_hit(ticket, tp, "TP")
@@ -683,7 +784,7 @@ class SimulatorConnector(TradingConnector):
                     closed_tickets.append(ticket)
                 else:
                     # Check Buy order
-                    if direction == 'BUY':
+                    if direction == "BUY":
                         if low <= sl:
                             # SL hit
                             self._process_hit(ticket, sl, "SL")
@@ -693,7 +794,7 @@ class SimulatorConnector(TradingConnector):
                             self._process_hit(ticket, tp, "TP")
                             closed_tickets.append(ticket)
                     # Check Sell order
-                    elif direction == 'SELL':
+                    elif direction == "SELL":
                         if high >= sl:
                             # SL hit
                             self._process_hit(ticket, sl, "SL")
@@ -708,32 +809,59 @@ class SimulatorConnector(TradingConnector):
     def _process_hit(self, ticket, hit_price, reason):
         # Assumed inside a 'with self.lock' lock context
         trade = self.open_trades.pop(ticket)
-        p_diff = hit_price - trade['open_price']
-        if trade['direction'] == 'SELL':
+        p_diff = hit_price - trade["open_price"]
+        if trade["direction"] == "SELL":
             p_diff = -p_diff
 
-        contract_mult = self._get_contract_multiplier(trade['symbol'])
-        profit = p_diff * trade['lot_size'] * contract_mult
+        contract_mult = self._get_contract_multiplier(trade["symbol"])
+        profit = p_diff * trade["lot_size"] * contract_mult
 
         self.balance += profit
         self.equity = self.balance
 
         # Log closed trade in DB
         import database
+
         database.log_trade_close(ticket, hit_price, profit, reason)
-        print(f"--- SIMULATOR ALERT --- Trade {ticket} ({trade['direction']} {trade['symbol']}) closed via {reason} at {hit_price}. Profit: {profit:.2f} USD")
+        print(
+            f"--- SIMULATOR ALERT --- Trade {ticket} ({trade['direction']} {trade['symbol']}) closed via {reason} at {hit_price}. Profit: {profit:.2f} USD"
+        )
 
     def _generate_initial_history(self, symbol):
         # Generate 250 bars of realistic starting prices
         base_prices = {
-            "EURUSD": 1.0950, "GBPUSD": 1.2720, "USDJPY": 151.30, "USDCHF": 0.8950,
-            "AUDUSD": 0.6650, "NZDUSD": 0.6120, "USDCAD": 1.3650, "EURGBP": 0.8550,
-            "EURJPY": 162.30, "EURCAD": 1.4950, "EURCHF": 0.9750, "EURNZD": 1.7850,
-            "EURAUD": 1.6450, "GBPJPY": 191.30, "GBPCAD": 1.7350, "GBPCHF": 1.1350,
-            "GBPAUD": 1.9150, "GBPNZD": 2.0750, "AUDJPY": 100.30, "NZDJPY": 92.50,
-            "CHFJPY": 168.50, "CADJPY": 110.50, "AUDCAD": 0.9050, "AUDNZD": 1.0850,
-            "NZDCAD": 0.8350, "XAUUSD": 2350.00, "XAGUSD": 29.50, "BTCUSD": 65000.00,
-            "ETHUSD": 3500.00, "LTCUSD": 80.00, "SOLUSD": 145.00, "XRPUSD": 0.50
+            "EURUSD": 1.0950,
+            "GBPUSD": 1.2720,
+            "USDJPY": 151.30,
+            "USDCHF": 0.8950,
+            "AUDUSD": 0.6650,
+            "NZDUSD": 0.6120,
+            "USDCAD": 1.3650,
+            "EURGBP": 0.8550,
+            "EURJPY": 162.30,
+            "EURCAD": 1.4950,
+            "EURCHF": 0.9750,
+            "EURNZD": 1.7850,
+            "EURAUD": 1.6450,
+            "GBPJPY": 191.30,
+            "GBPCAD": 1.7350,
+            "GBPCHF": 1.1350,
+            "GBPAUD": 1.9150,
+            "GBPNZD": 2.0750,
+            "AUDJPY": 100.30,
+            "NZDJPY": 92.50,
+            "CHFJPY": 168.50,
+            "CADJPY": 110.50,
+            "AUDCAD": 0.9050,
+            "AUDNZD": 1.0850,
+            "NZDCAD": 0.8350,
+            "XAUUSD": 2350.00,
+            "XAGUSD": 29.50,
+            "BTCUSD": 65000.00,
+            "ETHUSD": 3500.00,
+            "LTCUSD": 80.00,
+            "SOLUSD": 145.00,
+            "XRPUSD": 0.50,
         }
         price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
@@ -742,14 +870,20 @@ class SimulatorConnector(TradingConnector):
             ret = random.normalvariate(0.00005, 0.0015)
             new_close = price * (1 + ret)
             new_open = price
-            high = max(new_open, new_close) * (1 + abs(random.normalvariate(0.0, 0.0005)))
-            low = min(new_open, new_close) * (1 - abs(random.normalvariate(0.0, 0.0005)))
-            bars.append({
-                'open': round(new_open, 5),
-                'high': round(high, 5),
-                'low': round(low, 5),
-                'close': round(new_close, 5)
-            })
+            high = max(new_open, new_close) * (
+                1 + abs(random.normalvariate(0.0, 0.0005))
+            )
+            low = min(new_open, new_close) * (
+                1 - abs(random.normalvariate(0.0, 0.0005))
+            )
+            bars.append(
+                {
+                    "open": round(new_open, 5),
+                    "high": round(high, 5),
+                    "low": round(low, 5),
+                    "close": round(new_close, 5),
+                }
+            )
             price = new_close
         self.historical_prices[symbol] = bars
 
@@ -762,6 +896,6 @@ class SimulatorConnector(TradingConnector):
         elif any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
             return 1.0
         elif "JPY" in symbol_upper:
-            return 1000.0 # Standard USDJPY contract is 100,000, scaled down JPY quote
+            return 1000.0  # Standard USDJPY contract is 100,000, scaled down JPY quote
         else:
-            return 100000.0 # Forex default
+            return 100000.0  # Forex default

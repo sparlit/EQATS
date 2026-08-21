@@ -8,6 +8,7 @@ computes trade efficiency scores, and updates AI Brain Agent memory buffers.
 import datetime
 
 
+
 class TradeMemoryReflectionProtocol:
     """Manages trade reflections, post-mortems, and cognitive memory buffers."""
 
@@ -15,7 +16,18 @@ class TradeMemoryReflectionProtocol:
         self.memory_records = []
         self.reflections_log = []
 
-    def log_reflection(self, ticket, symbol, direction, open_price, close_price, profit, reason, mfe=0.0, mae=0.0):
+    def log_reflection(
+        self,
+        ticket,
+        symbol,
+        direction,
+        open_price,
+        close_price,
+        profit,
+        reason,
+        mfe=0.0,
+        mae=0.0,
+    ):
         """
         Calculates trade efficiency metrics and logs a post-mortem reflection record.
         """
@@ -46,7 +58,7 @@ class TradeMemoryReflectionProtocol:
             "mfe": mfe,
             "mae": mae,
             "efficiency_score": round(efficiency, 1),
-            "reflection_note": reflection_note
+            "reflection_note": reflection_note,
         }
 
         self.memory_records.append(record)
@@ -62,7 +74,10 @@ class TradeMemoryReflectionProtocol:
         # Update Vector Memory Buffer in local LLM if available
         try:
             import institutional_integrations.quantum_local_llm as qllm
-            qllm.save_semantic_context(f"Trade_{ticket}", reflection_note, metadata=record)
+
+            qllm.save_semantic_context(
+                f"Trade_{ticket}", reflection_note, metadata=record
+            )
         except Exception as e:
             print(f"⚠️ Trade memory LLM context store note: {e}")
 
@@ -79,7 +94,7 @@ class TradeMemoryReflectionProtocol:
                 "total_reflections": 0,
                 "win_rate": 0.0,
                 "avg_efficiency": 0.0,
-                "recent_reflections": []
+                "recent_reflections": [],
             }
 
         wins = sum(1 for r in records if r["is_win"])
@@ -90,8 +105,9 @@ class TradeMemoryReflectionProtocol:
             "total_reflections": len(records),
             "win_rate": round(win_rate, 1),
             "avg_efficiency": round(avg_eff, 1),
-            "recent_reflections": [r["reflection_note"] for r in records[-5:]]
+            "recent_reflections": [r["reflection_note"] for r in records[-5:]],
         }
+
 
 # Global Singleton Protocol Instance
 global_trade_memory_protocol = TradeMemoryReflectionProtocol()

@@ -3,6 +3,7 @@
 Covers the TelemetryStreamServer payload builder introduced in
 commit 8f62709 and Round 5 schema versioning / chaos stress testing.
 """
+
 import time
 
 from institutional_integrations.web_api import SocketIPCBridge, TelemetryStreamServer
@@ -100,7 +101,9 @@ def test_socket_ipc_bridge_reconnect_lifecycle_chaos():
 
     # Rapid restart & push
     bridge.start_server()
-    res2 = bridge.push_state(10500.0, 10000.0, [{"ticket": "1001"}], [], "London Session")
+    res2 = bridge.push_state(
+        10500.0, 10000.0, [{"ticket": "1001"}], [], "London Session"
+    )
     assert res2["status"] == "PUSHED"
     assert bridge.latest_state["equity"] == 10500.0
 

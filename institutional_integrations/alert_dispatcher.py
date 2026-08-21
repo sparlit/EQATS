@@ -17,7 +17,9 @@ class MultiChannelAlertDispatcher:
     def __init__(self):
         self.alert_history = []
 
-    def dispatch_alert(self, title, message, severity="INFO", channels=["TELEGRAM", "WEBHOOK", "TTS"]):
+    def dispatch_alert(
+        self, title, message, severity="INFO", channels=["TELEGRAM", "WEBHOOK", "TTS"]
+    ):
         """Dispatches notification across requested active communication channels."""
         formatted_msg = f"[{severity}] {title}: {message}"
         status = {}
@@ -26,15 +28,26 @@ class MultiChannelAlertDispatcher:
         if "TELEGRAM" in channels:
             try:
                 import telegram_bot
+
                 status["TELEGRAM"] = telegram_bot.send_telegram_message(formatted_msg)
             except Exception as e:
                 status["TELEGRAM"] = f"Error: {e}"
 
         # 2. Custom Webhooks
-        if "WEBHOOK" in channels and hasattr(config, "WEBHOOK_URL") and config.WEBHOOK_URL:
+        if (
+            "WEBHOOK" in channels
+            and hasattr(config, "WEBHOOK_URL")
+            and config.WEBHOOK_URL
+        ):
             try:
-                payload = json.dumps({"title": title, "message": message, "severity": severity}).encode("utf-8")
-                req = urllib.request.Request(config.WEBHOOK_URL, data=payload, headers={"Content-Type": "application/json"})
+                payload = json.dumps(
+                    {"title": title, "message": message, "severity": severity}
+                ).encode("utf-8")
+                req = urllib.request.Request(
+                    config.WEBHOOK_URL,
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                )
                 with urllib.request.urlopen(req, timeout=3) as resp:
                     status["WEBHOOK"] = resp.status == 200
             except Exception:
@@ -57,7 +70,9 @@ class MultiChannelAlertDispatcher:
             "message": message,
             "severity": severity,
             "channel_status": status,
-            "timestamp": config.datetime.datetime.now().strftime("%H:%M:%S") if hasattr(config, "datetime") else "00:00:00"
+            "timestamp": config.datetime.datetime.now().strftime("%H:%M:%S")
+            if hasattr(config, "datetime")
+            else "00:00:00",
         }
         self.alert_history.append(record)
         return record

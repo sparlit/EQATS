@@ -35,11 +35,13 @@ def run_johansen_cointegration_test(pair_a_prices, pair_b_prices):
     std_s = math.sqrt(var_s) if var_s > 0 else 1.0
 
     # Dickey-Fuller t-statistic on spread differences
-    delta_s = [spread[i] - spread[i-1] for i in range(1, n)]
+    delta_s = [spread[i] - spread[i - 1] for i in range(1, n)]
     s_lag = spread[:-1]
 
-    cov_ds_slag = sum((delta_s[i]) * (s_lag[i] - mean_s) for i in range(n-1)) / (n-1)
-    var_slag = sum((x - mean_s) ** 2 for x in s_lag) / (n-1)
+    cov_ds_slag = sum((delta_s[i]) * (s_lag[i] - mean_s) for i in range(n - 1)) / (
+        n - 1
+    )
+    var_slag = sum((x - mean_s) ** 2 for x in s_lag) / (n - 1)
 
     gamma = cov_ds_slag / var_slag if var_slag > 0 else 0.0
     is_cointegrated = gamma < -0.05
@@ -48,8 +50,9 @@ def run_johansen_cointegration_test(pair_a_prices, pair_b_prices):
         "cointegrated": is_cointegrated,
         "p_value": 0.02 if is_cointegrated else 0.25,
         "hedge_ratio": round(hedge_ratio, 4),
-        "spread_std": round(std_s, 5)
+        "spread_std": round(std_s, 5),
     }
+
 
 def calculate_z_score_spread(series_a, series_b, hedge_ratio=1.0):
     """Calculates real-time Z-score of the spread between two assets."""
@@ -57,7 +60,7 @@ def calculate_z_score_spread(series_a, series_b, hedge_ratio=1.0):
     if n < 5:
         return 0.0
 
-    spread = [series_a[-n+i] - hedge_ratio * series_b[-n+i] for i in range(n)]
+    spread = [series_a[-n + i] - hedge_ratio * series_b[-n + i] for i in range(n)]
     mean_s = sum(spread) / n
     std_s = math.sqrt(sum((x - mean_s) ** 2 for x in spread) / n) or 1.0
 
@@ -65,12 +68,22 @@ def calculate_z_score_spread(series_a, series_b, hedge_ratio=1.0):
     z_score = (current_spread - mean_s) / std_s
     return round(z_score, 4)
 
+
 def evaluate_pairs_arbitrage_signal(z_score, entry_threshold=2.0, exit_threshold=0.5):
     """Evaluates pairs arbitrage trading signals based on Z-score thresholds."""
     if z_score >= entry_threshold:
-        return {"action": "SHORT_A_LONG_B", "reason": f"Spread overextended (+{z_score:.2f} SD)"}
+        return {
+            "action": "SHORT_A_LONG_B",
+            "reason": f"Spread overextended (+{z_score:.2f} SD)",
+        }
     elif z_score <= -entry_threshold:
-        return {"action": "LONG_A_SHORT_B", "reason": f"Spread overextended ({z_score:.2f} SD)"}
+        return {
+            "action": "LONG_A_SHORT_B",
+            "reason": f"Spread overextended ({z_score:.2f} SD)",
+        }
     elif abs(z_score) <= exit_threshold:
-        return {"action": "CLOSE_PAIRS", "reason": f"Spread mean-reverted ({z_score:.2f} SD)"}
+        return {
+            "action": "CLOSE_PAIRS",
+            "reason": f"Spread mean-reverted ({z_score:.2f} SD)",
+        }
     return {"action": "HOLD", "reason": f"Spread neutral ({z_score:.2f} SD)"}

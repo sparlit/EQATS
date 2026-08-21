@@ -14,25 +14,31 @@ class SpatialSupplyChainAnalytics:
         "SUEZ_CANAL": {"lat": 30.5, "lon": 32.3, "baseline_density": 85},
         "PANAMA_CANAL": {"lat": 9.1, "lon": -79.7, "baseline_density": 65},
         "STRAIT_OF_HORMUZ": {"lat": 26.5, "lon": 56.2, "baseline_density": 90},
-        "MALACCA_STRAIT": {"lat": 2.5, "lon": 101.8, "baseline_density": 110}
+        "MALACCA_STRAIT": {"lat": 2.5, "lon": 101.8, "baseline_density": 110},
     }
 
     @classmethod
     def parse_maritime_vessel_density(cls, chokepoint_name="SUEZ_CANAL"):
         """Parses current AIS maritime vessel congestion density at strategic chokepoint."""
-        choke = cls.MARITIME_CHOKEPOINTS.get(chokepoint_name.upper(), cls.MARITIME_CHOKEPOINTS["SUEZ_CANAL"])
+        choke = cls.MARITIME_CHOKEPOINTS.get(
+            chokepoint_name.upper(), cls.MARITIME_CHOKEPOINTS["SUEZ_CANAL"]
+        )
         baseline = choke["baseline_density"]
         current_density = baseline + random.randint(-15, 35)
 
         congestion_ratio = current_density / baseline
-        status = "CRITICAL_CONGESTION" if congestion_ratio > 1.25 else ("NORMAL_FLOW" if congestion_ratio <= 1.10 else "MODERATE_DELAY")
+        status = (
+            "CRITICAL_CONGESTION"
+            if congestion_ratio > 1.25
+            else ("NORMAL_FLOW" if congestion_ratio <= 1.10 else "MODERATE_DELAY")
+        )
 
         return {
             "chokepoint": chokepoint_name,
             "current_vessel_density": current_density,
             "baseline_density": baseline,
             "congestion_ratio": round(congestion_ratio, 2),
-            "status": status
+            "status": status,
         }
 
     @classmethod
@@ -49,6 +55,10 @@ class SpatialSupplyChainAnalytics:
 
         return {
             "composite_supply_stress_score": round(composite_score, 1),
-            "inflation_impact_bias": "HIGH_INFLATION_RISK" if composite_score > 65.0 else "STABLE",
-            "commodity_impact_bias": "BULLISH_COMMODITIES" if composite_score > 60.0 else "NEUTRAL"
+            "inflation_impact_bias": "HIGH_INFLATION_RISK"
+            if composite_score > 65.0
+            else "STABLE",
+            "commodity_impact_bias": "BULLISH_COMMODITIES"
+            if composite_score > 60.0
+            else "NEUTRAL",
         }

@@ -27,16 +27,33 @@ class QuantumLocalGPT:
         random.seed(42)
 
         # 1. Learnable embeddings
-        self.token_embeddings = [[random.uniform(-0.1, 0.1) for _ in range(embed_dim)] for _ in range(vocab_size)]
-        self.position_embeddings = [[random.uniform(-0.1, 0.1) for _ in range(embed_dim)] for _ in range(100)] # Max sequence length 100
+        self.token_embeddings = [
+            [random.uniform(-0.1, 0.1) for _ in range(embed_dim)]
+            for _ in range(vocab_size)
+        ]
+        self.position_embeddings = [
+            [random.uniform(-0.1, 0.1) for _ in range(embed_dim)] for _ in range(100)
+        ]  # Max sequence length 100
 
         # 2. Key, Query, Value matrices for Self-Attention
-        self.w_query = [[random.uniform(-0.2, 0.2) for _ in range(embed_dim)] for _ in range(embed_dim)]
-        self.w_key = [[random.uniform(-0.2, 0.2) for _ in range(embed_dim)] for _ in range(embed_dim)]
-        self.w_value = [[random.uniform(-0.2, 0.2) for _ in range(embed_dim)] for _ in range(embed_dim)]
+        self.w_query = [
+            [random.uniform(-0.2, 0.2) for _ in range(embed_dim)]
+            for _ in range(embed_dim)
+        ]
+        self.w_key = [
+            [random.uniform(-0.2, 0.2) for _ in range(embed_dim)]
+            for _ in range(embed_dim)
+        ]
+        self.w_value = [
+            [random.uniform(-0.2, 0.2) for _ in range(embed_dim)]
+            for _ in range(embed_dim)
+        ]
 
         # 3. Output Projection weights
-        self.w_out = [[random.uniform(-0.2, 0.2) for _ in range(vocab_size)] for _ in range(embed_dim)]
+        self.w_out = [
+            [random.uniform(-0.2, 0.2) for _ in range(vocab_size)]
+            for _ in range(embed_dim)
+        ]
         self.bias_out = [random.uniform(-0.1, 0.1) for _ in range(vocab_size)]
 
         # Performance analytics
@@ -61,13 +78,34 @@ class QuantumLocalGPT:
         x = []
         for i, tok in enumerate(tokens):
             pos_idx = min(99, i)
-            emb = [self.token_embeddings[tok][d] + self.position_embeddings[pos_idx][d] for d in range(self.embed_dim)]
+            emb = [
+                self.token_embeddings[tok][d] + self.position_embeddings[pos_idx][d]
+                for d in range(self.embed_dim)
+            ]
             x.append(emb)
 
         # 2. Compute Queries, Keys, Values
-        q = [[sum(x[i][d] * self.w_query[d][j] for d in range(self.embed_dim)) for j in range(self.embed_dim)] for i in range(seq_len)]
-        k = [[sum(x[i][d] * self.w_key[d][j] for d in range(self.embed_dim)) for j in range(self.embed_dim)] for i in range(seq_len)]
-        v = [[sum(x[i][d] * self.w_value[d][j] for d in range(self.embed_dim)) for j in range(self.embed_dim)] for i in range(seq_len)]
+        q = [
+            [
+                sum(x[i][d] * self.w_query[d][j] for d in range(self.embed_dim))
+                for j in range(self.embed_dim)
+            ]
+            for i in range(seq_len)
+        ]
+        k = [
+            [
+                sum(x[i][d] * self.w_key[d][j] for d in range(self.embed_dim))
+                for j in range(self.embed_dim)
+            ]
+            for i in range(seq_len)
+        ]
+        v = [
+            [
+                sum(x[i][d] * self.w_value[d][j] for d in range(self.embed_dim))
+                for j in range(self.embed_dim)
+            ]
+            for i in range(seq_len)
+        ]
 
         # 3. Scaled Dot-Product Attention: Softmax( (Q * K^T) / sqrt(d_k) ) * V
         scale = 1.0 / math.sqrt(self.embed_dim)
@@ -94,7 +132,11 @@ class QuantumLocalGPT:
 
         # 4. Output Projection to Vocabulary logits (representing the final token in the sequence)
         last_hidden = attention_out[-1]
-        logits = [sum(last_hidden[d] * self.w_out[d][j] for d in range(self.embed_dim)) + self.bias_out[j] for j in range(self.vocab_size)]
+        logits = [
+            sum(last_hidden[d] * self.w_out[d][j] for d in range(self.embed_dim))
+            + self.bias_out[j]
+            for j in range(self.vocab_size)
+        ]
         return logits
 
     def train_on_text(self, corpus, learning_rate=0.01, epochs=5):
@@ -106,8 +148,8 @@ class QuantumLocalGPT:
         for epoch in range(epochs):
             total_loss = 0.0
             for i in range(len(tokens) - 1):
-                input_seq = tokens[:i+1]
-                target = tokens[i+1]
+                input_seq = tokens[: i + 1]
+                target = tokens[i + 1]
 
                 # Forward
                 logits = self.forward(input_seq)
@@ -125,7 +167,7 @@ class QuantumLocalGPT:
                 for j in range(self.vocab_size):
                     gradient = probs[j]
                     if j == target:
-                        gradient -= 1.0 # Target error gradient
+                        gradient -= 1.0  # Target error gradient
 
                     # Backpropagate into projection weights
                     for d in range(self.embed_dim):
@@ -143,15 +185,15 @@ class QuantumLocalGPT:
         generated = list(tokens)
 
         for _ in range(max_len):
-            logits = self.forward(generated[-20:]) # Context window 20
+            logits = self.forward(generated[-20:])  # Context window 20
             # Argmax next token
             next_tok = logits.index(max(logits))
             generated.append(next_tok)
             # Break on newline or space padding if generated is too long
-            if next_tok == ord('\n') or next_tok == ord('\r'):
+            if next_tok == ord("\n") or next_tok == ord("\r"):
                 break
 
-        return self.detokenize(generated[len(tokens):])
+        return self.detokenize(generated[len(tokens) :])
 
 
 # Central local LLM instance to keep state synced across ticks

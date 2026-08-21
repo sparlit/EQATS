@@ -5,6 +5,7 @@ to filter out spurious statistical correlations from macroeconomic drivers.
 """
 
 
+
 class CausalInferenceEngine:
     """Causal DAG builder and Pearl Do-Calculus intervention solver."""
 
@@ -20,7 +21,9 @@ class CausalInferenceEngine:
             self.edges[parent_node] = []
         self.edges[parent_node].append((child_node, causal_weight))
 
-    def evaluate_do_calculus_intervention(self, cause_node, effect_node, intervention_value=1.0):
+    def evaluate_do_calculus_intervention(
+        self, cause_node, effect_node, intervention_value=1.0
+    ):
         """
         Solves Pearl's do(cause_node = intervention_value) to measure direct causal impact
         on effect_node, controlling for backdoor confounding paths.
@@ -43,5 +46,5 @@ class CausalInferenceEngine:
             "effect_node": effect_node,
             "intervention_val": intervention_value,
             "causal_effect": round(total_causal_impact, 4),
-            "spurious_correlation_eliminated": True
+            "spurious_correlation_eliminated": True,
         }

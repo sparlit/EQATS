@@ -60,7 +60,7 @@ class SocketIPCBridge:
             "active_positions_count": len(active_positions),
             "active_positions": active_positions,
             "session": session_info,
-            "scans": scans
+            "scans": scans,
         }
         return {"status": "PUSHED", "payload_size": len(self.latest_state)}
 
@@ -83,7 +83,9 @@ class TelemetryStreamServer:
         self.host = host
         self.port = port
 
-    def build_telemetry_payload(self, current_time, equity, balance, active_positions, scans, perf):
+    def build_telemetry_payload(
+        self, current_time, equity, balance, active_positions, scans, perf
+    ):
         """
         Constructs structured JSON telemetry stream payload.
 
@@ -99,10 +101,10 @@ class TelemetryStreamServer:
                 "equity": round(equity, 2),
                 "open_positions": len(active_positions),
                 "win_rate": perf.get("win_rate", 0.0),
-                "net_profit": round(perf.get("net_profit", 0.0), 2)
+                "net_profit": round(perf.get("net_profit", 0.0), 2),
             },
             "positions": active_positions,
-            "scans": scans
+            "scans": scans,
         }
 
 
@@ -112,16 +114,17 @@ def fetch_yfinance_external_rates(symbol, period="1mo", interval="1d"):
     """
     try:
         import yfinance as yf
+
         ticker_map = {
             "EURUSD": "EURUSD=X",
             "GBPUSD": "GBPUSD=X",
             "USDJPY": "JPY=X",
             "BTCUSD": "BTC-USD",
-            "ETHUSD": "ETH-USD"
+            "ETHUSD": "ETH-USD",
         }
         yf_symbol = ticker_map.get(symbol.upper(), symbol)
         data = yf.download(yf_symbol, period=period, interval=interval, progress=False)
-        closes = data['Close'].tolist()
+        closes = data["Close"].tolist()
         return [float(c) for c in closes]
     except Exception:
         # Graceful fallback mock
@@ -134,9 +137,10 @@ def push_telemetry_to_kafka_queue(topic, payload_dict):
     """
     try:
         from kafka import KafkaProducer
+
         producer = KafkaProducer(
-            bootstrap_servers=['localhost:9092'],
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            bootstrap_servers=["localhost:9092"],
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
         )
         producer.send(topic, payload_dict)
         return True

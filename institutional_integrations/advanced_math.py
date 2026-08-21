@@ -21,14 +21,14 @@ def calculate_markov_regime_switching_probability(prices):
         # Calculate log returns
         returns = []
         for i in range(1, n):
-            ret = math.log(prices[i] / prices[i-1])
+            ret = math.log(prices[i] / prices[i - 1])
             returns.append(ret)
 
         # Calculate rolling returns standard deviation (volatility series)
         window_size = 10
         volatilities = []
         for i in range(window_size, len(returns) + 1):
-            window = returns[i - window_size:i]
+            window = returns[i - window_size : i]
             mean_w = sum(window) / len(window)
             var_w = sum((x - mean_w) ** 2 for x in window) / len(window)
             volatilities.append(math.sqrt(var_w))
@@ -41,12 +41,9 @@ def calculate_markov_regime_switching_probability(prices):
         states = [1 if v > median_vol else 0 for v in volatilities]
 
         # Calculate transition counts
-        transition_counts = {
-            (0, 0): 0, (0, 1): 0,
-            (1, 0): 0, (1, 1): 0
-        }
+        transition_counts = {(0, 0): 0, (0, 1): 0, (1, 0): 0, (1, 1): 0}
         for i in range(1, len(states)):
-            prev = states[i-1]
+            prev = states[i - 1]
             curr = states[i]
             transition_counts[(prev, curr)] += 1
 
@@ -61,7 +58,11 @@ def calculate_markov_regime_switching_probability(prices):
 
         # Current state posterior probability estimation based on latest volatility
         curr_vol = volatilities[-1]
-        vol_range = max(volatilities) - min(volatilities) if max(volatilities) != min(volatilities) else 1.0
+        vol_range = (
+            max(volatilities) - min(volatilities)
+            if max(volatilities) != min(volatilities)
+            else 1.0
+        )
         prob_high_vol = (curr_vol - min(volatilities)) / vol_range
         prob_high_vol = max(0.01, min(prob_high_vol, 0.99))
 
@@ -72,7 +73,9 @@ def calculate_markov_regime_switching_probability(prices):
         return 0.15, {"p00": 0.90, "p01": 0.10, "p10": 0.15, "p11": 0.85}
 
 
-def evaluate_black_scholes_option_pricing(spot_price, strike_price, risk_free_rate, volatility, maturity_years):
+def evaluate_black_scholes_option_pricing(
+    spot_price, strike_price, risk_free_rate, volatility, maturity_years
+):
     """
     Computes exact Black-Scholes Option fair pricing metrics using QuantLib.
     """
@@ -94,10 +97,14 @@ def evaluate_black_scholes_option_pricing(spot_price, strike_price, risk_free_ra
         spot_handle = ql.QuoteHandle(ql.SimpleQuote(spot_price))
 
         # Risk free rate curve
-        rate_curve = ql.YieldTermStructureHandle(ql.FlatForward(today, risk_free_rate, ql.Actual365Fixed()))
+        rate_curve = ql.YieldTermStructureHandle(
+            ql.FlatForward(today, risk_free_rate, ql.Actual365Fixed())
+        )
 
         # Volatility structure
-        vol_curve = ql.BlackVolTermStructureHandle(ql.BlackConstantVol(today, calendar, volatility, ql.Actual365Fixed()))
+        vol_curve = ql.BlackVolTermStructureHandle(
+            ql.BlackConstantVol(today, calendar, volatility, ql.Actual365Fixed())
+        )
 
         # Engine setup
         process = ql.BlackScholesProcess(spot_handle, rate_curve, vol_curve)
@@ -109,19 +116,25 @@ def evaluate_black_scholes_option_pricing(spot_price, strike_price, risk_free_ra
             "delta": float(european_option.delta()),
             "gamma": float(european_option.gamma()),
             "vega": float(european_option.vega()),
-            "theta": float(european_option.theta())
+            "theta": float(european_option.theta()),
         }
     except Exception:
         # High fidelity analytic approximations fallback
-        d1 = (math.log(spot_price / strike_price) + (risk_free_rate + 0.5 * volatility ** 2) * maturity_years) / (volatility * math.sqrt(maturity_years))
+        d1 = (
+            math.log(spot_price / strike_price)
+            + (risk_free_rate + 0.5 * volatility**2) * maturity_years
+        ) / (volatility * math.sqrt(maturity_years))
         d2 = d1 - volatility * math.sqrt(maturity_years)
 
         # Simple estimate
-        npv = spot_price * 0.5 - strike_price * math.exp(-risk_free_rate * maturity_years) * 0.45
+        npv = (
+            spot_price * 0.5
+            - strike_price * math.exp(-risk_free_rate * maturity_years) * 0.45
+        )
         return {
             "npv": round(max(0.01, npv), 4),
             "delta": 0.523,
             "gamma": 0.124,
             "vega": 0.082,
-            "theta": -0.012
+            "theta": -0.012,
         }

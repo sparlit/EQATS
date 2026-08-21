@@ -3,6 +3,7 @@ Technical indicators and calculations implementation for EMA, RSI, and ATR.
 This file operates completely autonomously of external libraries like pandas/ta to ensure maximum performance and minimal dependency overhead.
 """
 
+
 def calculate_ema(prices, period):
     """
     Calculates Exponential Moving Average (EMA).
@@ -22,6 +23,7 @@ def calculate_ema(prices, period):
 
     return ema
 
+
 def calculate_rsi(prices, period=14):
     """
     Calculates Relative Strength Index (RSI).
@@ -34,7 +36,7 @@ def calculate_rsi(prices, period=14):
 
     # Calculate differences
     for i in range(1, len(prices)):
-        diff = prices[i] - prices[i-1]
+        diff = prices[i] - prices[i - 1]
         if diff > 0:
             gains.append(diff)
             losses.append(0.0)
@@ -63,6 +65,7 @@ def calculate_rsi(prices, period=14):
     rsi = 100.0 - (100.0 / (1.0 + rs))
     return rsi
 
+
 def calculate_atr(highs, lows, closes, period=14):
     """
     Calculates Average True Range (ATR).
@@ -79,7 +82,7 @@ def calculate_atr(highs, lows, closes, period=14):
     for i in range(1, len(closes)):
         h = highs[i]
         l = lows[i]
-        prev_c = closes[i-1]
+        prev_c = closes[i - 1]
 
         tr1 = h - l
         tr2 = abs(h - prev_c)
@@ -97,6 +100,7 @@ def calculate_atr(highs, lows, closes, period=14):
         atr = (atr * (period - 1) + true_ranges[i]) / period
 
     return atr
+
 
 def calculate_macd(prices, fast_period=12, slow_period=26, signal_period=9):
     """
@@ -137,10 +141,11 @@ def calculate_macd(prices, fast_period=12, slow_period=26, signal_period=9):
     current_histogram = current_macd - current_signal
 
     return {
-        'macd': current_macd,
-        'signal': current_signal,
-        'histogram': current_histogram
+        "macd": current_macd,
+        "signal": current_signal,
+        "histogram": current_histogram,
     }
+
 
 def calculate_bollinger_bands(prices, period=20, num_std=2.0):
     """
@@ -156,18 +161,15 @@ def calculate_bollinger_bands(prices, period=20, num_std=2.0):
 
     # Variance and standard deviation calculation
     variance = sum((x - middle) ** 2 for x in window) / period if period > 0 else 0.0
-    std_dev = variance ** 0.5
+    std_dev = variance**0.5
     if std_dev == 0.0:
         std_dev = 1e-9  # Avoid division by zero downstream
 
     upper = middle + (num_std * std_dev)
     lower = middle - (num_std * std_dev)
 
-    return {
-        'upper': upper,
-        'middle': middle,
-        'lower': lower
-    }
+    return {"upper": upper, "middle": middle, "lower": lower}
+
 
 def calculate_pivot_points(high, low, close):
     """
@@ -179,13 +181,8 @@ def calculate_pivot_points(high, low, close):
     s1 = (2.0 * pivot) - high
     r2 = pivot + (high - low)
     s2 = pivot - (high - low)
-    return {
-        'pivot': pivot,
-        'r1': r1,
-        's1': s1,
-        'r2': r2,
-        's2': s2
-    }
+    return {"pivot": pivot, "r1": r1, "s1": s1, "r2": r2, "s2": s2}
+
 
 def calculate_donchian_channels(highs, lows, period=20):
     """
@@ -197,10 +194,8 @@ def calculate_donchian_channels(highs, lows, period=20):
 
     upper = max(highs[-period:])
     lower = min(lows[-period:])
-    return {
-        'upper': upper,
-        'lower': lower
-    }
+    return {"upper": upper, "lower": lower}
+
 
 def calculate_bollinger_squeeze(prices, period=20, num_std=2.0):
     """
@@ -209,9 +204,10 @@ def calculate_bollinger_squeeze(prices, period=20, num_std=2.0):
     Returns float or None.
     """
     bb = calculate_bollinger_bands(prices, period, num_std)
-    if bb is None or bb['middle'] == 0:
+    if bb is None or bb["middle"] == 0:
         return None
-    return (bb['upper'] - bb['lower']) / bb['middle']
+    return (bb["upper"] - bb["lower"]) / bb["middle"]
+
 
 def classify_market_regime(highs, lows, closes, period=20):
     """
@@ -225,10 +221,10 @@ def classify_market_regime(highs, lows, closes, period=20):
     """
     if len(closes) < 200:
         return {
-            'regime': 'RANGING',
-            'volatility': 'LOW',
-            'trend_intensity': 0.0,
-            'squeeze_ratio': 0.0
+            "regime": "RANGING",
+            "volatility": "LOW",
+            "trend_intensity": 0.0,
+            "squeeze_ratio": 0.0,
         }
 
     ema_long = calculate_ema(closes, 200) or closes[-1]
@@ -249,15 +245,20 @@ def classify_market_regime(highs, lows, closes, period=20):
         if sq is not None:
             historical_squeezes.append(sq)
 
-    avg_squeeze = sum(historical_squeezes) / len(historical_squeezes) if len(historical_squeezes) > 0 else squeeze
+    avg_squeeze = (
+        sum(historical_squeezes) / len(historical_squeezes)
+        if len(historical_squeezes) > 0
+        else squeeze
+    )
     volatility = "HIGH" if squeeze > avg_squeeze else "LOW"
 
     return {
-        'regime': regime,
-        'volatility': volatility,
-        'trend_intensity': round(trend_intensity, 4),
-        'squeeze_ratio': round(squeeze, 4)
+        "regime": regime,
+        "volatility": volatility,
+        "trend_intensity": round(trend_intensity, 4),
+        "squeeze_ratio": round(squeeze, 4),
     }
+
 
 def calculate_adx(highs, lows, closes, period=14):
     """
@@ -265,18 +266,22 @@ def calculate_adx(highs, lows, closes, period=14):
     Range [0, 100]. Values > 25 indicate strong trends.
     """
     if len(closes) < period * 2 or len(highs) < period * 2 or len(lows) < period * 2:
-        return 20.0 # Default fallback
+        return 20.0  # Default fallback
 
     tr_list = []
     dm_plus = []
     dm_minus = []
 
     for i in range(1, len(closes)):
-        h_diff = highs[i] - highs[i-1]
-        l_diff = lows[i-1] - lows[i]
+        h_diff = highs[i] - highs[i - 1]
+        l_diff = lows[i - 1] - lows[i]
 
         # True Range
-        tr = max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1]))
+        tr = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        )
         tr_list.append(tr)
 
         # DM plus / minus
@@ -297,8 +302,12 @@ def calculate_adx(highs, lows, closes, period=14):
 
     for i in range(period, len(tr_list)):
         tr_smooth.append(tr_smooth[-1] - (tr_smooth[-1] / period) + tr_list[i])
-        dm_plus_smooth.append(dm_plus_smooth[-1] - (dm_plus_smooth[-1] / period) + dm_plus[i])
-        dm_minus_smooth.append(dm_minus_smooth[-1] - (dm_minus_smooth[-1] / period) + dm_minus[i])
+        dm_plus_smooth.append(
+            dm_plus_smooth[-1] - (dm_plus_smooth[-1] / period) + dm_plus[i]
+        )
+        dm_minus_smooth.append(
+            dm_minus_smooth[-1] - (dm_minus_smooth[-1] / period) + dm_minus[i]
+        )
 
     # Calculate DI+ and DI-
     di_plus = []
@@ -325,19 +334,20 @@ def calculate_adx(highs, lows, closes, period=14):
 
     return round(adx, 2)
 
+
 def calculate_stochastic(highs, lows, closes, period=14, d_period=3):
     """
     Stochastic Oscillator (%K and %D).
     Returns a dict: {'k': float, 'd': float}
     """
     if len(closes) < period:
-        return {'k': 50.0, 'd': 50.0}
+        return {"k": 50.0, "d": 50.0}
 
     k_values = []
     # Calculate %K for recent bars to enable %D smoothing
     for i in range(len(closes) - d_period, len(closes)):
-        sub_highs = highs[max(0, i - period + 1): i + 1]
-        sub_lows = lows[max(0, i - period + 1): i + 1]
+        sub_highs = highs[max(0, i - period + 1) : i + 1]
+        sub_lows = lows[max(0, i - period + 1) : i + 1]
         if not sub_highs or not sub_lows:
             continue
         h_high = max(sub_highs)
@@ -351,7 +361,8 @@ def calculate_stochastic(highs, lows, closes, period=14, d_period=3):
 
     k_curr = k_values[-1] if k_values else 50.0
     d_curr = sum(k_values) / len(k_values) if k_values else 50.0
-    return {'k': round(k_curr, 2), 'd': round(d_curr, 2)}
+    return {"k": round(k_curr, 2), "d": round(d_curr, 2)}
+
 
 def calculate_ichimoku(highs, lows, closes):
     """
@@ -359,7 +370,7 @@ def calculate_ichimoku(highs, lows, closes):
     Returns a dict: {'tenkan': float, 'kijun': float}
     """
     if len(closes) < 26:
-        return {'tenkan': closes[-1], 'kijun': closes[-1]}
+        return {"tenkan": closes[-1], "kijun": closes[-1]}
 
     # 9-period High/Low
     high_9 = max(highs[-9:])
@@ -371,12 +382,14 @@ def calculate_ichimoku(highs, lows, closes):
     low_26 = min(lows[-26:])
     kijun = (high_26 + low_26) / 2.0
 
-    return {'tenkan': round(tenkan, 5), 'kijun': round(kijun, 5)}
+    return {"tenkan": round(tenkan, 5), "kijun": round(kijun, 5)}
+
 
 def get_smc_analysis(history_bars):
     """Returns institutional Smart Money Concepts (SMC) & ICT market structure analysis."""
     try:
         import institutional_integrations.smc_ict_engine as smc
+
         return smc.global_smc_engine.analyze(history_bars)
     except Exception:
         return {
@@ -385,5 +398,5 @@ def get_smc_analysis(history_bars):
             "mss": {"mss_status": "NEUTRAL", "break_level": None},
             "liquidity_sweeps": {"bsl_sweep": False, "ssl_sweep": False},
             "bias": "NEUTRAL",
-            "confluence_score": 50.0
+            "confluence_score": 50.0,
         }

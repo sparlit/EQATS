@@ -25,7 +25,9 @@ class NeuralNetworkPredictor:
 
         # 1. Initialize weights and biases with small random values
         # Input to Hidden Weights (6 inputs -> 5 hidden neurons)
-        self.w_input_hidden = [[random.uniform(-0.5, 0.5) for _ in range(5)] for _ in range(6)]
+        self.w_input_hidden = [
+            [random.uniform(-0.5, 0.5) for _ in range(5)] for _ in range(6)
+        ]
         self.bias_hidden = [random.uniform(-0.1, 0.1) for _ in range(5)]
 
         # Hidden to Output Weights (5 hidden -> 1 output)
@@ -41,7 +43,9 @@ class NeuralNetworkPredictor:
     def _sigmoid(self, x):
         """Sigmoid activation function."""
         try:
-            return 1.0 / (1.0 + math.exp(-max(-20.0, min(20.0, x)))) # clip limits to avoid overflow
+            return 1.0 / (
+                1.0 + math.exp(-max(-20.0, min(20.0, x)))
+            )  # clip limits to avoid overflow
         except OverflowError:
             return 0.0
 
@@ -89,7 +93,7 @@ class NeuralNetworkPredictor:
 
         # 1. Update rolling accuracy stats
         pred_bullish = 1.0 if self.last_prediction > 0.5 else 0.0
-        is_correct = (pred_bullish == actual_direction_bullish)
+        is_correct = pred_bullish == actual_direction_bullish
 
         self.total_predictions += 1
         if is_correct:
@@ -106,13 +110,17 @@ class NeuralNetworkPredictor:
             self.predict(self.last_inputs)
 
             # Output error gradient
-            output_delta = (target - self.last_prediction) * self._sigmoid_derivative(self.last_prediction)
+            output_delta = (target - self.last_prediction) * self._sigmoid_derivative(
+                self.last_prediction
+            )
 
             # Hidden layer error gradients
             hidden_deltas = []
             for h in range(5):
                 err_h = output_delta * self.w_hidden_output[h]
-                hidden_deltas.append(err_h * self._sigmoid_derivative(self.hidden_activated[h]))
+                hidden_deltas.append(
+                    err_h * self._sigmoid_derivative(self.hidden_activated[h])
+                )
 
             # Dynamic Learning Rate tuning (annears rate as predictions grow)
             adjusted_lr = self.learning_rate
@@ -125,13 +133,17 @@ class NeuralNetworkPredictor:
 
             # 3. Update Hidden-to-Output weights and biases
             for h in range(5):
-                self.w_hidden_output[h] += adjusted_lr * output_delta * self.hidden_activated[h]
+                self.w_hidden_output[h] += (
+                    adjusted_lr * output_delta * self.hidden_activated[h]
+                )
             self.bias_output += adjusted_lr * output_delta
 
             # 4. Update Input-to-Hidden weights and biases
             for i in range(6):
                 for h in range(5):
-                    self.w_input_hidden[i][h] += adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
+                    self.w_input_hidden[i][h] += (
+                        adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
+                    )
 
             for h in range(5):
                 self.bias_hidden[h] += adjusted_lr * hidden_deltas[h]
@@ -141,7 +153,9 @@ class NeuralNetworkPredictor:
         acc = self.get_accuracy()
         if self.total_predictions > 10 and acc < 99.0:
             # Self-heal / mutate model to break local minima
-            self.learning_rate = max(0.01, min(0.5, self.learning_rate * (1.0 + random.uniform(-0.1, 0.1))))
+            self.learning_rate = max(
+                0.01, min(0.5, self.learning_rate * (1.0 + random.uniform(-0.1, 0.1)))
+            )
 
     def get_accuracy(self):
         """Returns the rolling success accuracy percentage."""
@@ -155,26 +169,33 @@ class NeuralNetworkPredictor:
         to visualize the training and convergence process happening inside the brain.
         """
         # Calculate averages of weights
-        n_ih = float(len(self.w_input_hidden) * len(self.w_input_hidden[0])) if self.w_input_hidden and self.w_input_hidden[0] else 30.0
+        n_ih = (
+            float(len(self.w_input_hidden) * len(self.w_input_hidden[0]))
+            if self.w_input_hidden and self.w_input_hidden[0]
+            else 30.0
+        )
         total_w_ih = sum(sum(w_row) for w_row in self.w_input_hidden)
         avg_w_ih = total_w_ih / max(1.0, n_ih)
 
         n_ho = float(len(self.w_hidden_output)) if self.w_hidden_output else 5.0
         avg_w_ho = sum(self.w_hidden_output) / max(1.0, n_ho)
 
-        hidden_str = ",".join(f"{h:.2f}" for h in getattr(self, 'hidden_activated', [0.0]*5))
+        hidden_str = ",".join(
+            f"{h:.2f}" for h in getattr(self, "hidden_activated", [0.0] * 5)
+        )
 
         return {
             "avg_w_ih": round(avg_w_ih, 4),
             "avg_w_ho": round(avg_w_ho, 4),
             "bias_output": round(self.bias_output, 4),
             "hidden_activations": hidden_str,
-            "training_cycles": self.total_predictions
+            "training_cycles": self.total_predictions,
         }
 
 
 # Centralized predictive brain dictionary to keep track of predictors for each symbol
 _predictor_registry = {}
+
 
 def get_symbol_predictor(symbol):
     """Factory to fetch or create the dedicated predictor instance for a symbol."""
@@ -204,7 +225,9 @@ def batch_predict_symbols_parallel(symbol_inputs_map):
 
     max_workers = min(8, max(1, len(symbol_inputs_map)))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_predict_single, item) for item in symbol_inputs_map.items()]
+        futures = [
+            executor.submit(_predict_single, item) for item in symbol_inputs_map.items()
+        ]
         for fut in concurrent.futures.as_completed(futures):
             try:
                 sym, prob = fut.result()

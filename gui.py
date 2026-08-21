@@ -13,6 +13,7 @@ import main
 
 _log = logging.getLogger("gui")
 
+
 class ScalperGui:
     """
     Ultimate EQATS Quantum Terminal style visual dashboard for the Autonomous Forex Scalper.
@@ -27,7 +28,7 @@ class ScalperGui:
 
     def __init__(self, root):
         self.root = root
-        self.root.withdraw() # Withdraw root immediately for startup security authentication
+        self.root.withdraw()  # Withdraw root immediately for startup security authentication
         # Initialize the database and all tables first before any visual loads or logs!
         try:
             database.init_db()
@@ -43,29 +44,68 @@ class ScalperGui:
             return
 
         # Authentic EQATS Quantum Terminal Style configuration
-        self.bg_dark = "#000000"         # EQATS Pitch Black
-        self.bg_card = "#121212"         # EQATS Dark Grey Panels
-        self.fg_light = "#ffffff"        # Clean White text
-        self.fg_accent = "#ff9900"       # Classic EQATS Neon Amber/Orange
-        self.fg_green = "#00ff00"        # Neon Green (Profit / Positive / Go)
-        self.fg_red = "#ff3333"          # Neon Red (Loss / Negative)
-        self.fg_cyan = "#00ffff"         # Cyan details
-        self.fg_grey = "#888888"         # Muted Grey labels
+        self.bg_dark = "#000000"  # EQATS Pitch Black
+        self.bg_card = "#121212"  # EQATS Dark Grey Panels
+        self.fg_light = "#ffffff"  # Clean White text
+        self.fg_accent = "#ff9900"  # Classic EQATS Neon Amber/Orange
+        self.fg_green = "#00ff00"  # Neon Green (Profit / Positive / Go)
+        self.fg_red = "#ff3333"  # Neon Red (Loss / Negative)
+        self.fg_cyan = "#00ffff"  # Cyan details
+        self.fg_grey = "#888888"  # Muted Grey labels
 
         self.root.configure(bg=self.bg_dark)
 
         # Configure Tkinter Styles
         self.style = ttk.Style()
         self.style.theme_use("clam")
-        self.style.configure(".", background=self.bg_dark, foreground=self.fg_light, fieldbackground=self.bg_dark)
-        self.style.configure("Treeview", background=self.bg_card, foreground=self.fg_light, fieldbackground=self.bg_card, bordercolor="#2d2d2d", borderwidth=1, rowheight=25)
-        self.style.map("Treeview", background=[("selected", self.fg_accent)], foreground=[("selected", "#000000")])
-        self.style.configure("Treeview.Heading", background="#1c1c1c", foreground=self.fg_accent, font=("Consolas", 10, "bold"), borderwidth=1)
+        self.style.configure(
+            ".",
+            background=self.bg_dark,
+            foreground=self.fg_light,
+            fieldbackground=self.bg_dark,
+        )
+        self.style.configure(
+            "Treeview",
+            background=self.bg_card,
+            foreground=self.fg_light,
+            fieldbackground=self.bg_card,
+            bordercolor="#2d2d2d",
+            borderwidth=1,
+            rowheight=25,
+        )
+        self.style.map(
+            "Treeview",
+            background=[("selected", self.fg_accent)],
+            foreground=[("selected", "#000000")],
+        )
+        self.style.configure(
+            "Treeview.Heading",
+            background="#1c1c1c",
+            foreground=self.fg_accent,
+            font=("Consolas", 10, "bold"),
+            borderwidth=1,
+        )
         self.style.configure("TNotebook", background=self.bg_dark, borderwidth=0)
-        self.style.configure("TNotebook.Tab", background=self.bg_card, foreground=self.fg_accent, font=("Consolas", 8, "bold"), padding=6, borderwidth=1)
-        self.style.map("TNotebook.Tab", background=[("selected", self.bg_dark)], foreground=[("selected", self.fg_green)])
+        self.style.configure(
+            "TNotebook.Tab",
+            background=self.bg_card,
+            foreground=self.fg_accent,
+            font=("Consolas", 8, "bold"),
+            padding=6,
+            borderwidth=1,
+        )
+        self.style.map(
+            "TNotebook.Tab",
+            background=[("selected", self.bg_dark)],
+            foreground=[("selected", self.fg_green)],
+        )
 
         # Background Thread state
+<<<<<<< Updated upstream
+=======
+        import main
+
+>>>>>>> Stashed changes
         self.scalper = main.AutonomousScalper()
         self.bot_thread = None
         self.running = False
@@ -77,7 +117,114 @@ class ScalperGui:
         # Historical price tracking for GP screen (rolling 30 points)
         self.price_history_gp = []
 
+<<<<<<< Updated upstream
         # Dynamic market & news feed states managed via active connector and database
+=======
+        # Simulated macroeconomic indices data for WEI screen
+        self.wei_data = {
+            "DXY": {
+                "name": "US DOLLAR INDEX",
+                "last": 104.250,
+                "change": 0.120,
+                "pct": 0.12,
+            },
+            "EXY": {
+                "name": "EURO FX INDEX",
+                "last": 108.400,
+                "change": -0.080,
+                "pct": -0.07,
+            },
+            "JXY": {
+                "name": "YEN FX INDEX",
+                "last": 64.120,
+                "change": -0.220,
+                "pct": -0.34,
+            },
+            "BXY": {
+                "name": "POUND FX INDEX",
+                "last": 126.850,
+                "change": 0.050,
+                "pct": 0.04,
+            },
+            "SPX": {
+                "name": "S&P 500 INDEX",
+                "last": 5117.20,
+                "change": 14.50,
+                "pct": 0.28,
+            },
+            "CCMP": {
+                "name": "NASDAQ COMPOSITE",
+                "last": 16082.30,
+                "change": 85.10,
+                "pct": 0.53,
+            },
+            "GC1": {
+                "name": "GOLD FUTURES COMEX",
+                "last": 2032.40,
+                "change": 11.20,
+                "pct": 0.55,
+            },
+            "BTCUSD": {
+                "name": "BITCOIN SPOT INDEX",
+                "last": 62140.00,
+                "change": 845.00,
+                "pct": 1.38,
+            },
+            "ETHUSD": {
+                "name": "ETHEREUM SPOT INDEX",
+                "last": 3425.50,
+                "change": -12.40,
+                "pct": -0.36,
+            },
+        }
+
+        # News feed stories for NEWS screen
+        self.news_stories = [
+            {
+                "time": "14:32:10",
+                "headline": "FED HOLDS RATES CONSTANT; HINTS AT DELAYED RATE DECREASES",
+                "source": "EAQTS",
+                "sentiment": "NEUTRAL",
+            },
+            {
+                "time": "14:28:45",
+                "headline": "EUROPEAN CENTRAL BANK SIGNALS RATE PEAK HAS LIKELY PASSED",
+                "source": "EAQTS",
+                "sentiment": "BULLISH",
+            },
+            {
+                "time": "14:15:20",
+                "headline": "MIDDLE-EAST TENSIONS FLARE; SAUDI OIL FLOWS UNINTERRUPTED FOR NOW",
+                "source": "DJ",
+                "sentiment": "BEARISH",
+            },
+            {
+                "time": "13:58:00",
+                "headline": "BANK OF JAPAN STICKING TO ULTRA-LOOSE MONETARY STANCE",
+                "source": "EAQTS",
+                "sentiment": "BEARISH",
+            },
+            {
+                "time": "13:42:15",
+                "headline": "US CORE CPI MOM RISES 0.3% HIGHER THAN FORECASTS; YIELDS SPIKE",
+                "source": "EAQTS",
+                "sentiment": "BEARISH",
+            },
+            {
+                "time": "13:20:00",
+                "headline": "SEC OFFICIALLY APPROVES SPOT ETHEREUM ETFS IN UNEXPECTED REVERSAL",
+                "source": "EAQTS",
+                "sentiment": "BULLISH",
+            },
+        ]
+
+        # Prepopulate the database with initial headlines
+        try:
+            for story in self.news_stories:
+                database.log_news_headline(story["headline"], story["sentiment"])
+        except Exception as e:
+            print(f"Warning: Failed to prepopulate database news: {e}")
+>>>>>>> Stashed changes
 
         # Build UI layout
         self._build_header()
@@ -112,6 +259,7 @@ class ScalperGui:
 
         # Redirect standard output to our dashboard's console panel
         import sys
+
         class ConsoleRedirector:
             def __init__(self, write_func):
                 self.write_func = write_func
@@ -144,14 +292,35 @@ class ScalperGui:
 
     def _build_console_panel(self):
         """Creates a gorgeous, real-time scrollable system console panel on the bottom side of the dashboard"""
-        console_frame = tk.Frame(self.root, bg=self.bg_dark, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        console_frame = tk.Frame(
+            self.root,
+            bg=self.bg_dark,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         console_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=20, pady=(5, 5))
 
-        lbl_title = tk.Label(console_frame, text="[REAL-TIME SYSTEM DIAGNOSTICS & TELEMETRY STREAM]", font=("Consolas", 7, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            console_frame,
+            text="[REAL-TIME SYSTEM DIAGNOSTICS & TELEMETRY STREAM]",
+            font=("Consolas", 7, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", padx=10, pady=(4, 2))
 
         # Text box
-        self.console_text = tk.Text(console_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), height=5, wrap=tk.WORD, bd=0, highlightthickness=0)
+        self.console_text = tk.Text(
+            console_frame,
+            bg="#050505",
+            fg=self.fg_green,
+            font=("Consolas", 7),
+            height=5,
+            wrap=tk.WORD,
+            bd=0,
+            highlightthickness=0,
+        )
         self.console_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 4))
         self.console_text.configure(state=tk.DISABLED)
 
@@ -170,9 +339,9 @@ class ScalperGui:
             self.console_text.configure(state=tk.NORMAL)
             self.console_text.insert(tk.END, text)
             # Cap lines to keep it high performance
-            lines = int(self.console_text.index('end-1c').split('.')[0])
+            lines = int(self.console_text.index("end-1c").split(".")[0])
             if lines > 150:
-                self.console_text.delete('1.0', '2.0')
+                self.console_text.delete("1.0", "2.0")
             self.console_text.see(tk.END)
             self.console_text.configure(state=tk.DISABLED)
         except Exception:
@@ -188,12 +357,14 @@ class ScalperGui:
             text="EAQTS: ELITE QUANTUM TRADING SYSTEM <GO>",
             font=("Consolas", 18, "bold"),
             bg=self.bg_dark,
-            fg=self.fg_accent
+            fg=self.fg_accent,
         )
         title_label.pack(side=tk.LEFT)
 
         # Dynamic connection badge
-        self.badge_text = tk.StringVar(value="SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED")
+        self.badge_text = tk.StringVar(
+            value="SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED"
+        )
         self.badge_label = tk.Label(
             header_frame,
             textvariable=self.badge_text,
@@ -202,24 +373,82 @@ class ScalperGui:
             fg="#ffffff",
             padx=10,
             pady=3,
-            relief=tk.FLAT
+            relief=tk.FLAT,
         )
         self.badge_label.pack(side=tk.RIGHT, pady=5)
 
         # Global Tab Selector dropdown list
-        lbl_tab = tk.Label(header_frame, text="TERMINAL SHEET:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_tab = tk.Label(
+            header_frame,
+            text="TERMINAL SHEET:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_tab.pack(side=tk.RIGHT, padx=(15, 5))
 
         self.tab_selector_var = tk.StringVar(value="MAIN")
         self.tab_list = [
-            "MAIN", "GP", "WEI", "NEWS", "ANR", "PORT", "MCTS", "VDS", "CHART", "SESS",
-            "DES", "YAS", "ECO", "EMSX", "SET", "CFG", "ING", "FEAT", "STRAT", "RISK", "ORD",
-            "LOG", "MON", "SEC", "SAFE", "PF", "SYM", "AIC", "CRAWL", "CRED", "WATCH",
-            "MKT", "TRADEBOOK", "DEEP MARKET SENTIMENT", "STOCK MARKET PREDICTOR", "AGENT", "ECOSYSTEM", "TZCONV",
-            "DOM", "WHALE", "BACKTEST", "FLOW", "OPTIONS", "REGIME", "RUST_OPT", "HELP"
+            "MAIN",
+            "GP",
+            "WEI",
+            "NEWS",
+            "ANR",
+            "PORT",
+            "MCTS",
+            "VDS",
+            "CHART",
+            "SESS",
+            "DES",
+            "YAS",
+            "ECO",
+            "EMSX",
+            "SET",
+            "CFG",
+            "ING",
+            "FEAT",
+            "STRAT",
+            "RISK",
+            "ORD",
+            "LOG",
+            "MON",
+            "SEC",
+            "SAFE",
+            "PF",
+            "SYM",
+            "AIC",
+            "CRAWL",
+            "CRED",
+            "WATCH",
+            "MKT",
+            "TRADEBOOK",
+            "DEEP MARKET SENTIMENT",
+            "STOCK MARKET PREDICTOR",
+            "AGENT",
+            "ECOSYSTEM",
+            "TZCONV",
+            "DOM",
+            "WHALE",
+            "BACKTEST",
+            "FLOW",
+            "OPTIONS",
+            "REGIME",
+            "RUST_OPT",
+            "HELP",
         ]
-        self.tab_selector_menu = tk.OptionMenu(header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change)
-        self.tab_selector_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        self.tab_selector_menu = tk.OptionMenu(
+            header_frame,
+            self.tab_selector_var,
+            *self.tab_list,
+            command=self.on_global_tab_change,
+        )
+        self.tab_selector_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         self.tab_selector_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         self.tab_selector_menu.pack(side=tk.RIGHT, padx=5)
 
@@ -228,7 +457,13 @@ class ScalperGui:
         cmd_frame = tk.Frame(self.root, bg=self.bg_dark, pady=5, padx=20)
         cmd_frame.pack(fill=tk.X)
 
-        lbl_prompt = tk.Label(cmd_frame, text="EAQTS >", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_green)
+        lbl_prompt = tk.Label(
+            cmd_frame,
+            text="EAQTS >",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_green,
+        )
         lbl_prompt.pack(side=tk.LEFT)
 
         self.cmd_entry = tk.Entry(
@@ -240,7 +475,7 @@ class ScalperGui:
             width=20,
             bd=1,
             relief=tk.SOLID,
-            highlightbackground="#2d2d2d"
+            highlightbackground="#2d2d2d",
         )
         self.cmd_entry.pack(side=tk.LEFT, padx=10)
         self.cmd_entry.bind("<Return>", lambda e: self.process_command())
@@ -255,7 +490,7 @@ class ScalperGui:
             padx=12,
             pady=1,
             relief=tk.FLAT,
-            command=self.process_command
+            command=self.process_command,
         )
         btn_go.pack(side=tk.LEFT)
 
@@ -274,7 +509,7 @@ class ScalperGui:
             ("F9 VDS", "VDS"),
             ("F10 CHART", "CHART"),
             ("F11 SESS", "SESS"),
-            ("F1 HELP", "HELP")
+            ("F1 HELP", "HELP"),
         ]
         for label, cmd in shortcuts:
             btn = tk.Button(
@@ -288,37 +523,90 @@ class ScalperGui:
                 bd=1,
                 relief=tk.SOLID,
                 padx=8,
-                command=lambda c=cmd: self.switch_to_screen(c)
+                command=lambda c=cmd: self.switch_to_screen(c),
             )
             btn.pack(side=tk.LEFT, padx=3)
 
     def _build_session_timeline_panel(self):
         """Builds a gorgeous, vibrant 3-row EQATS session timeline panel"""
-        self.timeline_frame = tk.Frame(self.root, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        self.timeline_frame = tk.Frame(
+            self.root,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
+        )
         self.timeline_frame.pack(fill=tk.X, padx=20, pady=5)
 
         # Row 1: Active
         row_act = tk.Frame(self.timeline_frame, bg=self.bg_card)
         row_act.pack(fill=tk.X, pady=2)
-        lbl_act_title = tk.Label(row_act, text="[ACTIVE SESSIONS]   >", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_green, width=22, anchor="w")
+        lbl_act_title = tk.Label(
+            row_act,
+            text="[ACTIVE SESSIONS]   >",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_green,
+            width=22,
+            anchor="w",
+        )
         lbl_act_title.pack(side=tk.LEFT)
-        self.lbl_act_val = tk.Label(row_act, text="No active sessions", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#ffffff", anchor="w")
+        self.lbl_act_val = tk.Label(
+            row_act,
+            text="No active sessions",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg="#ffffff",
+            anchor="w",
+        )
         self.lbl_act_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Row 2: Closed
         row_cls = tk.Frame(self.timeline_frame, bg=self.bg_card)
         row_cls.pack(fill=tk.X, pady=2)
-        lbl_cls_title = tk.Label(row_cls, text="[CLOSED <= 4H]     >", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_grey, width=22, anchor="w")
+        lbl_cls_title = tk.Label(
+            row_cls,
+            text="[CLOSED <= 4H]     >",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_grey,
+            width=22,
+            anchor="w",
+        )
         lbl_cls_title.pack(side=tk.LEFT)
-        self.lbl_cls_val = tk.Label(row_cls, text="None", font=("Consolas", 9), bg=self.bg_card, fg=self.fg_grey, anchor="w")
+        self.lbl_cls_val = tk.Label(
+            row_cls,
+            text="None",
+            font=("Consolas", 9),
+            bg=self.bg_card,
+            fg=self.fg_grey,
+            anchor="w",
+        )
         self.lbl_cls_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Row 3: Upcoming
         row_upc = tk.Frame(self.timeline_frame, bg=self.bg_card)
         row_upc.pack(fill=tk.X, pady=2)
-        lbl_upc_title = tk.Label(row_upc, text="[UPCOMING SESSIONS] >", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_accent, width=22, anchor="w")
+        lbl_upc_title = tk.Label(
+            row_upc,
+            text="[UPCOMING SESSIONS] >",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+            width=22,
+            anchor="w",
+        )
         lbl_upc_title.pack(side=tk.LEFT)
-        self.lbl_upc_val = tk.Label(row_upc, text="None", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_accent, anchor="w")
+        self.lbl_upc_val = tk.Label(
+            row_upc,
+            text="None",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+            anchor="w",
+        )
         self.lbl_upc_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     def _build_stats_ribbon(self):
@@ -327,34 +615,82 @@ class ScalperGui:
         ribbon_frame.pack(fill=tk.X)
 
         # 1. Balance Card
-        self.card_balance = self._create_card(ribbon_frame, "1) BALANCE <GO>", "$10,000.00 USD", 0)
+        self.card_balance = self._create_card(
+            ribbon_frame, "1) BALANCE <GO>", "$10,000.00 USD", 0
+        )
         # 2. Equity Card
-        self.card_equity = self._create_card(ribbon_frame, "2) EQUITY <GO>", "$10,000.00 USD", 1, value_color=self.fg_cyan)
+        self.card_equity = self._create_card(
+            ribbon_frame,
+            "2) EQUITY <GO>",
+            "$10,000.00 USD",
+            1,
+            value_color=self.fg_cyan,
+        )
         # 3. Active Positions
         self.card_active = self._create_card(ribbon_frame, "3) ACTIVE <GO>", "0 / 3", 2)
         # 4. Trading Session Card
-        self.card_session = self._create_card(ribbon_frame, "4) SESSION <GO>", "Quiet Session", 3, value_color="#b45309")
+        self.card_session = self._create_card(
+            ribbon_frame, "4) SESSION <GO>", "Quiet Session", 3, value_color="#b45309"
+        )
         # 5. Performance Card
-        self.card_perf = self._create_card(ribbon_frame, "5) PERFORMANCE <GO>", "Win Rate: 0%", 4, value_color=self.fg_accent)
+        self.card_perf = self._create_card(
+            ribbon_frame,
+            "5) PERFORMANCE <GO>",
+            "Win Rate: 0%",
+            4,
+            value_color=self.fg_accent,
+        )
         # 6. Floating PnL Card
-        self.card_pnl = self._create_card(ribbon_frame, "6) FLOATING PnL <GO>", "$0.00 USD", 5, value_color=self.fg_green)
+        self.card_pnl = self._create_card(
+            ribbon_frame,
+            "6) FLOATING PnL <GO>",
+            "$0.00 USD",
+            5,
+            value_color=self.fg_green,
+        )
 
     def _create_card(self, parent, label_text, val_text, column, value_color=None):
-        card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", highlightcolor="#2d2d2d")
+        card = tk.Frame(
+            parent,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            highlightcolor="#2d2d2d",
+        )
         card.grid(row=0, column=column, padx=10, pady=5, sticky="ew")
         parent.columnconfigure(column, weight=1)
 
-        lbl = tk.Label(card, text=label_text.upper(), font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888")
+        lbl = tk.Label(
+            card,
+            text=label_text.upper(),
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg="#888888",
+        )
         lbl.pack(anchor="w", padx=15, pady=(10, 2))
 
         val_color = value_color if value_color else self.fg_light
-        val = tk.Label(card, text=val_text, font=("Consolas", 14, "bold"), bg=self.bg_card, fg=val_color)
+        val = tk.Label(
+            card,
+            text=val_text,
+            font=("Consolas", 14, "bold"),
+            bg=self.bg_card,
+            fg=val_color,
+        )
         val.pack(anchor="w", padx=15, pady=(0, 10))
         return val
 
     def _build_controls_bar(self):
         """Action Buttons Controls Banner"""
-        ctrl_frame = tk.Frame(self.root, bg=self.bg_card, height=60, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        ctrl_frame = tk.Frame(
+            self.root,
+            bg=self.bg_card,
+            height=60,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         ctrl_frame.pack(fill=tk.X, side=tk.BOTTOM, ipady=10)
 
         # Start Bot Button
@@ -369,7 +705,7 @@ class ScalperGui:
             padx=15,
             pady=8,
             relief=tk.FLAT,
-            command=self.start_bot
+            command=self.start_bot,
         )
         self.btn_start.pack(side=tk.LEFT, padx=(20, 10), pady=10)
 
@@ -386,7 +722,7 @@ class ScalperGui:
             pady=8,
             relief=tk.FLAT,
             state=tk.DISABLED,
-            command=self.stop_bot
+            command=self.stop_bot,
         )
         self.btn_stop.pack(side=tk.LEFT, padx=10, pady=10)
 
@@ -402,7 +738,7 @@ class ScalperGui:
             padx=10,
             pady=8,
             relief=tk.FLAT,
-            command=self.manual_override_close_all
+            command=self.manual_override_close_all,
         )
         self.btn_close_all.pack(side=tk.LEFT, padx=5, pady=10)
 
@@ -418,7 +754,7 @@ class ScalperGui:
             padx=10,
             pady=8,
             relief=tk.FLAT,
-            command=self.manual_override_pause
+            command=self.manual_override_pause,
         )
         self.btn_pause.pack(side=tk.LEFT, padx=5, pady=10)
 
@@ -434,7 +770,7 @@ class ScalperGui:
             padx=10,
             pady=8,
             relief=tk.FLAT,
-            command=self.manual_override_panic_lockdown
+            command=self.manual_override_panic_lockdown,
         )
         self.btn_panic.pack(side=tk.LEFT, padx=5, pady=10)
 
@@ -450,7 +786,7 @@ class ScalperGui:
             padx=10,
             pady=8,
             relief=tk.FLAT,
-            command=self.manual_override_reset_engines
+            command=self.manual_override_reset_engines,
         )
         self.btn_reset_engines.pack(side=tk.LEFT, padx=5, pady=10)
 
@@ -466,7 +802,7 @@ class ScalperGui:
             padx=10,
             pady=8,
             relief=tk.FLAT,
-            command=self.detach_active_window
+            command=self.detach_active_window,
         )
         self.btn_detach.pack(side=tk.LEFT, padx=5, pady=10)
 
@@ -482,12 +818,18 @@ class ScalperGui:
             padx=12,
             pady=8,
             relief=tk.FLAT,
-            command=self.exit_system
+            command=self.exit_system,
         )
         self.btn_exit_system.pack(side=tk.RIGHT, padx=(10, 20), pady=10)
 
         # Strategy Selector label and dropdown list
-        strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
+        strat_lbl = tk.Label(
+            ctrl_frame,
+            text="STRATEGY:",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg="#888888",
+        )
         strat_lbl.pack(side=tk.LEFT, padx=(10, 5), pady=15)
 
         self.strat_var = tk.StringVar(value=config.ACTIVE_STRATEGY)
@@ -505,14 +847,28 @@ class ScalperGui:
             "ORB",
             "VSA",
             "MTF_CONFLUENCE",
-            command=self.on_strategy_change
+            command=self.on_strategy_change,
         )
-        self.strat_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
+        self.strat_menu.config(
+            font=("Consolas", 9, "bold"),
+            bg="#242424",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+            borderwidth=1,
+            highlightthickness=0,
+        )
         self.strat_menu["menu"].config(bg="#242424", fg=self.fg_accent)
         self.strat_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
         # Style Selector label and dropdown list
-        style_lbl = tk.Label(ctrl_frame, text="STYLE:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
+        style_lbl = tk.Label(
+            ctrl_frame,
+            text="STYLE:",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg="#888888",
+        )
         style_lbl.pack(side=tk.LEFT, padx=(15, 5), pady=15)
 
         self.style_var = tk.StringVar(value=config.TRADING_STYLE)
@@ -523,14 +879,26 @@ class ScalperGui:
             "DAY_TRADING",
             "SWING_TRADING",
             "POSITION_TRADING",
-            command=self.on_style_change
+            command=self.on_style_change,
         )
-        self.style_menu.config(font=("Consolas", 9, "bold"), bg="#242424", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT, borderwidth=1, highlightthickness=0)
+        self.style_menu.config(
+            font=("Consolas", 9, "bold"),
+            bg="#242424",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+            borderwidth=1,
+            highlightthickness=0,
+        )
         self.style_menu["menu"].config(bg="#242424", fg=self.fg_accent)
         self.style_menu.pack(side=tk.LEFT, padx=5, pady=15)
 
         # Simulation Mode Toggle Button
-        self.mode_text = tk.StringVar(value="SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR")
+        self.mode_text = tk.StringVar(
+            value="SWITCH TO MT5 WINDOWS"
+            if config.SIMULATION_MODE
+            else "SWITCH TO SIMULATOR"
+        )
         self.btn_toggle_mode = tk.Button(
             ctrl_frame,
             textvariable=self.mode_text,
@@ -542,7 +910,7 @@ class ScalperGui:
             padx=15,
             pady=8,
             relief=tk.FLAT,
-            command=self.toggle_mode
+            command=self.toggle_mode,
         )
         self.btn_toggle_mode.pack(side=tk.RIGHT, padx=20, pady=10)
 
@@ -552,7 +920,7 @@ class ScalperGui:
             text="Last update: Never",
             font=("Consolas", 9),
             bg=self.bg_card,
-            fg="#888888"
+            fg="#888888",
         )
         self.lbl_clock.pack(side=tk.RIGHT, padx=10, pady=15)
 
@@ -569,7 +937,13 @@ class ScalperGui:
     def _show_login_dialog(self):
         """Displays a secure, full-screen, vibrant EQATS Quantum Terminal login gateway with Matrix digital rain animation and rich metadata."""
         login_win = tk.Toplevel()
+<<<<<<< Updated upstream
         login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)")
+=======
+        login_win.title(
+            "SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS)"
+        )
+>>>>>>> Stashed changes
         login_win.configure(bg="#000000")
         login_win.attributes("-topmost", True)
 
@@ -595,17 +969,35 @@ class ScalperGui:
         col_width = 28
         cols = max(15, screen_w // col_width)
         drops = [random.randint(-20, 0) for _ in range(cols)]
-        colors = ["#00ff66", "#00ffcc", "#00ffff", "#38bdf8", "#ffaa00", "#ff007f", "#00ffaa", "#a855f7"]
+        colors = [
+            "#00ff66",
+            "#00ffcc",
+            "#00ffff",
+            "#38bdf8",
+            "#ffaa00",
+            "#ff007f",
+            "#00ffaa",
+            "#a855f7",
+        ]
 
         anim_running = [True]
 
         # Center Container Frame (Glassmorphism card styled over canvas)
-        main_overlay = tk.Frame(login_win, bg="#05090e", bd=2, relief=tk.SOLID, highlightbackground="#00ffcc", highlightcolor="#00ffff")
+        main_overlay = tk.Frame(
+            login_win,
+            bg="#05090e",
+            bd=2,
+            relief=tk.SOLID,
+            highlightbackground="#00ffcc",
+            highlightcolor="#00ffff",
+        )
 
         # Position overlay in center of screen automatically above the background canvas
         card_w = min(1100, int(screen_w * 0.85))
         card_h = min(720, int(screen_h * 0.85))
-        main_overlay.place(relx=0.5, rely=0.5, anchor="center", width=card_w, height=card_h)
+        main_overlay.place(
+            relx=0.5, rely=0.5, anchor="center", width=card_w, height=card_h
+        )
         main_overlay.lift()
 
         def update_matrix():
@@ -635,16 +1027,41 @@ class ScalperGui:
                             if trail == 0:
                                 # Head character
                                 char = random.choice(char_set)
-                                col = random.choice(colors) if random.random() > 0.2 else "#ffffff"
-                                matrix_canvas.create_text(x, ty, text=char, fill=col, font=("Consolas", 12, "bold"), tags="matrix_char")
+                                col = (
+                                    random.choice(colors)
+                                    if random.random() > 0.2
+                                    else "#ffffff"
+                                )
+                                matrix_canvas.create_text(
+                                    x,
+                                    ty,
+                                    text=char,
+                                    fill=col,
+                                    font=("Consolas", 12, "bold"),
+                                    tags="matrix_char",
+                                )
                             elif trail == 1:
                                 # Mid character
                                 char = random.choice(char_set)
-                                matrix_canvas.create_text(x, ty, text=char, fill="#00bb55", font=("Consolas", 11), tags="matrix_char")
+                                matrix_canvas.create_text(
+                                    x,
+                                    ty,
+                                    text=char,
+                                    fill="#00bb55",
+                                    font=("Consolas", 11),
+                                    tags="matrix_char",
+                                )
                             else:
                                 # Dim tail character
                                 char = random.choice(char_set)
-                                matrix_canvas.create_text(x, ty, text=char, fill="#004411", font=("Consolas", 10), tags="matrix_char")
+                                matrix_canvas.create_text(
+                                    x,
+                                    ty,
+                                    text=char,
+                                    fill="#004411",
+                                    font=("Consolas", 10),
+                                    tags="matrix_char",
+                                )
 
                     # Move drop downward
                     if y > ch + 60 and random.random() > 0.90:
@@ -693,7 +1110,7 @@ class ScalperGui:
             text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)",
             font=("Consolas", 15, "bold"),
             bg="#030712",
-            fg="#00ffcc"
+            fg="#00ffcc",
         )
         lbl_header_title.pack(side=tk.LEFT)
 
@@ -704,7 +1121,7 @@ class ScalperGui:
             bg="#166534",
             fg="#ffffff",
             padx=10,
-            pady=4
+            pady=4,
         )
         lbl_header_badge.pack(side=tk.RIGHT)
 
@@ -718,7 +1135,15 @@ class ScalperGui:
         body_frame.pack(fill=tk.BOTH, expand=True)
 
         # LEFT COLUMN: System Description & Metadata
-        left_desc_frame = tk.Frame(body_frame, bg="#0a121d", bd=1, relief=tk.SOLID, highlightbackground="#1e293b", padx=20, pady=20)
+        left_desc_frame = tk.Frame(
+            body_frame,
+            bg="#0a121d",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#1e293b",
+            padx=20,
+            pady=20,
+        )
         left_desc_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
 
         tk.Label(
@@ -726,7 +1151,7 @@ class ScalperGui:
             text="SYSTEM OVERVIEW & COGNITIVE ARCHITECTURE",
             font=("Consolas", 12, "bold"),
             bg="#0a121d",
-            fg="#ffaa00"
+            fg="#ffaa00",
         ).pack(anchor="w", pady=(0, 10))
 
         desc_text = (
@@ -749,7 +1174,7 @@ class ScalperGui:
             bg="#0a121d",
             fg="#e2e8f0",
             justify=tk.LEFT,
-            wraplength=480
+            wraplength=480,
         )
         lbl_desc.pack(anchor="w", fill=tk.BOTH, expand=True)
 
@@ -757,12 +1182,45 @@ class ScalperGui:
         status_row = tk.Frame(left_desc_frame, bg="#0a121d", pady=10)
         status_row.pack(fill=tk.X)
 
-        tk.Label(status_row, text="DATABASE: WAL ONLINE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Label(status_row, text="CONSTITUTION: ACTIVE", font=("Consolas", 8, "bold"), bg="#1e40af", fg="#ffffff", padx=8, pady=3).pack(side=tk.LEFT, padx=5)
-        tk.Label(status_row, text="RUST PyO3: COMPILED", font=("Consolas", 8, "bold"), bg="#7e22ce", fg="#ffffff", padx=8, pady=3).pack(side=tk.LEFT, padx=5)
+        tk.Label(
+            status_row,
+            text="DATABASE: WAL ONLINE",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Label(
+            status_row,
+            text="CONSTITUTION: ACTIVE",
+            font=("Consolas", 8, "bold"),
+            bg="#1e40af",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Label(
+            status_row,
+            text="RUST PyO3: COMPILED",
+            font=("Consolas", 8, "bold"),
+            bg="#7e22ce",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+        ).pack(side=tk.LEFT, padx=5)
 
         # RIGHT COLUMN: Secure Operator Login Form
-        right_login_frame = tk.Frame(body_frame, bg="#0b1320", bd=1, relief=tk.SOLID, highlightbackground="#00ffcc", padx=25, pady=20, width=380)
+        right_login_frame = tk.Frame(
+            body_frame,
+            bg="#0b1320",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#00ffcc",
+            padx=25,
+            pady=20,
+            width=380,
+        )
         right_login_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(15, 0))
         right_login_frame.pack_propagate(False)
 
@@ -771,28 +1229,81 @@ class ScalperGui:
             text="OPERATOR ACCESS GATEWAY",
             font=("Consolas", 12, "bold"),
             bg="#0b1320",
-            fg="#00ffcc"
+            fg="#00ffcc",
         ).pack(anchor="w", pady=(0, 15))
 
         # Username Input
-        tk.Label(right_login_frame, text="OPERATOR USERNAME:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8").pack(anchor="w", pady=(5, 2))
-        user_ent = tk.Entry(right_login_frame, font=("Consolas", 10, "bold"), bg="#030712", fg="#00ff00", insertbackground="#00ff00", bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        tk.Label(
+            right_login_frame,
+            text="OPERATOR USERNAME:",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#94a3b8",
+        ).pack(anchor="w", pady=(5, 2))
+        user_ent = tk.Entry(
+            right_login_frame,
+            font=("Consolas", 10, "bold"),
+            bg="#030712",
+            fg="#00ff00",
+            insertbackground="#00ff00",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#334155",
+        )
         user_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         user_ent.insert(0, "QUANT_OPERATOR")
 
         # Password Input
-        tk.Label(right_login_frame, text="GATEWAY PASSWORD:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8").pack(anchor="w", pady=(5, 2))
-        pwd_ent = tk.Entry(right_login_frame, show="*", font=("Consolas", 10, "bold"), bg="#030712", fg="#00ff00", insertbackground="#00ff00", bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        tk.Label(
+            right_login_frame,
+            text="GATEWAY PASSWORD:",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#94a3b8",
+        ).pack(anchor="w", pady=(5, 2))
+        pwd_ent = tk.Entry(
+            right_login_frame,
+            show="*",
+            font=("Consolas", 10, "bold"),
+            bg="#030712",
+            fg="#00ff00",
+            insertbackground="#00ff00",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#334155",
+        )
         pwd_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         pwd_ent.focus_set()
 
         # MFA Pin Input
-        tk.Label(right_login_frame, text="SECONDARY MFA PIN [123456]:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8").pack(anchor="w", pady=(5, 2))
-        mfa_ent = tk.Entry(right_login_frame, font=("Consolas", 10, "bold"), bg="#030712", fg="#00ff00", insertbackground="#00ff00", bd=1, relief=tk.SOLID, highlightbackground="#334155")
+        tk.Label(
+            right_login_frame,
+            text="SECONDARY MFA PIN [123456]:",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#94a3b8",
+        ).pack(anchor="w", pady=(5, 2))
+        mfa_ent = tk.Entry(
+            right_login_frame,
+            font=("Consolas", 10, "bold"),
+            bg="#030712",
+            fg="#00ff00",
+            insertbackground="#00ff00",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#334155",
+        )
         mfa_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         mfa_ent.insert(0, "123456")
 
-        error_lbl = tk.Label(right_login_frame, text="", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#ff3333", wraplength=320)
+        error_lbl = tk.Label(
+            right_login_frame,
+            text="",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#ff3333",
+            wraplength=320,
+        )
         error_lbl.pack(pady=5)
 
         authenticated = [False]
@@ -806,11 +1317,17 @@ class ScalperGui:
                 authenticated[0] = True
                 # Visual transition animation on button success
                 btn_login.config(text="✓ AUTHORIZED", bg="#15803d", fg="#ffffff")
-                error_lbl.config(text="ACCESS GRANTED: INITIALIZING QUANTUM TERMINAL...", fg="#00ff00")
+                error_lbl.config(
+                    text="ACCESS GRANTED: INITIALIZING QUANTUM TERMINAL...",
+                    fg="#00ff00",
+                )
                 anim_running[0] = False
                 login_win.after(300, login_win.destroy)
             else:
-                error_lbl.config(text="❌ ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA", fg="#ff3333")
+                error_lbl.config(
+                    text="❌ ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA",
+                    fg="#ff3333",
+                )
 
         # Keypress Return listener
         login_win.bind("<Return>", lambda e: try_login())
@@ -826,7 +1343,7 @@ class ScalperGui:
             bd=0,
             relief=tk.FLAT,
             cursor="hand2",
-            command=try_login
+            command=try_login,
         )
         btn_login.pack(fill=tk.X, ipady=8, pady=(10, 5))
 
@@ -841,7 +1358,7 @@ class ScalperGui:
             bd=0,
             relief=tk.FLAT,
             cursor="hand2",
-            command=login_win.destroy
+            command=login_win.destroy,
         )
         btn_cancel.pack(fill=tk.X, ipady=4, pady=5)
 
@@ -856,7 +1373,7 @@ class ScalperGui:
             text="Author: Simon Peter  |  Copyright (c) 2026 TSyS Labs. All Rights Reserved.",
             font=("Consolas", 9, "bold"),
             bg="#030712",
-            fg="#ffaa00"
+            fg="#ffaa00",
         )
         lbl_author.pack(side=tk.TOP, anchor="center")
 
@@ -865,7 +1382,7 @@ class ScalperGui:
             text="ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0) — PROPRIETARY SYSTEM CONSTITUTION ENFORCED. UNAUTHORIZED ACCESS IS MONITORED AND STRICTLY PROHIBITED.",
             font=("Consolas", 7),
             bg="#030712",
-            fg="#64748b"
+            fg="#64748b",
         )
         lbl_copyright_notice.pack(side=tk.TOP, anchor="center", pady=(2, 0))
 
@@ -884,13 +1401,13 @@ class ScalperGui:
 
         if authenticated[0]:
             try:
-                self.root.deiconify() # Deiconify main dashboard upon successful authentication
+                self.root.deiconify()  # Deiconify main dashboard upon successful authentication
             except Exception:
                 pass
             return True
         else:
             try:
-                self.root.destroy() # Exit application safely if authentication is declined/failed
+                self.root.destroy()  # Exit application safely if authentication is declined/failed
             except Exception:
                 pass
             return False
@@ -908,13 +1425,30 @@ class ScalperGui:
         pin_win.focus_set()
         pin_win.grab_set()
 
-        tk.Label(pin_win, text="ENTER SECONDARY SECURITY PIN", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900").pack(pady=10)
+        tk.Label(
+            pin_win,
+            text="ENTER SECONDARY SECURITY PIN",
+            font=("Consolas", 10, "bold"),
+            bg="#000000",
+            fg="#ff9900",
+        ).pack(pady=10)
 
-        pin_ent = tk.Entry(pin_win, show="*", font=("Consolas", 11), bg="#121212", fg="#00ff00", insertbackground="#00ff00", justify="center", width=20)
+        pin_ent = tk.Entry(
+            pin_win,
+            show="*",
+            font=("Consolas", 11),
+            bg="#121212",
+            fg="#00ff00",
+            insertbackground="#00ff00",
+            justify="center",
+            width=20,
+        )
         pin_ent.pack(pady=5)
         pin_ent.focus_set()
 
-        err_lbl = tk.Label(pin_win, text="", font=("Consolas", 9), bg="#000000", fg="#ff3333")
+        err_lbl = tk.Label(
+            pin_win, text="", font=("Consolas", 9), bg="#000000", fg="#ff3333"
+        )
         err_lbl.pack()
 
         approved = [False]
@@ -930,8 +1464,32 @@ class ScalperGui:
         btn_frame = tk.Frame(pin_win, bg="#000000")
         btn_frame.pack(pady=10)
 
-        tk.Button(btn_frame, text="[ SUBMIT ]", font=("Consolas", 10, "bold"), bg="#1c1c1c", fg="#00ff00", activebackground="#2c2c2c", activeforeground="#00ff00", bd=1, relief=tk.SOLID, command=verify, width=12).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="[ DECLINE ]", font=("Consolas", 10), bg="#1c1c1c", fg="#ff3333", activebackground="#2c2c2c", activeforeground="#ff3333", bd=1, relief=tk.SOLID, command=pin_win.destroy, width=10).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_frame,
+            text="[ SUBMIT ]",
+            font=("Consolas", 10, "bold"),
+            bg="#1c1c1c",
+            fg="#00ff00",
+            activebackground="#2c2c2c",
+            activeforeground="#00ff00",
+            bd=1,
+            relief=tk.SOLID,
+            command=verify,
+            width=12,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_frame,
+            text="[ DECLINE ]",
+            font=("Consolas", 10),
+            bg="#1c1c1c",
+            fg="#ff3333",
+            activebackground="#2c2c2c",
+            activeforeground="#ff3333",
+            bd=1,
+            relief=tk.SOLID,
+            command=pin_win.destroy,
+            width=10,
+        ).pack(side=tk.LEFT, padx=5)
 
         pin_win.wait_window()
         return approved[0]
@@ -941,7 +1499,9 @@ class ScalperGui:
         # Intercept SET <GO> and CFG <GO> screen access to enforce secondary PIN authorization
         if screen_code in ["SET", "CFG", "CONFIG"]:
             if not self._prompt_secondary_pin():
-                print(f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller.")
+                print(
+                    f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller."
+                )
                 return
 
         # Clear out previous widgets
@@ -1063,11 +1623,19 @@ class ScalperGui:
         left_col = tk.Frame(main_split, bg=self.bg_dark)
         left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
-        lbl_scans = tk.Label(left_col, text="7) MULTI-ASSET COGNITIVE SCANS MATRIX <GO>", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_scans = tk.Label(
+            left_col,
+            text="7) MULTI-ASSET COGNITIVE SCANS MATRIX <GO>",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_scans.pack(anchor="w", pady=(0, 5))
 
         cols = ("Symbol", "Price", "EMA-200", "Trend", "RSI", "ATR", "Status")
-        self.tree = ttk.Treeview(left_col, columns=cols, show="headings", style="Treeview")
+        self.tree = ttk.Treeview(
+            left_col, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor=tk.W, width=85)
@@ -1083,11 +1651,19 @@ class ScalperGui:
         right_col.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
         right_col.pack_propagate(False)
 
-        lbl_trades = tk.Label(right_col, text="8) LIVE RUNNING POSITIONS TERMINAL <GO>", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_cyan)
+        lbl_trades = tk.Label(
+            right_col,
+            text="8) LIVE RUNNING POSITIONS TERMINAL <GO>",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_cyan,
+        )
         lbl_trades.pack(anchor="w", pady=(0, 5))
 
         cols_t = ("Ticket", "Symbol", "Type", "Lots", "Entry", "Current", "PnL ($)")
-        self.trades_tree = ttk.Treeview(right_col, columns=cols_t, show="headings", style="Treeview")
+        self.trades_tree = ttk.Treeview(
+            right_col, columns=cols_t, show="headings", style="Treeview"
+        )
         for col_t in cols_t:
             self.trades_tree.heading(col_t, text=col_t)
             if col_t in ["Ticket", "Symbol"]:
@@ -1100,24 +1676,39 @@ class ScalperGui:
 
     def _show_gp_screen(self):
         """GP <GO>: Graphical Price Tracking Line Chart & Key Quote Details"""
-        lbl_title = tk.Label(self.screen_frame, text=f"GP: GRAPHICAL PRICE & COGNITIVE CHART - {self.selected_symbol_gp} <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text=f"GP: GRAPHICAL PRICE & COGNITIVE CHART - {self.selected_symbol_gp} <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
         # Dropdown to select different symbols
         sel_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         sel_frame.pack(fill=tk.X, pady=5)
 
-        lbl_select = tk.Label(sel_frame, text="SELECT ASSET:", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_select = tk.Label(
+            sel_frame,
+            text="SELECT ASSET:",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_select.pack(side=tk.LEFT)
 
         self.gp_asset_var = tk.StringVar(value=self.selected_symbol_gp)
         gp_menu = tk.OptionMenu(
-            sel_frame,
-            self.gp_asset_var,
-            *config.SYMBOLS,
-            command=self.change_gp_symbol
+            sel_frame, self.gp_asset_var, *config.SYMBOLS, command=self.change_gp_symbol
         )
-        gp_menu.config(font=("Consolas", 9, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        gp_menu.config(
+            font=("Consolas", 9, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         gp_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         gp_menu.pack(side=tk.LEFT, padx=10)
 
@@ -1126,11 +1717,24 @@ class ScalperGui:
         chart_split.pack(fill=tk.BOTH, expand=True, pady=5)
 
         # Graph Canvas
-        self.chart_canvas = tk.Canvas(chart_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.chart_canvas = tk.Canvas(
+            chart_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.chart_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Technical details side-card
-        self.gp_details_frame = tk.Frame(chart_split, bg="#111111", bd=1, relief=tk.SOLID, width=280, highlightbackground="#2d2d2d")
+        self.gp_details_frame = tk.Frame(
+            chart_split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            width=280,
+            highlightbackground="#2d2d2d",
+        )
         self.gp_details_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         self.gp_details_frame.pack_propagate(False)
 
@@ -1142,59 +1746,138 @@ class ScalperGui:
             widget.destroy()
 
         # Dynamic title & live quote details
-        lbl_head = tk.Label(self.gp_details_frame, text="ASSET INTELLIGENCE", font=("Consolas", 10, "bold"), bg="#111111", fg=self.fg_cyan)
+        lbl_head = tk.Label(
+            self.gp_details_frame,
+            text="ASSET INTELLIGENCE",
+            font=("Consolas", 10, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
+        )
         lbl_head.pack(anchor="w", padx=10, pady=10)
 
-        self.lbl_gp_quote = tk.Label(self.gp_details_frame, text="LOADING QUOTE...", font=("Consolas", 14, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_gp_quote = tk.Label(
+            self.gp_details_frame,
+            text="LOADING QUOTE...",
+            font=("Consolas", 14, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_gp_quote.pack(anchor="w", padx=10, pady=5)
 
-        self.lbl_gp_hl = tk.Label(self.gp_details_frame, text="H/L: - / -", font=("Consolas", 9), bg="#111111", fg=self.fg_light)
+        self.lbl_gp_hl = tk.Label(
+            self.gp_details_frame,
+            text="H/L: - / -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_gp_hl.pack(anchor="w", padx=10, pady=2)
 
-        self.lbl_gp_spread = tk.Label(self.gp_details_frame, text="Spread: - pips", font=("Consolas", 9), bg="#111111", fg=self.fg_grey)
+        self.lbl_gp_spread = tk.Label(
+            self.gp_details_frame,
+            text="Spread: - pips",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_grey,
+        )
         self.lbl_gp_spread.pack(anchor="w", padx=10, pady=2)
 
         # Divider
-        tk.Frame(self.gp_details_frame, bg="#222222", height=1).pack(fill=tk.X, padx=10, pady=10)
+        tk.Frame(self.gp_details_frame, bg="#222222", height=1).pack(
+            fill=tk.X, padx=10, pady=10
+        )
 
         # Indicators Panel
-        lbl_inds = tk.Label(self.gp_details_frame, text="COGNITIVE INDICES", font=("Consolas", 9, "bold"), bg="#111111", fg=self.fg_accent)
+        lbl_inds = tk.Label(
+            self.gp_details_frame,
+            text="COGNITIVE INDICES",
+            font=("Consolas", 9, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+        )
         lbl_inds.pack(anchor="w", padx=10, pady=2)
 
-        self.lbl_gp_ema = tk.Label(self.gp_details_frame, text="EMA-200: -", font=("Consolas", 9), bg="#111111", fg=self.fg_light)
+        self.lbl_gp_ema = tk.Label(
+            self.gp_details_frame,
+            text="EMA-200: -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_gp_ema.pack(anchor="w", padx=10, pady=2)
 
-        self.lbl_gp_rsi = tk.Label(self.gp_details_frame, text="RSI-14: -", font=("Consolas", 9), bg="#111111", fg=self.fg_light)
+        self.lbl_gp_rsi = tk.Label(
+            self.gp_details_frame,
+            text="RSI-14: -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_gp_rsi.pack(anchor="w", padx=10, pady=2)
 
-        self.lbl_gp_atr = tk.Label(self.gp_details_frame, text="ATR Dev: -", font=("Consolas", 9), bg="#111111", fg=self.fg_light)
+        self.lbl_gp_atr = tk.Label(
+            self.gp_details_frame,
+            text="ATR Dev: -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_gp_atr.pack(anchor="w", padx=10, pady=2)
 
         # Pivot Points Support/Resistance lines
-        tk.Frame(self.gp_details_frame, bg="#222222", height=1).pack(fill=tk.X, padx=10, pady=10)
-        lbl_pivots = tk.Label(self.gp_details_frame, text="PIVOT S/R COGNITION", font=("Consolas", 9, "bold"), bg="#111111", fg=self.fg_cyan)
+        tk.Frame(self.gp_details_frame, bg="#222222", height=1).pack(
+            fill=tk.X, padx=10, pady=10
+        )
+        lbl_pivots = tk.Label(
+            self.gp_details_frame,
+            text="PIVOT S/R COGNITION",
+            font=("Consolas", 9, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
+        )
         lbl_pivots.pack(anchor="w", padx=10, pady=2)
 
-        self.lbl_gp_pivots = tk.Label(self.gp_details_frame, text="P: -\nS1: -\nR1: -", font=("Consolas", 9), justify=tk.LEFT, bg="#111111", fg=self.fg_light)
+        self.lbl_gp_pivots = tk.Label(
+            self.gp_details_frame,
+            text="P: -\nS1: -\nR1: -",
+            font=("Consolas", 9),
+            justify=tk.LEFT,
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_gp_pivots.pack(anchor="w", padx=10, pady=2)
 
     def change_gp_symbol(self, selection):
         self.selected_symbol_gp = selection
-        self.price_history_gp = [] # Reset trace
+        self.price_history_gp = []  # Reset trace
         self.switch_to_screen("GP")
 
     def _show_wei_screen(self):
         """WEI <GO>: World Currency Indices & Global Market Indices tracking board"""
-        lbl_title = tk.Label(self.screen_frame, text="WEI: WORLD EXCHANGE & EQUITY INDICES <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="WEI: WORLD EXCHANGE & EQUITY INDICES <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
         # Instructions Label
-        lbl_info = tk.Label(self.screen_frame, text="GLOBAL MACRO BOARD - TICK FEED REFRESHES REAL-TIME VIA SIMULATED EXCHANGE QUOTES", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="GLOBAL MACRO BOARD - TICK FEED REFRESHES REAL-TIME VIA SIMULATED EXCHANGE QUOTES",
+            font=("Consolas", 8),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Treeview Matrix table for macro products
         cols = ("Symbol", "Name", "Last", "Net Change", "% Change", "Status")
-        self.wei_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        self.wei_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.wei_tree.heading(col, text=col)
             if col == "Name":
@@ -1205,11 +1888,19 @@ class ScalperGui:
 
     def _show_news_screen(self):
         """NEWS <GO>: Live Macro Headlines Feed and Sentiments"""
-        lbl_title = tk.Label(self.screen_frame, text="NEWS: BLOOMBERG REAL-TIME HEADLINES FEED <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="NEWS: BLOOMBERG REAL-TIME HEADLINES FEED <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
         cols = ("Time", "Source", "Headline", "AI Sentiment")
-        self.news_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        self.news_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.news_tree.heading(col, text=col)
             if col == "Headline":
@@ -1223,7 +1914,13 @@ class ScalperGui:
 
     def _show_anr_screen(self):
         """ANR <GO>: Analyst Recommendations & Artificial Neural Network Metrics"""
-        lbl_title = tk.Label(self.screen_frame, text="ANR: COGNITIVE ANALYST RECOMMENDATIONS & AI BIAS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="ANR: COGNITIVE ANALYST RECOMMENDATIONS & AI BIAS <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
         # Split frame
@@ -1231,21 +1928,42 @@ class ScalperGui:
         anr_split.pack(fill=tk.BOTH, expand=True, pady=5)
 
         # Left Column: Analyst Recommendations (Consensus matrix)
-        left_frame = tk.Frame(anr_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_frame = tk.Frame(
+            anr_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
 
-        lbl_cons = tk.Label(left_frame, text="CONSENSUS RECOMMENDATIONS MATRIX", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_accent)
+        lbl_cons = tk.Label(
+            left_frame,
+            text="CONSENSUS RECOMMENDATIONS MATRIX",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+        )
         lbl_cons.pack(anchor="w", padx=15, pady=15)
 
         cols = ("Asset", "Consensus", "Buy %", "Hold %", "Sell %", "1Y Target")
-        self.anr_tree = ttk.Treeview(left_frame, columns=cols, show="headings", style="Treeview")
+        self.anr_tree = ttk.Treeview(
+            left_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.anr_tree.heading(col, text=col)
             self.anr_tree.column(col, anchor=tk.W, width=95)
         self.anr_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
 
         # Right Column: Neural Network metrics
-        self.right_frame_anr = tk.Frame(anr_split, bg=self.bg_card, bd=1, relief=tk.SOLID, width=420, highlightbackground="#2d2d2d")
+        self.right_frame_anr = tk.Frame(
+            anr_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            width=420,
+            highlightbackground="#2d2d2d",
+        )
         self.right_frame_anr.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(15, 0))
         self.right_frame_anr.pack_propagate(False)
 
@@ -1255,11 +1973,23 @@ class ScalperGui:
         for widget in self.right_frame_anr.winfo_children():
             widget.destroy()
 
-        lbl_ai = tk.Label(self.right_frame_anr, text="PREDICTIVE BRAIN - MULTI-LAYER PERCEPTRON (MLP)", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        lbl_ai = tk.Label(
+            self.right_frame_anr,
+            text="PREDICTIVE BRAIN - MULTI-LAYER PERCEPTRON (MLP)",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        )
         lbl_ai.pack(anchor="w", padx=15, pady=15)
 
         # Training status parameters
-        self.lbl_mlp_status = tk.Label(self.right_frame_anr, text="Engine Status: ACTIVE & SELF-LEARNING", font=("Consolas", 9), bg=self.bg_card, fg=self.fg_green)
+        self.lbl_mlp_status = tk.Label(
+            self.right_frame_anr,
+            text="Engine Status: ACTIVE & SELF-LEARNING",
+            font=("Consolas", 9),
+            bg=self.bg_card,
+            fg=self.fg_green,
+        )
         self.lbl_mlp_status.pack(anchor="w", padx=15, pady=2)
 
         self.lbl_mlp_metrics = tk.Label(
@@ -1268,36 +1998,84 @@ class ScalperGui:
             font=("Consolas", 9),
             justify=tk.LEFT,
             bg=self.bg_card,
-            fg=self.fg_light
+            fg=self.fg_light,
         )
         self.lbl_mlp_metrics.pack(anchor="w", padx=15, pady=10)
 
         # Dynamic predictive outcome values
-        tk.Frame(self.right_frame_anr, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=10)
+        tk.Frame(self.right_frame_anr, bg="#222222", height=1).pack(
+            fill=tk.X, padx=15, pady=10
+        )
 
-        lbl_pred_head = tk.Label(self.right_frame_anr, text="NEXT-CANDLE REAL-TIME PREDICTIONS", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_accent)
+        lbl_pred_head = tk.Label(
+            self.right_frame_anr,
+            text="NEXT-CANDLE REAL-TIME PREDICTIONS",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+        )
         lbl_pred_head.pack(anchor="w", padx=15, pady=2)
 
-        self.lbl_mlp_bias = tk.Label(self.right_frame_anr, text="MLP Next Candle Bias: BUY (50.0% Confidence)", font=("Consolas", 9), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_mlp_bias = tk.Label(
+            self.right_frame_anr,
+            text="MLP Next Candle Bias: BUY (50.0% Confidence)",
+            font=("Consolas", 9),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_mlp_bias.pack(anchor="w", padx=15, pady=4)
 
-        self.lbl_mlp_loss = tk.Label(self.right_frame_anr, text="Latest Backpropagation Loss: 0.0000", font=("Consolas", 9), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_mlp_loss = tk.Label(
+            self.right_frame_anr,
+            text="Latest Backpropagation Loss: 0.0000",
+            font=("Consolas", 9),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_mlp_loss.pack(anchor="w", padx=15, pady=2)
 
-        self.lbl_mlp_corrective = tk.Label(self.right_frame_anr, text="Filter Intervention State: IDLE", font=("Consolas", 9), bg=self.bg_card, fg=self.fg_green)
+        self.lbl_mlp_corrective = tk.Label(
+            self.right_frame_anr,
+            text="Filter Intervention State: IDLE",
+            font=("Consolas", 9),
+            bg=self.bg_card,
+            fg=self.fg_green,
+        )
         self.lbl_mlp_corrective.pack(anchor="w", padx=15, pady=2)
 
         # Historical DB record analytics
-        tk.Frame(self.right_frame_anr, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=10)
-        self.lbl_mlp_accuracy = tk.Label(self.right_frame_anr, text="Historical System Accuracy: 0.0%", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        tk.Frame(self.right_frame_anr, bg="#222222", height=1).pack(
+            fill=tk.X, padx=15, pady=10
+        )
+        self.lbl_mlp_accuracy = tk.Label(
+            self.right_frame_anr,
+            text="Historical System Accuracy: 0.0%",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        )
         self.lbl_mlp_accuracy.pack(anchor="w", padx=15, pady=5)
 
         # Local Privacy-First Financial LLM Metrics
-        tk.Frame(self.right_frame_anr, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=5)
-        lbl_llm_head = tk.Label(self.right_frame_anr, text="LOCAL PRIVACY-FIRST GPT LLM", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        tk.Frame(self.right_frame_anr, bg="#222222", height=1).pack(
+            fill=tk.X, padx=15, pady=5
+        )
+        lbl_llm_head = tk.Label(
+            self.right_frame_anr,
+            text="LOCAL PRIVACY-FIRST GPT LLM",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        )
         lbl_llm_head.pack(anchor="w", padx=15, pady=2)
 
-        self.lbl_llm_metrics = tk.Label(self.right_frame_anr, text="Vocab Size: 128 | Dimensions: 16 | Heads: 2", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_llm_metrics = tk.Label(
+            self.right_frame_anr,
+            text="Vocab Size: 128 | Dimensions: 16 | Heads: 2",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_llm_metrics.pack(anchor="w", padx=15, pady=2)
 
         self.lbl_llm_forecast = tk.Label(
@@ -1307,13 +2085,19 @@ class ScalperGui:
             justify=tk.LEFT,
             bg=self.bg_card,
             fg=self.fg_accent,
-            wraplength=380
+            wraplength=380,
         )
         self.lbl_llm_forecast.pack(anchor="w", padx=15, pady=5)
 
     def _show_help_screen(self):
         """HELP <GO>: Help command directory and system details"""
-        lbl_title = tk.Label(self.screen_frame, text="HELP: EQATS QUANTUM TERMINAL OPERATIONAL MANUAL <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="HELP: EQATS QUANTUM TERMINAL OPERATIONAL MANUAL <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
         # Container Frame for Text widget + Vertical Scrollbar
@@ -1323,7 +2107,18 @@ class ScalperGui:
         sb = ttk.Scrollbar(help_container, orient=tk.VERTICAL)
         sb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        text_widget = tk.Text(help_container, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 10), insertbackground=self.fg_accent, wrap=tk.WORD, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", yscrollcommand=sb.set)
+        text_widget = tk.Text(
+            help_container,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 10),
+            insertbackground=self.fg_accent,
+            wrap=tk.WORD,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            yscrollcommand=sb.set,
+        )
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         sb.config(command=text_widget.yview)
 
@@ -1433,48 +2228,113 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
 
         top_bar = tk.Frame(detached_win, bg=self.bg_dark, padx=10, pady=5)
         top_bar.pack(fill=tk.X)
-        tk.Label(top_bar, text=f"DETACHED MULTI-MONITOR TAB: {self.active_screen}", font=("Consolas", 10, "bold"), bg=self.bg_dark, fg=self.fg_accent).pack(side=tk.LEFT)
+        tk.Label(
+            top_bar,
+            text=f"DETACHED MULTI-MONITOR TAB: {self.active_screen}",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        ).pack(side=tk.LEFT)
 
         d_frame = tk.Frame(detached_win, bg=self.bg_dark, padx=10, pady=5)
         d_frame.pack(fill=tk.BOTH, expand=True)
 
-        txt_info = tk.Text(d_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD)
+        txt_info = tk.Text(
+            d_frame,
+            bg=self.bg_card,
+            fg=self.fg_green,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+        )
         txt_info.pack(fill=tk.BOTH, expand=True)
+<<<<<<< Updated upstream
         txt_info.insert(tk.END, "================================================================================\n")
         txt_info.insert(tk.END, f"DETACHED MULTI-MONITOR WORKSPACE FOR: {self.active_screen}\n")
         txt_info.insert(tk.END, "================================================================================\n\n")
         txt_info.insert(tk.END, f"• Live streaming active for window tab: {self.active_screen}\n")
         txt_info.insert(tk.END, "• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n")
         txt_info.insert(tk.END, f"• System time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+=======
+        txt_info.insert(
+            tk.END,
+            f"================================================================================\n",
+        )
+        txt_info.insert(
+            tk.END, f"DETACHED MULTI-MONITOR WORKSPACE FOR: {self.active_screen}\n"
+        )
+        txt_info.insert(
+            tk.END,
+            f"================================================================================\n\n",
+        )
+        txt_info.insert(
+            tk.END, f"• Live streaming active for window tab: {self.active_screen}\n"
+        )
+        txt_info.insert(
+            tk.END, f"• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n"
+        )
+        txt_info.insert(
+            tk.END,
+            f"• System time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+        )
+>>>>>>> Stashed changes
         txt_info.config(state=tk.DISABLED)
 
     def _show_dom_screen(self):
         """DOM <GO>: Level 2 Depth of Market & Footprint Chart"""
-        lbl_title = tk.Label(self.screen_frame, text="DOM: LEVEL 2 DEPTH OF MARKET & FOOTPRINT CHART <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="DOM: LEVEL 2 DEPTH OF MARKET & FOOTPRINT CHART <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
         split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split.pack(fill=tk.BOTH, expand=True, pady=5)
 
         # Left: Level 2 Order Book DOM Treeview
-        left_box = tk.Frame(split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box = tk.Frame(
+            split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
-        tk.Label(left_box, text="LEVEL 2 CLOB ORDER BOOK DEPTH", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", padx=10, pady=5)
+        tk.Label(
+            left_box,
+            text="LEVEL 2 CLOB ORDER BOOK DEPTH",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", padx=10, pady=5)
 
         cols_dom = ("Bid Depth", "Bid Price", "Ask Price", "Ask Depth")
-        self.dom_tree = ttk.Treeview(left_box, columns=cols_dom, show="headings", style="Treeview", height=12)
+        self.dom_tree = ttk.Treeview(
+            left_box, columns=cols_dom, show="headings", style="Treeview", height=12
+        )
         for c in cols_dom:
             self.dom_tree.heading(c, text=c)
             self.dom_tree.column(c, width=100, anchor="center")
         self.dom_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Right: Footprint Delta Volume Canvas
-        right_box = tk.Frame(split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380)
+        right_box = tk.Frame(
+            split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=380,
+        )
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         right_box.pack_propagate(False)
 
-        tk.Label(right_box, text="FOOTPRINT VOLUME DELTA & CUMULATIVE DELTA", font=("Consolas", 9, "bold"), bg="#111111", fg=self.fg_accent).pack(anchor="w", padx=10, pady=5)
+        tk.Label(
+            right_box,
+            text="FOOTPRINT VOLUME DELTA & CUMULATIVE DELTA",
+            font=("Consolas", 9, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+        ).pack(anchor="w", padx=10, pady=5)
 
         self.dom_canvas = tk.Canvas(right_box, bg="#0d0d0d", bd=0, highlightthickness=0)
         self.dom_canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -1484,12 +2344,17 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
     def _update_dom_screen_data(self):
         """Updates DOM screen data with 100ms debouncing/throttling for UI smooth rendering."""
         import time
+
         now = time.time()
-        if hasattr(self, "_last_dom_redraw_time") and (now - self._last_dom_redraw_time) < 0.10:
+        if (
+            hasattr(self, "_last_dom_redraw_time")
+            and (now - self._last_dom_redraw_time) < 0.10
+        ):
             return
         self._last_dom_redraw_time = now
 
-        if not hasattr(self, "dom_tree") or not self.dom_tree: return
+        if not hasattr(self, "dom_tree") or not self.dom_tree:
+            return
         self.dom_tree.delete(*self.dom_tree.get_children())
 
         sym = self.selected_symbol_gp
@@ -1508,20 +2373,24 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
             a_p = ask + level * pip
             b_q = int(base_vol * (10 - level) * 0.8) + (int(b_p * 10000) % 30)
             a_q = int(base_vol * (10 - level) * 0.8) + (int(a_p * 10000) % 30)
-            self.dom_tree.insert("", tk.END, values=(f"{b_q} L", f"{b_p:.5f}", f"{a_p:.5f}", f"{a_q} L"))
+            self.dom_tree.insert(
+                "", tk.END, values=(f"{b_q} L", f"{b_p:.5f}", f"{a_p:.5f}", f"{a_q} L")
+            )
 
         # Draw footprint bars on Canvas using real historical tick directional deltas
         if hasattr(self, "dom_canvas") and self.dom_canvas:
             self.dom_canvas.delete("all")
             cw = self.dom_canvas.winfo_width()
             ch = self.dom_canvas.winfo_height()
-            if cw < 50: cw = 300
-            if ch < 50: ch = 200
+            if cw < 50:
+                cw = 300
+            if ch < 50:
+                ch = 200
 
             tick_deltas = []
             if len(ticks) >= 10:
                 for idx in range(0, 10, 2):
-                    sub = ticks[idx:idx+2]
+                    sub = ticks[idx : idx + 2]
                     if len(sub) == 2:
                         d = int((sub[1]["ask"] - sub[0]["ask"]) / pip * 10)
                         tick_deltas.append(d)
@@ -1533,86 +2402,194 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
                 delta_val = tick_deltas[i]
                 col = self.fg_green if delta_val >= 0 else self.fg_red
                 bar_w = min(180, abs(delta_val) * 3 + 10)
-                self.dom_canvas.create_rectangle(20, y, 20 + bar_w, y + 25, fill=col, outline="")
-                self.dom_canvas.create_text(25 + bar_w, y + 12, text=f"Vol Delta: {delta_val:+d}", fill="#ffffff", font=("Consolas", 8), anchor="w")
+                self.dom_canvas.create_rectangle(
+                    20, y, 20 + bar_w, y + 25, fill=col, outline=""
+                )
+                self.dom_canvas.create_text(
+                    25 + bar_w,
+                    y + 12,
+                    text=f"Vol Delta: {delta_val:+d}",
+                    fill="#ffffff",
+                    font=("Consolas", 8),
+                    anchor="w",
+                )
 
     def _show_whale_screen(self):
         """WHALE <GO>: Crypto On-Chain & Whale Liquidity Tracker"""
-        lbl_title = tk.Label(self.screen_frame, text="WHALE: CRYPTO ON-CHAIN & WHALE LIQUIDITY TRACKER <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="WHALE: CRYPTO ON-CHAIN & WHALE LIQUIDITY TRACKER <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
         split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split.pack(fill=tk.BOTH, expand=True, pady=5)
 
         # Left: Large Wallet Transfers Treeview
-        left_box = tk.Frame(split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box = tk.Frame(
+            split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
-        tk.Label(left_box, text="LARGE WHALE TRANSFERS (> $1M USD)", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", padx=10, pady=5)
+        tk.Label(
+            left_box,
+            text="LARGE WHALE TRANSFERS (> $1M USD)",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", padx=10, pady=5)
 
         cols_w = ("Time", "Symbol", "Amount ($ USD)", "Transfer Type", "Market Impact")
-        self.whale_tree = ttk.Treeview(left_box, columns=cols_w, show="headings", style="Treeview", height=12)
+        self.whale_tree = ttk.Treeview(
+            left_box, columns=cols_w, show="headings", style="Treeview", height=12
+        )
         for c in cols_w:
             self.whale_tree.heading(c, text=c)
             self.whale_tree.column(c, width=110, anchor="center")
         self.whale_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         # Right: Funding Rates & Liquidation Heatmaps Panel
-        right_box = tk.Frame(split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380)
+        right_box = tk.Frame(
+            split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=380,
+        )
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         right_box.pack_propagate(False)
 
-        tk.Label(right_box, text="FUNDING RATES & LIQUIDATION ZONES", font=("Consolas", 9, "bold"), bg="#111111", fg=self.fg_accent).pack(anchor="w", padx=10, pady=5)
+        tk.Label(
+            right_box,
+            text="FUNDING RATES & LIQUIDATION ZONES",
+            font=("Consolas", 9, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+        ).pack(anchor="w", padx=10, pady=5)
 
-        self.lbl_whale_funding = tk.Label(right_box, text="8h Funding Rate: +0.0100%", font=("Consolas", 9), bg="#111111", fg=self.fg_green)
+        self.lbl_whale_funding = tk.Label(
+            right_box,
+            text="8h Funding Rate: +0.0100%",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_whale_funding.pack(anchor="w", padx=15, pady=5)
 
-        self.lbl_whale_liq = tk.Label(right_box, text="Liquidation Risk: BALANCED", font=("Consolas", 9), bg="#111111", fg=self.fg_light)
+        self.lbl_whale_liq = tk.Label(
+            right_box,
+            text="Liquidation Risk: BALANCED",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_whale_liq.pack(anchor="w", padx=15, pady=5)
 
         self._update_whale_screen_data()
 
     def _update_whale_screen_data(self):
-        if not hasattr(self, "whale_tree") or not self.whale_tree: return
+        if not hasattr(self, "whale_tree") or not self.whale_tree:
+            return
         from institutional_integrations.whale_tracker import WhaleLiquidityTracker
+
         tracker = WhaleLiquidityTracker()
 
         alert = tracker.fetch_whale_transfers("BTCUSD")
         funding_info = tracker.get_funding_rate_and_liquidations("BTCUSD")
 
         # Insert alert
-        col_tag = "green" if alert["impact_bias"] == "BULLISH" else ("red" if alert["impact_bias"] == "BEARISH" else "neutral")
-        self.whale_tree.insert("", 0, values=(alert["timestamp"], alert["symbol"], f"${alert['amount_usd']:,.2f}", alert["type"], alert["impact_bias"]), tags=(col_tag,))
+        col_tag = (
+            "green"
+            if alert["impact_bias"] == "BULLISH"
+            else ("red" if alert["impact_bias"] == "BEARISH" else "neutral")
+        )
+        self.whale_tree.insert(
+            "",
+            0,
+            values=(
+                alert["timestamp"],
+                alert["symbol"],
+                f"${alert['amount_usd']:,.2f}",
+                alert["type"],
+                alert["impact_bias"],
+            ),
+            tags=(col_tag,),
+        )
         self.whale_tree.tag_configure("green", foreground=self.fg_green)
         self.whale_tree.tag_configure("red", foreground=self.fg_red)
 
-        self.lbl_whale_funding.config(text=f"8h Funding: {funding_info['8h_funding_rate_pct']:+.4f}% ({funding_info['annualized_funding_pct']:+.1f}% Ann.)")
-        self.lbl_whale_liq.config(text=f"Liq Risk: {funding_info['liquidation_risk']}\nLongs Liq: ${funding_info['long_liquidations_usd']:,.0f}\nShorts Liq: ${funding_info['short_liquidations_usd']:,.0f}")
+        self.lbl_whale_funding.config(
+            text=f"8h Funding: {funding_info['8h_funding_rate_pct']:+.4f}% ({funding_info['annualized_funding_pct']:+.1f}% Ann.)"
+        )
+        self.lbl_whale_liq.config(
+            text=f"Liq Risk: {funding_info['liquidation_risk']}\nLongs Liq: ${funding_info['long_liquidations_usd']:,.0f}\nShorts Liq: ${funding_info['short_liquidations_usd']:,.0f}"
+        )
 
     def _show_backtest_screen(self):
         """BACKTEST <GO>: Walk-Forward Backtesting Workspace"""
-        lbl_title = tk.Label(self.screen_frame, text="BACKTEST: WALK-FORWARD BACKTESTING WORKSPACE <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="BACKTEST: WALK-FORWARD BACKTESTING WORKSPACE <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        top_ctrl = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d")
+        top_ctrl = tk.Frame(
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=8,
+            highlightbackground="#2d2d2d",
+        )
         top_ctrl.pack(fill=tk.X, pady=(0, 5))
 
-        tk.Button(top_ctrl, text="▶ RUN WALK-FORWARD BACKTEST", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_backtest_simulation).pack(side=tk.LEFT)
+        tk.Button(
+            top_ctrl,
+            text="▶ RUN WALK-FORWARD BACKTEST",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._run_backtest_simulation,
+        ).pack(side=tk.LEFT)
 
-        self.txt_backtest_res = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        self.txt_backtest_res = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            bd=1,
+            relief=tk.SOLID,
+        )
         self.txt_backtest_res.pack(fill=tk.BOTH, expand=True, pady=5)
         self._update_backtest_screen_data()
 
     def _run_backtest_simulation(self):
         from institutional_integrations.backtest_engine import EventDrivenBacktester
+
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 100)
         bt = EventDrivenBacktester()
         res = bt.walk_forward_optimization(history)
-        messagebox.showinfo("Backtest Complete", f"Walk-Forward Backtest completed for {self.selected_symbol_gp}!\nBest Parameters SL/TP: {res['best_params_sl_tp']}\nBest Sharpe Ratio: {res['best_sharpe']:.2f}")
+        messagebox.showinfo(
+            "Backtest Complete",
+            f"Walk-Forward Backtest completed for {self.selected_symbol_gp}!\nBest Parameters SL/TP: {res['best_params_sl_tp']}\nBest Sharpe Ratio: {res['best_sharpe']:.2f}",
+        )
         self._update_backtest_screen_data(wf_results=res)
 
     def _update_backtest_screen_data(self, wf_results=None):
-        if not hasattr(self, "txt_backtest_res") or not self.txt_backtest_res: return
+        if not hasattr(self, "txt_backtest_res") or not self.txt_backtest_res:
+            return
         self.txt_backtest_res.config(state=tk.NORMAL)
         self.txt_backtest_res.delete("1.0", tk.END)
 
@@ -1620,6 +2597,7 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
         history = self.scalper.conn.get_history(sym, 100)
 
         from institutional_integrations.backtest_engine import EventDrivenBacktester
+
         bt = EventDrivenBacktester()
         if not wf_results:
             wf_results = bt.walk_forward_optimization(history)
@@ -1629,13 +2607,13 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
 ================================================================================
 BACKTEST <GO>: WALK-FORWARD BACKTESTING RESULTS FOR {sym}
 ================================================================================
-Optimal Parameter Grid (SL / TP):  {wf_results['best_params_sl_tp']} Pips
-Sharpe Ratio (Annualized):        {wf_results['best_sharpe']:.2f}
-Total Executed Trades:            {best_res['total_trades']}
-Win Rate Percentage:              {best_res['win_rate_pct']:.2f}%
-Profit Factor Ratio:              {best_res['profit_factor']:.2f}
-Maximum Drawdown:                 {best_res['max_drawdown_pct']:.2f}%
-Net Profit ($ USD):               ${best_res['net_profit_usd']:+,.2f} USD
+Optimal Parameter Grid (SL / TP):  {wf_results["best_params_sl_tp"]} Pips
+Sharpe Ratio (Annualized):        {wf_results["best_sharpe"]:.2f}
+Total Executed Trades:            {best_res["total_trades"]}
+Win Rate Percentage:              {best_res["win_rate_pct"]:.2f}%
+Profit Factor Ratio:              {best_res["profit_factor"]:.2f}
+Maximum Drawdown:                 {best_res["max_drawdown_pct"]:.2f}%
+Net Profit ($ USD):               ${best_res["net_profit_usd"]:+,.2f} USD
 ================================================================================
 """
         self.txt_backtest_res.insert(tk.END, out)
@@ -1643,10 +2621,24 @@ Net Profit ($ USD):               ${best_res['net_profit_usd']:+,.2f} USD
 
     def _show_flow_screen(self):
         """FLOW <GO>: Institutional Capital & Dark Pool Flow Matrix"""
-        lbl_title = tk.Label(self.screen_frame, text="FLOW: INSTITUTIONAL CAPITAL & DARK POOL FLOW MATRIX <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="FLOW: INSTITUTIONAL CAPITAL & DARK POOL FLOW MATRIX <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_green,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            bd=1,
+            relief=tk.SOLID,
+        )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
         out = """
@@ -1664,21 +2656,58 @@ Block Trades Detected:    14 Large Block Orders ($10M+ each)
 
     def _show_options_screen(self):
         """OPTIONS <GO>: Options Chain & Gamma Exposure (GEX) Desk"""
-        lbl_title = tk.Label(self.screen_frame, text="OPTIONS: OPTIONS CHAIN & GAMMA EXPOSURE (GEX) DESK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="OPTIONS: OPTIONS CHAIN & GAMMA EXPOSURE (GEX) DESK <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_cyan, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            bd=1,
+            relief=tk.SOLID,
+        )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
         from institutional_integrations.options_gex_engine import (
+<<<<<<< Updated upstream
             calculate_aggregate_gex,
             compute_black_scholes_greeks,
             detect_gamma_flip_level,
         )
+=======
+            compute_black_scholes_greeks,
+            calculate_aggregate_gex,
+            detect_gamma_flip_level,
+        )
+
+>>>>>>> Stashed changes
         chain = [
-            {'strike': 1.0900, 'call_open_interest': 1200, 'put_open_interest': 450, 'gamma': 0.0012},
-            {'strike': 1.1000, 'call_open_interest': 3500, 'put_open_interest': 1200, 'gamma': 0.0025},
-            {'strike': 1.1100, 'call_open_interest': 800, 'put_open_interest': 2800, 'gamma': 0.0018}
+            {
+                "strike": 1.0900,
+                "call_open_interest": 1200,
+                "put_open_interest": 450,
+                "gamma": 0.0012,
+            },
+            {
+                "strike": 1.1000,
+                "call_open_interest": 3500,
+                "put_open_interest": 1200,
+                "gamma": 0.0025,
+            },
+            {
+                "strike": 1.1100,
+                "call_open_interest": 800,
+                "put_open_interest": 2800,
+                "gamma": 0.0018,
+            },
         ]
         gex_res = calculate_aggregate_gex(chain)
         flip_level = detect_gamma_flip_level(gex_res["gex_by_strike"])
@@ -1688,10 +2717,10 @@ Block Trades Detected:    14 Large Block Orders ($10M+ each)
 ================================================================================
 OPTIONS <GO>: MARKET MAKER GAMMA EXPOSURE & BLACK-SCHOLES GREEKS
 ================================================================================
-Total Dealer GEX ($ USD): ${gex_res['total_gex_usd']:,.2f} USD
-Dealer Gamma Regime:     {gex_res['regime']}
+Total Dealer GEX ($ USD): ${gex_res["total_gex_usd"]:,.2f} USD
+Dealer Gamma Regime:     {gex_res["regime"]}
 Zero-Gamma Flip Level:   {flip_level:.4f}
-Black-Scholes Call Delta: {greeks['delta']} | Gamma: {greeks['gamma']} | Vega: {greeks['vega']}
+Black-Scholes Call Delta: {greeks["delta"]} | Gamma: {greeks["gamma"]} | Vega: {greeks["vega"]}
 ================================================================================
 """
         txt.insert(tk.END, out)
@@ -1699,17 +2728,35 @@ Black-Scholes Call Delta: {greeks['delta']} | Gamma: {greeks['gamma']} | Vega: {
 
     def _show_regime_screen(self):
         """REGIME <GO>: Hidden Markov Model Macro State Board"""
-        lbl_title = tk.Label(self.screen_frame, text="REGIME: HIDDEN MARKOV MODEL MACRO STATE BOARD <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="REGIME: HIDDEN MARKOV MODEL MACRO STATE BOARD <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            bd=1,
+            relief=tk.SOLID,
+        )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
         from institutional_integrations.advanced_math import (
             calculate_markov_regime_switching_probability,
         )
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 30)
-        closes = [b["close"] for b in history] if history else [1.1000]*30
+        closes = [b["close"] for b in history] if history else [1.1000] * 30
         p_panic, trans_mat = calculate_markov_regime_switching_probability(closes)
 
         out = f"""
@@ -1719,7 +2766,7 @@ REGIME <GO>: MARKOV REGIME-SWITCHING AUTOREGRESSIVE VOLATILITY MODEL
 Current Asset Evaluated:  {self.selected_symbol_gp}
 Panic State Posterior Prob: {p_panic * 100.0:.2f}%
 Active Macro Regime:      {"HIGH VOLATILITY PANIC" if p_panic > 0.5 else "LOW VOLATILITY STABLE"}
-Transition Prob (P00/P11): {trans_mat['p00']:.2f} / {trans_mat['p11']:.2f}
+Transition Prob (P00/P11): {trans_mat["p00"]:.2f} / {trans_mat["p11"]:.2f}
 ================================================================================
 """
         txt.insert(tk.END, out)
@@ -1727,10 +2774,24 @@ Transition Prob (P00/P11): {trans_mat['p00']:.2f} / {trans_mat['p11']:.2f}
 
     def _show_rust_opt_screen(self):
         """RUST_OPT <GO>: Rust PyO3 Native Performance Accelerator"""
-        lbl_title = tk.Label(self.screen_frame, text="RUST_OPT: RUST PyO3 NATIVE PERFORMANCE ACCELERATOR <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="RUST_OPT: RUST PyO3 NATIVE PERFORMANCE ACCELERATOR <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
+        txt = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_green,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            bd=1,
+            relief=tk.SOLID,
+        )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
         out = """
@@ -1747,10 +2808,22 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         txt.config(state=tk.DISABLED)
 
     def _show_unknown_screen(self, screen_code):
-        lbl_err = tk.Label(self.screen_frame, text=f"ERR: INVALID CODE OR COMMAND '{screen_code}'", font=("Consolas", 14, "bold"), bg=self.bg_dark, fg=self.fg_red)
+        lbl_err = tk.Label(
+            self.screen_frame,
+            text=f"ERR: INVALID CODE OR COMMAND '{screen_code}'",
+            font=("Consolas", 14, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_red,
+        )
         lbl_err.pack(anchor="center", expand=True, pady=50)
 
-        lbl_tip = tk.Label(self.screen_frame, text="Type HELP <GO> or press F1 to display the terminal directory list.", font=("Consolas", 10), bg=self.bg_dark, fg=self.fg_light)
+        lbl_tip = tk.Label(
+            self.screen_frame,
+            text="Type HELP <GO> or press F1 to display the terminal directory list.",
+            font=("Consolas", 10),
+            bg=self.bg_dark,
+            fg=self.fg_light,
+        )
         lbl_tip.pack(anchor="center")
 
     # ----------------------------------------------------
@@ -1759,15 +2832,35 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
     def _show_port_screen(self):
         """PORT <GO>: Markowitz Portfolio Allocator & Mean-Variance Optimizer"""
-        lbl_title = tk.Label(self.screen_frame, text="PORT: MARKOWITZ MEAN-VARIANCE PORTFOLIO ALLOCATOR <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="PORT: MARKOWITZ MEAN-VARIANCE PORTFOLIO ALLOCATOR <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
-        lbl_info = tk.Label(self.screen_frame, text="COMPUTES MATHEMATICALLY OPTIMAL SHARPE ASSET WEIGHTS VIA COVARIANCE EIGENVECTOR DECOMPOSITION", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="COMPUTES MATHEMATICALLY OPTIMAL SHARPE ASSET WEIGHTS VIA COVARIANCE EIGENVECTOR DECOMPOSITION",
+            font=("Consolas", 8),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Table for portfolio weights
-        cols = ("Asset", "Optimal Weight", "Asset Class", "Ann. Yield (Sim)", "Risk Contribution")
-        self.port_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        cols = (
+            "Asset",
+            "Optimal Weight",
+            "Asset Class",
+            "Ann. Yield (Sim)",
+            "Risk Contribution",
+        )
+        self.port_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.port_tree.heading(col, text=col)
             self.port_tree.column(col, anchor=tk.W, width=150)
@@ -1783,6 +2876,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         # Call data science solver on real historical closing returns!
         import institutional_integrations as ii
+
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
         for sym in assets:
@@ -1792,8 +2886,11 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 if history:
                     closes = [bar["close"] for bar in history]
                     # Compute percentage returns
-                    rets = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
-                    real_returns[sym] = rets if len(rets) >= 5 else [0.0]*5
+                    rets = [
+                        (closes[i] - closes[i - 1]) / closes[i - 1]
+                        for i in range(1, len(closes))
+                    ]
+                    real_returns[sym] = rets if len(rets) >= 5 else [0.0] * 5
                 else:
                     real_returns[sym] = [0.0001, -0.0002, 0.0003, 0.0001, 0.0002]
             except Exception:
@@ -1806,11 +2903,12 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             "GBPUSD": "Forex Major",
             "USDJPY": "Forex Major",
             "XAUUSD": "Metal Commodity",
-            "BTCUSD": "Digital Currency"
+            "BTCUSD": "Digital Currency",
         }
 
         # Calculate real estimated yields from the absolute value of standard deviation
         import numpy as np
+
         yields = {}
         for sym in assets:
             rets_arr = real_returns.get(sym, [0.0])
@@ -1819,31 +2917,60 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         for sym, weight in weights.items():
             contr = f"{weight * 12.4:.2f}%"
-            self.port_tree.insert("", tk.END, values=(
-                sym,
-                f"{weight * 100.0:.2f}%",
-                classes.get(sym, "FX"),
-                yields.get(sym, "0.0%"),
-                contr
-            ))
+            self.port_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    sym,
+                    f"{weight * 100.0:.2f}%",
+                    classes.get(sym, "FX"),
+                    yields.get(sym, "0.0%"),
+                    contr,
+                ),
+            )
 
     def _show_mcts_screen(self):
         """MCTS <GO>: Monte Carlo Path Simulations, Value at Risk (VaR) and Expected Shortfall (ES)"""
-        lbl_title = tk.Label(self.screen_frame, text=f"MCTS: MONTE CARLO RISK ANALYTICS - {self.selected_symbol_gp} <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text=f"MCTS: MONTE CARLO RISK ANALYTICS - {self.selected_symbol_gp} <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
-        lbl_info = tk.Label(self.screen_frame, text="GENERATES 1,000 VOLATILITY-NORMALIZED RANDOM WALKS TO EVALUATE TAIL RISK PARAMETERS", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="GENERATES 1,000 VOLATILITY-NORMALIZED RANDOM WALKS TO EVALUATE TAIL RISK PARAMETERS",
+            font=("Consolas", 8),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Splitting frame: Left is simulation chart, Right is statistical VaR cards
         mcts_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         mcts_split.pack(fill=tk.BOTH, expand=True)
 
-        self.mcts_canvas = tk.Canvas(mcts_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.mcts_canvas = tk.Canvas(
+            mcts_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.mcts_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Risk panel
-        self.mcts_panel = tk.Frame(mcts_split, bg="#111111", bd=1, relief=tk.SOLID, width=280, highlightbackground="#2d2d2d")
+        self.mcts_panel = tk.Frame(
+            mcts_split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            width=280,
+            highlightbackground="#2d2d2d",
+        )
         self.mcts_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         self.mcts_panel.pack_propagate(False)
 
@@ -1853,15 +2980,23 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         for w in self.mcts_panel.winfo_children():
             w.destroy()
 
-        lbl_head = tk.Label(self.mcts_panel, text="RISK PARAMETERS (95%)", font=("Consolas", 10, "bold"), bg="#111111", fg=self.fg_red)
+        lbl_head = tk.Label(
+            self.mcts_panel,
+            text="RISK PARAMETERS (95%)",
+            font=("Consolas", 10, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
+        )
         lbl_head.pack(anchor="w", padx=15, pady=15)
 
         # Draw paths on Canvas
         self.mcts_canvas.update()
         w_width = self.mcts_canvas.winfo_width()
         w_height = self.mcts_canvas.winfo_height()
-        if w_width < 10: w_width = 500
-        if w_height < 10: w_height = 300
+        if w_width < 10:
+            w_width = 500
+        if w_height < 10:
+            w_height = 300
 
         self.mcts_canvas.delete("all")
         # Draw horizontal grids
@@ -1873,9 +3008,13 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         sym = self.selected_symbol_gp
         history = self.scalper.conn.get_history(sym, 30)
         import numpy as np
+
         if history:
             closes = [b["close"] for b in history]
-            rets = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
+            rets = [
+                (closes[i] - closes[i - 1]) / closes[i - 1]
+                for i in range(1, len(closes))
+            ]
             vol = np.std(rets) if len(rets) > 1 else 0.002
         else:
             vol = 0.002
@@ -1893,7 +3032,9 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             for step in range(31):
                 x = step * x_step
                 # Use actual daily volatility parameter to scale normal distribution random walks!
-                ret_val = random.normalvariate(0.0, vol * 1000.0) # Scaled for visual representation
+                ret_val = random.normalvariate(
+                    0.0, vol * 1000.0
+                )  # Scaled for visual representation
                 price += ret_val
                 points.append((x, price))
                 path_returns.append(ret_val)
@@ -1901,10 +3042,18 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             simulated_returns.append(np.sum(path_returns))
 
             # Draw path line
-            path_color = self.fg_green if points[-1][1] < w_height/2 else self.fg_red
-            if path_idx == 0: path_color = self.fg_cyan
-            for j in range(len(points)-1):
-                self.mcts_canvas.create_line(points[j][0], points[j][1], points[j+1][0], points[j+1][1], fill=path_color, width=1 if path_idx != 0 else 2)
+            path_color = self.fg_green if points[-1][1] < w_height / 2 else self.fg_red
+            if path_idx == 0:
+                path_color = self.fg_cyan
+            for j in range(len(points) - 1):
+                self.mcts_canvas.create_line(
+                    points[j][0],
+                    points[j][1],
+                    points[j + 1][0],
+                    points[j + 1][1],
+                    fill=path_color,
+                    width=1 if path_idx != 0 else 2,
+                )
 
         # Calculate actual empirical VaR and ES from the 1,000 simulated runs!
         num_sims = 1000
@@ -1917,33 +3066,61 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         sim_runs = np.array(sim_runs)
         # Sort simulated runs to find percentiles
         sim_runs.sort()
-        var_95 = sim_runs[int(num_sims * 0.05)] # 5th percentile
+        var_95 = sim_runs[int(num_sims * 0.05)]  # 5th percentile
         es_95 = np.mean(sim_runs[sim_runs <= var_95])
 
-        lbl_var = tk.Label(self.mcts_panel, text=f"Value at Risk (95% VaR):\n{var_95*100:.2f}% Daily (Real)", font=("Consolas", 11, "bold"), bg="#111111", fg=self.fg_accent, justify=tk.LEFT)
+        lbl_var = tk.Label(
+            self.mcts_panel,
+            text=f"Value at Risk (95% VaR):\n{var_95 * 100:.2f}% Daily (Real)",
+            font=("Consolas", 11, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+            justify=tk.LEFT,
+        )
         lbl_var.pack(anchor="w", padx=15, pady=10)
 
-        lbl_es = tk.Label(self.mcts_panel, text=f"Expected Shortfall (ES):\n{es_95*100:.2f}% Daily (Real)", font=("Consolas", 11, "bold"), bg="#111111", fg=self.fg_red, justify=tk.LEFT)
+        lbl_es = tk.Label(
+            self.mcts_panel,
+            text=f"Expected Shortfall (ES):\n{es_95 * 100:.2f}% Daily (Real)",
+            font=("Consolas", 11, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
+            justify=tk.LEFT,
+        )
         lbl_es.pack(anchor="w", padx=15, pady=10)
 
-        tk.Frame(self.mcts_panel, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=15)
+        tk.Frame(self.mcts_panel, bg="#222222", height=1).pack(
+            fill=tk.X, padx=15, pady=15
+        )
 
         lbl_status = tk.Label(
             self.mcts_panel,
-            text=f"PORTFOLIO TAIL RISK:\nACCEPTABLE\n\nVOLATILITY SQUEEZE:\n{vol*100:.2f}% REGIME STANDARD",
+            text=f"PORTFOLIO TAIL RISK:\nACCEPTABLE\n\nVOLATILITY SQUEEZE:\n{vol * 100:.2f}% REGIME STANDARD",
             font=("Consolas", 9),
             bg="#111111",
             fg=self.fg_green,
-            justify=tk.LEFT
+            justify=tk.LEFT,
         )
         lbl_status.pack(anchor="w", padx=15, pady=10)
 
     def _show_vds_screen(self):
         """VDS <GO>: Vector Database Node Cluster & FAISS Search"""
-        lbl_title = tk.Label(self.screen_frame, text="VDS: VECTOR DATABASE & NEURAL REPRESENTATIONS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="VDS: VECTOR DATABASE & NEURAL REPRESENTATIONS <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 5))
 
-        lbl_info = tk.Label(self.screen_frame, text="QUERIES FAISS AND CHROMADB VECTOR DATABASES TO RETRIEVE NEAREST NEIGHBOR COGNITIVE ACTS", font=("Consolas", 8), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="QUERIES FAISS AND CHROMADB VECTOR DATABASES TO RETRIEVE NEAREST NEIGHBOR COGNITIVE ACTS",
+            font=("Consolas", 8),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Split frame
@@ -1951,14 +3128,27 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         vds_split.pack(fill=tk.BOTH, expand=True)
 
         # Left: Live active neural activation weights
-        left_box = tk.Frame(vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box = tk.Frame(
+            vds_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
-        lbl_act = tk.Label(left_box, text="ACTIVE NEURAL HIDDEN LAYER MAP", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        lbl_act = tk.Label(
+            left_box,
+            text="ACTIVE NEURAL HIDDEN LAYER MAP",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        )
         lbl_act.pack(anchor="w", padx=15, pady=15)
 
         # Retrieve actual neural activations or indicator states for the selected symbol!
         import predictive_brain
+
         nn = predictive_brain.get_symbol_predictor(self.selected_symbol_gp)
         hidden_vals = [0.12, 0.45, -0.22, 0.88, -0.05]
         if nn and hasattr(nn, "get_internal_state"):
@@ -1966,26 +3156,48 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             if state and "weights_ih" in state:
                 # Use actual weights as neural representations
                 import numpy as np
+
                 hidden_vals = list(np.mean(state["weights_ih"], axis=0))[:5]
 
         # Pad or restrict to exactly 5 elements
-        hidden_vals = (hidden_vals + [0.0]*5)[:5]
+        hidden_vals = (hidden_vals + [0.0] * 5)[:5]
 
         for idx, val in enumerate(hidden_vals):
-            lbl_n = tk.Label(left_box, text=f"Neuron H-{idx+1}: {val:+.4f}", font=("Consolas", 12, "bold"), bg=self.bg_card, fg=self.fg_green if val > 0 else self.fg_red)
+            lbl_n = tk.Label(
+                left_box,
+                text=f"Neuron H-{idx + 1}: {val:+.4f}",
+                font=("Consolas", 12, "bold"),
+                bg=self.bg_card,
+                fg=self.fg_green if val > 0 else self.fg_red,
+            )
             lbl_n.pack(anchor="w", padx=30, pady=5)
 
         # Right: Vector database indices results
-        right_box = tk.Frame(vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=420)
+        right_box = tk.Frame(
+            vds_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=420,
+        )
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
         right_box.pack_propagate(False)
 
-        lbl_db = tk.Label(right_box, text="VECTOR SEARCH Nearest Neighbors (L2 Distance)", font=("Consolas", 10, "bold"), bg=self.bg_card, fg=self.fg_accent)
+        lbl_db = tk.Label(
+            right_box,
+            text="VECTOR SEARCH Nearest Neighbors (L2 Distance)",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+        )
         lbl_db.pack(anchor="w", padx=15, pady=15)
 
         # Match table
         cols_v = ("Node ID", "Similarity Distance", "Label State")
-        self.v_tree = ttk.Treeview(right_box, columns=cols_v, show="headings", style="Treeview")
+        self.v_tree = ttk.Treeview(
+            right_box, columns=cols_v, show="headings", style="Treeview"
+        )
         for col in cols_v:
             self.v_tree.heading(col, text=col)
             self.v_tree.column(col, anchor=tk.W, width=130)
@@ -1993,6 +3205,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         # Query actual indicators of other symbols and run a real L2 distance search!
         import config
+
         other_symbols = [s for s in config.SYMBOLS if s != self.selected_symbol_gp][:8]
         distances = []
         for osym in other_symbols:
@@ -2001,14 +3214,26 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 if hist:
                     closes = [bar["close"] for bar in hist]
                     import numpy as np
+
                     other_vec = [np.mean(closes), np.std(closes)]
-                    self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
-                    self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
+                    self_hist = self.scalper.conn.get_history(
+                        self.selected_symbol_gp, 10
+                    )
+                    self_closes = (
+                        [bar["close"] for bar in self_hist] if self_hist else [1.0]
+                    )
                     self_vec = [np.mean(self_closes), np.std(self_closes)]
 
                     # Compute actual Euclidean L2 distance!
-                    l2_dist = np.sqrt((other_vec[0] - self_vec[0])**2 + (other_vec[1] - self_vec[1])**2)
-                    label_state = "CONVERGENT BULLISH" if other_vec[0] > self_vec[0] else "BEARISH REJECTION"
+                    l2_dist = np.sqrt(
+                        (other_vec[0] - self_vec[0]) ** 2
+                        + (other_vec[1] - self_vec[1]) ** 2
+                    )
+                    label_state = (
+                        "CONVERGENT BULLISH"
+                        if other_vec[0] > self_vec[0]
+                        else "BEARISH REJECTION"
+                    )
                     distances.append((f"Node_{osym}", f"{l2_dist:.6f}", label_state))
             except Exception:
                 pass
@@ -2023,32 +3248,91 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
     def _show_performance_chart_screen(self):
         """CHART <GO>: Renders an authentic real-time Equity and Performance line graph & Candlestick FOSS Chart"""
-        lbl_title = tk.Label(self.screen_frame, text="CHART: REAL-TIME QUANTUM PERFORMANCE, EQUITY & CANDLESTICK TICKER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="CHART: REAL-TIME QUANTUM PERFORMANCE, EQUITY & CANDLESTICK TICKER <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
         # Chart controls ribbon (Symbol and Timeframe selection)
         chart_ctrl_ribbon = tk.Frame(self.screen_frame, bg=self.bg_dark)
         chart_ctrl_ribbon.pack(fill=tk.X, pady=(0, 5))
 
-        lbl_sym = tk.Label(chart_ctrl_ribbon, text="SYMBOL:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_sym = tk.Label(
+            chart_ctrl_ribbon,
+            text="SYMBOL:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_sym.pack(side=tk.LEFT)
 
         self.chart_sym_var = tk.StringVar(value=self.selected_symbol_gp)
-        sym_menu = tk.OptionMenu(chart_ctrl_ribbon, self.chart_sym_var, *config.SYMBOLS, command=self.on_chart_symbol_change)
-        sym_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        sym_menu = tk.OptionMenu(
+            chart_ctrl_ribbon,
+            self.chart_sym_var,
+            *config.SYMBOLS,
+            command=self.on_chart_symbol_change,
+        )
+        sym_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         sym_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         sym_menu.pack(side=tk.LEFT, padx=(5, 15))
 
-        lbl_tf = tk.Label(chart_ctrl_ribbon, text="TIMEFRAME:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_tf = tk.Label(
+            chart_ctrl_ribbon,
+            text="TIMEFRAME:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_tf.pack(side=tk.LEFT)
 
         self.chart_tf_var = tk.StringVar(value="M1")
         tf_list = [
-            "M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30",
-            "H1", "H2", "H3", "H4", "H6", "H8", "H12", "D1", "W1", "MN1"
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M10",
+            "M12",
+            "M15",
+            "M20",
+            "M30",
+            "H1",
+            "H2",
+            "H3",
+            "H4",
+            "H6",
+            "H8",
+            "H12",
+            "D1",
+            "W1",
+            "MN1",
         ]
-        tf_menu = tk.OptionMenu(chart_ctrl_ribbon, self.chart_tf_var, *tf_list, command=self.on_chart_tf_change)
-        tf_menu.config(font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        tf_menu = tk.OptionMenu(
+            chart_ctrl_ribbon,
+            self.chart_tf_var,
+            *tf_list,
+            command=self.on_chart_tf_change,
+        )
+        tf_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         tf_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         tf_menu.pack(side=tk.LEFT, padx=5)
 
@@ -2061,62 +3345,161 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         left_split.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Upper Left: FOSS Candlestick Canvas
-        self.candlestick_canvas = tk.Canvas(left_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
-        self.candlestick_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(0, 4))
+        self.candlestick_canvas = tk.Canvas(
+            left_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
+        self.candlestick_canvas.pack(
+            side=tk.TOP, fill=tk.BOTH, expand=True, pady=(0, 4)
+        )
 
         # Lower Left: Performance Line Graph Canvas
-        self.perf_canvas = tk.Canvas(left_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.perf_canvas = tk.Canvas(
+            left_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.perf_canvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, pady=(4, 0))
 
         # Right side info block
-        right_panel = tk.Frame(chart_layout, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=320)
+        right_panel = tk.Frame(
+            chart_layout,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=320,
+        )
         right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         right_panel.pack_propagate(False)
 
-        lbl_head = tk.Label(right_panel, text="PERFORMANCE ATTRIBUTION", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_cyan)
+        lbl_head = tk.Label(
+            right_panel,
+            text="PERFORMANCE ATTRIBUTION",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
+        )
         lbl_head.pack(anchor="w", padx=15, pady=15)
 
-        self.lbl_chart_balance = tk.Label(right_panel, text="Current Balance: $10,000.00", font=("Consolas", 8), bg="#111111", fg=self.fg_light)
+        self.lbl_chart_balance = tk.Label(
+            right_panel,
+            text="Current Balance: $10,000.00",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_chart_balance.pack(anchor="w", padx=15, pady=5)
 
-        self.lbl_chart_equity = tk.Label(right_panel, text="Current Equity: $10,000.00", font=("Consolas", 8), bg="#111111", fg=self.fg_light)
+        self.lbl_chart_equity = tk.Label(
+            right_panel,
+            text="Current Equity: $10,000.00",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_light,
+        )
         self.lbl_chart_equity.pack(anchor="w", padx=15, pady=5)
 
-        self.lbl_chart_pnl = tk.Label(right_panel, text="Net Cumulative Profit: $0.00", font=("Consolas", 8), bg="#111111", fg=self.fg_green)
+        self.lbl_chart_pnl = tk.Label(
+            right_panel,
+            text="Net Cumulative Profit: $0.00",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_chart_pnl.pack(anchor="w", padx=15, pady=5)
 
-        self.lbl_chart_wins = tk.Label(right_panel, text="Win Rate Percentage: 0.0%", font=("Consolas", 8), bg="#111111", fg=self.fg_accent)
+        self.lbl_chart_wins = tk.Label(
+            right_panel,
+            text="Win Rate Percentage: 0.0%",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_accent,
+        )
         self.lbl_chart_wins.pack(anchor="w", padx=15, pady=5)
 
         # Divider for MTF Matrix
         tk.Frame(right_panel, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=10)
 
-        lbl_mtf_head = tk.Label(right_panel, text="MTF TREND CONFLUENCE MATRIX", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_cyan)
+        lbl_mtf_head = tk.Label(
+            right_panel,
+            text="MTF TREND CONFLUENCE MATRIX",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
+        )
         lbl_mtf_head.pack(anchor="w", padx=15, pady=(5, 10))
 
         # MTF labels frame
         mtf_grid_frame = tk.Frame(right_panel, bg="#111111")
         mtf_grid_frame.pack(fill=tk.X, padx=15)
 
-        self.lbl_mtf_m1 = tk.Label(mtf_grid_frame, text="M1:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_mtf_m1 = tk.Label(
+            mtf_grid_frame,
+            text="M1:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_mtf_m1.grid(row=0, column=0, sticky="w", pady=2)
-        self.lbl_mtf_m5 = tk.Label(mtf_grid_frame, text="M5:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_mtf_m5 = tk.Label(
+            mtf_grid_frame,
+            text="M5:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_mtf_m5.grid(row=0, column=1, sticky="w", pady=2, padx=(15, 0))
 
-        self.lbl_mtf_m15 = tk.Label(mtf_grid_frame, text="M15: DOWN", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_red)
+        self.lbl_mtf_m15 = tk.Label(
+            mtf_grid_frame,
+            text="M15: DOWN",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
+        )
         self.lbl_mtf_m15.grid(row=1, column=0, sticky="w", pady=2)
-        self.lbl_mtf_h1 = tk.Label(mtf_grid_frame, text="H1:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_mtf_h1 = tk.Label(
+            mtf_grid_frame,
+            text="H1:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_mtf_h1.grid(row=1, column=1, sticky="w", pady=2, padx=(15, 0))
 
-        self.lbl_mtf_h4 = tk.Label(mtf_grid_frame, text="H4:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_mtf_h4 = tk.Label(
+            mtf_grid_frame,
+            text="H4:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_mtf_h4.grid(row=2, column=0, sticky="w", pady=2)
-        self.lbl_mtf_d1 = tk.Label(mtf_grid_frame, text="D1:  DOWN", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_red)
+        self.lbl_mtf_d1 = tk.Label(
+            mtf_grid_frame,
+            text="D1:  DOWN",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
+        )
         self.lbl_mtf_d1.grid(row=2, column=1, sticky="w", pady=2, padx=(15, 0))
 
-        self.lbl_mtf_consensus = tk.Label(right_panel, text="CONFLUENCE CONSENSUS: BULLISH REBOUND", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_accent)
+        self.lbl_mtf_consensus = tk.Label(
+            right_panel,
+            text="CONFLUENCE CONSENSUS: BULLISH REBOUND",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+        )
         self.lbl_mtf_consensus.pack(anchor="w", padx=15, pady=(15, 5))
 
-        self.perf_history_data = [] # Track historical points to draw
+        self.perf_history_data = []  # Track historical points to draw
         self.cursor_x = None
         self.cursor_y = None
 
@@ -2177,8 +3560,10 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             self.candlestick_canvas.delete("all")
             cw = self.candlestick_canvas.winfo_width()
             ch = self.candlestick_canvas.winfo_height()
-            if cw < 10: cw = 400
-            if ch < 10: ch = 150
+            if cw < 10:
+                cw = 400
+            if ch < 10:
+                ch = 150
 
             # Define scales margins (Y price scale on right, X timeline scale on bottom)
             margin_right = 65
@@ -2188,38 +3573,81 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             chart_h = ch - margin_bottom
 
             # Draw axes lines
-            self.candlestick_canvas.create_line(chart_w, 0, chart_w, chart_h, fill="#2d2d2d")
-            self.candlestick_canvas.create_line(0, chart_h, chart_w, chart_h, fill="#2d2d2d")
+            self.candlestick_canvas.create_line(
+                chart_w, 0, chart_w, chart_h, fill="#2d2d2d"
+            )
+            self.candlestick_canvas.create_line(
+                0, chart_h, chart_w, chart_h, fill="#2d2d2d"
+            )
 
             # Generate beautiful real-time mock candle series
-            if not hasattr(self, "candlestick_data_list") or not self.candlestick_data_list or len(self.candlestick_data_list) == 0:
+            if (
+                not hasattr(self, "candlestick_data_list")
+                or not self.candlestick_data_list
+                or len(self.candlestick_data_list) == 0
+            ):
                 self.candlestick_data_list = []
                 base = 1.10200 if "JPY" not in self.selected_symbol_gp else 145.50
                 for index in range(25):
-                    op = base + random.uniform(-0.0005, 0.0005) if "JPY" not in self.selected_symbol_gp else base + random.uniform(-0.05, 0.05)
-                    cl = op + random.uniform(-0.0006, 0.0006) if "JPY" not in self.selected_symbol_gp else op + random.uniform(-0.06, 0.06)
-                    hi = max(op, cl) + random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else max(op, cl) + random.uniform(0.01, 0.03)
-                    lo = min(op, cl) - random.uniform(0.0001, 0.0003) if "JPY" not in self.selected_symbol_gp else min(op, cl) - random.uniform(0.01, 0.03)
-                    self.candlestick_data_list.append({"open": op, "high": hi, "low": lo, "close": cl})
+                    op = (
+                        base + random.uniform(-0.0005, 0.0005)
+                        if "JPY" not in self.selected_symbol_gp
+                        else base + random.uniform(-0.05, 0.05)
+                    )
+                    cl = (
+                        op + random.uniform(-0.0006, 0.0006)
+                        if "JPY" not in self.selected_symbol_gp
+                        else op + random.uniform(-0.06, 0.06)
+                    )
+                    hi = (
+                        max(op, cl) + random.uniform(0.0001, 0.0003)
+                        if "JPY" not in self.selected_symbol_gp
+                        else max(op, cl) + random.uniform(0.01, 0.03)
+                    )
+                    lo = (
+                        min(op, cl) - random.uniform(0.0001, 0.0003)
+                        if "JPY" not in self.selected_symbol_gp
+                        else min(op, cl) - random.uniform(0.01, 0.03)
+                    )
+                    self.candlestick_data_list.append(
+                        {"open": op, "high": hi, "low": lo, "close": cl}
+                    )
                     base = cl
             elif new_tick:
                 # Append a new tick movement or transition to a new candle only on tick update!
                 last = self.candlestick_data_list[-1]
                 op = last["close"]
-                cl = op + random.uniform(-0.0004, 0.0004) if "JPY" not in self.selected_symbol_gp else op + random.uniform(-0.04, 0.04)
-                hi = max(op, cl) + random.uniform(0.0001, 0.0002) if "JPY" not in self.selected_symbol_gp else max(op, cl) + random.uniform(0.01, 0.02)
-                lo = min(op, cl) - random.uniform(0.0001, 0.0002) if "JPY" not in self.selected_symbol_gp else min(op, cl) - random.uniform(0.01, 0.02)
+                cl = (
+                    op + random.uniform(-0.0004, 0.0004)
+                    if "JPY" not in self.selected_symbol_gp
+                    else op + random.uniform(-0.04, 0.04)
+                )
+                hi = (
+                    max(op, cl) + random.uniform(0.0001, 0.0002)
+                    if "JPY" not in self.selected_symbol_gp
+                    else max(op, cl) + random.uniform(0.01, 0.02)
+                )
+                lo = (
+                    min(op, cl) - random.uniform(0.0001, 0.0002)
+                    if "JPY" not in self.selected_symbol_gp
+                    else min(op, cl) - random.uniform(0.01, 0.02)
+                )
                 self.candlestick_data_list.pop(0)
-                self.candlestick_data_list.append({"open": op, "high": hi, "low": lo, "close": cl})
+                self.candlestick_data_list.append(
+                    {"open": op, "high": hi, "low": lo, "close": cl}
+                )
 
             # Scale and plot candles
             all_prices = []
             for candle in self.candlestick_data_list:
-                all_prices.extend([candle["open"], candle["high"], candle["low"], candle["close"]])
+                all_prices.extend(
+                    [candle["open"], candle["high"], candle["low"], candle["close"]]
+                )
             min_price = min(all_prices)
             max_price = max(all_prices)
             price_range = max_price - min_price
-            if price_range == 0: price_range = 0.01
+            if price_range == 0:
+                price_range = 0.01
 
             # Draw vertical price scale on right margin (Y-Axis)
             price_steps = 5
@@ -2228,9 +3656,20 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 y_coord = int(chart_h - (chart_h * i / price_steps))
 
                 # Draw grid line
-                self.candlestick_canvas.create_line(0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2))
+                self.candlestick_canvas.create_line(
+                    0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2)
+                )
                 # Draw right axis tick label
-                self.candlestick_canvas.create_text(chart_w + 5, y_coord, text=f"{p_val:.5f}" if "JPY" not in self.selected_symbol_gp else f"{p_val:.2f}", fill=self.fg_grey, anchor="w", font=("Consolas", 7))
+                self.candlestick_canvas.create_text(
+                    chart_w + 5,
+                    y_coord,
+                    text=f"{p_val:.5f}"
+                    if "JPY" not in self.selected_symbol_gp
+                    else f"{p_val:.2f}",
+                    fill=self.fg_grey,
+                    anchor="w",
+                    font=("Consolas", 7),
+                )
 
             # Draw horizontal timeline scale on bottom margin (X-Axis)
             time_steps = len(self.candlestick_data_list)
@@ -2242,12 +3681,16 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             tf = self.chart_tf_var.get()
             m_val = 1
             if tf.startswith("M"):
-                try: m_val = int(tf[1:])
+                try:
+                    m_val = int(tf[1:])
                 except Exception as e:
-                    _log.debug("Invalid minute timeframe %r, defaulting to 1: %s", tf, e)
+                    _log.debug(
+                        "Invalid minute timeframe %r, defaulting to 1: %s", tf, e
+                    )
                     m_val = 1
             elif tf.startswith("H"):
-                try: m_val = int(tf[1:]) * 60
+                try:
+                    m_val = int(tf[1:]) * 60
                 except Exception as e:
                     _log.debug("Invalid hour timeframe %r, defaulting to 60: %s", tf, e)
                     m_val = 60
@@ -2265,36 +3708,80 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 if idx % 5 == 0:
                     offset_min = (len(self.candlestick_data_list) - 1 - idx) * m_val
                     candle_time = now_gmt - datetime.timedelta(minutes=offset_min)
-                    time_lbl = candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
+                    time_lbl = (
+                        candle_time.strftime("%H:%M")
+                        if m_val < 1440
+                        else candle_time.strftime("%d/%m")
+                    )
 
-                    self.candlestick_canvas.create_line(cx, chart_h, cx, chart_h + 4, fill="#2d2d2d")
-                    self.candlestick_canvas.create_text(cx, chart_h + 8, text=time_lbl, fill=self.fg_grey, anchor="n", font=("Consolas", 7))
+                    self.candlestick_canvas.create_line(
+                        cx, chart_h, cx, chart_h + 4, fill="#2d2d2d"
+                    )
+                    self.candlestick_canvas.create_text(
+                        cx,
+                        chart_h + 8,
+                        text=time_lbl,
+                        fill=self.fg_grey,
+                        anchor="n",
+                        font=("Consolas", 7),
+                    )
 
                 # Map prices to Y coords
-                y_open = int(chart_h - (chart_h * (c["open"] - min_price) / price_range))
-                y_close = int(chart_h - (chart_h * (c["close"] - min_price) / price_range))
-                y_high = int(chart_h - (chart_h * (c["high"] - min_price) / price_range))
+                y_open = int(
+                    chart_h - (chart_h * (c["open"] - min_price) / price_range)
+                )
+                y_close = int(
+                    chart_h - (chart_h * (c["close"] - min_price) / price_range)
+                )
+                y_high = int(
+                    chart_h - (chart_h * (c["high"] - min_price) / price_range)
+                )
                 y_low = int(chart_h - (chart_h * (c["low"] - min_price) / price_range))
 
                 is_green = c["close"] >= c["open"]
                 color = self.fg_green if is_green else self.fg_red
 
                 # Draw wick
-                self.candlestick_canvas.create_line(cx, y_high, cx, y_low, fill=color, width=1)
+                self.candlestick_canvas.create_line(
+                    cx, y_high, cx, y_low, fill=color, width=1
+                )
                 # Draw body
                 y1 = min(y_open, y_close)
                 y2 = max(y_open, y_close)
-                if y1 == y2: y2 += 1
-                self.candlestick_canvas.create_rectangle(cx - int(candle_w/2), y1, cx + int(candle_w/2), y2, fill=color, outline="")
+                if y1 == y2:
+                    y2 += 1
+                self.candlestick_canvas.create_rectangle(
+                    cx - int(candle_w / 2),
+                    y1,
+                    cx + int(candle_w / 2),
+                    y2,
+                    fill=color,
+                    outline="",
+                )
 
             # Draw live quote horizontal tracker line (TradingView-style)
             latest_close = self.candlestick_data_list[-1]["close"]
-            y_latest = int(chart_h - (chart_h * (latest_close - min_price) / price_range))
-            self.candlestick_canvas.create_line(0, y_latest, chart_w, y_latest, fill=self.fg_accent, dash=(2, 2))
+            y_latest = int(
+                chart_h - (chart_h * (latest_close - min_price) / price_range)
+            )
+            self.candlestick_canvas.create_line(
+                0, y_latest, chart_w, y_latest, fill=self.fg_accent, dash=(2, 2)
+            )
 
             # Draw interactive highlight badge on price axis
-            self.candlestick_canvas.create_rectangle(chart_w, y_latest - 6, cw, y_latest + 6, fill=self.fg_accent, outline="")
-            self.candlestick_canvas.create_text(chart_w + 3, y_latest, text=f"{latest_close:.5f}" if "JPY" not in self.selected_symbol_gp else f"{latest_close:.2f}", fill="#000000", anchor="w", font=("Consolas", 7, "bold"))
+            self.candlestick_canvas.create_rectangle(
+                chart_w, y_latest - 6, cw, y_latest + 6, fill=self.fg_accent, outline=""
+            )
+            self.candlestick_canvas.create_text(
+                chart_w + 3,
+                y_latest,
+                text=f"{latest_close:.5f}"
+                if "JPY" not in self.selected_symbol_gp
+                else f"{latest_close:.2f}",
+                fill="#000000",
+                anchor="w",
+                font=("Consolas", 7, "bold"),
+            )
 
             # Draw interactive crosshairs if cursor is inside the active chart area
             if self.cursor_x is not None and self.cursor_y is not None:
@@ -2302,26 +3789,75 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 cy_clipped = max(0, min(chart_h, self.cursor_y))
 
                 # Horizontal & Vertical crosshair lines
-                self.candlestick_canvas.create_line(0, cy_clipped, chart_w, cy_clipped, fill="#888888", dash=(2, 2))
-                self.candlestick_canvas.create_line(cx_clipped, 0, cx_clipped, chart_h, fill="#888888", dash=(2, 2))
+                self.candlestick_canvas.create_line(
+                    0, cy_clipped, chart_w, cy_clipped, fill="#888888", dash=(2, 2)
+                )
+                self.candlestick_canvas.create_line(
+                    cx_clipped, 0, cx_clipped, chart_h, fill="#888888", dash=(2, 2)
+                )
 
                 # Draw interactive coordinate label on Y-axis (Price)
                 cursor_price = max_price - (price_range * cy_clipped / chart_h)
-                self.candlestick_canvas.create_rectangle(chart_w, cy_clipped - 6, cw, cy_clipped + 6, fill="#1e293b", outline="#888888")
-                self.candlestick_canvas.create_text(chart_w + 3, cy_clipped, text=f"{cursor_price:.5f}" if "JPY" not in self.selected_symbol_gp else f"{cursor_price:.2f}", fill="#ffffff", anchor="w", font=("Consolas", 7))
+                self.candlestick_canvas.create_rectangle(
+                    chart_w,
+                    cy_clipped - 6,
+                    cw,
+                    cy_clipped + 6,
+                    fill="#1e293b",
+                    outline="#888888",
+                )
+                self.candlestick_canvas.create_text(
+                    chart_w + 3,
+                    cy_clipped,
+                    text=f"{cursor_price:.5f}"
+                    if "JPY" not in self.selected_symbol_gp
+                    else f"{cursor_price:.2f}",
+                    fill="#ffffff",
+                    anchor="w",
+                    font=("Consolas", 7),
+                )
 
                 # Draw interactive highlight label on X-axis (Time Index) using correct candle timing
                 nearest_candle_idx = int(cx_clipped / spacing) if spacing > 0 else 0
-                nearest_candle_idx = max(0, min(nearest_candle_idx, len(self.candlestick_data_list) - 1))
+                nearest_candle_idx = max(
+                    0, min(nearest_candle_idx, len(self.candlestick_data_list) - 1)
+                )
 
-                offset_min = (len(self.candlestick_data_list) - 1 - nearest_candle_idx) * m_val
+                offset_min = (
+                    len(self.candlestick_data_list) - 1 - nearest_candle_idx
+                ) * m_val
                 candle_time = now_gmt - datetime.timedelta(minutes=offset_min)
-                time_lbl = candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
+                time_lbl = (
+                    candle_time.strftime("%H:%M")
+                    if m_val < 1440
+                    else candle_time.strftime("%d/%m")
+                )
 
-                self.candlestick_canvas.create_rectangle(cx_clipped - 20, chart_h, cx_clipped + 20, ch, fill="#1e293b", outline="#888888")
-                self.candlestick_canvas.create_text(cx_clipped, chart_h + 8, text=time_lbl, fill="#ffffff", anchor="n", font=("Consolas", 7))
+                self.candlestick_canvas.create_rectangle(
+                    cx_clipped - 20,
+                    chart_h,
+                    cx_clipped + 20,
+                    ch,
+                    fill="#1e293b",
+                    outline="#888888",
+                )
+                self.candlestick_canvas.create_text(
+                    cx_clipped,
+                    chart_h + 8,
+                    text=time_lbl,
+                    fill="#ffffff",
+                    anchor="n",
+                    font=("Consolas", 7),
+                )
 
-            self.candlestick_canvas.create_text(10, 10, text=f"TV CLONE: {self.selected_symbol_gp} {self.chart_tf_var.get()}", fill=self.fg_accent, anchor="nw", font=("Consolas", 7, "bold"))
+            self.candlestick_canvas.create_text(
+                10,
+                10,
+                text=f"TV CLONE: {self.selected_symbol_gp} {self.chart_tf_var.get()}",
+                fill=self.fg_accent,
+                anchor="nw",
+                font=("Consolas", 7, "bold"),
+            )
 
         # 2. Update Performance Line Graph Canvas
         if hasattr(self, "perf_canvas") and self.perf_canvas:
@@ -2343,7 +3879,10 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
             self.lbl_chart_balance.config(text=f"Current Balance: ${balance:,.2f}")
             self.lbl_chart_equity.config(text=f"Current Equity: ${equity:,.2f}")
-            self.lbl_chart_pnl.config(text=f"Net Cumulative Profit: ${net_profit:+.2f}", fg=self.fg_green if net_profit >= 0 else self.fg_red)
+            self.lbl_chart_pnl.config(
+                text=f"Net Cumulative Profit: ${net_profit:+.2f}",
+                fg=self.fg_green if net_profit >= 0 else self.fg_red,
+            )
             self.lbl_chart_wins.config(text=f"Win Rate Percentage: {win_rate}%")
 
             # Perform dynamic real-time MTF Confluence analysis
@@ -2355,24 +3894,52 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             h4_up = random.choice([True, False])
             d1_up = random.choice([True, False])
 
-            self.lbl_mtf_m1.config(text=f"M1:  {'UP  ' if m1_up else 'DOWN'}", fg=self.fg_green if m1_up else self.fg_red)
-            self.lbl_mtf_m5.config(text=f"M5:  {'UP  ' if m5_up else 'DOWN'}", fg=self.fg_green if m5_up else self.fg_red)
-            self.lbl_mtf_m15.config(text=f"M15: {'UP  ' if m15_up else 'DOWN'}", fg=self.fg_green if m15_up else self.fg_red)
-            self.lbl_mtf_h1.config(text=f"H1:  {'UP  ' if h1_up else 'DOWN'}", fg=self.fg_green if h1_up else self.fg_red)
-            self.lbl_mtf_h4.config(text=f"H4:  {'UP  ' if h4_up else 'DOWN'}", fg=self.fg_green if h4_up else self.fg_red)
-            self.lbl_mtf_d1.config(text=f"D1:  {'UP  ' if d1_up else 'DOWN'}", fg=self.fg_green if d1_up else self.fg_red)
+            self.lbl_mtf_m1.config(
+                text=f"M1:  {'UP  ' if m1_up else 'DOWN'}",
+                fg=self.fg_green if m1_up else self.fg_red,
+            )
+            self.lbl_mtf_m5.config(
+                text=f"M5:  {'UP  ' if m5_up else 'DOWN'}",
+                fg=self.fg_green if m5_up else self.fg_red,
+            )
+            self.lbl_mtf_m15.config(
+                text=f"M15: {'UP  ' if m15_up else 'DOWN'}",
+                fg=self.fg_green if m15_up else self.fg_red,
+            )
+            self.lbl_mtf_h1.config(
+                text=f"H1:  {'UP  ' if h1_up else 'DOWN'}",
+                fg=self.fg_green if h1_up else self.fg_red,
+            )
+            self.lbl_mtf_h4.config(
+                text=f"H4:  {'UP  ' if h4_up else 'DOWN'}",
+                fg=self.fg_green if h4_up else self.fg_red,
+            )
+            self.lbl_mtf_d1.config(
+                text=f"D1:  {'UP  ' if d1_up else 'DOWN'}",
+                fg=self.fg_green if d1_up else self.fg_red,
+            )
 
             total_ups = sum([m1_up, m5_up, m15_up, h1_up, h4_up, d1_up])
             if total_ups >= 5:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: STRONG BULLISH TREND", fg=self.fg_green)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: STRONG BULLISH TREND", fg=self.fg_green
+                )
             elif total_ups == 4:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: MODERATE BULLISH BIAS", fg=self.fg_green)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: MODERATE BULLISH BIAS", fg=self.fg_green
+                )
             elif total_ups == 3:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: CONGESTION NEUTRAL", fg=self.fg_accent)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: CONGESTION NEUTRAL", fg=self.fg_accent
+                )
             elif total_ups == 2:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: MODERATE BEARISH BIAS", fg=self.fg_red)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: MODERATE BEARISH BIAS", fg=self.fg_red
+                )
             else:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: STRONG BEARISH TREND", fg=self.fg_red)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: STRONG BEARISH TREND", fg=self.fg_red
+                )
 
             # Accumulate equity points
             if not hasattr(self, "perf_history_data") or not self.perf_history_data:
@@ -2388,16 +3955,22 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             # Draw line graph
             w = self.perf_canvas.winfo_width()
             h = self.perf_canvas.winfo_height()
-            if w < 10: w = 400
-            if h < 10: h = 150
+            if w < 10:
+                w = 400
+            if h < 10:
+                h = 150
 
             # Draw grids
             for i in range(1, 4):
                 y_grid = int(h * i / 4)
-                self.perf_canvas.create_line(0, y_grid, w, y_grid, fill="#1a1a1a", dash=(2, 2))
+                self.perf_canvas.create_line(
+                    0, y_grid, w, y_grid, fill="#1a1a1a", dash=(2, 2)
+                )
             for i in range(1, 8):
                 x_grid = int(w * i / 8)
-                self.perf_canvas.create_line(x_grid, 0, x_grid, h, fill="#1a1a1a", dash=(2, 2))
+                self.perf_canvas.create_line(
+                    x_grid, 0, x_grid, h, fill="#1a1a1a", dash=(2, 2)
+                )
 
             pts = self.perf_history_data
             min_p = min(pts) - 10
@@ -2408,28 +3981,58 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
             points_coords = []
             for idx, val in enumerate(pts):
-                cx = int(w * idx / max(1, len(pts)-1))
+                cx = int(w * idx / max(1, len(pts) - 1))
                 cy = int(h - (h * (val - min_p) / (max_p - min_p)))
                 points_coords.append((cx, cy))
 
             # Draw lines
             for i in range(len(points_coords) - 1):
                 x1, y1 = points_coords[i]
-                x2, y2 = points_coords[i+1]
-                self.perf_canvas.create_line(x1, y1, x2, y2, fill=self.fg_green, width=2)
+                x2, y2 = points_coords[i + 1]
+                self.perf_canvas.create_line(
+                    x1, y1, x2, y2, fill=self.fg_green, width=2
+                )
                 # Dot
-                self.perf_canvas.create_oval(x2-2, y2-2, x2+2, y2+2, fill=self.fg_accent, outline="")
+                self.perf_canvas.create_oval(
+                    x2 - 2, y2 - 2, x2 + 2, y2 + 2, fill=self.fg_accent, outline=""
+                )
 
             # Draw labels
-            self.perf_canvas.create_text(10, 10, text=f"Max Equity: ${max_p:.2f}", fill=self.fg_grey, anchor="nw", font=("Consolas", 7))
-            self.perf_canvas.create_text(10, h-15, text=f"Min Equity: ${min_p:.2f}", fill=self.fg_grey, anchor="sw", font=("Consolas", 7))
+            self.perf_canvas.create_text(
+                10,
+                10,
+                text=f"Max Equity: ${max_p:.2f}",
+                fill=self.fg_grey,
+                anchor="nw",
+                font=("Consolas", 7),
+            )
+            self.perf_canvas.create_text(
+                10,
+                h - 15,
+                text=f"Min Equity: ${min_p:.2f}",
+                fill=self.fg_grey,
+                anchor="sw",
+                font=("Consolas", 7),
+            )
 
     def _show_session_screen(self):
         """SESS <GO>: Deep active session visualization screen with overlapping trackers & multiple timelines"""
-        lbl_title = tk.Label(self.screen_frame, text="SESS: MULTI-SESSION WORLD TIMELINES & OVERLAPPING DETECTORS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="SESS: MULTI-SESSION WORLD TIMELINES & OVERLAPPING DETECTORS <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        lbl_info = tk.Label(self.screen_frame, text="COMPUTING REAL-TIME Countdown clocks, start/end gmt intervals, and multi-asset overlaps", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="COMPUTING REAL-TIME Countdown clocks, start/end gmt intervals, and multi-asset overlaps",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Horizontal splitted panels
@@ -2437,42 +4040,111 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         sess_split.pack(fill=tk.BOTH, expand=True)
 
         # Left side panel for details
-        self.sess_left = tk.Frame(sess_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.sess_left = tk.Frame(
+            sess_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.sess_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
-        lbl_det_title = tk.Label(self.sess_left, text="ACTIVE & OVERLAPPING SESSION DIRECTORY", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan)
+        lbl_det_title = tk.Label(
+            self.sess_left,
+            text="ACTIVE & OVERLAPPING SESSION DIRECTORY",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        )
         lbl_det_title.pack(anchor="w", padx=10, pady=10)
 
         # Treeview list for all sessions
         cols_s = ("Session Name", "Start (GMT)", "End (GMT)", "Status", "Time Left")
-        self.sess_tree = ttk.Treeview(self.sess_left, columns=cols_s, show="headings", style="Treeview", height=10)
+        self.sess_tree = ttk.Treeview(
+            self.sess_left, columns=cols_s, show="headings", style="Treeview", height=10
+        )
         for col in cols_s:
             self.sess_tree.heading(col, text=col)
             self.sess_tree.column(col, anchor=tk.W, width=110)
         self.sess_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         # Right side panel for visual timeline scale
-        self.sess_right = tk.Frame(sess_split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=420)
+        self.sess_right = tk.Frame(
+            sess_split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=420,
+        )
         self.sess_right.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         self.sess_right.pack_propagate(False)
 
-        lbl_timeline_title = tk.Label(self.sess_right, text="24-HOUR INTERBANK MARKET TIMELINE TRACKER", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green)
+        lbl_timeline_title = tk.Label(
+            self.sess_right,
+            text="24-HOUR INTERBANK MARKET TIMELINE TRACKER",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         lbl_timeline_title.pack(anchor="w", padx=15, pady=15)
 
         # Timelines scales
-        self.lbl_passed_heading = tk.Label(self.sess_right, text="[PASSED / PASSING SESSIONS (TOP LINE)]", font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_grey)
+        self.lbl_passed_heading = tk.Label(
+            self.sess_right,
+            text="[PASSED / PASSING SESSIONS (TOP LINE)]",
+            font=("Consolas", 7, "bold"),
+            bg="#111111",
+            fg=self.fg_grey,
+        )
         self.lbl_passed_heading.pack(anchor="w", padx=15, pady=(5, 2))
-        self.lbl_passed_timeline = tk.Label(self.sess_right, text="- Loading Passing -", font=("Consolas", 7), bg="#111111", fg=self.fg_grey, justify=tk.LEFT, wraplength=380)
+        self.lbl_passed_timeline = tk.Label(
+            self.sess_right,
+            text="- Loading Passing -",
+            font=("Consolas", 7),
+            bg="#111111",
+            fg=self.fg_grey,
+            justify=tk.LEFT,
+            wraplength=380,
+        )
         self.lbl_passed_timeline.pack(anchor="w", padx=25, pady=(0, 15))
 
-        self.lbl_active_heading = tk.Label(self.sess_right, text="[CURRENT ACTIVE SESSIONS (MIDDLE LINE)]", font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_green)
+        self.lbl_active_heading = tk.Label(
+            self.sess_right,
+            text="[CURRENT ACTIVE SESSIONS (MIDDLE LINE)]",
+            font=("Consolas", 7, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         self.lbl_active_heading.pack(anchor="w", padx=15, pady=(5, 2))
-        self.lbl_active_timeline = tk.Label(self.sess_right, text="- Loading Active -", font=("Consolas", 7), bg="#111111", fg=self.fg_light, justify=tk.LEFT, wraplength=380)
+        self.lbl_active_timeline = tk.Label(
+            self.sess_right,
+            text="- Loading Active -",
+            font=("Consolas", 7),
+            bg="#111111",
+            fg=self.fg_light,
+            justify=tk.LEFT,
+            wraplength=380,
+        )
         self.lbl_active_timeline.pack(anchor="w", padx=25, pady=(0, 15))
 
-        self.lbl_upcoming_heading = tk.Label(self.sess_right, text="[UPCOMING SESSIONS (BOTTOM LINE)]", font=("Consolas", 7, "bold"), bg="#111111", fg=self.fg_accent)
+        self.lbl_upcoming_heading = tk.Label(
+            self.sess_right,
+            text="[UPCOMING SESSIONS (BOTTOM LINE)]",
+            font=("Consolas", 7, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+        )
         self.lbl_upcoming_heading.pack(anchor="w", padx=15, pady=(5, 2))
-        self.lbl_upcoming_timeline = tk.Label(self.sess_right, text="- Loading Upcoming -", font=("Consolas", 7), bg="#111111", fg=self.fg_accent, justify=tk.LEFT, wraplength=380)
+        self.lbl_upcoming_timeline = tk.Label(
+            self.sess_right,
+            text="- Loading Upcoming -",
+            font=("Consolas", 7),
+            bg="#111111",
+            fg=self.fg_accent,
+            justify=tk.LEFT,
+            wraplength=380,
+        )
         self.lbl_upcoming_timeline.pack(anchor="w", padx=25, pady=(0, 15))
 
         self._update_session_screen_data()
@@ -2510,7 +4182,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             "US Pre-Market": (8, 13),
             "US After-Hours": (20, 0),
             "CME Futures": (22, 21),
-            "Crypto Markets": (0, 24)
+            "Crypto Markets": (0, 24),
         }
 
         active = []
@@ -2540,7 +4212,9 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 # Check if closed in last 4 hours
                 dist_closed = (hour - end) % 24
                 if dist_closed <= 4:
-                    passed.append((name, start, end, "PASSED", f"Closed {dist_closed}h ago"))
+                    passed.append(
+                        (name, start, end, "PASSED", f"Closed {dist_closed}h ago")
+                    )
                 else:
                     # Calculate countdown to next open
                     dist_to_start = (start - hour) % 24
@@ -2555,7 +4229,11 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         # Insert active sessions
         for row in active:
-            self.sess_tree.insert("", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]))
+            self.sess_tree.insert(
+                "",
+                tk.END,
+                values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]),
+            )
 
         # Detect overlapping active sessions
         overlaps = []
@@ -2566,37 +4244,88 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 overlaps.append(f"{n1} + {n2} ({r1} Overlap)")
 
         if overlaps:
-            self.sess_tree.insert("", tk.END, values=("OVERLAPS DETECTED", "---", "---", "OVERLAP ACTIVE", overlaps[0][:20]))
+            self.sess_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    "OVERLAPS DETECTED",
+                    "---",
+                    "---",
+                    "OVERLAP ACTIVE",
+                    overlaps[0][:20],
+                ),
+            )
             for ov in overlaps[1:]:
-                self.sess_tree.insert("", tk.END, values=("  " + ov[:20], "---", "---", "OVERLAP ACTIVE", ""))
+                self.sess_tree.insert(
+                    "",
+                    tk.END,
+                    values=("  " + ov[:20], "---", "---", "OVERLAP ACTIVE", ""),
+                )
 
         # Insert upcoming sessions
         for row in upcoming[:8]:
-            self.sess_tree.insert("", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]))
+            self.sess_tree.insert(
+                "",
+                tk.END,
+                values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]),
+            )
 
         # Format Timeline displays
         passed_names = [r[0] for r in passed]
         active_names = [f"{r[0]} ({r[4]})" for r in active]
         upcoming_names = [f"{r[0]} ({r[4]})" for r in upcoming[:5]]
 
-        self.lbl_passed_timeline.config(text=" => ".join(passed_names) if passed_names else "No recently passed sessions")
-        self.lbl_active_timeline.config(text=" || ".join(active_names) if active_names else "No currently active sessions")
-        self.lbl_upcoming_timeline.config(text=" >> ".join(upcoming_names) if upcoming_names else "No upcoming sessions today")
+        self.lbl_passed_timeline.config(
+            text=" => ".join(passed_names)
+            if passed_names
+            else "No recently passed sessions"
+        )
+        self.lbl_active_timeline.config(
+            text=" || ".join(active_names)
+            if active_names
+            else "No currently active sessions"
+        )
+        self.lbl_upcoming_timeline.config(
+            text=" >> ".join(upcoming_names)
+            if upcoming_names
+            else "No upcoming sessions today"
+        )
 
     def _show_des_screen(self):
         """DES <GO>: Security Description"""
-        lbl_title = tk.Label(self.screen_frame, text="DES: SECURITY DESCRIPTION & CONTRACT SPECIFICATION <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="DES: SECURITY DESCRIPTION & CONTRACT SPECIFICATION <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        lbl_info = tk.Label(self.screen_frame, text="AGGREGATES SECURITY METRICS, POINT VALUES, SPREADS, AND NEURAL NETWORK SENTIMENT BIAS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="AGGREGATES SECURITY METRICS, POINT VALUES, SPREADS, AND NEURAL NETWORK SENTIMENT BIAS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.des_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.des_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.des_text.pack(fill=tk.BOTH, expand=True)
         self._update_des_screen_data()
 
     def _update_des_screen_data(self):
-        if not hasattr(self, "des_text") or not self.des_text: return
+        if not hasattr(self, "des_text") or not self.des_text:
+            return
         self.des_text.delete("1.0", tk.END)
 
         symbol = self.selected_symbol_gp
@@ -2604,6 +4333,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         # Query real pricing, tick parameters, and ATR dynamically from our live connector!
         history = self.scalper.conn.get_history(symbol, 30)
         import indicators
+
         atr_val = 0.0012
         if history:
             closes = [b["close"] for b in history]
@@ -2642,7 +4372,7 @@ TRADING SPECIFICATIONS (REAL-TIME CONNECTOR PARAMETERS):
 --------------------------------------------------------------------------------
 Contract Lot Size:     {lot_size:,} Units ({symbol[:3]})
 Minimum Tick Size:     {pip_size:.5f} Points
-Current Ask / Bid:     {price_info['ask']:.5f} / {price_info['bid']:.5f}
+Current Ask / Bid:     {price_info["ask"]:.5f} / {price_info["bid"]:.5f}
 Current Spread (Pips): {spread_pips:.2f} Pips (Live Rate)
 Daily ATR Range:       {atr_val:.5f} Points (Live Volatility)
 Dynamic Stop-Level:    {config.ATR_MULTIPLIER_SL} * ATR SL Distance
@@ -2660,18 +4390,39 @@ Regime Classifier:     ADAPTIVE QUANTUM MULTI-STYLE RUNNING
 
     def _show_yas_screen(self):
         """YAS <GO>: Yield Analysis"""
-        lbl_title = tk.Label(self.screen_frame, text="YAS: YIELD & CREDIT SPREAD ANALYTICS <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="YAS: YIELD & CREDIT SPREAD ANALYTICS <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        lbl_info = tk.Label(self.screen_frame, text="COMPUTES BOND YIELDS, DURATION, CONVEXITY, AND SPREADS FOR CORRELATION SIGNAL HEDGING", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="COMPUTES BOND YIELDS, DURATION, CONVEXITY, AND SPREADS FOR CORRELATION SIGNAL HEDGING",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.yas_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.yas_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.yas_text.pack(fill=tk.BOTH, expand=True)
         self._update_yas_screen_data()
 
     def _update_yas_screen_data(self):
-        if not hasattr(self, "yas_text") or not self.yas_text: return
+        if not hasattr(self, "yas_text") or not self.yas_text:
+            return
         self.yas_text.delete("1.0", tk.END)
 
         symbol = self.selected_symbol_gp
@@ -2681,9 +4432,12 @@ Regime Classifier:     ADAPTIVE QUANTUM MULTI-STYLE RUNNING
         spread = price_info["ask"] - price_info["bid"]
         symbol_upper = symbol.upper()
         pip_size = 0.0001
-        if "JPY" in symbol_upper: pip_size = 0.01
-        elif "XAU" in symbol_upper: pip_size = 0.1
-        elif "BTC" in symbol_upper: pip_size = 1.0
+        if "JPY" in symbol_upper:
+            pip_size = 0.01
+        elif "XAU" in symbol_upper:
+            pip_size = 0.1
+        elif "BTC" in symbol_upper:
+            pip_size = 1.0
 
         spread_pips = spread / pip_size
         swap_points = config.SWAP_LONG_POINTS.get(symbol_upper, 0.0)
@@ -2698,8 +4452,8 @@ Pricing Source:        Live Broker Gateway Integration
 
 REAL-TIME CARRY & YIELD CALCULATIONS:
 --------------------------------------------------------------------------------
-Clean Bid Price:       {price_info['bid']:.5f}
-Clean Ask Price:       {price_info['ask']:.5f}
+Clean Bid Price:       {price_info["bid"]:.5f}
+Clean Ask Price:       {price_info["ask"]:.5f}
 Live Spread (Pips):    {spread_pips:.2f} Pips
 Long Carry Swap:       {swap_points:+.1f} Points / Lot / Night (Carry Yield)
 Dynamic Carry Allow:   {"ALLOWED" if swap_points >= config.MIN_CARRY_YIELD_POINTS else "REJECTED (Low carry yield)"}
@@ -2712,15 +4466,37 @@ YIELD VOLATILITY REGIME MATRIX:
 
     def _show_eco_screen(self):
         """ECO <GO>: Economic Calendar"""
-        lbl_title = tk.Label(self.screen_frame, text="ECO: MACROECONOMIC INDICATORS CALENDAR <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="ECO: MACROECONOMIC INDICATORS CALENDAR <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME MACRO RELEASES WITH HISTORICAL AND CONSENSUS BENCHMARKS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="REAL-TIME MACRO RELEASES WITH HISTORICAL AND CONSENSUS BENCHMARKS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Table for economic events
-        cols_e = ("Time (GMT)", "Country", "Economic Indicator / Event", "Impact", "Actual", "Consensus", "Previous")
-        self.eco_tree = ttk.Treeview(self.screen_frame, columns=cols_e, show="headings", style="Treeview")
+        cols_e = (
+            "Time (GMT)",
+            "Country",
+            "Economic Indicator / Event",
+            "Impact",
+            "Actual",
+            "Consensus",
+            "Previous",
+        )
+        self.eco_tree = ttk.Treeview(
+            self.screen_frame, columns=cols_e, show="headings", style="Treeview"
+        )
         for col in cols_e:
             self.eco_tree.heading(col, text=col)
             self.eco_tree.column(col, anchor=tk.W, width=120)
@@ -2729,7 +4505,8 @@ YIELD VOLATILITY REGIME MATRIX:
         self._update_eco_screen_data()
 
     def _update_eco_screen_data(self):
-        if not hasattr(self, "eco_tree") or not self.eco_tree: return
+        if not hasattr(self, "eco_tree") or not self.eco_tree:
+            return
         for item in self.eco_tree.get_children():
             self.eco_tree.delete(item)
 
@@ -2738,11 +4515,51 @@ YIELD VOLATILITY REGIME MATRIX:
         hour = now_gmt.hour
 
         events = [
-            (f"{(hour - 2) % 24:02d}:30 GMT", "USA", "Core CPI Inflation (MoM)", "HIGH", "0.2%", "0.2%", "0.1%"),
-            (f"{(hour - 1) % 24:02d}:30 GMT", "USA", "Initial Jobless Claims", "MEDIUM", "210K", "215K", "212K"),
-            (f"{hour % 24:02d}:45 GMT", "EUR", "ECB President Lagarde Speech", "HIGH", "Active", "---", "---"),
-            (f"{(hour + 1) % 24:02d}:00 GMT", "USA", "Existing Home Sales (MoM)", "MEDIUM", "Pending", "0.8%", "-0.4%"),
-            (f"{(hour + 2) % 24:02d}:00 GMT", "GBR", "BOE Bailey Speech on Liquidity", "HIGH", "Pending", "---", "---")
+            (
+                f"{(hour - 2) % 24:02d}:30 GMT",
+                "USA",
+                "Core CPI Inflation (MoM)",
+                "HIGH",
+                "0.2%",
+                "0.2%",
+                "0.1%",
+            ),
+            (
+                f"{(hour - 1) % 24:02d}:30 GMT",
+                "USA",
+                "Initial Jobless Claims",
+                "MEDIUM",
+                "210K",
+                "215K",
+                "212K",
+            ),
+            (
+                f"{hour % 24:02d}:45 GMT",
+                "EUR",
+                "ECB President Lagarde Speech",
+                "HIGH",
+                "Active",
+                "---",
+                "---",
+            ),
+            (
+                f"{(hour + 1) % 24:02d}:00 GMT",
+                "USA",
+                "Existing Home Sales (MoM)",
+                "MEDIUM",
+                "Pending",
+                "0.8%",
+                "-0.4%",
+            ),
+            (
+                f"{(hour + 2) % 24:02d}:00 GMT",
+                "GBR",
+                "BOE Bailey Speech on Liquidity",
+                "HIGH",
+                "Pending",
+                "---",
+                "---",
+            ),
         ]
 
         for row in events:
@@ -2754,18 +4571,39 @@ YIELD VOLATILITY REGIME MATRIX:
 
     def _show_emsx_screen(self):
         """EMSX <GO>: Execution Management System"""
-        lbl_title = tk.Label(self.screen_frame, text="EMSX: EXECUTION MANAGEMENT SYSTEM <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="EMSX: EXECUTION MANAGEMENT SYSTEM <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
 
-        lbl_info = tk.Label(self.screen_frame, text="TRANSACTION ROUTING PLATFORM ROUTING TO GLOBAL BROKERS, DARK POOLS, AND RFQ VENUES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="TRANSACTION ROUTING PLATFORM ROUTING TO GLOBAL BROKERS, DARK POOLS, AND RFQ VENUES",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.emsx_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.emsx_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.emsx_text.pack(fill=tk.BOTH, expand=True)
         self._update_emsx_screen_data()
 
     def _update_emsx_screen_data(self):
-        if not hasattr(self, "emsx_text") or not self.emsx_text: return
+        if not hasattr(self, "emsx_text") or not self.emsx_text:
+            return
         self.emsx_text.delete("1.0", tk.END)
 
         # Query actual live engine state directly!
@@ -2795,9 +4633,21 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
     def _show_cfg_screen(self):
         """CFG <GO>: System Configuration Control Panel"""
-        lbl_title = tk.Label(self.screen_frame, text="CFG: SYSTEM CONFIGURATION & PERMISSIONS CONTROL <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="CFG: SYSTEM CONFIGURATION & PERMISSIONS CONTROL <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="CONFIGURE USER CREDENTIALS, BROKER GATEWAYS, USER ACCESS PERMISSIONS, AND FEATURE CONTROLS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="CONFIGURE USER CREDENTIALS, BROKER GATEWAYS, USER ACCESS PERMISSIONS, AND FEATURE CONTROLS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Create ttk.Notebook for sub-tabs
@@ -2805,17 +4655,35 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_notebook.pack(fill=tk.BOTH, expand=True)
 
         # 1. User Credentials & Access Permissions Tab
-        self.tab_cfg_user = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.tab_cfg_user = tk.Frame(
+            self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15
+        )
         self.cfg_notebook.add(self.tab_cfg_user, text="User Credentials & Permissions")
 
         # Treeview listing existing active user accounts
-        u_table_frame = tk.Frame(self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d")
+        u_table_frame = tk.Frame(
+            self.tab_cfg_user,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=10,
+            highlightbackground="#2d2d2d",
+        )
         u_table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        tk.Label(u_table_frame, text="REGISTERED USER DIRECTORY & ACCESS ROLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            u_table_frame,
+            text="REGISTERED USER DIRECTORY & ACCESS ROLES",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", pady=(0, 5))
 
         cols_u = ("ID", "Username", "RBAC Access Role", "MFA Status", "Created At")
-        self.cfg_user_tree = ttk.Treeview(u_table_frame, columns=cols_u, show="headings", style="Treeview", height=5)
+        self.cfg_user_tree = ttk.Treeview(
+            u_table_frame, columns=cols_u, show="headings", style="Treeview", height=5
+        )
         for c in cols_u:
             self.cfg_user_tree.heading(c, text=c)
             self.cfg_user_tree.column(c, width=120, anchor="center")
@@ -2823,46 +4691,168 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_user_tree.bind("<<TreeviewSelect>>", self._on_user_select)
 
         # Form layout for User Credentials Management (Add, Update, Delete)
-        u_frame = tk.Frame(self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        u_frame = tk.Frame(
+            self.tab_cfg_user,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
+        )
         u_frame.pack(fill=tk.X)
 
-        tk.Label(u_frame, text="USER ACCOUNT CONTROL FORM (ADD / UPDATE / DELETE)", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
+        tk.Label(
+            u_frame,
+            text="USER ACCOUNT CONTROL FORM (ADD / UPDATE / DELETE)",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+        ).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
 
-        tk.Label(u_frame, text="Username:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=2)
-        self.cfg_user_ent = tk.Entry(u_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22)
+        tk.Label(
+            u_frame,
+            text="Username:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=2)
+        self.cfg_user_ent = tk.Entry(
+            u_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=22,
+        )
         self.cfg_user_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.cfg_user_ent.insert(0, "QUANT_OPERATOR")
 
-        tk.Label(u_frame, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
-        self.cfg_pass_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22)
+        tk.Label(
+            u_frame,
+            text="Password:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_pass_ent = tk.Entry(
+            u_frame,
+            show="*",
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=22,
+        )
         self.cfg_pass_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
 
-        tk.Label(u_frame, text="Security PIN:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=2)
-        self.cfg_pin_ent = tk.Entry(u_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22)
+        tk.Label(
+            u_frame,
+            text="Security PIN:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=2)
+        self.cfg_pin_ent = tk.Entry(
+            u_frame,
+            show="*",
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=22,
+        )
         self.cfg_pin_ent.grid(row=2, column=1, sticky="w", padx=5, pady=2)
 
-        tk.Label(u_frame, text="Access Role:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
+        tk.Label(
+            u_frame,
+            text="Access Role:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_role_var = tk.StringVar(value="SOVEREIGN_ADMIN")
-        role_menu = tk.OptionMenu(u_frame, self.cfg_role_var, "SOVEREIGN_ADMIN", "QUANT_TRADER", "RISK_AUDITOR", "READ_ONLY")
-        role_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        role_menu = tk.OptionMenu(
+            u_frame,
+            self.cfg_role_var,
+            "SOVEREIGN_ADMIN",
+            "QUANT_TRADER",
+            "RISK_AUDITOR",
+            "READ_ONLY",
+        )
+        role_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         role_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         role_menu.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
         btn_box = tk.Frame(u_frame, bg=self.bg_card)
         btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
-        tk.Button(btn_box, text="➕ ADD USER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_user_account).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Button(btn_box, text="✏️ UPDATE SELECTED", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._update_user_account).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_box, text="🗑️ DELETE USER", font=("Consolas", 8, "bold"), bg="#991b1b", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._delete_user_account).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_box,
+            text="➕ ADD USER",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._add_user_account,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(
+            btn_box,
+            text="✏️ UPDATE SELECTED",
+            font=("Consolas", 8, "bold"),
+            bg="#b45309",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._update_user_account,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_box,
+            text="🗑️ DELETE USER",
+            font=("Consolas", 8, "bold"),
+            bg="#991b1b",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._delete_user_account,
+        ).pack(side=tk.LEFT, padx=5)
 
         # 2. Broker Credentials & Gateway Settings Tab
-        self.tab_cfg_broker = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
-        self.cfg_notebook.add(self.tab_cfg_broker, text="Multi-Broker Gateway Credentials")
+        self.tab_cfg_broker = tk.Frame(
+            self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15
+        )
+        self.cfg_notebook.add(
+            self.tab_cfg_broker, text="Multi-Broker Gateway Credentials"
+        )
 
-        b_frame = tk.Frame(self.tab_cfg_broker, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        b_frame = tk.Frame(
+            self.tab_cfg_broker,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         b_frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(b_frame, text="MULTI-BROKER TERMINAL GATEWAYS DATABASE", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            b_frame,
+            text="MULTI-BROKER TERMINAL GATEWAYS DATABASE",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", pady=(0, 5))
 
         # Broker Accounts Treeview
         b_tree_frame = tk.Frame(b_frame, bg=self.bg_card)
@@ -2871,7 +4861,13 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         b_scroll = tk.Scrollbar(b_tree_frame)
         b_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.broker_tree = ttk.Treeview(b_tree_frame, columns=("id", "name", "server", "acc", "env", "lev", "status"), show="headings", height=5, yscrollcommand=b_scroll.set)
+        self.broker_tree = ttk.Treeview(
+            b_tree_frame,
+            columns=("id", "name", "server", "acc", "env", "lev", "status"),
+            show="headings",
+            height=5,
+            yscrollcommand=b_scroll.set,
+        )
         b_scroll.config(command=self.broker_tree.yview)
 
         self.broker_tree.heading("id", text="ID")
@@ -2900,56 +4896,205 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         bf_inputs = tk.Frame(b_frame, bg=self.bg_card)
         bf_inputs.pack(fill=tk.X, pady=(5, 0))
 
-        tk.Label(bf_inputs, text="Broker Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=0, sticky="w", pady=2)
-        self.cfg_bname_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        tk.Label(
+            bf_inputs,
+            text="Broker Name:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=0, column=0, sticky="w", pady=2)
+        self.cfg_bname_ent = tk.Entry(
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
+        )
         self.cfg_bname_ent.grid(row=0, column=1, sticky="w", padx=5, pady=2)
         self.cfg_bname_ent.insert(0, b_creds.get("broker_name", "Primary Gateway"))
 
-        tk.Label(bf_inputs, text="Server Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=2, sticky="w", pady=2, padx=(10, 0))
-        self.cfg_bserver_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        tk.Label(
+            bf_inputs,
+            text="Server Name:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=0, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_bserver_ent = tk.Entry(
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
+        )
         self.cfg_bserver_ent.grid(row=0, column=3, sticky="w", padx=5, pady=2)
         self.cfg_bserver_ent.insert(0, b_creds["server"])
 
-        tk.Label(bf_inputs, text="Account ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=2)
-        self.cfg_bacc_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        tk.Label(
+            bf_inputs,
+            text="Account ID:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=2)
+        self.cfg_bacc_ent = tk.Entry(
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
+        )
         self.cfg_bacc_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.cfg_bacc_ent.insert(0, b_creds["account_id"])
 
-        tk.Label(bf_inputs, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
-        self.cfg_bpwd_ent = tk.Entry(bf_inputs, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22)
+        tk.Label(
+            bf_inputs,
+            text="Password:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
+        self.cfg_bpwd_ent = tk.Entry(
+            bf_inputs,
+            show="*",
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
+        )
         self.cfg_bpwd_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
         self.cfg_bpwd_ent.insert(0, b_creds["password"])
 
-        tk.Label(bf_inputs, text="Environment:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=2)
+        tk.Label(
+            bf_inputs,
+            text="Environment:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=2)
         self.cfg_benv_var = tk.StringVar(value=b_creds.get("environment", "Demo"))
-        env_menu = tk.OptionMenu(bf_inputs, self.cfg_benv_var, "Demo", "Live", "ECN", "STP")
-        env_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        env_menu = tk.OptionMenu(
+            bf_inputs, self.cfg_benv_var, "Demo", "Live", "ECN", "STP"
+        )
+        env_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         env_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         env_menu.grid(row=2, column=1, sticky="w", padx=5, pady=2)
 
-        tk.Label(bf_inputs, text="Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
+        tk.Label(
+            bf_inputs,
+            text="Leverage:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_lev_var = tk.StringVar(value=b_creds.get("leverage", "1:100"))
-        leverage_options = ["1:1", "1:10", "1:20", "1:50", "1:100", "1:200", "1:500", "1:1000", "1:2000", "1:3000", "1:5000", "1:10000"]
-        self.cfg_lev_combo = ttk.Combobox(bf_inputs, textvariable=self.cfg_lev_var, values=leverage_options, font=("Consolas", 8, "bold"), width=12)
+        leverage_options = [
+            "1:1",
+            "1:10",
+            "1:20",
+            "1:50",
+            "1:100",
+            "1:200",
+            "1:500",
+            "1:1000",
+            "1:2000",
+            "1:3000",
+            "1:5000",
+            "1:10000",
+        ]
+        self.cfg_lev_combo = ttk.Combobox(
+            bf_inputs,
+            textvariable=self.cfg_lev_var,
+            values=leverage_options,
+            font=("Consolas", 8, "bold"),
+            width=12,
+        )
         self.cfg_lev_combo.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
-        tk.Label(bf_inputs, text="Terminal Path:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=2)
-        self.cfg_bpath_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=48)
-        self.cfg_bpath_ent.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2)
+        tk.Label(
+            bf_inputs,
+            text="Terminal Path:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=2)
+        self.cfg_bpath_ent = tk.Entry(
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=48,
+        )
+        self.cfg_bpath_ent.grid(
+            row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2
+        )
         self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
 
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
         b_btn_box.grid(row=4, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
-        tk.Button(b_btn_box, text="➕ ADD BROKER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_broker_profile).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Button(b_btn_box, text="⚡ SET ACTIVE GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._set_active_broker_profile).pack(side=tk.LEFT, padx=5)
-        tk.Button(b_btn_box, text="🗑️ DELETE BROKER", font=("Consolas", 8, "bold"), bg="#991b1b", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._delete_broker_profile).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
+            text="➕ ADD BROKER",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._add_broker_profile,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(
+            b_btn_box,
+            text="⚡ SET ACTIVE GATEWAY",
+            font=("Consolas", 8, "bold"),
+            bg="#b45309",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._set_active_broker_profile,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
+            text="🗑️ DELETE BROKER",
+            font=("Consolas", 8, "bold"),
+            bg="#991b1b",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._delete_broker_profile,
+        ).pack(side=tk.LEFT, padx=5)
 
         # 3. User Controls & Feature Permissions Tab
-        self.tab_cfg_feats = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
-        self.cfg_notebook.add(self.tab_cfg_feats, text="User Controls & Feature Permissions")
+        self.tab_cfg_feats = tk.Frame(
+            self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15
+        )
+        self.cfg_notebook.add(
+            self.tab_cfg_feats, text="User Controls & Feature Permissions"
+        )
 
-        f_frame = tk.Frame(self.tab_cfg_feats, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        f_frame = tk.Frame(
+            self.tab_cfg_feats,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         f_frame.pack(fill=tk.BOTH, expand=True)
 
         # Split into two columns: Granular RBAC Permissions (Left) and Feature Control Toggles (Right)
@@ -2959,7 +5104,13 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         p_right = tk.Frame(f_frame, bg=self.bg_card)
         p_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
 
-        tk.Label(p_left, text="GRANULAR RBAC USER PERMISSIONS", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 10))
+        tk.Label(
+            p_left,
+            text="GRANULAR RBAC USER PERMISSIONS",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", pady=(0, 10))
 
         self.cfg_perm_overrides = tk.BooleanVar(value=True)
         self.cfg_perm_risk = tk.BooleanVar(value=True)
@@ -2980,10 +5131,26 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ]
 
         for text_lbl, var_ref in perm_opts:
-            chk = tk.Checkbutton(p_left, text=text_lbl, variable=var_ref, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+            chk = tk.Checkbutton(
+                p_left,
+                text=text_lbl,
+                variable=var_ref,
+                font=("Consolas", 8),
+                bg=self.bg_card,
+                fg=self.fg_light,
+                selectcolor="#1c1c1c",
+                activebackground=self.bg_card,
+                activeforeground=self.fg_accent,
+            )
             chk.pack(anchor="w", pady=3)
 
-        tk.Label(p_right, text="SYSTEM FEATURE CONTROLS & ENGINES TOGGLES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 10))
+        tk.Label(
+            p_right,
+            text="SYSTEM FEATURE CONTROLS & ENGINES TOGGLES",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", pady=(0, 10))
 
         self.cfg_feat_algo = tk.BooleanVar(value=True)
         self.cfg_feat_pyramid = tk.BooleanVar(value=True)
@@ -3001,7 +5168,10 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             ("Enable Autonomous Algo Order Execution", self.cfg_feat_algo),
             ("Enable Dynamic Pyramiding Sizing Expansion", self.cfg_feat_pyramid),
             ("Enable ATR Trailing Stop Loss Lock", self.cfg_feat_trailing),
-            ("Enable Daily Broker Rollover Hour Blocker (22:00-23:00 GMT)", self.cfg_feat_rollover),
+            (
+                "Enable Daily Broker Rollover Hour Blocker (22:00-23:00 GMT)",
+                self.cfg_feat_rollover,
+            ),
             ("Enable Weekend FX Market Blocker", self.cfg_feat_weekend),
             ("Enable News NLP Sentiment Macro Veto Filter", self.cfg_feat_news_veto),
             ("Enable MLP Neural Network Prediction Veto Filter", self.cfg_feat_nn_veto),
@@ -3012,23 +5182,52 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ]
 
         for text_lbl, var_ref in chk_opts:
-            chk = tk.Checkbutton(p_right, text=text_lbl, variable=var_ref, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+            chk = tk.Checkbutton(
+                p_right,
+                text=text_lbl,
+                variable=var_ref,
+                font=("Consolas", 8),
+                bg=self.bg_card,
+                fg=self.fg_light,
+                selectcolor="#1c1c1c",
+                activebackground=self.bg_card,
+                activeforeground=self.fg_accent,
+            )
             chk.pack(anchor="w", pady=3)
 
-        btn_save_f = tk.Button(f_frame, text="APPLY FEATURE PERMISSIONS & CONTROLS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=5, relief=tk.FLAT, command=self._save_feature_permissions)
+        btn_save_f = tk.Button(
+            f_frame,
+            text="APPLY FEATURE PERMISSIONS & CONTROLS",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=5,
+            relief=tk.FLAT,
+            command=self._save_feature_permissions,
+        )
         btn_save_f.pack(side=tk.BOTTOM, anchor="e", pady=(15, 0))
 
         self._refresh_user_tree()
         self._refresh_broker_tree()
 
     def _refresh_user_tree(self):
-        if not hasattr(self, "cfg_user_tree") or not self.cfg_user_tree: return
+        if not hasattr(self, "cfg_user_tree") or not self.cfg_user_tree:
+            return
         self.cfg_user_tree.delete(*self.cfg_user_tree.get_children())
         users = database.get_all_users()
         for u in users:
             mfa_str = "ENABLED" if u["mfa_enabled"] else "DISABLED"
-            created_str = u["created_at"].split("T")[0] if "T" in u["created_at"] else u["created_at"][:10]
-            self.cfg_user_tree.insert("", tk.END, values=(u["id"], u["username"], u["role"], mfa_str, created_str))
+            created_str = (
+                u["created_at"].split("T")[0]
+                if "T" in u["created_at"]
+                else u["created_at"][:10]
+            )
+            self.cfg_user_tree.insert(
+                "",
+                tk.END,
+                values=(u["id"], u["username"], u["role"], mfa_str, created_str),
+            )
 
     def _on_user_select(self, event):
         sel = self.cfg_user_tree.selection()
@@ -3047,12 +5246,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         role = self.cfg_role_var.get()
 
         if not u or not p or not pin:
-            messagebox.showerror("Error", "Please provide Username, Password, and Security PIN.")
+            messagebox.showerror(
+                "Error", "Please provide Username, Password, and Security PIN."
+            )
             return
 
         try:
             database.add_user(username=u, password=p, pin=pin, role=role)
-            messagebox.showinfo("User Added", f"Successfully created encrypted account for '{u}' with role '{role}'.")
+            messagebox.showinfo(
+                "User Added",
+                f"Successfully created encrypted account for '{u}' with role '{role}'.",
+            )
             self._refresh_user_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add user: {e}")
@@ -3068,8 +5272,15 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             return
 
         try:
-            database.update_user(username=u, new_password=p if p else None, new_pin=pin if pin else None, new_role=role)
-            messagebox.showinfo("User Updated", f"Successfully updated account records for '{u}'.")
+            database.update_user(
+                username=u,
+                new_password=p if p else None,
+                new_pin=pin if pin else None,
+                new_role=role,
+            )
+            messagebox.showinfo(
+                "User Updated", f"Successfully updated account records for '{u}'."
+            )
             self._refresh_user_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to update user: {e}")
@@ -3077,14 +5288,21 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
     def _delete_user_account(self):
         u = self.cfg_user_ent.get().strip()
         if not u:
-            messagebox.showerror("Error", "Please select or specify a Username to delete.")
+            messagebox.showerror(
+                "Error", "Please select or specify a Username to delete."
+            )
             return
 
         if u == "QUANT_OPERATOR":
-            messagebox.showerror("Action Denied", "Cannot delete primary root administrator 'QUANT_OPERATOR'.")
+            messagebox.showerror(
+                "Action Denied",
+                "Cannot delete primary root administrator 'QUANT_OPERATOR'.",
+            )
             return
 
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to permanently delete user '{u}'?"):
+        if messagebox.askyesno(
+            "Confirm Delete", f"Are you sure you want to permanently delete user '{u}'?"
+        ):
             try:
                 database.delete_user(u)
                 messagebox.showinfo("User Deleted", f"Removed user account '{u}'.")
@@ -3099,15 +5317,19 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         brokers = database.get_all_brokers()
         for b in brokers:
             st = "🟢 ACTIVE" if b.get("is_active", 0) else "⚪ STANDBY"
-            self.broker_tree.insert("", tk.END, values=(
-                b["id"],
-                b.get("broker_name", "Gateway"),
-                b["server"],
-                b["account_id"],
-                b.get("environment", "Demo"),
-                b["leverage"],
-                st
-            ))
+            self.broker_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    b["id"],
+                    b.get("broker_name", "Gateway"),
+                    b["server"],
+                    b["account_id"],
+                    b.get("environment", "Demo"),
+                    b["leverage"],
+                    st,
+                ),
+            )
 
     def _on_broker_tree_select(self, event):
         sel = self.broker_tree.selection()
@@ -3134,12 +5356,25 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_lev_var.set(lev)
 
         if not server or not acc or not pwd:
-            messagebox.showerror("Error", "Please provide Server Name, Account ID, and Broker Password.")
+            messagebox.showerror(
+                "Error", "Please provide Server Name, Account ID, and Broker Password."
+            )
             return
 
         try:
-            database.add_broker_account(broker_name=bname, server=server, account_id=acc, password=pwd, leverage=lev, environment=env, is_active=1)
-            messagebox.showinfo("Broker Added", f"Successfully created and activated broker profile '{bname}' ({server}).")
+            database.add_broker_account(
+                broker_name=bname,
+                server=server,
+                account_id=acc,
+                password=pwd,
+                leverage=lev,
+                environment=env,
+                is_active=1,
+            )
+            messagebox.showinfo(
+                "Broker Added",
+                f"Successfully created and activated broker profile '{bname}' ({server}).",
+            )
             self._refresh_broker_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add broker profile: {e}")
@@ -3147,14 +5382,20 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
     def _set_active_broker_profile(self):
         sel = self.broker_tree.selection()
         if not sel:
-            messagebox.showwarning("Select Broker", "Please select a broker account from the list to set active.")
+            messagebox.showwarning(
+                "Select Broker",
+                "Please select a broker account from the list to set active.",
+            )
             return
         item = self.broker_tree.item(sel[0])
         b_id = item["values"][0]
         b_name = item["values"][1]
         try:
             database.set_active_broker(b_id)
-            messagebox.showinfo("Active Broker Switched", f"Primary active gateway successfully switched to '{b_name}' (ID: {b_id}).")
+            messagebox.showinfo(
+                "Active Broker Switched",
+                f"Primary active gateway successfully switched to '{b_name}' (ID: {b_id}).",
+            )
             self._refresh_broker_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to set active broker: {e}")
@@ -3162,15 +5403,22 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
     def _delete_broker_profile(self):
         sel = self.broker_tree.selection()
         if not sel:
-            messagebox.showwarning("Select Broker", "Please select a broker account to delete.")
+            messagebox.showwarning(
+                "Select Broker", "Please select a broker account to delete."
+            )
             return
         item = self.broker_tree.item(sel[0])
         b_id = item["values"][0]
         b_name = item["values"][1]
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete broker profile '{b_name}' (ID: {b_id})?"):
+        if messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to delete broker profile '{b_name}' (ID: {b_id})?",
+        ):
             try:
                 database.delete_broker_account(b_id)
-                messagebox.showinfo("Broker Deleted", f"Deleted broker profile '{b_name}'.")
+                messagebox.showinfo(
+                    "Broker Deleted", f"Deleted broker profile '{b_name}'."
+                )
                 self._refresh_broker_tree()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delete broker: {e}")
@@ -3184,21 +5432,41 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_lev_var.set(lev)
         env = self.cfg_benv_var.get()
 
-        database.save_broker_credentials(server, acc, pwd, lev, broker_name=bname, environment=env)
-        messagebox.showinfo("Broker Gateway Saved", f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}")
+        database.save_broker_credentials(
+            server, acc, pwd, lev, broker_name=bname, environment=env
+        )
+        messagebox.showinfo(
+            "Broker Gateway Saved",
+            f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}",
+        )
         self._refresh_broker_tree()
 
     def _save_feature_permissions(self):
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
         config.BLOCK_ROLLOVER_HOUR = self.cfg_feat_rollover.get()
         config.BLOCK_WEEKENDS = self.cfg_feat_weekend.get()
-        messagebox.showinfo("Feature Permissions Saved", "System feature permissions and autonomous safety controls updated successfully.")
+        messagebox.showinfo(
+            "Feature Permissions Saved",
+            "System feature permissions and autonomous safety controls updated successfully.",
+        )
 
     def _show_set_screen(self):
         """SET <GO>: Dashboard Settings & System Configurations"""
-        lbl_title = tk.Label(self.screen_frame, text="SET: DASHBOARD SETTINGS & RUNTIME CONFIGURATIONS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="SET: DASHBOARD SETTINGS & RUNTIME CONFIGURATIONS <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="CONFIGURE DASHBOARD VISUAL THEMES, REFRESH POLLING RATES, RISK PARAMETERS, AND TELEGRAM NOTIFICATIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="CONFIGURE DASHBOARD VISUAL THEMES, REFRESH POLLING RATES, RISK PARAMETERS, AND TELEGRAM NOTIFICATIONS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Create ttk.Notebook for sub-tabs
@@ -3206,134 +5474,466 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.set_notebook.pack(fill=tk.BOTH, expand=True)
 
         # 1. Dashboard Themes & Visuals Tab
-        self.tab_set_theme = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.tab_set_theme = tk.Frame(
+            self.set_notebook, bg=self.bg_dark, padx=20, pady=15
+        )
         self.set_notebook.add(self.tab_set_theme, text="Themes & Visuals")
 
-        t_frame = tk.Frame(self.tab_set_theme, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        t_frame = tk.Frame(
+            self.tab_set_theme,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         t_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(t_frame, text="DASHBOARD THEMES, FONTS & COLOR PALETTES", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(
+            t_frame,
+            text="DASHBOARD THEMES, FONTS & COLOR PALETTES",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
-        tk.Label(t_frame, text="Active Visual Theme:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        tk.Label(
+            t_frame,
+            text="Active Visual Theme:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=4)
         self.set_theme_var = tk.StringVar(value="PITCH_BLACK")
-        theme_menu = tk.OptionMenu(t_frame, self.set_theme_var, "PITCH_BLACK", "CYBERPUNK_NEON", "EMERALD_QUANT", "SOLARIZED_DARK", "BLOOMBERG_CLASSIC", "MONOKAI_PRO", "NORD_DARK")
-        theme_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        theme_menu = tk.OptionMenu(
+            t_frame,
+            self.set_theme_var,
+            "PITCH_BLACK",
+            "CYBERPUNK_NEON",
+            "EMERALD_QUANT",
+            "SOLARIZED_DARK",
+            "BLOOMBERG_CLASSIC",
+            "MONOKAI_PRO",
+            "NORD_DARK",
+        )
+        theme_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         theme_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         theme_menu.grid(row=1, column=1, sticky="w", padx=10, pady=4)
 
-        tk.Label(t_frame, text="Dashboard Font Family:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.set_font_family_var = tk.StringVar(value=getattr(self, "current_font_family", "Consolas"))
-        font_menu = tk.OptionMenu(t_frame, self.set_font_family_var, "Consolas", "Courier New", "DejaVu Sans Mono", "Lucida Console", "Monaco")
-        font_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        tk.Label(
+            t_frame,
+            text="Dashboard Font Family:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_font_family_var = tk.StringVar(
+            value=getattr(self, "current_font_family", "Consolas")
+        )
+        font_menu = tk.OptionMenu(
+            t_frame,
+            self.set_font_family_var,
+            "Consolas",
+            "Courier New",
+            "DejaVu Sans Mono",
+            "Lucida Console",
+            "Monaco",
+        )
+        font_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         font_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         font_menu.grid(row=2, column=1, sticky="w", padx=10, pady=4)
 
-        tk.Label(t_frame, text="Dashboard Font Size:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.set_font_size_var = tk.StringVar(value=str(getattr(self, "current_font_size", 8)))
-        fsize_menu = tk.OptionMenu(t_frame, self.set_font_size_var, "7", "8", "9", "10", "11", "12")
-        fsize_menu.config(font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT)
+        tk.Label(
+            t_frame,
+            text="Dashboard Font Size:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_font_size_var = tk.StringVar(
+            value=str(getattr(self, "current_font_size", 8))
+        )
+        fsize_menu = tk.OptionMenu(
+            t_frame, self.set_font_size_var, "7", "8", "9", "10", "11", "12"
+        )
+        fsize_menu.config(
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
+        )
         fsize_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         fsize_menu.grid(row=3, column=1, sticky="w", padx=10, pady=4)
 
-        tk.Label(t_frame, text="Telemetry Console Max Lines:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
-        self.set_maxlines_ent = tk.Entry(t_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=15)
+        tk.Label(
+            t_frame,
+            text="Telemetry Console Max Lines:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=4, column=0, sticky="w", pady=4)
+        self.set_maxlines_ent = tk.Entry(
+            t_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=15,
+        )
         self.set_maxlines_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_maxlines_ent.insert(0, "150")
 
-        btn_apply_theme = tk.Button(t_frame, text="APPLY THEME & FONTS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._apply_dashboard_theme)
+        btn_apply_theme = tk.Button(
+            t_frame,
+            text="APPLY THEME & FONTS",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._apply_dashboard_theme,
+        )
         btn_apply_theme.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
 
         # 2. Risk & Money Management Controls Tab
-        self.tab_set_risk = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.tab_set_risk = tk.Frame(
+            self.set_notebook, bg=self.bg_dark, padx=20, pady=15
+        )
         self.set_notebook.add(self.tab_set_risk, text="Risk & Money Management")
 
-        r_frame = tk.Frame(self.tab_set_risk, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        r_frame = tk.Frame(
+            self.tab_set_risk,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         r_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(r_frame, text="RISK PARAMETERS & DRAWDOWN LIMITS", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(
+            r_frame,
+            text="RISK PARAMETERS & DRAWDOWN LIMITS",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
-        tk.Label(r_frame, text="Risk per Trade (% Equity):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
-        self.set_risk_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        tk.Label(
+            r_frame,
+            text="Risk per Trade (% Equity):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=4)
+        self.set_risk_ent = tk.Entry(
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
+        )
         self.set_risk_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
         self.set_risk_ent.insert(0, f"{config.RISK_PER_TRADE_PERCENT}")
 
-        tk.Label(r_frame, text="Daily Drawdown Limit (% Balance):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.set_dd_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        tk.Label(
+            r_frame,
+            text="Daily Drawdown Limit (% Balance):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_dd_ent = tk.Entry(
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
+        )
         self.set_dd_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
         self.set_dd_ent.insert(0, f"{config.MAX_DAILY_DRAWDOWN_PERCENT}")
 
-        tk.Label(r_frame, text="Max Concurrent Open Trades:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.set_maxtrades_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        tk.Label(
+            r_frame,
+            text="Max Concurrent Open Trades:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_maxtrades_ent = tk.Entry(
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
+        )
         self.set_maxtrades_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         self.set_maxtrades_ent.insert(0, f"{config.MAX_CONCURRENT_TRADES}")
 
-        tk.Label(r_frame, text="Target Risk/Reward Ratio:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
-        self.set_rr_ent = tk.Entry(r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        tk.Label(
+            r_frame,
+            text="Target Risk/Reward Ratio:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=4, column=0, sticky="w", pady=4)
+        self.set_rr_ent = tk.Entry(
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
+        )
         self.set_rr_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_rr_ent.insert(0, f"{config.RISK_REWARD_RATIO}")
 
-        btn_save_r = tk.Button(r_frame, text="SAVE RISK SETTINGS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_risk_settings)
+        btn_save_r = tk.Button(
+            r_frame,
+            text="SAVE RISK SETTINGS",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._save_risk_settings,
+        )
         btn_save_r.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
 
         # 3. Communication & Telegram Notifications Tab
-        self.tab_set_tele = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
+        self.tab_set_tele = tk.Frame(
+            self.set_notebook, bg=self.bg_dark, padx=20, pady=15
+        )
         self.set_notebook.add(self.tab_set_tele, text="Telegram Notifications")
 
-        tg_frame = tk.Frame(self.tab_set_tele, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        tg_frame = tk.Frame(
+            self.tab_set_tele,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         tg_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(tg_frame, text="TELEGRAM NOTIFICATION BROADCASTER", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(
+            tg_frame,
+            text="TELEGRAM NOTIFICATION BROADCASTER",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
         self.set_tele_enabled = tk.BooleanVar(value=config.TELEGRAM_ENABLED)
-        chk_tele = tk.Checkbutton(tg_frame, text="Enable Telegram Alert Broadcasts", variable=self.set_tele_enabled, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+        chk_tele = tk.Checkbutton(
+            tg_frame,
+            text="Enable Telegram Alert Broadcasts",
+            variable=self.set_tele_enabled,
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+            selectcolor="#1c1c1c",
+            activebackground=self.bg_card,
+            activeforeground=self.fg_accent,
+        )
         chk_tele.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
 
-        tk.Label(tg_frame, text="Telegram Bot Token:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.set_ttoken_ent = tk.Entry(tg_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        tk.Label(
+            tg_frame,
+            text="Telegram Bot Token:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_ttoken_ent = tk.Entry(
+            tg_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
+        )
         self.set_ttoken_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
         self.set_ttoken_ent.insert(0, config.TELEGRAM_TOKEN)
 
-        tk.Label(tg_frame, text="Telegram Chat ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.set_tchat_ent = tk.Entry(tg_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        tk.Label(
+            tg_frame,
+            text="Telegram Chat ID:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_tchat_ent = tk.Entry(
+            tg_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
+        )
         self.set_tchat_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         self.set_tchat_ent.insert(0, config.TELEGRAM_CHAT_ID)
 
-        btn_save_tg = tk.Button(tg_frame, text="SAVE TELEGRAM NOTIFICATIONS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._save_telegram_settings)
+        btn_save_tg = tk.Button(
+            tg_frame,
+            text="SAVE TELEGRAM NOTIFICATIONS",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._save_telegram_settings,
+        )
         btn_save_tg.grid(row=4, column=1, sticky="w", padx=10, pady=(10, 0))
 
         # 4. WhatsApp Notifications Tab
         self.tab_set_wa = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.set_notebook.add(self.tab_set_wa, text="WhatsApp Notifications")
 
-        wa_frame = tk.Frame(self.tab_set_wa, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        wa_frame = tk.Frame(
+            self.tab_set_wa,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         wa_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(wa_frame, text="WHATSAPP ALERT GATEWAY CONFIGURATION", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(
+            wa_frame,
+            text="WHATSAPP ALERT GATEWAY CONFIGURATION",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
-        self.set_wa_enabled = tk.BooleanVar(value=getattr(self, "wa_enabled_val", False))
-        chk_wa = tk.Checkbutton(wa_frame, text="Enable WhatsApp Alert Broadcasts", variable=self.set_wa_enabled, font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light, selectcolor="#1c1c1c", activebackground=self.bg_card, activeforeground=self.fg_accent)
+        self.set_wa_enabled = tk.BooleanVar(
+            value=getattr(self, "wa_enabled_val", False)
+        )
+        chk_wa = tk.Checkbutton(
+            wa_frame,
+            text="Enable WhatsApp Alert Broadcasts",
+            variable=self.set_wa_enabled,
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+            selectcolor="#1c1c1c",
+            activebackground=self.bg_card,
+            activeforeground=self.fg_accent,
+        )
         chk_wa.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
 
-        tk.Label(wa_frame, text="WhatsApp Gateway API Endpoint:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.set_wa_url_ent = tk.Entry(wa_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        tk.Label(
+            wa_frame,
+            text="WhatsApp Gateway API Endpoint:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_wa_url_ent = tk.Entry(
+            wa_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
+        )
         self.set_wa_url_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        self.set_wa_url_ent.insert(0, getattr(self, "wa_url_val", "https://api.whatsapp-gateway.internal/v1/send"))
+        self.set_wa_url_ent.insert(
+            0,
+            getattr(
+                self, "wa_url_val", "https://api.whatsapp-gateway.internal/v1/send"
+            ),
+        )
 
-        tk.Label(wa_frame, text="API Access Token / Key:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.set_wa_token_ent = tk.Entry(wa_frame, show="*", font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        tk.Label(
+            wa_frame,
+            text="API Access Token / Key:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
+        self.set_wa_token_ent = tk.Entry(
+            wa_frame,
+            show="*",
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
+        )
         self.set_wa_token_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
-        self.set_wa_token_ent.insert(0, getattr(self, "wa_token_val", "wa_secret_token_2026"))
+        self.set_wa_token_ent.insert(
+            0, getattr(self, "wa_token_val", "wa_secret_token_2026")
+        )
 
-        tk.Label(wa_frame, text="Target Phone Number (+CountryCode):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=4, column=0, sticky="w", pady=4)
-        self.set_wa_phone_ent = tk.Entry(wa_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35)
+        tk.Label(
+            wa_frame,
+            text="Target Phone Number (+CountryCode):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=4, column=0, sticky="w", pady=4)
+        self.set_wa_phone_ent = tk.Entry(
+            wa_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
+        )
         self.set_wa_phone_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_wa_phone_ent.insert(0, getattr(self, "wa_phone_val", "+12025550198"))
 
         wa_btn_box = tk.Frame(wa_frame, bg=self.bg_card)
         wa_btn_box.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
 
-        tk.Button(wa_btn_box, text="💬 SEND TEST MESSAGE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=4, relief=tk.FLAT, command=self._send_test_whatsapp_message).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Button(wa_btn_box, text="💾 SAVE WHATSAPP SETTINGS", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=4, relief=tk.FLAT, command=self._save_whatsapp_settings).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            wa_btn_box,
+            text="💬 SEND TEST MESSAGE",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=8,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._send_test_whatsapp_message,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(
+            wa_btn_box,
+            text="💾 SAVE WHATSAPP SETTINGS",
+            font=("Consolas", 8, "bold"),
+            bg="#b45309",
+            fg="#ffffff",
+            padx=8,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._save_whatsapp_settings,
+        ).pack(side=tk.LEFT, padx=5)
 
     def _apply_dashboard_theme(self):
         theme_choice = self.set_theme_var.get()
@@ -3370,7 +5970,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             self.bg_card = "#252b37"
             self.fg_accent = "#88c0d0"
             self.fg_green = "#a3be8c"
-        else: # PITCH_BLACK
+        else:  # PITCH_BLACK
             self.bg_dark = "#000000"
             self.bg_card = "#121212"
             self.fg_accent = "#ff9900"
@@ -3378,7 +5978,10 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         self.root.configure(bg=self.bg_dark)
         self.screen_frame.configure(bg=self.bg_dark)
-        messagebox.showinfo("Theme & Fonts Applied", f"Updated Theme: '{theme_choice}'\nFont: '{self.current_font_family}', Size: {self.current_font_size}pt.")
+        messagebox.showinfo(
+            "Theme & Fonts Applied",
+            f"Updated Theme: '{theme_choice}'\nFont: '{self.current_font_family}', Size: {self.current_font_size}pt.",
+        )
         self.switch_to_screen("SET")
 
     def _save_whatsapp_settings(self):
@@ -3386,11 +5989,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.wa_url_val = self.set_wa_url_ent.get().strip()
         self.wa_token_val = self.set_wa_token_ent.get().strip()
         self.wa_phone_val = self.set_wa_phone_ent.get().strip()
-        messagebox.showinfo("WhatsApp Settings Saved", "WhatsApp Gateway notification parameters updated successfully.")
+        messagebox.showinfo(
+            "WhatsApp Settings Saved",
+            "WhatsApp Gateway notification parameters updated successfully.",
+        )
 
     def _send_test_whatsapp_message(self):
         phone = self.set_wa_phone_ent.get().strip()
-        messagebox.showinfo("WhatsApp Test Sent", f"Broadcasted test alert to target WhatsApp number: {phone}")
+        messagebox.showinfo(
+            "WhatsApp Test Sent",
+            f"Broadcasted test alert to target WhatsApp number: {phone}",
+        )
 
     def _save_risk_settings(self):
         try:
@@ -3398,15 +6007,24 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             config.MAX_DAILY_DRAWDOWN_PERCENT = float(self.set_dd_ent.get().strip())
             config.MAX_CONCURRENT_TRADES = int(self.set_maxtrades_ent.get().strip())
             config.RISK_REWARD_RATIO = float(self.set_rr_ent.get().strip())
-            messagebox.showinfo("Risk Settings Saved", "Risk parameters and drawdown circuit breakers updated successfully.")
+            messagebox.showinfo(
+                "Risk Settings Saved",
+                "Risk parameters and drawdown circuit breakers updated successfully.",
+            )
         except ValueError as e:
-            messagebox.showerror("Invalid Input", f"Please enter valid numeric values for risk settings: {e}")
+            messagebox.showerror(
+                "Invalid Input",
+                f"Please enter valid numeric values for risk settings: {e}",
+            )
 
     def _save_telegram_settings(self):
         config.TELEGRAM_ENABLED = self.set_tele_enabled.get()
         config.TELEGRAM_TOKEN = self.set_ttoken_ent.get().strip()
         config.TELEGRAM_CHAT_ID = self.set_tchat_ent.get().strip()
-        messagebox.showinfo("Telegram Settings Saved", "Telegram notification configurations saved successfully.")
+        messagebox.showinfo(
+            "Telegram Settings Saved",
+            "Telegram notification configurations saved successfully.",
+        )
 
     def _update_set_screen_data(self):
         """Refreshes SET <GO> screen interactive inputs with active config state."""
@@ -3418,23 +6036,46 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
     def _show_ing_screen(self):
         """ING <GO>: Data Ingestion Service"""
-        lbl_title = tk.Label(self.screen_frame, text="ING: DATA INGESTION SERVICE & FEED MATRIX <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="ING: DATA INGESTION SERVICE & FEED MATRIX <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME FEED STREAMING SUB-MILLISECOND PRICES AND SEC CORPORATE FILINGS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="REAL-TIME FEED STREAMING SUB-MILLISECOND PRICES AND SEC CORPORATE FILINGS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.ing_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.ing_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.ing_text.pack(fill=tk.BOTH, expand=True)
         self._update_ing_screen_data()
 
     def _update_ing_screen_data(self):
-        if not hasattr(self, "ing_text") or not self.ing_text: return
+        if not hasattr(self, "ing_text") or not self.ing_text:
+            return
         self.ing_text.delete("1.0", tk.END)
 
         # Calculate actual count of ingested point-in-time rates from memory!
         pit_db = self.scalper.engine.data._pit_database
         total_rates = sum(len(records) for records in pit_db.values())
-        active_provider = self.scalper.engine.data.providers[self.scalper.engine.data.active_provider_idx]
+        active_provider = self.scalper.engine.data.providers[
+            self.scalper.engine.data.active_provider_idx
+        ]
 
         ing_data = f"""
 ================================================================================
@@ -3458,17 +6099,38 @@ INGESTED SYMBOLS LOAD STATS:
 
     def _show_feat_screen(self):
         """FEAT <GO>: Features Store"""
-        lbl_title = tk.Label(self.screen_frame, text="FEAT: QUANTITATIVE FEATURE STORE & COEFFICIENT LOG <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="FEAT: QUANTITATIVE FEATURE STORE & COEFFICIENT LOG <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS DERIVED COEFFICIENTS AND SCALED CRITICAL VALUES FED TO THE DECISION BRAINS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS DERIVED COEFFICIENTS AND SCALED CRITICAL VALUES FED TO THE DECISION BRAINS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.feat_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.feat_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.feat_text.pack(fill=tk.BOTH, expand=True)
         self._update_feat_screen_data()
 
     def _update_feat_screen_data(self):
-        if not hasattr(self, "feat_text") or not self.feat_text: return
+        if not hasattr(self, "feat_text") or not self.feat_text:
+            return
         self.feat_text.delete("1.0", tk.END)
 
         # Calculate actual technical indicators dynamically for the selected symbol!
@@ -3495,7 +6157,9 @@ INGESTED SYMBOLS LOAD STATS:
             macd_res = indicators.calculate_macd(closes, 12, 26, 9)
             macd_slope = macd_res["histogram"] if macd_res else 0.0
 
-            prev_return = (closes[-1] - closes[-2]) / closes[-2] if len(closes) > 1 else 0.0
+            prev_return = (
+                (closes[-1] - closes[-2]) / closes[-2] if len(closes) > 1 else 0.0
+            )
 
             regime = indicators.classify_market_regime(highs, lows, closes)
             regime_idx = 1.0 if regime["regime"] == "TRENDING" else 0.0
@@ -3518,28 +6182,50 @@ Feature 6 (Volatility ATR Ratio):  {atr_ratio:.2f} (Adaptive risk scalar)
 
 DYNAMIC VECTOR EMBEDDING STATUS:
 --------------------------------------------------------------------------------
-Current normalized vector: [{rsi_val/100.0:.3f}, {ema_ratio:.3f}, {macd_slope:.3f}, {prev_return:.3f}, {regime_idx:.1f}, {atr_ratio:.3f}]
+Current normalized vector: [{rsi_val / 100.0:.3f}, {ema_ratio:.3f}, {macd_slope:.3f}, {prev_return:.3f}, {regime_idx:.1f}, {atr_ratio:.3f}]
 ================================================================================
 """
         self.feat_text.insert(tk.END, feat_data)
 
     def _show_strat_screen(self):
         """STRAT <GO>: Trading Style and Strategy Engine"""
-        lbl_title = tk.Label(self.screen_frame, text="STRAT: TRADING STYLE & STRATEGY SELECTION ENGINE <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="STRAT: TRADING STYLE & STRATEGY SELECTION ENGINE <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS 50+ TRADING STRATEGIES AND AUTO-TUNES WEIGHTS BASED ON STATISTICAL REGIME CHANGES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS 50+ TRADING STRATEGIES AND AUTO-TUNES WEIGHTS BASED ON STATISTICAL REGIME CHANGES",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.strat_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.strat_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.strat_text.pack(fill=tk.BOTH, expand=True)
         self._update_strat_screen_data()
 
     def _update_strat_screen_data(self):
-        if not hasattr(self, "strat_text") or not self.strat_text: return
+        if not hasattr(self, "strat_text") or not self.strat_text:
+            return
         self.strat_text.delete("1.0", tk.END)
 
         # Query actual strategy performance from closed trades in SQLite database!
         import database
+
         perf = database.get_all_time_performance()
         total_trades = perf["total_trades"]
         win_rate = perf["win_rate"]
@@ -3570,26 +6256,53 @@ ACTIVE STRATEGY FAMILY ROSTER STATS (Section 13.6):
 
     def _show_risk_screen(self):
         """RISK <GO>: Risk Manager"""
-        lbl_title = tk.Label(self.screen_frame, text="RISK: REAL-TIME PORTFOLIO RISK MANAGER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="RISK: REAL-TIME PORTFOLIO RISK MANAGER <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="DYNAMIC CIRCUIT BREAKER MONITORING AND COMPREHENSIVE TAIL RISK ESTIMATIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="DYNAMIC CIRCUIT BREAKER MONITORING AND COMPREHENSIVE TAIL RISK ESTIMATIONS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.risk_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.risk_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.risk_text.pack(fill=tk.BOTH, expand=True)
         self._update_risk_screen_data()
 
     def _update_risk_screen_data(self):
-        if not hasattr(self, "risk_text") or not self.risk_text: return
+        if not hasattr(self, "risk_text") or not self.risk_text:
+            return
         self.risk_text.delete("1.0", tk.END)
 
         # Query actual live risk values directly!
         info = self.scalper.conn.get_account_info()
-        starting_bal = self.scalper.daily_start_balance if self.scalper.daily_start_balance > 0 else info["balance"]
+        starting_bal = (
+            self.scalper.daily_start_balance
+            if self.scalper.daily_start_balance > 0
+            else info["balance"]
+        )
 
         # Calculate real daily floating loss and percentage drawdown
         floating_loss = info["equity"] - starting_bal
-        pct_drawdown = (abs(floating_loss) / starting_bal) * 100.0 if floating_loss < 0 else 0.0
+        pct_drawdown = (
+            (abs(floating_loss) / starting_bal) * 100.0 if floating_loss < 0 else 0.0
+        )
 
         # Count actual reserved risk budgets
         reservations = self.scalper.engine.risk._reservations
@@ -3603,7 +6316,7 @@ DAILY CIRCUIT BREAKER PARAMETERS (REAL-TIME TELEMETRY):
 --------------------------------------------------------------------------------
 Maximum Daily Drawdown Cap:  {config.MAX_DAILY_DRAWDOWN_PERCENT}% of balance
 Daily Starting Balance:      ${starting_bal:,.2f} USD
-Current Account Equity:      ${info['equity']:,.2f} USD
+Current Account Equity:      ${info["equity"]:,.2f} USD
 Current Floating Loss:       ${floating_loss:,.2f} USD
 Current Intraday Drawdown:   {pct_drawdown:.2f}%
 Intraday Drawdown Status:    {"SAFE (Execution Allowed)" if pct_drawdown < config.MAX_DAILY_DRAWDOWN_PERCENT else "BREACHED (Halted)"}
@@ -3624,9 +6337,21 @@ ACTIVE EXPOSURE VECTORS:
 
     def _show_ord_screen(self):
         """ORD <GO>: Order Manager"""
-        lbl_title = tk.Label(self.screen_frame, text="ORD: ORDER MANAGER & ROUTING QUEUE <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="ORD: ORDER MANAGER & ROUTING QUEUE <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="REPORTS PENDING ORDER QUEUES, COST-AVERAGING GRID LAYERS, AND TRAILING BRACKETS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="REPORTS PENDING ORDER QUEUES, COST-AVERAGING GRID LAYERS, AND TRAILING BRACKETS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Create ttk.Notebook
@@ -3638,7 +6363,13 @@ ACTIVE EXPOSURE VECTORS:
         self.ord_notebook.add(self.tab_ord_book, text="Order Book")
 
         cols_ob = ("Bid Size (K)", "Bid Price", "Ask Price", "Ask Size (K)")
-        self.ord_book_tree = ttk.Treeview(self.tab_ord_book, columns=cols_ob, show="headings", style="Treeview", height=10)
+        self.ord_book_tree = ttk.Treeview(
+            self.tab_ord_book,
+            columns=cols_ob,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_ob:
             self.ord_book_tree.heading(c, text=c)
             self.ord_book_tree.column(c, width=120, anchor="center")
@@ -3648,8 +6379,24 @@ ACTIVE EXPOSURE VECTORS:
         self.tab_trade_book = tk.Frame(self.ord_notebook, bg=self.bg_dark)
         self.ord_notebook.add(self.tab_trade_book, text="Trade Book")
 
-        cols_tb = ("Ticket", "Symbol", "Direction", "Lots", "Entry", "Current", "Unrealized PnL ($)", "SL", "TP")
-        self.ord_trade_book_tree = ttk.Treeview(self.tab_trade_book, columns=cols_tb, show="headings", style="Treeview", height=10)
+        cols_tb = (
+            "Ticket",
+            "Symbol",
+            "Direction",
+            "Lots",
+            "Entry",
+            "Current",
+            "Unrealized PnL ($)",
+            "SL",
+            "TP",
+        )
+        self.ord_trade_book_tree = ttk.Treeview(
+            self.tab_trade_book,
+            columns=cols_tb,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_tb:
             self.ord_trade_book_tree.heading(c, text=c)
             self.ord_trade_book_tree.column(c, width=100, anchor="center")
@@ -3659,8 +6406,21 @@ ACTIVE EXPOSURE VECTORS:
         self.tab_spread_orders = tk.Frame(self.ord_notebook, bg=self.bg_dark)
         self.ord_notebook.add(self.tab_spread_orders, text="Spread / Multi-Leg Orders")
 
-        cols_so = ("Spread Pair", "Leg 1 Price", "Leg 2 Price", "Spread Ratio", "Deviation %", "Routing Status")
-        self.ord_spread_tree = ttk.Treeview(self.tab_spread_orders, columns=cols_so, show="headings", style="Treeview", height=10)
+        cols_so = (
+            "Spread Pair",
+            "Leg 1 Price",
+            "Leg 2 Price",
+            "Spread Ratio",
+            "Deviation %",
+            "Routing Status",
+        )
+        self.ord_spread_tree = ttk.Treeview(
+            self.tab_spread_orders,
+            columns=cols_so,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_so:
             self.ord_spread_tree.heading(c, text=c)
             self.ord_spread_tree.column(c, width=130, anchor="center")
@@ -3670,8 +6430,21 @@ ACTIVE EXPOSURE VECTORS:
         self.tab_trigger_orders = tk.Frame(self.ord_notebook, bg=self.bg_dark)
         self.ord_notebook.add(self.tab_trigger_orders, text="Trigger Orders")
 
-        cols_to = ("Trigger ID", "Symbol", "Condition Type", "Target Value", "Action", "Active Status")
-        self.ord_trigger_tree = ttk.Treeview(self.tab_trigger_orders, columns=cols_to, show="headings", style="Treeview", height=10)
+        cols_to = (
+            "Trigger ID",
+            "Symbol",
+            "Condition Type",
+            "Target Value",
+            "Action",
+            "Active Status",
+        )
+        self.ord_trigger_tree = ttk.Treeview(
+            self.tab_trigger_orders,
+            columns=cols_to,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_to:
             self.ord_trigger_tree.heading(c, text=c)
             self.ord_trigger_tree.column(c, width=130, anchor="center")
@@ -3680,7 +6453,8 @@ ACTIVE EXPOSURE VECTORS:
         self._update_ord_screen_data()
 
     def _update_ord_screen_data(self):
-        if not hasattr(self, "ord_book_tree") or not self.ord_book_tree: return
+        if not hasattr(self, "ord_book_tree") or not self.ord_book_tree:
+            return
 
         # Update Tab 1: Order Book depth
         self.ord_book_tree.delete(*self.ord_book_tree.get_children())
@@ -3695,39 +6469,62 @@ ACTIVE EXPOSURE VECTORS:
                 ob_ask = ask + (0.0001 * i if "JPY" not in sym else 0.01 * i)
                 bid_size = random.randint(100, 950)
                 ask_size = random.randint(100, 950)
-                self.ord_book_tree.insert("", tk.END, values=(bid_size, f"{ob_bid:.5f}" if ob_bid < 10 else f"{ob_bid:.2f}", f"{ob_ask:.5f}" if ob_ask < 10 else f"{ob_ask:.2f}", ask_size))
+                self.ord_book_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        bid_size,
+                        f"{ob_bid:.5f}" if ob_bid < 10 else f"{ob_bid:.2f}",
+                        f"{ob_ask:.5f}" if ob_ask < 10 else f"{ob_ask:.2f}",
+                        ask_size,
+                    ),
+                )
 
         # Update Tab 2: Trade Book active positions
         self.ord_trade_book_tree.delete(*self.ord_trade_book_tree.get_children())
         active_positions = self.scalper.conn.get_open_orders()
         for pos in active_positions:
-            ticket = pos.get('ticket', '0')
-            psym = pos.get('symbol', 'UNKNOWN')
-            direction = pos.get('direction', 'BUY')
-            lots = pos.get('lot_size', 0.01)
-            open_p = pos.get('open_price', 0.0)
+            ticket = pos.get("ticket", "0")
+            psym = pos.get("symbol", "UNKNOWN")
+            direction = pos.get("direction", "BUY")
+            lots = pos.get("lot_size", 0.01)
+            open_p = pos.get("open_price", 0.0)
 
             p_info = self.scalper.conn.get_current_price(psym)
-            current_p = p_info['bid'] if direction == "BUY" else p_info['ask']
+            current_p = p_info["bid"] if direction == "BUY" else p_info["ask"]
 
             # Compute multiplier
             sym_up = psym.upper()
             multiplier = 100000.0  # Forex standard
-            if "XAU" in sym_up or "GOLD" in sym_up: multiplier = 100.0
-            elif "XAG" in sym_up or "SILVER" in sym_up: multiplier = 5000.0
-            elif any(c in sym_up for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]): multiplier = 1.0
-            elif "JPY" in sym_up: multiplier = 1000.0
+            if "XAU" in sym_up or "GOLD" in sym_up:
+                multiplier = 100.0
+            elif "XAG" in sym_up or "SILVER" in sym_up:
+                multiplier = 5000.0
+            elif any(c in sym_up for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
+                multiplier = 1.0
+            elif "JPY" in sym_up:
+                multiplier = 1000.0
 
             p_diff = current_p - open_p if direction == "BUY" else open_p - current_p
             profit = p_diff * lots * multiplier
 
             color_tag = "green" if profit >= 0 else "red"
-            self.ord_trade_book_tree.insert("", tk.END, values=(
-                ticket, psym, direction, f"{lots:.2f}",
-                f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
-                f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
-                f"{profit:+.2f}", f"{pos.get('sl', 0.0):.5f}", f"{pos.get('tp', 0.0):.5f}"
-            ), tags=(color_tag,))
+            self.ord_trade_book_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    ticket,
+                    psym,
+                    direction,
+                    f"{lots:.2f}",
+                    f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
+                    f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
+                    f"{profit:+.2f}",
+                    f"{pos.get('sl', 0.0):.5f}",
+                    f"{pos.get('tp', 0.0):.5f}",
+                ),
+                tags=(color_tag,),
+            )
         self.ord_trade_book_tree.tag_configure("green", foreground=self.fg_green)
         self.ord_trade_book_tree.tag_configure("red", foreground=self.fg_red)
 
@@ -3739,36 +6536,96 @@ ACTIVE EXPOSURE VECTORS:
             p2 = self.scalper.conn.get_current_price(leg2)["bid"]
             if p1 > 0 and p2 > 0:
                 ratio = p1 / p2
-                dev = abs(ratio - 1.25) / 1.25 * 100.0 if "EUR" in leg1 else abs(ratio - 18.0) / 18.0 * 100.0
-                self.ord_spread_tree.insert("", tk.END, values=(f"{leg1}-{leg2}", f"{p1:.5f}" if p1 < 10 else f"{p1:.2f}", f"{p2:.5f}" if p2 < 10 else f"{p2:.2f}", f"{ratio:.4f}", f"{dev:.2f}%", "MONITORING"))
+                dev = (
+                    abs(ratio - 1.25) / 1.25 * 100.0
+                    if "EUR" in leg1
+                    else abs(ratio - 18.0) / 18.0 * 100.0
+                )
+                self.ord_spread_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        f"{leg1}-{leg2}",
+                        f"{p1:.5f}" if p1 < 10 else f"{p1:.2f}",
+                        f"{p2:.5f}" if p2 < 10 else f"{p2:.2f}",
+                        f"{ratio:.4f}",
+                        f"{dev:.2f}%",
+                        "MONITORING",
+                    ),
+                )
 
         # Update Tab 4: Trigger Orders
         self.ord_trigger_tree.delete(*self.ord_trigger_tree.get_children())
         triggers = [
-            ("TRG_001", "EURUSD", "TOUCH_HIGH", f"{bid + 0.0050:.5f}" if bid > 0 else "1.11000", "NOTIFY_VETO", "ACTIVE"),
-            ("TRG_002", "XAUUSD", "TOUCH_LOW", f"{self.scalper.conn.get_current_price('XAUUSD')['bid'] - 15.0:.2f}" if self.scalper.conn.get_current_price('XAUUSD')['bid'] > 0 else "2010.00", "GRID_BUY", "ACTIVE"),
-            ("TRG_003", "BTCUSD", "VOLATILITY_SPIKE", "150.0", "RISK_REDUCE", "MONITORING")
+            (
+                "TRG_001",
+                "EURUSD",
+                "TOUCH_HIGH",
+                f"{bid + 0.0050:.5f}" if bid > 0 else "1.11000",
+                "NOTIFY_VETO",
+                "ACTIVE",
+            ),
+            (
+                "TRG_002",
+                "XAUUSD",
+                "TOUCH_LOW",
+                f"{self.scalper.conn.get_current_price('XAUUSD')['bid'] - 15.0:.2f}"
+                if self.scalper.conn.get_current_price("XAUUSD")["bid"] > 0
+                else "2010.00",
+                "GRID_BUY",
+                "ACTIVE",
+            ),
+            (
+                "TRG_003",
+                "BTCUSD",
+                "VOLATILITY_SPIKE",
+                "150.0",
+                "RISK_REDUCE",
+                "MONITORING",
+            ),
         ]
         for row in triggers:
             self.ord_trigger_tree.insert("", tk.END, values=row)
 
     def _show_log_screen(self):
         """LOG <GO>: Execution Logger"""
-        lbl_title = tk.Label(self.screen_frame, text="LOG: DIRECT EXECUTION LOGGER & HISTORY <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="LOG: DIRECT EXECUTION LOGGER & HISTORY <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="STST SYSTEM EXECUTION METRICS, TICK PACKETS, PIPELINES AND AUDIT TRANSACTION LOGS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="STST SYSTEM EXECUTION METRICS, TICK PACKETS, PIPELINES AND AUDIT TRANSACTION LOGS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.log_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.log_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.log_text.pack(fill=tk.BOTH, expand=True)
         self._update_log_screen_data()
 
     def _update_log_screen_data(self):
-        if not hasattr(self, "log_text") or not self.log_text: return
+        if not hasattr(self, "log_text") or not self.log_text:
+            return
         self.log_text.delete("1.0", tk.END)
 
         # Query actual database closed and open trades to build a real audit log timeline!
         import database
+
         trades = database.get_all_trades()
 
         log_data = """
@@ -3780,7 +6637,9 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
 """
         if not trades:
             log_data += "[SYSTEM] Elite Quantum Autonomous Trading System Coordinator Started.\n"
-            log_data += f"[DB] SQLite database file verified successfully: {config.DB_PATH}\n"
+            log_data += (
+                f"[DB] SQLite database file verified successfully: {config.DB_PATH}\n"
+            )
             log_data += "[HEALER] QuantumSelfHealer background thread initiated.\n"
             log_data += "[CONNECT] High-Fidelity Simulator Connector initialized.\n"
         else:
@@ -3790,14 +6649,22 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
                 symbol = t["symbol"]
                 direction = t["direction"]
                 open_p = t["open_price"]
-                open_t = t["open_time"].split("T")[-1][:8] if "T" in t["open_time"] else t["open_time"][:8]
+                open_t = (
+                    t["open_time"].split("T")[-1][:8]
+                    if "T" in t["open_time"]
+                    else t["open_time"][:8]
+                )
 
                 if status == "OPEN":
                     log_data += f"[{open_t}] [TRADE] OPEN: Ticket {ticket} on {symbol} {direction} at {open_p:.5f}\n"
                 else:
                     close_p = t["close_price"]
                     profit = t["profit"]
-                    close_t = t["close_time"].split("T")[-1][:8] if "T" in t["close_time"] else t["close_time"][:8]
+                    close_t = (
+                        t["close_time"].split("T")[-1][:8]
+                        if "T" in t["close_time"]
+                        else t["close_time"][:8]
+                    )
                     log_data += f"[{close_t}] [TRADE] CLOSED: Ticket {ticket} on {symbol} at {close_p:.5f} (PnL: ${profit:+.2f})\n"
 
         log_data += "================================================================================\n"
@@ -3805,20 +6672,46 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
 
     def _show_mon_screen(self):
         """MON <GO>: Monitoring, Alerts and Control Panel"""
-        lbl_title = tk.Label(self.screen_frame, text="MON: SYSTEM HEALTH MONITOR & ALERTS DESK <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="MON: SYSTEM HEALTH MONITOR & ALERTS DESK <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS CPU METRICS, MEMORY SIZES, THREAD POOLS, AND BACKGROUND RE-TRAINING ENGINE PINGS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS CPU METRICS, MEMORY SIZES, THREAD POOLS, AND BACKGROUND RE-TRAINING ENGINE PINGS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.mon_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.mon_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.mon_text.pack(fill=tk.BOTH, expand=True)
         self._update_mon_screen_data()
 
     def _update_mon_screen_data(self):
-        if not hasattr(self, "mon_text") or not self.mon_text: return
+        if not hasattr(self, "mon_text") or not self.mon_text:
+            return
         self.mon_text.delete("1.0", tk.END)
 
         # Fetch actual database file size dynamically!
+<<<<<<< Updated upstream
+=======
+        import os
+
+>>>>>>> Stashed changes
         db_size_kb = 0.0
         try:
             if os.path.exists(config.DB_PATH):
@@ -3828,6 +6721,7 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
 
         # Fetch active thread count
         import threading
+
         active_threads = threading.active_count()
 
         mon_data = f"""
@@ -3848,17 +6742,38 @@ MT5 Socket IPC Status:       Push streaming active (SocketIPCBridge / WebSockets
 
     def _show_sec_screen(self):
         """SEC <GO>: Security and Compliance"""
-        lbl_title = tk.Label(self.screen_frame, text="SEC: SECURITY, CRYPTOGRAPHY & GDPR COMPLIANCE <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="SEC: SECURITY, CRYPTOGRAPHY & GDPR COMPLIANCE <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS B-UNIT TOKENS, B-PIPE PRIVATE ENCRYPTION NETWORKS, AND GDPR SECURITY SANITIZERS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS B-UNIT TOKENS, B-PIPE PRIVATE ENCRYPTION NETWORKS, AND GDPR SECURITY SANITIZERS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.sec_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.sec_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.sec_text.pack(fill=tk.BOTH, expand=True)
         self._update_sec_screen_data()
 
     def _update_sec_screen_data(self):
-        if not hasattr(self, "sec_text") or not self.sec_text: return
+        if not hasattr(self, "sec_text") or not self.sec_text:
+            return
         self.sec_text.delete("1.0", tk.END)
         sec_data = """
 ================================================================================
@@ -3882,17 +6797,38 @@ Transaction Audit Vault:     SQLite secured hash chain logs (Verified)
 
     def _show_safe_screen(self):
         """SAFE <GO>: Critical Overnight Safety Features"""
-        lbl_title = tk.Label(self.screen_frame, text="SAFE: CRITICAL OVERNIGHT SAFETY DESK <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="SAFE: CRITICAL OVERNIGHT SAFETY DESK <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="PROTECTS CORPORATE CAPITAL AGAINST ILLIQUID ROLLOVER SPREADS AND GEOPOLITICAL WEEKEND GAPS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="PROTECTS CORPORATE CAPITAL AGAINST ILLIQUID ROLLOVER SPREADS AND GEOPOLITICAL WEEKEND GAPS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.safe_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.safe_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.safe_text.pack(fill=tk.BOTH, expand=True)
         self._update_safe_screen_data()
 
     def _update_safe_screen_data(self):
-        if not hasattr(self, "safe_text") or not self.safe_text: return
+        if not hasattr(self, "safe_text") or not self.safe_text:
+            return
         self.safe_text.delete("1.0", tk.END)
         safe_data = f"""
 ================================================================================
@@ -3916,9 +6852,21 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
 
     def _show_pf_screen(self):
         """PF <GO>: Portfolio Manager"""
-        lbl_title = tk.Label(self.screen_frame, text="PF: PORTFOLIO ALLOCATION MANAGER <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="PF: PORTFOLIO ALLOCATION MANAGER <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="COMPUTES MATHEMATICALLY OPTIMAL SHARPE ASSET ALLOCATIONS USING MARKOWITZ PRINCIPLE", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="COMPUTES MATHEMATICALLY OPTIMAL SHARPE ASSET ALLOCATIONS USING MARKOWITZ PRINCIPLE",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Create ttk.Notebook
@@ -3929,8 +6877,23 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
         self.tab_pf_positions = tk.Frame(self.pf_notebook, bg=self.bg_dark)
         self.pf_notebook.add(self.tab_pf_positions, text="Position Book")
 
-        cols_pf_pos = ("Ticket", "Symbol", "Direction", "Lots", "Entry", "Current Price", "Unrealized PnL ($)", "Margin Used ($)")
-        self.pf_pos_tree = ttk.Treeview(self.tab_pf_positions, columns=cols_pf_pos, show="headings", style="Treeview", height=10)
+        cols_pf_pos = (
+            "Ticket",
+            "Symbol",
+            "Direction",
+            "Lots",
+            "Entry",
+            "Current Price",
+            "Unrealized PnL ($)",
+            "Margin Used ($)",
+        )
+        self.pf_pos_tree = ttk.Treeview(
+            self.tab_pf_positions,
+            columns=cols_pf_pos,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_pf_pos:
             self.pf_pos_tree.heading(c, text=c)
             self.pf_pos_tree.column(c, width=120, anchor="center")
@@ -3940,8 +6903,21 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
         self.tab_pf_holdings = tk.Frame(self.pf_notebook, bg=self.bg_dark)
         self.pf_notebook.add(self.tab_pf_holdings, text="Holdings")
 
-        cols_pf_hold = ("Asset Symbol", "Description", "Optimal Weight", "Portfolio Allocation", "Target Value ($)", "Risk Sizing")
-        self.pf_hold_tree = ttk.Treeview(self.tab_pf_holdings, columns=cols_pf_hold, show="headings", style="Treeview", height=10)
+        cols_pf_hold = (
+            "Asset Symbol",
+            "Description",
+            "Optimal Weight",
+            "Portfolio Allocation",
+            "Target Value ($)",
+            "Risk Sizing",
+        )
+        self.pf_hold_tree = ttk.Treeview(
+            self.tab_pf_holdings,
+            columns=cols_pf_hold,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_pf_hold:
             self.pf_hold_tree.heading(c, text=c)
             self.pf_hold_tree.column(c, width=140, anchor="center")
@@ -3951,40 +6927,49 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
         self.tab_pf_funds = tk.Frame(self.pf_notebook, bg=self.bg_dark)
         self.pf_notebook.add(self.tab_pf_funds, text="Funds")
 
-        self.pf_funds_text = tk.Text(self.tab_pf_funds, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 9), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.pf_funds_text = tk.Text(
+            self.tab_pf_funds,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 9),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.pf_funds_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         self._update_pf_screen_data()
 
     def _update_pf_screen_data(self):
-        if not hasattr(self, "pf_pos_tree") or not self.pf_pos_tree: return
+        if not hasattr(self, "pf_pos_tree") or not self.pf_pos_tree:
+            return
 
         # Update Tab 1: Position Book
         self.pf_pos_tree.delete(*self.pf_pos_tree.get_children())
         active_positions = self.scalper.conn.get_open_orders()
         for pos in active_positions:
-            ticket = pos.get('ticket', '0')
-            psym = pos.get('symbol', 'UNKNOWN')
-            direction = pos.get('direction', 'BUY')
-            lots = pos.get('lot_size', 0.01)
-            open_p = pos.get('open_price', 0.0)
+            ticket = pos.get("ticket", "0")
+            psym = pos.get("symbol", "UNKNOWN")
+            direction = pos.get("direction", "BUY")
+            lots = pos.get("lot_size", 0.01)
+            open_p = pos.get("open_price", 0.0)
 
             p_info = self.scalper.conn.get_current_price(psym)
-            current_p = p_info['bid'] if direction == "BUY" else p_info['ask']
+            current_p = p_info["bid"] if direction == "BUY" else p_info["ask"]
 
             # Compute multiplier and estimated margin used
             sym_up = psym.upper()
             multiplier = 100000.0  # Forex standard
-            margin_factor = 0.01   # 1:100 leverage
+            margin_factor = 0.01  # 1:100 leverage
             if "XAU" in sym_up or "GOLD" in sym_up:
                 multiplier = 100.0
-                margin_factor = 0.05 # 1:20 leverage
+                margin_factor = 0.05  # 1:20 leverage
             elif "XAG" in sym_up or "SILVER" in sym_up:
                 multiplier = 5000.0
                 margin_factor = 0.05
             elif any(c in sym_up for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
                 multiplier = 1.0
-                margin_factor = 0.20 # 1:5 leverage
+                margin_factor = 0.20  # 1:5 leverage
             elif "JPY" in sym_up:
                 multiplier = 1000.0
                 margin_factor = 0.01
@@ -3994,18 +6979,28 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
             margin_used = open_p * lots * multiplier * margin_factor
 
             color_tag = "green" if profit >= 0 else "red"
-            self.pf_pos_tree.insert("", tk.END, values=(
-                ticket, psym, direction, f"{lots:.2f}",
-                f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
-                f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
-                f"{profit:+.2f}", f"{margin_used:.2f}"
-            ), tags=(color_tag,))
+            self.pf_pos_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    ticket,
+                    psym,
+                    direction,
+                    f"{lots:.2f}",
+                    f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
+                    f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
+                    f"{profit:+.2f}",
+                    f"{margin_used:.2f}",
+                ),
+                tags=(color_tag,),
+            )
         self.pf_pos_tree.tag_configure("green", foreground=self.fg_green)
         self.pf_pos_tree.tag_configure("red", foreground=self.fg_red)
 
         # Update Tab 2: Holdings
         self.pf_hold_tree.delete(*self.pf_hold_tree.get_children())
         import institutional_integrations as ii
+
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
         for sym in assets:
@@ -4013,8 +7008,11 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
                 history = self.scalper.conn.get_history(sym, 30)
                 if history:
                     closes = [bar["close"] for bar in history]
-                    rets = [(closes[i] - closes[i-1]) / closes[i-1] for i in range(1, len(closes))]
-                    real_returns[sym] = rets if len(rets) >= 5 else [0.0]*5
+                    rets = [
+                        (closes[i] - closes[i - 1]) / closes[i - 1]
+                        for i in range(1, len(closes))
+                    ]
+                    real_returns[sym] = rets if len(rets) >= 5 else [0.0] * 5
                 else:
                     real_returns[sym] = [0.0001, -0.0002, 0.0003, 0.0001, 0.0002]
             except Exception:
@@ -4027,7 +7025,7 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
             "GBPUSD": "Pound Spot Major",
             "USDJPY": "Yen Spot Major",
             "XAUUSD": "Gold Commodity Spot",
-            "BTCUSD": "Bitcoin Digital Spot"
+            "BTCUSD": "Bitcoin Digital Spot",
         }
 
         info = self.scalper.conn.get_account_info()
@@ -4037,17 +7035,32 @@ Liquidation Alert:           Active (Vetoes trades if liquidity falls below thre
             desc = classes.get(sym, "FX")
             allocated_val = total_equity * weight
             active_alloc = f"{weight * 100.0:.2f}%"
-            self.pf_hold_tree.insert("", tk.END, values=(
-                sym, desc, f"{weight * 100.0:.2f}%", active_alloc, f"${allocated_val:,.2f}", "Quarter-Kelly"
-            ))
+            self.pf_hold_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    sym,
+                    desc,
+                    f"{weight * 100.0:.2f}%",
+                    active_alloc,
+                    f"${allocated_val:,.2f}",
+                    "Quarter-Kelly",
+                ),
+            )
 
         # Update Tab 3: Funds Text Block
         self.pf_funds_text.delete("1.0", tk.END)
         balance = info["balance"]
         equity = info["equity"]
         floating_pnl = equity - balance
-        margin_free = info.get("margin_free", equity) # Fallback to equity if free margin is not supplied
-        margin_level = (equity / (equity - margin_free) * 100.0) if (equity - margin_free) > 0 else 0.0
+        margin_free = info.get(
+            "margin_free", equity
+        )  # Fallback to equity if free margin is not supplied
+        margin_level = (
+            (equity / (equity - margin_free) * 100.0)
+            if (equity - margin_free) > 0
+            else 0.0
+        )
 
         funds_data = f"""
 ================================================================================
@@ -4074,17 +7087,38 @@ Liquidity Matching State:  100% Match Established (Zero ghost positions)
 
     def _show_sym_screen(self):
         """SYM <GO>: Broker Configuration and Tradable symbol Configuration"""
-        lbl_title = tk.Label(self.screen_frame, text="SYM: BROKER & TRADABLE SYMBOL CONFIGURATION <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="SYM: BROKER & TRADABLE SYMBOL CONFIGURATION <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="CONFIGURES DYNAMIC SYMBOLS, BROKER SPREADS, PIP SIZES AND MARGIN RATE ENGINES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="CONFIGURES DYNAMIC SYMBOLS, BROKER SPREADS, PIP SIZES AND MARGIN RATE ENGINES",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.sym_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.sym_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.sym_text.pack(fill=tk.BOTH, expand=True)
         self._update_sym_screen_data()
 
     def _update_sym_screen_data(self):
-        if not hasattr(self, "sym_text") or not self.sym_text: return
+        if not hasattr(self, "sym_text") or not self.sym_text:
+            return
         self.sym_text.delete("1.0", tk.END)
         sym_data = f"""
 ================================================================================
@@ -4109,17 +7143,38 @@ BTCUSD  - Lot size: 1       | Pip Size: 1.00000 | Stop-Level: 10 points
 
     def _show_aic_screen(self):
         """AIC <GO>: AI and LLM Configuration Control panel"""
-        lbl_title = tk.Label(self.screen_frame, text="AIC: AI & LLM HYPERPARAMETER CONFIGURATION <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="AIC: AI & LLM HYPERPARAMETER CONFIGURATION <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS NEURAL NETWORK INPUT WEIGHTS, LOSS VECTORS, AND LOCAL LLM ATTENTION WEIGHTS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS NEURAL NETWORK INPUT WEIGHTS, LOSS VECTORS, AND LOCAL LLM ATTENTION WEIGHTS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.aic_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.aic_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.aic_text.pack(fill=tk.BOTH, expand=True)
         self._update_aic_screen_data()
 
     def _update_aic_screen_data(self):
-        if not hasattr(self, "aic_text") or not self.aic_text: return
+        if not hasattr(self, "aic_text") or not self.aic_text:
+            return
         self.aic_text.delete("1.0", tk.END)
         aic_data = """
 ================================================================================
@@ -4143,17 +7198,38 @@ Trained context log:         Active (Syncing ticks, news data, and crawled web f
 
     def _show_crawl_screen(self):
         """CRAWL <GO>: External Data Source Configuration and Website Crawler"""
-        lbl_title = tk.Label(self.screen_frame, text="CRAWL: EXTERNAL CRAWLER & ALTERNATIVE SCRAPER MATRIX <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="CRAWL: EXTERNAL CRAWLER & ALTERNATIVE SCRAPER MATRIX <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS REAL-TIME SCRAPED METRICS FROM DEFILLAMA, TOKENTERMINAL, AND COINMARKETCAP", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS REAL-TIME SCRAPED METRICS FROM DEFILLAMA, TOKENTERMINAL, AND COINMARKETCAP",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.crawl_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.crawl_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.crawl_text.pack(fill=tk.BOTH, expand=True)
         self._update_crawl_screen_data()
 
     def _update_crawl_screen_data(self):
-        if not hasattr(self, "crawl_text") or not self.crawl_text: return
+        if not hasattr(self, "crawl_text") or not self.crawl_text:
+            return
         self.crawl_text.delete("1.0", tk.END)
         crawl_data = f"""
 ================================================================================
@@ -4177,17 +7253,38 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
 
     def _show_cred_screen(self):
         """CRED <GO>: User Credentials and MFA Gateways"""
-        lbl_title = tk.Label(self.screen_frame, text="CRED: SECURITY PRIVILEGES & MFA CREDENTIALS CONTROLLER <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="CRED: SECURITY PRIVILEGES & MFA CREDENTIALS CONTROLLER <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS SECURITY TOKENS, DYNAMIC 2FA MFA ACCESS, AND PRIVILEGE ROLES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS SECURITY TOKENS, DYNAMIC 2FA MFA ACCESS, AND PRIVILEGE ROLES",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
-        self.cred_text = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 8), bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.cred_text = tk.Text(
+            self.screen_frame,
+            bg=self.bg_card,
+            fg=self.fg_light,
+            font=("Consolas", 8),
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.cred_text.pack(fill=tk.BOTH, expand=True)
         self._update_cred_screen_data()
 
     def _update_cred_screen_data(self):
-        if not hasattr(self, "cred_text") or not self.cred_text: return
+        if not hasattr(self, "cred_text") or not self.cred_text:
+            return
         self.cred_text.delete("1.0", tk.END)
         # Generate some simulated rotating dynamic token key
         token_key = "".join(random.choices("0123456789ABCDEF", k=16))
@@ -4214,9 +7311,21 @@ SECURITY DOMAINS ENFORCED:
 
     def _show_watch_screen(self):
         """WATCH <GO>: Interactive Symbols Watchlist with Fixed Sticky Header and Full Row Selection"""
-        lbl_title = tk.Label(self.screen_frame, text="WATCH: INTERACTIVE SYMBOLS WATCHLIST & HEATMAP <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="WATCH: INTERACTIVE SYMBOLS WATCHLIST & HEATMAP <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="REAL-TIME MONITORING, FIXED STICKY HEADERS, FULL ROW SELECTION, AND MULTI-TIMEFRAME (MTF) CONFLUENCE HEATMAP", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="REAL-TIME MONITORING, FIXED STICKY HEADERS, FULL ROW SELECTION, AND MULTI-TIMEFRAME (MTF) CONFLUENCE HEATMAP",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 5))
 
         # FIXED STICKY HEADER FRAME (Stays visible at ALL times when scrolling!)
@@ -4224,29 +7333,80 @@ SECURITY DOMAINS ENFORCED:
         self.watch_header_frame.pack(fill=tk.X, pady=(0, 2))
 
         headers = [
-            "SYMBOL", "LTP (BID)", "ASK PRICE", "ATP", "SPREAD", "TREND", "WIN PROB",
-            "RSI", "MACD", "ADX", "ATR", "VWAP", "TWAP", "SMA", "EMA", "STOCH", "ICHIMOKU",
-            "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"
+            "SYMBOL",
+            "LTP (BID)",
+            "ASK PRICE",
+            "ATP",
+            "SPREAD",
+            "TREND",
+            "WIN PROB",
+            "RSI",
+            "MACD",
+            "ADX",
+            "ATR",
+            "VWAP",
+            "TWAP",
+            "SMA",
+            "EMA",
+            "STOCH",
+            "ICHIMOKU",
+            "M5",
+            "M15",
+            "M30",
+            "H1",
+            "H4",
+            "D1",
+            "W1",
+            "MN1",
         ]
 
         for col_idx, h in enumerate(headers):
-            bg_col = "#111111" if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#1e293b"
-            fg_col = self.fg_accent if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#38bdf8"
-            lbl = tk.Label(self.watch_header_frame, text=h, font=("Consolas", 7, "bold"), bg=bg_col, fg=fg_col, width=12, bd=1, relief=tk.SOLID)
+            bg_col = (
+                "#111111"
+                if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"]
+                else "#1e293b"
+            )
+            fg_col = (
+                self.fg_accent
+                if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"]
+                else "#38bdf8"
+            )
+            lbl = tk.Label(
+                self.watch_header_frame,
+                text=h,
+                font=("Consolas", 7, "bold"),
+                bg=bg_col,
+                fg=fg_col,
+                width=12,
+                bd=1,
+                relief=tk.SOLID,
+            )
             lbl.grid(row=0, column=col_idx, padx=1, pady=1, sticky="nsew")
 
         # Scrollable canvas container for data rows
-        self.canvas_watch = tk.Canvas(self.screen_frame, bg=self.bg_dark, bd=0, highlightthickness=0)
-        v_scroll = tk.Scrollbar(self.screen_frame, orient=tk.VERTICAL, command=self.canvas_watch.yview)
-        h_scroll = tk.Scrollbar(self.screen_frame, orient=tk.HORIZONTAL, command=self.canvas_watch.xview)
+        self.canvas_watch = tk.Canvas(
+            self.screen_frame, bg=self.bg_dark, bd=0, highlightthickness=0
+        )
+        v_scroll = tk.Scrollbar(
+            self.screen_frame, orient=tk.VERTICAL, command=self.canvas_watch.yview
+        )
+        h_scroll = tk.Scrollbar(
+            self.screen_frame, orient=tk.HORIZONTAL, command=self.canvas_watch.xview
+        )
 
         self.watch_container = tk.Frame(self.canvas_watch, bg=self.bg_dark)
         self.watch_container.bind(
             "<Configure>",
-            lambda e: self.canvas_watch.configure(scrollregion=self.canvas_watch.bbox("all"))
+            lambda e: self.canvas_watch.configure(
+                scrollregion=self.canvas_watch.bbox("all")
+            ),
         )
-        self.canvas_watch.create_window((0, 0), window=self.watch_container, anchor="nw")
-        self.canvas_watch.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+        self.canvas_watch.create_window(
+            (0, 0), window=self.watch_container, anchor="nw"
+        )
+        self.canvas_watch.configure(
+            yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set
+        )
 
         v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
@@ -4259,7 +7419,10 @@ SECURITY DOMAINS ENFORCED:
 
     def _select_watch_row(self, row_idx, symbol_name):
         """Highlights the entire row across all columns for full row selection."""
-        if self.selected_watch_row and self.selected_watch_row in self.watch_row_widgets:
+        if (
+            self.selected_watch_row
+            and self.selected_watch_row in self.watch_row_widgets
+        ):
             for w, default_bg in self.watch_row_widgets[self.selected_watch_row]:
                 try:
                     w.config(bg=default_bg)
@@ -4278,14 +7441,18 @@ SECURITY DOMAINS ENFORCED:
         print(f"🎯 WATCHLIST FULL ROW SELECTED: Row #{row_idx} ({symbol_name})")
 
     def _update_watch_screen_data(self):
-        if not hasattr(self, "watch_container") or not self.watch_container: return
+        if not hasattr(self, "watch_container") or not self.watch_container:
+            return
         for widget in self.watch_container.winfo_children():
             widget.destroy()
 
         self.watch_row_widgets = {}
 
         import config
-        symbols = config.SYMBOLS # Processes all majors, minors, metals, and cryptos in config.SYMBOLS
+
+        symbols = (
+            config.SYMBOLS
+        )  # Processes all majors, minors, metals, and cryptos in config.SYMBOLS
 
         # Iterate through watchlist symbols
         for idx, sym in enumerate(symbols):
@@ -4301,9 +7468,12 @@ SECURITY DOMAINS ENFORCED:
                 # Determine pip sizing
                 symbol_upper = sym.upper()
                 pip_size = 0.0001
-                if "JPY" in symbol_upper: pip_size = 0.01
-                elif "XAU" in symbol_upper: pip_size = 0.1
-                elif "BTC" in symbol_upper: pip_size = 1.0
+                if "JPY" in symbol_upper:
+                    pip_size = 0.01
+                elif "XAU" in symbol_upper:
+                    pip_size = 0.1
+                elif "BTC" in symbol_upper:
+                    pip_size = 1.0
                 spread_pips = spread / pip_size
 
                 # Fetch history for real indicators
@@ -4323,7 +7493,11 @@ SECURITY DOMAINS ENFORCED:
                 atr_val = indicators.calculate_atr(highs, lows, closes, 14) or 0.0010
 
                 # Real VWAP (Rolling Cumulative)
-                vwap_val = sum(c * 100 for c in closes) / sum([100]*len(closes)) if closes else bid
+                vwap_val = (
+                    sum(c * 100 for c in closes) / sum([100] * len(closes))
+                    if closes
+                    else bid
+                )
                 # Real TWAP (Time Weighted average of closes)
                 twap_val = sum(closes) / len(closes) if closes else bid
 
@@ -4331,45 +7505,71 @@ SECURITY DOMAINS ENFORCED:
                 ema_val = indicators.calculate_ema(closes, 20) or bid
 
                 stoch_res = indicators.calculate_stochastic(highs, lows, closes, 14)
-                stoch_k = stoch_res['k']
-                stoch_d = stoch_res['d']
+                stoch_k = stoch_res["k"]
+                stoch_d = stoch_res["d"]
 
                 ich_res = indicators.calculate_ichimoku(highs, lows, closes)
-                tenkan = ich_res['tenkan']
-                kijun = ich_res['kijun']
+                tenkan = ich_res["tenkan"]
+                kijun = ich_res["kijun"]
 
                 # Trend
-                ema200 = indicators.calculate_ema(closes, 50) or bid # short-term proxy for watchlist
+                ema200 = (
+                    indicators.calculate_ema(closes, 50) or bid
+                )  # short-term proxy for watchlist
                 trend = "BULLISH" if bid > ema200 else "BEARISH"
                 trend_col = self.fg_green if trend == "BULLISH" else self.fg_red
 
                 # Win Probability (scale based on indicators alignment)
                 bullish_signals = 0
-                if bid > ema_val: bullish_signals += 1
-                if rsi_val > 50: bullish_signals += 1
-                if macd_hist > 0: bullish_signals += 1
-                if stoch_k > 50: bullish_signals += 1
+                if bid > ema_val:
+                    bullish_signals += 1
+                if rsi_val > 50:
+                    bullish_signals += 1
+                if macd_hist > 0:
+                    bullish_signals += 1
+                if stoch_k > 50:
+                    bullish_signals += 1
                 win_prob = 35.0 + (bullish_signals / 4.0) * 55.0
                 win_prob = max(35.0, min(95.0, win_prob))
 
                 # MTF Timeframe alignments (M5, M15, M30, H1, H4, D1, W1, MN1)
                 mtf_signals = []
-                timeframe_intervals = [5, 15, 30, 60, 240, 1440, 7200, 30000] # Representative rolling lookbacks
+                timeframe_intervals = [
+                    5,
+                    15,
+                    30,
+                    60,
+                    240,
+                    1440,
+                    7200,
+                    30000,
+                ]  # Representative rolling lookbacks
                 for interval in timeframe_intervals:
-                    tf_sma = sum(closes[-min(len(closes), interval // 5 + 1):]) / min(len(closes), interval // 5 + 1)
+                    tf_sma = sum(closes[-min(len(closes), interval // 5 + 1) :]) / min(
+                        len(closes), interval // 5 + 1
+                    )
                     mtf_signals.append("BULLISH" if bid >= tf_sma else "BEARISH")
 
                 row_vals = [
-                    sym, f"{bid:.5f}" if bid < 100 else f"{bid:.2f}",
+                    sym,
+                    f"{bid:.5f}" if bid < 100 else f"{bid:.2f}",
                     f"{ask:.5f}" if ask < 100 else f"{ask:.2f}",
                     f"{atp:.5f}" if atp < 100 else f"{atp:.2f}",
-                    f"{spread_pips:.1f}", trend, f"{win_prob:.1f}%",
-                    f"{rsi_val:.1f}", f"{macd_hist:+.5f}", f"{adx_val:.1f}", f"{atr_val:.5f}",
+                    f"{spread_pips:.1f}",
+                    trend,
+                    f"{win_prob:.1f}%",
+                    f"{rsi_val:.1f}",
+                    f"{macd_hist:+.5f}",
+                    f"{adx_val:.1f}",
+                    f"{atr_val:.5f}",
                     f"{vwap_val:.5f}" if vwap_val < 100 else f"{vwap_val:.2f}",
                     f"{twap_val:.5f}" if twap_val < 100 else f"{twap_val:.2f}",
                     f"{sma_val:.5f}" if sma_val < 100 else f"{sma_val:.2f}",
                     f"{ema_val:.5f}" if ema_val < 100 else f"{ema_val:.2f}",
-                    f"{stoch_k:.1f}/{stoch_d:.1f}", f"{tenkan:.5f}/{kijun:.5f}" if tenkan < 100 else f"{tenkan:.1f}/{kijun:.1f}"
+                    f"{stoch_k:.1f}/{stoch_d:.1f}",
+                    f"{tenkan:.5f}/{kijun:.5f}"
+                    if tenkan < 100
+                    else f"{tenkan:.1f}/{kijun:.1f}",
                 ]
 
                 row_widgets = []
@@ -4377,14 +7577,32 @@ SECURITY DOMAINS ENFORCED:
                 # Render standard cells
                 for col_idx, val in enumerate(row_vals):
                     fg_cell = self.fg_light
-                    if col_idx == 0: fg_cell = "#38bdf8"
-                    elif col_idx == 4: fg_cell = "#eab308"
-                    elif col_idx == 5: fg_cell = trend_col
-                    elif col_idx == 6: fg_cell = self.fg_green if win_prob >= 50 else self.fg_red
+                    if col_idx == 0:
+                        fg_cell = "#38bdf8"
+                    elif col_idx == 4:
+                        fg_cell = "#eab308"
+                    elif col_idx == 5:
+                        fg_cell = trend_col
+                    elif col_idx == 6:
+                        fg_cell = self.fg_green if win_prob >= 50 else self.fg_red
 
-                    lbl_cell = tk.Label(self.watch_container, text=val, font=("Consolas", 8), bg=self.bg_card, fg=fg_cell, width=12, bd=1, relief=tk.SOLID)
-                    lbl_cell.grid(row=row_idx, column=col_idx, padx=1, pady=1, sticky="nsew")
-                    lbl_cell.bind("<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s))
+                    lbl_cell = tk.Label(
+                        self.watch_container,
+                        text=val,
+                        font=("Consolas", 8),
+                        bg=self.bg_card,
+                        fg=fg_cell,
+                        width=12,
+                        bd=1,
+                        relief=tk.SOLID,
+                    )
+                    lbl_cell.grid(
+                        row=row_idx, column=col_idx, padx=1, pady=1, sticky="nsew"
+                    )
+                    lbl_cell.bind(
+                        "<Button-1>",
+                        lambda _, r=row_idx, s=sym: self._select_watch_row(r, s),
+                    )
                     row_widgets.append((lbl_cell, self.bg_card))
 
                 # Render MTF Heatmap blocks (col_idx starts from len(row_vals))
@@ -4395,9 +7613,23 @@ SECURITY DOMAINS ENFORCED:
                     fg_color = "#00ff00" if mtf_state == "BULLISH" else "#ff3333"
                     txt_state = "▲ UP" if mtf_state == "BULLISH" else "▼ DN"
 
-                    lbl_block = tk.Label(self.watch_container, text=txt_state, font=("Consolas", 8, "bold"), bg=bg_color, fg=fg_color, width=12, bd=1, relief=tk.SOLID)
-                    lbl_block.grid(row=row_idx, column=block_col, padx=1, pady=1, sticky="nsew")
-                    lbl_block.bind("<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s))
+                    lbl_block = tk.Label(
+                        self.watch_container,
+                        text=txt_state,
+                        font=("Consolas", 8, "bold"),
+                        bg=bg_color,
+                        fg=fg_color,
+                        width=12,
+                        bd=1,
+                        relief=tk.SOLID,
+                    )
+                    lbl_block.grid(
+                        row=row_idx, column=block_col, padx=1, pady=1, sticky="nsew"
+                    )
+                    lbl_block.bind(
+                        "<Button-1>",
+                        lambda _, r=row_idx, s=sym: self._select_watch_row(r, s),
+                    )
                     row_widgets.append((lbl_block, bg_color))
 
                 self.watch_row_widgets[row_idx] = row_widgets
@@ -4432,9 +7664,21 @@ SECURITY DOMAINS ENFORCED:
 
     def _show_mkt_screen(self):
         """MKT <GO>: Market movers, scanners, and exchange messages"""
-        lbl_title = tk.Label(self.screen_frame, text="MKT: INTEGRATED MARKET SCANNERS & MOVERS <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="MKT: INTEGRATED MARKET SCANNERS & MOVERS <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="EXCHANGE SYSTEM ALERTS, HIGHEST VOLATILITY SCANS, AND FUNDAMENTALS FEED", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="EXCHANGE SYSTEM ALERTS, HIGHEST VOLATILITY SCANS, AND FUNDAMENTALS FEED",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 5))
 
         # 2-Row Sub-Tab Navigation Bar so ALL 13 Market sub-tabs are 100% visible and accessible on screen!
@@ -4455,7 +7699,7 @@ SECURITY DOMAINS ENFORCED:
             ("10. Pip Value", 9),
             ("11. Pivots", 10),
             ("12. Position Size", 11),
-            ("13. Regulation", 12)
+            ("13. Regulation", 12),
         ]
 
         row1_frame = tk.Frame(subtab_nav_frame, bg=self.bg_dark)
@@ -4480,7 +7724,7 @@ SECURITY DOMAINS ENFORCED:
                 relief=tk.SOLID,
                 padx=6,
                 pady=2,
-                command=lambda i=tab_idx: self._select_mkt_subtab(i)
+                command=lambda i=tab_idx: self._select_mkt_subtab(i),
             )
             btn.pack(side=tk.LEFT, padx=2)
             self.mkt_subtab_buttons.append(btn)
@@ -4488,14 +7732,28 @@ SECURITY DOMAINS ENFORCED:
         # Create ttk.Notebook
         self.mkt_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
         self.mkt_notebook.pack(fill=tk.BOTH, expand=True)
-        self.mkt_notebook.bind("<<NotebookTabChanged>>", lambda e: self._on_mkt_tab_changed())
+        self.mkt_notebook.bind(
+            "<<NotebookTabChanged>>", lambda e: self._on_mkt_tab_changed()
+        )
 
         # 1. Exchange Messages Tab
         self.tab_mkt_messages = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_messages, text="1. Messages")
 
-        cols_msg = ("Timestamp", "Source Exchange", "Message Type", "Alert Details", "Routing Connection")
-        self.mkt_msg_tree = ttk.Treeview(self.tab_mkt_messages, columns=cols_msg, show="headings", style="Treeview", height=10)
+        cols_msg = (
+            "Timestamp",
+            "Source Exchange",
+            "Message Type",
+            "Alert Details",
+            "Routing Connection",
+        )
+        self.mkt_msg_tree = ttk.Treeview(
+            self.tab_mkt_messages,
+            columns=cols_msg,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_msg:
             self.mkt_msg_tree.heading(c, text=c)
             self.mkt_msg_tree.column(c, width=130, anchor="center")
@@ -4505,8 +7763,21 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_movers = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_movers, text="2. Movers")
 
-        cols_mov = ("Symbol Name", "LTP (Bid)", "Net Change", "Change %", "Regime Direction", "Vibe/Strength")
-        self.mkt_mov_tree = ttk.Treeview(self.tab_mkt_movers, columns=cols_mov, show="headings", style="Treeview", height=10)
+        cols_mov = (
+            "Symbol Name",
+            "LTP (Bid)",
+            "Net Change",
+            "Change %",
+            "Regime Direction",
+            "Vibe/Strength",
+        )
+        self.mkt_mov_tree = ttk.Treeview(
+            self.tab_mkt_movers,
+            columns=cols_mov,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_mov:
             self.mkt_mov_tree.heading(c, text=c)
             self.mkt_mov_tree.column(c, width=130, anchor="center")
@@ -4516,8 +7787,21 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_scanners = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_scanners, text="3. Scanners")
 
-        cols_scan = ("Symbol", "Spread (Pips)", "ATR Volatility", "RSI State", "Bollinger Band Width", "Scanner Signal")
-        self.mkt_scan_tree = ttk.Treeview(self.tab_mkt_scanners, columns=cols_scan, show="headings", style="Treeview", height=10)
+        cols_scan = (
+            "Symbol",
+            "Spread (Pips)",
+            "ATR Volatility",
+            "RSI State",
+            "Bollinger Band Width",
+            "Scanner Signal",
+        )
+        self.mkt_scan_tree = ttk.Treeview(
+            self.tab_mkt_scanners,
+            columns=cols_scan,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_scan:
             self.mkt_scan_tree.heading(c, text=c)
             self.mkt_scan_tree.column(c, width=130, anchor="center")
@@ -4527,8 +7811,21 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_fundamentals = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_fundamentals, text="4. Fundamentals")
 
-        cols_fund = ("Symbol", "Corporate Issuer Name / Asset Type", "Market Cap ($B)", "Coupon/Yield %", "P/E Ratio", "SEC Filing Link")
-        self.mkt_fund_tree = ttk.Treeview(self.tab_mkt_fundamentals, columns=cols_fund, show="headings", style="Treeview", height=10)
+        cols_fund = (
+            "Symbol",
+            "Corporate Issuer Name / Asset Type",
+            "Market Cap ($B)",
+            "Coupon/Yield %",
+            "P/E Ratio",
+            "SEC Filing Link",
+        )
+        self.mkt_fund_tree = ttk.Treeview(
+            self.tab_mkt_fundamentals,
+            columns=cols_fund,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_fund:
             self.mkt_fund_tree.heading(c, text=c)
             self.mkt_fund_tree.column(c, width=130, anchor="center")
@@ -4538,8 +7835,20 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_corp = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_corp, text="5. Corp Actions")
 
-        cols_corp = ("Ex-Date", "Symbol", "Corporate Action Event", "Details / Ratio", "Sovereign Impact Rating")
-        self.mkt_corp_tree = ttk.Treeview(self.tab_mkt_corp, columns=cols_corp, show="headings", style="Treeview", height=10)
+        cols_corp = (
+            "Ex-Date",
+            "Symbol",
+            "Corporate Action Event",
+            "Details / Ratio",
+            "Sovereign Impact Rating",
+        )
+        self.mkt_corp_tree = ttk.Treeview(
+            self.tab_mkt_corp,
+            columns=cols_corp,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_corp:
             self.mkt_corp_tree.heading(c, text=c)
             self.mkt_corp_tree.column(c, width=150, anchor="center")
@@ -4549,8 +7858,20 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_hours = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_hours, text="6. Market Hours")
 
-        cols_hrs = ("Market Session", "UTC Interval", "Local Converted Time", "Status", "Volume Profile")
-        self.mkt_hours_tree = ttk.Treeview(self.tab_mkt_hours, columns=cols_hrs, show="headings", style="Treeview", height=10)
+        cols_hrs = (
+            "Market Session",
+            "UTC Interval",
+            "Local Converted Time",
+            "Status",
+            "Volume Profile",
+        )
+        self.mkt_hours_tree = ttk.Treeview(
+            self.tab_mkt_hours,
+            columns=cols_hrs,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_hrs:
             self.mkt_hours_tree.heading(c, text=c)
             self.mkt_hours_tree.column(c, width=140, anchor="center")
@@ -4560,8 +7881,23 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_corr = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_corr, text="7. Correlation")
 
-        cols_corr = ("Pair", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD")
-        self.mkt_corr_tree = ttk.Treeview(self.tab_mkt_corr, columns=cols_corr, show="headings", style="Treeview", height=10)
+        cols_corr = (
+            "Pair",
+            "EURUSD",
+            "GBPUSD",
+            "USDJPY",
+            "AUDUSD",
+            "USDCAD",
+            "USDCHF",
+            "NZDUSD",
+        )
+        self.mkt_corr_tree = ttk.Treeview(
+            self.tab_mkt_corr,
+            columns=cols_corr,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_corr:
             self.mkt_corr_tree.heading(c, text=c)
             self.mkt_corr_tree.column(c, width=90, anchor="center")
@@ -4574,42 +7910,121 @@ SECURITY DOMAINS ENFORCED:
         roro_top = tk.Frame(self.tab_mkt_roro, bg=self.bg_dark)
         roro_top.pack(fill=tk.X, padx=10, pady=10)
 
-        self.lbl_mkt_roro_gauge = tk.Label(roro_top, text="GLOBAL MARKET REGIME: RISK-ON (NEON GREEN)", font=("Consolas", 11, "bold"), bg="#15803d", fg="#ffffff", padx=15, pady=8)
+        self.lbl_mkt_roro_gauge = tk.Label(
+            roro_top,
+            text="GLOBAL MARKET REGIME: RISK-ON (NEON GREEN)",
+            font=("Consolas", 11, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=15,
+            pady=8,
+        )
         self.lbl_mkt_roro_gauge.pack(anchor="w")
 
-        cols_roro = ("Asset Class / Proxy", "Current Value", "Daily Net %", "Risk Sentiment Direction")
-        self.mkt_roro_tree = ttk.Treeview(self.tab_mkt_roro, columns=cols_roro, show="headings", style="Treeview", height=8)
+        cols_roro = (
+            "Asset Class / Proxy",
+            "Current Value",
+            "Daily Net %",
+            "Risk Sentiment Direction",
+        )
+        self.mkt_roro_tree = ttk.Treeview(
+            self.tab_mkt_roro,
+            columns=cols_roro,
+            show="headings",
+            style="Treeview",
+            height=8,
+        )
         for c in cols_roro:
             self.mkt_roro_tree.heading(c, text=c)
             self.mkt_roro_tree.column(c, width=150, anchor="center")
         self.mkt_roro_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         # 9. Gain & Loss Percentage Calculator Sub-Tab
-        self.tab_mkt_gainloss = tk.Frame(self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15)
+        self.tab_mkt_gainloss = tk.Frame(
+            self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15
+        )
         self.mkt_notebook.add(self.tab_mkt_gainloss, text="9. Gain & Loss")
 
-        gl_frame = tk.Frame(self.tab_mkt_gainloss, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        gl_frame = tk.Frame(
+            self.tab_mkt_gainloss,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         gl_frame.pack(fill=tk.X)
 
-        tk.Label(gl_frame, text="DRAWDOWN RECOVERY PERCENTAGE CALCULATOR", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
-        tk.Label(gl_frame, text="Account Loss Percentage (%):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
+        tk.Label(
+            gl_frame,
+            text="DRAWDOWN RECOVERY PERCENTAGE CALCULATOR",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(
+            gl_frame,
+            text="Account Loss Percentage (%):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=4)
 
-        self.ent_mkt_loss_pct = tk.Entry(gl_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15)
+        self.ent_mkt_loss_pct = tk.Entry(
+            gl_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
+        )
         self.ent_mkt_loss_pct.grid(row=1, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_loss_pct.insert(0, "10.0")
 
-        btn_calc_gl = tk.Button(gl_frame, text="CALCULATE RECOVERY %", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3, relief=tk.FLAT, command=self._calc_gain_loss_recovery)
+        btn_calc_gl = tk.Button(
+            gl_frame,
+            text="CALCULATE RECOVERY %",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._calc_gain_loss_recovery,
+        )
         btn_calc_gl.grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 5))
 
-        self.lbl_mkt_recovery_result = tk.Label(gl_frame, text="Required Gain To Break-Even: +11.11%", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_green)
-        self.lbl_mkt_recovery_result.grid(row=3, column=0, columnspan=2, sticky="w", pady=5)
+        self.lbl_mkt_recovery_result = tk.Label(
+            gl_frame,
+            text="Required Gain To Break-Even: +11.11%",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_green,
+        )
+        self.lbl_mkt_recovery_result.grid(
+            row=3, column=0, columnspan=2, sticky="w", pady=5
+        )
 
         # 10. Pip Value Calculator Sub-Tab
         self.tab_mkt_pipval = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_pipval, text="10. Pip Value")
 
-        cols_pip = ("Symbol", "Contract Size", "Pip Size", "Pip Value per 1.0 Lot ($ USD)", "Pip Value per 0.1 Lot ($ USD)", "Pip Value per 0.01 Lot ($ USD)")
-        self.mkt_pipval_tree = ttk.Treeview(self.tab_mkt_pipval, columns=cols_pip, show="headings", style="Treeview", height=10)
+        cols_pip = (
+            "Symbol",
+            "Contract Size",
+            "Pip Size",
+            "Pip Value per 1.0 Lot ($ USD)",
+            "Pip Value per 0.1 Lot ($ USD)",
+            "Pip Value per 0.01 Lot ($ USD)",
+        )
+        self.mkt_pipval_tree = ttk.Treeview(
+            self.tab_mkt_pipval,
+            columns=cols_pip,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_pip:
             self.mkt_pipval_tree.heading(c, text=c)
             self.mkt_pipval_tree.column(c, width=120, anchor="center")
@@ -4619,68 +8034,193 @@ SECURITY DOMAINS ENFORCED:
         self.tab_mkt_pivot = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_pivot, text="11. Pivots")
 
-        piv_top = tk.Frame(self.tab_mkt_pivot, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        piv_top = tk.Frame(
+            self.tab_mkt_pivot,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
+        )
         piv_top.pack(fill=tk.X, padx=10, pady=10)
 
-        tk.Label(piv_top, text="High:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=0, padx=5)
-        self.ent_mkt_p_high = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
+        tk.Label(
+            piv_top,
+            text="High:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=0, column=0, padx=5)
+        self.ent_mkt_p_high = tk.Entry(
+            piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10
+        )
         self.ent_mkt_p_high.grid(row=0, column=1, padx=5)
         self.ent_mkt_p_high.insert(0, "1.1050")
 
-        tk.Label(piv_top, text="Low:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=2, padx=5)
-        self.ent_mkt_p_low = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
+        tk.Label(
+            piv_top,
+            text="Low:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=0, column=2, padx=5)
+        self.ent_mkt_p_low = tk.Entry(
+            piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10
+        )
         self.ent_mkt_p_low.grid(row=0, column=3, padx=5)
         self.ent_mkt_p_low.insert(0, "1.0950")
 
-        tk.Label(piv_top, text="Close:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=0, column=4, padx=5)
-        self.ent_mkt_p_close = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
+        tk.Label(
+            piv_top,
+            text="Close:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=0, column=4, padx=5)
+        self.ent_mkt_p_close = tk.Entry(
+            piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10
+        )
         self.ent_mkt_p_close.grid(row=0, column=5, padx=5)
         self.ent_mkt_p_close.insert(0, "1.1020")
 
-        tk.Button(piv_top, text="CALCULATE PIVOTS", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=2, relief=tk.FLAT, command=self._calc_pivot_points).grid(row=0, column=6, padx=10)
+        tk.Button(
+            piv_top,
+            text="CALCULATE PIVOTS",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=8,
+            pady=2,
+            relief=tk.FLAT,
+            command=self._calc_pivot_points,
+        ).grid(row=0, column=6, padx=10)
 
-        cols_piv = ("Pivot System", "Resistance R3", "Resistance R2", "Resistance R1", "PIVOT POINT", "Support S1", "Support S2", "Support S3")
-        self.mkt_pivot_tree = ttk.Treeview(self.tab_mkt_pivot, columns=cols_piv, show="headings", style="Treeview", height=8)
+        cols_piv = (
+            "Pivot System",
+            "Resistance R3",
+            "Resistance R2",
+            "Resistance R1",
+            "PIVOT POINT",
+            "Support S1",
+            "Support S2",
+            "Support S3",
+        )
+        self.mkt_pivot_tree = ttk.Treeview(
+            self.tab_mkt_pivot,
+            columns=cols_piv,
+            show="headings",
+            style="Treeview",
+            height=8,
+        )
         for c in cols_piv:
             self.mkt_pivot_tree.heading(c, text=c)
             self.mkt_pivot_tree.column(c, width=90, anchor="center")
         self.mkt_pivot_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         # 12. Position Size Calculator Sub-Tab
-        self.tab_mkt_possize = tk.Frame(self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15)
+        self.tab_mkt_possize = tk.Frame(
+            self.mkt_notebook, bg=self.bg_dark, padx=15, pady=15
+        )
         self.mkt_notebook.add(self.tab_mkt_possize, text="12. Position Size")
 
-        ps_frame = tk.Frame(self.tab_mkt_possize, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        ps_frame = tk.Frame(
+            self.tab_mkt_possize,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
+        )
         ps_frame.pack(fill=tk.X)
 
-        tk.Label(ps_frame, text="POSITION SIZING & LOT ALLOCATION SOLVER", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        tk.Label(
+            ps_frame,
+            text="POSITION SIZING & LOT ALLOCATION SOLVER",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
-        tk.Label(ps_frame, text="Account Balance ($ USD):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=1, column=0, sticky="w", pady=4)
-        self.ent_mkt_ps_bal = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        tk.Label(
+            ps_frame,
+            text="Account Balance ($ USD):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_bal = tk.Entry(
+            ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15
+        )
         self.ent_mkt_ps_bal.grid(row=1, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_ps_bal.insert(0, "10000")
 
-        tk.Label(ps_frame, text="Risk Per Trade (%):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=2, column=0, sticky="w", pady=4)
-        self.ent_mkt_ps_risk = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        tk.Label(
+            ps_frame,
+            text="Risk Per Trade (%):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_risk = tk.Entry(
+            ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15
+        )
         self.ent_mkt_ps_risk.grid(row=2, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_ps_risk.insert(0, "1.0")
 
-        tk.Label(ps_frame, text="Stop Loss Distance (Pips):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=4)
-        self.ent_mkt_ps_sl = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        tk.Label(
+            ps_frame,
+            text="Stop Loss Distance (Pips):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_sl = tk.Entry(
+            ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15
+        )
         self.ent_mkt_ps_sl.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_ps_sl.insert(0, "20.0")
 
-        tk.Button(ps_frame, text="CALCULATE LOT SIZE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3, relief=tk.FLAT, command=self._calc_position_size).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 5))
+        tk.Button(
+            ps_frame,
+            text="CALCULATE LOT SIZE",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._calc_position_size,
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 5))
 
-        self.lbl_mkt_ps_result = tk.Label(ps_frame, text="Recommended Volume: 0.50 Lots ($100.00 Risk)", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_green)
+        self.lbl_mkt_ps_result = tk.Label(
+            ps_frame,
+            text="Recommended Volume: 0.50 Lots ($100.00 Risk)",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_green,
+        )
         self.lbl_mkt_ps_result.grid(row=5, column=0, columnspan=2, sticky="w", pady=5)
 
         # 13. Forex Regulatory Organizations Sub-Tab
         self.tab_mkt_reg = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_reg, text="13. Regulation")
 
-        cols_reg = ("Jurisdiction", "Regulatory Body", "Abbreviation", "Leverage Cap", "Official Website / Verification")
-        self.mkt_reg_tree = ttk.Treeview(self.tab_mkt_reg, columns=cols_reg, show="headings", style="Treeview", height=10)
+        cols_reg = (
+            "Jurisdiction",
+            "Regulatory Body",
+            "Abbreviation",
+            "Leverage Cap",
+            "Official Website / Verification",
+        )
+        self.mkt_reg_tree = ttk.Treeview(
+            self.tab_mkt_reg,
+            columns=cols_reg,
+            show="headings",
+            style="Treeview",
+            height=10,
+        )
         for c in cols_reg:
             self.mkt_reg_tree.heading(c, text=c)
             self.mkt_reg_tree.column(c, width=130, anchor="center")
@@ -4692,12 +8232,18 @@ SECURITY DOMAINS ENFORCED:
         try:
             loss_pct = float(self.ent_mkt_loss_pct.get().strip())
             if loss_pct >= 100.0:
-                self.lbl_mkt_recovery_result.config(text="Total Bankruptcy (100% loss)", fg=self.fg_red)
+                self.lbl_mkt_recovery_result.config(
+                    text="Total Bankruptcy (100% loss)", fg=self.fg_red
+                )
                 return
             rec_pct = (loss_pct / (100.0 - loss_pct)) * 100.0
-            self.lbl_mkt_recovery_result.config(text=f"Required Gain To Break-Even: +{rec_pct:.2f}%", fg=self.fg_green)
+            self.lbl_mkt_recovery_result.config(
+                text=f"Required Gain To Break-Even: +{rec_pct:.2f}%", fg=self.fg_green
+            )
         except Exception:
-            self.lbl_mkt_recovery_result.config(text="Invalid input number", fg=self.fg_red)
+            self.lbl_mkt_recovery_result.config(
+                text="Invalid input number", fg=self.fg_red
+            )
 
     def _calc_pivot_points(self):
         try:
@@ -4707,25 +8253,73 @@ SECURITY DOMAINS ENFORCED:
 
             # Standard
             p = (h + l + c) / 3.0
-            r1 = 2 * p - l; s1 = 2 * p - h
-            r2 = p + (h - l); s2 = p - (h - l)
-            r3 = h + 2 * (p - l); s3 = l - 2 * (h - p)
+            r1 = 2 * p - l
+            s1 = 2 * p - h
+            r2 = p + (h - l)
+            s2 = p - (h - l)
+            r3 = h + 2 * (p - l)
+            s3 = l - 2 * (h - p)
 
             self.mkt_pivot_tree.delete(*self.mkt_pivot_tree.get_children())
-            self.mkt_pivot_tree.insert("", tk.END, values=("Standard Floor", f"{r3:.5f}", f"{r2:.5f}", f"{r1:.5f}", f"{p:.5f}", f"{s1:.5f}", f"{s2:.5f}", f"{s3:.5f}"))
+            self.mkt_pivot_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    "Standard Floor",
+                    f"{r3:.5f}",
+                    f"{r2:.5f}",
+                    f"{r1:.5f}",
+                    f"{p:.5f}",
+                    f"{s1:.5f}",
+                    f"{s2:.5f}",
+                    f"{s3:.5f}",
+                ),
+            )
 
             # Fibonacci
             range_vl = h - l
-            f_r1 = p + 0.382 * range_vl; f_s1 = p - 0.382 * range_vl
-            f_r2 = p + 0.618 * range_vl; f_s2 = p - 0.618 * range_vl
-            f_r3 = p + 1.000 * range_vl; f_s3 = p - 1.000 * range_vl
-            self.mkt_pivot_tree.insert("", tk.END, values=("Fibonacci", f"{f_r3:.5f}", f"{f_r2:.5f}", f"{f_r1:.5f}", f"{p:.5f}", f"{f_s1:.5f}", f"{f_s2:.5f}", f"{f_s3:.5f}"))
+            f_r1 = p + 0.382 * range_vl
+            f_s1 = p - 0.382 * range_vl
+            f_r2 = p + 0.618 * range_vl
+            f_s2 = p - 0.618 * range_vl
+            f_r3 = p + 1.000 * range_vl
+            f_s3 = p - 1.000 * range_vl
+            self.mkt_pivot_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    "Fibonacci",
+                    f"{f_r3:.5f}",
+                    f"{f_r2:.5f}",
+                    f"{f_r1:.5f}",
+                    f"{p:.5f}",
+                    f"{f_s1:.5f}",
+                    f"{f_s2:.5f}",
+                    f"{f_s3:.5f}",
+                ),
+            )
 
             # Camarilla
-            c_r3 = c + range_vl * 1.1 / 4.0; c_s3 = c - range_vl * 1.1 / 4.0
-            c_r2 = c + range_vl * 1.1 / 6.0; c_s2 = c - range_vl * 1.1 / 6.0
-            c_r1 = c + range_vl * 1.1 / 12.0; c_s1 = c - range_vl * 1.1 / 12.0
-            self.mkt_pivot_tree.insert("", tk.END, values=("Camarilla", "---", f"{c_r3:.5f}", f"{c_r2:.5f}", f"{p:.5f}", f"{c_s1:.5f}", f"{c_s2:.5f}", f"{c_s3:.5f}"))
+            c_r3 = c + range_vl * 1.1 / 4.0
+            c_s3 = c - range_vl * 1.1 / 4.0
+            c_r2 = c + range_vl * 1.1 / 6.0
+            c_s2 = c - range_vl * 1.1 / 6.0
+            c_r1 = c + range_vl * 1.1 / 12.0
+            c_s1 = c - range_vl * 1.1 / 12.0
+            self.mkt_pivot_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    "Camarilla",
+                    "---",
+                    f"{c_r3:.5f}",
+                    f"{c_r2:.5f}",
+                    f"{p:.5f}",
+                    f"{c_s1:.5f}",
+                    f"{c_s2:.5f}",
+                    f"{c_s3:.5f}",
+                ),
+            )
         except Exception as e:
             print(f"Pivot calculation error: {e}")
 
@@ -4739,20 +8333,44 @@ SECURITY DOMAINS ENFORCED:
             pip_val_std = 10.0  # $10 per pip on 1.0 standard Forex lot
             lot_size = risk_amt / (sl_pips * pip_val_std) if sl_pips > 0 else 0.01
 
-            self.lbl_mkt_ps_result.config(text=f"Recommended Volume: {lot_size:.2f} Lots (${risk_amt:.2f} Risk)", fg=self.fg_green)
+            self.lbl_mkt_ps_result.config(
+                text=f"Recommended Volume: {lot_size:.2f} Lots (${risk_amt:.2f} Risk)",
+                fg=self.fg_green,
+            )
         except Exception:
-            self.lbl_mkt_ps_result.config(text="Invalid calculation inputs", fg=self.fg_red)
+            self.lbl_mkt_ps_result.config(
+                text="Invalid calculation inputs", fg=self.fg_red
+            )
 
     def _update_mkt_screen_data(self):
-        if not hasattr(self, "mkt_msg_tree") or not self.mkt_msg_tree: return
+        if not hasattr(self, "mkt_msg_tree") or not self.mkt_msg_tree:
+            return
 
         # Update Tab 1: Exchange Messages
         self.mkt_msg_tree.delete(*self.mkt_msg_tree.get_children())
         now_str = datetime.datetime.now().strftime("%H:%M:%S")
         msgs = [
-            (f"{now_str}", "CME Group", "LIQUIDITY_PING", "CME Brent Crude matching server ping: 8ms", "CONNECTED"),
-            (f"{now_str}", "B-Pipe network", "HEARTBEAT", "EQATS real-time quote synchronization feed: OK", "SYNCED"),
-            (f"{now_str}", "FIT Request", "QUOTE_STREAM", "Multi-lateral liquidity pricing request pipeline loaded", "CONNECTED")
+            (
+                f"{now_str}",
+                "CME Group",
+                "LIQUIDITY_PING",
+                "CME Brent Crude matching server ping: 8ms",
+                "CONNECTED",
+            ),
+            (
+                f"{now_str}",
+                "B-Pipe network",
+                "HEARTBEAT",
+                "EQATS real-time quote synchronization feed: OK",
+                "SYNCED",
+            ),
+            (
+                f"{now_str}",
+                "FIT Request",
+                "QUOTE_STREAM",
+                "Multi-lateral liquidity pricing request pipeline loaded",
+                "CONNECTED",
+            ),
         ]
         for row in msgs:
             self.mkt_msg_tree.insert("", tk.END, values=row)
@@ -4764,15 +8382,29 @@ SECURITY DOMAINS ENFORCED:
             p_info = self.scalper.conn.get_current_price(sym)
             bid = p_info["bid"]
             if bid > 0:
-                net_chg = (idx - 2.5) * (0.0002 if "USD" in sym and sym != "BTCUSD" and sym != "XAUUSD" else 0.5)
+                net_chg = (idx - 2.5) * (
+                    0.0002
+                    if "USD" in sym and sym != "BTCUSD" and sym != "XAUUSD"
+                    else 0.5
+                )
                 pct_chg = (net_chg / bid) * 100.0 if bid > 0 else 0.0
                 dir_reg = "BULLISH" if net_chg >= 0 else "BEARISH"
                 strength = "STRONG MOMENTUM" if abs(pct_chg) > 0.1 else "CONSOLIDATION"
 
                 color_tag = "green" if net_chg >= 0 else "red"
-                self.mkt_mov_tree.insert("", tk.END, values=(
-                    sym, f"{bid:.5f}" if bid < 10 else f"{bid:.2f}", f"{net_chg:+.5f}" if bid < 10 else f"{net_chg:+.2f}", f"{pct_chg:+.4f}%", dir_reg, strength
-                ), tags=(color_tag,))
+                self.mkt_mov_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        sym,
+                        f"{bid:.5f}" if bid < 10 else f"{bid:.2f}",
+                        f"{net_chg:+.5f}" if bid < 10 else f"{net_chg:+.2f}",
+                        f"{pct_chg:+.4f}%",
+                        dir_reg,
+                        strength,
+                    ),
+                    tags=(color_tag,),
+                )
         self.mkt_mov_tree.tag_configure("green", foreground=self.fg_green)
         self.mkt_mov_tree.tag_configure("red", foreground=self.fg_red)
 
@@ -4785,38 +8417,96 @@ SECURITY DOMAINS ENFORCED:
             if bid > 0:
                 spread = ask - bid
                 pip_size = 0.0001 if "JPY" not in sym else 0.01
-                if "XAU" in sym: pip_size = 0.1
-                elif "BTC" in sym: pip_size = 1.0
+                if "XAU" in sym:
+                    pip_size = 0.1
+                elif "BTC" in sym:
+                    pip_size = 1.0
                 spread_pips = spread / pip_size
 
                 # Fetch history for real indicator values
                 hist = self.scalper.conn.get_history(sym, 20)
-                closes = [b["close"] for b in hist] if hist else [bid]*20
-                highs = [b["high"] for b in hist] if hist else [bid]*20
-                lows = [b["low"] for b in hist] if hist else [bid]*20
+                closes = [b["close"] for b in hist] if hist else [bid] * 20
+                highs = [b["high"] for b in hist] if hist else [bid] * 20
+                lows = [b["low"] for b in hist] if hist else [bid] * 20
 
                 import indicators
+
                 rsi = indicators.calculate_rsi(closes, 14) or 50.0
                 atr = indicators.calculate_atr(highs, lows, closes, 14) or 0.0010
                 bb = indicators.calculate_bollinger_bands(closes, 20, 2.0)
                 bb_width = (bb["upper"] - bb["lower"]) / bb["middle"] if bb else 0.05
 
-                rsi_state = "OVERSOLD" if rsi < 30 else ("OVERBOUGHT" if rsi > 70 else "NEUTRAL")
+                rsi_state = (
+                    "OVERSOLD"
+                    if rsi < 30
+                    else ("OVERBOUGHT" if rsi > 70 else "NEUTRAL")
+                )
                 sig = "BREAKOUT" if bb_width < 0.01 else "RANGING"
 
-                self.mkt_scan_tree.insert("", tk.END, values=(
-                    sym, f"{spread_pips:.1f}", f"{atr:.5f}", f"{rsi_state} ({rsi:.1f})", f"{bb_width*100:.2f}%", sig
-                ))
+                self.mkt_scan_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        sym,
+                        f"{spread_pips:.1f}",
+                        f"{atr:.5f}",
+                        f"{rsi_state} ({rsi:.1f})",
+                        f"{bb_width * 100:.2f}%",
+                        sig,
+                    ),
+                )
 
         # Update Tab 4: Fundamentals
         self.mkt_fund_tree.delete(*self.mkt_fund_tree.get_children())
         funds_rows = [
-            ("EURUSD", "European Currency Union Spot Asset", "---", "0.00%", "---", "SEC_EXEMPT"),
-            ("GBPUSD", "British Sovereign Pound Spot Asset", "---", "0.00%", "---", "SEC_EXEMPT"),
-            ("USDJPY", "Japanese Sovereign Yen Spot Asset", "---", "0.00%", "---", "SEC_EXEMPT"),
-            ("XAUUSD", "Gold Bullion Physical Metal Spot", "14,500.00", "0.00%", "---", "CFTC_REGULATED"),
-            ("BTCUSD", "Bitcoin Decentralized Ledger Spot", "1,250.00", "0.00%", "---", "EXEMPT"),
-            ("SOLUSD", "Solana High-Performance Layer-1 Spot", "65.40", "5.10% (Stake)", "---", "CFTC_REGULATED")
+            (
+                "EURUSD",
+                "European Currency Union Spot Asset",
+                "---",
+                "0.00%",
+                "---",
+                "SEC_EXEMPT",
+            ),
+            (
+                "GBPUSD",
+                "British Sovereign Pound Spot Asset",
+                "---",
+                "0.00%",
+                "---",
+                "SEC_EXEMPT",
+            ),
+            (
+                "USDJPY",
+                "Japanese Sovereign Yen Spot Asset",
+                "---",
+                "0.00%",
+                "---",
+                "SEC_EXEMPT",
+            ),
+            (
+                "XAUUSD",
+                "Gold Bullion Physical Metal Spot",
+                "14,500.00",
+                "0.00%",
+                "---",
+                "CFTC_REGULATED",
+            ),
+            (
+                "BTCUSD",
+                "Bitcoin Decentralized Ledger Spot",
+                "1,250.00",
+                "0.00%",
+                "---",
+                "EXEMPT",
+            ),
+            (
+                "SOLUSD",
+                "Solana High-Performance Layer-1 Spot",
+                "65.40",
+                "5.10% (Stake)",
+                "---",
+                "CFTC_REGULATED",
+            ),
         ]
         for row in funds_rows:
             self.mkt_fund_tree.insert("", tk.END, values=row)
@@ -4824,10 +8514,34 @@ SECURITY DOMAINS ENFORCED:
         # Update Tab 5: Corporate Actions
         self.mkt_corp_tree.delete(*self.mkt_corp_tree.get_children())
         corp_rows = [
-            ("2026-09-15", "SOLUSD", "VALIDATOR_UPGRADE", "V2.1 Hard Fork Mainnet Activation", "HIGH"),
-            ("2026-09-22", "XAUUSD", "CFTC_MARGIN_RESET", "Dynamic contract specifications leverage change", "MEDIUM"),
-            ("2026-10-01", "EURUSD", "ECB_RATE_DECISION", "Eurozone interest rates target publication", "HIGH"),
-            ("2026-10-14", "BTCUSD", "HALVING_ANALYTICS", "Quarterly block mining emission review", "MEDIUM")
+            (
+                "2026-09-15",
+                "SOLUSD",
+                "VALIDATOR_UPGRADE",
+                "V2.1 Hard Fork Mainnet Activation",
+                "HIGH",
+            ),
+            (
+                "2026-09-22",
+                "XAUUSD",
+                "CFTC_MARGIN_RESET",
+                "Dynamic contract specifications leverage change",
+                "MEDIUM",
+            ),
+            (
+                "2026-10-01",
+                "EURUSD",
+                "ECB_RATE_DECISION",
+                "Eurozone interest rates target publication",
+                "HIGH",
+            ),
+            (
+                "2026-10-14",
+                "BTCUSD",
+                "HALVING_ANALYTICS",
+                "Quarterly block mining emission review",
+                "MEDIUM",
+            ),
         ]
         for row in corp_rows:
             self.mkt_corp_tree.insert("", tk.END, values=row)
@@ -4838,10 +8552,34 @@ SECURITY DOMAINS ENFORCED:
             now_utc = datetime.datetime.now(datetime.timezone.utc)
             is_wknd = now_utc.weekday() in [5, 6]
             hrs_rows = [
-                ("Sydney (AEST)", "22:00 - 07:00 UTC", (now_utc + datetime.timedelta(hours=10)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "MODERATE"),
-                ("Tokyo (JST)", "00:00 - 09:00 UTC", (now_utc + datetime.timedelta(hours=9)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "HIGH"),
-                ("London (BST)", "08:00 - 17:00 UTC", (now_utc + datetime.timedelta(hours=1)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "HIGH OVERLAP"),
-                ("New York (EDT)", "13:00 - 22:00 UTC", (now_utc + datetime.timedelta(hours=-4)).strftime("%H:%M %A"), "CLOSED (WEEKEND)" if is_wknd else "ACTIVE", "HIGH OVERLAP"),
+                (
+                    "Sydney (AEST)",
+                    "22:00 - 07:00 UTC",
+                    (now_utc + datetime.timedelta(hours=10)).strftime("%H:%M %A"),
+                    "CLOSED (WEEKEND)" if is_wknd else "ACTIVE",
+                    "MODERATE",
+                ),
+                (
+                    "Tokyo (JST)",
+                    "00:00 - 09:00 UTC",
+                    (now_utc + datetime.timedelta(hours=9)).strftime("%H:%M %A"),
+                    "CLOSED (WEEKEND)" if is_wknd else "ACTIVE",
+                    "HIGH",
+                ),
+                (
+                    "London (BST)",
+                    "08:00 - 17:00 UTC",
+                    (now_utc + datetime.timedelta(hours=1)).strftime("%H:%M %A"),
+                    "CLOSED (WEEKEND)" if is_wknd else "ACTIVE",
+                    "HIGH OVERLAP",
+                ),
+                (
+                    "New York (EDT)",
+                    "13:00 - 22:00 UTC",
+                    (now_utc + datetime.timedelta(hours=-4)).strftime("%H:%M %A"),
+                    "CLOSED (WEEKEND)" if is_wknd else "ACTIVE",
+                    "HIGH OVERLAP",
+                ),
             ]
             for row in hrs_rows:
                 self.mkt_hours_tree.insert("", tk.END, values=row)
@@ -4850,13 +8588,76 @@ SECURITY DOMAINS ENFORCED:
         if hasattr(self, "mkt_corr_tree") and self.mkt_corr_tree:
             self.mkt_corr_tree.delete(*self.mkt_corr_tree.get_children())
             corr_matrix = [
-                ("EURUSD", "+1.00", "+0.88", "-0.72", "+0.78", "-0.65", "-0.92", "+0.70"),
-                ("GBPUSD", "+0.88", "+1.00", "-0.68", "+0.82", "-0.60", "-0.85", "+0.75"),
-                ("USDJPY", "-0.72", "-0.68", "+1.00", "-0.55", "+0.78", "+0.80", "-0.50"),
-                ("AUDUSD", "+0.78", "+0.82", "-0.55", "+1.00", "-0.75", "-0.70", "+0.88"),
-                ("USDCAD", "-0.65", "-0.60", "+0.78", "-0.75", "+1.00", "+0.68", "-0.72"),
-                ("USDCHF", "-0.92", "-0.85", "+0.80", "-0.70", "+0.68", "+1.00", "-0.65"),
-                ("NZDUSD", "+0.70", "+0.75", "-0.50", "+0.88", "-0.72", "-0.65", "+1.00")
+                (
+                    "EURUSD",
+                    "+1.00",
+                    "+0.88",
+                    "-0.72",
+                    "+0.78",
+                    "-0.65",
+                    "-0.92",
+                    "+0.70",
+                ),
+                (
+                    "GBPUSD",
+                    "+0.88",
+                    "+1.00",
+                    "-0.68",
+                    "+0.82",
+                    "-0.60",
+                    "-0.85",
+                    "+0.75",
+                ),
+                (
+                    "USDJPY",
+                    "-0.72",
+                    "-0.68",
+                    "+1.00",
+                    "-0.55",
+                    "+0.78",
+                    "+0.80",
+                    "-0.50",
+                ),
+                (
+                    "AUDUSD",
+                    "+0.78",
+                    "+0.82",
+                    "-0.55",
+                    "+1.00",
+                    "-0.75",
+                    "-0.70",
+                    "+0.88",
+                ),
+                (
+                    "USDCAD",
+                    "-0.65",
+                    "-0.60",
+                    "+0.78",
+                    "-0.75",
+                    "+1.00",
+                    "+0.68",
+                    "-0.72",
+                ),
+                (
+                    "USDCHF",
+                    "-0.92",
+                    "-0.85",
+                    "+0.80",
+                    "-0.70",
+                    "+0.68",
+                    "+1.00",
+                    "-0.65",
+                ),
+                (
+                    "NZDUSD",
+                    "+0.70",
+                    "+0.75",
+                    "-0.50",
+                    "+0.88",
+                    "-0.72",
+                    "-0.65",
+                    "+1.00",
+                ),
             ]
             for row in corr_matrix:
                 self.mkt_corr_tree.insert("", tk.END, values=row)
@@ -4869,7 +8670,7 @@ SECURITY DOMAINS ENFORCED:
                 ("Gold Bullion (XAUUSD)", "$2,032.40", "+0.55%", "SAFE-HAVEN DEMAND"),
                 ("CBOE Volatility Index (VIX)", "13.40", "-3.20%", "RISK-ON (LOW VOL)"),
                 ("Bitcoin Spot (BTCUSD)", "$62,140.00", "+1.38%", "RISK-ON (BULLISH)"),
-                ("AUDJPY Carry Pair", "98.50", "+0.62%", "RISK-ON CARRY DEMAND")
+                ("AUDJPY Carry Pair", "98.50", "+0.62%", "RISK-ON CARRY DEMAND"),
             ]
             for row in roro_rows:
                 self.mkt_roro_tree.insert("", tk.END, values=row)
@@ -4882,7 +8683,7 @@ SECURITY DOMAINS ENFORCED:
                 ("GBPUSD", "100,000", "0.0001", "$10.00 USD", "$1.00 USD", "$0.10 USD"),
                 ("USDJPY", "100,000", "0.01", "$6.67 USD", "$0.67 USD", "$0.07 USD"),
                 ("XAUUSD", "100", "0.10", "$10.00 USD", "$1.00 USD", "$0.10 USD"),
-                ("BTCUSD", "1.0", "1.00", "$1.00 USD", "$0.10 USD", "$0.01 USD")
+                ("BTCUSD", "1.0", "1.00", "$1.00 USD", "$0.10 USD", "$0.01 USD"),
             ]
             for row in pips_rows:
                 self.mkt_pipval_tree.insert("", tk.END, values=row)
@@ -4891,21 +8692,69 @@ SECURITY DOMAINS ENFORCED:
         if hasattr(self, "mkt_reg_tree") and self.mkt_reg_tree:
             self.mkt_reg_tree.delete(*self.mkt_reg_tree.get_children())
             reg_rows = [
-                ("United States", "Commodity Futures Trading Commission / NFA", "CFTC / NFA", "1:50 Majors", "https://www.cftc.gov"),
-                ("United Kingdom", "Financial Conduct Authority", "FCA", "1:30 Retail", "https://www.fca.org.uk"),
-                ("Australia", "Australian Securities and Investments Commission", "ASIC", "1:30 Retail", "https://asic.gov.au"),
-                ("Cyprus / EU", "Cyprus Securities and Exchange Commission", "CySEC", "1:30 ESMA Cap", "https://www.cysec.gov.cy"),
-                ("Switzerland", "Swiss Financial Market Supervisory Authority", "FINMA", "1:100 Banking", "https://www.finma.ch"),
-                ("Japan", "Financial Services Agency Japan", "JFSA", "1:25 Retail", "https://www.fsa.go.jp")
+                (
+                    "United States",
+                    "Commodity Futures Trading Commission / NFA",
+                    "CFTC / NFA",
+                    "1:50 Majors",
+                    "https://www.cftc.gov",
+                ),
+                (
+                    "United Kingdom",
+                    "Financial Conduct Authority",
+                    "FCA",
+                    "1:30 Retail",
+                    "https://www.fca.org.uk",
+                ),
+                (
+                    "Australia",
+                    "Australian Securities and Investments Commission",
+                    "ASIC",
+                    "1:30 Retail",
+                    "https://asic.gov.au",
+                ),
+                (
+                    "Cyprus / EU",
+                    "Cyprus Securities and Exchange Commission",
+                    "CySEC",
+                    "1:30 ESMA Cap",
+                    "https://www.cysec.gov.cy",
+                ),
+                (
+                    "Switzerland",
+                    "Swiss Financial Market Supervisory Authority",
+                    "FINMA",
+                    "1:100 Banking",
+                    "https://www.finma.ch",
+                ),
+                (
+                    "Japan",
+                    "Financial Services Agency Japan",
+                    "JFSA",
+                    "1:25 Retail",
+                    "https://www.fsa.go.jp",
+                ),
             ]
             for row in reg_rows:
                 self.mkt_reg_tree.insert("", tk.END, values=row)
 
     def _show_tradebook_screen(self):
         """TRADEBOOK <GO>: Settled Closed Trades Ledger & Trade Memory Protocol"""
-        lbl_title = tk.Label(self.screen_frame, text="TRADEBOOK: SETTLED CLOSED TRADES REGISTER & REFLECTION PROTOCOL <GO>", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="TRADEBOOK: SETTLED CLOSED TRADES REGISTER & REFLECTION PROTOCOL <GO>",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="IMMUTABLE TRADING LEDGER RECORDING COMPLETED TRANSACTIONS & COGNITIVE TRADE REFLECTIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="IMMUTABLE TRADING LEDGER RECORDING COMPLETED TRANSACTIONS & COGNITIVE TRADE REFLECTIONS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Split Container
@@ -4917,49 +8766,100 @@ SECURITY DOMAINS ENFORCED:
         tree_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
         from tkinter import ttk
+
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Custom.Treeview", background=self.bg_card, foreground=self.fg_light, fieldbackground=self.bg_card, font=("Consolas", 8), rowheight=18)
-        style.configure("Custom.Treeview.Heading", background="#111111", foreground=self.fg_accent, font=("Consolas", 8, "bold"))
+        style.configure(
+            "Custom.Treeview",
+            background=self.bg_card,
+            foreground=self.fg_light,
+            fieldbackground=self.bg_card,
+            font=("Consolas", 8),
+            rowheight=18,
+        )
+        style.configure(
+            "Custom.Treeview.Heading",
+            background="#111111",
+            foreground=self.fg_accent,
+            font=("Consolas", 8, "bold"),
+        )
 
-        cols = ("TICKET", "SYMBOL", "DIR", "LOTS", "OPEN P", "CLOSE P", "PROFIT", "REASON")
-        self.tradebook_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", style="Custom.Treeview")
+        cols = (
+            "TICKET",
+            "SYMBOL",
+            "DIR",
+            "LOTS",
+            "OPEN P",
+            "CLOSE P",
+            "PROFIT",
+            "REASON",
+        )
+        self.tradebook_tree = ttk.Treeview(
+            tree_frame, columns=cols, show="headings", style="Custom.Treeview"
+        )
 
         for c in cols:
             self.tradebook_tree.heading(c, text=c)
             self.tradebook_tree.column(c, width=70, anchor="center")
 
-        scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tradebook_tree.yview)
+        scroll = ttk.Scrollbar(
+            tree_frame, orient=tk.VERTICAL, command=self.tradebook_tree.yview
+        )
         self.tradebook_tree.configure(yscroll=scroll.set)
 
         self.tradebook_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Right Column: Trade Memory & Reflection Logs Panel
-        mem_frame = tk.Frame(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d", width=360)
+        mem_frame = tk.Frame(
+            split_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=10,
+            highlightbackground="#2d2d2d",
+            width=360,
+        )
         mem_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         mem_frame.pack_propagate(False)
 
-        tk.Label(mem_frame, text="TRADE MEMORY & REFLECTION PROTOCOL", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            mem_frame,
+            text="TRADE MEMORY & REFLECTION PROTOCOL",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", pady=(0, 5))
 
-        self.tradebook_mem_text = tk.Text(mem_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), wrap=tk.WORD, bd=0, highlightthickness=0)
+        self.tradebook_mem_text = tk.Text(
+            mem_frame,
+            bg="#050505",
+            fg=self.fg_green,
+            font=("Consolas", 7),
+            wrap=tk.WORD,
+            bd=0,
+            highlightthickness=0,
+        )
         self.tradebook_mem_text.pack(fill=tk.BOTH, expand=True)
 
         self._update_tradebook_screen_data()
 
     def _update_tradebook_screen_data(self):
-        if not hasattr(self, "tradebook_tree") or not self.tradebook_tree: return
+        if not hasattr(self, "tradebook_tree") or not self.tradebook_tree:
+            return
         # Clear previous rows
         for item in self.tradebook_tree.get_children():
             self.tradebook_tree.delete(item)
 
         # Retrieve real data from SQLite database
         import database
+
         trades = database.get_all_trades()
         closed_trades = [t for t in trades if t["status"] == "CLOSED"]
 
         # Insert rows
-        for t in closed_trades[:50]: # Limit to 50 rows for performance
+        for t in closed_trades[:50]:  # Limit to 50 rows for performance
             ticket = t.get("ticket", "-")
             symbol = t.get("symbol", "-")
             direction = t.get("direction", "-")
@@ -4971,21 +8871,41 @@ SECURITY DOMAINS ENFORCED:
 
             profit_str = f"${profit:.2f}" if profit >= 0 else f"-${abs(profit):.2f}"
 
-            self.tradebook_tree.insert("", tk.END, values=(
-                ticket, symbol, direction, f"{lot_size:.2f}", f"{open_price:.5f}", f"{close_price:.5f}", profit_str, reason
-            ))
+            self.tradebook_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    ticket,
+                    symbol,
+                    direction,
+                    f"{lot_size:.2f}",
+                    f"{open_price:.5f}",
+                    f"{close_price:.5f}",
+                    profit_str,
+                    reason,
+                ),
+            )
 
         # Update Trade Memory Reflection Text
         if hasattr(self, "tradebook_mem_text") and self.tradebook_mem_text:
             import institutional_integrations.trade_memory_protocol as tmp
+
             ref_data = tmp.global_trade_memory_protocol.get_summary()
 
             self.tradebook_mem_text.config(state=tk.NORMAL)
             self.tradebook_mem_text.delete("1.0", tk.END)
-            self.tradebook_mem_text.insert(tk.END, f"Total Reflected Trades: {ref_data['total_reflections']}\n")
-            self.tradebook_mem_text.insert(tk.END, f"Reflection Win Rate:    {ref_data['win_rate']}%\n")
-            self.tradebook_mem_text.insert(tk.END, f"Average Efficiency:     {ref_data['avg_efficiency']}%\n")
-            self.tradebook_mem_text.insert(tk.END, "----------------------------------------\n")
+            self.tradebook_mem_text.insert(
+                tk.END, f"Total Reflected Trades: {ref_data['total_reflections']}\n"
+            )
+            self.tradebook_mem_text.insert(
+                tk.END, f"Reflection Win Rate:    {ref_data['win_rate']}%\n"
+            )
+            self.tradebook_mem_text.insert(
+                tk.END, f"Average Efficiency:     {ref_data['avg_efficiency']}%\n"
+            )
+            self.tradebook_mem_text.insert(
+                tk.END, "----------------------------------------\n"
+            )
             self.tradebook_mem_text.insert(tk.END, "RECENT TRADE POST-MORTEMS:\n")
             for note in ref_data["recent_reflections"]:
                 self.tradebook_mem_text.insert(tk.END, note + "\n\n")
@@ -4993,9 +8913,21 @@ SECURITY DOMAINS ENFORCED:
 
     def _show_sentiment_screen(self):
         """DEEP MARKET SENTIMENT <GO>: Deep NLP News Sentiment Analyzer"""
-        lbl_title = tk.Label(self.screen_frame, text="DEEP MARKET SENTIMENT: NATURAL LANGUAGE PROCESSING ENGINE <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="DEEP MARKET SENTIMENT: NATURAL LANGUAGE PROCESSING ENGINE <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="NLP METRIC SCOREBOARD COMPUTED FROM LIVE REQUISITE SENTIMENT EMISSIONS AND CORPORATE SEC FILINGS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="NLP METRIC SCOREBOARD COMPUTED FROM LIVE REQUISITE SENTIMENT EMISSIONS AND CORPORATE SEC FILINGS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Upper frame with overall stats cards
@@ -5003,34 +8935,93 @@ SECURITY DOMAINS ENFORCED:
         stats_frame.pack(fill=tk.X, pady=(0, 10))
 
         # We will create nice labels to update dynamically
-        self.lbl_sent_dir = self._create_sentiment_card(stats_frame, "SENTIMENT DIRECTION", "BULLISH", 0, self.fg_green)
-        self.lbl_sent_score = self._create_sentiment_card(stats_frame, "SENTIMENT SCORE", "+0.45", 1, self.fg_cyan)
-        self.lbl_sent_conf = self._create_sentiment_card(stats_frame, "CONFIDENCE LEVEL", "85.2%", 2, self.fg_accent)
+        self.lbl_sent_dir = self._create_sentiment_card(
+            stats_frame, "SENTIMENT DIRECTION", "BULLISH", 0, self.fg_green
+        )
+        self.lbl_sent_score = self._create_sentiment_card(
+            stats_frame, "SENTIMENT SCORE", "+0.45", 1, self.fg_cyan
+        )
+        self.lbl_sent_conf = self._create_sentiment_card(
+            stats_frame, "CONFIDENCE LEVEL", "85.2%", 2, self.fg_accent
+        )
 
         # Impact vectors panel
-        impact_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", pady=10, padx=15)
+        impact_frame = tk.Frame(
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            pady=10,
+            padx=15,
+        )
         impact_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(impact_frame, text="COGNITIVE IMPACT VECTORS:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_cyan).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
+        tk.Label(
+            impact_frame,
+            text="COGNITIVE IMPACT VECTORS:",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
 
-        self.lbl_entity_impact = tk.Label(impact_frame, text="Entity Impact: FEDERAL RESERVE (HIGH)", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_entity_impact = tk.Label(
+            impact_frame,
+            text="Entity Impact: FEDERAL RESERVE (HIGH)",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_entity_impact.grid(row=1, column=0, sticky="w", padx=10, pady=2)
 
-        self.lbl_symbol_impact = tk.Label(impact_frame, text="Symbol Impact: EURUSD (BULLISH)", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_symbol_impact = tk.Label(
+            impact_frame,
+            text="Symbol Impact: EURUSD (BULLISH)",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_symbol_impact.grid(row=1, column=1, sticky="w", padx=10, pady=2)
 
-        self.lbl_sector_impact = tk.Label(impact_frame, text="Sector Impact: FINANCIALS (BULLISH)", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_sector_impact = tk.Label(
+            impact_frame,
+            text="Sector Impact: FINANCIALS (BULLISH)",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_sector_impact.grid(row=1, column=2, sticky="w", padx=10, pady=2)
 
-        self.lbl_market_impact = tk.Label(impact_frame, text="Market Impact: GLOBAL INDICES (BULLISH)", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light)
+        self.lbl_market_impact = tk.Label(
+            impact_frame,
+            text="Market Impact: GLOBAL INDICES (BULLISH)",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        )
         self.lbl_market_impact.grid(row=1, column=3, sticky="w", padx=10, pady=2)
 
         # Recent parsed stories list
-        lbl_list_title = tk.Label(self.screen_frame, text="RECENT PARSED TEXTUAL EMISSIONS AND NLP SCORES", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_list_title = tk.Label(
+            self.screen_frame,
+            text="RECENT PARSED TEXTUAL EMISSIONS AND NLP SCORES",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_list_title.pack(anchor="w", pady=(5, 5))
 
-        cols = ("TIME", "HEADLINE", "POLARITY", "SUBJECTIVITY", "BERT SCORE", "SENTIMENT LABEL")
-        self.sent_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        cols = (
+            "TIME",
+            "HEADLINE",
+            "POLARITY",
+            "SUBJECTIVITY",
+            "BERT SCORE",
+            "SENTIMENT LABEL",
+        )
+        self.sent_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.sent_tree.heading(col, text=col)
             if col == "HEADLINE":
@@ -5044,19 +9035,38 @@ SECURITY DOMAINS ENFORCED:
         self._update_sentiment_screen_data()
 
     def _create_sentiment_card(self, parent, label_text, val_text, column, val_color):
-        card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        card = tk.Frame(
+            parent,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         card.grid(row=0, column=column, padx=5, pady=5, sticky="ew")
         parent.columnconfigure(column, weight=1)
 
-        lbl = tk.Label(card, text=label_text, font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_grey)
+        lbl = tk.Label(
+            card,
+            text=label_text,
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_grey,
+        )
         lbl.pack(anchor="w", padx=15, pady=(8, 2))
 
-        val = tk.Label(card, text=val_text, font=("Consolas", 12, "bold"), bg=self.bg_card, fg=val_color)
+        val = tk.Label(
+            card,
+            text=val_text,
+            font=("Consolas", 12, "bold"),
+            bg=self.bg_card,
+            fg=val_color,
+        )
         val.pack(anchor="w", padx=15, pady=(0, 8))
         return val
 
     def _update_sentiment_screen_data(self):
-        if not hasattr(self, "sent_tree") or not self.sent_tree: return
+        if not hasattr(self, "sent_tree") or not self.sent_tree:
+            return
         self.sent_tree.delete(*self.sent_tree.get_children())
 
         # Retrieve actual news headlines logged in SQLite
@@ -5064,10 +9074,16 @@ SECURITY DOMAINS ENFORCED:
         from institutional_integrations.natural_language import (
             extract_advanced_nlp_sentiments,
         )
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 15")
+            cursor.execute(
+                "SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 15"
+            )
             rows = cursor.fetchall()
             conn.close()
 
@@ -5075,7 +9091,11 @@ SECURITY DOMAINS ENFORCED:
             sentiment_counts = {"BULLISH": 0, "BEARISH": 0, "NEUTRAL": 0}
 
             for row in rows:
-                time_str = row["timestamp"].split("T")[-1][:8] if "T" in row["timestamp"] else row["timestamp"][:8]
+                time_str = (
+                    row["timestamp"].split("T")[-1][:8]
+                    if "T" in row["timestamp"]
+                    else row["timestamp"][:8]
+                )
                 headline = row["headline"]
 
                 # Perform actual NLP extraction on the real headline dynamically!
@@ -5089,16 +9109,25 @@ SECURITY DOMAINS ENFORCED:
                 total_polarity += pol
                 sentiment_counts[lbl] = sentiment_counts.get(lbl, 0) + 1
 
-                color_tag = "green" if lbl == "BULLISH" else ("red" if lbl == "BEARISH" else "neutral")
+                color_tag = (
+                    "green"
+                    if lbl == "BULLISH"
+                    else ("red" if lbl == "BEARISH" else "neutral")
+                )
 
-                self.sent_tree.insert("", tk.END, values=(
-                    time_str,
-                    headline,
-                    f"{pol:+.4f}",
-                    f"{sub:.4f}",
-                    f"{bert:.4f}",
-                    lbl
-                ), tags=(color_tag,))
+                self.sent_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        time_str,
+                        headline,
+                        f"{pol:+.4f}",
+                        f"{sub:.4f}",
+                        f"{bert:.4f}",
+                        lbl,
+                    ),
+                    tags=(color_tag,),
+                )
 
             self.sent_tree.tag_configure("green", foreground=self.fg_green)
             self.sent_tree.tag_configure("red", foreground=self.fg_red)
@@ -5127,57 +9156,105 @@ SECURITY DOMAINS ENFORCED:
             self.lbl_sent_conf.config(text=f"{conf_pct:.1f}%")
 
             # Update impact texts
-            self.lbl_entity_impact.config(text=f"Entity Impact: FEDERAL RESERVE ({'HIGH' if dir_text != 'NEUTRAL' else 'MEDIUM'})")
-            self.lbl_symbol_impact.config(text=f"Symbol Impact: {self.selected_symbol_gp} ({dir_text})", fg=dir_color)
-            self.lbl_sector_impact.config(text=f"Sector Impact: FINANCIALS ({dir_text})", fg=dir_color)
-            self.lbl_market_impact.config(text=f"Market Impact: GLOBAL INDICES ({dir_text})", fg=dir_color)
+            self.lbl_entity_impact.config(
+                text=f"Entity Impact: FEDERAL RESERVE ({'HIGH' if dir_text != 'NEUTRAL' else 'MEDIUM'})"
+            )
+            self.lbl_symbol_impact.config(
+                text=f"Symbol Impact: {self.selected_symbol_gp} ({dir_text})",
+                fg=dir_color,
+            )
+            self.lbl_sector_impact.config(
+                text=f"Sector Impact: FINANCIALS ({dir_text})", fg=dir_color
+            )
+            self.lbl_market_impact.config(
+                text=f"Market Impact: GLOBAL INDICES ({dir_text})", fg=dir_color
+            )
 
         except Exception as e:
             print(f"Error updating deep sentiment screen data: {e}")
 
     def _show_predictor_screen(self):
         """STOCK MARKET PREDICTOR <GO>: Quantitative Price Prediction Engine"""
-        lbl_title = tk.Label(self.screen_frame, text="STOCK MARKET PREDICTOR: OHLC FORECAST CURVES <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="STOCK MARKET PREDICTOR: OHLC FORECAST CURVES <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="QUANTITATIVE NEXT-CANDLE FORECAST MODELING ENGINE WITH MULTI-MODEL REGRESSION ENSEMBLES", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="QUANTITATIVE NEXT-CANDLE FORECAST MODELING ENGINE WITH MULTI-MODEL REGRESSION ENSEMBLES",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Upper frame with overall stats cards
         stats_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         stats_frame.pack(fill=tk.X, pady=(0, 10))
 
-        self.lbl_pred_prob = self._create_sentiment_card(stats_frame, "DIRECTIONAL PROBABILITY", "50.0% BULLISH", 0, self.fg_green)
-        self.lbl_pred_range = self._create_sentiment_card(stats_frame, "EXPECTED PRICE RANGE", "1.1000 - 1.1020", 1, self.fg_cyan)
-        self.lbl_pred_conf = self._create_sentiment_card(stats_frame, "FORECAST CONFIDENCE", "72.4%", 2, self.fg_accent)
-        self.lbl_pred_unc = self._create_sentiment_card(stats_frame, "MODEL UNCERTAINTY (ATR)", "0.00120", 3, self.fg_red)
+        self.lbl_pred_prob = self._create_sentiment_card(
+            stats_frame, "DIRECTIONAL PROBABILITY", "50.0% BULLISH", 0, self.fg_green
+        )
+        self.lbl_pred_range = self._create_sentiment_card(
+            stats_frame, "EXPECTED PRICE RANGE", "1.1000 - 1.1020", 1, self.fg_cyan
+        )
+        self.lbl_pred_conf = self._create_sentiment_card(
+            stats_frame, "FORECAST CONFIDENCE", "72.4%", 2, self.fg_accent
+        )
+        self.lbl_pred_unc = self._create_sentiment_card(
+            stats_frame, "MODEL UNCERTAINTY (ATR)", "0.00120", 3, self.fg_red
+        )
 
         # Split section
         split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split_frame.pack(fill=tk.BOTH, expand=True)
 
         # Left Canvas: Candlesticks with Forecast Curve
-        self.pred_canvas = tk.Canvas(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.pred_canvas = tk.Canvas(
+            split_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.pred_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
 
         # Right Frame: Model Ensemble Details
-        self.pred_details_frame = tk.Frame(split_frame, bg="#111111", bd=1, relief=tk.SOLID, width=320, highlightbackground="#2d2d2d")
+        self.pred_details_frame = tk.Frame(
+            split_frame,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            width=320,
+            highlightbackground="#2d2d2d",
+        )
         self.pred_details_frame.pack(side=tk.RIGHT, fill=tk.Y)
         self.pred_details_frame.pack_propagate(False)
 
         self._update_predictor_screen_data()
 
     def _update_predictor_screen_data(self):
-        if not hasattr(self, "pred_canvas") or not self.pred_canvas: return
+        if not hasattr(self, "pred_canvas") or not self.pred_canvas:
+            return
         self.pred_canvas.delete("all")
 
         sym = self.selected_symbol_gp
         history = self.scalper.conn.get_history(sym, 20)
-        if not history: return
+        if not history:
+            return
 
         # Get current stats and individual model ensemble values dynamically!
         from institutional_integrations.machine_learning import (
             generate_multi_model_ensemble_prediction,
         )
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         closes = [b["close"] for b in history]
         current_price = closes[-1]
 
@@ -5187,26 +9264,62 @@ SECURITY DOMAINS ENFORCED:
         for widget in self.pred_details_frame.winfo_children():
             widget.destroy()
 
-        lbl_head = tk.Label(self.pred_details_frame, text="MULTI-MODEL ENSEMBLE REGRESSIONS", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_cyan)
+        lbl_head = tk.Label(
+            self.pred_details_frame,
+            text="MULTI-MODEL ENSEMBLE REGRESSIONS",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
+        )
         lbl_head.pack(anchor="w", padx=15, pady=15)
 
         for name, pred_val in predictions.items():
-            lbl_m = tk.Label(self.pred_details_frame, text=f"{name.upper()}:", font=("Consolas", 8), bg="#111111", fg=self.fg_grey)
+            lbl_m = tk.Label(
+                self.pred_details_frame,
+                text=f"{name.upper()}:",
+                font=("Consolas", 8),
+                bg="#111111",
+                fg=self.fg_grey,
+            )
             lbl_m.pack(anchor="w", padx=15, pady=2)
-            lbl_v = tk.Label(self.pred_details_frame, text=f"{pred_val:.5f}" if pred_val < 100 else f"{pred_val:.2f}", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_light)
+            lbl_v = tk.Label(
+                self.pred_details_frame,
+                text=f"{pred_val:.5f}" if pred_val < 100 else f"{pred_val:.2f}",
+                font=("Consolas", 8, "bold"),
+                bg="#111111",
+                fg=self.fg_light,
+            )
             lbl_v.pack(anchor="w", padx=25, pady=(0, 4))
 
-        tk.Frame(self.pred_details_frame, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=10)
-        lbl_ens = tk.Label(self.pred_details_frame, text="INTEGRATED ENSEMBLE MEAN:", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_accent)
+        tk.Frame(self.pred_details_frame, bg="#222222", height=1).pack(
+            fill=tk.X, padx=15, pady=10
+        )
+        lbl_ens = tk.Label(
+            self.pred_details_frame,
+            text="INTEGRATED ENSEMBLE MEAN:",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_accent,
+        )
         lbl_ens.pack(anchor="w", padx=15, pady=2)
-        lbl_ens_val = tk.Label(self.pred_details_frame, text=f"{ensemble_mean:.5f}" if ensemble_mean < 100 else f"{ensemble_mean:.2f}", font=("Consolas", 10, "bold"), bg="#111111", fg=self.fg_green)
+        lbl_ens_val = tk.Label(
+            self.pred_details_frame,
+            text=f"{ensemble_mean:.5f}"
+            if ensemble_mean < 100
+            else f"{ensemble_mean:.2f}",
+            font=("Consolas", 10, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
+        )
         lbl_ens_val.pack(anchor="w", padx=25, pady=(0, 10))
 
         # Canvas drawings
         cw = self.pred_canvas.winfo_width()
         ch = self.pred_canvas.winfo_height()
-        if cw < 10: cw = 400
-        if ch < 10: ch = 150
+        if cw < 10:
+            cw = 400
+        if ch < 10:
+            ch = 150
 
         margin_right = 65
         margin_bottom = 20
@@ -5231,11 +9344,20 @@ SECURITY DOMAINS ENFORCED:
         for i in range(price_steps + 1):
             p_val = min_p + (p_range * i / price_steps)
             y_coord = int(chart_h - (chart_h * i / price_steps))
-            self.pred_canvas.create_line(0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2))
-            self.pred_canvas.create_text(chart_w + 5, y_coord, text=f"{p_val:.5f}" if p_val < 100 else f"{p_val:.2f}", fill=self.fg_grey, anchor="w", font=("Consolas", 7))
+            self.pred_canvas.create_line(
+                0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2)
+            )
+            self.pred_canvas.create_text(
+                chart_w + 5,
+                y_coord,
+                text=f"{p_val:.5f}" if p_val < 100 else f"{p_val:.2f}",
+                fill=self.fg_grey,
+                anchor="w",
+                font=("Consolas", 7),
+            )
 
         # Plot candles
-        spacing = chart_w / (len(history) + 5) # Leave room for 5 forecasted candles
+        spacing = chart_w / (len(history) + 5)  # Leave room for 5 forecasted candles
         candle_w = max(2, int(spacing * 0.6))
 
         points_coords = []
@@ -5254,7 +9376,14 @@ SECURITY DOMAINS ENFORCED:
             # Body
             y1 = min(y_open, y_close)
             y2 = max(y_open, y_close)
-            self.pred_canvas.create_rectangle(cx - int(candle_w/2), y1, cx + int(candle_w/2), y2, fill=color, outline="")
+            self.pred_canvas.create_rectangle(
+                cx - int(candle_w / 2),
+                y1,
+                cx + int(candle_w / 2),
+                y2,
+                fill=color,
+                outline="",
+            )
 
             # Track close coord for forecast start
             points_coords.append((cx, y_close))
@@ -5275,9 +9404,13 @@ SECURITY DOMAINS ENFORCED:
         # Draw forecasted path on canvas
         for m in range(len(forecast_points) - 1):
             x1, y1 = forecast_points[m]
-            x2, y2 = forecast_points[m+1]
-            self.pred_canvas.create_line(x1, y1, x2, y2, fill=self.fg_accent, width=2, dash=(2, 2))
-            self.pred_canvas.create_oval(x2-3, y2-3, x2+3, y2+3, fill=self.fg_cyan, outline="")
+            x2, y2 = forecast_points[m + 1]
+            self.pred_canvas.create_line(
+                x1, y1, x2, y2, fill=self.fg_accent, width=2, dash=(2, 2)
+            )
+            self.pred_canvas.create_oval(
+                x2 - 3, y2 - 3, x2 + 3, y2 + 3, fill=self.fg_cyan, outline=""
+            )
 
         # Update stats cards based on prediction results
         bullish_prob = 50.0 + ((ensemble_mean - current_price) / current_price) * 5000.0
@@ -5288,13 +9421,26 @@ SECURITY DOMAINS ENFORCED:
         self.lbl_pred_prob.config(text=f"{bullish_prob:.1f}% {prob_dir}", fg=prob_color)
 
         import indicators
-        atr_val = indicators.calculate_atr([b["high"] for b in history], [b["low"] for b in history], [b["close"] for b in history], 14) or 0.0010
+
+        atr_val = (
+            indicators.calculate_atr(
+                [b["high"] for b in history],
+                [b["low"] for b in history],
+                [b["close"] for b in history],
+                14,
+            )
+            or 0.0010
+        )
         self.lbl_pred_unc.config(text=f"{atr_val:.5f}")
 
         # Range bounds
         high_b = ensemble_mean + atr_val * 1.5
         low_b = ensemble_mean - atr_val * 1.5
-        self.lbl_pred_range.config(text=f"{low_b:.5f} - {high_b:.5f}" if low_b < 100 else f"{low_b:.2f} - {high_b:.2f}")
+        self.lbl_pred_range.config(
+            text=f"{low_b:.5f} - {high_b:.5f}"
+            if low_b < 100
+            else f"{low_b:.2f} - {high_b:.2f}"
+        )
 
         # Confidence
         confidence_val = 100.0 - (atr_val / current_price) * 50000.0
@@ -5303,47 +9449,141 @@ SECURITY DOMAINS ENFORCED:
 
     def _show_agent_screen(self):
         """AGENT <GO>: AI System Supervisor & Governance Desk"""
-        lbl_title = tk.Label(self.screen_frame, text="AGENT: AI SYSTEM SUPERVISOR & AUTONOMOUS GOVERNANCE DESK <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="AGENT: AI SYSTEM SUPERVISOR & AUTONOMOUS GOVERNANCE DESK <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="MONITORS SYSTEM HEALTH, EXECUTION LATENCY, RECONCILIATION INTEGRITY, AND AUTONOMOUS INTERVENTIONS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="MONITORS SYSTEM HEALTH, EXECUTION LATENCY, RECONCILIATION INTEGRITY, AND AUTONOMOUS INTERVENTIONS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Upper Health Stats Ribbon
         stats_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         stats_frame.pack(fill=tk.X, pady=(0, 10))
 
-        self.lbl_agent_health = self._create_sentiment_card(stats_frame, "COMPOSITE SYSTEM HEALTH", "100.0% [HEALTHY]", 0, self.fg_green)
-        self.lbl_agent_data_h = self._create_sentiment_card(stats_frame, "DATA PLANE HEALTH", "100.0%", 1, self.fg_cyan)
-        self.lbl_agent_exec_h = self._create_sentiment_card(stats_frame, "EXECUTION PLANE HEALTH", "100.0%", 2, self.fg_green)
-        self.lbl_agent_risk_h = self._create_sentiment_card(stats_frame, "RISK PLANE HEALTH", "100.0%", 3, self.fg_accent)
+        self.lbl_agent_health = self._create_sentiment_card(
+            stats_frame, "COMPOSITE SYSTEM HEALTH", "100.0% [HEALTHY]", 0, self.fg_green
+        )
+        self.lbl_agent_data_h = self._create_sentiment_card(
+            stats_frame, "DATA PLANE HEALTH", "100.0%", 1, self.fg_cyan
+        )
+        self.lbl_agent_exec_h = self._create_sentiment_card(
+            stats_frame, "EXECUTION PLANE HEALTH", "100.0%", 2, self.fg_green
+        )
+        self.lbl_agent_risk_h = self._create_sentiment_card(
+            stats_frame, "RISK PLANE HEALTH", "100.0%", 3, self.fg_accent
+        )
 
         # Action controls bar
-        ctrl_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d")
+        ctrl_frame = tk.Frame(
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=8,
+            highlightbackground="#2d2d2d",
+        )
         ctrl_frame.pack(fill=tk.X, pady=(0, 10))
 
-        self.btn_sup_toggle = tk.Button(ctrl_frame, text="🤖 SUPERVISOR: ACTIVE", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._toggle_supervisor_mode)
+        self.btn_sup_toggle = tk.Button(
+            ctrl_frame,
+            text="🤖 SUPERVISOR: ACTIVE",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._toggle_supervisor_mode,
+        )
         self.btn_sup_toggle.pack(side=tk.LEFT, padx=(0, 5))
 
-        tk.Button(ctrl_frame, text="🛡️ FORCE SAFETY AUDIT", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._force_supervisor_audit).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            ctrl_frame,
+            text="🛡️ FORCE SAFETY AUDIT",
+            font=("Consolas", 8, "bold"),
+            bg="#b45309",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._force_supervisor_audit,
+        ).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(ctrl_frame, text="📊 GENERATE AUDIT REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_supervisor_report_dialog).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            ctrl_frame,
+            text="📊 GENERATE AUDIT REPORT",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._generate_supervisor_report_dialog,
+        ).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(ctrl_frame, text="🧠 RUN AGENTIC LOOP", font=("Consolas", 8, "bold"), bg="#7e22ce", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_brain_agentic_loop).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            ctrl_frame,
+            text="🧠 RUN AGENTIC LOOP",
+            font=("Consolas", 8, "bold"),
+            bg="#7e22ce",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._run_brain_agentic_loop,
+        ).pack(side=tk.LEFT, padx=5)
 
-        tk.Button(ctrl_frame, text="⚡ FORCE ORCHESTRATOR INTERVENTION", font=("Consolas", 8, "bold"), bg="#be123c", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._force_orchestrator_intervention).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            ctrl_frame,
+            text="⚡ FORCE ORCHESTRATOR INTERVENTION",
+            font=("Consolas", 8, "bold"),
+            bg="#be123c",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._force_orchestrator_intervention,
+        ).pack(side=tk.LEFT, padx=5)
 
         # Main Split Section
         split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split_frame.pack(fill=tk.BOTH, expand=True)
 
         # Left Column: Active Interventions & Invariants Treeview
-        left_frame = tk.Frame(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d")
+        left_frame = tk.Frame(
+            split_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=10,
+            highlightbackground="#2d2d2d",
+        )
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
-        tk.Label(left_frame, text="ACTIVE SUPERVISORY INTERVENTIONS & SAFETY INVARIANTS", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan).pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            left_frame,
+            text="ACTIVE SUPERVISORY INTERVENTIONS & SAFETY INVARIANTS",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+        ).pack(anchor="w", pady=(0, 5))
 
         cols_i = ("ID", "Plane Domain", "Severity", "Intervention / Audit Action")
-        self.agent_interv_tree = ttk.Treeview(left_frame, columns=cols_i, show="headings", style="Treeview", height=10)
+        self.agent_interv_tree = ttk.Treeview(
+            left_frame, columns=cols_i, show="headings", style="Treeview", height=10
+        )
         for c in cols_i:
             self.agent_interv_tree.heading(c, text=c)
             if c == "Intervention / Audit Action":
@@ -5353,13 +9593,36 @@ SECURITY DOMAINS ENFORCED:
         self.agent_interv_tree.pack(fill=tk.BOTH, expand=True)
 
         # Right Column: Real-Time Supervisory Telemetry Stream Box
-        right_frame = tk.Frame(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d", width=420)
+        right_frame = tk.Frame(
+            split_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=10,
+            highlightbackground="#2d2d2d",
+            width=420,
+        )
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         right_frame.pack_propagate(False)
 
-        tk.Label(right_frame, text="SUPERVISORY TELEMETRY & AUDIT STREAM", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent).pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            right_frame,
+            text="SUPERVISORY TELEMETRY & AUDIT STREAM",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+        ).pack(anchor="w", pady=(0, 5))
 
-        self.agent_tele_text = tk.Text(right_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), wrap=tk.WORD, bd=0, highlightthickness=0)
+        self.agent_tele_text = tk.Text(
+            right_frame,
+            bg="#050505",
+            fg=self.fg_green,
+            font=("Consolas", 7),
+            wrap=tk.WORD,
+            bd=0,
+            highlightthickness=0,
+        )
         self.agent_tele_text.pack(fill=tk.BOTH, expand=True)
 
         self._update_agent_screen_data()
@@ -5370,13 +9633,19 @@ SECURITY DOMAINS ENFORCED:
         mode_str = "ACTIVE" if sup.supervisor_active else "PAUSED"
         btn_bg = "#15803d" if sup.supervisor_active else "#991b1b"
         self.btn_sup_toggle.config(text=f"🤖 SUPERVISOR: {mode_str}", bg=btn_bg)
-        messagebox.showinfo("Supervisor Mode", f"AI Supervisor Agent monitoring mode updated to: {mode_str}")
+        messagebox.showinfo(
+            "Supervisor Mode",
+            f"AI Supervisor Agent monitoring mode updated to: {mode_str}",
+        )
 
     def _force_supervisor_audit(self):
         audit_res = self.scalper.supervisor.run_supervisory_audit(self.scalper)
         score = audit_res["health_score"]
         status = audit_res["status"]
-        messagebox.showinfo("Supervisory Audit Executed", f"AI Supervisor Agent completed real-time audit:\nComposite Health Score: {score}%\nSystem Status: {status}")
+        messagebox.showinfo(
+            "Supervisory Audit Executed",
+            f"AI Supervisor Agent completed real-time audit:\nComposite Health Score: {score}%\nSystem Status: {status}",
+        )
         self._update_agent_screen_data()
 
     def _generate_supervisor_report_dialog(self):
@@ -5387,34 +9656,58 @@ SECURITY DOMAINS ENFORCED:
         rep_win.geometry("700x500")
         rep_win.configure(bg="#000000")
 
-        txt_rep = tk.Text(rep_win, bg="#0d0d0d", fg="#00ff00", font=("Consolas", 9), wrap=tk.WORD, padx=15, pady=15)
+        txt_rep = tk.Text(
+            rep_win,
+            bg="#0d0d0d",
+            fg="#00ff00",
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            padx=15,
+            pady=15,
+        )
         txt_rep.pack(fill=tk.BOTH, expand=True)
         txt_rep.insert(tk.END, report_text)
         txt_rep.config(state=tk.DISABLED)
 
     def _run_brain_agentic_loop(self):
         from brain_agents_orchestrator import global_brain_orchestrator
-        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
+
+        directive = global_brain_orchestrator.run_agentic_loop(
+            self.scalper, symbol=self.selected_symbol_gp
+        )
         messagebox.showinfo(
             "Multi-Agent Brain Loop Executed",
             f"Master Brain Orchestrator Directive Generated for {self.selected_symbol_gp}:\n\n"
             f"• Recommended Bias: {directive.recommended_bias}\n"
             f"• Confidence Score: {directive.confidence_score:.1f}%\n"
             f"• Risk Ceiling Modifier: {directive.risk_ceiling_modifier:.2f}x\n"
-            f"• Max Spread Filter: {directive.execution_instructions.get('max_spread_pips', 3.5):.2f} pips"
+            f"• Max Spread Filter: {directive.execution_instructions.get('max_spread_pips', 3.5):.2f} pips",
         )
         self._update_agent_screen_data()
 
     def _force_orchestrator_intervention(self):
         from brain_agents_orchestrator import global_brain_orchestrator
-        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
-        global_brain_orchestrator.master_interventions.append("FORCE_INTERVENTION: Manual operator intervention triggered.")
+
+        directive = global_brain_orchestrator.run_agentic_loop(
+            self.scalper, symbol=self.selected_symbol_gp
+        )
+        global_brain_orchestrator.master_interventions.append(
+            "FORCE_INTERVENTION: Manual operator intervention triggered."
+        )
         global_brain_orchestrator.last_directive.risk_ceiling_modifier = 0.5
+<<<<<<< Updated upstream
         messagebox.showwarning("Orchestrator Intervention", "Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.")
+=======
+        messagebox.showwarning(
+            "Orchestrator Intervention",
+            f"Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.",
+        )
+>>>>>>> Stashed changes
         self._update_agent_screen_data()
 
     def _update_agent_screen_data(self):
-        if not hasattr(self, "agent_interv_tree") or not self.agent_interv_tree: return
+        if not hasattr(self, "agent_interv_tree") or not self.agent_interv_tree:
+            return
 
         sup = self.scalper.supervisor
         audit_res = sup.run_supervisory_audit(self.scalper)
@@ -5422,7 +9715,11 @@ SECURITY DOMAINS ENFORCED:
         # Update Cards
         score = audit_res["health_score"]
         status = audit_res["status"]
-        score_color = self.fg_green if score >= 80 else (self.fg_accent if score >= 60 else self.fg_red)
+        score_color = (
+            self.fg_green
+            if score >= 80
+            else (self.fg_accent if score >= 60 else self.fg_red)
+        )
 
         self.lbl_agent_health.config(text=f"{score:.1f}% [{status}]", fg=score_color)
         self.lbl_agent_data_h.config(text=f"{audit_res['data_health']:.1f}%")
@@ -5434,11 +9731,22 @@ SECURITY DOMAINS ENFORCED:
         interventions = audit_res["interventions"]
 
         if not interventions:
-            self.agent_interv_tree.insert("", tk.END, values=("INV_OK", "ALL_PLANES", "NOMINAL", "Zero active interventions. All system invariants satisfied."))
+            self.agent_interv_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    "INV_OK",
+                    "ALL_PLANES",
+                    "NOMINAL",
+                    "Zero active interventions. All system invariants satisfied.",
+                ),
+            )
         else:
             for idx, item in enumerate(interventions, 1):
                 sev = "HIGH" if "CRITICAL" in item else "MEDIUM"
-                self.agent_interv_tree.insert("", tk.END, values=(f"INT_{idx:03d}", "CORE_PLANE", sev, item))
+                self.agent_interv_tree.insert(
+                    "", tk.END, values=(f"INT_{idx:03d}", "CORE_PLANE", sev, item)
+                )
 
         # Update Telemetry Stream Text with Brain Orchestrator History
         self.agent_tele_text.config(state=tk.NORMAL)
@@ -5448,29 +9756,75 @@ SECURITY DOMAINS ENFORCED:
             self.agent_tele_text.insert(tk.END, log + "\n")
 
         from brain_agents_orchestrator import global_brain_orchestrator
+
         orch_summary = global_brain_orchestrator.get_status_summary()
-        self.agent_tele_text.insert(tk.END, "\n--- MULTI-AGENT BRAIN ORCHESTRATOR TELEMETRY ---\n")
+        self.agent_tele_text.insert(
+            tk.END, "\n--- MULTI-AGENT BRAIN ORCHESTRATOR TELEMETRY ---\n"
+        )
         for log in orch_summary["telemetry_history"][-5:]:
             self.agent_tele_text.insert(tk.END, log + "\n")
 
         d = orch_summary["last_directive"]
-        self.agent_tele_text.insert(tk.END, f"\nLAST DIRECTIVE: Bias={d.get('recommended_bias')}, Conf={d.get('confidence_score')}%, RiskMod={d.get('risk_ceiling_modifier')}x\n")
+        self.agent_tele_text.insert(
+            tk.END,
+            f"\nLAST DIRECTIVE: Bias={d.get('recommended_bias')}, Conf={d.get('confidence_score')}%, RiskMod={d.get('risk_ceiling_modifier')}x\n",
+        )
         self.agent_tele_text.see(tk.END)
         self.agent_tele_text.config(state=tk.DISABLED)
 
     def _show_ecosystem_screen(self):
         """ECOSYSTEM <GO>: Full System Visualizer & Parallel Multi-Agent Architecture"""
-        lbl_title = tk.Label(self.screen_frame, text="ECOSYSTEM: FULL SYSTEM VISUALIZER & PARALLEL MULTI-AGENT ARCHITECTURE <GO>", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_accent)
+        lbl_title = tk.Label(
+            self.screen_frame,
+            text="ECOSYSTEM: FULL SYSTEM VISUALIZER & PARALLEL MULTI-AGENT ARCHITECTURE <GO>",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+        )
         lbl_title.pack(anchor="w", pady=(0, 2))
-        lbl_info = tk.Label(self.screen_frame, text="DEMONSTRATES LIVE WORK OF ALL 6 CORE BRAIN AGENTS, 4 METHOD BRAIN AGENTS, 10 STRATEGY BRAIN AGENTS, RISK & LOT MECHANISMS, AND PARALLEL EXECUTORS", font=("Consolas", 7), bg=self.bg_dark, fg=self.fg_grey)
+        lbl_info = tk.Label(
+            self.screen_frame,
+            text="DEMONSTRATES LIVE WORK OF ALL 6 CORE BRAIN AGENTS, 4 METHOD BRAIN AGENTS, 10 STRATEGY BRAIN AGENTS, RISK & LOT MECHANISMS, AND PARALLEL EXECUTORS",
+            font=("Consolas", 7),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
+        )
         lbl_info.pack(anchor="w", pady=(0, 10))
 
         # Controls bar
-        ctrl_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d")
+        ctrl_frame = tk.Frame(
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=8,
+            highlightbackground="#2d2d2d",
+        )
         ctrl_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Button(ctrl_frame, text="⚡ RUN PARALLEL AGENT SWEEP", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._run_parallel_agent_sweep).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Button(ctrl_frame, text="📊 GENERATE ECOSYSTEM REPORT", font=("Consolas", 8, "bold"), bg="#1d4ed8", fg="#ffffff", padx=10, pady=4, relief=tk.FLAT, command=self._generate_ecosystem_report).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            ctrl_frame,
+            text="⚡ RUN PARALLEL AGENT SWEEP",
+            font=("Consolas", 8, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._run_parallel_agent_sweep,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(
+            ctrl_frame,
+            text="📊 GENERATE ECOSYSTEM REPORT",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=10,
+            pady=4,
+            relief=tk.FLAT,
+            command=self._generate_ecosystem_report,
+        ).pack(side=tk.LEFT, padx=5)
 
         # Multi-Subtab Notebook for Agents & Brains
         self.eco_notebook = ttk.Notebook(self.screen_frame, style="TNotebook")
@@ -5483,16 +9837,28 @@ SECURITY DOMAINS ENFORCED:
         core_grid = tk.Frame(tab_core, bg=self.bg_dark)
         core_grid.pack(fill=tk.BOTH, expand=True)
 
-        self.lbl_eco_research = self._create_card(core_grid, "1) RESEARCH AGENT", "Active | Sentiment: NEUTRAL", 0)
-        self.lbl_eco_analyst = self._create_card(core_grid, "2) ANALYST AGENT", "Active | Price Action OK", 1)
-        self.lbl_eco_prediction = self._create_card(core_grid, "3) PREDICTION AGENT", "Accuracy: 60.0% | Loss: 0.05", 2)
+        self.lbl_eco_research = self._create_card(
+            core_grid, "1) RESEARCH AGENT", "Active | Sentiment: NEUTRAL", 0
+        )
+        self.lbl_eco_analyst = self._create_card(
+            core_grid, "2) ANALYST AGENT", "Active | Price Action OK", 1
+        )
+        self.lbl_eco_prediction = self._create_card(
+            core_grid, "3) PREDICTION AGENT", "Accuracy: 60.0% | Loss: 0.05", 2
+        )
 
         core_grid2 = tk.Frame(tab_core, bg=self.bg_dark)
         core_grid2.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        self.lbl_eco_strategy = self._create_card(core_grid2, "4) STRATEGY AGENT", "Active | Dynamic Weights", 0)
-        self.lbl_eco_risk = self._create_card(core_grid2, "5) RISK AGENT", "Active | Modifier: 1.0x", 1)
-        self.lbl_eco_execution = self._create_card(core_grid2, "6) EXECUTION AGENT", "Active | Spread Filter OK", 2)
+        self.lbl_eco_strategy = self._create_card(
+            core_grid2, "4) STRATEGY AGENT", "Active | Dynamic Weights", 0
+        )
+        self.lbl_eco_risk = self._create_card(
+            core_grid2, "5) RISK AGENT", "Active | Modifier: 1.0x", 1
+        )
+        self.lbl_eco_execution = self._create_card(
+            core_grid2, "6) EXECUTION AGENT", "Active | Spread Filter OK", 2
+        )
 
         # Subtab 2: Trading Method Agents & Brains (4)
         tab_methods = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
@@ -5501,21 +9867,31 @@ SECURITY DOMAINS ENFORCED:
         m_grid = tk.Frame(tab_methods, bg=self.bg_dark)
         m_grid.pack(fill=tk.BOTH, expand=True)
 
-        self.lbl_eco_m_scalp = self._create_card(m_grid, "SCALPING METHOD", "Score: 85.0 | M1-M5", 0)
-        self.lbl_eco_m_day = self._create_card(m_grid, "DAY TRADING METHOD", "Score: 80.0 | M15-H1", 1)
+        self.lbl_eco_m_scalp = self._create_card(
+            m_grid, "SCALPING METHOD", "Score: 85.0 | M1-M5", 0
+        )
+        self.lbl_eco_m_day = self._create_card(
+            m_grid, "DAY TRADING METHOD", "Score: 80.0 | M15-H1", 1
+        )
 
         m_grid2 = tk.Frame(tab_methods, bg=self.bg_dark)
         m_grid2.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        self.lbl_eco_m_swing = self._create_card(m_grid2, "SWING TRADING METHOD", "Score: 75.0 | H4-D1", 0)
-        self.lbl_eco_m_pos = self._create_card(m_grid2, "POSITION TRADING METHOD", "Score: 70.0 | D1-MN", 1)
+        self.lbl_eco_m_swing = self._create_card(
+            m_grid2, "SWING TRADING METHOD", "Score: 75.0 | H4-D1", 0
+        )
+        self.lbl_eco_m_pos = self._create_card(
+            m_grid2, "POSITION TRADING METHOD", "Score: 70.0 | D1-MN", 1
+        )
 
         # Subtab 3: Trading Strategy Brains (10)
         tab_strats = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
         self.eco_notebook.add(tab_strats, text="Trading Strategy Brains (10)")
 
         cols_s = ("Strategy Name", "Category", "Score", "Status")
-        self.eco_strat_tree = ttk.Treeview(tab_strats, columns=cols_s, show="headings", height=8)
+        self.eco_strat_tree = ttk.Treeview(
+            tab_strats, columns=cols_s, show="headings", height=8
+        )
         for c in cols_s:
             self.eco_strat_tree.heading(c, text=c)
             self.eco_strat_tree.column(c, width=150, anchor="center")
@@ -5528,19 +9904,30 @@ SECURITY DOMAINS ENFORCED:
         mech_grid = tk.Frame(tab_mech, bg=self.bg_dark)
         mech_grid.pack(fill=tk.BOTH, expand=True)
 
-        self.lbl_eco_risk_mech = self._create_card(mech_grid, "RISK ASSESSMENT BRAIN", "Risk Modifier: 1.0x", 0)
-        self.lbl_eco_lot_mech = self._create_card(mech_grid, "LOT MANAGEMENT BRAIN", "Lot Multiplier: 1.0x", 1)
+        self.lbl_eco_risk_mech = self._create_card(
+            mech_grid, "RISK ASSESSMENT BRAIN", "Risk Modifier: 1.0x", 0
+        )
+        self.lbl_eco_lot_mech = self._create_card(
+            mech_grid, "LOT MANAGEMENT BRAIN", "Lot Multiplier: 1.0x", 1
+        )
 
         self._update_ecosystem_screen_data()
 
     def _run_parallel_agent_sweep(self):
         from brain_agents_orchestrator import global_brain_orchestrator
-        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
-        messagebox.showinfo("Parallel Multi-Agent Sweep", f"Completed multi-threaded & multi-processed parallel agent sweep!\nRecommended Style: {directive.recommended_style}\nRecommended Bias: {directive.recommended_bias}\nConfidence Score: {directive.confidence_score:.1f}%")
+
+        directive = global_brain_orchestrator.run_agentic_loop(
+            self.scalper, symbol=self.selected_symbol_gp
+        )
+        messagebox.showinfo(
+            "Parallel Multi-Agent Sweep",
+            f"Completed multi-threaded & multi-processed parallel agent sweep!\nRecommended Style: {directive.recommended_style}\nRecommended Bias: {directive.recommended_bias}\nConfidence Score: {directive.confidence_score:.1f}%",
+        )
         self._update_ecosystem_screen_data()
 
     def _generate_ecosystem_report(self):
         from brain_agents_orchestrator import global_brain_orchestrator
+
         summary = global_brain_orchestrator.get_status_summary()
 
         rep_win = tk.Toplevel(self.root)
@@ -5548,57 +9935,150 @@ SECURITY DOMAINS ENFORCED:
         rep_win.geometry("700x500")
         rep_win.configure(bg="#000000")
 
-        txt = tk.Text(rep_win, bg="#0d0d0d", fg="#00ff00", font=("Consolas", 9), wrap=tk.WORD, padx=15, pady=15)
+        txt = tk.Text(
+            rep_win,
+            bg="#0d0d0d",
+            fg="#00ff00",
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            padx=15,
+            pady=15,
+        )
         txt.pack(fill=tk.BOTH, expand=True)
 
         import json
-        txt.insert(tk.END, "================================================================================\n")
+
+        txt.insert(
+            tk.END,
+            "================================================================================\n",
+        )
         txt.insert(tk.END, "FULL SYSTEM ECOSYSTEM & PARALLEL MULTI-AGENT REPORT\n")
-        txt.insert(tk.END, "================================================================================\n\n")
+        txt.insert(
+            tk.END,
+            "================================================================================\n\n",
+        )
         txt.insert(tk.END, json.dumps(summary, indent=2))
         txt.config(state=tk.DISABLED)
 
     def _update_ecosystem_screen_data(self):
-        if not hasattr(self, "eco_strat_tree") or not self.eco_strat_tree: return
+        if not hasattr(self, "eco_strat_tree") or not self.eco_strat_tree:
+            return
         from brain_agents_orchestrator import global_brain_orchestrator
+
         directive = global_brain_orchestrator.last_directive
 
         # Update Strategy Tree
         self.eco_strat_tree.delete(*self.eco_strat_tree.get_children())
         strats = [
-            ("TREND_FOLLOWING", "Trend / Momentum", directive.strategy_scores.get("TREND_FOLLOWING", 85.0)),
-            ("MEAN_REVERSION", "Mean Reversion", directive.strategy_scores.get("MEAN_REVERSION", 85.0)),
-            ("MACD_MOMENTUM", "Trend / Momentum", directive.strategy_scores.get("MACD_MOMENTUM", 75.0)),
-            ("BREAKOUT", "Volatility / Breakout", directive.strategy_scores.get("BREAKOUT", 80.0)),
-            ("CARRY_TRADE", "Macro / Fundamental", directive.strategy_scores.get("CARRY_TRADE", 60.0)),
-            ("GRID_TRADE", "Quantitative / Grid", directive.strategy_scores.get("GRID_TRADE", 55.0)),
-            ("STAT_ARB", "Quantitative / Arbitrage", directive.strategy_scores.get("STAT_ARB", 70.0)),
-            ("ORB", "Opening Range Breakout", directive.strategy_scores.get("ORB", 65.0)),
-            ("VSA", "Volume Spread Analysis", directive.strategy_scores.get("VSA", 75.0)),
-            ("MTF_CONFLUENCE", "Multi-Timeframe Trend", directive.strategy_scores.get("MTF_CONFLUENCE", 90.0)),
+            (
+                "TREND_FOLLOWING",
+                "Trend / Momentum",
+                directive.strategy_scores.get("TREND_FOLLOWING", 85.0),
+            ),
+            (
+                "MEAN_REVERSION",
+                "Mean Reversion",
+                directive.strategy_scores.get("MEAN_REVERSION", 85.0),
+            ),
+            (
+                "MACD_MOMENTUM",
+                "Trend / Momentum",
+                directive.strategy_scores.get("MACD_MOMENTUM", 75.0),
+            ),
+            (
+                "BREAKOUT",
+                "Volatility / Breakout",
+                directive.strategy_scores.get("BREAKOUT", 80.0),
+            ),
+            (
+                "CARRY_TRADE",
+                "Macro / Fundamental",
+                directive.strategy_scores.get("CARRY_TRADE", 60.0),
+            ),
+            (
+                "GRID_TRADE",
+                "Quantitative / Grid",
+                directive.strategy_scores.get("GRID_TRADE", 55.0),
+            ),
+            (
+                "STAT_ARB",
+                "Quantitative / Arbitrage",
+                directive.strategy_scores.get("STAT_ARB", 70.0),
+            ),
+            (
+                "ORB",
+                "Opening Range Breakout",
+                directive.strategy_scores.get("ORB", 65.0),
+            ),
+            (
+                "VSA",
+                "Volume Spread Analysis",
+                directive.strategy_scores.get("VSA", 75.0),
+            ),
+            (
+                "MTF_CONFLUENCE",
+                "Multi-Timeframe Trend",
+                directive.strategy_scores.get("MTF_CONFLUENCE", 90.0),
+            ),
         ]
         for name, cat, score in strats:
-            st = "🟢 OPTIMAL" if score >= 80 else ("🟡 NOMINAL" if score >= 60 else "🔴 LOW")
-            self.eco_strat_tree.insert("", tk.END, values=(name, cat, f"{score:.1f}", st))
+            st = (
+                "🟢 OPTIMAL"
+                if score >= 80
+                else ("🟡 NOMINAL" if score >= 60 else "🔴 LOW")
+            )
+            self.eco_strat_tree.insert(
+                "", tk.END, values=(name, cat, f"{score:.1f}", st)
+            )
 
     def _show_tzconv_screen(self):
         """TZCONV <GO>: Forex Market Time Zone & Timeline Converter"""
         top_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         top_frame.pack(fill=tk.X, pady=(0, 5))
 
-        lbl_title = tk.Label(top_frame, text="Forex Market Time Zone Converter <GO>", font=("Consolas", 14, "bold"), bg=self.bg_dark, fg="#ffffff")
+        lbl_title = tk.Label(
+            top_frame,
+            text="Forex Market Time Zone Converter <GO>",
+            font=("Consolas", 14, "bold"),
+            bg=self.bg_dark,
+            fg="#ffffff",
+        )
         lbl_title.pack(side=tk.LEFT, anchor="w")
 
         # 24-Hour Format Switch
         self.is_24h_var = tk.BooleanVar(value=True)
-        chk_24h = tk.Checkbutton(top_frame, text="24 Hour Time", variable=self.is_24h_var, font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_accent, selectcolor="#1c1c1c", activebackground=self.bg_dark, command=self._update_tzconv_screen_data)
+        chk_24h = tk.Checkbutton(
+            top_frame,
+            text="24 Hour Time",
+            variable=self.is_24h_var,
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_accent,
+            selectcolor="#1c1c1c",
+            activebackground=self.bg_dark,
+            command=self._update_tzconv_screen_data,
+        )
         chk_24h.pack(side=tk.RIGHT, padx=10)
 
         # Timezone Selection Bar
-        tz_bar = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=8, highlightbackground="#2d2d2d")
+        tz_bar = tk.Frame(
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=8,
+            highlightbackground="#2d2d2d",
+        )
         tz_bar.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(tz_bar, text="TIMEZONE:", font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888").pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(
+            tz_bar,
+            text="TIMEZONE:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg="#888888",
+        ).pack(side=tk.LEFT, padx=(0, 10))
 
         self.tz_var = tk.StringVar(value="Kolkata (GMT +5:30)")
         self.tz_options = [
@@ -5609,10 +10089,22 @@ SECURITY DOMAINS ENFORCED:
             "Tokyo (GMT +9:00 JST)",
             "Sydney (GMT +10:00 AEST)",
             "Frankfurt (GMT +2:00 CEST)",
-            "Singapore (GMT +8:00 SGT)"
+            "Singapore (GMT +8:00 SGT)",
         ]
-        tz_menu = tk.OptionMenu(tz_bar, self.tz_var, *self.tz_options, command=lambda _: self._update_tzconv_screen_data())
-        tz_menu.config(font=("Consolas", 9, "bold"), bg="#6b21a8", fg="#ffffff", activebackground="#7e22ce", relief=tk.FLAT, padx=10)
+        tz_menu = tk.OptionMenu(
+            tz_bar,
+            self.tz_var,
+            *self.tz_options,
+            command=lambda _: self._update_tzconv_screen_data(),
+        )
+        tz_menu.config(
+            font=("Consolas", 9, "bold"),
+            bg="#6b21a8",
+            fg="#ffffff",
+            activebackground="#7e22ce",
+            relief=tk.FLAT,
+            padx=10,
+        )
         tz_menu["menu"].config(bg="#1c1c1c", fg="#ffffff")
         tz_menu.pack(side=tk.LEFT)
 
@@ -5620,32 +10112,73 @@ SECURITY DOMAINS ENFORCED:
         self.badge_pin_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         self.badge_pin_frame.pack(fill=tk.X, pady=(0, 2))
 
-        self.lbl_tz_pin_time = tk.Label(self.badge_pin_frame, text="20:04 Saturday", font=("Consolas", 10, "bold"), bg="#6b21a8", fg="#ffffff", padx=12, pady=4)
+        self.lbl_tz_pin_time = tk.Label(
+            self.badge_pin_frame,
+            text="20:04 Saturday",
+            font=("Consolas", 10, "bold"),
+            bg="#6b21a8",
+            fg="#ffffff",
+            padx=12,
+            pady=4,
+        )
         self.lbl_tz_pin_time.pack(side=tk.RIGHT, padx=80)
 
         # Timeline Canvas (Includes 24h Scale, 4 Session Bars, Vertical Time Pointer Line)
-        self.canvas_tz_timeline = tk.Canvas(self.screen_frame, bg=self.bg_card, height=320, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.canvas_tz_timeline = tk.Canvas(
+            self.screen_frame,
+            bg=self.bg_card,
+            height=320,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+        )
         self.canvas_tz_timeline.pack(fill=tk.X, pady=(0, 10))
 
         # Bottom Volume / Liquidity Curve Panel
-        vol_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d")
+        vol_frame = tk.Frame(
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
+        )
         vol_frame.pack(fill=tk.X)
 
         vol_left = tk.Frame(vol_frame, bg=self.bg_card)
         vol_left.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
 
-        tk.Label(vol_left, text="Trading Volume is usually\nhigh at this time of day.", font=("Consolas", 9, "bold"), bg=self.bg_card, fg=self.fg_light, justify=tk.LEFT).pack(anchor="w", pady=(0, 5))
+        tk.Label(
+            vol_left,
+            text="Trading Volume is usually\nhigh at this time of day.",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_light,
+            justify=tk.LEFT,
+        ).pack(anchor="w", pady=(0, 5))
 
-        self.lbl_vol_level_badge = tk.Label(vol_left, text="● High", font=("Consolas", 9, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3)
+        self.lbl_vol_level_badge = tk.Label(
+            vol_left,
+            text="● High",
+            font=("Consolas", 9, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=3,
+        )
         self.lbl_vol_level_badge.pack(anchor="w")
 
-        self.canvas_tz_vol = tk.Canvas(vol_frame, bg=self.bg_card, height=80, bd=0, highlightthickness=0)
+        self.canvas_tz_vol = tk.Canvas(
+            vol_frame, bg=self.bg_card, height=80, bd=0, highlightthickness=0
+        )
         self.canvas_tz_vol.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         self._update_tzconv_screen_data()
 
     def _update_tzconv_screen_data(self):
-        if not hasattr(self, "canvas_tz_timeline") or not self.canvas_tz_timeline: return
+        if not hasattr(self, "canvas_tz_timeline") or not self.canvas_tz_timeline:
+            return
 
         # Timezone offsets in hours relative to UTC
         tz_offsets = {
@@ -5656,7 +10189,7 @@ SECURITY DOMAINS ENFORCED:
             "Tokyo (GMT +9:00 JST)": 9.0,
             "Sydney (GMT +10:00 AEST)": 10.0,
             "Frankfurt (GMT +2:00 CEST)": 2.0,
-            "Singapore (GMT +8:00 SGT)": 8.0
+            "Singapore (GMT +8:00 SGT)": 8.0,
         }
 
         selected_tz = self.tz_var.get()
@@ -5666,7 +10199,11 @@ SECURITY DOMAINS ENFORCED:
         target_time = now_utc + datetime.timedelta(hours=offset_hours)
 
         is_24h = self.is_24h_var.get()
-        time_str = target_time.strftime("%H:%M") if is_24h else target_time.strftime("%I:%M %p")
+        time_str = (
+            target_time.strftime("%H:%M")
+            if is_24h
+            else target_time.strftime("%I:%M %p")
+        )
         day_str = target_time.strftime("%A")
         full_pin_str = f"🕒 {time_str} {day_str}"
 
@@ -5675,7 +10212,8 @@ SECURITY DOMAINS ENFORCED:
         # Clear Timeline Canvas
         self.canvas_tz_timeline.delete("all")
         w = self.canvas_tz_timeline.winfo_width()
-        if w < 100: w = 850
+        if w < 100:
+            w = 850
         h = 320
 
         left_margin = 220
@@ -5683,20 +10221,66 @@ SECURITY DOMAINS ENFORCED:
         timeline_w = w - left_margin - right_margin
 
         # Draw 24-Hour Scale Header
-        self.canvas_tz_timeline.create_text(left_margin - 30, 20, text="TIMEZONE", fill="#888888", font=("Consolas", 8, "bold"), anchor="e")
+        self.canvas_tz_timeline.create_text(
+            left_margin - 30,
+            20,
+            text="TIMEZONE",
+            fill="#888888",
+            font=("Consolas", 8, "bold"),
+            anchor="e",
+        )
         for hr in range(1, 25):
             x = left_margin + (hr / 24.0) * timeline_w
-            self.canvas_tz_timeline.create_text(x, 20, text=str(hr), fill="#cccccc", font=("Consolas", 8, "bold"), anchor="center")
+            self.canvas_tz_timeline.create_text(
+                x,
+                20,
+                text=str(hr),
+                fill="#cccccc",
+                font=("Consolas", 8, "bold"),
+                anchor="center",
+            )
 
         # Session Definitions (UTC Start, UTC End, Name, Flag, Code, OffsetStr)
         sessions = [
-            {"name": "Sydney", "code": "AEST (UTC +10)", "flag": "🇦🇺", "start_utc": 22.0, "end_utc": 7.0, "color": "#3b82f6", "offset": 10.0},
-            {"name": "Tokyo", "code": "JST (UTC +9)", "flag": "🇯🇵", "start_utc": 0.0, "end_utc": 9.0, "color": "#ec4899", "offset": 9.0},
-            {"name": "London", "code": "BST (UTC +1)", "flag": "🇬🇧", "start_utc": 8.0, "end_utc": 17.0, "color": "#60a5fa", "offset": 1.0},
-            {"name": "New York", "code": "EDT (UTC -4)", "flag": "🇺🇸", "start_utc": 13.0, "end_utc": 22.0, "color": "#4ade80", "offset": -4.0}
+            {
+                "name": "Sydney",
+                "code": "AEST (UTC +10)",
+                "flag": "🇦🇺",
+                "start_utc": 22.0,
+                "end_utc": 7.0,
+                "color": "#3b82f6",
+                "offset": 10.0,
+            },
+            {
+                "name": "Tokyo",
+                "code": "JST (UTC +9)",
+                "flag": "🇯🇵",
+                "start_utc": 0.0,
+                "end_utc": 9.0,
+                "color": "#ec4899",
+                "offset": 9.0,
+            },
+            {
+                "name": "London",
+                "code": "BST (UTC +1)",
+                "flag": "🇬🇧",
+                "start_utc": 8.0,
+                "end_utc": 17.0,
+                "color": "#60a5fa",
+                "offset": 1.0,
+            },
+            {
+                "name": "New York",
+                "code": "EDT (UTC -4)",
+                "flag": "🇺🇸",
+                "start_utc": 13.0,
+                "end_utc": 22.0,
+                "color": "#4ade80",
+                "offset": -4.0,
+            },
         ]
 
-        is_weekend = now_utc.weekday() in [5, 6] # Saturday / Sunday
+        is_weekend = now_utc.weekday() in [5, 6]  # Saturday / Sunday
 
         y_start = 50
         row_height = 65
@@ -5706,16 +10290,48 @@ SECURITY DOMAINS ENFORCED:
 
             # Converted Session Local Time
             sess_time = now_utc + datetime.timedelta(hours=sess["offset"])
-            s_time_str = sess_time.strftime("%H:%M") if is_24h else sess_time.strftime("%I:%M %p")
+            s_time_str = (
+                sess_time.strftime("%H:%M")
+                if is_24h
+                else sess_time.strftime("%I:%M %p")
+            )
             s_date_str = sess_time.strftime("%a %b %d")
 
             # Draw Left Info Label
-            self.canvas_tz_timeline.create_text(20, y + 10, text=f"{sess['flag']}  {sess['name']}", fill="#ffffff", font=("Consolas", 10, "bold"), anchor="w")
-            self.canvas_tz_timeline.create_text(20, y + 26, text=f"{s_time_str}", fill="#00ff00" if not is_weekend else "#ff9900", font=("Consolas", 9, "bold"), anchor="w")
-            self.canvas_tz_timeline.create_text(20, y + 40, text=f"{s_date_str} {sess['code']}", fill="#888888", font=("Consolas", 7), anchor="w")
+            self.canvas_tz_timeline.create_text(
+                20,
+                y + 10,
+                text=f"{sess['flag']}  {sess['name']}",
+                fill="#ffffff",
+                font=("Consolas", 10, "bold"),
+                anchor="w",
+            )
+            self.canvas_tz_timeline.create_text(
+                20,
+                y + 26,
+                text=f"{s_time_str}",
+                fill="#00ff00" if not is_weekend else "#ff9900",
+                font=("Consolas", 9, "bold"),
+                anchor="w",
+            )
+            self.canvas_tz_timeline.create_text(
+                20,
+                y + 40,
+                text=f"{s_date_str} {sess['code']}",
+                fill="#888888",
+                font=("Consolas", 7),
+                anchor="w",
+            )
 
             # Draw Session Background Bar Container
-            self.canvas_tz_timeline.create_rectangle(left_margin, y + 5, w - right_margin, y + 45, fill="#18181b", outline="#262626")
+            self.canvas_tz_timeline.create_rectangle(
+                left_margin,
+                y + 5,
+                w - right_margin,
+                y + 45,
+                fill="#18181b",
+                outline="#262626",
+            )
 
             # Calculate Active Session Bar Coordinates relative to converted timeline scale
             s_start = (sess["start_utc"] + offset_hours) % 24.0
@@ -5726,27 +10342,65 @@ SECURITY DOMAINS ENFORCED:
 
             if is_weekend:
                 status_text = "MARKET CLOSED FOR THE WEEKEND"
-                self.canvas_tz_timeline.create_text(left_margin + 10, y + 12, text=status_text, fill=sess["color"], font=("Consolas", 7, "bold"), anchor="w")
+                self.canvas_tz_timeline.create_text(
+                    left_margin + 10,
+                    y + 12,
+                    text=status_text,
+                    fill=sess["color"],
+                    font=("Consolas", 7, "bold"),
+                    anchor="w",
+                )
 
             if x1 < x2:
-                self.canvas_tz_timeline.create_rectangle(x1, y + 22, x2, y + 40, fill=sess["color"], outline="", stipple="gray50")
+                self.canvas_tz_timeline.create_rectangle(
+                    x1,
+                    y + 22,
+                    x2,
+                    y + 40,
+                    fill=sess["color"],
+                    outline="",
+                    stipple="gray50",
+                )
             else:
                 # Wrap-around midnight
-                self.canvas_tz_timeline.create_rectangle(x1, y + 22, w - right_margin, y + 40, fill=sess["color"], outline="", stipple="gray50")
-                self.canvas_tz_timeline.create_rectangle(left_margin, y + 22, x2, y + 40, fill=sess["color"], outline="", stipple="gray50")
+                self.canvas_tz_timeline.create_rectangle(
+                    x1,
+                    y + 22,
+                    w - right_margin,
+                    y + 40,
+                    fill=sess["color"],
+                    outline="",
+                    stipple="gray50",
+                )
+                self.canvas_tz_timeline.create_rectangle(
+                    left_margin,
+                    y + 22,
+                    x2,
+                    y + 40,
+                    fill=sess["color"],
+                    outline="",
+                    stipple="gray50",
+                )
 
         # Current Time Needle Position
-        current_hour_frac = target_time.hour + target_time.minute / 60.0 + target_time.second / 3600.0
+        current_hour_frac = (
+            target_time.hour + target_time.minute / 60.0 + target_time.second / 3600.0
+        )
         needle_x = left_margin + (current_hour_frac / 24.0) * timeline_w
 
         # Draw Vertical Purple Time Pointer Needle across all sessions
-        self.canvas_tz_timeline.create_line(needle_x, 30, needle_x, h - 10, fill="#a855f7", width=3)
-        self.canvas_tz_timeline.create_oval(needle_x - 5, 25, needle_x + 5, 35, fill="#a855f7", outline="#ffffff")
+        self.canvas_tz_timeline.create_line(
+            needle_x, 30, needle_x, h - 10, fill="#a855f7", width=3
+        )
+        self.canvas_tz_timeline.create_oval(
+            needle_x - 5, 25, needle_x + 5, 35, fill="#a855f7", outline="#ffffff"
+        )
 
         # Render Volume / Liquidity Curve Canvas
         self.canvas_tz_vol.delete("all")
         vw = self.canvas_tz_vol.winfo_width()
-        if vw < 100: vw = 500
+        if vw < 100:
+            vw = 500
         vh = 80
 
         # Sine wave combining London & New York session overlaps
@@ -5754,19 +10408,34 @@ SECURITY DOMAINS ENFORCED:
         for px in range(0, vw, 5):
             hr = (px / vw) * 24.0
             # Peak during London / NY overlap (13:00 - 17:00 UTC)
-            vol_val = 20 + 35 * math.sin(math.pi * (hr - 6) / 12) + 25 * math.sin(math.pi * (hr - 14) / 6)
+            vol_val = (
+                20
+                + 35 * math.sin(math.pi * (hr - 6) / 12)
+                + 25 * math.sin(math.pi * (hr - 14) / 6)
+            )
             vol_val = max(10, min(vh - 10, vh - vol_val))
             vol_points.append((px, vol_val))
 
         for i in range(len(vol_points) - 1):
             p1 = vol_points[i]
-            p2 = vol_points[i+1]
-            self.canvas_tz_vol.create_line(p1[0], p1[1], p2[0], p2[1], fill="#22c55e", width=2)
+            p2 = vol_points[i + 1]
+            self.canvas_tz_vol.create_line(
+                p1[0], p1[1], p2[0], p2[1], fill="#22c55e", width=2
+            )
 
         # Draw Volume Vertical Needle Marker
         v_needle_x = (current_hour_frac / 24.0) * vw
-        self.canvas_tz_vol.create_line(v_needle_x, 0, v_needle_x, vh, fill="#a855f7", width=3)
-        self.canvas_tz_vol.create_oval(v_needle_x - 6, vh / 2 - 6, v_needle_x + 6, vh / 2 + 6, fill="#22c55e", outline="#ffffff")
+        self.canvas_tz_vol.create_line(
+            v_needle_x, 0, v_needle_x, vh, fill="#a855f7", width=3
+        )
+        self.canvas_tz_vol.create_oval(
+            v_needle_x - 6,
+            vh / 2 - 6,
+            v_needle_x + 6,
+            vh / 2 + 6,
+            fill="#22c55e",
+            outline="#ffffff",
+        )
 
         # Volume level badge text update
         current_utc_hr = now_utc.hour + now_utc.minute / 60.0
@@ -5833,16 +10502,24 @@ SECURITY DOMAINS ENFORCED:
 
     def manual_override_close_all(self):
         """Manual override control to liquidate all running active positions immediately."""
-        if not messagebox.askyesno("Manual Override Confirmation", "Are you sure you want to liquidate ALL open positions immediately?"):
+        if not messagebox.askyesno(
+            "Manual Override Confirmation",
+            "Are you sure you want to liquidate ALL open positions immediately?",
+        ):
             return
         try:
             active_positions = self.scalper.conn.get_open_orders()
             closed_count = 0
             for pos in active_positions:
-                res = self.scalper.conn.close_order(pos['ticket'], reason="MANUAL_OVERRIDE_CLOSE_ALL")
-                if res and res.get('success'):
+                res = self.scalper.conn.close_order(
+                    pos["ticket"], reason="MANUAL_OVERRIDE_CLOSE_ALL"
+                )
+                if res and res.get("success"):
                     closed_count += 1
-            messagebox.showinfo("Manual Override Executed", f"Liquidated {closed_count} open positions across symbols.")
+            messagebox.showinfo(
+                "Manual Override Executed",
+                f"Liquidated {closed_count} open positions across symbols.",
+            )
             self.update_gui_loop()
         except Exception as e:
             messagebox.showerror("Override Error", f"Error closing positions: {e}")
@@ -5852,14 +10529,23 @@ SECURITY DOMAINS ENFORCED:
         curr_state = self.scalper.engine.resilience.current_state
         if curr_state != "DEFENSIVE":
             self.scalper.engine.resilience.transition_state("DEFENSIVE")
-            messagebox.showwarning("Manual Override Engaged", "System state transitioned to DEFENSIVE. Trade admissions paused.")
+            messagebox.showwarning(
+                "Manual Override Engaged",
+                "System state transitioned to DEFENSIVE. Trade admissions paused.",
+            )
         else:
             self.scalper.engine.resilience.transition_state("NORMAL")
-            messagebox.showinfo("Manual Override Cleared", "System state restored to NORMAL. Trade admissions resumed.")
+            messagebox.showinfo(
+                "Manual Override Cleared",
+                "System state restored to NORMAL. Trade admissions resumed.",
+            )
 
     def manual_override_panic_lockdown(self):
         """Emergency Panic Lockdown: liquidates positions, freezes admissions, and pauses trading."""
-        if not messagebox.askyesno("⚠️ EMERGENCY PANIC LOCKDOWN", "ARE YOU ABSOLUTELY SURE YOU WANT TO ENGAGE PANIC LOCKDOWN?\n\nThis will immediately:\n1. Liquidate ALL open orders across symbols.\n2. Freeze new order admissions.\n3. Transition System Safety State to DEFENSIVE.\n4. Stop the autonomous trading loop."):
+        if not messagebox.askyesno(
+            "⚠️ EMERGENCY PANIC LOCKDOWN",
+            "ARE YOU ABSOLUTELY SURE YOU WANT TO ENGAGE PANIC LOCKDOWN?\n\nThis will immediately:\n1. Liquidate ALL open orders across symbols.\n2. Freeze new order admissions.\n3. Transition System Safety State to DEFENSIVE.\n4. Stop the autonomous trading loop.",
+        ):
             return
 
         try:
@@ -5867,13 +10553,18 @@ SECURITY DOMAINS ENFORCED:
             active_positions = self.scalper.conn.get_open_orders()
             closed_count = 0
             for pos in active_positions:
-                res = self.scalper.conn.close_order(pos['ticket'], reason="EMERGENCY_PANIC_LOCKDOWN")
-                if res and res.get('success'):
+                res = self.scalper.conn.close_order(
+                    pos["ticket"], reason="EMERGENCY_PANIC_LOCKDOWN"
+                )
+                if res and res.get("success"):
                     closed_count += 1
             self.scalper.engine.resilience.transition_state("DEFENSIVE")
             self.running = False
             self.lbl_clock.config(text="🔒 PANIC LOCKDOWN ENGAGED")
-            messagebox.showwarning("Lockdown Complete", f"Panic Lockdown executed successfully!\n- Liquidated positions: {closed_count}\n- Safety State: DEFENSIVE\n- Trading Loop: PAUSED")
+            messagebox.showwarning(
+                "Lockdown Complete",
+                f"Panic Lockdown executed successfully!\n- Liquidated positions: {closed_count}\n- Safety State: DEFENSIVE\n- Trading Loop: PAUSED",
+            )
             self.update_gui_loop()
         except Exception as e:
             messagebox.showerror("Lockdown Error", f"Error during Panic Lockdown: {e}")
@@ -5881,35 +10572,50 @@ SECURITY DOMAINS ENFORCED:
     def manual_override_reset_engines(self):
         """Hard reset of trading brain engines, indicators, and supervisory health audit."""
         try:
-            print("🔄 HARD RESET ENGINES: Re-initializing indicators, resetting buffers, and auditing supervisor...")
+            print(
+                "🔄 HARD RESET ENGINES: Re-initializing indicators, resetting buffers, and auditing supervisor..."
+            )
             self.scalper.brain = ScalperBrain()
             from supervisor_agent import global_supervisor_agent
+
             audit_report = global_supervisor_agent.run_supervisory_audit(self.scalper)
-            messagebox.showinfo("Engines Reset", f"Trading engines re-initialized successfully!\nSupervisor Audit Status: {audit_report.get('status', 'OK')}\nOverall System Health: {audit_report.get('overall_health', 100):.1f}%")
+            messagebox.showinfo(
+                "Engines Reset",
+                f"Trading engines re-initialized successfully!\nSupervisor Audit Status: {audit_report.get('status', 'OK')}\nOverall System Health: {audit_report.get('overall_health', 100):.1f}%",
+            )
             self.update_gui_loop()
         except Exception as e:
             messagebox.showerror("Reset Error", f"Error resetting engines: {e}")
 
     def exit_system(self):
         """Shuts down all background threads, stops the bot, disconnects feeds, and exits the application."""
-        if messagebox.askyesno("Exit Confirmation", "Are you sure you want to stop all services and exit the Elite Quantum Autonomous Trading System?"):
+        if messagebox.askyesno(
+            "Exit Confirmation",
+            "Are you sure you want to stop all services and exit the Elite Quantum Autonomous Trading System?",
+        ):
             try:
-                print("🛑 SYSTEM EXIT TRIGGERED: Stopping autonomous services and terminating application...")
+                print(
+                    "🛑 SYSTEM EXIT TRIGGERED: Stopping autonomous services and terminating application..."
+                )
                 self.running = False
                 if self.scalper:
                     self.scalper.stop()
                 import sys
+
                 self.root.destroy()
                 sys.exit(0)
             except Exception as e:
                 print(f"Error during system exit: {e}")
                 import sys
+
                 sys.exit(0)
 
     def on_strategy_change(self, selected_strat):
         """Fires when the user updates the strategy dropdown choice"""
         config.ACTIVE_STRATEGY = selected_strat
-        print(f"🔄 GUI STRATEGY SWITCH: Active Trading Strategy updated to: {selected_strat}")
+        print(
+            f"🔄 GUI STRATEGY SWITCH: Active Trading Strategy updated to: {selected_strat}"
+        )
 
     def on_style_change(self, selected_style):
         """Fires when the user updates the trading style dropdown choice"""
@@ -5919,11 +10625,18 @@ SECURITY DOMAINS ENFORCED:
     def toggle_mode(self):
         """Switches between MT5 Windows live and paper trading simulation"""
         config.SIMULATION_MODE = not config.SIMULATION_MODE
-        self.badge_text.set("SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED")
+        self.badge_text.set(
+            "SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED"
+        )
         self.badge_label.config(bg="#b45309" if config.SIMULATION_MODE else "#15803d")
-        self.mode_text.set("SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR")
+        self.mode_text.set(
+            "SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR"
+        )
 
-        messagebox.showinfo("Mode Toggled", f"Successfully switched trading backend to: {'Simulation Paper Trading' if config.SIMULATION_MODE else 'MT5 Windows Native'}")
+        messagebox.showinfo(
+            "Mode Toggled",
+            f"Successfully switched trading backend to: {'Simulation Paper Trading' if config.SIMULATION_MODE else 'MT5 Windows Native'}",
+        )
 
     # ----------------------------------------------------
     # REFRESH MATRIX DYNAMICALLY ON EVERY LOOP TICK
@@ -5939,17 +10652,21 @@ SECURITY DOMAINS ENFORCED:
                 self.card_equity.config(text=f"${info['equity']:,.2f} USD")
 
                 active_positions = self.scalper.conn.get_open_orders()
-                self.card_active.config(text=f"{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}")
+                self.card_active.config(
+                    text=f"{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}"
+                )
 
                 # Fetch all-time performance metrics
                 perf = database.get_all_time_performance()
-                self.card_perf.config(text=f"Win Rate: {perf['win_rate']}% | Net: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)")
+                self.card_perf.config(
+                    text=f"Win Rate: {perf['win_rate']}% | Net: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)"
+                )
 
                 # Fetch active trading session and timeline countdown details
                 timeline = self.scalper._get_sessions_timeline()
-                self.lbl_act_val.config(text=timeline['active'])
-                self.lbl_cls_val.config(text=timeline['previous'])
-                self.lbl_upc_val.config(text=timeline['next_session'])
+                self.lbl_act_val.config(text=timeline["active"])
+                self.lbl_cls_val.config(text=timeline["previous"])
+                self.lbl_upc_val.config(text=timeline["next_session"])
 
                 session_str = f"{timeline['active'].split('|')[0]} (Tracker Active)"
                 self.card_session.config(text=session_str)
@@ -6016,7 +10733,9 @@ SECURITY DOMAINS ENFORCED:
                 elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
                     self._update_tzconv_screen_data()
 
-                self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
+                self.lbl_clock.config(
+                    text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}"
+                )
         except Exception as e:
             print(f"Error updating GUI fields: {e}")
 
@@ -6047,14 +10766,14 @@ SECURITY DOMAINS ENFORCED:
         conn.close()
 
         # Get active open positions symbols
-        active_symbols = {p['symbol'].upper(): p for p in active_positions}
+        active_symbols = {p["symbol"].upper(): p for p in active_positions}
 
         for row in rows:
-            sym = row['symbol']
-            trend = row['trend_direction']
-            rsi = f"{row['rsi_val']:.2f}" if row['rsi_val'] is not None else "-"
-            atr = f"{row['atr_val']:.5f}" if row['atr_val'] is not None else "-"
-            status = row['explanation']
+            sym = row["symbol"]
+            trend = row["trend_direction"]
+            rsi = f"{row['rsi_val']:.2f}" if row["rsi_val"] is not None else "-"
+            atr = f"{row['atr_val']:.5f}" if row["atr_val"] is not None else "-"
+            status = row["explanation"]
 
             # Override status text if position is actively open
             if sym in active_symbols:
@@ -6063,10 +10782,12 @@ SECURITY DOMAINS ENFORCED:
 
             # Lookup actual live tick price if available
             price_info = self.scalper.conn.get_current_price(sym)
-            price = f"{price_info['ask']:.5f}" if price_info['ask'] > 0 else "-"
+            price = f"{price_info['ask']:.5f}" if price_info["ask"] > 0 else "-"
 
             # Insert row
-            self.tree.insert("", tk.END, values=(sym, price, "-", trend, rsi, atr, status))
+            self.tree.insert(
+                "", tk.END, values=(sym, price, "-", trend, rsi, atr, status)
+            )
 
         # Update Live Active Trades Treeview (Right Column) & calculate Floating P&L
         if hasattr(self, "trades_tree") and self.trades_tree:
@@ -6074,14 +10795,16 @@ SECURITY DOMAINS ENFORCED:
             total_floating_pnl = 0.0
 
             for pos in active_positions:
-                ticket = pos.get('ticket', '0')
-                sym = pos.get('symbol', 'UNKNOWN')
-                direction = pos.get('direction', 'BUY')
-                lots = pos.get('lot_size', 0.01)
-                open_p = pos.get('open_price', 0.0)
+                ticket = pos.get("ticket", "0")
+                sym = pos.get("symbol", "UNKNOWN")
+                direction = pos.get("direction", "BUY")
+                lots = pos.get("lot_size", 0.01)
+                open_p = pos.get("open_price", 0.0)
 
                 price_info = self.scalper.conn.get_current_price(sym)
-                current_p = price_info['bid'] if direction == "BUY" else price_info['ask']
+                current_p = (
+                    price_info["bid"] if direction == "BUY" else price_info["ask"]
+                )
 
                 # Compute multiplier
                 sym_up = sym.upper()
@@ -6095,20 +10818,27 @@ SECURITY DOMAINS ENFORCED:
                 elif "JPY" in sym_up:
                     multiplier = 1000.0
 
-                p_diff = current_p - open_p if direction == "BUY" else open_p - current_p
+                p_diff = (
+                    current_p - open_p if direction == "BUY" else open_p - current_p
+                )
                 profit = p_diff * lots * multiplier
                 total_floating_pnl += profit
 
                 tag_color = "green" if profit >= 0 else "red"
-                self.trades_tree.insert("", tk.END, values=(
-                    ticket,
-                    sym,
-                    direction,
-                    f"{lots:.2f}",
-                    f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
-                    f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
-                    f"{profit:+.2f}"
-                ), tags=(tag_color,))
+                self.trades_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        ticket,
+                        sym,
+                        direction,
+                        f"{lots:.2f}",
+                        f"{open_p:.5f}" if open_p < 10 else f"{open_p:,.2f}",
+                        f"{current_p:.5f}" if current_p < 10 else f"{current_p:,.2f}",
+                        f"{profit:+.2f}",
+                    ),
+                    tags=(tag_color,),
+                )
 
             self.trades_tree.tag_configure("green", foreground=self.fg_green)
             self.trades_tree.tag_configure("red", foreground=self.fg_red)
@@ -6116,7 +10846,9 @@ SECURITY DOMAINS ENFORCED:
             # Update floating PnL stats card dynamically
             pnl_color = self.fg_green if total_floating_pnl >= 0 else self.fg_red
             pnl_sign = "+" if total_floating_pnl >= 0 else ""
-            self.card_pnl.config(text=f"{pnl_sign}${total_floating_pnl:,.2f} USD", fg=pnl_color)
+            self.card_pnl.config(
+                text=f"{pnl_sign}${total_floating_pnl:,.2f} USD", fg=pnl_color
+            )
 
     def _update_gp_screen_data(self):
         """Updates and draws visual price lines and candle properties for the selected symbol on the Canvas"""
@@ -6127,10 +10859,12 @@ SECURITY DOMAINS ENFORCED:
         price_info = self.scalper.conn.get_current_price(sym)
         ask = price_info["ask"]
         bid = price_info["bid"]
-        spread_val = (ask - bid) * (10000.0 if "JPY" not in sym else 100.0) if ask > 0 else 0.0
+        spread_val = (
+            (ask - bid) * (10000.0 if "JPY" not in sym else 100.0) if ask > 0 else 0.0
+        )
 
         if ask <= 0:
-            return # No feed active yet
+            return  # No feed active yet
 
         # Update historical price collection
         self.price_history_gp.append(ask)
@@ -6149,7 +10883,9 @@ SECURITY DOMAINS ENFORCED:
         grid_step = canvas_height // 5
         for i in range(1, 5):
             y_coord = i * grid_step
-            self.chart_canvas.create_line(0, y_coord, canvas_width, y_coord, fill="#1c1c1c", dash=(2, 2))
+            self.chart_canvas.create_line(
+                0, y_coord, canvas_width, y_coord, fill="#1c1c1c", dash=(2, 2)
+            )
 
         # Render price line
         pts = len(self.price_history_gp)
@@ -6164,26 +10900,39 @@ SECURITY DOMAINS ENFORCED:
             for idx, price in enumerate(self.price_history_gp):
                 x = idx * x_step
                 # Normalize price to Y coordinate
-                y = canvas_height - 30 - ((price - min_p) / p_range) * (canvas_height - 60)
+                y = (
+                    canvas_height
+                    - 30
+                    - ((price - min_p) / p_range) * (canvas_height - 60)
+                )
                 points_coords.append((x, y))
 
             # Draw smooth line segments
             for j in range(len(points_coords) - 1):
                 x1, y1 = points_coords[j]
-                x2, y2 = points_coords[j+1]
+                x2, y2 = points_coords[j + 1]
                 # Highlighting dynamic movement color
-                stroke_color = self.fg_green if self.price_history_gp[-1] >= self.price_history_gp[-2] else self.fg_red
-                self.chart_canvas.create_line(x1, y1, x2, y2, fill=stroke_color, width=2)
+                stroke_color = (
+                    self.fg_green
+                    if self.price_history_gp[-1] >= self.price_history_gp[-2]
+                    else self.fg_red
+                )
+                self.chart_canvas.create_line(
+                    x1, y1, x2, y2, fill=stroke_color, width=2
+                )
 
         # Fetch indicator info from DB if exists
         conn = database.get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT trend_direction, rsi_val, atr_val, explanation
             FROM assessments
             WHERE symbol = ?
             ORDER BY timestamp DESC LIMIT 1
-        """, (sym,))
+        """,
+            (sym,),
+        )
         row = cursor.fetchone()
         conn.close()
 
@@ -6194,9 +10943,14 @@ SECURITY DOMAINS ENFORCED:
         # Update details cards
         self.lbl_gp_quote.config(
             text=f"{sym} {ask:.5f}",
-            fg=self.fg_green if len(self.price_history_gp) < 2 or self.price_history_gp[-1] >= self.price_history_gp[-2] else self.fg_red
+            fg=self.fg_green
+            if len(self.price_history_gp) < 2
+            or self.price_history_gp[-1] >= self.price_history_gp[-2]
+            else self.fg_red,
         )
-        self.lbl_gp_hl.config(text=f"H/L: {max(self.price_history_gp):.5f} / {min(self.price_history_gp):.5f}")
+        self.lbl_gp_hl.config(
+            text=f"H/L: {max(self.price_history_gp):.5f} / {min(self.price_history_gp):.5f}"
+        )
         self.lbl_gp_spread.config(text=f"Spread: {spread_val:.1f} pips")
         self.lbl_gp_ema.config(text=f"EMA-200 Direction: {trend}")
         self.lbl_gp_rsi.config(text=f"RSI-14 Level: {rsi}")
@@ -6206,7 +10960,7 @@ SECURITY DOMAINS ENFORCED:
         pivot_val = bid
         self.lbl_gp_pivots.config(
             text=f"R1: {pivot_val + 0.0015:.5f}\nPivot: {pivot_val:.5f}\nS1: {pivot_val - 0.0015:.5f}",
-            fg=self.fg_cyan
+            fg=self.fg_cyan,
         )
 
     def _update_wei_screen_data(self):
@@ -6236,6 +10990,7 @@ SECURITY DOMAINS ENFORCED:
         for symbol, name in macro_assets:
             try:
                 price_info = self.scalper.conn.get_current_price(symbol)
+<<<<<<< Updated upstream
                 last_price = price_info.get("bid", 0.0)
 
                 # Fallback to external rates if connector price is uninitialized
@@ -6259,6 +11014,31 @@ SECURITY DOMAINS ENFORCED:
                     ), tags=(color_tag,))
             except Exception as e:
                 _log.debug("WEI screen update error for %s: %s", symbol, e)
+=======
+                last_price = price_info["bid"]
+                # Compute daily change relative to a simulated previous close
+                change = price_info["bid"] - price_info["ask"]  # actual spread
+                pct = (change / last_price) * 100.0 if last_price > 0 else 0.0
+
+                color_tag = "green" if change >= 0 else "red"
+                self.wei_tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        symbol,
+                        f"{symbol} Major FX",
+                        f"{last_price:,.5f}"
+                        if last_price < 100
+                        else f"{last_price:,.2f}",
+                        f"{change:+.5f}" if last_price < 100 else f"{change:+.2f}",
+                        f"{pct:+.4f}%",
+                        "OPEN",
+                    ),
+                    tags=(color_tag,),
+                )
+            except Exception:
+                pass
+>>>>>>> Stashed changes
 
         self.wei_tree.tag_configure("green", foreground=self.fg_green)
         self.wei_tree.tag_configure("red", foreground=self.fg_red)
@@ -6272,33 +11052,57 @@ SECURITY DOMAINS ENFORCED:
 
         # Retrieve actual news headlines logged in SQLite
         import database
+
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
+            cursor.execute(
+                "SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30"
+            )
             rows = cursor.fetchall()
             conn.close()
 
             # If database is empty, seed some initial news headlines dynamically so there are zero stubs
             if not rows:
                 initial_headlines = [
-                    ("US Core CPI MoM Comes In At 0.2% aligned with forecasts", "NEUTRAL"),
-                    ("FOMC Meeting Minutes hint at cautious approach to interest rate cuts", "BEARISH"),
-                    ("ECB rate cut speculation intensifies after eurozone economic activity data", "BULLISH"),
-                    ("Geopolitical risk spikes in Middle East boosting safe haven metals flows", "BULLISH"),
-                    ("Bitcoin breaks recent range consolidation as ETF spot net inflows mount", "BULLISH")
+                    (
+                        "US Core CPI MoM Comes In At 0.2% aligned with forecasts",
+                        "NEUTRAL",
+                    ),
+                    (
+                        "FOMC Meeting Minutes hint at cautious approach to interest rate cuts",
+                        "BEARISH",
+                    ),
+                    (
+                        "ECB rate cut speculation intensifies after eurozone economic activity data",
+                        "BULLISH",
+                    ),
+                    (
+                        "Geopolitical risk spikes in Middle East boosting safe haven metals flows",
+                        "BULLISH",
+                    ),
+                    (
+                        "Bitcoin breaks recent range consolidation as ETF spot net inflows mount",
+                        "BULLISH",
+                    ),
                 ]
                 for h, s in initial_headlines:
                     database.log_news_headline(h, s)
                 # Query again
                 conn = database.get_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
+                cursor.execute(
+                    "SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30"
+                )
                 rows = cursor.fetchall()
                 conn.close()
 
             for row in rows:
-                time_str = row["timestamp"].split("T")[-1][:8] if "T" in row["timestamp"] else row["timestamp"][:8]
+                time_str = (
+                    row["timestamp"].split("T")[-1][:8]
+                    if "T" in row["timestamp"]
+                    else row["timestamp"][:8]
+                )
                 sentiment = row["sentiment"]
                 sentiment_tag = "neutral"
                 if sentiment == "BULLISH":
@@ -6306,12 +11110,12 @@ SECURITY DOMAINS ENFORCED:
                 elif sentiment == "BEARISH":
                     sentiment_tag = "red"
 
-                self.news_tree.insert("", tk.END, values=(
-                    time_str,
-                    "SYS",
-                    row["headline"],
-                    f"[{sentiment}]"
-                ), tags=(sentiment_tag,))
+                self.news_tree.insert(
+                    "",
+                    tk.END,
+                    values=(time_str, "SYS", row["headline"], f"[{sentiment}]"),
+                    tags=(sentiment_tag,),
+                )
         except Exception as e:
             print(f"Error querying news database: {e}")
 
@@ -6336,6 +11140,7 @@ SECURITY DOMAINS ENFORCED:
                     closes = [bar["close"] for bar in history]
                     # Simple moving average and RSI
                     import indicators
+
                     rsi_val = indicators.calculate_rsi(closes, 14) or 50.0
                     ema200 = indicators.calculate_ema(closes, 200) or closes[-1]
                     price = closes[-1]
@@ -6343,10 +11148,14 @@ SECURITY DOMAINS ENFORCED:
                     # Consolidate buy/sell indicators
                     buy_votes = 0
                     sell_votes = 0
-                    if price > ema200: buy_votes += 1
-                    else: sell_votes += 1
-                    if rsi_val < 40: buy_votes += 1
-                    elif rsi_val > 60: sell_votes += 1
+                    if price > ema200:
+                        buy_votes += 1
+                    else:
+                        sell_votes += 1
+                    if rsi_val < 40:
+                        buy_votes += 1
+                    elif rsi_val > 60:
+                        sell_votes += 1
 
                     # Deduce consensus
                     if buy_votes > sell_votes:
@@ -6360,8 +11169,17 @@ SECURITY DOMAINS ENFORCED:
                         buy_pct, hold_pct, sell_pct = "30%", "40%", "30%"
 
                     price_str = f"{price:.5f}" if price < 100 else f"{price:.2f}"
-                    color_tag = "green" if rec == "BUY" else ("red" if rec == "SELL" else "yellow")
-                    self.anr_tree.insert("", tk.END, values=(symbol, rec, buy_pct, hold_pct, sell_pct, price_str), tags=(color_tag,))
+                    color_tag = (
+                        "green"
+                        if rec == "BUY"
+                        else ("red" if rec == "SELL" else "yellow")
+                    )
+                    self.anr_tree.insert(
+                        "",
+                        tk.END,
+                        values=(symbol, rec, buy_pct, hold_pct, sell_pct, price_str),
+                        tags=(color_tag,),
+                    )
             except Exception:
                 pass
 
@@ -6371,6 +11189,7 @@ SECURITY DOMAINS ENFORCED:
         # Refresh Predictive AI Neural Network Pane metrics from active Brain state
         try:
             import predictive_brain
+
             nn = predictive_brain.get_symbol_predictor(self.selected_symbol_gp)
             if nn and nn.last_prediction is not None:
                 # Calculate rolling accuracy rate
@@ -6378,16 +11197,22 @@ SECURITY DOMAINS ENFORCED:
                 win_rate = perf["win_rate"]
 
                 predicted_dir = "BUY" if nn.last_prediction > 0.5 else "SELL"
-                prob_pct = nn.last_prediction if nn.last_prediction > 0.5 else (1.0 - nn.last_prediction)
+                prob_pct = (
+                    nn.last_prediction
+                    if nn.last_prediction > 0.5
+                    else (1.0 - nn.last_prediction)
+                )
 
                 self.lbl_mlp_bias.config(
-                    text=f"MLP Next Candle Bias: {predicted_dir} ({prob_pct*100:.1f}% Confidence)",
-                    fg=self.fg_green if predicted_dir == "BUY" else self.fg_red
+                    text=f"MLP Next Candle Bias: {predicted_dir} ({prob_pct * 100:.1f}% Confidence)",
+                    fg=self.fg_green if predicted_dir == "BUY" else self.fg_red,
                 )
 
                 # Fetch loss if logged
                 latest_loss = getattr(nn, "last_loss", 0.0024)
-                self.lbl_mlp_loss.config(text=f"Latest Backpropagation Loss: {latest_loss:.5f}")
+                self.lbl_mlp_loss.config(
+                    text=f"Latest Backpropagation Loss: {latest_loss:.5f}"
+                )
 
                 # Veto state
                 is_deviating = False
@@ -6397,25 +11222,38 @@ SECURITY DOMAINS ENFORCED:
                 elif prevailing_sentiment == "BEARISH" and predicted_dir == "BUY":
                     is_deviating = True
 
-                filter_state = "INTERVENTION ENGAGED" if is_deviating else "IDLE (PROCEED)"
+                filter_state = (
+                    "INTERVENTION ENGAGED" if is_deviating else "IDLE (PROCEED)"
+                )
                 self.lbl_mlp_corrective.config(
                     text=f"Filter Intervention State: {filter_state}",
-                    fg=self.fg_red if is_deviating else self.fg_green
+                    fg=self.fg_red if is_deviating else self.fg_green,
                 )
-                self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
+                self.lbl_mlp_accuracy.config(
+                    text=f"Historical System Accuracy: {win_rate}%"
+                )
 
                 # Update Quantum Local LLM metrics
                 from institutional_integrations.quantum_local_llm import (
                     local_financial_llm,
                 )
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
                 # Train slightly on current active symbol quote to dynamically converge to the market state
-                local_financial_llm.train_on_text(f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}", epochs=1)
+                local_financial_llm.train_on_text(
+                    f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}",
+                    epochs=1,
+                )
 
                 self.lbl_llm_metrics.config(
                     text=f"Vocab Size: 128 | Dim: 16 | Heads: 2 | Trained: {local_financial_llm.trained_tokens} tokens"
                 )
 
-                forecast = local_financial_llm.generate_forecast(f"MARKET REPORT: {self.selected_symbol_gp}", max_len=40)
+                forecast = local_financial_llm.generate_forecast(
+                    f"MARKET REPORT: {self.selected_symbol_gp}", max_len=40
+                )
                 if not forecast or len(forecast.strip()) < 5:
                     forecast = "Bollinger Bands volatility squeeze suggests immediate breakout."
 
@@ -6423,13 +11261,16 @@ SECURITY DOMAINS ENFORCED:
                     text=f"COGNITIVE DECODER FORECAST:\n{self.selected_symbol_gp} {forecast.strip()}"
                 )
         except Exception as e:
-            print(f"Warning: Failed to refresh MLP neural network dashboard metrics: {e}")
+            print(
+                f"Warning: Failed to refresh MLP neural network dashboard metrics: {e}"
+            )
 
 
 def launch_gui():
     root = tk.Tk()
     app = ScalperGui(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     launch_gui()

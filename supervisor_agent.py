@@ -5,6 +5,7 @@ import database
 from event_bus import Event, global_event_bus
 
 
+
 class TradingSystemSupervisorAgent:
     """
     AI System Supervisor Agent for the Elite Quantum Autonomous Trading System (EQATS).
@@ -24,7 +25,9 @@ class TradingSystemSupervisorAgent:
         self.active_interventions = []
         self.telemetry_logs = []
 
-        self._log_telemetry("🤖 AI Supervisor Agent initialized successfully in ACTIVE monitoring state.")
+        self._log_telemetry(
+            "🤖 AI Supervisor Agent initialized successfully in ACTIVE monitoring state."
+        )
 
     def _log_telemetry(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -43,8 +46,10 @@ class TradingSystemSupervisorAgent:
             return {
                 "health_score": self.health_score,
                 "status": "PAUSED",
-                "interventions": ["Supervisor Agent is currently PAUSED by manual operator request."],
-                "logs": self.telemetry_logs[-5:]
+                "interventions": [
+                    "Supervisor Agent is currently PAUSED by manual operator request."
+                ],
+                "logs": self.telemetry_logs[-5:],
             }
 
         self.last_audit_time = datetime.datetime.now().isoformat()
@@ -58,18 +63,22 @@ class TradingSystemSupervisorAgent:
             stale_count = 0
             for sym in symbols:
                 price_info = scalper_instance.conn.get_current_price(sym)
-                bid = price_info.get('bid', 0.0)
-                ask = price_info.get('ask', 0.0)
+                bid = price_info.get("bid", 0.0)
+                ask = price_info.get("ask", 0.0)
 
                 if bid <= 0 or ask <= 0:
                     stale_count += 1
-                elif (ask - bid) < 0: # Negative spread anomaly
+                elif (ask - bid) < 0:  # Negative spread anomaly
                     data_deductions += 15.0
-                    interventions.append(f"Quarantined invalid price feed on {sym} (Negative spread: {ask - bid:.5f}).")
+                    interventions.append(
+                        f"Quarantined invalid price feed on {sym} (Negative spread: {ask - bid:.5f})."
+                    )
 
             if stale_count > 0:
                 data_deductions += stale_count * 10.0
-                interventions.append(f"Detected {stale_count} stale/unresponsive symbol feeds.")
+                interventions.append(
+                    f"Detected {stale_count} stale/unresponsive symbol feeds."
+                )
 
         except Exception as e:
             data_deductions += 25.0
@@ -83,14 +92,18 @@ class TradingSystemSupervisorAgent:
             is_connected = scalper_instance.conn.is_connected()
             if not is_connected:
                 exec_deductions += 50.0
-                interventions.append("CRITICAL: Broker gateway disconnected! Heartbeat lost.")
+                interventions.append(
+                    "CRITICAL: Broker gateway disconnected! Heartbeat lost."
+                )
                 # Trigger autonomous reconnection request
                 scalper_instance.conn.connect()
 
             rate_state = scalper_instance.engine.execution.rate_state
             if rate_state == "THROTTLED":
                 exec_deductions += 20.0
-                interventions.append("Execution rate throttled due to high message frequency.")
+                interventions.append(
+                    "Execution rate throttled due to high message frequency."
+                )
             elif rate_state == "HALTED":
                 exec_deductions += 40.0
                 interventions.append("Execution rate HALTED! Order submission frozen.")
@@ -105,8 +118,12 @@ class TradingSystemSupervisorAgent:
         risk_deductions = 0.0
         try:
             account_info = scalper_instance.conn.get_account_info()
-            equity = account_info['equity']
-            start_bal = scalper_instance.daily_start_balance if scalper_instance.daily_start_balance > 0 else account_info['balance']
+            equity = account_info["equity"]
+            start_bal = (
+                scalper_instance.daily_start_balance
+                if scalper_instance.daily_start_balance > 0
+                else account_info["balance"]
+            )
 
             safe_start = start_bal if start_bal > 0 else 10000.0
             current_loss = start_bal - equity
@@ -114,12 +131,18 @@ class TradingSystemSupervisorAgent:
 
             if current_loss > 0:
                 drawdown_pct = (current_loss / safe_start) * 100.0
-                if drawdown_pct >= config.MAX_DAILY_DRAWDOWN_PERCENT * 0.8: # Approaching 80% of limit
+                if (
+                    drawdown_pct >= config.MAX_DAILY_DRAWDOWN_PERCENT * 0.8
+                ):  # Approaching 80% of limit
                     risk_deductions += 30.0
-                    interventions.append(f"WARNING: Intraday drawdown reached {drawdown_pct:.2f}% (80% of daily limit ceiling).")
+                    interventions.append(
+                        f"WARNING: Intraday drawdown reached {drawdown_pct:.2f}% (80% of daily limit ceiling)."
+                    )
                 elif drawdown_pct >= config.MAX_DAILY_DRAWDOWN_PERCENT:
                     risk_deductions += 80.0
-                    interventions.append(f"CRITICAL: Intraday drawdown ceiling breached ({drawdown_pct:.2f}%). Triggering circuit breaker liquidation.")
+                    interventions.append(
+                        f"CRITICAL: Intraday drawdown ceiling breached ({drawdown_pct:.2f}%). Triggering circuit breaker liquidation."
+                    )
 
         except Exception as e:
             risk_deductions += 15.0
@@ -132,11 +155,13 @@ class TradingSystemSupervisorAgent:
         try:
             prevailing_sentiment = database.get_prevailing_news_sentiment()
             perf = database.get_all_time_performance()
-            win_rate = perf['win_rate']
+            win_rate = perf["win_rate"]
 
-            if win_rate < 40.0 and perf['total_trades'] >= 5:
+            if win_rate < 40.0 and perf["total_trades"] >= 5:
                 model_deductions += 20.0
-                interventions.append(f"Model win-rate degraded to {win_rate}%. Downscaling trade risk fractions.")
+                interventions.append(
+                    f"Model win-rate degraded to {win_rate}%. Downscaling trade risk fractions."
+                )
 
         except Exception:
             model_deductions += 10.0
@@ -144,24 +169,33 @@ class TradingSystemSupervisorAgent:
         self.model_health = max(0.0, 100.0 - model_deductions)
 
         # Calculate weighted composite System Health Score
-        self.health_score = round((
-            self.data_health * 0.25 +
-            self.execution_health * 0.30 +
-            self.risk_health * 0.30 +
-            self.model_health * 0.15
-        ), 1)
+        self.health_score = round(
+            (
+                self.data_health * 0.25
+                + self.execution_health * 0.30
+                + self.risk_health * 0.30
+                + self.model_health * 0.15
+            ),
+            1,
+        )
 
         self.active_interventions = interventions
 
         # Autonomous Supervisory Action Escalation
         if self.health_score < 60.0:
-            self._log_telemetry(f"⚠️ HEALTH CRITICAL ({self.health_score}%): Escalating system state to DEFENSIVE.")
+            self._log_telemetry(
+                f"⚠️ HEALTH CRITICAL ({self.health_score}%): Escalating system state to DEFENSIVE."
+            )
             scalper_instance.engine.resilience.transition_state("DEFENSIVE")
-            global_event_bus.publish(Event(
-                family="SystemFault",
-                source="SupervisorAgent",
-                payload={"message": f"System health fell to {self.health_score}%. State transitioned to DEFENSIVE."}
-            ))
+            global_event_bus.publish(
+                Event(
+                    family="SystemFault",
+                    source="SupervisorAgent",
+                    payload={
+                        "message": f"System health fell to {self.health_score}%. State transitioned to DEFENSIVE."
+                    },
+                )
+            )
 
         if interventions:
             for item in interventions[:3]:
@@ -173,15 +207,21 @@ class TradingSystemSupervisorAgent:
             "execution_health": self.execution_health,
             "risk_health": self.risk_health,
             "model_health": self.model_health,
-            "status": "HEALTHY" if self.health_score >= 80 else ("DEGRADED" if self.health_score >= 60 else "CRITICAL"),
+            "status": "HEALTHY"
+            if self.health_score >= 80
+            else ("DEGRADED" if self.health_score >= 60 else "CRITICAL"),
             "interventions": self.active_interventions,
-            "logs": self.telemetry_logs[-10:]
+            "logs": self.telemetry_logs[-10:],
         }
 
     def generate_supervisory_report(self):
         """Generates a detailed, formal Markdown supervisory report of system performance and audit trails."""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-        status_str = "HEALTHY" if self.health_score >= 80 else ("DEGRADED" if self.health_score >= 60 else "CRITICAL")
+        status_str = (
+            "HEALTHY"
+            if self.health_score >= 80
+            else ("DEGRADED" if self.health_score >= 60 else "CRITICAL")
+        )
 
         report = f"""
 ================================================================================
@@ -216,6 +256,7 @@ SUPERVISORY TELEMETRY TRAIL:
 
         report += "================================================================================\n"
         return report
+
 
 # Global Supervisor Agent singleton
 global_supervisor_agent = TradingSystemSupervisorAgent()

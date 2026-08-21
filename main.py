@@ -6,8 +6,7 @@ import time
 
 # Configure root logger once at application entry point (FLAW-001)
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 
 import brain
@@ -52,6 +51,7 @@ class AutonomousScalper:
 
         # Instantiate premium Autonomous decision & strategy engine!
         import institutional_integrations as ii
+
         self.quantum_auto_engine = ii.QuantumAutoEngine()
 
         # Spawn non-stop, non-break self-healer and self-learning loop autonomously!
@@ -63,6 +63,7 @@ class AutonomousScalper:
 
         # Attach Multi-Agent Brain Intelligence & Learning Orchestrator
         from brain_agents_orchestrator import global_brain_orchestrator
+
         self.brain_orchestrator = global_brain_orchestrator
 
         # Track total starting balance of the day for Drawdown calculations
@@ -70,9 +71,15 @@ class AutonomousScalper:
         self.last_day_str = ""
 
         # Event Bus wiring: subscribe to vital events
-        global_event_bus.subscribe("SafetyInvariantViolation", self._handle_safety_violation)
-        global_event_bus.subscribe("TradeAdmissionApproved", self._handle_trade_approved)
-        global_event_bus.subscribe("TradeAdmissionRejected", self._handle_trade_rejected)
+        global_event_bus.subscribe(
+            "SafetyInvariantViolation", self._handle_safety_violation
+        )
+        global_event_bus.subscribe(
+            "TradeAdmissionApproved", self._handle_trade_approved
+        )
+        global_event_bus.subscribe(
+            "TradeAdmissionRejected", self._handle_trade_rejected
+        )
 
     def _handle_safety_violation(self, event: Event):
         print(f"🛑 [SAFETY INVARIANT VIOLATION EVENT]: {event.payload}")
@@ -92,7 +99,7 @@ class AutonomousScalper:
             return False
 
         account_info = self.conn.get_account_info()
-        self.daily_start_balance = account_info['balance']
+        self.daily_start_balance = account_info["balance"]
         self.last_day_str = datetime.date.today().isoformat()
 
         start_msg = (
@@ -106,11 +113,13 @@ class AutonomousScalper:
         telegram_bot.send_telegram_message(start_msg)
 
         # Notify Event Bus
-        global_event_bus.publish(Event(
-            family="SystemFault",
-            source="Main",
-            payload={"message": "System starting up cleanly"}
-        ))
+        global_event_bus.publish(
+            Event(
+                family="SystemFault",
+                source="Main",
+                payload={"message": "System starting up cleanly"},
+            )
+        )
 
         self.running = True
         return True
@@ -135,30 +144,30 @@ class AutonomousScalper:
             return
 
         for pos in active_positions:
-            symbol = pos['symbol']
-            ticket = pos['ticket']
-            direction = pos['direction']
-            current_sl = pos['sl']
-            current_tp = pos['tp']
+            symbol = pos["symbol"]
+            ticket = pos["ticket"]
+            direction = pos["direction"]
+            current_sl = pos["sl"]
+            current_tp = pos["tp"]
 
             # Get historical ATR
             history = self.conn.get_history(symbol, 30)
             if not history:
                 continue
 
-            closes = [bar['close'] for bar in history]
-            highs = [bar['high'] for bar in history]
-            lows = [bar['low'] for bar in history]
+            closes = [bar["close"] for bar in history]
+            highs = [bar["high"] for bar in history]
+            lows = [bar["low"] for bar in history]
             atr_val = indicators.calculate_atr(highs, lows, closes, config.ATR_PERIOD)
             if atr_val is None or atr_val <= 0:
                 continue
 
             trail_dist = atr_val * config.TRAILING_STOP_ATR_MULT
             price_info = self.conn.get_current_price(symbol)
-            bid = price_info['bid']
-            ask = price_info['ask']
+            bid = price_info["bid"]
+            ask = price_info["ask"]
 
-            entry_price = pos.get('open_price', 0.0)
+            entry_price = pos.get("open_price", 0.0)
             if entry_price <= 0:
                 continue
 
@@ -171,33 +180,51 @@ class AutonomousScalper:
                 # 1. Breakeven Profit Lock: Move SL to Entry Price + spread buffer once 1.0x ATR / 1:1 RR is reached
                 be_sl = entry_price + spread_buffer
                 if bid >= entry_price + trigger_distance and current_sl < be_sl:
-                    success = self.conn.modify_order(ticket, round(be_sl, 5), current_tp)
+                    success = self.conn.modify_order(
+                        ticket, round(be_sl, 5), current_tp
+                    )
                     if success:
-                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry + spread buffer ({be_sl:.5f}) on BUY {symbol} (Ticket {ticket}) at +1.0x ATR!")
+                        print(
+                            f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry + spread buffer ({be_sl:.5f}) on BUY {symbol} (Ticket {ticket}) at +1.0x ATR!"
+                        )
                         current_sl = be_sl
 
                 # 2. Dynamic ATR Trailing Stop
                 target_sl = bid - trail_dist
                 if target_sl > current_sl + 0.00005:
-                    success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
+                    success = self.conn.modify_order(
+                        ticket, round(target_sl, 5), current_tp
+                    )
                     if success:
-                        print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)")
+                        print(
+                            f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on BUY {symbol} (Ticket {ticket}) up to {target_sl:.5f} (Locked profits!)"
+                        )
                         current_sl = target_sl
             elif direction == "SELL":
                 # 1. Breakeven Profit Lock: Move SL to Entry Price - spread buffer once 1.0x ATR / 1:1 RR is reached
                 be_sl = entry_price - spread_buffer
-                if ask <= entry_price - trigger_distance and (current_sl == 0 or current_sl > be_sl):
-                    success = self.conn.modify_order(ticket, round(be_sl, 5), current_tp)
+                if ask <= entry_price - trigger_distance and (
+                    current_sl == 0 or current_sl > be_sl
+                ):
+                    success = self.conn.modify_order(
+                        ticket, round(be_sl, 5), current_tp
+                    )
                     if success:
-                        print(f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry - spread buffer ({be_sl:.5f}) on SELL {symbol} (Ticket {ticket}) at +1.0x ATR!")
+                        print(
+                            f"🔒 AUTONOMOUS BREAKEVEN LOCK: Moved SL to entry - spread buffer ({be_sl:.5f}) on SELL {symbol} (Ticket {ticket}) at +1.0x ATR!"
+                        )
                         current_sl = be_sl
 
                 # 2. Dynamic ATR Trailing Stop
                 target_sl = ask + trail_dist
                 if current_sl == 0 or target_sl < current_sl - 0.00005:
-                    success = self.conn.modify_order(ticket, round(target_sl, 5), current_tp)
+                    success = self.conn.modify_order(
+                        ticket, round(target_sl, 5), current_tp
+                    )
                     if success:
-                        print(f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on SELL {symbol} (Ticket {ticket}) down to {target_sl:.5f} (Locked profits!)")
+                        print(
+                            f"🎯 AUTONOMOUS TRAILING STOP: Moved SL on SELL {symbol} (Ticket {ticket}) down to {target_sl:.5f} (Locked profits!)"
+                        )
                         current_sl = target_sl
 
     def _is_market_open_and_liquid(self, symbol, price_info):
@@ -208,15 +235,23 @@ class AutonomousScalper:
         """
         # A. Session Time Filters
         now_gmt = datetime.datetime.now(datetime.timezone.utc)
-        weekday = now_gmt.weekday() # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
+        weekday = (
+            now_gmt.weekday()
+        )  # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
         hour = now_gmt.hour
 
         symbol_upper = symbol.upper()
-        is_crypto_asset = any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])
+        is_crypto_asset = any(
+            c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]
+        )
 
         if config.BLOCK_WEEKENDS and not is_crypto_asset:
             # Friday after 21:00 GMT to Sunday before 21:00 GMT
-            if (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21):
+            if (
+                (weekday == 4 and hour >= 21)
+                or weekday == 5
+                or (weekday == 6 and hour < 21)
+            ):
                 return False, "Hazardous session: Weekend market shutdown."
 
         if config.BLOCK_ROLLOVER_HOUR:
@@ -225,8 +260,8 @@ class AutonomousScalper:
                 return False, "Hazardous session: Daily broker rollover hour."
 
         # B. Spread Protections
-        bid = price_info['bid']
-        ask = price_info['ask']
+        bid = price_info["bid"]
+        ask = price_info["ask"]
         spread = ask - bid
         if spread < 0:
             return False, "Negative spread / bad price data."
@@ -251,7 +286,7 @@ class AutonomousScalper:
         spread_pips = spread / pip_size
 
         # Dynamic Spread Volatility Spike Breaker: Track rolling average spread per symbol
-        if not hasattr(self, '_symbol_avg_spreads'):
+        if not hasattr(self, "_symbol_avg_spreads"):
             self._symbol_avg_spreads = {}
 
         sym_upper = symbol.upper()
@@ -262,41 +297,66 @@ class AutonomousScalper:
             if len(self._symbol_avg_spreads[sym_upper]) > 20:
                 self._symbol_avg_spreads[sym_upper].pop(0)
 
-        avg_spread = sum(self._symbol_avg_spreads[sym_upper]) / len(self._symbol_avg_spreads[sym_upper])
+        avg_spread = sum(self._symbol_avg_spreads[sym_upper]) / len(
+            self._symbol_avg_spreads[sym_upper]
+        )
 
         # Check 2.5x rolling average spread spike breaker first
-        if len(self._symbol_avg_spreads[sym_upper]) >= 5 and spread_pips > (2.5 * avg_spread) and spread_pips > 3.0:
-            return False, f"Liquidity Filter (Spread Volatility Spike Breaker): Spread ({spread_pips:.1f} pips) exceeds 2.5x 20-period avg spread ({avg_spread:.1f} pips)."
+        if (
+            len(self._symbol_avg_spreads[sym_upper]) >= 5
+            and spread_pips > (2.5 * avg_spread)
+            and spread_pips > 3.0
+        ):
+            return (
+                False,
+                f"Liquidity Filter (Spread Volatility Spike Breaker): Spread ({spread_pips:.1f} pips) exceeds 2.5x 20-period avg spread ({avg_spread:.1f} pips).",
+            )
 
         if spread_pips > config.MAX_SPREAD_PIPS:
-            return False, f"Liquidity Filter: Spread is too wide ({spread_pips:.1f} pips > {config.MAX_SPREAD_PIPS:.1f} limit)."
+            return (
+                False,
+                f"Liquidity Filter: Spread is too wide ({spread_pips:.1f} pips > {config.MAX_SPREAD_PIPS:.1f} limit).",
+            )
 
         return True, "Safe conditions"
 
     def _get_current_session(self):
         """Autonomously determines the active global trading session based on GMT hour and weekend status."""
         now_gmt = datetime.datetime.now(datetime.timezone.utc)
-        weekday = now_gmt.weekday() # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
+        weekday = (
+            now_gmt.weekday()
+        )  # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
         hour = now_gmt.hour
 
         # Traditional markets weekend check (Friday 21:00 to Sunday 21:00 GMT)
-        is_weekend = (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21)
+        is_weekend = (
+            (weekday == 4 and hour >= 21)
+            or weekday == 5
+            or (weekday == 6 and hour < 21)
+        )
         if is_weekend:
             return "Crypto Weekend Session (24/7)"
 
         # Session Hour definitions (GMT)
-        tokyo = (0 <= hour < 9)
-        london = (8 <= hour < 17)
-        ny = (12 <= hour < 21)
+        tokyo = 0 <= hour < 9
+        london = 8 <= hour < 17
+        ny = 12 <= hour < 21
 
         sessions = []
-        if tokyo: sessions.append("Tokyo")
-        if london: sessions.append("London")
-        if ny: sessions.append("New York")
+        if tokyo:
+            sessions.append("Tokyo")
+        if london:
+            sessions.append("London")
+        if ny:
+            sessions.append("New York")
 
         if not sessions:
             return "Global 24-Hour Interbank Session"
-        return " + ".join(sessions) + " Overlap" if len(sessions) > 1 else sessions[0] + " Session"
+        return (
+            " + ".join(sessions) + " Overlap"
+            if len(sessions) > 1
+            else sessions[0] + " Session"
+        )
 
     def _get_sessions_timeline(self):
         """
@@ -304,7 +364,7 @@ class AutonomousScalper:
         Calculates 3 rows of data: Active, Previous, and Coming sessions with precise countdown timers.
         """
         now_gmt = datetime.datetime.now(datetime.timezone.utc)
-        weekday = now_gmt.weekday() # 0 = Monday, ..., 6 = Sunday
+        weekday = now_gmt.weekday()  # 0 = Monday, ..., 6 = Sunday
         hour = now_gmt.hour
         minute = now_gmt.minute
         second = now_gmt.second
@@ -343,14 +403,18 @@ class AutonomousScalper:
             "CME Futures": (22, 21, "Futures"),
             "ICE Brent": (23, 22, "Futures"),
             # 5. Digital Assets
-            "Crypto Markets": (0, 24, "Digital")
+            "Crypto Markets": (0, 24, "Digital"),
         }
 
         active = []
         previous = []
         coming = []
 
-        is_weekend = (weekday == 4 and hour >= 21) or weekday == 5 or (weekday == 6 and hour < 21)
+        is_weekend = (
+            (weekday == 4 and hour >= 21)
+            or weekday == 5
+            or (weekday == 6 and hour < 21)
+        )
 
         for name, (start, end, cat) in self.sessions_def.items():
             # Check weekend blockades for non-crypto assets
@@ -362,7 +426,7 @@ class AutonomousScalper:
             if start < end:
                 if start <= hour < end:
                     is_active = True
-            else: # Wraps past midnight
+            else:  # Wraps past midnight
                 if hour >= start or hour < end:
                     is_active = True
 
@@ -402,8 +466,10 @@ class AutonomousScalper:
         return {
             "active": " | ".join(active) if active else "No active sessions",
             "previous": " | ".join(previous) if previous else "None",
-            "next_session": " | ".join(coming_str_list[:3]) if coming_str_list else "None",
-            "countdown": "Active Tracker"
+            "next_session": " | ".join(coming_str_list[:3])
+            if coming_str_list
+            else "None",
+            "countdown": "Active Tracker",
         }
 
     def _get_session_symbols(self, active_session):
@@ -419,12 +485,307 @@ class AutonomousScalper:
 
         if "WEEKEND" in active_session_upper:
             # Trade ONLY crypto symbols on weekends when traditional markets are closed
-            return [s for s in all_symbols if any(c in s.upper() for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])]
+            return [
+                s
+                for s in all_symbols
+                if any(c in s.upper() for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])
+            ]
 
         # Weekdays: All markets are fully active and liquid!
         return all_symbols
 
+<<<<<<< Updated upstream
     def evaluate_symbol_worker(self, symbol, active_positions, current_equity, trading_available):
+=======
+    def _write_ea_state_file(self, equity, balance, active_positions, scans):
+        """
+        Writes a highly structured trading state file 'scalper_state.txt' into the MT5
+        Common Files directory so the native MQL5 EA can parse and show it on chart.
+        """
+        lines = []
+        active_session = self._get_current_session()
+        timeline = self._get_sessions_timeline()
+
+        # Header line: equity|balance|active_count|active_session|overlaps|next_session|countdown
+        lines.append(
+            f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{timeline['previous']}|{timeline['next_session']}|{timeline['countdown']}"
+        )
+
+        # Open Positions Section
+        for pos in active_positions:
+            ticket = pos.get("ticket", "0")
+            symbol = pos.get("symbol", "UNKNOWN")
+            direction = pos.get("direction", "BUY")
+            open_p = pos.get("open_price", 0.0)
+            sl = pos.get("sl", 0.0)
+            tp = pos.get("tp", 0.0)
+
+            # Simple floating profit estimate
+            prices = self.conn.get_current_price(symbol)
+            curr_p = prices["bid"] if direction == "BUY" else prices["ask"]
+            p_diff = curr_p - open_p if direction == "BUY" else open_p - curr_p
+            is_crypto = "BTC" in symbol or "ETH" in symbol
+            is_gold = "XAU" in symbol
+            mult = 1.0 if is_crypto else (100.0 if is_gold else 100000.0)
+            profit = p_diff * pos.get("lot_size", 0.0) * mult
+
+            lines.append(
+                f"TRADE|{ticket}|{symbol}|{direction}|{open_p:.5f}|{sl:.5f}|{tp:.5f}|{profit:.2f}"
+            )
+
+        # Split marker
+        lines.append("SCANS_HEADER")
+
+        # Symbol scan lines: Symbol|Price|EMA200|Trend|RSI|ATR|Status|avg_w_ih|avg_w_ho|bias_output|hidden_activations
+        for s in scans:
+            lines.append(
+                f"{s['symbol']}|{s['price']}|{s['ema200']}|{s['trend']}|{s['rsi']}|{s['atr']}|{s['status']}|{s.get('avg_w_ih', 0.0)}|{s.get('avg_w_ho', 0.0)}|{s.get('bias_output', 0.0)}|{s.get('hidden_activations', '0,0,0,0,0')}"
+            )
+
+        file_content = "\n".join(lines)
+        try:
+            target_path = os.path.join(
+                config.MT5_COMMON_FILES_PATH, "scalper_state.txt"
+            )
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(file_content)
+        except Exception as e:
+            print(f"Warning: Failed to write EA state file: {e}")
+
+    def _generate_html_dashboard(
+        self, current_time, equity, balance, active_positions, scans
+    ):
+        """Generates a responsive and beautiful HTML dashboard file with live analytics."""
+        perf = database.get_all_time_performance()
+        timeline = self._get_sessions_timeline()
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="5">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scalper Brain Live Dashboard</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f1f5f9;
+            margin: 0;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+        }}
+        header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #1e293b;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }}
+        h1 {{
+            margin: 0;
+            font-size: 24px;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .badge {{
+            background-color: #22c55e;
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: bold;
+        }}
+        .badge.sim {{
+            background-color: #eab308;
+        }}
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }}
+        .card {{
+            background-color: #1e293b;
+            border-radius: 8px;
+            padding: 15px 20px;
+            border: 1px solid #334155;
+        }}
+        .card-label {{
+            font-size: 13px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 5px;
+        }}
+        .card-val {{
+            font-size: 24px;
+            font-weight: bold;
+            color: #f8fafc;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            margin-bottom: 25px;
+        }}
+        th, td {{
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }}
+        th {{
+            background-color: #0f172a;
+            color: #38bdf8;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        tr:last-child td {{
+            border-bottom: none;
+        }}
+        .status-badge {{
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }}
+        .status-badge.hold {{
+            background-color: #475569;
+            color: #cbd5e1;
+        }}
+        .status-badge.active {{
+            background-color: #1d4ed8;
+            color: #ffffff;
+        }}
+        .status-badge.buy {{
+            background-color: #15803d;
+            color: #ffffff;
+        }}
+        .status-badge.sell {{
+            background-color: #b91c1c;
+            color: #ffffff;
+        }}
+        .time-text {{
+            font-size: 12px;
+            color: #64748b;
+            text-align: right;
+            margin-top: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 SCALPER BRAIN <span class="badge {"sim" if config.SIMULATION_MODE else ""}">{"SIMULATION MODE" if config.SIMULATION_MODE else "MT5 LIVE/DEMO"}</span></h1>
+            <div style="text-align: right; display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+                <span class="status-badge active" style="background-color: #00ff00; color: #000000; font-family: monospace; font-weight: bold;">[ACTIVE] {timeline["active"]}</span>
+                <span class="status-badge hold" style="background-color: #555555; color: #ffffff; font-family: monospace; font-weight: bold;">[CLOSED <= 4H] {timeline["previous"]}</span>
+                <span class="status-badge active" style="background-color: #ff9900; color: #000000; font-family: monospace; font-weight: bold;">[UPCOMING] {timeline["next_session"]}</span>
+            </div>
+        </header>
+
+        <div class="metrics-grid">
+            <div class="card">
+                <div class="card-label">Account Balance</div>
+                <div class="card-val">${balance:,.2f} USD</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Account Equity</div>
+                <div class="card-val" style="color: #38bdf8;">${equity:,.2f} USD</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Open Positions</div>
+                <div class="card-val">{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Active Market Session</div>
+                <div class="card-val" style="color: #eab308; font-size: 20px;">{self._get_current_session()}</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Brain Performance Analytics</div>
+                <div class="card-val" style="font-size: 15px; color: #38bdf8;">
+                    Win Rate: {perf["win_rate"]}% | Net Profit: {perf["net_profit"]:.2f} USD ({perf["total_trades"]} Trades)
+                </div>
+            </div>
+        </div>
+
+        <h2 style="font-size: 18px; color: #38bdf8; margin-bottom: 15px;">🔍 Multi-Asset Cognitive Scan Summary</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Current Price</th>
+                    <th>EMA-200 (Trend)</th>
+                    <th>Trend Bias</th>
+                    <th>RSI Index</th>
+                    <th>ATR Volatility</th>
+                    <th>Input Weights (Avg)</th>
+                    <th>Output Weights (Avg)</th>
+                    <th>Neurons Activations</th>
+                    <th>Current Status</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+
+        for scan in scans:
+            status_badge_class = "hold"
+            if "ACTIVE" in scan["status"]:
+                status_badge_class = "active"
+            elif "BUY" in scan["status"] or "Executing BUY" in scan["status"]:
+                status_badge_class = "buy"
+            elif "SELL" in scan["status"] or "Executing SELL" in scan["status"]:
+                status_badge_class = "sell"
+
+            html_content += f"""
+                <tr>
+                    <td style="font-weight: bold; color: #38bdf8;">{scan["symbol"]}</td>
+                    <td>{scan["price"]}</td>
+                    <td>{scan["ema200"]}</td>
+                    <td>{scan["trend"]}</td>
+                    <td>{scan["rsi"]}</td>
+                    <td>{scan["atr"]}</td>
+                    <td>{scan.get("avg_w_ih", 0.0):.4f}</td>
+                    <td>{scan.get("avg_w_ho", 0.0):.4f}</td>
+                    <td style="font-family: monospace; font-size: 12px; color: #eab308;">[{scan.get("hidden_activations", "0,0,0,0,0")}]</td>
+                    <td><span class="status-badge {status_badge_class}">{scan["status"]}</span></td>
+                </tr>
+            """
+
+        html_content += f"""
+            </tbody>
+        </table>
+
+        <div class="time-text">
+            Last Updated: {current_time} (Dashboard auto-refreshes every 5 seconds)
+        </div>
+    </div>
+</body>
+</html>
+        """
+
+        try:
+            with open("dashboard.html", "w", encoding="utf-8") as f:
+                f.write(html_content)
+        except Exception as e:
+            print(f"Warning: Failed to write dashboard.html: {e}")
+
+    def evaluate_symbol_worker(
+        self, symbol, active_positions, current_equity, trading_available
+    ):
+>>>>>>> Stashed changes
         """
         Parallel worker to perform indicator calculation, research scraping,
         regime selection, and strategy evaluations for a single symbol.
@@ -442,22 +803,25 @@ class AutonomousScalper:
                 "status": "Syncing history...",
                 "decision": "HOLD",
                 "analysis": None,
-                "nn_state": None
+                "nn_state": None,
             }
 
-        current_price = history[-1]['close']
+        current_price = history[-1]["close"]
 
         # Notify Data Plane of incoming tick
-        self.engine.data.store_price(symbol, current_price - 0.0001, current_price + 0.0001)
-
+        self.engine.data.store_price(
+            symbol, current_price - 0.0001, current_price + 0.0001
+        )
 
         # Autonomously select optimal trading style and strategy dynamically first!
         try:
-            closes_hist = [b['close'] for b in history]
-            highs_hist = [b['high'] for b in history]
-            lows_hist = [b['low'] for b in history]
-            opt_style, opt_strat = self.quantum_auto_engine.determine_optimal_style_and_strategy(
-                symbol, closes_hist, highs_hist, lows_hist
+            closes_hist = [b["close"] for b in history]
+            highs_hist = [b["high"] for b in history]
+            lows_hist = [b["low"] for b in history]
+            opt_style, opt_strat = (
+                self.quantum_auto_engine.determine_optimal_style_and_strategy(
+                    symbol, closes_hist, highs_hist, lows_hist
+                )
             )
         except Exception:
             pass
@@ -468,20 +832,20 @@ class AutonomousScalper:
 
         # Get technical analysis and trading decision from the Brain
         analysis = self.brain.evaluate(symbol, history, current_equity)
-        decision = analysis['decision']
-        indicators_info = analysis.get('indicators', {})
-        ema200 = indicators_info.get('ema_long', 0.0)
-        rsi_val = indicators_info.get('rsi', 0.0)
-        atr_val = indicators_info.get('atr', 0.0)
+        decision = analysis["decision"]
+        indicators_info = analysis.get("indicators", {})
+        ema200 = indicators_info.get("ema_long", 0.0)
+        rsi_val = indicators_info.get("rsi", 0.0)
+        atr_val = indicators_info.get("atr", 0.0)
         trend_str = "UP" if current_price > ema200 else "DOWN"
 
-        status_text = analysis['explanation']
+        status_text = analysis["explanation"]
         if not is_safe:
             decision = "HOLD"
             status_text = f"HOLD ({safety_reason})"
         elif not trading_available:
             status_text = "HOLD (MAX LIMIT OF ACTIVE TRADES REACHED)"
-        elif decision in ['BUY', 'SELL']:
+        elif decision in ["BUY", "SELL"]:
             status_text = f"Executing {decision}!"
 
         # Fetch AI internal state diagnostics
@@ -498,7 +862,7 @@ class AutonomousScalper:
             "status": status_text,
             "decision": decision,
             "analysis": analysis,
-            "nn_state": nn_state
+            "nn_state": nn_state,
         }
 
     def tick_and_execute(self):
@@ -520,7 +884,9 @@ class AutonomousScalper:
 
         # Heartbeat: Check connection status and attempt auto-reconnection
         if not self.conn.is_connected():
-            print("⚠️ DISCONNECTION DETECTED: Heartbeat failed. Autonomously attempting to reconnect...")
+            print(
+                "⚠️ DISCONNECTION DETECTED: Heartbeat failed. Autonomously attempting to reconnect..."
+            )
             try:
                 self.conn.connect()
             except Exception as e:
@@ -534,9 +900,11 @@ class AutonomousScalper:
         current_date = datetime.date.today().isoformat()
         if current_date != self.last_day_str:
             account_info = self.conn.get_account_info()
-            self.daily_start_balance = account_info['balance']
+            self.daily_start_balance = account_info["balance"]
             self.last_day_str = current_date
-            print(f"New day detected: {current_date}. Resetting daily baseline to {self.daily_start_balance:.2f}")
+            print(
+                f"New day detected: {current_date}. Resetting daily baseline to {self.daily_start_balance:.2f}"
+            )
 
         # B. If Simulator, advance the simulator clocks and process SL/TP
         if config.SIMULATION_MODE:
@@ -547,11 +915,13 @@ class AutonomousScalper:
 
         # C. Check Real-Time Floating Daily Drawdown Limit
         account_tmp = self.conn.get_account_info()
-        current_equity = account_tmp['equity']
+        current_equity = account_tmp["equity"]
 
         # Real-time daily loss including closed trades and floating trades PnL
         daily_floating_loss = current_equity - self.daily_start_balance
-        max_allowed_loss = self.daily_start_balance * (config.MAX_DAILY_DRAWDOWN_PERCENT / 100.0)
+        max_allowed_loss = self.daily_start_balance * (
+            config.MAX_DAILY_DRAWDOWN_PERCENT / 100.0
+        )
 
         if daily_floating_loss < 0 and abs(daily_floating_loss) >= max_allowed_loss:
             warn_msg = (
@@ -569,7 +939,9 @@ class AutonomousScalper:
             # Autonomously close all active trades immediately to preserve remaining capital!
             active_positions = self.conn.get_open_orders()
             for pos in active_positions:
-                self.conn.close_order(pos['ticket'], reason="DAILY_DRAWDOWN_CIRCUIT_BREAKER")
+                self.conn.close_order(
+                    pos["ticket"], reason="DAILY_DRAWDOWN_CIRCUIT_BREAKER"
+                )
             return
 
         # D. Retrieve open positions from connection and synchronize with SQLite
@@ -581,40 +953,48 @@ class AutonomousScalper:
 
         # Trigger Autonomous Performance Analysis in real-time
         account_tmp = self.conn.get_account_info()
-        database.update_performance_metrics(current_date, account_tmp['balance'])
+        database.update_performance_metrics(current_date, account_tmp["balance"])
 
         # If positions closed externally in MT5 terminal, synchronize SQLite
-        active_tickets = {str(p['ticket']) for p in active_positions}
+        active_tickets = {str(p["ticket"]) for p in active_positions}
         for db_trade in open_db_trades:
-            ticket_str = str(db_trade['ticket'])
+            ticket_str = str(db_trade["ticket"])
             if ticket_str not in active_tickets:
                 # Closed externally in MT5
-                current_price = self.conn.get_current_price(db_trade['symbol'])['bid']
-                p_diff = current_price - db_trade['open_price']
-                if db_trade['direction'] == 'SELL':
+                current_price = self.conn.get_current_price(db_trade["symbol"])["bid"]
+                p_diff = current_price - db_trade["open_price"]
+                if db_trade["direction"] == "SELL":
                     p_diff = -p_diff
 
                 # Rough contract size estimation
-                is_crypto = "BTC" in db_trade['symbol'] or "ETH" in db_trade['symbol']
-                is_gold = "XAU" in db_trade['symbol']
+                is_crypto = "BTC" in db_trade["symbol"] or "ETH" in db_trade["symbol"]
+                is_gold = "XAU" in db_trade["symbol"]
                 mult = 1.0 if is_crypto else (100.0 if is_gold else 100000.0)
-                estimated_profit = p_diff * db_trade['lot_size'] * mult
+                estimated_profit = p_diff * db_trade["lot_size"] * mult
 
-                database.log_trade_close(ticket_str, current_price, estimated_profit, "EXTERNAL_MT5_CLOSE")
-                print(f"Trade {ticket_str} ({db_trade['symbol']}) detected as CLOSED on MT5. Synchronized local database.")
+                database.log_trade_close(
+                    ticket_str, current_price, estimated_profit, "EXTERNAL_MT5_CLOSE"
+                )
+                print(
+                    f"Trade {ticket_str} ({db_trade['symbol']}) detected as CLOSED on MT5. Synchronized local database."
+                )
 
         # E. Core Scanning Loop & Status Reporting
         account = self.conn.get_account_info()
-        current_equity = account['equity']
-        current_balance = account['balance']
+        current_equity = account["equity"]
+        current_balance = account["balance"]
 
         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         active_session = self._get_current_session()
         active_symbols = self._get_session_symbols(active_session)
 
         print(f"\n⚡ [{timestamp_str}] --- COGNITIVE SCAN CYCLE ---")
-        print(f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES} | Active Session: {active_session}")
-        print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}")
+        print(
+            f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES} | Active Session: {active_session}"
+        )
+        print(
+            f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}"
+        )
         print("-" * 120)
 
         # Don't place new trades if we already reached our total max limit of simultaneous positions
@@ -626,15 +1006,26 @@ class AutonomousScalper:
         # High-Performance Parallel processing bypassing the GIL using ProcessPoolExecutor falling back to ThreadPoolExecutor
         import concurrent.futures
         import multiprocessing as mp
-        pool_workers = min(12, max(1, len(active_symbols))) # Optimized for Performance hybrid cores (12 logical threads)
+
+        pool_workers = min(
+            12, max(1, len(active_symbols))
+        )  # Optimized for Performance hybrid cores (12 logical threads)
         parallel_success = False
 
         try:
             # Use 'spawn' context to prevent multi-threaded fork deprecation warnings
-            ctx = mp.get_context('spawn')
-            with concurrent.futures.ProcessPoolExecutor(max_workers=pool_workers, mp_context=ctx) as executor:
+            ctx = mp.get_context("spawn")
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=pool_workers, mp_context=ctx
+            ) as executor:
                 future_to_symbol = {
-                    executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
+                    executor.submit(
+                        self.evaluate_symbol_worker,
+                        symbol,
+                        list(active_positions),
+                        current_equity,
+                        trading_available,
+                    ): symbol
                     for symbol in active_symbols
                 }
                 for future in concurrent.futures.as_completed(future_to_symbol):
@@ -642,7 +1033,9 @@ class AutonomousScalper:
                     res = future.result()
                     scans_list.append(res)
                     if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
-                        pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
+                        pending_orders.append(
+                            (res["symbol"], res["decision"], res["analysis"])
+                        )
                 parallel_success = True
         except Exception:
             # Fall back gracefully to thread-pool under GIL-restricted sandboxes
@@ -651,9 +1044,17 @@ class AutonomousScalper:
         if not parallel_success:
             scans_list = []
             pending_orders = []
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_symbols))) as executor:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max(1, len(active_symbols))
+            ) as executor:
                 future_to_symbol = {
-                    executor.submit(self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available): symbol
+                    executor.submit(
+                        self.evaluate_symbol_worker,
+                        symbol,
+                        list(active_positions),
+                        current_equity,
+                        trading_available,
+                    ): symbol
                     for symbol in active_symbols
                 }
                 for future in concurrent.futures.as_completed(future_to_symbol):
@@ -662,16 +1063,22 @@ class AutonomousScalper:
                         res = future.result()
                         scans_list.append(res)
                         if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
-                            pending_orders.append((res["symbol"], res["decision"], res["analysis"]))
+                            pending_orders.append(
+                                (res["symbol"], res["decision"], res["analysis"])
+                            )
                     except Exception as e:
-                        print(f"Error evaluating symbol {symbol} in parallel thread: {e}")
+                        print(
+                            f"Error evaluating symbol {symbol} in parallel thread: {e}"
+                        )
 
         # Sort scans_list by symbol name to keep output clean and ordered
         scans_list = sorted(scans_list, key=lambda x: x["symbol"])
 
         # Display results
         for s in scans_list:
-            print(f"{s['symbol']:<9} | {s['price']:<10} | {s['ema200']:<10} | {s['trend']:<5} | {s['rsi']:<6} | {s['atr']:<8} | {s['status']}")
+            print(
+                f"{s['symbol']:<9} | {s['price']:<10} | {s['ema200']:<10} | {s['trend']:<5} | {s['rsi']:<6} | {s['atr']:<8} | {s['status']}"
+            )
 
         # Process any pending orders sequentially under thread-safe lock
         for symbol, decision, analysis in pending_orders:
@@ -683,87 +1090,136 @@ class AutonomousScalper:
                 active_positions_refresh = self.conn.get_open_orders()
                 if len(active_positions_refresh) >= config.MAX_CONCURRENT_TRADES:
                     break
-                if any(p['symbol'].upper() == symbol.upper() for p in active_positions_refresh):
+                if any(
+                    p["symbol"].upper() == symbol.upper()
+                    for p in active_positions_refresh
+                ):
                     continue
 
                 # Find the scan matching this symbol to retrieve NN State and trends
-                scan_item = next((sc for sc in scans_list if sc["symbol"].upper() == symbol.upper()), None)
+                scan_item = next(
+                    (sc for sc in scans_list if sc["symbol"].upper() == symbol.upper()),
+                    None,
+                )
                 tech_trend = scan_item["trend"] if scan_item else "UP"
                 ai_trend = "UP" if (analysis.get("probability", 0.5) >= 0.5) else "DOWN"
 
                 # Check State Disagreement (Section 22)
-                component_decisions = {"technical_trend": tech_trend, "ai_trend": ai_trend}
-                has_disagreement = not self.engine.safety.verify_component_agreement(component_decisions)
+                component_decisions = {
+                    "technical_trend": tech_trend,
+                    "ai_trend": ai_trend,
+                }
+                has_disagreement = not self.engine.safety.verify_component_agreement(
+                    component_decisions
+                )
 
                 # Check Continuous Reconciliation Mismatch (Section 33)
                 open_db_trades_refresh = database.get_open_trades()
-                has_reconciliation_mismatch = not self.engine.resilience.reconcile_positions(open_db_trades_refresh, active_positions_refresh)
+                has_reconciliation_mismatch = (
+                    not self.engine.resilience.reconcile_positions(
+                        open_db_trades_refresh, active_positions_refresh
+                    )
+                )
 
                 # ==================================================================
                 # EAQTS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
                 # A. Evaluate Safety Invariants (INV-001 to INV-015)
                 violations = self.engine.safety.evaluate_invariants(
-                    current_risk=config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
+                    current_risk=config.RISK_PER_TRADE_PERCENT
+                    * (len(active_positions_refresh) + 1),
                     active_count=len(active_positions_refresh) + 1,
                     has_reconciliation_mismatch=has_reconciliation_mismatch,
-                    has_disagreement=has_disagreement
+                    has_disagreement=has_disagreement,
                 )
 
                 # B. Estimate Expected Net Value
                 env = self.engine.risk.calculate_expected_net_value(
-                    gross_edge=config.RISK_PER_TRADE_PERCENT * 2.0, # Expected win
+                    gross_edge=config.RISK_PER_TRADE_PERCENT * 2.0,  # Expected win
                     spread=0.0002,
                     commission=0.0001,
-                    slippage=0.0001
+                    slippage=0.0001,
                 )
 
                 # C. System Constitution Hierarchy Evaluation (Level 0 - Level 6)
                 price_info_curr = self.conn.get_current_price(symbol)
-                is_market_open, _ = self._is_market_open_and_liquid(symbol, price_info_curr)
+                is_market_open, _ = self._is_market_open_and_liquid(
+                    symbol, price_info_curr
+                )
                 is_symbol_tradable = symbol in config.SYMBOLS
 
                 constitution_payload = {
                     "market_open": is_market_open,
                     "symbol_tradable": is_symbol_tradable,
                     "safety_violations": violations,
-                    "portfolio_risk_pct": config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
+                    "portfolio_risk_pct": config.RISK_PER_TRADE_PERCENT
+                    * (len(active_positions_refresh) + 1),
                     "drawdown_pct": 0.0,
-                    "spread_pips": float(scan_item["spread"] if (scan_item and "spread" in scan_item) else "1.0"),
+                    "spread_pips": float(
+                        scan_item["spread"]
+                        if (scan_item and "spread" in scan_item)
+                        else "1.0"
+                    ),
                     "rate_throttled": (self.engine.execution.rate_state != "NORMAL"),
-                    "strategy_valid": (decision in ['BUY', 'SELL']),
-                    "ai_probability": 85.0
+                    "strategy_valid": (decision in ["BUY", "SELL"]),
+                    "ai_probability": 85.0,
                 }
-                const_res = self.engine.constitution.evaluate_constitution_compliance(constitution_payload)
+                const_res = self.engine.constitution.evaluate_constitution_compliance(
+                    constitution_payload
+                )
                 if not const_res["compliant"]:
                     print(f"🛡️ [SYSTEM CONSTITUTION BLOCKED]: {const_res['reason']}")
                     continue
 
                 # D. Reference Price Deviation check (Section 10.5)
-                feed_price = float(scan_item["price"] if (scan_item and scan_item["price"] != "-") else "1.1")
-                price_ok = self.engine.data.check_price_deviation(symbol, feed_price, feed_price) # Compares with self as baseline
+                feed_price = float(
+                    scan_item["price"]
+                    if (scan_item and scan_item["price"] != "-")
+                    else "1.1"
+                )
+                price_ok = self.engine.data.check_price_deviation(
+                    symbol, feed_price, feed_price
+                )  # Compares with self as baseline
                 if not price_ok:
-                    print(f"🛑 [REFERENCE PRICE DEVIATION BLOCKED]: {symbol} feed price deviated significantly from reference source.")
+                    print(
+                        f"🛑 [REFERENCE PRICE DEVIATION BLOCKED]: {symbol} feed price deviated significantly from reference source."
+                    )
                     continue
 
                 # E. Safety Kernel check
                 if not self.engine.safety.authorize_trade(symbol, env, violations):
-                    print(f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed.")
+                    print(
+                        f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed."
+                    )
                     continue
 
                 # E. Fat-Finger checking
-                if not self.engine.execution.validate_fat_finger(symbol, analysis['lot_size'], feed_price):
-                    print(f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {analysis['lot_size']} or notional exceeds standard limits.")
+                if not self.engine.execution.validate_fat_finger(
+                    symbol, analysis["lot_size"], feed_price
+                ):
+                    print(
+                        f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {analysis['lot_size']} or notional exceeds standard limits."
+                    )
                     continue
 
                 # F. Self-Trade prevention check
-                if self.engine.execution.prevent_self_trade(symbol, decision, active_positions_refresh):
-                    print(f"🛑 [SELF-TRADE PREVENTION BLOCKED]: conflicting positions open on symbol {symbol}.")
+                if self.engine.execution.prevent_self_trade(
+                    symbol, decision, active_positions_refresh
+                ):
+                    print(
+                        f"🛑 [SELF-TRADE PREVENTION BLOCKED]: conflicting positions open on symbol {symbol}."
+                    )
                     continue
 
                 # G. Rate limits check (Section 24.1)
                 if not self.engine.execution.check_rate_limits():
+<<<<<<< Updated upstream
                     print("🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
+=======
+                    print(
+                        f"🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded."
+                    )
+>>>>>>> Stashed changes
                     # Transition resilience state on throttling
                     if self.engine.execution.rate_state == "HALTED":
                         self.engine.resilience.transition_state("HALTED")
@@ -779,20 +1235,20 @@ class AutonomousScalper:
                 res = self.engine.execution.execute_admitted_order(
                     symbol=symbol,
                     direction=decision,
-                    lot=analysis['lot_size'],
-                    sl=analysis['sl'],
-                    tp=analysis['tp']
+                    lot=analysis["lot_size"],
+                    sl=analysis["sl"],
+                    tp=analysis["tp"],
                 )
 
-                if res['success']:
+                if res["success"]:
                     database.log_trade_open(
-                        ticket=res['ticket'],
+                        ticket=res["ticket"],
                         symbol=symbol,
                         direction=decision,
-                        open_price=res['price'],
-                        sl=analysis['sl'],
-                        tp=analysis['tp'],
-                        lot_size=analysis['lot_size']
+                        open_price=res["price"],
+                        sl=analysis["sl"],
+                        tp=analysis["tp"],
+                        lot_size=analysis["lot_size"],
                     )
 
                     alert_msg = (
@@ -806,17 +1262,41 @@ class AutonomousScalper:
                     print(alert_msg.replace("*", ""))
                     telegram_bot.send_telegram_message(alert_msg)
 
-                    active_positions.append({
-                        'ticket': res['ticket'],
-                        'symbol': symbol,
-                        'direction': decision,
-                        'open_price': res['price'],
-                        'sl': analysis['sl'],
-                        'tp': analysis['tp'],
-                        'lot_size': analysis['lot_size']
-                    })
-                    trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
+                    active_positions.append(
+                        {
+                            "ticket": res["ticket"],
+                            "symbol": symbol,
+                            "direction": decision,
+                            "open_price": res["price"],
+                            "sl": analysis["sl"],
+                            "tp": analysis["tp"],
+                            "lot_size": analysis["lot_size"],
+                        }
+                    )
+                    trading_available = (
+                        len(active_positions) < config.MAX_CONCURRENT_TRADES
+                    )
 
+<<<<<<< Updated upstream
+=======
+        # Generate HTML Dashboard file with real and live data & indicators
+        self._generate_html_dashboard(
+            current_time=timestamp_str,
+            equity=current_equity,
+            balance=current_balance,
+            active_positions=active_positions,
+            scans=scans_list,
+        )
+
+        # Write real-time trading state for native MT5 MQL5 EA visual dashboard
+        self._write_ea_state_file(
+            equity=current_equity,
+            balance=current_balance,
+            active_positions=active_positions,
+            scans=scans_list,
+        )
+
+>>>>>>> Stashed changes
         print("-" * 120)
 
 
@@ -825,7 +1305,8 @@ if __name__ == "__main__":
     use_gui = True
     try:
         import tkinter as tk
-        if os.name != 'nt' and not os.environ.get('DISPLAY'):
+
+        if os.name != "nt" and not os.environ.get("DISPLAY"):
             use_gui = False
     except ImportError:
         use_gui = False
@@ -833,9 +1314,12 @@ if __name__ == "__main__":
     if use_gui:
         print("Launching Scalper Brain in Desktop GUI Mode...")
         import gui
+
         gui.launch_gui()
     else:
-        print("No GUI environment detected or supported. Launching in CLASSIC CONSOLE MODE...")
+        print(
+            "No GUI environment detected or supported. Launching in CLASSIC CONSOLE MODE..."
+        )
         scalper = AutonomousScalper()
         if scalper.start():
             try:

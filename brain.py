@@ -23,23 +23,28 @@ class ScalperBrain:
         current_equity: float, current account balance/equity to calculate lot size.
         """
         # Ensure we have enough data to calculate all indicators
-        min_bars_needed = max(config.EMA_LONG_PERIOD + 10, config.RSI_PERIOD + 10, config.ATR_PERIOD + 10, config.MACD_SLOW + 15)
+        min_bars_needed = max(
+            config.EMA_LONG_PERIOD + 10,
+            config.RSI_PERIOD + 10,
+            config.ATR_PERIOD + 10,
+            config.MACD_SLOW + 15,
+        )
 
         if len(history_bars) < min_bars_needed:
             msg = f"Insufficient history data for {symbol}. Needs {min_bars_needed} bars, got {len(history_bars)}."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
             return {
-                'decision': 'HOLD',
-                'lot_size': 0.0,
-                'sl': 0.0,
-                'tp': 0.0,
-                'explanation': msg,
-                'indicators': {}
+                "decision": "HOLD",
+                "lot_size": 0.0,
+                "sl": 0.0,
+                "tp": 0.0,
+                "explanation": msg,
+                "indicators": {},
             }
 
-        closes = [bar['close'] for bar in history_bars]
-        highs = [bar['high'] for bar in history_bars]
-        lows = [bar['low'] for bar in history_bars]
+        closes = [bar["close"] for bar in history_bars]
+        highs = [bar["high"] for bar in history_bars]
+        lows = [bar["low"] for bar in history_bars]
 
         current_price = closes[-1]
 
@@ -49,19 +54,31 @@ class ScalperBrain:
         ema_medium = indicators.calculate_ema(closes, config.EMA_MEDIUM_PERIOD)
         rsi_val = indicators.calculate_rsi(closes, config.RSI_PERIOD)
         atr_val = indicators.calculate_atr(highs, lows, closes, config.ATR_PERIOD)
-        bb = indicators.calculate_bollinger_bands(closes, config.BB_PERIOD, config.BB_STD_DEV)
-        macd = indicators.calculate_macd(closes, config.MACD_FAST, config.MACD_SLOW, config.MACD_SIGNAL)
+        bb = indicators.calculate_bollinger_bands(
+            closes, config.BB_PERIOD, config.BB_STD_DEV
+        )
+        macd = indicators.calculate_macd(
+            closes, config.MACD_FAST, config.MACD_SLOW, config.MACD_SIGNAL
+        )
 
-        if ema_long is None or rsi_val is None or atr_val is None or ema_short is None or ema_medium is None or bb is None or macd is None:
+        if (
+            ema_long is None
+            or rsi_val is None
+            or atr_val is None
+            or ema_short is None
+            or ema_medium is None
+            or bb is None
+            or macd is None
+        ):
             msg = f"Indicator calculation returned None for {symbol} due to insufficient history window."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
             return {
-                'decision': 'HOLD',
-                'lot_size': 0.0,
-                'sl': 0.0,
-                'tp': 0.0,
-                'explanation': msg,
-                'indicators': {}
+                "decision": "HOLD",
+                "lot_size": 0.0,
+                "sl": 0.0,
+                "tp": 0.0,
+                "explanation": msg,
+                "indicators": {},
             }
 
         trend_direction = "UP" if current_price > ema_long else "DOWN"
@@ -71,31 +88,39 @@ class ScalperBrain:
             open_trades = database.get_open_trades()
 
             # Global concurrent trades check against config.MAX_CONCURRENT_TRADES
-            if len(open_trades) >= getattr(config, 'MAX_CONCURRENT_TRADES', 10):
+            if len(open_trades) >= getattr(config, "MAX_CONCURRENT_TRADES", 10):
                 msg = f"HOLD (Global Max Concurrent Trades Limit Reached: {len(open_trades)}/{getattr(config, 'MAX_CONCURRENT_TRADES', 10)})"
-                database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                database.log_assessment(
+                    symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
+                )
                 return {
-                    'decision': 'HOLD',
-                    'lot_size': 0.0,
-                    'sl': 0.0,
-                    'tp': 0.0,
-                    'explanation': msg,
-                    'indicators': {
-                        'ema_long': round(ema_long, 5),
-                        'rsi': round(rsi_val, 2),
-                        'atr': round(atr_val, 5)
-                    }
+                    "decision": "HOLD",
+                    "lot_size": 0.0,
+                    "sl": 0.0,
+                    "tp": 0.0,
+                    "explanation": msg,
+                    "indicators": {
+                        "ema_long": round(ema_long, 5),
+                        "rsi": round(rsi_val, 2),
+                        "atr": round(atr_val, 5),
+                    },
                 }
 
-            symbol_trades = [t for t in open_trades if t.get('symbol', '').upper() == symbol.upper()]
+            symbol_trades = [
+                t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()
+            ]
             if symbol_trades:
                 any_loss = False
                 all_profit_1atr = True
                 for t in symbol_trades:
-                    direction = t.get('direction', 'BUY')
-                    trade_profit = t.get('profit')
-                    open_price = float(t.get('open_price', current_price))
-                    p_diff = (current_price - open_price) if direction == 'BUY' else (open_price - current_price)
+                    direction = t.get("direction", "BUY")
+                    trade_profit = t.get("profit")
+                    open_price = float(t.get("open_price", current_price))
+                    p_diff = (
+                        (current_price - open_price)
+                        if direction == "BUY"
+                        else (open_price - current_price)
+                    )
 
                     if trade_profit is not None:
                         is_losing = float(trade_profit) < 0
@@ -112,34 +137,38 @@ class ScalperBrain:
 
                 if any_loss:
                     msg = f"HOLD (Symbol Floating Loss Protection Gate Active: open position on {symbol} in loss)"
-                    database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                    database.log_assessment(
+                        symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
+                    )
                     return {
-                        'decision': 'HOLD',
-                        'lot_size': 0.0,
-                        'sl': 0.0,
-                        'tp': 0.0,
-                        'explanation': msg,
-                        'indicators': {
-                            'ema_long': round(ema_long, 5),
-                            'rsi': round(rsi_val, 2),
-                            'atr': round(atr_val, 5)
-                        }
+                        "decision": "HOLD",
+                        "lot_size": 0.0,
+                        "sl": 0.0,
+                        "tp": 0.0,
+                        "explanation": msg,
+                        "indicators": {
+                            "ema_long": round(ema_long, 5),
+                            "rsi": round(rsi_val, 2),
+                            "atr": round(atr_val, 5),
+                        },
                     }
 
                 if not all_profit_1atr:
                     msg = f"HOLD (Pyramiding Gate: existing positions on {symbol} profit < 1.0x ATR threshold)"
-                    database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                    database.log_assessment(
+                        symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
+                    )
                     return {
-                        'decision': 'HOLD',
-                        'lot_size': 0.0,
-                        'sl': 0.0,
-                        'tp': 0.0,
-                        'explanation': msg,
-                        'indicators': {
-                            'ema_long': round(ema_long, 5),
-                            'rsi': round(rsi_val, 2),
-                            'atr': round(atr_val, 5)
-                        }
+                        "decision": "HOLD",
+                        "lot_size": 0.0,
+                        "sl": 0.0,
+                        "tp": 0.0,
+                        "explanation": msg,
+                        "indicators": {
+                            "ema_long": round(ema_long, 5),
+                            "rsi": round(rsi_val, 2),
+                            "atr": round(atr_val, 5),
+                        },
                     }
         except Exception as e:
             print(f"Warning: Symbol floating loss check error: {e}")
@@ -149,19 +178,37 @@ class ScalperBrain:
 
         # Classify market regime to pass as additional neural inputs
         reg_info_nn = indicators.classify_market_regime(highs, lows, closes)
-        reg_state_val = 1.0 if reg_info_nn['regime'] == "TRENDING" else 0.0
+        reg_state_val = 1.0 if reg_info_nn["regime"] == "TRENDING" else 0.0
 
         # Calculate volatility ratio
-        baseline_atr_nn = sum(indicators.calculate_atr(highs[:i], lows[:i], closes[:i], config.ATR_PERIOD) or atr_val for i in range(len(closes) - 20, len(closes))) / 20.0
+        baseline_atr_nn = (
+            sum(
+                indicators.calculate_atr(
+                    highs[:i], lows[:i], closes[:i], config.ATR_PERIOD
+                )
+                or atr_val
+                for i in range(len(closes) - 20, len(closes))
+            )
+            / 20.0
+        )
         vol_ratio = atr_val / baseline_atr_nn if baseline_atr_nn > 0 else 1.0
 
         # Prepare inputs (Expanded to 6 features for institutional intelligence)
         rsi_norm = rsi_val / 100.0
         ema_ratio = ema_short / ema_medium if ema_medium > 0 else 1.0
-        macd_ratio = macd['histogram'] / current_price if current_price > 0 else 0.0
-        returns_prev = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
+        macd_ratio = macd["histogram"] / current_price if current_price > 0 else 0.0
+        returns_prev = (
+            (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
+        )
 
-        inputs = [rsi_norm, ema_ratio, macd_ratio, returns_prev, reg_state_val, vol_ratio]
+        inputs = [
+            rsi_norm,
+            ema_ratio,
+            macd_ratio,
+            returns_prev,
+            reg_state_val,
+            vol_ratio,
+        ]
 
         # Train on actual open-to-close outcome of previous candle
         actual_bullish_close = 1.0 if closes[-1] > closes[-2] else 0.0
@@ -183,24 +230,26 @@ class ScalperBrain:
                     reasons_tf.append(f"RSI {rsi_val:.1f} > {config.RSI_BUY_THRESHOLD}")
                 if ema_short <= ema_medium:
                     reasons_tf.append("EMA-9 below EMA-21")
-        else: # DOWN trend
+        else:  # DOWN trend
             if rsi_val >= config.RSI_SELL_THRESHOLD and ema_short < ema_medium:
                 sig_tf = "SELL"
             else:
                 if rsi_val < config.RSI_SELL_THRESHOLD:
-                    reasons_tf.append(f"RSI {rsi_val:.1f} < {config.RSI_SELL_THRESHOLD}")
+                    reasons_tf.append(
+                        f"RSI {rsi_val:.1f} < {config.RSI_SELL_THRESHOLD}"
+                    )
                 if ema_short >= ema_medium:
                     reasons_tf.append("EMA-9 above EMA-21")
 
         # 2. EVALUATE STRATEGY 2: MEAN_REVERSION (Bollinger Bands)
         sig_mr = "HOLD"
         reasons_mr = []
-        if current_price <= bb['lower'] and rsi_val <= 30.0:
+        if current_price <= bb["lower"] and rsi_val <= 30.0:
             sig_mr = "BUY"
-        elif current_price >= bb['upper'] and rsi_val >= 70.0:
+        elif current_price >= bb["upper"] and rsi_val >= 70.0:
             sig_mr = "SELL"
         else:
-            if current_price > bb['lower'] and current_price < bb['upper']:
+            if current_price > bb["lower"] and current_price < bb["upper"]:
                 reasons_mr.append("Price inside Bands")
             if rsi_val > 30.0 and rsi_val < 70.0:
                 reasons_mr.append(f"RSI {rsi_val:.1f} neutral")
@@ -208,9 +257,9 @@ class ScalperBrain:
         # 3. EVALUATE STRATEGY 3: MACD_MOMENTUM
         sig_mac = "HOLD"
         reasons_mac = []
-        if macd['histogram'] > 0 and macd['macd'] > macd['signal']:
+        if macd["histogram"] > 0 and macd["macd"] > macd["signal"]:
             sig_mac = "BUY"
-        elif macd['histogram'] < 0 and macd['macd'] < macd['signal']:
+        elif macd["histogram"] < 0 and macd["macd"] < macd["signal"]:
             sig_mac = "SELL"
         else:
             reasons_mac.append("MACD neutral")
@@ -218,20 +267,26 @@ class ScalperBrain:
         # 4. EVALUATE STRATEGY 4: BREAKOUT (Donchian Channels + Bollinger Squeeze)
         sig_bo = "HOLD"
         reasons_bo = []
-        donchian = indicators.calculate_donchian_channels(highs, lows, config.BREAKOUT_PERIOD)
-        squeeze = indicators.calculate_bollinger_squeeze(closes, config.BB_PERIOD, config.BB_STD_DEV)
+        donchian = indicators.calculate_donchian_channels(
+            highs, lows, config.BREAKOUT_PERIOD
+        )
+        squeeze = indicators.calculate_bollinger_squeeze(
+            closes, config.BB_PERIOD, config.BB_STD_DEV
+        )
 
         if donchian and squeeze is not None:
             # Squeeze is active if bandwidth is tight
             is_squeezed = squeeze < 0.04
             if is_squeezed:
                 # Squeeze breakout setup
-                if current_price >= donchian['upper']:
+                if current_price >= donchian["upper"]:
                     sig_bo = "BUY"
-                elif current_price <= donchian['lower']:
+                elif current_price <= donchian["lower"]:
                     sig_bo = "SELL"
                 else:
-                    reasons_bo.append(f"Inside Squeeze Channel [{donchian['lower']:.5f} - {donchian['upper']:.5f}]")
+                    reasons_bo.append(
+                        f"Inside Squeeze Channel [{donchian['lower']:.5f} - {donchian['upper']:.5f}]"
+                    )
             else:
                 reasons_bo.append(f"Bandwidth too high: {squeeze:.3f}")
         else:
@@ -250,7 +305,9 @@ class ScalperBrain:
             else:
                 reasons_cy.append(f"Trend/RSI divergence with swap {swap_val:+.1f}")
         else:
-            reasons_cy.append(f"Carry yield {swap_val:+.1f} below minimum {config.MIN_CARRY_YIELD_POINTS}")
+            reasons_cy.append(
+                f"Carry yield {swap_val:+.1f} below minimum {config.MIN_CARRY_YIELD_POINTS}"
+            )
 
         # 6. EVALUATE STRATEGY 6: GRID_TRADE (Cost-Averaging Matrix)
         sig_gd = "HOLD"
@@ -276,7 +333,9 @@ class ScalperBrain:
             # Simple spread ratio tracking relative to its 20-period standard deviation (z-score)
             ratio_series = []
             for j in range(len(closes) - 20, len(closes)):
-                ratio_series.append(closes[j] / (closes[j-1] if closes[j-1] > 0 else 1.0))
+                ratio_series.append(
+                    closes[j] / (closes[j - 1] if closes[j - 1] > 0 else 1.0)
+                )
 
             mean_r = sum(ratio_series) / len(ratio_series)
             var_r = sum((x - mean_r) ** 2 for x in ratio_series) / len(ratio_series)
@@ -305,7 +364,9 @@ class ScalperBrain:
             elif current_price < open_low:
                 sig_or = "SELL"
             else:
-                reasons_or.append(f"Price inside opening range [{open_low:.5f} - {open_high:.5f}]")
+                reasons_or.append(
+                    f"Price inside opening range [{open_low:.5f} - {open_high:.5f}]"
+                )
         else:
             reasons_or.append("Insufficient bars for Opening Range (needs 30)")
 
@@ -327,12 +388,16 @@ class ScalperBrain:
                 if current_price < ema_long and closes[-1] > closes[-2]:
                     sig_vs = "BUY"  # Accumulation at Support (No Supply)
                 elif current_price > ema_long and closes[-1] < closes[-2]:
-                    sig_vs = "SELL" # Distribution at Resistance (No Demand)
+                    sig_vs = "SELL"  # Distribution at Resistance (No Demand)
                 else:
-                    reasons_vs.append("Spread/Volume squeeze with no support confirmation")
+                    reasons_vs.append(
+                        "Spread/Volume squeeze with no support confirmation"
+                    )
             else:
-                if not is_ultra_high_vol: reasons_vs.append(f"Volume {curr_vol:.1f} below threshold")
-                if not is_narrow_spread: reasons_vs.append("Spread too wide")
+                if not is_ultra_high_vol:
+                    reasons_vs.append(f"Volume {curr_vol:.1f} below threshold")
+                if not is_narrow_spread:
+                    reasons_vs.append("Spread too wide")
         except Exception as e:
             reasons_vs.append(f"VSA evaluation error: {e}")
 
@@ -355,27 +420,41 @@ class ScalperBrain:
             bearish_indicators = 0
 
             # Trend alignments
-            if current_price > sma20: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if current_price > sma20:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
-            if current_price > sma50: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if current_price > sma50:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
-            if current_price > sma100: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if current_price > sma100:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
-            if current_price > sma200: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if current_price > sma200:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
             # Momentum alignments
-            if rsi10 > 50: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if rsi10 > 50:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
-            if rsi14 > 50: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if rsi14 > 50:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
-            if rsi21 > 50: bullish_indicators += 1
-            else: bearish_indicators += 1
+            if rsi21 > 50:
+                bullish_indicators += 1
+            else:
+                bearish_indicators += 1
 
             # Determine confluence ratio (needs >= 5 out of 7 aligned signals)
             if bullish_indicators >= 5:
@@ -383,7 +462,9 @@ class ScalperBrain:
             elif bearish_indicators >= 5:
                 sig_mtf = "SELL"
             else:
-                reasons_mtf.append(f"No MTF alignment (Bullish: {bullish_indicators}/7, Bearish: {bearish_indicators}/7)")
+                reasons_mtf.append(
+                    f"No MTF alignment (Bullish: {bullish_indicators}/7, Bearish: {bearish_indicators}/7)"
+                )
         except Exception as e:
             reasons_mtf.append(f"MTF Confluence error: {e}")
 
@@ -394,8 +475,8 @@ class ScalperBrain:
 
         # Classify market regime to dynamically weight voting strategies!
         reg_info = indicators.classify_market_regime(highs, lows, closes)
-        reg_state = reg_info['regime']
-        reg_vol = reg_info['volatility']
+        reg_state = reg_info["regime"]
+        reg_vol = reg_info["volatility"]
 
         if strategy_mode == "TREND_FOLLOWING":
             decision = sig_tf
@@ -429,12 +510,20 @@ class ScalperBrain:
             explanation = f"MTF Confluence: {decision if decision != 'HOLD' else 'Waiting for: ' + ' & '.join(reasons_mtf)}"
         elif strategy_mode == "SMC_ICT":
             smc_data = indicators.get_smc_analysis(history_bars)
-            sig_smc = "BUY" if smc_data["bias"] == "BULLISH" else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
+            sig_smc = (
+                "BUY"
+                if smc_data["bias"] == "BULLISH"
+                else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
+            )
             decision = sig_smc
             explanation = f"SMC/ICT Structure: {decision if decision != 'HOLD' else 'Waiting for Order Block / FVG alignment'} | Confluence Score: {smc_data['confluence_score']:.1f}%"
-        else: # VOTING_ENSEMBLE
+        else:  # VOTING_ENSEMBLE
             smc_data = indicators.get_smc_analysis(history_bars)
-            sig_smc = "BUY" if smc_data["bias"] == "BULLISH" else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
+            sig_smc = (
+                "BUY"
+                if smc_data["bias"] == "BULLISH"
+                else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
+            )
             # Convert signals to numeric values (+1: BUY, -1: SELL, 0: HOLD)
             sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
 
@@ -450,32 +539,56 @@ class ScalperBrain:
             smc_val = sig_to_val(sig_smc)
 
             # Assign adaptive weights based on current market regime!
-            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w = 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.5, 1.0, 1.5
+            tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w = (
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.5,
+                1.0,
+                1.0,
+                1.5,
+                1.0,
+                1.5,
+            )
 
             # Markov Volatility Regime Switching logic: Auto-zero mean-reversion in Trending regimes
             if reg_state == "TRENDING":
-                tf_w = 2.5   # Boost trend following
-                bo_w = 2.5   # Boost breakout follow-through
-                or_w = 2.0   # Opening Range Breakouts
-                mr_w = 0.0   # Markov Regime Switch: Disable mean-reversion counter-trend trades during trends
-                sa_w = 0.0   # Disable statistical arbitrage mean-reversion during strong trend legs
+                tf_w = 2.5  # Boost trend following
+                bo_w = 2.5  # Boost breakout follow-through
+                or_w = 2.0  # Opening Range Breakouts
+                mr_w = 0.0  # Markov Regime Switch: Disable mean-reversion counter-trend trades during trends
+                sa_w = 0.0  # Disable statistical arbitrage mean-reversion during strong trend legs
                 mtf_w = 2.0  # Boost MTF trend alignment
-            else: # RANGING
-                mr_w = 2.5   # Boost mean reversion oscillators
-                sa_w = 2.5   # StatArb thrives in mean-reverting ranging markets
-                tf_w = 0.0   # Markov Regime Switch: Disable trend following in ranging regime
-                bo_w = 0.0   # Suppress false breakout signals
+            else:  # RANGING
+                mr_w = 2.5  # Boost mean reversion oscillators
+                sa_w = 2.5  # StatArb thrives in mean-reverting ranging markets
+                tf_w = 0.0  # Markov Regime Switch: Disable trend following in ranging regime
+                bo_w = 0.0  # Suppress false breakout signals
                 mtf_w = 0.5  # Reduce MTF weight in choppy markets
 
-            total_weight = tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w
-            weighted_score = ((tf_val * tf_w) + (mr_val * mr_w) + (mac_val * mac_w) +
-                              (bo_val * bo_w) + (cy_val * cy_w) + (sa_val * sa_w) +
-                              (or_val_v * or_w) + (vs_val * vs_w) + (mtf_val * mtf_w) + (smc_val * smc_w))
+            total_weight = (
+                tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w
+            )
+            weighted_score = (
+                (tf_val * tf_w)
+                + (mr_val * mr_w)
+                + (mac_val * mac_w)
+                + (bo_val * bo_w)
+                + (cy_val * cy_w)
+                + (sa_val * sa_w)
+                + (or_val_v * or_w)
+                + (vs_val * vs_w)
+                + (mtf_val * mtf_w)
+                + (smc_val * smc_w)
+            )
 
-            normalized_score = weighted_score / total_weight if total_weight > 0 else 0.0
+            normalized_score = (
+                weighted_score / total_weight if total_weight > 0 else 0.0
+            )
 
             ensemble_bias = "HOLD"
-            if normalized_score >= 0.28: # Dynamic consensus threshold
+            if normalized_score >= 0.28:  # Dynamic consensus threshold
                 ensemble_bias = "BUY"
             elif normalized_score <= -0.28:
                 ensemble_bias = "SELL"
@@ -535,7 +648,16 @@ class ScalperBrain:
         sl_distance = max(atr_val * style_multiplier, current_price * 0.0010)
 
         # Calculate a baseline ATR to adapt Take Profit ratio
-        baseline_atr = sum(indicators.calculate_atr(highs[:i], lows[:i], closes[:i], config.ATR_PERIOD) or atr_val for i in range(len(closes) - 20, len(closes))) / 20.0
+        baseline_atr = (
+            sum(
+                indicators.calculate_atr(
+                    highs[:i], lows[:i], closes[:i], config.ATR_PERIOD
+                )
+                or atr_val
+                for i in range(len(closes) - 20, len(closes))
+            )
+            / 20.0
+        )
         if baseline_atr <= 0:
             baseline_atr = atr_val
 
@@ -545,7 +667,9 @@ class ScalperBrain:
         if volatility_ratio > 1.2:
             adaptive_rr = style_target_rr * 1.25  # Heavy trend: scale up targets
         elif volatility_ratio < 0.8:
-            adaptive_rr = style_target_rr * 0.75  # Consolidating/Quiet: pull targets in closer for high-probability win exits
+            adaptive_rr = (
+                style_target_rr * 0.75
+            )  # Consolidating/Quiet: pull targets in closer for high-probability win exits
 
         if decision == "BUY":
             sl = current_price - sl_distance
@@ -560,13 +684,19 @@ class ScalperBrain:
         if brain_directive is None:
             try:
                 from brain_agents_orchestrator import global_brain_orchestrator
+
                 brain_directive = global_brain_orchestrator.last_directive
             except Exception:
                 brain_directive = None
 
         if brain_directive:
-            if hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
-                explanation += f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
+            if (
+                hasattr(brain_directive, "guidance_notes")
+                and brain_directive.guidance_notes
+            ):
+                explanation += (
+                    f" | Agentic Notes: {'; '.join(brain_directive.guidance_notes[:2])}"
+                )
 
         database.log_assessment(
             symbol=symbol,
@@ -574,20 +704,20 @@ class ScalperBrain:
             rsi_val=rsi_val,
             atr_val=atr_val,
             decision=decision,
-            explanation=explanation
+            explanation=explanation,
         )
 
         return {
-            'decision': decision,
-            'lot_size': round(lot_size, 2),
-            'sl': round(sl, 5),
-            'tp': round(tp, 5),
-            'explanation': explanation,
-            'indicators': {
-                'ema_long': round(ema_long, 5),
-                'rsi': round(rsi_val, 2),
-                'atr': round(atr_val, 5)
-            }
+            "decision": decision,
+            "lot_size": round(lot_size, 2),
+            "sl": round(sl, 5),
+            "tp": round(tp, 5),
+            "explanation": explanation,
+            "indicators": {
+                "ema_long": round(ema_long, 5),
+                "rsi": round(rsi_val, 2),
+                "atr": round(atr_val, 5),
+            },
         }
 
     def _calculate_lot_size(self, symbol, equity, sl_distance):
@@ -595,7 +725,7 @@ class ScalperBrain:
         Calculates dynamic position size using Fractional Kelly / ATR Volatility Sizing,
         enforcing 0.01 fixed lots as the absolute baseline floor.
         """
-        if getattr(config, 'FIXED_LOT_SIZE_ONLY', True):
+        if getattr(config, "FIXED_LOT_SIZE_ONLY", True):
             return 0.01
 
         if equity <= 0 or sl_distance <= 0:
@@ -603,7 +733,7 @@ class ScalperBrain:
 
         try:
             # 1. Risk budget: 1% account risk
-            risk_pct = getattr(config, 'RISK_PER_TRADE_PERCENT', 1.0) / 100.0
+            risk_pct = getattr(config, "RISK_PER_TRADE_PERCENT", 1.0) / 100.0
             risk_amount = equity * risk_pct
 
             # Standard pip value approximation for 1 lot (0.01 lot = $0.10/pip on Majors)
@@ -612,7 +742,7 @@ class ScalperBrain:
             sl_pips = max(5.0, sl_pips)
 
             raw_lots = risk_amount / (sl_pips * pip_value_per_lot)
-            if getattr(config, 'FIXED_LOT_SIZE_ONLY', False):
+            if getattr(config, "FIXED_LOT_SIZE_ONLY", False):
                 return 0.01
 
             # Kelly Scaling Factor (0.25 fractional Kelly)

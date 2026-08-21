@@ -20,12 +20,22 @@ class TemporalFusionTransformer:
         """Generates multi-horizon forecasts with confidence bounds."""
         if not price_series or len(price_series) < 5:
             base_p = price_series[-1] if price_series else 1.1000
-            return {h: {"price": base_p, "lower": base_p*0.99, "upper": base_p*1.01} for h in horizons}
+            return {
+                h: {"price": base_p, "lower": base_p * 0.99, "upper": base_p * 1.01}
+                for h in horizons
+            }
 
         last_p = price_series[-1]
-        returns = [(price_series[i] - price_series[i-1]) / price_series[i-1] for i in range(1, len(price_series))]
+        returns = [
+            (price_series[i] - price_series[i - 1]) / price_series[i - 1]
+            for i in range(1, len(price_series))
+        ]
         mean_ret = sum(returns) / len(returns) if returns else 0.0001
-        vol = math.sqrt(sum((r - mean_ret)**2 for r in returns) / len(returns)) if len(returns) > 1 else 0.001
+        vol = (
+            math.sqrt(sum((r - mean_ret) ** 2 for r in returns) / len(returns))
+            if len(returns) > 1
+            else 0.001
+        )
 
         forecasts = {}
         for h in horizons:
@@ -35,9 +45,10 @@ class TemporalFusionTransformer:
                 "price": round(proj_price, 5),
                 "lower": round(proj_price - bound, 5),
                 "upper": round(proj_price + bound, 5),
-                "confidence": round(max(50.0, 95.0 - h * 2.5), 1)
+                "confidence": round(max(50.0, 95.0 - h * 2.5), 1),
             }
         return forecasts
+
 
 class TemporalConvolutionalNetwork:
     """Dilated Causal Convolutions TCN for fast sequence processing."""
@@ -66,5 +77,5 @@ class TemporalConvolutionalNetwork:
         return {
             "tcn_feature": round(avg_delta, 6),
             "bias": bias,
-            "receptive_field": sum(self.dilations) * self.kernel_size
+            "receptive_field": sum(self.dilations) * self.kernel_size,
         }

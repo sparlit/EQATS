@@ -10,6 +10,7 @@ import threading
 import time
 
 
+
 class FIXEngine:
     """Thread-safe low-latency FIX protocol session manager."""
 
@@ -27,7 +28,9 @@ class FIXEngine:
             seq = self.seq_num
             self.seq_num += 1
 
-        sending_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        sending_time = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y%m%d-%H:%M:%S.%f"
+        )[:-3]
         header = f"35={msg_type}\x0149={self.sender_comp_id}\x0156={self.target_comp_id}\x0134={seq}\x0152={sending_time}\x01"
         body = "".join(f"{k}={v}\x01" for k, v in body_tags.items())
 
@@ -60,7 +63,7 @@ class FIXEngine:
             "263": 1,  # Snapshot + Updates
             "264": 1,  # Top of Book / DOM
             "267": 2,  # Bid / Offer
-            "55": symbol
+            "55": symbol,
         }
         msg = self.construct_fix_message("V", tags)
         return {"symbol": symbol, "status": "STREAMING", "fix_raw": msg}
@@ -72,17 +75,19 @@ class FIXEngine:
         """
         side_val = 1 if side.upper() == "BUY" else 2
         ord_type_val = 1 if order_type.upper() == "MARKET" else 2
-        cl_ord_id = f"ORD_{symbol}_{int(time.time()*1000)}"
+        cl_ord_id = f"ORD_{symbol}_{int(time.time() * 1000)}"
 
         tags = {
             "11": cl_ord_id,
             "55": symbol,
             "54": side_val,
-            "60": datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3],
+            "60": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d-%H:%M:%S.%f"
+            )[:-3],
             "38": qty,
             "40": ord_type_val,
             "44": price,
-            "59": 0  # Day
+            "59": 0,  # Day
         }
         msg = self.construct_fix_message("D", tags)
 
@@ -96,7 +101,7 @@ class FIXEngine:
             "fill_qty": qty,
             "fill_price": price,
             "ord_status": "FILLED",
-            "fix_raw": msg
+            "fix_raw": msg,
         }
         self.execution_reports.append(report)
         return report
@@ -104,15 +109,21 @@ class FIXEngine:
     def cancel_order(self, orig_cl_ord_id, symbol, side, qty):
         """Builds OrderCancelRequest (35=F)."""
         side_val = 1 if side.upper() == "BUY" else 2
-        cl_ord_id = f"CANC_{symbol}_{int(time.time()*1000)}"
+        cl_ord_id = f"CANC_{symbol}_{int(time.time() * 1000)}"
 
         tags = {
             "11": cl_ord_id,
             "41": orig_cl_ord_id,
             "55": symbol,
             "54": side_val,
-            "60": datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3],
-            "38": qty
+            "60": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d-%H:%M:%S.%f"
+            )[:-3],
+            "38": qty,
         }
         msg = self.construct_fix_message("F", tags)
-        return {"status": "CANCEL_SENT", "orig_cl_ord_id": orig_cl_ord_id, "fix_raw": msg}
+        return {
+            "status": "CANCEL_SENT",
+            "orig_cl_ord_id": orig_cl_ord_id,
+            "fix_raw": msg,
+        }

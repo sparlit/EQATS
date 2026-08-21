@@ -10,14 +10,18 @@ def send_telegram_message(message):
     Sends a message to the pre-configured Telegram chat.
     Uses native urllib.request to avoid external dependency requirements (e.g., requests).
     """
-    if not config.TELEGRAM_ENABLED or not config.TELEGRAM_TOKEN or not config.TELEGRAM_CHAT_ID:
+    if (
+        not config.TELEGRAM_ENABLED
+        or not config.TELEGRAM_TOKEN
+        or not config.TELEGRAM_CHAT_ID
+    ):
         return False
 
     url = f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": config.TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
     }
 
     try:

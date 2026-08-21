@@ -7,6 +7,7 @@ and L2 order book slicing using actor-critic reward optimization.
 import math
 
 
+
 class DRLExecutionPolicyAgent:
     """
     Actor-Critic DRL Policy Agent for dynamic exit scaling, trailing stop management,
@@ -16,10 +17,16 @@ class DRLExecutionPolicyAgent:
     def __init__(self, gamma=0.99, lr=0.0003, tau=0.005, alpha=0.2):
         self.gamma = gamma
         self.lr = lr
-        self.tau = tau          # Target network soft update parameter (DDPG / SAC)
-        self.alpha = alpha      # Entropy regularization coefficient for SAC
+        self.tau = tau  # Target network soft update parameter (DDPG / SAC)
+        self.alpha = alpha  # Entropy regularization coefficient for SAC
         self.episode_rewards = []
-        self.actor_weights = [0.1, -0.05, 0.02, 0.15, -0.01]  # Linear continuous actor policy weights
+        self.actor_weights = [
+            0.1,
+            -0.05,
+            0.02,
+            0.15,
+            -0.01,
+        ]  # Linear continuous actor policy weights
 
     def select_action(self, state):
         """
@@ -30,7 +37,9 @@ class DRLExecutionPolicyAgent:
         pnl_pct = state.get("floating_pnl_pct", 0.0)
         atr_vol = state.get("atr_vol", 0.0010)
         rsi = state.get("rsi", 50.0)
-        ob_imbalance = state.get("order_book_imbalance", 0.0)  # L2 Bid-Ask imbalance [-1.0, 1.0]
+        ob_imbalance = state.get(
+            "order_book_imbalance", 0.0
+        )  # L2 Bid-Ask imbalance [-1.0, 1.0]
         spread = state.get("spread_pips", 1.0)
 
         # SAC / DDPG Continuous Policy Mapping
@@ -50,14 +59,14 @@ class DRLExecutionPolicyAgent:
         slice_count = 1
 
         if pnl_pct >= 1.5:  # Lock profits
-            sl_adj = 0.8     # Tighten stop
+            sl_adj = 0.8  # Tighten stop
             partial_close = 0.5  # Take 50% profits
-        elif pnl_pct <= -1.0: # Cut losses early if momentum turns
+        elif pnl_pct <= -1.0:  # Cut losses early if momentum turns
             sl_adj = 0.7
 
-        if rsi > 70 and pnl_pct > 0: # Overbought
+        if rsi > 70 and pnl_pct > 0:  # Overbought
             partial_close = max(partial_close, 0.33)
-        elif rsi < 30 and pnl_pct < 0: # Oversold
+        elif rsi < 30 and pnl_pct < 0:  # Oversold
             sl_adj = 0.9
 
         # Order book slicing adjustments (SAC continuous action for L2 depth slicing)
@@ -70,13 +79,17 @@ class DRLExecutionPolicyAgent:
         return {
             "sl_multiplier_adj": round(max(0.5, sl_adj + tanh_act * 0.1), 2),
             "tp_multiplier_adj": round(max(0.5, tp_adj - tanh_act * 0.1), 2),
-            "partial_close_ratio": round(min(1.0, max(0.0, partial_close + abs(tanh_act) * 0.1)), 2),
+            "partial_close_ratio": round(
+                min(1.0, max(0.0, partial_close + abs(tanh_act) * 0.1)), 2
+            ),
             "slice_count": slice_count,
             "entropy_adj": round(entropy_boost, 4),
-            "policy_type": "SAC_DDPG_CONTINUOUS_L2"
+            "policy_type": "SAC_DDPG_CONTINUOUS_L2",
         }
 
-    def compute_reward(self, prev_equity, current_equity, max_adverse_excursion, execution_slippage=0.0):
+    def compute_reward(
+        self, prev_equity, current_equity, max_adverse_excursion, execution_slippage=0.0
+    ):
         """Critic Policy: SAC/DDPG reward function penalizing adverse excursion & slippage while rewarding equity growth."""
         pnl_delta = current_equity - prev_equity
         penalty = abs(max_adverse_excursion) * 0.5 + abs(execution_slippage) * 1.5

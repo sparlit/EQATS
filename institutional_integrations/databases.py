@@ -45,15 +45,21 @@ class QuestDBILPTickAdapter:
             return {"status": "SUCCESS", "protocol": "QUESTDB_ILP", "symbol": symbol}
         except Exception as e:
             # QuestDB offline or port closed: append to ring-buffer fallback
-            self.fallback_buffer.append({
-                "symbol": symbol, "bid": bid, "ask": ask, "volume": volume,
-                "imbalance": imbalance, "timestamp": time.time()
-            })
+            self.fallback_buffer.append(
+                {
+                    "symbol": symbol,
+                    "bid": bid,
+                    "ask": ask,
+                    "volume": volume,
+                    "imbalance": imbalance,
+                    "timestamp": time.time(),
+                }
+            )
             return {
                 "status": "FALLBACK",
                 "protocol": "IN_MEMORY_RING_BUFFER",
                 "buffer_size": len(self.fallback_buffer),
-                "error": str(e)
+                "error": str(e),
             }
 
 
@@ -63,19 +69,26 @@ class CrossAssetCorrelationGraph:
     connected by edges representing cross-asset correlation matrices.
     Propagates early breakout alerts across correlated nodes to capture leading trends.
     """
+
     def __init__(self):
         # Base asset correlation mapping
         self.correlations = {
             "EURUSD": {"GBPUSD": 0.82, "USDJPY": -0.45, "AUDUSD": 0.70, "XAUUSD": 0.55},
             "GBPUSD": {"EURUSD": 0.82, "USDJPY": -0.38, "AUDUSD": 0.65, "XAUUSD": 0.48},
-            "USDJPY": {"EURUSD": -0.45, "GBPUSD": -0.38, "AUDUSD": -0.30, "XAUUSD": -0.25},
+            "USDJPY": {
+                "EURUSD": -0.45,
+                "GBPUSD": -0.38,
+                "AUDUSD": -0.30,
+                "XAUUSD": -0.25,
+            },
             "XAUUSD": {"EURUSD": 0.55, "GBPUSD": 0.48, "USDJPY": -0.25, "BTCUSD": 0.30},
             "BTCUSD": {"ETHUSD": 0.88, "XAUUSD": 0.30, "EURUSD": 0.15},
-            "ETHUSD": {"BTCUSD": 0.88, "XAUUSD": 0.25, "EURUSD": 0.12}
+            "ETHUSD": {"BTCUSD": 0.88, "XAUUSD": 0.25, "EURUSD": 0.12},
         }
 
         try:
             import networkx as nx
+
             self.G = nx.Graph()
             # Add nodes and correlation edges
             for sym, neighbors in self.correlations.items():
@@ -103,11 +116,13 @@ class CrossAssetCorrelationGraph:
                 if weight < 0:
                     suggested_bias = "SELL" if direction == "BUY" else "BUY"
 
-                warnings.append({
-                    "symbol": neighbor,
-                    "correlation": weight,
-                    "suggested_bias": suggested_bias
-                })
+                warnings.append(
+                    {
+                        "symbol": neighbor,
+                        "correlation": weight,
+                        "suggested_bias": suggested_bias,
+                    }
+                )
         return warnings
 
 
@@ -128,11 +143,14 @@ def query_high_speed_analytical_duckdb(sql_query):
         import duckdb
 
         import config
+
         # DuckDB can connect directly and query SQLite databases incredibly quickly!
         conn = duckdb.connect()
         # Enable sqlite extension
         conn.execute("INSTALL sqlite; LOAD sqlite;")
-        res = conn.execute(f"SELECT * FROM sqlite_scan('{config.DB_PATH}', 'trades') LIMIT 20").fetchall()
+        res = conn.execute(
+            f"SELECT * FROM sqlite_scan('{config.DB_PATH}', 'trades') LIMIT 20"
+        ).fetchall()
         return res
     except Exception as e:
         return [f"DuckDB offline: {e}"]
@@ -152,7 +170,7 @@ def insert_vector_embedding(vector_id, float_vector):
         # Initialize a flat L2 index for 5-dimensional hidden layer activations
         d = len(float_vector)
         index = faiss.IndexFlatL2(d)
-        vector_np = np.array([float_vector]).astype('float32')
+        vector_np = np.array([float_vector]).astype("float32")
         index.add(vector_np)
         indexed["faiss"] = True
     except ImportError:
@@ -160,12 +178,13 @@ def insert_vector_embedding(vector_id, float_vector):
 
     try:
         import chromadb
+
         chroma_client = chromadb.Client()
         collection = chroma_client.create_collection(name="mlp_hidden_activations")
         collection.add(
             embeddings=[float_vector],
             documents=[f"activation_{vector_id}"],
-            ids=[str(vector_id)]
+            ids=[str(vector_id)],
         )
         indexed["chromadb"] = True
     except Exception as e:

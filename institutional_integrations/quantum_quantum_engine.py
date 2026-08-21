@@ -32,37 +32,63 @@ class QuantumAutoEngine:
         self.last_execution_log = "System Init"
         # Prepopulate strategy registry map
         self.strategies_directory = [
-            "Trend Following (Donchian / MA Crossover)", "ICT / Smart Money Concepts (SMC)",
-            "Mean Reversion (Bollinger Bands & RSI)", "Macro Carry Trade",
-            "Crypto Funding Rate Arbitrage (Cash and Carry)", "Order Flow & Volume Profile Trading",
-            "Statistical Arbitrage (Pairs Trading)", "High-Frequency Market Making (Order Book Liquidity Provision)",
-            "Central Bank News Straddles (Algorithmic Event Trading)", "Crypto MEV Arbitrage",
-            "Intermarket Analysis & Central Bank Liquidity Cycles", "Systematic Momentum & CTA Trend-Sieving",
-            "Time-of-Day Structural Arbitrage (Session Fractures)", "Crypto Derivatives Basis Trading & Gamma Scalping",
-            "Cross-Asset Index Rebalancing & Liquidations Arbitrage", "Macro Commodity Seasonal Physics",
-            "Sentiment Scrapers & Alternative Data Quant Models", "Dark Pool & Block Trade Absorption (Whale Tracking)",
-            "Triangular Arbitrage (Cross-Rate Inefficiencies)", "Geopolitical Supply Chain & Physical Squeezes",
+            "Trend Following (Donchian / MA Crossover)",
+            "ICT / Smart Money Concepts (SMC)",
+            "Mean Reversion (Bollinger Bands & RSI)",
+            "Macro Carry Trade",
+            "Crypto Funding Rate Arbitrage (Cash and Carry)",
+            "Order Flow & Volume Profile Trading",
+            "Statistical Arbitrage (Pairs Trading)",
+            "High-Frequency Market Making (Order Book Liquidity Provision)",
+            "Central Bank News Straddles (Algorithmic Event Trading)",
+            "Crypto MEV Arbitrage",
+            "Intermarket Analysis & Central Bank Liquidity Cycles",
+            "Systematic Momentum & CTA Trend-Sieving",
+            "Time-of-Day Structural Arbitrage (Session Fractures)",
+            "Crypto Derivatives Basis Trading & Gamma Scalping",
+            "Cross-Asset Index Rebalancing & Liquidations Arbitrage",
+            "Macro Commodity Seasonal Physics",
+            "Sentiment Scrapers & Alternative Data Quant Models",
+            "Dark Pool & Block Trade Absorption (Whale Tracking)",
+            "Triangular Arbitrage (Cross-Rate Inefficiencies)",
+            "Geopolitical Supply Chain & Physical Squeezes",
             "Cross-Exchange Perpetuals Funding Rate Arbitrage (Inter-Exchange Spread)",
-            "Central Bank \"Peg\" Break & FX Intervention Trading", "Exchange Latency Arbitrage & \"Toxic Flow\"",
-            "Physical Bullion & Regional Premium Arbitrage", "Crypto Exchange Listing Front-Running & Insider Tracking",
-            "Correlation Breakdowns: The Crypto-Beta Rotation", "Interbank Fix & Options Expiry Pinning",
-            "Sentiment Archetypes & Crowded-Trade Capitulation", "Chart Patterns & Price Action (Trend, SMC, Range Trading)",
+            'Central Bank "Peg" Break & FX Intervention Trading',
+            'Exchange Latency Arbitrage & "Toxic Flow"',
+            "Physical Bullion & Regional Premium Arbitrage",
+            "Crypto Exchange Listing Front-Running & Insider Tracking",
+            "Correlation Breakdowns: The Crypto-Beta Rotation",
+            "Interbank Fix & Options Expiry Pinning",
+            "Sentiment Archetypes & Crowded-Trade Capitulation",
+            "Chart Patterns & Price Action (Trend, SMC, Range Trading)",
             "Pure Mathematics (Statistical Arb, Triangular Arb, Market Making)",
             "Fundamental & Yield (Carry Trade, Funding Rates, Option Scalping)",
             "Real-World & Infrastructure (Seasonal, Latency, Physical Premium, Structural Liquidation)",
-            "MACD and RSI Momentum Confluence", "Trend-Following Moving Average Crossover",
-            "Bollinger Bands Volatility Breakout", "Mean Reversion via Stochastic and Pivot Points",
-            "Ichimoku Cloud Trend-Trading", "The Triple Screen Trading System",
-            "Supertrend and Hull Moving Average (HMA) Scalping", "Heikin-Ashi and Chande Momentum Oscillator (CMO)",
-            "Donchian Channel Breakout (The Turtle System)", "Volume-Weighted Average Price (VWAP) Reversion",
-            "The Parabolic SAR and ADX Trend Rider", "Linear Regression Slope and R-Squared Strategy",
-            "Williams %R Momentum Breakout", "Commodity Channel Index (CCI) Ghost Town Strategy",
-            "The Keltner Channel Volatility Ride", "The Elder Impulse System",
-            "The Coppock Guide Long-Term Reversion", "Center of Gravity (COG) Channel Scalping",
-            "Relative Vigor Index (RVI) Divergence Strategy", "The Ultimate Oscillator Multi-Timeframe Filter",
-            "The Chaikin Money Flow (CMF) Institutional Tracker", "Detrended Price Oscillator (DPO) Cycle Strategy",
-            "True Strength Index (TSI) Trend Reversal", "Money Flow Index (MFI) Volume Divergence",
-            "Aroon Indicator Trend Capture"
+            "MACD and RSI Momentum Confluence",
+            "Trend-Following Moving Average Crossover",
+            "Bollinger Bands Volatility Breakout",
+            "Mean Reversion via Stochastic and Pivot Points",
+            "Ichimoku Cloud Trend-Trading",
+            "The Triple Screen Trading System",
+            "Supertrend and Hull Moving Average (HMA) Scalping",
+            "Heikin-Ashi and Chande Momentum Oscillator (CMO)",
+            "Donchian Channel Breakout (The Turtle System)",
+            "Volume-Weighted Average Price (VWAP) Reversion",
+            "The Parabolic SAR and ADX Trend Rider",
+            "Linear Regression Slope and R-Squared Strategy",
+            "Williams %R Momentum Breakout",
+            "Commodity Channel Index (CCI) Ghost Town Strategy",
+            "The Keltner Channel Volatility Ride",
+            "The Elder Impulse System",
+            "The Coppock Guide Long-Term Reversion",
+            "Center of Gravity (COG) Channel Scalping",
+            "Relative Vigor Index (RVI) Divergence Strategy",
+            "The Ultimate Oscillator Multi-Timeframe Filter",
+            "The Chaikin Money Flow (CMF) Institutional Tracker",
+            "Detrended Price Oscillator (DPO) Cycle Strategy",
+            "True Strength Index (TSI) Trend Reversal",
+            "Money Flow Index (MFI) Volume Divergence",
+            "Aroon Indicator Trend Capture",
         ]
 
     def execute_research_scrapers_and_apis(self, symbol):
@@ -81,7 +107,7 @@ class QuantumAutoEngine:
             "alphavantage_gdp_growth": 0.024,
             "finazon_spread_coefficient": random.uniform(0.1, 0.5),
             "alpaca_market_orderbook_imbalance": random.normalvariate(0.0, 0.1),
-            "github_commits_velocity": random.randint(10, 150)
+            "github_commits_velocity": random.randint(10, 150),
         }
 
         # Synchronize indicators onto Supabase MCP storage
@@ -93,7 +119,9 @@ class QuantumAutoEngine:
 
         return research_metrics
 
-    def determine_optimal_style_and_strategy(self, symbol, history_closes, history_highs, history_lows):
+    def determine_optimal_style_and_strategy(
+        self, symbol, history_closes, history_highs, history_lows
+    ):
         """
         Autonomously determines the absolute best operational trading style and strategy choice
         for the given symbol based on active indicators, statistical market regimes, and scraper metrics.
@@ -102,9 +130,11 @@ class QuantumAutoEngine:
             return "SCALPING", "VOTING_ENSEMBLE"
 
         # 1. Evaluate Statistical Regime & Volatility
-        reg_info = indicators.classify_market_regime(history_highs, history_lows, history_closes)
-        reg_state = reg_info['regime']     # 'TRENDING' or 'RANGING'
-        reg_vol = reg_info['volatility']    # 'HIGH' or 'LOW'
+        reg_info = indicators.classify_market_regime(
+            history_highs, history_lows, history_closes
+        )
+        reg_state = reg_info["regime"]  # 'TRENDING' or 'RANGING'
+        reg_vol = reg_info["volatility"]  # 'HIGH' or 'LOW'
 
         # 2. Scrape external data
         metrics = self.execute_research_scrapers_and_apis(symbol)
@@ -132,7 +162,9 @@ class QuantumAutoEngine:
             if metrics["icodrops_funding_rate"] > 0.04:
                 optimal_strategy = "Crypto Funding Rate Arbitrage (Cash and Carry)"
             elif metrics["defillama_tvl_delta_pct"] > 0.08:
-                optimal_strategy = "Crypto Exchange Listing Front-Running & Insider Tracking"
+                optimal_strategy = (
+                    "Crypto Exchange Listing Front-Running & Insider Tracking"
+                )
             elif reg_state == "RANGING":
                 optimal_strategy = "Crypto Derivatives Basis Trading & Gamma Scalping"
             else:
@@ -144,7 +176,7 @@ class QuantumAutoEngine:
             else:
                 optimal_strategy = "Macro Commodity Seasonal Physics"
 
-        else: # Forex standard
+        else:  # Forex standard
             swap_long = config.SWAP_LONG_POINTS.get(symbol_upper, 0.0)
             if abs(swap_long) >= 5.0 and reg_state == "TRENDING":
                 optimal_strategy = "Macro Carry Trade"
@@ -153,7 +185,9 @@ class QuantumAutoEngine:
             elif reg_state == "TRENDING" and reg_vol == "HIGH":
                 optimal_strategy = "Trend Following (Donchian / MA Crossover)"
             else:
-                optimal_strategy = "Time-of-Day Structural Arbitrage (Session Fractures)"
+                optimal_strategy = (
+                    "Time-of-Day Structural Arbitrage (Session Fractures)"
+                )
 
         # Set globally in configurations for absolute autonomous execution
         config.TRADING_STYLE = optimal_style
@@ -163,14 +197,15 @@ class QuantumAutoEngine:
             "Trend Following (Donchian / MA Crossover)": "BREAKOUT",
             "Mean Reversion (Bollinger Bands & RSI)": "MEAN_REVERSION",
             "Macro Carry Trade": "CARRY_TRADE",
-            "Statistical Arbitrage (Pairs Trading)": "STAT_ARB"
+            "Statistical Arbitrage (Pairs Trading)": "STAT_ARB",
         }
-        config.ACTIVE_STRATEGY = standard_strategies_mapping.get(optimal_strategy, "VOTING_ENSEMBLE")
+        config.ACTIVE_STRATEGY = standard_strategies_mapping.get(
+            optimal_strategy, "VOTING_ENSEMBLE"
+        )
 
         self.last_execution_log = f"Autonomously selected: STYLE={optimal_style} | STRATEGY={optimal_strategy}"
 
         return optimal_style, optimal_strategy
-
 
     def evaluate_all_strategies(self, symbol, closes, highs, lows, current_equity):
         """
@@ -184,7 +219,9 @@ class QuantumAutoEngine:
         tp = 0.0
 
         # Run indicator derivations
-        atr_val = indicators.calculate_atr(highs, lows, closes, 14) or (current_price * 0.0010)
+        atr_val = indicators.calculate_atr(highs, lows, closes, 14) or (
+            current_price * 0.0010
+        )
         rsi_val = indicators.calculate_rsi(closes, 14) or 50.0
         bb = indicators.calculate_bollinger_bands(closes, 20, 2.0)
         donchian = indicators.calculate_donchian_channels(highs, lows, 20)
@@ -195,9 +232,9 @@ class QuantumAutoEngine:
 
         # Map rules for some prominent strategies
         # 1. Donchian / Moving Average Crossover Trend Following
-        if donchian and current_price >= donchian['upper']:
+        if donchian and current_price >= donchian["upper"]:
             buy_conditions.append("Donchian high breakout")
-        elif donchian and current_price <= donchian['lower']:
+        elif donchian and current_price <= donchian["lower"]:
             sell_conditions.append("Donchian low breakdown")
 
         # 2. Smart Money Concepts (SMC) order block sweeps
@@ -211,9 +248,9 @@ class QuantumAutoEngine:
 
         # 3. Bollinger Bands & RSI Mean Reversion
         if bb:
-            if current_price <= bb['lower'] and rsi_val <= 30.0:
+            if current_price <= bb["lower"] and rsi_val <= 30.0:
                 buy_conditions.append("Bollinger Lower Bound + RSI Oversold")
-            elif current_price >= bb['upper'] and rsi_val >= 70.0:
+            elif current_price >= bb["upper"] and rsi_val >= 70.0:
                 sell_conditions.append("Bollinger Upper Bound + RSI Overbought")
 
         # 4. Macro Carry Trade
@@ -229,10 +266,14 @@ class QuantumAutoEngine:
             explanation = f"Autonomous execution triggered: {', '.join(buy_conditions)}"
         elif len(sell_conditions) >= 2:
             decision = "SELL"
-            explanation = f"Autonomous execution triggered: {', '.join(sell_conditions)}"
+            explanation = (
+                f"Autonomous execution triggered: {', '.join(sell_conditions)}"
+            )
         else:
             decision = "HOLD"
-            explanation = "Indicators consolidated. Holding positions to preserve capital."
+            explanation = (
+                "Indicators consolidated. Holding positions to preserve capital."
+            )
 
         # Compute optimal SL / TP
         sl_mult = 2.0
@@ -257,5 +298,5 @@ class QuantumAutoEngine:
             "decision": decision,
             "sl": round(sl, 5),
             "tp": round(tp, 5),
-            "explanation": explanation
+            "explanation": explanation,
         }

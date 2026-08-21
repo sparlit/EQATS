@@ -5,6 +5,7 @@ and quadratic constraints to solve for optimal portfolio weights across asset ba
 """
 
 
+
 class BlackLittermanOptimizer:
     """Bayesian Black-Litterman Portfolio Asset Allocator."""
 
@@ -53,7 +54,9 @@ class BlackLittermanOptimizer:
             prob.solve()
 
             if w.value is not None:
-                weights_dict = {assets[i]: round(float(max(0.0, w.value[i])), 4) for i in range(n)}
+                weights_dict = {
+                    assets[i]: round(float(max(0.0, w.value[i])), 4) for i in range(n)
+                }
                 tot = sum(weights_dict.values())
                 if tot > 0:
                     return {k: round(v / tot, 4) for k, v in weights_dict.items()}
@@ -78,6 +81,11 @@ class BlackLittermanOptimizer:
 
         # Try Qiskit QAOA solver if installed, otherwise run simulated state-vector annealing
         try:
+<<<<<<< Updated upstream
+=======
+            import numpy as np
+
+>>>>>>> Stashed changes
             # Simulate QAOA gamma/beta parameter energy minimization
             costs = []
             gamma = 0.5
@@ -85,11 +93,11 @@ class BlackLittermanOptimizer:
 
             # Binary qubit states corresponding to discrete allocation steps
             best_state = None
-            best_cost = float('inf')
+            best_cost = float("inf")
 
             # Evaluate 2^n qubit basis configurations
             for num in range(1 << min(n, 10)):
-                binary_str = format(num, f'0{n}b')
+                binary_str = format(num, f"0{n}b")
                 w_vec = [int(bit) for bit in binary_str]
                 sum_w = sum(w_vec)
                 if sum_w == 0:

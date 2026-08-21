@@ -7,6 +7,7 @@ to minimize market impact and execution slippage across ECN venues.
 import math
 
 
+
 class ExecutionSlicer:
     """Institutional execution slicing algorithms manager."""
 
@@ -23,12 +24,14 @@ class ExecutionSlicer:
 
         slices = []
         for i in range(num_slices):
-            slices.append({
-                "slice_id": i + 1,
-                "qty": qty_per_slice,
-                "delay_sec": round(interval_sec * i, 2),
-                "type": "TWAP"
-            })
+            slices.append(
+                {
+                    "slice_id": i + 1,
+                    "qty": qty_per_slice,
+                    "delay_sec": round(interval_sec * i, 2),
+                    "type": "TWAP",
+                }
+            )
         return slices
 
     @staticmethod
@@ -45,12 +48,14 @@ class ExecutionSlicer:
         slices = []
         for idx, w in enumerate(volume_profile):
             slice_qty = round(total_qty * (w / total_weight), 2)
-            slices.append({
-                "slice_id": idx + 1,
-                "qty": slice_qty,
-                "weight_pct": round((w / total_weight) * 100.0, 1),
-                "type": "VWAP"
-            })
+            slices.append(
+                {
+                    "slice_id": idx + 1,
+                    "qty": slice_qty,
+                    "weight_pct": round((w / total_weight) * 100.0, 1),
+                    "type": "VWAP",
+                }
+            )
         return slices
 
     @staticmethod
@@ -67,16 +72,20 @@ class ExecutionSlicer:
         for i in range(num_tranches):
             tranche = min(visible_qty, round(remaining, 2))
             remaining -= tranche
-            tranches.append({
-                "tranche_id": i + 1,
-                "visible_qty": tranche,
-                "hidden_qty_left": round(max(0.0, remaining), 2),
-                "type": "ICEBERG"
-            })
+            tranches.append(
+                {
+                    "tranche_id": i + 1,
+                    "visible_qty": tranche,
+                    "hidden_qty_left": round(max(0.0, remaining), 2),
+                    "type": "ICEBERG",
+                }
+            )
         return tranches
 
     @staticmethod
-    def calculate_implementation_shortfall(decision_price, arrival_price, execution_price, total_qty, fees=0.0):
+    def calculate_implementation_shortfall(
+        decision_price, arrival_price, execution_price, total_qty, fees=0.0
+    ):
         """
         Calculates Implementation Shortfall (IS) transaction cost attribution.
         Measures total slippage, market impact, and delay costs.
@@ -86,11 +95,15 @@ class ExecutionSlicer:
         opportunity_cost = (arrival_price - decision_price) * total_qty
 
         total_shortfall = explicit_cost + execution_drag + opportunity_cost
-        shortfall_bps = (total_shortfall / (decision_price * total_qty)) * 10000.0 if (decision_price * total_qty) > 0 else 0.0
+        shortfall_bps = (
+            (total_shortfall / (decision_price * total_qty)) * 10000.0
+            if (decision_price * total_qty) > 0
+            else 0.0
+        )
 
         return {
             "total_shortfall_usd": round(total_shortfall, 4),
             "shortfall_bps": round(shortfall_bps, 2),
             "execution_drag_usd": round(execution_drag, 4),
-            "opportunity_cost_usd": round(opportunity_cost, 4)
+            "opportunity_cost_usd": round(opportunity_cost, 4),
         }

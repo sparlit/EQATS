@@ -3,10 +3,19 @@ Unit and integration tests for CircuitBreaker and UniversalBrokerGateway integra
 """
 
 import time
+<<<<<<< Updated upstream
 
 from event_bus import global_event_bus
 from institutional_integrations.circuit_breaker import (
     CircuitBreaker,
+=======
+import socket
+import urllib.error
+import pytest
+from institutional_integrations.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerOpenException,
+>>>>>>> Stashed changes
 )
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
 
@@ -14,6 +23,7 @@ from institutional_integrations.universal_broker_adapter import UniversalBrokerG
 def test_circuit_breaker_transitions():
     """Tests CLOSED -> OPEN -> HALF_OPEN -> CLOSED state machine transitions."""
     events = []
+
     def handler(evt):
         events.append(evt)
 
@@ -73,6 +83,7 @@ def test_circuit_breaker_probe_failure_reopens():
 
 def test_circuit_breaker_excluded_exceptions():
     """Tests that excluded exception types do not increment failure counter."""
+
     class RiskViolation(Exception):
         pass
 
@@ -89,7 +100,7 @@ def test_universal_broker_gateway_circuit_breaker_integration():
         "rest_url": "http://127.0.0.1:59999",  # Non-existent endpoint
         "failure_threshold": 3,
         "cooldown_seconds": 1.0,
-        "retry_backoff_delay": 0.01
+        "retry_backoff_delay": 0.01,
     }
     gw = UniversalBrokerGateway(protocol="REST_WS", broker_config=config)
 
@@ -113,10 +124,7 @@ def test_universal_broker_gateway_circuit_breaker_integration():
 
 def test_universal_broker_gateway_configurable_backoff_and_network_unreachable():
     """Tests custom retry backoff delay configuration and explicit network unreachable status."""
-    config = {
-        "rest_url": "http://127.0.0.1:59998",
-        "retry_backoff_delay": 0.05
-    }
+    config = {"rest_url": "http://127.0.0.1:59998", "retry_backoff_delay": 0.05}
     gw = UniversalBrokerGateway(protocol="REST_WS", broker_config=config)
     assert gw.retry_backoff_delay == 0.05
 

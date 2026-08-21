@@ -14,10 +14,17 @@ from brain_agents_orchestrator import (
     PredictionBrainAgent,
     ResearchBrainAgent,
     RiskAssessmentBrainAgent,
+<<<<<<< Updated upstream
     ScalpingMethodAgent,
     SwingTradingMethodAgent,
     TrendFollowingStrategyAgent,
+=======
+    LotManagementBrainAgent,
+    AgenticBrainsOrchestrator,
+    global_brain_orchestrator,
+>>>>>>> Stashed changes
 )
+
 
 
 class DummyScalper:
@@ -25,6 +32,7 @@ class DummyScalper:
         database.init_db()
         self.conn = connector.SimulatorConnector(initial_balance=10000.0)
         self.daily_start_balance = 10000.0
+
 
 def test_individual_brain_agents():
     scalper = DummyScalper()
@@ -45,6 +53,7 @@ def test_individual_brain_agents():
     assert "accuracy" in ctx.prediction_data
 
     assert len(ctx.agent_messages) >= 3
+
 
 def test_trading_methods_and_strategy_agents():
     scalp = ScalpingMethodAgent().evaluate(spread_pips=1.5, volatility="MEDIUM")
@@ -69,6 +78,7 @@ def test_trading_methods_and_strategy_agents():
     mtf = MtfConfluenceStrategyAgent().evaluate(sentiment="BULLISH", accuracy=65.0)
     assert mtf["score"] == 90.0
 
+
 def test_trading_mechanism_risk_and_lot_agents():
     scalper = DummyScalper()
     risk_agent = RiskAssessmentBrainAgent()
@@ -82,6 +92,7 @@ def test_trading_mechanism_risk_and_lot_agents():
     assert "lot_multiplier" in lot_res
     assert lot_res["lot_multiplier"] >= 1.0
 
+
 def test_master_orchestrator_directive_generation():
     scalper = DummyScalper()
     orchestrator = AgenticBrainsOrchestrator()
@@ -89,7 +100,12 @@ def test_master_orchestrator_directive_generation():
     directive = orchestrator.run_agentic_loop(scalper, symbol="EURUSD")
     assert isinstance(directive, BrainOrchestratorDirective)
     assert directive.recommended_bias in ["BUY", "SELL", "HOLD"]
-    assert directive.recommended_style in ["SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING"]
+    assert directive.recommended_style in [
+        "SCALPING",
+        "DAY_TRADING",
+        "SWING_TRADING",
+        "POSITION_TRADING",
+    ]
     assert 0.0 <= directive.confidence_score <= 100.0
     assert 0.0 <= directive.risk_ceiling_modifier <= 1.5
     assert len(directive.strategy_scores) >= 10
@@ -100,12 +116,13 @@ def test_master_orchestrator_directive_generation():
     assert "recommended_style" in d_dict
     assert "strategy_scores" in d_dict
 
+
 def test_master_orchestrator_interventions():
     scalper = DummyScalper()
     scalper.daily_start_balance = 10000.0
     # Simulate equity drawdown
     scalper.conn.balance = 9700.0
-    scalper.conn.equity = 9700.0 # 3% drawdown
+    scalper.conn.equity = 9700.0  # 3% drawdown
 
     orchestrator = AgenticBrainsOrchestrator()
     directive = orchestrator.run_agentic_loop(scalper, symbol="EURUSD")
@@ -114,6 +131,7 @@ def test_master_orchestrator_interventions():
     assert directive.risk_ceiling_modifier <= 0.50
     assert len(orchestrator.master_interventions) >= 1
 
+
 def test_trading_engine_integration_decoupling():
     scalper_brain = brain.ScalperBrain()
 
@@ -121,12 +139,14 @@ def test_trading_engine_integration_decoupling():
     history_bars = []
     base_price = 1.1000
     for i in range(220):
-        history_bars.append({
-            'open': base_price + i * 0.0001,
-            'high': base_price + i * 0.0001 + 0.0005,
-            'low': base_price + i * 0.0001 - 0.0005,
-            'close': base_price + i * 0.0001 + 0.0002
-        })
+        history_bars.append(
+            {
+                "open": base_price + i * 0.0001,
+                "high": base_price + i * 0.0001 + 0.0005,
+                "low": base_price + i * 0.0001 - 0.0005,
+                "close": base_price + i * 0.0001 + 0.0002,
+            }
+        )
 
     # Test evaluate with default directive
     res1 = scalper_brain.evaluate("EURUSD", history_bars, 10000.0)
@@ -138,6 +158,8 @@ def test_trading_engine_integration_decoupling():
     directive.risk_ceiling_modifier = 0.5
     directive.guidance_notes.append("Testing custom risk modifier decoupling.")
 
-    res2 = scalper_brain.evaluate("EURUSD", history_bars, 10000.0, brain_directive=directive)
+    res2 = scalper_brain.evaluate(
+        "EURUSD", history_bars, 10000.0, brain_directive=directive
+    )
     assert res2["lot_size"] <= res1["lot_size"]
     assert "Testing custom risk modifier decoupling" in res2["explanation"]
