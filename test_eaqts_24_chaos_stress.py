@@ -1,11 +1,11 @@
 import unittest
-import os
+
 import config
-import database
 import connector
+import database
 import eaqts_planes
 import main
-from event_bus import global_event_bus, Event
+
 
 class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
     """

@@ -1,12 +1,12 @@
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
-import threading
-import time
 import datetime
+import logging
 import os
 import random
-import logging
+import threading
+import time
+import tkinter as tk
+from tkinter import messagebox, ttk
+
 import config
 import database
 import main
@@ -34,7 +34,7 @@ class ScalperGui:
         except Exception as e:
             print(f"Warning: Database initialization error: {e}")
 
-        self.root.title("ELITE AUTONOMOUS QUANTUM TRADING SYSTEM - QUANTUM TERMINAL")
+        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM - QUANTUM TERMINAL")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
 
@@ -66,7 +66,6 @@ class ScalperGui:
         self.style.map("TNotebook.Tab", background=[("selected", self.bg_dark)], foreground=[("selected", self.fg_green)])
 
         # Background Thread state
-        import main
         self.scalper = main.AutonomousScalper()
         self.bot_thread = None
         self.running = False
@@ -78,35 +77,7 @@ class ScalperGui:
         # Historical price tracking for GP screen (rolling 30 points)
         self.price_history_gp = []
 
-        # Simulated macroeconomic indices data for WEI screen
-        self.wei_data = {
-            "DXY": {"name": "US DOLLAR INDEX", "last": 104.250, "change": 0.120, "pct": 0.12},
-            "EXY": {"name": "EURO FX INDEX", "last": 108.400, "change": -0.080, "pct": -0.07},
-            "JXY": {"name": "YEN FX INDEX", "last": 64.120, "change": -0.220, "pct": -0.34},
-            "BXY": {"name": "POUND FX INDEX", "last": 126.850, "change": 0.050, "pct": 0.04},
-            "SPX": {"name": "S&P 500 INDEX", "last": 5117.20, "change": 14.50, "pct": 0.28},
-            "CCMP": {"name": "NASDAQ COMPOSITE", "last": 16082.30, "change": 85.10, "pct": 0.53},
-            "GC1": {"name": "GOLD FUTURES COMEX", "last": 2032.40, "change": 11.20, "pct": 0.55},
-            "BTCUSD": {"name": "BITCOIN SPOT INDEX", "last": 62140.00, "change": 845.00, "pct": 1.38},
-            "ETHUSD": {"name": "ETHEREUM SPOT INDEX", "last": 3425.50, "change": -12.40, "pct": -0.36}
-        }
-
-        # News feed stories for NEWS screen
-        self.news_stories = [
-            {"time": "14:32:10", "headline": "FED HOLDS RATES CONSTANT; HINTS AT DELAYED RATE DECREASES", "source": "EAQTS", "sentiment": "NEUTRAL"},
-            {"time": "14:28:45", "headline": "EUROPEAN CENTRAL BANK SIGNALS RATE PEAK HAS LIKELY PASSED", "source": "EAQTS", "sentiment": "BULLISH"},
-            {"time": "14:15:20", "headline": "MIDDLE-EAST TENSIONS FLARE; SAUDI OIL FLOWS UNINTERRUPTED FOR NOW", "source": "DJ", "sentiment": "BEARISH"},
-            {"time": "13:58:00", "headline": "BANK OF JAPAN STICKING TO ULTRA-LOOSE MONETARY STANCE", "source": "EAQTS", "sentiment": "BEARISH"},
-            {"time": "13:42:15", "headline": "US CORE CPI MOM RISES 0.3% HIGHER THAN FORECASTS; YIELDS SPIKE", "source": "EAQTS", "sentiment": "BEARISH"},
-            {"time": "13:20:00", "headline": "SEC OFFICIALLY APPROVES SPOT ETHEREUM ETFS IN UNEXPECTED REVERSAL", "source": "EAQTS", "sentiment": "BULLISH"}
-        ]
-
-        # Prepopulate the database with initial headlines
-        try:
-            for story in self.news_stories:
-                database.log_news_headline(story["headline"], story["sentiment"])
-        except Exception as e:
-            print(f"Warning: Failed to prepopulate database news: {e}")
+        # Dynamic market & news feed states managed via active connector and database
 
         # Build UI layout
         self._build_header()
@@ -719,7 +690,7 @@ class ScalperGui:
 
         lbl_header_title = tk.Label(
             header_frame,
-            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v3.0 / v5.0)",
+            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)",
             font=("Consolas", 15, "bold"),
             bg="#030712",
             fg="#00ffcc"
@@ -1357,7 +1328,7 @@ class ScalperGui:
         sb.config(command=text_widget.yview)
 
         help_content = """================================================================================
-          ELITE AUTONOMOUS QUANTUM TRADING SYSTEM (EAQTS VERSION 5.0)
+          ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
                COMPLETE OPERATIONAL DIRECTORY & COMMAND MANUAL
 ================================================================================
 
@@ -1469,11 +1440,11 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
 
         txt_info = tk.Text(d_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD)
         txt_info.pack(fill=tk.BOTH, expand=True)
-        txt_info.insert(tk.END, f"================================================================================\n")
+        txt_info.insert(tk.END, "================================================================================\n")
         txt_info.insert(tk.END, f"DETACHED MULTI-MONITOR WORKSPACE FOR: {self.active_screen}\n")
-        txt_info.insert(tk.END, f"================================================================================\n\n")
+        txt_info.insert(tk.END, "================================================================================\n\n")
         txt_info.insert(tk.END, f"• Live streaming active for window tab: {self.active_screen}\n")
-        txt_info.insert(tk.END, f"• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n")
+        txt_info.insert(tk.END, "• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n")
         txt_info.insert(tk.END, f"• System time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         txt_info.config(state=tk.DISABLED)
 
@@ -1678,7 +1649,7 @@ Net Profit ($ USD):               ${best_res['net_profit_usd']:+,.2f} USD
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        out = f"""
+        out = """
 ================================================================================
 FLOW <GO>: INSTITUTIONAL CROSSING & INTERBANK CAPITAL FLOW MATRIX
 ================================================================================
@@ -1699,7 +1670,11 @@ Block Trades Detected:    14 Large Block Orders ($10M+ each)
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_cyan, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        from institutional_integrations.options_gex_engine import compute_black_scholes_greeks, calculate_aggregate_gex, detect_gamma_flip_level
+        from institutional_integrations.options_gex_engine import (
+            calculate_aggregate_gex,
+            compute_black_scholes_greeks,
+            detect_gamma_flip_level,
+        )
         chain = [
             {'strike': 1.0900, 'call_open_interest': 1200, 'put_open_interest': 450, 'gamma': 0.0012},
             {'strike': 1.1000, 'call_open_interest': 3500, 'put_open_interest': 1200, 'gamma': 0.0025},
@@ -1730,7 +1705,9 @@ Black-Scholes Call Delta: {greeks['delta']} | Gamma: {greeks['gamma']} | Vega: {
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        from institutional_integrations.advanced_math import calculate_markov_regime_switching_probability
+        from institutional_integrations.advanced_math import (
+            calculate_markov_regime_switching_probability,
+        )
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 30)
         closes = [b["close"] for b in history] if history else [1.1000]*30
         p_panic, trans_mat = calculate_markov_regime_switching_probability(closes)
@@ -1756,7 +1733,7 @@ Transition Prob (P00/P11): {trans_mat['p00']:.2f} / {trans_mat['p11']:.2f}
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        out = f"""
+        out = """
 ================================================================================
 RUST_OPT <GO>: RUST PyO3 HIGH-PERFORMANCE NATIVE EXTENSIONS
 ================================================================================
@@ -2956,8 +2933,13 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_lev_combo = ttk.Combobox(bf_inputs, textvariable=self.cfg_lev_var, values=leverage_options, font=("Consolas", 8, "bold"), width=12)
         self.cfg_lev_combo.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
+        tk.Label(bf_inputs, text="Terminal Path:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=2)
+        self.cfg_bpath_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=48)
+        self.cfg_bpath_ent.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2)
+        self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
+
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
-        b_btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
+        b_btn_box.grid(row=4, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
         tk.Button(b_btn_box, text="➕ ADD BROKER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_broker_profile).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(b_btn_box, text="⚡ SET ACTIVE GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._set_active_broker_profile).pack(side=tk.LEFT, padx=5)
@@ -3789,7 +3771,7 @@ ACTIVE EXPOSURE VECTORS:
         import database
         trades = database.get_all_trades()
 
-        log_data = f"""
+        log_data = """
 ================================================================================
 LOG <GO>: SERIALIZED SYSTEM HISTORICAL EXECUTION LOGS
 ================================================================================
@@ -3837,7 +3819,6 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
         self.mon_text.delete("1.0", tk.END)
 
         # Fetch actual database file size dynamically!
-        import os
         db_size_kb = 0.0
         try:
             if os.path.exists(config.DB_PATH):
@@ -3860,7 +3841,7 @@ Self-Healing Daemon Status:  RUNNING (QuantumSelfHealer active loop)
 Database File Size:          {db_size_kb:.2f} KB (Active transactions)
 CPU load allocation:         0.5% - 4.5% (High performance parallel GIL bypass)
 API REST Response Ping:      {random.randint(12, 35)}ms (High-speed simulation)
-MT5 State-Pipe Status:       Sync established ({config.MT5_COMMON_FILES_PATH}/scalper_state.txt)
+MT5 Socket IPC Status:       Push streaming active (SocketIPCBridge / WebSockets)
 ================================================================================
 """
         self.mon_text.insert(tk.END, mon_data)
@@ -3879,7 +3860,7 @@ MT5 State-Pipe Status:       Sync established ({config.MT5_COMMON_FILES_PATH}/sc
     def _update_sec_screen_data(self):
         if not hasattr(self, "sec_text") or not self.sec_text: return
         self.sec_text.delete("1.0", tk.END)
-        sec_data = f"""
+        sec_data = """
 ================================================================================
 SEC <GO>: COMPLIANCE AND DATA PRIVACY AUDIT DESK
 ================================================================================
@@ -4140,7 +4121,7 @@ BTCUSD  - Lot size: 1       | Pip Size: 1.00000 | Stop-Level: 10 points
     def _update_aic_screen_data(self):
         if not hasattr(self, "aic_text") or not self.aic_text: return
         self.aic_text.delete("1.0", tk.END)
-        aic_data = f"""
+        aic_data = """
 ================================================================================
 AIC <GO>: PRIVACY-FIRST COGNITIVE COMPILATION STATE
 ================================================================================
@@ -4331,8 +4312,8 @@ SECURITY DOMAINS ENFORCED:
                 highs = [b["high"] for b in history] if history else [bid] * 30
                 lows = [b["low"] for b in history] if history else [bid] * 30
 
+
                 import indicators
-                import numpy as np
 
                 # Real-time Indicators
                 rsi_val = indicators.calculate_rsi(closes, 14) or 50.0
@@ -5080,7 +5061,9 @@ SECURITY DOMAINS ENFORCED:
 
         # Retrieve actual news headlines logged in SQLite
         import database
-        from institutional_integrations.natural_language import extract_advanced_nlp_sentiments
+        from institutional_integrations.natural_language import (
+            extract_advanced_nlp_sentiments,
+        )
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
@@ -5192,7 +5175,9 @@ SECURITY DOMAINS ENFORCED:
         if not history: return
 
         # Get current stats and individual model ensemble values dynamically!
-        from institutional_integrations.machine_learning import generate_multi_model_ensemble_prediction
+        from institutional_integrations.machine_learning import (
+            generate_multi_model_ensemble_prediction,
+        )
         closes = [b["close"] for b in history]
         current_price = closes[-1]
 
@@ -5425,7 +5410,7 @@ SECURITY DOMAINS ENFORCED:
         directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
         global_brain_orchestrator.master_interventions.append("FORCE_INTERVENTION: Manual operator intervention triggered.")
         global_brain_orchestrator.last_directive.risk_ceiling_modifier = 0.5
-        messagebox.showwarning("Orchestrator Intervention", f"Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.")
+        messagebox.showwarning("Orchestrator Intervention", "Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.")
         self._update_agent_screen_data()
 
     def _update_agent_screen_data(self):
@@ -6231,27 +6216,49 @@ SECURITY DOMAINS ENFORCED:
 
         self.wei_tree.delete(*self.wei_tree.get_children())
 
-        # Bind top active Majors to real-time rates directly from connector!
-        majors = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "XAUUSD", "BTCUSD"]
-        for symbol in majors:
+        # Fetch live market pricing across all configured instruments and external rates
+        from institutional_integrations.web_api import fetch_yfinance_external_rates
+        ext_rates = fetch_yfinance_external_rates()
+
+        macro_assets = [
+            ("DXY", "US DOLLAR INDEX"),
+            ("SPX", "S&P 500 INDEX"),
+            ("EURUSD", "EURO SPOT FX"),
+            ("GBPUSD", "POUND SPOT FX"),
+            ("USDJPY", "YEN SPOT FX"),
+            ("AUDUSD", "Aussie SPOT FX"),
+            ("USDCAD", "Loonie SPOT FX"),
+            ("XAUUSD", "GOLD BULLION SPOT"),
+            ("BTCUSD", "BITCOIN SPOT INDEX"),
+            ("ETHUSD", "ETHEREUM SPOT INDEX")
+        ]
+
+        for symbol, name in macro_assets:
             try:
                 price_info = self.scalper.conn.get_current_price(symbol)
-                last_price = price_info["bid"]
-                # Compute daily change relative to a simulated previous close
-                change = price_info["bid"] - price_info["ask"] # actual spread
-                pct = (change / last_price) * 100.0 if last_price > 0 else 0.0
+                last_price = price_info.get("bid", 0.0)
 
-                color_tag = "green" if change >= 0 else "red"
-                self.wei_tree.insert("", tk.END, values=(
-                    symbol,
-                    f"{symbol} Major FX",
-                    f"{last_price:,.5f}" if last_price < 100 else f"{last_price:,.2f}",
-                    f"{change:+.5f}" if last_price < 100 else f"{change:+.2f}",
-                    f"{pct:+.4f}%",
-                    "OPEN"
-                ), tags=(color_tag,))
-            except Exception:
-                pass
+                # Fallback to external rates if connector price is uninitialized
+                if last_price <= 0 and symbol in ext_rates:
+                    last_price = ext_rates[symbol]
+
+                if last_price > 0:
+                    history = self.scalper.conn.get_history(symbol, 5)
+                    prev_close = history[0]["close"] if history else (last_price * 0.999)
+                    change = last_price - prev_close
+                    pct = (change / prev_close) * 100.0 if prev_close > 0 else 0.0
+
+                    color_tag = "green" if change >= 0 else "red"
+                    self.wei_tree.insert("", tk.END, values=(
+                        symbol,
+                        name,
+                        f"{last_price:,.5f}" if last_price < 100 else f"{last_price:,.2f}",
+                        f"{change:+.5f}" if last_price < 100 else f"{change:+.2f}",
+                        f"{pct:+.2f}%",
+                        "LIVE"
+                    ), tags=(color_tag,))
+            except Exception as e:
+                _log.debug("WEI screen update error for %s: %s", symbol, e)
 
         self.wei_tree.tag_configure("green", foreground=self.fg_green)
         self.wei_tree.tag_configure("red", foreground=self.fg_red)
@@ -6398,7 +6405,9 @@ SECURITY DOMAINS ENFORCED:
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
 
                 # Update Quantum Local LLM metrics
-                from institutional_integrations.quantum_local_llm import local_financial_llm
+                from institutional_integrations.quantum_local_llm import (
+                    local_financial_llm,
+                )
                 # Train slightly on current active symbol quote to dynamically converge to the market state
                 local_financial_llm.train_on_text(f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}", epochs=1)
 

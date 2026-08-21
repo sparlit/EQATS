@@ -1,8 +1,10 @@
 import math
-import indicators
+
 import config
 import database
+import indicators
 import predictive_brain
+
 
 class ScalperBrain:
     """

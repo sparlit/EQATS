@@ -4,10 +4,12 @@ Dispatches real-time alerts across Telegram, Custom Webhooks, WhatsApp API,
 and local Text-to-Speech (TTS) audio synthesizers.
 """
 
-import urllib.request
-import urllib.parse
 import json
+import urllib.parse
+import urllib.request
+
 import config
+
 
 class MultiChannelAlertDispatcher:
     """Multi-channel alert dispatcher supporting Telegram, Webhooks, WhatsApp, and TTS."""
@@ -35,7 +37,7 @@ class MultiChannelAlertDispatcher:
                 req = urllib.request.Request(config.WEBHOOK_URL, data=payload, headers={"Content-Type": "application/json"})
                 with urllib.request.urlopen(req, timeout=3) as resp:
                     status["WEBHOOK"] = resp.status == 200
-            except Exception as e:
+            except Exception:
                 status["WEBHOOK"] = False
 
         # 3. WhatsApp Business / Twilio API Simulation
@@ -47,7 +49,7 @@ class MultiChannelAlertDispatcher:
             try:
                 # Simulated TTS speech synthesis string log
                 status["TTS"] = f"Synthesized speech audio for: '{title}'"
-            except Exception as e:
+            except Exception:
                 status["TTS"] = False
 
         record = {

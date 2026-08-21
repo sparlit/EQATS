@@ -5,7 +5,7 @@ and L2 order book slicing using actor-critic reward optimization.
 """
 
 import math
-import random
+
 
 class DRLExecutionPolicyAgent:
     """

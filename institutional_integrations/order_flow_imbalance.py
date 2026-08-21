@@ -4,7 +4,6 @@ Calculates Volume-Synchronized Probability of Toxicity (VPIN), DOM depth imbalan
 and microsecond queue depletion pressure.
 """
 
-import math
 
 def calculate_vpin(volume_buy_list, volume_sell_list, bucket_size=100.0):
     """

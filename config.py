@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 # Configuration file for the Forex Scalper Bot
 
@@ -11,6 +11,9 @@ SIMULATION_MODE = False
 
 # Safety setting. If False, the bot can trade on a Live / Real account.
 DEMO_ACCOUNT_ONLY = True
+
+# Path to local MT5 Terminal Executable (Windows)
+MT5_TERMINAL_PATH = r"C:\Program Files\Alpari MT5\terminal64.exe"
 
 # 2. Assets to Trade
 # Fully expanded list including Majors, Minors, Metals (Gold, Silver), and Cryptos
