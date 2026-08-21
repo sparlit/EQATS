@@ -53,7 +53,8 @@ def checkpoint_wal(force=False):
     """Performs a passive WAL checkpoint to optimize SQLite database size and flush log entries."""
     global _tick_write_counter
     try:
-        _tick_write_counter += 1
+        # Rollover counter bounded at 1,000,000 to prevent unbounded integer growth over 24x7 periods (Round 2 FLAW-001)
+        _tick_write_counter = (_tick_write_counter + 1) % 1000000
         if force or (_tick_write_counter % 100 == 0):
             conn = get_connection()
             conn.execute("PRAGMA wal_checkpoint(PASSIVE);")
