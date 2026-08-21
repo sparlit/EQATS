@@ -1,10 +1,12 @@
+import os
 import unittest
-import indicators
+
 import brain
 import connector
 import database
+import indicators
 import main
-import os
+
 
 class TestScalperIndicators(unittest.TestCase):
 

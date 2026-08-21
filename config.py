@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 # Configuration file for the Forex Scalper Bot
 

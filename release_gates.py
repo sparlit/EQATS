@@ -1,11 +1,10 @@
 import os
-import sys
-import datetime
+
 import config
-import database
 import connector
+import database
 import eaqts_planes
-from event_bus import global_event_bus, Event
+
 
 class ReleaseGateRunner:
     """
@@ -188,7 +187,7 @@ class ReleaseGateRunner:
     def _check_g17_monte_carlo(self):
         """G17: Runs simulated random walk and calculates VaR / ES."""
         perf = database.get_all_time_performance()
-        return True, f"Monte Carlo simulation of 10,000 iterations ran successfully. VaR 95%: 1.4%."
+        return True, "Monte Carlo simulation of 10,000 iterations ran successfully. VaR 95%: 1.4%."
 
     def _check_g18_scenario(self):
         """G18: Runs custom market stress scenario."""

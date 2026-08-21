@@ -3,12 +3,12 @@ Unit and integration tests for CircuitBreaker and UniversalBrokerGateway integra
 """
 
 import time
-import socket
-import urllib.error
-import pytest
-from institutional_integrations.circuit_breaker import CircuitBreaker, CircuitBreakerOpenException
+
+from event_bus import global_event_bus
+from institutional_integrations.circuit_breaker import (
+    CircuitBreaker,
+)
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
-from event_bus import global_event_bus, Event
 
 
 def test_circuit_breaker_transitions():

@@ -5,7 +5,7 @@ commit 8f62709 and Round 5 schema versioning / chaos stress testing.
 """
 import time
 
-from institutional_integrations.web_api import TelemetryStreamServer, SocketIPCBridge
+from institutional_integrations.web_api import SocketIPCBridge, TelemetryStreamServer
 
 
 def test_telemetry_server_default_host_port():

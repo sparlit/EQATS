@@ -11,19 +11,20 @@ Provides a protocol-agnostic, multi-broker gateway connecting EQATS / EAQTS to:
  - High-Fidelity Paper Trading Simulator
 """
 
-import os
-import sys
-import time
 import json
-import threading
-import urllib.request
-import urllib.error
-import socket
 import logging
+import socket
+import threading
+import time
+import urllib.error
+import urllib.request
+
 import database
-import config
+from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
 from institutional_integrations.circuit_breaker import CircuitBreaker
+
+_log = logging.getLogger(__name__)
 
 _log = logging.getLogger(__name__)
 

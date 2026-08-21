@@ -1,12 +1,12 @@
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
-import threading
-import time
 import datetime
+import logging
 import os
 import random
-import logging
+import threading
+import time
+import tkinter as tk
+from tkinter import messagebox, ttk
+
 import config
 import database
 import main
@@ -66,7 +66,6 @@ class ScalperGui:
         self.style.map("TNotebook.Tab", background=[("selected", self.bg_dark)], foreground=[("selected", self.fg_green)])
 
         # Background Thread state
-        import main
         self.scalper = main.AutonomousScalper()
         self.bot_thread = None
         self.running = False
@@ -1469,11 +1468,11 @@ For configuration parameters, consult `config.py` or type `CFG <GO>`.
 
         txt_info = tk.Text(d_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD)
         txt_info.pack(fill=tk.BOTH, expand=True)
-        txt_info.insert(tk.END, f"================================================================================\n")
+        txt_info.insert(tk.END, "================================================================================\n")
         txt_info.insert(tk.END, f"DETACHED MULTI-MONITOR WORKSPACE FOR: {self.active_screen}\n")
-        txt_info.insert(tk.END, f"================================================================================\n\n")
+        txt_info.insert(tk.END, "================================================================================\n\n")
         txt_info.insert(tk.END, f"• Live streaming active for window tab: {self.active_screen}\n")
-        txt_info.insert(tk.END, f"• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n")
+        txt_info.insert(tk.END, "• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n")
         txt_info.insert(tk.END, f"• System time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         txt_info.config(state=tk.DISABLED)
 
@@ -1678,7 +1677,7 @@ Net Profit ($ USD):               ${best_res['net_profit_usd']:+,.2f} USD
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        out = f"""
+        out = """
 ================================================================================
 FLOW <GO>: INSTITUTIONAL CROSSING & INTERBANK CAPITAL FLOW MATRIX
 ================================================================================
@@ -1699,7 +1698,11 @@ Block Trades Detected:    14 Large Block Orders ($10M+ each)
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_cyan, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        from institutional_integrations.options_gex_engine import compute_black_scholes_greeks, calculate_aggregate_gex, detect_gamma_flip_level
+        from institutional_integrations.options_gex_engine import (
+            calculate_aggregate_gex,
+            compute_black_scholes_greeks,
+            detect_gamma_flip_level,
+        )
         chain = [
             {'strike': 1.0900, 'call_open_interest': 1200, 'put_open_interest': 450, 'gamma': 0.0012},
             {'strike': 1.1000, 'call_open_interest': 3500, 'put_open_interest': 1200, 'gamma': 0.0025},
@@ -1730,7 +1733,9 @@ Black-Scholes Call Delta: {greeks['delta']} | Gamma: {greeks['gamma']} | Vega: {
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_light, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        from institutional_integrations.advanced_math import calculate_markov_regime_switching_probability
+        from institutional_integrations.advanced_math import (
+            calculate_markov_regime_switching_probability,
+        )
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 30)
         closes = [b["close"] for b in history] if history else [1.1000]*30
         p_panic, trans_mat = calculate_markov_regime_switching_probability(closes)
@@ -1756,7 +1761,7 @@ Transition Prob (P00/P11): {trans_mat['p00']:.2f} / {trans_mat['p11']:.2f}
         txt = tk.Text(self.screen_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD, bd=1, relief=tk.SOLID)
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        out = f"""
+        out = """
 ================================================================================
 RUST_OPT <GO>: RUST PyO3 HIGH-PERFORMANCE NATIVE EXTENSIONS
 ================================================================================
@@ -3794,7 +3799,7 @@ ACTIVE EXPOSURE VECTORS:
         import database
         trades = database.get_all_trades()
 
-        log_data = f"""
+        log_data = """
 ================================================================================
 LOG <GO>: SERIALIZED SYSTEM HISTORICAL EXECUTION LOGS
 ================================================================================
@@ -3842,7 +3847,6 @@ AUDIT TRANSACTION TIME-LINE (REAL TRANSACTION LEDGER):
         self.mon_text.delete("1.0", tk.END)
 
         # Fetch actual database file size dynamically!
-        import os
         db_size_kb = 0.0
         try:
             if os.path.exists(config.DB_PATH):
@@ -3884,7 +3888,7 @@ MT5 Socket IPC Status:       Push streaming active (SocketIPCBridge / WebSockets
     def _update_sec_screen_data(self):
         if not hasattr(self, "sec_text") or not self.sec_text: return
         self.sec_text.delete("1.0", tk.END)
-        sec_data = f"""
+        sec_data = """
 ================================================================================
 SEC <GO>: COMPLIANCE AND DATA PRIVACY AUDIT DESK
 ================================================================================
@@ -4145,7 +4149,7 @@ BTCUSD  - Lot size: 1       | Pip Size: 1.00000 | Stop-Level: 10 points
     def _update_aic_screen_data(self):
         if not hasattr(self, "aic_text") or not self.aic_text: return
         self.aic_text.delete("1.0", tk.END)
-        aic_data = f"""
+        aic_data = """
 ================================================================================
 AIC <GO>: PRIVACY-FIRST COGNITIVE COMPILATION STATE
 ================================================================================
@@ -4336,8 +4340,8 @@ SECURITY DOMAINS ENFORCED:
                 highs = [b["high"] for b in history] if history else [bid] * 30
                 lows = [b["low"] for b in history] if history else [bid] * 30
 
+
                 import indicators
-                import numpy as np
 
                 # Real-time Indicators
                 rsi_val = indicators.calculate_rsi(closes, 14) or 50.0
@@ -5085,7 +5089,9 @@ SECURITY DOMAINS ENFORCED:
 
         # Retrieve actual news headlines logged in SQLite
         import database
-        from institutional_integrations.natural_language import extract_advanced_nlp_sentiments
+        from institutional_integrations.natural_language import (
+            extract_advanced_nlp_sentiments,
+        )
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
@@ -5197,7 +5203,9 @@ SECURITY DOMAINS ENFORCED:
         if not history: return
 
         # Get current stats and individual model ensemble values dynamically!
-        from institutional_integrations.machine_learning import generate_multi_model_ensemble_prediction
+        from institutional_integrations.machine_learning import (
+            generate_multi_model_ensemble_prediction,
+        )
         closes = [b["close"] for b in history]
         current_price = closes[-1]
 
@@ -5430,7 +5438,7 @@ SECURITY DOMAINS ENFORCED:
         directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
         global_brain_orchestrator.master_interventions.append("FORCE_INTERVENTION: Manual operator intervention triggered.")
         global_brain_orchestrator.last_directive.risk_ceiling_modifier = 0.5
-        messagebox.showwarning("Orchestrator Intervention", f"Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.")
+        messagebox.showwarning("Orchestrator Intervention", "Forced Orchestrator intervention applied! Risk ceiling modifier clamped to 0.50x.")
         self._update_agent_screen_data()
 
     def _update_agent_screen_data(self):
@@ -6403,7 +6411,9 @@ SECURITY DOMAINS ENFORCED:
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
 
                 # Update Quantum Local LLM metrics
-                from institutional_integrations.quantum_local_llm import local_financial_llm
+                from institutional_integrations.quantum_local_llm import (
+                    local_financial_llm,
+                )
                 # Train slightly on current active symbol quote to dynamically converge to the market state
                 local_financial_llm.train_on_text(f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}", epochs=1)
 

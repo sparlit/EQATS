@@ -5,9 +5,8 @@ hedge-fund-grade quantitative arsenal using the specified Python libraries.
 All functions fall back gracefully to pure-Python analytical models if packages are absent.
 """
 
-import math
-import random
 import datetime
+
 
 # 1. Airflow
 def integrate_airflow():
@@ -67,8 +66,7 @@ def integrate_beautifulsoup():
 def integrate_bert():
     """Extracts bidirectional contextual representation embeddings using BERT."""
     try:
-        from transformers import BertTokenizer, BertModel
-        import torch
+        from transformers import BertModel, BertTokenizer
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         model = BertModel.from_pretrained('bert-base-uncased')
         inputs = tokenizer("FED RATE CUT", return_tensors="pt")
@@ -81,7 +79,7 @@ def integrate_bert():
 def integrate_bokeh():
     """Generates elegant HTML-based interactive charts using Bokeh."""
     try:
-        from bokeh.plotting import figure, output_file
+        from bokeh.plotting import figure
         p = figure(title="Volatility Chart", x_axis_label='Time', y_axis_label='ATR')
         p.line([1, 2, 3], [4, 5, 6], legend_label="ATR", line_width=2)
         return {"status": "ACTIVE", "chart": str(p), "engine": "BOKEH"}
@@ -198,7 +196,6 @@ def integrate_duckdb():
 def integrate_edgartools():
     """Queries SEC filings directly from Edgar using EdgarTools."""
     try:
-        from edgar import Company
         return {"status": "ACTIVE", "api": "SEC_EDGAR", "engine": "EDGARTOOLS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "api": "SEC_EDGAR_MOCK", "engine": "EDGARTOOLS"}
@@ -323,7 +320,6 @@ def integrate_jax():
 def integrate_kafka():
     """Streams real-time execution telemetry to Kafka brokers using kafka-python."""
     try:
-        from kafka import KafkaProducer
         return {"status": "ACTIVE", "producer": "KAFKA_PRODUCER", "engine": "KAFKA"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "producer": "KAFKA_PRODUCER_MOCK", "engine": "KAFKA"}
@@ -332,7 +328,6 @@ def integrate_kafka():
 def integrate_kats():
     """Fits predictive ARIMA models on closing prices using Kats."""
     try:
-        from kats.consts import TimeSeriesData
         return {"status": "ACTIVE", "api": "KATS_FORECASTING", "engine": "KATS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "api": "KATS_MOCKED", "engine": "KATS"}
@@ -341,7 +336,6 @@ def integrate_kats():
 def integrate_keras():
     """Generates Keras prediction layers."""
     try:
-        import tensorflow as tf
         from tensorflow import keras
         model = keras.Sequential([keras.layers.Dense(4)])
         return {"status": "ACTIVE", "layers": len(model.layers), "engine": "KERAS"}
@@ -352,7 +346,6 @@ def integrate_keras():
 def integrate_kivy():
     """Renders highly responsive, multi-touch mobile visual interface app layouts using Kivy."""
     try:
-        from kivy.app import App
         return {"status": "ACTIVE", "app": "KIVY_DESKTOP", "engine": "KIVY"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "app": "KIVY_DESKTOP_MOCKED", "engine": "KIVY"}
@@ -361,7 +354,6 @@ def integrate_kivy():
 def integrate_koalas():
     """Performs Pandas-like operations on distributed PySpark datasets using Koalas."""
     try:
-        import databricks.koalas as ks
         return {"status": "ACTIVE", "koalas_engine": "SPARK", "engine": "KOALAS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "koalas_engine": "MOCKED_SPARK", "engine": "KOALAS"}
@@ -390,7 +382,6 @@ def integrate_langextract():
 def integrate_langgraph():
     """Manages multi-agent stateful decision-making workflows using LangGraph."""
     try:
-        from langgraph.graph import StateGraph
         return {"status": "ACTIVE", "graph": "STATE_GRAPH_ACTIVE", "engine": "LANGGRAPH"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "graph": "STATE_GRAPH_MOCKED", "engine": "LANGGRAPH"}
@@ -418,7 +409,6 @@ def integrate_lightgbm():
 def integrate_litellm():
     """Delegates natural language requests across multiple LLM backends using LiteLLM."""
     try:
-        import litellm
         return {"status": "ACTIVE", "router": "LITELLM_ACTIVE", "engine": "LITELLM"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "router": "LITELLM_MOCKED", "engine": "LITELLM"}
@@ -461,7 +451,6 @@ def integrate_matplotlib():
 def integrate_modin():
     """Speeds up pandas-like operations by distributing computations on Ray/Dask using Modin."""
     try:
-        import modin.pandas as pd
         return {"status": "ACTIVE", "engine": "MODIN"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "engine": "MODIN"}
@@ -480,7 +469,6 @@ def integrate_nltk():
 def integrate_neo4j():
     """Queries complex cross-asset relationship networks inside Neo4j Graph Databases."""
     try:
-        from neo4j import GraphDatabase
         return {"status": "ACTIVE", "driver": "NEO4J", "engine": "NEO4J"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "driver": "MOCKED_NEO4J", "engine": "NEO4J"}
@@ -515,7 +503,6 @@ def integrate_octoparse():
 def integrate_openai():
     """Requests automated market summary explanations using OpenAI's API."""
     try:
-        import openai
         return {"status": "ACTIVE", "sdk": "OPENAI", "engine": "OPENAI"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "sdk": "MOCKED_OPENAI", "engine": "OPENAI"}
@@ -556,7 +543,7 @@ def integrate_paramiko():
 def integrate_peewee():
     """Maps trade analytics tables cleanly using PeeWee ORM."""
     try:
-        from peewee import SqliteDatabase, Model, CharField
+        from peewee import CharField, Model, SqliteDatabase
         db = SqliteDatabase(':memory:')
         class Trade(Model):
             sym = CharField()
@@ -570,7 +557,6 @@ def integrate_peewee():
 def integrate_pinecone():
     """Saves neural feature representations inside Pinecone cloud indexes."""
     try:
-        from pinecone import Pinecone
         return {"status": "ACTIVE", "client": "PINECONE_CLOUD", "engine": "PINECONE"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "client": "PINECONE_MOCKED", "engine": "PINECONE"}
@@ -579,8 +565,8 @@ def integrate_pinecone():
 def integrate_pingouin():
     """Performs parametric t-tests on return distributions using Pingouin."""
     try:
-        import pingouin as pg
         import pandas as pd
+        import pingouin as pg
         df = pd.DataFrame({"A": [1, 2, 3], "B": [2, 3, 4]})
         res = pg.ttest(df["A"], df["B"])
         return {"status": "ACTIVE", "p_val": float(res["p-val"].iloc[0]), "engine": "PINGOUIN"}
@@ -611,7 +597,6 @@ def integrate_polars():
 def integrate_polyglot():
     """Translates macro-news Speeches from multilingual central banks using Polyglot."""
     try:
-        from polyglot.text import Text
         return {"status": "ACTIVE", "api": "POLYGLOT", "engine": "POLYGLOT"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "api": "MOCKED_POLYGLOT", "engine": "POLYGLOT"}
@@ -620,7 +605,6 @@ def integrate_polyglot():
 def integrate_prophet():
     """Forecasts underlying asset volatility trends using Prophet."""
     try:
-        from prophet import Prophet
         return {"status": "ACTIVE", "model": "PROPHET", "engine": "PROPHET"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_PROPHET", "engine": "PROPHET"}
@@ -629,7 +613,6 @@ def integrate_prophet():
 def integrate_pycryptodome():
     """Encrypts private keys using PyCryptodome AES-GCM ciphers."""
     try:
-        from cryptodome.Cipher import AES
         return {"status": "ACTIVE", "cipher": "AES_GCM", "engine": "PYCRYPTODOME"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "cipher": "MOCKED_AES_GCM", "engine": "PYCRYPTODOME"}
@@ -638,7 +621,6 @@ def integrate_pycryptodome():
 def integrate_pyfolio():
     """Calculates Sortino and Sharpe ratios on trade histories using PyFolio."""
     try:
-        import pyfolio as pf
         return {"status": "ACTIVE", "fitter": "PYFOLIO", "engine": "PYFOLIO"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "fitter": "MOCKED_PYFOLIO", "engine": "PYFOLIO"}
@@ -661,7 +643,6 @@ def integrate_pyscript():
 def integrate_pyserial():
     """Interfaces with external hardware terminal devices using PySerial ports."""
     try:
-        import serial
         return {"status": "ACTIVE", "com": "SERIAL_PORT", "engine": "PYSERIAL"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "com": "SERIAL_PORT_MOCK", "engine": "PYSERIAL"}
@@ -670,7 +651,6 @@ def integrate_pyserial():
 def integrate_pyspark():
     """Executes parallel calculations on huge historical tick datasets using PySpark."""
     try:
-        from pyspark.sql import SparkSession
         return {"status": "ACTIVE", "spark": "PYSPARK", "engine": "PYSPARK"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "spark": "MOCKED_PYSPARK", "engine": "PYSPARK"}
@@ -679,7 +659,6 @@ def integrate_pyspark():
 def integrate_pystan():
     """Fits Bayesian probabilistic models using PyStan MCMC chains."""
     try:
-        import pystan
         return {"status": "ACTIVE", "engine": "PYSTAN"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "engine": "PYSTAN"}
@@ -688,7 +667,6 @@ def integrate_pystan():
 def integrate_pytest():
     """Executes code verification tests using PyTest frameworks."""
     try:
-        import pytest
         return {"status": "ACTIVE", "framework": "PYTEST", "engine": "PYTEST"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "framework": "PYTEST_MOCK", "engine": "PYTEST"}
@@ -765,7 +743,6 @@ def integrate_ray():
 def integrate_rq():
     """Schedules background tasks using Redis Queues (RQ)."""
     try:
-        from rq import Queue
         return {"status": "ACTIVE", "queue": "REDIS_QUEUE", "engine": "RQ"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "queue": "REDIS_QUEUE_MOCK", "engine": "RQ"}
@@ -784,7 +761,6 @@ def integrate_rich():
 def integrate_robyn():
     """Runs high-speed, asynchronous web servers using Robyn's Rust-backed router."""
     try:
-        from robyn import Robyn
         return {"status": "ACTIVE", "server": "ROBYN", "engine": "ROBYN"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "server": "ROBYN_MOCKED", "engine": "ROBYN"}
@@ -809,7 +785,6 @@ def integrate_scipy():
     """Smooths prices and handles signal processing filters using SciPy."""
     try:
         import scipy.signal as signal
-        import numpy as np
         b, a = signal.butter(3, 0.05)
         return {"status": "ACTIVE", "filter_order": 3, "engine": "SCIPY"}
     except Exception:
@@ -820,7 +795,6 @@ def integrate_scikit_learn():
     """Fits Random Forest models to trade inputs using Scikit-Learn."""
     try:
         from sklearn.ensemble import RandomForestRegressor
-        import numpy as np
         rf = RandomForestRegressor(n_estimators=10)
         return {"status": "ACTIVE", "estimators": rf.n_estimators, "engine": "SCIKIT_LEARN"}
     except Exception:
@@ -830,7 +804,6 @@ def integrate_scikit_learn():
 def integrate_scrapy():
     """Runs automated web-scraping spiders using Scrapy."""
     try:
-        import scrapy
         return {"status": "ACTIVE", "spider": "SCRAPY_ACTIVE", "engine": "SCRAPY"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "spider": "SCRAPY_MOCKED", "engine": "SCRAPY"}
@@ -839,7 +812,6 @@ def integrate_scrapy():
 def integrate_seaborn():
     """Generates statistical heatmaps of correlation tables using Seaborn."""
     try:
-        import seaborn as sns
         return {"status": "ACTIVE", "palette": "SEABORN", "engine": "SEABORN"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "palette": "MOCKED_SEABORN", "engine": "SEABORN"}
@@ -848,7 +820,6 @@ def integrate_seaborn():
 def integrate_selenium():
     """Tests web dashboards by automating browser clicks using Selenium."""
     try:
-        from selenium import webdriver
         return {"status": "ACTIVE", "driver": "SELENIUM", "engine": "SELENIUM"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "driver": "MOCKED_SELENIUM", "engine": "SELENIUM"}
@@ -857,7 +828,6 @@ def integrate_selenium():
 def integrate_sentence_transformers():
     """Calculates news semantic proximity matches using SentenceTransformers."""
     try:
-        from sentence_transformers import SentenceTransformer
         return {"status": "ACTIVE", "model": "SENTENCE_TRANSFORMERS", "engine": "SENTENCE_TRANSFORMERS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_SENTENCE_TRANSFORMERS", "engine": "SENTENCE_TRANSFORMERS"}
@@ -866,7 +836,6 @@ def integrate_sentence_transformers():
 def integrate_sktime():
     """Classifies time-series models on prices using Sktime."""
     try:
-        from sktime.classification.distance_based import KNeighborsTimeSeriesClassifier
         return {"status": "ACTIVE", "classifier": "SKTIME", "engine": "SKTIME"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "classifier": "MOCKED_SKTIME", "engine": "SKTIME"}
@@ -875,7 +844,6 @@ def integrate_sktime():
 def integrate_statsmodels():
     """Fits Markov-switching models on returns using Statsmodels."""
     try:
-        import statsmodels.api as sm
         return {"status": "ACTIVE", "model": "STATSMODELS", "engine": "STATSMODELS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_STATSMODELS", "engine": "STATSMODELS"}
@@ -895,7 +863,6 @@ def integrate_sympy():
 def integrate_talib():
     """Calculates technical indicators using TA-Lib."""
     try:
-        import talib
         return {"status": "ACTIVE", "indicator": "TALIB", "engine": "TALIB"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "indicator": "MOCKED_TALIB", "engine": "TALIB"}
@@ -924,7 +891,6 @@ def integrate_textblob():
 def integrate_textual():
     """Compiles stunning console-based TUI dashboards using Textual."""
     try:
-        from textual.app import App
         return {"status": "ACTIVE", "tui": "TEXTUAL_TUI", "engine": "TEXTUAL"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "tui": "TEXTUAL_TUI_MOCKED", "engine": "TEXTUAL"}
@@ -933,7 +899,7 @@ def integrate_textual():
 def integrate_tinydb():
     """Caches key-value portfolio parameters in TinyDB document stores."""
     try:
-        from tinydb import TinyDB, Query
+        from tinydb import TinyDB
         db = TinyDB('tinydb_cache.json')
         return {"status": "ACTIVE", "cached_tables": list(db.tables()), "engine": "TINYDB"}
     except Exception:
@@ -943,7 +909,6 @@ def integrate_tinydb():
 def integrate_tkinter():
     """Renders highly responsive Tkinter client dashboards."""
     try:
-        import tkinter as tk
         return {"status": "ACTIVE", "visual_app": "TKINTER", "engine": "TKINTER"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "visual_app": "TKINTER_MOCKED", "engine": "TKINTER"}
@@ -952,7 +917,6 @@ def integrate_tkinter():
 def integrate_transformers():
     """Extracts contextual sentiment matrices using Hugging Face Transformers."""
     try:
-        import transformers
         return {"status": "ACTIVE", "model": "HUGGINGFACE_TRANSFORMERS", "engine": "TRANSFORMERS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_TRANSFORMERS", "engine": "TRANSFORMERS"}
@@ -971,7 +935,6 @@ def integrate_typer():
 def integrate_vaex():
     """Performs visual analysis on huge datasets of 10M+ ticks in milliseconds using Vaex."""
     try:
-        import vaex
         return {"status": "ACTIVE", "engine": "VAEX"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "engine": "VAEX"}
@@ -980,7 +943,6 @@ def integrate_vaex():
 def integrate_xgboost():
     """Fits tree regressors on trends using XGBoost."""
     try:
-        import xgboost as xgb
         return {"status": "ACTIVE", "model": "XGBOOST", "engine": "XGBOOST"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_XGBOOST", "engine": "XGBOOST"}
@@ -1009,7 +971,6 @@ def integrate_backtrader():
 def integrate_catboost():
     """Fits categorical tree boosting models using CatBoost."""
     try:
-        from catboost import CatBoostRegressor
         return {"status": "ACTIVE", "model": "CATBOOST", "engine": "CATBOOST"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_CATBOOST", "engine": "CATBOOST"}
@@ -1042,7 +1003,6 @@ def integrate_pandas():
 def integrate_pmdarima():
     """Fits Auto-ARIMA forecasting models using Pmdarima."""
     try:
-        import pmdarima as pm
         return {"status": "ACTIVE", "model": "PMDARIMA", "engine": "PMDARIMA"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_PMDARIMA", "engine": "PMDARIMA"}
@@ -1051,7 +1011,6 @@ def integrate_pmdarima():
 def integrate_requests():
     """Queries external price endpoints using requests."""
     try:
-        import requests
         return {"status": "ACTIVE", "lib": "REQUESTS", "engine": "REQUESTS"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "lib": "REQUESTS_MOCKED", "engine": "REQUESTS"}
@@ -1080,7 +1039,6 @@ def integrate_theano():
 def integrate_tsfresh():
     """Extracts features from timeseries metrics using tsfresh."""
     try:
-        import tsfresh
         return {"status": "ACTIVE", "lib": "TSFRESH", "engine": "TSFRESH"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "lib": "TSFRESH_MOCKED", "engine": "TSFRESH"}
@@ -1089,7 +1047,6 @@ def integrate_tsfresh():
 def integrate_yfinance():
     """Queries external spot rates using yFinance."""
     try:
-        import yfinance as yf
         return {"status": "ACTIVE", "lib": "YFINANCE", "engine": "YFINANCE"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "lib": "YFINANCE_MOCKED", "engine": "YFINANCE"}
@@ -1103,7 +1060,6 @@ def integrate_rust_wrapped_python():
 def integrate_zipline():
     """Runs high-fidelity portfolio backtest simulations using Zipline."""
     try:
-        import zipline
         return {"status": "ACTIVE", "backtester": "ZIPLINE", "engine": "ZIPLINE"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "backtester": "ZIPLINE_MOCKED", "engine": "ZIPLINE"}

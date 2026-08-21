@@ -6,6 +6,7 @@ supply chain stress scores to forecast inflation and commodity price shocks.
 
 import random
 
+
 class SpatialSupplyChainAnalytics:
     """Monitors maritime chokepoint congestion and supply chain stress."""
 

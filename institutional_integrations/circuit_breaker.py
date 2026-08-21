@@ -4,10 +4,11 @@ Protects broker gateway routes and external execution channels from cascading fa
 and endpoint hammering during sustained outages.
 """
 
-import time
-import threading
 import logging
-from event_bus import global_event_bus, Event
+import threading
+import time
+
+from event_bus import Event, global_event_bus
 
 _log = logging.getLogger(__name__)
 

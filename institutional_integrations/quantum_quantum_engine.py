@@ -14,12 +14,12 @@ Implements and maps 50+ quantitative, mathematical, fundamental, and real-world 
 across optimal asset categories with auto-selection rules based on live market analysis.
 """
 
-import math
-import random
 import datetime
+import random
+
 import config
-import database
 import indicators
+
 
 class QuantumAutoEngine:
     """

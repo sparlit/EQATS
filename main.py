@@ -1,8 +1,8 @@
-import os
-import time
 import datetime
-import threading
 import logging
+import os
+import threading
+import time
 
 # Configure root logger once at application entry point (FLAW-001)
 logging.basicConfig(
@@ -10,16 +10,17 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 
-import config
-import database
-import connector
 import brain
+import config
+import connector
+import database
+import eaqts_planes
 import indicators
 import predictive_brain
 import telegram_bot
-import eaqts_planes
-from event_bus import global_event_bus, Event
+from event_bus import Event, global_event_bus
 from supervisor_agent import global_supervisor_agent
+
 
 class AutonomousScalper:
     """
@@ -762,7 +763,7 @@ class AutonomousScalper:
 
                 # G. Rate limits check (Section 24.1)
                 if not self.engine.execution.check_rate_limits():
-                    print(f"🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
+                    print("🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
                     # Transition resilience state on throttling
                     if self.engine.execution.rate_state == "HALTED":
                         self.engine.resilience.transition_state("HALTED")

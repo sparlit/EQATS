@@ -5,7 +5,6 @@ Handles environments without native Tkinter installed via mock stubs.
 """
 
 import sys
-import pytest
 import unittest.mock as mock
 
 # Stub tkinter if not available in headless environment
@@ -71,8 +70,8 @@ except ModuleNotFoundError:
     sys.modules["tkinter.ttk"] = ttk
     sys.modules["tkinter.messagebox"] = messagebox
 
-import database
 import config
+import database
 
 
 def test_gui_module_imports_and_logger():

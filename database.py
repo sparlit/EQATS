@@ -1,9 +1,9 @@
-import sqlite3
+import base64
 import datetime
 import hashlib
-import hmac
-import base64
 import logging
+import sqlite3
+
 import config
 
 _log = logging.getLogger("database")
@@ -275,6 +275,7 @@ def get_all_users():
     return [dict(r) for r in rows]
 
 import time
+
 
 def _execute_with_retry(query, params=(), commit=True):
     """Executes a database write query using connection context manager with automatic retries and exponential backoff."""

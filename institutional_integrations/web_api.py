@@ -8,6 +8,7 @@ import socket
 import threading
 import time
 
+
 class SocketIPCBridge:
     """
     High-Speed Push-Based ZeroMQ / TCP Socket IPC Bridge.
