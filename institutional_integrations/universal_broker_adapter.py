@@ -22,6 +22,11 @@ import urllib.request
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
+from institutional_integrations.circuit_breaker import CircuitBreaker
+
+_log = logging.getLogger(__name__)
+
+_log = logging.getLogger(__name__)
 
 _log = logging.getLogger(__name__)
 
