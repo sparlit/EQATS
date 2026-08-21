@@ -4,10 +4,13 @@ import time
 import datetime
 import math
 import threading
+import logging
 
 import config
 import database
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
+_log = logging.getLogger("connector")
 
 class TradingConnector(abc.ABC):
     """
@@ -209,8 +212,8 @@ class MT5Connector(TradingConnector):
             try:
                 login_id = int(str(login).strip())
                 self.mt5.login(login=login_id, password=str(password).strip(), server=str(server).strip() if server else "")
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("MT5 login attempt failed (will probe anyway): %s", e)
 
         account_info = self.mt5.account_info()
         if account_info is None:

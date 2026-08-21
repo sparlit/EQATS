@@ -4,3 +4,14 @@ __pycache__/
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Build artifacts
+nuitka-crash-report.xml
+main.build/
+main.dist/
+*.exe
+*.pyd
+
+# Local environment
+.venv/
+.env

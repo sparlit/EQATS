@@ -1,0 +1,70 @@
+{
+  "round": 4,
+  "role": "ANALYST",
+  "timestamp": "2026-08-21T14:32:00+03:00",
+  "project_state": {
+    "tests": "64/64 PASSED (100% Green, 2 unrelated SyntaxWarnings from backtrader upstream)",
+    "previous_rounds_merged": [1, 2, 3],
+    "git_status": "1 untracked file (nuitka-crash-report.xml)",
+    "github_auth": "INVALID — gh CLI token rejected (sparlit account)",
+    "codebase_size": "30 institutional integration modules + 8 core modules (~11k LOC core)"
+  },
+  "issues": {
+    "CRITICAL": [],
+    "HIGH": [],
+    "MEDIUM": [
+      {
+        "id": "M-001",
+        "title": "Two bare except clauses in gui.py:2266, 2269",
+        "location": "gui.py:2266-2275",
+        "impact": "GUI event handlers swallow all exceptions including KeyboardInterrupt and SystemExit; debugging GUI crashes becomes impossible",
+        "remediation": "Replace bare except with except Exception as e: logger.exception(e)"
+      },
+      {
+        "id": "M-002",
+        "title": "46 silent `pass` statements in except blocks",
+        "location": "config.py:103, connector.py:212, database.py:162-190, etc.",
+        "impact": "Silent failures in config parsing, DB connection pool, and connector retries make incident diagnosis slow",
+        "remediation": "Add debug-level logging via the established logger to each except block; collapse repeated patterns"
+      }
+    ],
+    "LOW": [
+      {
+        "id": "L-001",
+        "title": "Untracked nuitka-crash-report.xml in working tree",
+        "location": "D:\\fxbothermes\\nuitka-crash-report.xml (14MB)",
+        "impact": "Repository noise; should be gitignored or deleted",
+        "remediation": "Add to .gitignore; remove from filesystem"
+      },
+      {
+        "id": "L-002",
+        "title": "Backtrader upstream SyntaxWarning",
+        "location": "backtrader/cerebro.py:675,717",
+        "impact": "Cosmetic — third-party warnings",
+        "remediation": "Filter in pytest config; not actionable in our code"
+      }
+    ]
+  },
+  "gap_analysis": {
+    "missing_documentation": [
+      "INSTITUTIONAL_INTEGRATIONS.md for the 30 specialized modules",
+      "OPERATIONS_DASHBOARD.md for gui.py (6419 LOC Tkinter monolith)"
+    ],
+    "missing_resilience": [
+      "No circuit breaker pattern documented across retry paths (Round 3 added retry backoff; circuit breaker still absent)",
+      "No structured-logging standard across all 30 institutional modules"
+    ],
+    "missing_verification": [
+      "No integration test covering gui.py (6419 LOC untested)",
+      "No chaos test for the WebSocket telemetry server added in 8f62709"
+    ]
+  },
+  "risk_mitigations": [
+    "Replace bare excepts in gui.py (M-001)",
+    "Add debug logging to silent pass handlers (M-002)",
+    "Gitignore nuitka crash report (L-001)",
+    "Document institutional integrations (gap)",
+    "Add integration test for WebSocket telemetry (gap)"
+  ],
+  "summary": "Zero critical/high issues remain post Round 3. 2 MEDIUM and 2 LOW issues identified for Round 4 hardening. 4 documentation/test gaps identified for closure."
+}
