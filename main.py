@@ -2,6 +2,14 @@ import os
 import time
 import datetime
 import threading
+import logging
+
+# Configure root logger once at application entry point (FLAW-001)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+
 import config
 import database
 import connector

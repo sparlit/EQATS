@@ -16,9 +16,16 @@ import sys
 import time
 import json
 import threading
+import urllib.request
+import urllib.error
+import socket
+import logging
 import database
 import config
 from institutional_integrations.fix_engine import FIXEngine
+from institutional_integrations.circuit_breaker import CircuitBreaker
+
+_log = logging.getLogger(__name__)
 
 class UniversalBrokerGateway:
     """
@@ -34,6 +41,15 @@ class UniversalBrokerGateway:
         self.is_connected_flag = False
         self.lock = threading.Lock()
         self.fix_engine = None
+
+        # Configurable retry backoff delay (Round 3 FLAW-001)
+        self.retry_backoff_delay = float(self.broker_config.get("retry_backoff_delay", 0.2))
+
+        # Circuit Breaker initialization
+        cb_threshold = int(self.broker_config.get("failure_threshold", 5))
+        cb_cooldown = float(self.broker_config.get("cooldown_seconds", 30.0))
+        self._breaker = CircuitBreaker(failure_threshold=cb_threshold, cooldown_seconds=cb_cooldown)
+
         self._init_protocol_handler()
 
     def _init_protocol_handler(self):
@@ -147,29 +163,64 @@ class UniversalBrokerGateway:
         }
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
-        """Executes trade order using active protocol route with retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
+        """Executes trade order using active protocol route with circuit breaker, configurable retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
+        # Circuit Breaker check before attempting order execution
+        if not self._breaker.allow():
+            _log.warning("UniversalBrokerGateway: Order for %s blocked by OPEN circuit breaker.", symbol)
+            return {
+                'success': False,
+                'ticket': '',
+                'price': 0.0,
+                'error': 'circuit_open',
+                'reason': 'circuit_open',
+                'protocol': self.protocol
+            }
+
         if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, 'rest_url') and self.rest_url:
-            import urllib.request
-            import socket
             payload = json.dumps({"symbol": symbol, "side": order_type, "volume": lot_size, "sl": sl, "tp": tp}).encode('utf-8')
             req = urllib.request.Request(f"{self.rest_url}/v1/order", data=payload, headers={'Content-Type': 'application/json'})
 
             max_attempts = 2
+            last_err = None
             for attempt in range(max_attempts):
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         res_data = json.loads(resp.read().decode('utf-8'))
+                        self._breaker.record_success()
                         return {'success': True, 'ticket': str(res_data.get("ticket", "REST_1001")), 'price': float(res_data.get("price", 0.0)), 'error': '', 'protocol': self.protocol}
                 except (socket.timeout, TimeoutError) as e:
-                    print(f"Diagnostics: Universal Broker REST Gateway socket timeout (attempt {attempt+1}/{max_attempts}) for {symbol}: {e}")
+                    last_err = f"Socket Timeout 3.0s: {e}"
+                    _log.warning("Universal Broker REST Gateway socket timeout (attempt %d/%d) for %s: %s", attempt+1, max_attempts, symbol, e)
                     if attempt < max_attempts - 1:
-                        time.sleep(0.2)
-                    else:
-                        return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Socket Timeout 3.0s: {e}"}
+                        time.sleep(self.retry_backoff_delay)
+                except (socket.gaierror, ConnectionRefusedError, ConnectionResetError, urllib.error.URLError) as e:
+                    # Explicit network unreachable handling (Round 3 critic FLAW-003)
+                    last_err = f"Network Unreachable: {e}"
+                    _log.error("Universal Broker REST Gateway network unreachable exception on %s: %s", symbol, e)
+                    self._breaker.record_failure(e)
+                    return {
+                        'success': False,
+                        'ticket': '',
+                        'price': 0.0,
+                        'error': last_err,
+                        'reason': 'NETWORK_UNREACHABLE',
+                        'protocol': self.protocol
+                    }
                 except Exception as e:
-                    print(f"Diagnostics: Universal Broker REST Gateway order execution exception (attempt {attempt+1}/{max_attempts}): {e}")
+                    last_err = str(e)
+                    _log.warning("Universal Broker REST Gateway order execution exception (attempt %d/%d) for %s: %s", attempt+1, max_attempts, symbol, e)
                     if attempt < max_attempts - 1:
-                        time.sleep(0.2)
+                        time.sleep(self.retry_backoff_delay)
+
+            # All retry attempts failed
+            self._breaker.record_failure()
+            return {
+                'success': False,
+                'ticket': '',
+                'price': 0.0,
+                'error': last_err or "Execution failed after retries",
+                'protocol': self.protocol
+            }
 
         if self.protocol == "FIX" and self.fix_engine:
             try:
@@ -184,6 +235,7 @@ class UniversalBrokerGateway:
                     price=0.0
                 )
                 self.fix_engine.send_message(fix_msg)
+                self._breaker.record_success()
                 return {
                     'success': True,
                     'ticket': cl_ord_id,
@@ -191,12 +243,18 @@ class UniversalBrokerGateway:
                     'error': '',
                     'protocol': 'FIX'
                 }
+            except (socket.gaierror, ConnectionRefusedError, ConnectionResetError) as e:
+                _log.error("Universal Broker FIX network unreachable: %s", e)
+                self._breaker.record_failure(e)
+                return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Network Unreachable: {e}", 'reason': 'NETWORK_UNREACHABLE', 'protocol': 'FIX'}
             except Exception as e:
-                print(f"Diagnostics: Universal Broker FIX order execution exception: {e}")
+                _log.warning("Universal Broker FIX order execution exception: %s", e)
+                self._breaker.record_failure(e)
                 return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"FIX order execution error: {e}"}
 
         # Fallback / Generic execution payload acknowledgment
         ticket = f"UNI_{int(time.time() * 1000)}"
+        self._breaker.record_success()
         return {
             'success': True,
             'ticket': ticket,
