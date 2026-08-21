@@ -69,10 +69,10 @@ This document provides a highly-detailed, state-of-the-art visual flowchart and 
                  ▼                         ▼                         ▼
 ┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐
 │   BLOOMBERG TERMINAL     │ │     NATIVE MT5 CHART     │ │   AUTO-REFRESH WEB APP   │
-│     DESKTOP CLIENT       │ │     HUD DASHBOARD        │ │     dashboard.html       │
+│     DESKTOP CLIENT       │ │     HUD DASHBOARD        │ │  WebSocket Telemetry Stream │
 │  • MAIN <GO>: Scans      │ │  • Native Experts EA     │ │  • Dynamic CSS Grid      │
 │  • GP <GO>: Price plot   │ │  • Reads FILE_COMMON     │ │  • Auto-updates          │
-│  • WEI <GO>: Global board│ │    (scalper_state.txt)   │ │    every 5 seconds       │
+│  • WEI <GO>: Global board│ │  (SocketIPC / WebSockets)│ │    every 5 seconds       │
 │  • NEWS <GO>: NLP feed   │ │  • Draws real-time overlay│ │  • Visualizes indicators │
 │  • PORT <GO>: Markowitz  │ │    directly on MT5 grid  │ │    and neural outputs    │
 │  • MCTS <GO>: Risk VaR   │ │  • Floating P&L counters │ │  • SQLite metrics checks │
@@ -116,5 +116,5 @@ This document provides a highly-detailed, state-of-the-art visual flowchart and 
 ### E. The MT5 FILE_COMMON Visual State Sync Bridge
 - **Action:** MetaTrader 5 Python SDKs do not support drawing graphical objects directly onto active terminal charts on remote servers.
 - **Shared-File Synchronizer:**
-  - On every tick, the Python application compiles current scanning arrays, active sessions, floating P&L values, and neural network weights into a highly-structured pipe text format and writes it into the terminal shared Files folder (`MetaQuotes\Terminal\Common\Files\scalper_state.txt`) using `utf-8` encoding.
+  - On every tick, the Python application streams current scanning arrays, active sessions, floating P&L values, and neural network weights via push-based zero-latency Socket IPC and WebSockets (`SocketIPCBridge` / `TelemetryStreamServer`).
   - Our native Expert Advisor (`ScalperBrainEA.mq5`) runs inside MT5, monitors the shared folder on tick triggers, parses the telemetry, and renders a gorgeous HUD overlay table directly on your chart backgrounds natively on Windows!
