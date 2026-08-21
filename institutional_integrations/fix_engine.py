@@ -4,10 +4,11 @@ Provides direct FIX session handling (Logon 35=A, Heartbeat 35=0, MarketDataRequ
 NewOrderSingle 35=D, OrderCancelRequest 35=F, ExecutionReport 35=8) for institutional venues.
 """
 
-import time
 import datetime
-import threading
 import random
+import threading
+import time
+
 
 class FIXEngine:
     """Thread-safe low-latency FIX protocol session manager."""

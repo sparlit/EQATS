@@ -5,14 +5,20 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Scalper Brain"
 #property link      "https://github.com/scalper"
-#property version   "2.00"
-#property description "Autonomous Scalper Brain - On-Chart Interactive HUD Dashboard"
+#property version   "3.00"
+#property description "Autonomous Scalper Brain EA - Zero-Latency Socket IPC & On-Chart Interactive HUD"
 #property indicator_chart_window
 
 // Input Parameters
-input string   InpFileName = "scalper_state.txt"; // State File Name
-input bool     InpUseCommonFolder = true;         // Use Common shared folder (FILE_COMMON)
-input int      InpTimerInterval = 1;              // Update Interval (seconds)
+input string   InpSocketHost     = "127.0.0.1";         // Socket IPC Bridge Host
+input int      InpSocketPort     = 9001;                // Socket IPC Bridge Port
+input bool     InpUseSocketIPC   = true;                // Use Zero-Latency Socket IPC Push
+input string   InpFileName       = "scalper_telemetry.txt"; // Fallback State File Name
+input bool     InpUseCommonFolder = true;               // Use Common shared folder (FILE_COMMON)
+input int      InpTimerInterval  = 1;                   // Update Interval (seconds)
+
+// Socket Handle
+int m_socket = INVALID_HANDLE;
 
 // State variables
 string m_symbols[50];
@@ -41,12 +47,18 @@ string m_countdown = "00:00:00";
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
-//| Initializes timer and UI objects                                 |
+//| Initializes timer, sockets and UI objects                        |
 //+------------------------------------------------------------------+
 int OnInit()
 {
    // Set timer for visual dashboard updates
    EventSetTimer(InpTimerInterval);
+
+   // Initialize Socket IPC Connection if enabled
+   if(InpUseSocketIPC)
+   {
+      InitSocketConnection();
+   }
 
    // Redraw initial layout
    DrawHeader();
@@ -56,12 +68,40 @@ int OnInit()
 }
 
 //+------------------------------------------------------------------+
+//| InitSocketConnection                                             |
+//| Connects to local SocketIPCBridge server                          |
+//+------------------------------------------------------------------+
+void InitSocketConnection()
+{
+   ResetLastError();
+   m_socket = SocketCreate();
+   if(m_socket != INVALID_HANDLE)
+   {
+      if(!SocketConnect(m_socket, InpSocketHost, InpSocketPort, 1000))
+      {
+         Print("ScalperBrainEA: SocketConnect failed to ", InpSocketHost, ":", InpSocketPort, " (Code: ", GetLastError(), "). Using file fallback.");
+         SocketClose(m_socket);
+         m_socket = INVALID_HANDLE;
+      }
+      else
+      {
+         Print("ScalperBrainEA: Socket IPC push connection established with Python Brain on ", InpSocketHost, ":", InpSocketPort);
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Expert deinitialization function                                 |
 //| Deletes GUI objects cleanly on EA stop                           |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
    EventKillTimer();
+   if(m_socket != INVALID_HANDLE)
+   {
+      SocketClose(m_socket);
+      m_socket = INVALID_HANDLE;
+   }
    DeleteDashboardObjects();
 }
 
@@ -84,55 +124,97 @@ void OnTimer()
 }
 
 //+------------------------------------------------------------------+
-//| ParseStateFile                                                   |
-//| Safely opens and parses the state file from FILE_COMMON          |
+//| ParseStateData                                                   |
+//| Reads state stream via Socket IPC or fallback shared file        |
 //+------------------------------------------------------------------+
-bool ParseStateFile()
+bool ParseStateData()
 {
-   ResetLastError();
-   // Open the state file sharing the Python live data
-   int flags = FILE_READ|FILE_TXT|FILE_ANSI;
-   if(InpUseCommonFolder) flags |= FILE_COMMON;
+   string state_content = "";
 
-   int file_handle = FileOpen(InpFileName, flags);
-   if(file_handle == INVALID_HANDLE)
+   // 1. Try Socket IPC Push Reading
+   if(InpUseSocketIPC)
    {
-      static int err_count = 0;
-      err_count++;
-      if(err_count % 10 == 1) // Log once every 10 ticks to prevent spam
+      if(m_socket == INVALID_HANDLE)
       {
-         Print("ScalperBrainEA: Waiting for Python Brain file '", InpFileName, "' inside MT5 Common folder. (Error Code: ", GetLastError(), ")");
+         InitSocketConnection();
       }
-      return false;
+
+      if(m_socket != INVALID_HANDLE)
+      {
+         uint rsp_len = SocketIsReadable(m_socket);
+         if(rsp_len > 0)
+         {
+            char buf[];
+            ArrayResize(buf, (int)rsp_len);
+            int read_bytes = SocketRead(m_socket, buf, (int)rsp_len, 500);
+            if(read_bytes > 0)
+            {
+               state_content = CharArrayToString(buf, 0, read_bytes, CP_UTF8);
+            }
+         }
+      }
    }
 
+   // 2. Fallback to Shared Telemetry File if Socket empty
+   if(StringLen(state_content) == 0)
+   {
+      ResetLastError();
+      int flags = FILE_READ|FILE_TXT|FILE_ANSI;
+      if(InpUseCommonFolder) flags |= FILE_COMMON;
+
+      int file_handle = FileOpen(InpFileName, flags);
+      if(file_handle == INVALID_HANDLE)
+      {
+         static int err_count = 0;
+         err_count++;
+         if(err_count % 10 == 1)
+         {
+            Print("ScalperBrainEA: Waiting for telemetry stream from Python Brain... (Error Code: ", GetLastError(), ")");
+         }
+         return false;
+      }
+
+      while(!FileIsEnding(file_handle))
+      {
+         state_content += FileReadString(file_handle) + "\n";
+      }
+      FileClose(file_handle);
+   }
+
+   if(StringLen(state_content) < 5) return false;
+
+   // Parse Content Lines
    m_total_symbols = 0;
    m_total_trades = 0;
    bool in_scans_section = false;
 
-   // Line 1: Header (equity|balance|active_count|active_session|overlaps|next_session|countdown)
-   if(!FileIsEnding(file_handle))
-   {
-      string header_line = FileReadString(file_handle);
-      string parts[];
-      int split_count = StringSplit(header_line, '|', parts);
-      if(split_count >= 3)
-      {
-         m_equity = parts[0];
-         m_balance = parts[1];
-         m_active_count = parts[2];
-         if(split_count >= 4) m_active_session = parts[3];
-         if(split_count >= 5) m_overlaps = parts[4];
-         if(split_count >= 6) m_next_session = parts[5];
-         if(split_count >= 7) m_countdown = parts[6];
-      }
-   }
+   string lines[];
+   int line_count = StringSplit(state_content, '\n', lines);
 
-   // Parse subsequent rows
-   while(!FileIsEnding(file_handle))
+   for(int i = 0; i < line_count; i++)
    {
-      string line = FileReadString(file_handle);
+      string line = lines[i];
+      StringTrimRight(line);
+      StringTrimLeft(line);
       if(StringLen(line) < 3) continue;
+
+      if(i == 0)
+      {
+         // Header line
+         string parts[];
+         int split_count = StringSplit(line, '|', parts);
+         if(split_count >= 3)
+         {
+            m_equity = parts[0];
+            m_balance = parts[1];
+            m_active_count = parts[2];
+            if(split_count >= 4) m_active_session = parts[3];
+            if(split_count >= 5) m_overlaps = parts[4];
+            if(split_count >= 6) m_next_session = parts[5];
+            if(split_count >= 7) m_countdown = parts[6];
+         }
+         continue;
+      }
 
       if(line == "SCANS_HEADER")
       {
@@ -145,7 +227,7 @@ bool ParseStateFile()
 
       if(!in_scans_section)
       {
-         // This is a trade row: TRADE|ticket|symbol|direction|open_price|sl|tp|profit
+         // Trade row: TRADE|ticket|symbol|direction|open_price|sl|tp|profit
          if(split_count >= 8 && parts[0] == "TRADE" && m_total_trades < 20)
          {
             string ticket = parts[1];
@@ -160,7 +242,7 @@ bool ParseStateFile()
       }
       else
       {
-         // This is a scan row: Symbol|Price|EMA200|Trend|RSI|ATR|Status|avg_w_ih|avg_w_ho|bias_output|hidden_activations
+         // Scan row: Symbol|Price|EMA200|Trend|RSI|ATR|Status|avg_w_ih|avg_w_ho|bias_output|hidden_activations
          if(split_count >= 6 && m_total_symbols < 50)
          {
             m_symbols[m_total_symbols] = parts[0];
@@ -171,7 +253,6 @@ bool ParseStateFile()
             m_atrs[m_total_symbols] = parts[5];
             m_statuses[m_total_symbols] = parts[6];
 
-            // AI internals columns
             if(split_count >= 11)
             {
                m_avg_w_ih[m_total_symbols] = parts[7];
@@ -192,7 +273,6 @@ bool ParseStateFile()
       }
    }
 
-   FileClose(file_handle);
    return true;
 }
 
@@ -202,8 +282,7 @@ bool ParseStateFile()
 //+------------------------------------------------------------------+
 void DrawHeader()
 {
-   // Title label object
-   CreateLabel("SB_Title", "🤖 SCALPER BRAIN AUTONOMOUS SYSTEM", 20, 20, 14, clrSkyBlue, "Segoe UI Bold");
+   CreateLabel("SB_Title", "🤖 SCALPER BRAIN AUTONOMOUS SYSTEM v3.0", 20, 20, 14, clrSkyBlue, "Segoe UI Bold");
 }
 
 //+------------------------------------------------------------------+
@@ -212,9 +291,9 @@ void DrawHeader()
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
-   if(!ParseStateFile())
+   if(!ParseStateData())
    {
-      CreateLabel("SB_Status", "Status: WAITING FOR PYTHON BRAIN...", 20, 50, 10, clrYellow, "Segoe UI");
+      CreateLabel("SB_Status", "Status: STREAMING VIA SOCKET IPC / WEBSOCKETS...", 20, 50, 10, clrYellow, "Segoe UI");
       return;
    }
 
@@ -255,7 +334,7 @@ void UpdateDashboard()
    CreateLabel("SB_Timeline_Lbl", timeline_text, 20, 75, 10, clrOrange, "Segoe UI Bold");
 
    // Section 2: Active Running Trades
-   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING TRADES (" + m_active_count + "/3):", 20, 100, 11, clrSkyBlue, "Segoe UI Bold");
+   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING TRADES (" + m_active_count + "/10):", 20, 100, 11, clrSkyBlue, "Segoe UI Bold");
 
    int current_y = 125;
    int spacing = 20;

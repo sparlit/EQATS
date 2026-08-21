@@ -1,10 +1,9 @@
 import datetime
 import uuid
-import json
+
 import config
-import database
-import connector
-from event_bus import global_event_bus, Event
+from event_bus import Event, global_event_bus
+
 
 # ==============================================================================
 # 1. CONTROL & GOVERNANCE PLANE

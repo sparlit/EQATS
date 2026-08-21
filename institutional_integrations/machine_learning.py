@@ -3,7 +3,6 @@ Institutional Machine Learning Core.
 Integrates PyTorch, TensorFlow, Keras, Scikit-learn, XGBoost, LightGBM, CatBoost, Prophet, AutoTS, Darts, and Tsfresh.
 """
 
-import random
 
 class ActorCriticPolicy:
     """
@@ -125,7 +124,7 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         pred_torch = model(p_tensor).item()
         # Scale output reasonably to price delta
         predictions["pytorch_lstm"] = current_price + (pred_torch * 0.0001 * current_price)
-    except Exception as e:
+    except Exception:
         # Holt-Winters / Exponential Smoothing dynamic analytical fallback
         alpha = 0.3
         ewma = prices[0]
@@ -136,8 +135,8 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
     try:
         # TensorFlow Keras model
         import tensorflow as tf
-        from tensorflow.keras.models import Sequential
         from tensorflow.keras.layers import Dense
+        from tensorflow.keras.models import Sequential
         tf_model = Sequential([Dense(8, activation='relu'), Dense(1)])
         tf_model.compile(optimizer='adam', loss='mse')
         # Fast predict
@@ -148,8 +147,9 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
 
     try:
         # XGBoost & LightGBM
-        import xgboost as xgb
         import lightgbm as lgb
+        import xgboost as xgb
+
         # Extract features using tsfresh or sklearn
         from sklearn.ensemble import RandomForestRegressor
         pass

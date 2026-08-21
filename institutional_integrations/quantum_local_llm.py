@@ -8,6 +8,7 @@ to output direct text-based market forecast reports and sentiment analysis.
 import math
 import random
 
+
 class QuantumLocalGPT:
     """
     Self-contained Financial GPT model built from scratch.
