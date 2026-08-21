@@ -83,8 +83,15 @@ class TelemetryStreamServer:
         self.port = port
 
     def build_telemetry_payload(self, current_time, equity, balance, active_positions, scans, perf):
-        """Constructs structured JSON telemetry stream payload."""
+        """
+        Constructs structured JSON telemetry stream payload.
+
+        Schema Versioning Policy:
+        - Current schema version: 1
+        - Any future breaking field removals or structural modifications must bump schema_version to 2+.
+        """
         return {
+            "schema_version": 1,
             "time": current_time,
             "account": {
                 "balance": round(balance, 2),
