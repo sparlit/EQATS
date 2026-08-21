@@ -155,6 +155,7 @@ def init_db():
         api_secret TEXT DEFAULT '',
         rest_url TEXT DEFAULT '',
         ws_url TEXT DEFAULT '',
+        terminal_path TEXT DEFAULT '',
         is_active INTEGER DEFAULT 1,
         updated_at TEXT NOT NULL
     )
@@ -170,6 +171,7 @@ def init_db():
         ("ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''", "api_secret"),
         ("ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''", "rest_url"),
         ("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''", "ws_url"),
+        ("ALTER TABLE broker_credentials ADD COLUMN terminal_path TEXT DEFAULT ''", "terminal_path"),
     ]
     for _sql, _col in _SCHEMA_ALTERS:
         try:
@@ -391,14 +393,14 @@ def normalize_leverage(leverage_str: str) -> str:
         return f"1:{int(s)}"
     return "1:100"
 
-def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url="", is_active=0):
+def add_broker_account(broker_name, server, account_id, password, leverage="1:100", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url="", terminal_path="", is_active=0):
     """Adds a new broker gateway configuration into SQLite with lock retries."""
     leverage = normalize_leverage(leverage)
     if is_active:
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry("""
-    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, is_active, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, terminal_path, is_active, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         broker_name,
         server,
@@ -411,6 +413,7 @@ def add_broker_account(broker_name, server, account_id, password, leverage="1:10
         encrypt_secret(api_secret) if api_secret else "",
         rest_url,
         ws_url,
+        terminal_path,
         1 if is_active else 0,
         datetime.datetime.now().isoformat()
     ))
@@ -424,7 +427,7 @@ def delete_broker_account(broker_id):
     """Deletes a broker profile from SQLite with lock retries."""
     _execute_with_retry("DELETE FROM broker_credentials WHERE id = ?", (broker_id,))
 
-def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url=""):
+def save_broker_credentials(server, account_id, password, leverage, broker_name="Primary Gateway", environment="Demo", protocol_type="MT5", api_key="", api_secret="", rest_url="", ws_url="", terminal_path=""):
     """Saves or updates primary active broker parameters in SQLite with lock retries."""
     leverage = normalize_leverage(leverage)
     conn = get_connection()
@@ -439,14 +442,14 @@ def save_broker_credentials(server, account_id, password, leverage, broker_name=
     if row:
         _execute_with_retry("""
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, terminal_path = ?, updated_at = ?
         WHERE id = ?
-        """, (broker_name, server, account_id, enc_pwd, leverage, environment, protocol_type, api_key, enc_secret, rest_url, ws_url, datetime.datetime.now().isoformat(), row['id']))
+        """, (broker_name, server, account_id, enc_pwd, leverage, environment, protocol_type, api_key, enc_secret, rest_url, ws_url, terminal_path, datetime.datetime.now().isoformat(), row['id']))
     else:
         _execute_with_retry("""
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, is_active, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-        """, (broker_name, server, account_id, enc_pwd, leverage, environment, protocol_type, api_key, enc_secret, rest_url, ws_url, datetime.datetime.now().isoformat()))
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, terminal_path, is_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        """, (broker_name, server, account_id, enc_pwd, leverage, environment, protocol_type, api_key, enc_secret, rest_url, ws_url, terminal_path, datetime.datetime.now().isoformat()))
 
 def get_broker_credentials():
     """Retrieves active broker connection parameters and decrypts secrets."""
@@ -497,7 +500,8 @@ def get_broker_credentials():
         "api_key": row["api_key"] if "api_key" in keys and row["api_key"] else "",
         "api_secret": decrypt_secret(row["api_secret"]) if "api_secret" in keys and row["api_secret"] else "",
         "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
-        "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else ""
+        "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else "",
+        "terminal_path": row["terminal_path"] if "terminal_path" in keys and row["terminal_path"] else ""
     }
 
 def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):

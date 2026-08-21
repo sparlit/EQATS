@@ -2956,8 +2956,13 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.cfg_lev_combo = ttk.Combobox(bf_inputs, textvariable=self.cfg_lev_var, values=leverage_options, font=("Consolas", 8, "bold"), width=12)
         self.cfg_lev_combo.grid(row=2, column=3, sticky="w", padx=5, pady=2)
 
+        tk.Label(bf_inputs, text="Terminal Path:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(row=3, column=0, sticky="w", pady=2)
+        self.cfg_bpath_ent = tk.Entry(bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=48)
+        self.cfg_bpath_ent.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2)
+        self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
+
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
-        b_btn_box.grid(row=3, column=0, columnspan=4, sticky="w", pady=(10, 0))
+        b_btn_box.grid(row=4, column=0, columnspan=4, sticky="w", pady=(10, 0))
 
         tk.Button(b_btn_box, text="➕ ADD BROKER", font=("Consolas", 8, "bold"), bg="#15803d", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._add_broker_profile).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(b_btn_box, text="⚡ SET ACTIVE GATEWAY", font=("Consolas", 8, "bold"), bg="#b45309", fg="#ffffff", padx=8, pady=3, relief=tk.FLAT, command=self._set_active_broker_profile).pack(side=tk.LEFT, padx=5)
