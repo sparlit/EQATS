@@ -5524,9 +5524,14 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         lev = database.normalize_leverage(self.cfg_lev_var.get())
         self.cfg_lev_var.set(lev)
         env = self.cfg_benv_var.get()
+        term_path = (
+            self.cfg_bpath_ent.get().strip()
+            if hasattr(self, "cfg_bpath_ent")
+            else ""
+        )
 
         database.save_broker_credentials(
-            server, acc, pwd, lev, broker_name=bname, environment=env
+            server, acc, pwd, lev, broker_name=bname, environment=env, terminal_path=term_path
         )
         messagebox.showinfo(
             "Broker Gateway Saved",
