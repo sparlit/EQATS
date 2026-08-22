@@ -4954,6 +4954,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=5)
         tk.Button(
             b_btn_box,
+            text="🚀 LAUNCH TERMINAL",
+            font=("Consolas", 8, "bold"),
+            bg="#0284c7",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._launch_broker_terminal,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
             text="🗑️ DELETE BROKER",
             font=("Consolas", 8, "bold"),
             bg="#991b1b",
@@ -5270,6 +5281,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.broker_tree.item(sel[0])
             vals = item["values"]
             if vals and len(vals) >= 6:
+                b_id = vals[0]
                 self.cfg_bname_ent.delete(0, tk.END)
                 self.cfg_bname_ent.insert(0, str(vals[1]))
                 self.cfg_bserver_ent.delete(0, tk.END)
@@ -5278,6 +5290,14 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 self.cfg_bacc_ent.insert(0, str(vals[3]))
                 self.cfg_benv_var.set(str(vals[4]))
                 self.cfg_lev_var.set(str(vals[5]))
+
+                # Retrieve terminal_path for the selected broker from DB
+                brokers = database.get_all_brokers()
+                for b in brokers:
+                    if b.get("id") == b_id:
+                        self.cfg_bpath_ent.delete(0, tk.END)
+                        self.cfg_bpath_ent.insert(0, b.get("terminal_path", ""))
+                        break
 
     def _browse_terminal_path(self):
         selected_file = filedialog.askopenfilename(
@@ -5307,6 +5327,11 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             )
             return
 
+        term_path = (
+            self.cfg_bpath_ent.get().strip()
+            if hasattr(self, "cfg_bpath_ent")
+            else ""
+        )
         try:
             database.add_broker_account(
                 broker_name=bname,
@@ -5315,6 +5340,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 password=pwd,
                 leverage=lev,
                 environment=env,
+                terminal_path=term_path,
                 is_active=1,
             )
             messagebox.showinfo(
@@ -5345,6 +5371,59 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             self._refresh_broker_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to set active broker: {e}")
+
+    def _launch_broker_terminal(self):
+        sel = self.broker_tree.selection()
+        term_path = self.cfg_bpath_ent.get().strip()
+        b_name = "Selected Broker"
+
+        if sel:
+            item = self.broker_tree.item(sel[0])
+            b_id = item["values"][0]
+            b_name = item["values"][1]
+            brokers = database.get_all_brokers()
+            for b in brokers:
+                if b.get("id") == b_id:
+                    term_path = b.get("terminal_path") or term_path
+                    break
+
+        if not term_path:
+            messagebox.showwarning(
+                "No Terminal Path Specified",
+                "Please specify or browse for the MetaTrader 5 terminal path/executable.",
+            )
+            return
+
+        if not os.path.exists(term_path):
+            messagebox.showerror(
+                "Invalid Terminal Path",
+                f"The specified path does not exist on this machine:\n{term_path}",
+            )
+            return
+
+        try:
+            import subprocess
+            if os.path.isdir(term_path):
+                exe = os.path.join(term_path, "terminal64.exe")
+                if not os.path.exists(exe):
+                    exe = os.path.join(term_path, "terminal.exe")
+                if os.path.exists(exe):
+                    subprocess.Popen([exe])
+                else:
+                    messagebox.showerror(
+                        "Executable Not Found",
+                        f"Could not find terminal64.exe in directory: {term_path}",
+                    )
+                    return
+            else:
+                subprocess.Popen([term_path])
+
+            messagebox.showinfo(
+                "Terminal Launched",
+                f"Successfully launched MetaTrader 5 terminal for '{b_name}':\n{term_path}",
+            )
+        except Exception as e:
+            messagebox.showerror("Launch Error", f"Failed to launch MetaTrader 5 terminal: {e}")
 
     def _update_broker_profile(self):
         bname = self.cfg_bname_ent.get().strip() or "Primary Gateway"
