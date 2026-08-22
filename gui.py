@@ -106,7 +106,7 @@ class ScalperGui:
         self.running = False
 
         # Command terminal state
-        self.active_screen = "MAIN"
+        self.active_screen = "POLY"
         self.selected_symbol_gp = "EURUSD"
 
         # Historical price tracking for GP screen (rolling 30 points)
@@ -124,8 +124,8 @@ class ScalperGui:
         self.screen_frame = tk.Frame(self.root, bg=self.bg_dark, padx=20, pady=5)
         self.screen_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Build the initial screen (MAIN)
-        self.switch_to_screen("MAIN")
+        # Build the initial screen (POLY as default)
+        self.switch_to_screen("POLY")
 
         # Build Console Panel on the bottom side of the dashboard
         self._build_console_panel()
@@ -133,14 +133,14 @@ class ScalperGui:
         self._build_controls_bar()
 
         # Keyboard Bindings to simulate EQATS Terminal F-Keys
-        self.root.bind("<F2>", lambda e: self.switch_to_screen("MAIN"))
-        self.root.bind("<F3>", lambda e: self.switch_to_screen("GP"))
-        self.root.bind("<F4>", lambda e: self.switch_to_screen("WEI"))
-        self.root.bind("<F5>", lambda e: self.switch_to_screen("NEWS"))
-        self.root.bind("<F6>", lambda e: self.switch_to_screen("ANR"))
-        self.root.bind("<F7>", lambda e: self.switch_to_screen("PORT"))
-        self.root.bind("<F8>", lambda e: self.switch_to_screen("MCTS"))
-        self.root.bind("<F9>", lambda e: self.switch_to_screen("VDS"))
+        self.root.bind("<F2>", lambda e: self.switch_to_screen("POLY"))
+        self.root.bind("<F3>", lambda e: self.switch_to_screen("MAIN"))
+        self.root.bind("<F4>", lambda e: self.switch_to_screen("GP"))
+        self.root.bind("<F5>", lambda e: self.switch_to_screen("WEI"))
+        self.root.bind("<F6>", lambda e: self.switch_to_screen("NEWS"))
+        self.root.bind("<F7>", lambda e: self.switch_to_screen("ANR"))
+        self.root.bind("<F8>", lambda e: self.switch_to_screen("PORT"))
+        self.root.bind("<F9>", lambda e: self.switch_to_screen("MCTS"))
         self.root.bind("<F10>", lambda e: self.switch_to_screen("CHART"))
         self.root.bind("<F11>", lambda e: self.switch_to_screen("SESS"))
         self.root.bind("<F1>", lambda e: self.switch_to_screen("HELP"))
@@ -275,55 +275,55 @@ class ScalperGui:
         )
         lbl_tab.pack(side=tk.RIGHT, padx=(15, 5))
 
-        self.tab_selector_var = tk.StringVar(value="MAIN")
+        self.tab_selector_var = tk.StringVar(value="POLY")
         self.tab_list = [
+            "POLY",
             "MAIN",
-            "GP",
-            "WEI",
-            "NEWS",
-            "ANR",
-            "PORT",
-            "MCTS",
-            "VDS",
-            "CHART",
-            "SESS",
-            "DES",
-            "YAS",
-            "ECO",
-            "EMSX",
-            "SET",
-            "CFG",
-            "ING",
-            "FEAT",
-            "STRAT",
-            "RISK",
-            "ORD",
-            "LOG",
-            "MON",
-            "SEC",
-            "SAFE",
-            "PF",
-            "SYM",
+            "AGENT",
             "AIC",
+            "ANR",
+            "BACKTEST",
+            "CFG",
+            "CHART",
             "CRAWL",
             "CRED",
-            "WATCH",
-            "MKT",
-            "TRADEBOOK",
             "DEEP MARKET SENTIMENT",
-            "STOCK MARKET PREDICTOR",
-            "AGENT",
-            "ECOSYSTEM",
-            "POLY",
-            "TZCONV",
+            "DES",
             "DOM",
-            "WHALE",
-            "BACKTEST",
+            "ECO",
+            "ECOSYSTEM",
+            "EMSX",
+            "FEAT",
             "FLOW",
-            "OPTIONS",
-            "REGIME",
-            "RUST_OPT",
+            "GP",
             "HELP",
+            "ING",
+            "LOG",
+            "MCTS",
+            "MKT",
+            "MON",
+            "NEWS",
+            "OPTIONS",
+            "ORD",
+            "PF",
+            "PORT",
+            "REGIME",
+            "RISK",
+            "RUST_OPT",
+            "SAFE",
+            "SEC",
+            "SESS",
+            "SET",
+            "STOCK MARKET PREDICTOR",
+            "STRAT",
+            "SYM",
+            "TRADEBOOK",
+            "TZCONV",
+            "VDS",
+            "WATCH",
+            "WEI",
+            "WHALE",
+            "YAS",
         ]
         self.tab_selector_menu = tk.OptionMenu(
             header_frame,
@@ -388,14 +388,14 @@ class ScalperGui:
         shortcut_frame.pack(side=tk.RIGHT)
 
         shortcuts = [
-            ("F2 MAIN", "MAIN"),
-            ("F3 GP", "GP"),
-            ("F4 WEI", "WEI"),
-            ("F5 NEWS", "NEWS"),
-            ("F6 ANR", "ANR"),
-            ("F7 PORT", "PORT"),
-            ("F8 MCTS", "MCTS"),
-            ("F9 POLY", "POLY"),
+            ("F2 POLY", "POLY"),
+            ("F3 MAIN", "MAIN"),
+            ("F4 GP", "GP"),
+            ("F5 WEI", "WEI"),
+            ("F6 NEWS", "NEWS"),
+            ("F7 ANR", "ANR"),
+            ("F8 PORT", "PORT"),
+            ("F9 MCTS", "MCTS"),
             ("F10 CHART", "CHART"),
             ("F11 SESS", "SESS"),
             ("F1 HELP", "HELP"),
