@@ -1,6 +1,14 @@
-use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int};
 use rayon::prelude::*;
+
+pub mod backtest;
+pub mod cointegration;
+pub mod features;
+pub mod fix_parser;
+pub mod options;
+pub mod portfolio;
+pub mod slicing;
+pub mod smc;
 
 /// ---------------------------------------------------------------------------
 /// Vectorized High-Speed Technical Indicators
