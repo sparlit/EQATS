@@ -10516,7 +10516,17 @@ SECURITY DOMAINS ENFORCED:
         set_edge_cents = max(0.1, (win_rate - 50.0) * 0.2 + 5.0)
         self.lbl_poly_stat_edge.config(text=f"+{set_edge_cents:.2f}c")
 
-        floating_drawdown_pct = max(0.0, (account_info["balance"] - account_info["equity"]) / max(1.0, account_info["balance"]) * 100.0)
+        try:
+            bal = float(account_info.get("balance", 10000.0))
+        except Exception:
+            bal = 10000.0
+
+        try:
+            eq = float(account_info.get("equity", 10000.0))
+        except Exception:
+            eq = 10000.0
+
+        floating_drawdown_pct = max(0.0, (bal - eq) / max(1.0, bal) * 100.0)
         dd_risk = min(10.0, max(0.5, floating_drawdown_pct * 2.0 + 1.0))
         dd_status = "SAFE" if dd_risk < 4.0 else ("MODERATE" if dd_risk < 7.0 else "HIGH RISK")
         dd_color = "#00e676" if dd_risk < 4.0 else ("#ffb300" if dd_risk < 7.0 else "#ff5252")
