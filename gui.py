@@ -5135,8 +5135,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.cfg_user_tree.item(sel[0])
             vals = item["values"]
             if vals and len(vals) >= 3:
-                self.selected_user_id = vals[0]
-                self.selected_username = str(vals[1])
+                self._selected_user_orig_name = str(vals[1])
                 self.cfg_user_ent.delete(0, tk.END)
                 self.cfg_user_ent.insert(0, str(vals[1]))
                 self.cfg_pass_ent.delete(0, tk.END)
@@ -5171,26 +5170,36 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         pin = self.cfg_pin_ent.get().strip()
         role = self.cfg_role_var.get()
 
-        target_user = getattr(self, "selected_username", None) or u
+        sel = self.cfg_user_tree.selection()
+        orig_u = None
+        if sel:
+            item = self.cfg_user_tree.item(sel[0])
+            vals = item["values"]
+            if vals and len(vals) >= 2:
+                orig_u = str(vals[1])
 
-        if not target_user:
+        if not u and not orig_u:
             messagebox.showerror("Error", "Please select or specify a Username to update.")
             return
 
+        target_u = orig_u if orig_u else u
+
         try:
             database.update_user(
-                username=target_user,
-                new_username=u if u != target_user else None,
+                username=u if u else target_u,
                 new_password=p if p else None,
                 new_pin=pin if pin else None,
                 new_role=role,
+                original_username=target_u,
             )
             self.selected_username = u
             self.cfg_pass_ent.delete(0, tk.END)
             self.cfg_pin_ent.delete(0, tk.END)
             messagebox.showinfo(
-                "User Updated", f"Successfully updated account records for '{u}'."
+                "User Updated", f"Successfully updated account records for '{u if u else target_u}'."
             )
+            self.cfg_pass_ent.delete(0, tk.END)
+            self.cfg_pin_ent.delete(0, tk.END)
             self._refresh_user_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to update user: {e}")
