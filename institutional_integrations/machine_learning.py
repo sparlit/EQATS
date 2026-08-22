@@ -128,15 +128,8 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         ).view(1, -1, 1)
         pred_torch = model(p_tensor).item()
         # Scale output reasonably to price delta
-<<<<<<< Updated upstream
         predictions["pytorch_lstm"] = current_price + (pred_torch * 0.0001 * current_price)
     except Exception:
-=======
-        predictions["pytorch_lstm"] = current_price + (
-            pred_torch * 0.0001 * current_price
-        )
-    except Exception as e:
->>>>>>> Stashed changes
         # Holt-Winters / Exponential Smoothing dynamic analytical fallback
         alpha = 0.3
         ewma = prices[0]
@@ -148,15 +141,9 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         # TensorFlow Keras model
         import tensorflow as tf
         from tensorflow.keras.layers import Dense
-<<<<<<< Updated upstream
         from tensorflow.keras.models import Sequential
         tf_model = Sequential([Dense(8, activation='relu'), Dense(1)])
         tf_model.compile(optimizer='adam', loss='mse')
-=======
-
-        tf_model = Sequential([Dense(8, activation="relu"), Dense(1)])
-        tf_model.compile(optimizer="adam", loss="mse")
->>>>>>> Stashed changes
         # Fast predict
         pred_tf = tf_model.predict(tf.constant([[p] for p in prices[-5:]]))[-1][0]
         predictions["tensorflow_keras"] = float(pred_tf)
@@ -166,10 +153,7 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
     try:
         # XGBoost & LightGBM
         import lightgbm as lgb
-<<<<<<< Updated upstream
         import xgboost as xgb
-=======
->>>>>>> Stashed changes
 
         # Extract features using tsfresh or sklearn
         from sklearn.ensemble import RandomForestRegressor

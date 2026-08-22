@@ -14,15 +14,9 @@ from brain_agents_orchestrator import (
     PredictionBrainAgent,
     ResearchBrainAgent,
     RiskAssessmentBrainAgent,
-<<<<<<< Updated upstream
     ScalpingMethodAgent,
     SwingTradingMethodAgent,
     TrendFollowingStrategyAgent,
-=======
-    LotManagementBrainAgent,
-    AgenticBrainsOrchestrator,
-    global_brain_orchestrator,
->>>>>>> Stashed changes
 )
 
 

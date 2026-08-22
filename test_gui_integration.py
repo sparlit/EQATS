@@ -187,3 +187,25 @@ def test_gui_screen_data_update_handlers():
             app.lbl_whale_funding = mock.MagicMock()
             app.lbl_whale_liq = mock.MagicMock()
             app._update_whale_screen_data()
+
+
+def test_gui_poly_screen_switch_and_update():
+    """Tests POLY <GO> Polymarket screen switching, panel creation, and telemetry updating."""
+    database.init_db()
+
+    mock_root = mock.MagicMock()
+    mock_scalper = mock.MagicMock()
+    mock_scalper.conn.get_account_info.return_value = {"balance": 15000.0, "equity": 15250.0}
+    mock_scalper.conn.get_open_orders.return_value = [{"symbol": "BTCUSD", "direction": "BUY"}]
+
+    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True):
+        with mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+            import gui
+
+            app = gui.ScalperGui(mock_root)
+            app.switch_to_screen("POLY")
+            assert app.active_screen == "POLY"
+            assert hasattr(app, "lbl_poly_pnl_val")
+
+            app._update_poly_screen_data()
+            assert app.lbl_poly_pnl_val is not None

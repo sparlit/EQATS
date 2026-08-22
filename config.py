@@ -11,14 +11,10 @@ SIMULATION_MODE = False
 
 # Safety setting. If False, the bot can trade on a Live / Real account.
 DEMO_ACCOUNT_ONLY = True
-<<<<<<< Updated upstream
 
 # Path to local MT5 Terminal Executable (Windows)
 MT5_TERMINAL_PATH = r"C:\Program Files\Alpari MT5\terminal64.exe"
 
-=======
-MT5_TERMINAL_PATH = "C:\Program Files\Alpari MT5\terminal64.exe"
->>>>>>> Stashed changes
 # 2. Assets to Trade
 # Fully expanded list including Majors, Minors, Metals (Gold, Silver), and Cryptos
 SYMBOLS = [
