@@ -4676,6 +4676,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             relief=tk.FLAT,
             command=self._delete_user_account,
         ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_box,
+            text="🔄 REFRESH DIRECTORY",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._refresh_user_tree,
+        ).pack(side=tk.LEFT, padx=5)
 
         # 2. Broker Credentials & Gateway Settings Tab
         self.tab_cfg_broker = tk.Frame(
@@ -4963,6 +4974,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             relief=tk.FLAT,
             command=self._delete_broker_profile,
         ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
+            text="🔄 REFRESH BROKERS",
+            font=("Consolas", 8, "bold"),
+            bg="#4c1d95",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._refresh_broker_tree,
+        ).pack(side=tk.LEFT, padx=5)
 
         # 3. User Controls & Feature Permissions Tab
         self.tab_cfg_feats = tk.Frame(
@@ -5081,6 +5103,21 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             )
             chk.pack(anchor="w", pady=3)
 
+        f_btn_box = tk.Frame(f_frame, bg=self.bg_card)
+        f_btn_box.pack(side=tk.BOTTOM, anchor="e", pady=(15, 0))
+
+        tk.Button(
+            f_btn_box,
+            text="🔄 REFRESH / UPDATE CONTROLS",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=10,
+            pady=5,
+            relief=tk.FLAT,
+            command=self._refresh_feature_permissions,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
         btn_save_f = tk.Button(
             f_frame,
             text="⚡ UPDATE FEATURE PERMISSIONS & CONTROLS",
@@ -5092,7 +5129,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             relief=tk.FLAT,
             command=self._save_feature_permissions,
         )
-        btn_save_f.pack(side=tk.BOTTOM, anchor="e", pady=(15, 0))
+        btn_save_f.pack(side=tk.LEFT, padx=5)
 
         self._refresh_user_tree()
         self._refresh_broker_tree()
@@ -5114,6 +5151,8 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 tk.END,
                 values=(u["id"], u["username"], u["role"], mfa_str, created_str),
             )
+        self.selected_user_id = None
+        self.selected_username = None
 
     def _on_user_select(self, event):
         sel = self.cfg_user_tree.selection()
@@ -5124,6 +5163,8 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 self._selected_user_orig_name = str(vals[1])
                 self.cfg_user_ent.delete(0, tk.END)
                 self.cfg_user_ent.insert(0, str(vals[1]))
+                self.cfg_pass_ent.delete(0, tk.END)
+                self.cfg_pin_ent.delete(0, tk.END)
                 self.cfg_role_var.set(str(vals[2]))
 
     def _add_user_account(self):
@@ -5176,6 +5217,9 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 new_role=role,
                 original_username=target_u,
             )
+            self.selected_username = u
+            self.cfg_pass_ent.delete(0, tk.END)
+            self.cfg_pin_ent.delete(0, tk.END)
             messagebox.showinfo(
                 "User Updated", f"Successfully updated account records for '{u if u else target_u}'."
             )
@@ -5494,6 +5538,15 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}",
         )
         self._refresh_broker_tree()
+
+    def _refresh_feature_permissions(self):
+        self.cfg_feat_trailing.set(config.TRAILING_STOP_ENABLED)
+        self.cfg_feat_rollover.set(config.BLOCK_ROLLOVER_HOUR)
+        self.cfg_feat_weekend.set(config.BLOCK_WEEKENDS)
+        messagebox.showinfo(
+            "Controls Refreshed",
+            "Refreshed feature control states from active system configuration.",
+        )
 
     def _save_feature_permissions(self):
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
