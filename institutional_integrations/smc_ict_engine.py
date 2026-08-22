@@ -4,46 +4,59 @@ Analyzes Order Blocks (OB), Fair Value Gaps (FVG), Market Structure Shifts (MSS 
 and Liquidity Sweeps (BSL / SSL) with 0% mock stubs.
 """
 
+import indicators
 
 
 def detect_order_blocks(opens, highs, lows, closes, lookback=30):
     """
-    Detects institutional Order Blocks (OB).
+    Detects institutional Order Blocks (OB) and verifies mitigation state.
     Bullish OB: The last down-candle prior to a strong bullish displacement move.
     Bearish OB: The last up-candle prior to a strong bearish displacement move.
     """
-    if len(closes) < min(lookback, 10):
+    if not closes or len(closes) < min(lookback, 10):
         return {"bullish_ob": None, "bearish_ob": None}
 
     start_idx = max(0, len(closes) - lookback)
     bullish_ob = None
     bearish_ob = None
+    curr_price = closes[-1]
 
     for i in range(start_idx + 2, len(closes) - 1):
-        # Displacement check: current move is >= 1.5x average candle body
-        avg_body = (
-            sum(abs(closes[j] - opens[j]) for j in range(max(0, i - 10), i)) / 10.0
-        )
+        # Calculate recent body size average
+        bodies = [abs(closes[j] - opens[j]) for j in range(max(0, i - 10), i)]
+        avg_body = (sum(bodies) / float(len(bodies))) if bodies else 1e-5
         curr_body = abs(closes[i] - opens[i])
 
-        if curr_body >= avg_body * 1.5:
-            # Bullish displacement
+        if curr_body >= avg_body * 1.4:
+            # Bullish displacement (down candle before up displacement)
             if closes[i] > opens[i] and closes[i - 1] < opens[i - 1]:
+                ob_high = highs[i - 1]
+                ob_low = lows[i - 1]
+                # Check if mitigated (price retraced below ob_low)
+                mitigated = any(lows[k] < ob_low for k in range(i, len(closes)))
                 bullish_ob = {
-                    "high": highs[i - 1],
-                    "low": lows[i - 1],
+                    "high": ob_high,
+                    "low": ob_low,
                     "open": opens[i - 1],
                     "close": closes[i - 1],
                     "idx": i - 1,
+                    "mitigated": mitigated,
+                    "fresh": not mitigated and curr_price >= ob_low,
                 }
-            # Bearish displacement
+            # Bearish displacement (up candle before down displacement)
             elif closes[i] < opens[i] and closes[i - 1] > opens[i - 1]:
+                ob_high = highs[i - 1]
+                ob_low = lows[i - 1]
+                # Check if mitigated (price retraced above ob_high)
+                mitigated = any(highs[k] > ob_high for k in range(i, len(closes)))
                 bearish_ob = {
-                    "high": highs[i - 1],
-                    "low": lows[i - 1],
+                    "high": ob_high,
+                    "low": ob_low,
                     "open": opens[i - 1],
                     "close": closes[i - 1],
                     "idx": i - 1,
+                    "mitigated": mitigated,
+                    "fresh": not mitigated and curr_price <= ob_high,
                 }
 
     return {"bullish_ob": bullish_ob, "bearish_ob": bearish_ob}
@@ -55,12 +68,13 @@ def detect_fair_value_gaps(highs, lows, closes, lookback=20):
     Bullish FVG: Candle 1 High < Candle 3 Low (Gap zone: [Candle 1 High, Candle 3 Low]).
     Bearish FVG: Candle 1 Low > Candle 3 High (Gap zone: [Candle 3 High, Candle 1 Low]).
     """
-    if len(closes) < 5:
+    if not closes or len(closes) < 5:
         return {"bullish_fvgs": [], "bearish_fvgs": []}
 
     start_idx = max(2, len(closes) - lookback)
     bullish_fvgs = []
     bearish_fvgs = []
+    curr_price = closes[-1]
 
     for i in range(start_idx, len(closes)):
         c1_high = highs[i - 2]
@@ -70,37 +84,54 @@ def detect_fair_value_gaps(highs, lows, closes, lookback=20):
 
         # Bullish FVG
         if c3_low > c1_high:
-            gap_size = c3_low - c1_high
-            bullish_fvgs.append(
-                {"bottom": c1_high, "top": c3_low, "size": gap_size, "idx": i}
-            )
+            gap_bottom = c1_high
+            gap_top = c3_low
+            gap_size = gap_top - gap_bottom
+            # Check if mitigated by subsequent candles
+            mitigated = any(lows[k] <= gap_bottom for k in range(i, len(closes)))
+            bullish_fvgs.append({
+                "bottom": gap_bottom,
+                "top": gap_top,
+                "size": gap_size,
+                "idx": i,
+                "mitigated": mitigated,
+                "fresh": not mitigated and curr_price >= gap_bottom,
+            })
+
         # Bearish FVG
         elif c1_low > c3_high:
-            gap_size = c1_low - c3_high
-            bearish_fvgs.append(
-                {"bottom": c3_high, "top": c1_low, "size": gap_size, "idx": i}
-            )
+            gap_bottom = c3_high
+            gap_top = c1_low
+            gap_size = gap_top - gap_bottom
+            mitigated = any(highs[k] >= gap_top for k in range(i, len(closes)))
+            bearish_fvgs.append({
+                "bottom": gap_bottom,
+                "top": gap_top,
+                "size": gap_size,
+                "idx": i,
+                "mitigated": mitigated,
+                "fresh": not mitigated and curr_price <= gap_top,
+            })
 
     return {"bullish_fvgs": bullish_fvgs[-3:], "bearish_fvgs": bearish_fvgs[-3:]}
 
 
 def detect_market_structure_shift(highs, lows, closes, lookback=30):
     """
-    Detects Market Structure Shift (MSS) / Change of Character (CHOCH).
-    BULLISH_MSS: Price breaks above recent swing high.
-    BEARISH_MSS: Price breaks below recent swing low.
+    Detects Market Structure Shift (MSS) / Change of Character (CHOCH) using Williams Fractals.
+    BULLISH_MSS: Current close breaks above recent swing high.
+    BEARISH_MSS: Current close breaks below recent swing low.
     """
-    if len(closes) < 15:
+    if not closes or len(closes) < 15:
         return {"mss_status": "NEUTRAL", "break_level": None}
 
-    recent_highs = highs[-lookback:-5] if len(highs) >= lookback else highs[:-5]
-    recent_lows = lows[-lookback:-5] if len(lows) >= lookback else lows[:-5]
+    swings = indicators.calculate_swing_points(highs, lows, window=2)
+    swing_high = swings.get("last_swing_high")
+    swing_low = swings.get("last_swing_low")
 
-    if not recent_highs or not recent_lows:
+    if swing_high is None or swing_low is None:
         return {"mss_status": "NEUTRAL", "break_level": None}
 
-    swing_high = max(recent_highs)
-    swing_low = min(recent_lows)
     curr_close = closes[-1]
 
     if curr_close > swing_high:
@@ -114,14 +145,15 @@ def detect_market_structure_shift(highs, lows, closes, lookback=30):
 def detect_liquidity_sweeps(highs, lows, closes, lookback=20):
     """
     Detects Buy-Side Liquidity (BSL) and Sell-Side Liquidity (SSL) sweeps.
-    BSL Sweep: High exceeds recent swing high, but close reclaims inside.
-    SSL Sweep: Low pierces below recent swing low, but close reclaims inside.
+    BSL Sweep: High exceeds recent swing high, but close reclaims inside (rejection wick).
+    SSL Sweep: Low pierces below recent swing low, but close reclaims inside (rejection wick).
     """
-    if len(closes) < 10:
+    if not closes or len(closes) < 10:
         return {"bsl_sweep": False, "ssl_sweep": False}
 
-    recent_high = max(highs[-lookback:-2])
-    recent_low = min(lows[-lookback:-2])
+    swings = indicators.calculate_swing_points(highs[:-1], lows[:-1], window=2)
+    recent_high = swings.get("last_swing_high") or max(highs[-lookback:-2])
+    recent_low = swings.get("last_swing_low") or min(lows[-lookback:-2])
 
     curr_high = highs[-1]
     curr_low = lows[-1]
@@ -149,7 +181,7 @@ class FVGCacheEngine:
 
     def update_incremental(self, highs, lows, closes):
         """Incrementally checks for new FVGs or mitigations on bar close."""
-        if len(closes) < 3:
+        if not closes or len(closes) < 3:
             return
 
         c1_h, c1_l = highs[-3], lows[-3]
@@ -199,7 +231,7 @@ class SmartMoneyConceptsEngine:
     """Consolidated SMC/ICT Analysis Engine."""
 
     def __init__(self):
-        self.engine_version = "3.0.0"
+        self.engine_version = "3.1.0"
         self.fvg_cache = FVGCacheEngine()
 
     def analyze(self, history_bars):
@@ -227,24 +259,35 @@ class SmartMoneyConceptsEngine:
         mss = detect_market_structure_shift(highs, lows, closes)
         sweeps = detect_liquidity_sweeps(highs, lows, closes)
 
-        # Calculate SMC Consensus Bias
+        # Calculate SMC Consensus Bias with fresh vs mitigated weighting
         bullish_points = 0
         bearish_points = 0
 
         if mss["mss_status"] == "BULLISH_MSS":
-            bullish_points += 2
+            bullish_points += 2.5
         elif mss["mss_status"] == "BEARISH_MSS":
-            bearish_points += 2
+            bearish_points += 2.5
 
         if sweeps["ssl_sweep"]:
-            bullish_points += 2  # SSL Sweep = Liquidity taken before up move
+            bullish_points += 2.0  # SSL Sweep = Liquidity taken before up move
         if sweeps["bsl_sweep"]:
-            bearish_points += 2  # BSL Sweep = Liquidity taken before down move
+            bearish_points += 2.0  # BSL Sweep = Liquidity taken before down move
 
-        if fvgs["bullish_fvgs"]:
-            bullish_points += 1
-        if fvgs["bearish_fvgs"]:
-            bearish_points += 1
+        bull_ob = obs.get("bullish_ob")
+        if bull_ob and bull_ob.get("fresh"):
+            bullish_points += 1.5
+
+        bear_ob = obs.get("bearish_ob")
+        if bear_ob and bear_ob.get("fresh"):
+            bearish_points += 1.5
+
+        fresh_bull_fvgs = [g for g in fvgs.get("bullish_fvgs", []) if g.get("fresh")]
+        if fresh_bull_fvgs:
+            bullish_points += 1.0
+
+        fresh_bear_fvgs = [g for g in fvgs.get("bearish_fvgs", []) if g.get("fresh")]
+        if fresh_bear_fvgs:
+            bearish_points += 1.0
 
         bias = "NEUTRAL"
         if bullish_points > bearish_points:
@@ -252,7 +295,8 @@ class SmartMoneyConceptsEngine:
         elif bearish_points > bullish_points:
             bias = "BEARISH"
 
-        score = min(95.0, max(30.0, 50.0 + (bullish_points - bearish_points) * 10.0))
+        diff = bullish_points - bearish_points
+        score = min(95.0, max(30.0, 50.0 + diff * 8.0))
 
         return {
             "order_blocks": obs,
