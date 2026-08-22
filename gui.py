@@ -10409,7 +10409,10 @@ SECURITY DOMAINS ENFORCED:
 
         core_cx = nw * 0.75
         core_cy = nh * 0.50
-        core_r = min(nh * 0.38, 70)
+        try:
+            core_r = min(float(nh) * 0.38, 70.0)
+        except Exception:
+            core_r = 70.0
 
         for ring_r in range(10, int(core_r), 12):
             c_ns.create_oval(core_cx - ring_r, core_cy - ring_r, core_cx + ring_r, core_cy + ring_r, outline="#1f242d", dash=(2, 2))
