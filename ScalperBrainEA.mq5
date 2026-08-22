@@ -42,6 +42,9 @@ string m_overlaps = "No active overlap";
 string m_next_session = "Tokyo";
 string m_countdown = "00:00:00";
 
+// Persistent socket buffer for partial read accumulation
+string m_accumulated_buffer = "";
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //| Initializes timer, sockets and UI objects                        |
@@ -279,6 +282,8 @@ bool ParseStateData()
       }
    }
 
+   // Clear buffer after successful full line parse
+   m_accumulated_buffer = "";
    return true;
 }
 
