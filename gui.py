@@ -4656,9 +4656,9 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(
             btn_box,
-            text="✏️ UPDATE SELECTED",
+            text="👤 UPDATE USER",
             font=("Consolas", 8, "bold"),
-            bg="#b45309",
+            bg="#2563eb",
             fg="#ffffff",
             padx=8,
             pady=3,
@@ -4918,9 +4918,9 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(
             b_btn_box,
-            text="✏️ UPDATE BROKER PROFILE",
+            text="🔄 UPDATE BROKER",
             font=("Consolas", 8, "bold"),
-            bg="#1d4ed8",
+            bg="#d97706",
             fg="#ffffff",
             padx=8,
             pady=3,
@@ -5094,10 +5094,10 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=(0, 5))
 
         btn_save_f = tk.Button(
-            f_btn_box,
-            text="APPLY FEATURE PERMISSIONS & CONTROLS",
+            f_frame,
+            text="⚡ UPDATE FEATURE PERMISSIONS & CONTROLS",
             font=("Consolas", 8, "bold"),
-            bg="#15803d",
+            bg="#7e22ce",
             fg="#ffffff",
             padx=10,
             pady=5,
@@ -5315,34 +5315,49 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         server = self.cfg_bserver_ent.get().strip()
         acc = self.cfg_bacc_ent.get().strip()
         pwd = self.cfg_bpwd_ent.get().strip()
+        env = self.cfg_benv_var.get()
         lev = database.normalize_leverage(self.cfg_lev_var.get())
         self.cfg_lev_var.set(lev)
-        env = self.cfg_benv_var.get()
-        term_path = self.cfg_bpath_ent.get().strip()
+        term_path = (
+            self.cfg_bpath_ent.get().strip()
+            if hasattr(self, "cfg_bpath_ent")
+            else ""
+        )
 
-        if not server or not acc or not pwd:
-            messagebox.showerror(
-                "Error", "Please provide Server Name, Account ID, and Broker Password."
-            )
-            return
-
-        try:
-            database.save_broker_credentials(
-                server=server,
-                account_id=acc,
-                password=pwd,
-                leverage=lev,
-                environment=env,
-                broker_name=bname,
-                terminal_path=term_path,
-            )
-            messagebox.showinfo(
-                "Broker Gateway Updated",
-                f"Successfully updated broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}",
-            )
-            self._refresh_broker_tree()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to update broker profile: {e}")
+        sel = self.broker_tree.selection()
+        if sel:
+            item = self.broker_tree.item(sel[0])
+            b_id = item["values"][0]
+            try:
+                database._execute_with_retry(
+                    """
+                    UPDATE broker_credentials
+                    SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        bname,
+                        server,
+                        acc,
+                        database.encrypt_secret(pwd),
+                        lev,
+                        env,
+                        term_path,
+                        database.datetime.datetime.now().isoformat(),
+                        b_id,
+                    ),
+                )
+                messagebox.showinfo(
+                    "Broker Profile Updated",
+                    f"Successfully updated broker profile '{bname}' (ID: {b_id}) in database.",
+                )
+                self._refresh_broker_tree()
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to update broker profile: {e}"
+                )
+        else:
+            self._save_broker_credentials()
 
     def _delete_broker_profile(self):
         sel = self.broker_tree.selection()
