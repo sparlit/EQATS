@@ -271,8 +271,44 @@ class MT5Connector(TradingConnector):
 
     def disconnect(self):
         if self.mt5:
-            self.mt5.shutdown()
+            try:
+                self.mt5.shutdown()
+            except Exception as e:
+                _log.warning("MT5 shutdown error: %s", e)
             print("MT5 Connection closed.")
+
+        # Terminate MT5 process tree on application exit / disconnect
+        try:
+            import os
+            import subprocess
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "terminal64.exe"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", "terminal.exe"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+            else:
+                subprocess.run(
+                    ["pkill", "-9", "-f", "terminal64.exe"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                subprocess.run(
+                    ["pkill", "-9", "-f", "terminal.exe"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+        except Exception as e:
+            _log.debug("Notice: MT5 process termination attempted: %s", e)
 
     def get_account_info(self):
         if not self.mt5:
