@@ -5126,6 +5126,8 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 tk.END,
                 values=(u["id"], u["username"], u["role"], mfa_str, created_str),
             )
+        self.selected_user_id = None
+        self.selected_username = None
 
     def _on_user_select(self, event):
         sel = self.cfg_user_tree.selection()
@@ -5133,8 +5135,12 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.cfg_user_tree.item(sel[0])
             vals = item["values"]
             if vals and len(vals) >= 3:
+                self.selected_user_id = vals[0]
+                self.selected_username = str(vals[1])
                 self.cfg_user_ent.delete(0, tk.END)
                 self.cfg_user_ent.insert(0, str(vals[1]))
+                self.cfg_pass_ent.delete(0, tk.END)
+                self.cfg_pin_ent.delete(0, tk.END)
                 self.cfg_role_var.set(str(vals[2]))
 
     def _add_user_account(self):
@@ -5165,17 +5171,23 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         pin = self.cfg_pin_ent.get().strip()
         role = self.cfg_role_var.get()
 
-        if not u:
-            messagebox.showerror("Error", "Please specify a Username to update.")
+        target_user = getattr(self, "selected_username", None) or u
+
+        if not target_user:
+            messagebox.showerror("Error", "Please select or specify a Username to update.")
             return
 
         try:
             database.update_user(
-                username=u,
+                username=target_user,
+                new_username=u if u != target_user else None,
                 new_password=p if p else None,
                 new_pin=pin if pin else None,
                 new_role=role,
             )
+            self.selected_username = u
+            self.cfg_pass_ent.delete(0, tk.END)
+            self.cfg_pin_ent.delete(0, tk.END)
             messagebox.showinfo(
                 "User Updated", f"Successfully updated account records for '{u}'."
             )
