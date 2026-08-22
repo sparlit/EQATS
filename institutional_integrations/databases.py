@@ -83,6 +83,44 @@ class QuestDBILPTickAdapter:
             results = list(executor.map(_send, ticks_list))
         return results
 
+    def flush_fallback_buffer_to_sqlite(self):
+        """
+        Flushes buffered offline ticks from the ring-buffer directly into SQLite WAL persistence log.
+        """
+        if not self.fallback_buffer:
+            return {"flushed": 0, "status": "EMPTY"}
+
+        flushed_count = 0
+        try:
+            import database
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tick_history_fallback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL,
+                    symbol TEXT,
+                    bid REAL,
+                    ask REAL,
+                    volume REAL,
+                    imbalance REAL
+                )
+            """)
+
+            while self.fallback_buffer:
+                item = self.fallback_buffer.popleft()
+                cursor.execute(
+                    "INSERT INTO tick_history_fallback (timestamp, symbol, bid, ask, volume, imbalance) VALUES (?, ?, ?, ?, ?, ?)",
+                    (item["timestamp"], item["symbol"], item["bid"], item["ask"], item["volume"], item.get("imbalance", 0.0)),
+                )
+                flushed_count += 1
+
+            conn.commit()
+            conn.close()
+            return {"flushed": flushed_count, "status": "FLUSHED_TO_SQLITE_WAL"}
+        except Exception as e:
+            return {"flushed": flushed_count, "status": "ERROR", "error": str(e)}
+
 
 class CrossAssetCorrelationGraph:
     """
