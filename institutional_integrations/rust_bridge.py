@@ -24,22 +24,29 @@ def _load_rust_library():
     """Dynamically loads compiled eaqts_rust_core library if present."""
     global _RUST_AVAILABLE, _RUST_LIB
 
-    lib_path = os.path.join(
+    base_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "eaqts_rust_core",
         "target",
         "release",
-        "libeaqts_rust_core.so",
     )
 
-    if not os.path.exists(lib_path):
-        # Alternative extension on Windows / macOS
-        if sys.platform == "win32":
-            lib_path = lib_path.replace(".so", ".dll")
-        elif sys.platform == "darwin":
-            lib_path = lib_path.replace(".so", ".dylib")
+    candidate_names = [
+        "libeaqts_rust_core.so",
+        "eaqts_rust_core.dll",
+        "libeaqts_rust_core.dll",
+        "libeaqts_rust_core.dylib",
+        "eaqts_rust_core.so",
+    ]
 
-    if os.path.exists(lib_path):
+    lib_path = None
+    for name in candidate_names:
+        candidate = os.path.join(base_dir, name)
+        if os.path.exists(candidate):
+            lib_path = candidate
+            break
+
+    if lib_path and os.path.exists(lib_path):
         try:
             lib = ctypes.CDLL(lib_path)
 
