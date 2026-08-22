@@ -5,7 +5,7 @@ import random
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import config
 import database
@@ -4656,9 +4656,9 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(
             btn_box,
-            text="✏️ UPDATE SELECTED",
+            text="👤 UPDATE USER",
             font=("Consolas", 8, "bold"),
-            bg="#b45309",
+            bg="#2563eb",
             fg="#ffffff",
             padx=8,
             pady=3,
@@ -4878,18 +4878,32 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             bg=self.bg_card,
             fg=self.fg_light,
         ).grid(row=3, column=0, sticky="w", pady=2)
+
+        path_frame = tk.Frame(bf_inputs, bg=self.bg_card)
+        path_frame.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2)
+
         self.cfg_bpath_ent = tk.Entry(
-            bf_inputs,
+            path_frame,
             font=("Consolas", 8),
             bg="#1c1c1c",
             fg=self.fg_accent,
             insertbackground=self.fg_accent,
-            width=48,
+            width=36,
         )
-        self.cfg_bpath_ent.grid(
-            row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2
-        )
+        self.cfg_bpath_ent.pack(side=tk.LEFT, padx=(0, 5))
         self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
+
+        tk.Button(
+            path_frame,
+            text="📁 BROWSE...",
+            font=("Consolas", 8, "bold"),
+            bg="#334155",
+            fg="#ffffff",
+            padx=6,
+            pady=1,
+            relief=tk.FLAT,
+            command=self._browse_terminal_path,
+        ).pack(side=tk.LEFT)
 
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
         b_btn_box.grid(row=4, column=0, columnspan=4, sticky="w", pady=(10, 0))
@@ -4907,6 +4921,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(
             b_btn_box,
+            text="🔄 UPDATE BROKER",
+            font=("Consolas", 8, "bold"),
+            bg="#d97706",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._update_broker_profile,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
             text="⚡ SET ACTIVE GATEWAY",
             font=("Consolas", 8, "bold"),
             bg="#b45309",
@@ -4915,6 +4940,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             pady=3,
             relief=tk.FLAT,
             command=self._set_active_broker_profile,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
+            text="🚀 LAUNCH TERMINAL",
+            font=("Consolas", 8, "bold"),
+            bg="#0284c7",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._launch_broker_terminal,
         ).pack(side=tk.LEFT, padx=5)
         tk.Button(
             b_btn_box,
@@ -5047,9 +5083,9 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         btn_save_f = tk.Button(
             f_frame,
-            text="APPLY FEATURE PERMISSIONS & CONTROLS",
+            text="⚡ UPDATE FEATURE PERMISSIONS & CONTROLS",
             font=("Consolas", 8, "bold"),
-            bg="#15803d",
+            bg="#7e22ce",
             fg="#ffffff",
             padx=10,
             pady=5,
@@ -5085,6 +5121,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.cfg_user_tree.item(sel[0])
             vals = item["values"]
             if vals and len(vals) >= 3:
+                self._selected_user_orig_name = str(vals[1])
                 self.cfg_user_ent.delete(0, tk.END)
                 self.cfg_user_ent.insert(0, str(vals[1]))
                 self.cfg_role_var.set(str(vals[2]))
@@ -5117,20 +5154,33 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         pin = self.cfg_pin_ent.get().strip()
         role = self.cfg_role_var.get()
 
-        if not u:
-            messagebox.showerror("Error", "Please specify a Username to update.")
+        sel = self.cfg_user_tree.selection()
+        orig_u = None
+        if sel:
+            item = self.cfg_user_tree.item(sel[0])
+            vals = item["values"]
+            if vals and len(vals) >= 2:
+                orig_u = str(vals[1])
+
+        if not u and not orig_u:
+            messagebox.showerror("Error", "Please select or specify a Username to update.")
             return
+
+        target_u = orig_u if orig_u else u
 
         try:
             database.update_user(
-                username=u,
+                username=u if u else target_u,
                 new_password=p if p else None,
                 new_pin=pin if pin else None,
                 new_role=role,
+                original_username=target_u,
             )
             messagebox.showinfo(
-                "User Updated", f"Successfully updated account records for '{u}'."
+                "User Updated", f"Successfully updated account records for '{u if u else target_u}'."
             )
+            self.cfg_pass_ent.delete(0, tk.END)
+            self.cfg_pin_ent.delete(0, tk.END)
             self._refresh_user_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to update user: {e}")
@@ -5187,6 +5237,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.broker_tree.item(sel[0])
             vals = item["values"]
             if vals and len(vals) >= 6:
+                b_id = vals[0]
                 self.cfg_bname_ent.delete(0, tk.END)
                 self.cfg_bname_ent.insert(0, str(vals[1]))
                 self.cfg_bserver_ent.delete(0, tk.END)
@@ -5195,6 +5246,27 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 self.cfg_bacc_ent.insert(0, str(vals[3]))
                 self.cfg_benv_var.set(str(vals[4]))
                 self.cfg_lev_var.set(str(vals[5]))
+
+                # Retrieve terminal_path for the selected broker from DB
+                brokers = database.get_all_brokers()
+                for b in brokers:
+                    if b.get("id") == b_id:
+                        self.cfg_bpath_ent.delete(0, tk.END)
+                        self.cfg_bpath_ent.insert(0, b.get("terminal_path", ""))
+                        break
+
+    def _browse_terminal_path(self):
+        selected_file = filedialog.askopenfilename(
+            title="Select MetaTrader 5 Executable",
+            filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")],
+        )
+        if not selected_file:
+            selected_file = filedialog.askdirectory(
+                title="Or Select MetaTrader 5 Installation Folder"
+            )
+        if selected_file:
+            self.cfg_bpath_ent.delete(0, tk.END)
+            self.cfg_bpath_ent.insert(0, str(selected_file))
 
     def _add_broker_profile(self):
         bname = self.cfg_bname_ent.get().strip() or "New Gateway"
@@ -5211,6 +5283,11 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             )
             return
 
+        term_path = (
+            self.cfg_bpath_ent.get().strip()
+            if hasattr(self, "cfg_bpath_ent")
+            else ""
+        )
         try:
             database.add_broker_account(
                 broker_name=bname,
@@ -5219,6 +5296,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 password=pwd,
                 leverage=lev,
                 environment=env,
+                terminal_path=term_path,
                 is_active=1,
             )
             messagebox.showinfo(
@@ -5249,6 +5327,127 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             self._refresh_broker_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to set active broker: {e}")
+
+    def _launch_broker_terminal(self):
+        sel = self.broker_tree.selection()
+        term_path = self.cfg_bpath_ent.get().strip()
+        b_name = "Selected Broker"
+
+        if sel:
+            item = self.broker_tree.item(sel[0])
+            b_id = item["values"][0]
+            b_name = item["values"][1]
+            brokers = database.get_all_brokers()
+            for b in brokers:
+                if b.get("id") == b_id:
+                    term_path = b.get("terminal_path") or term_path
+                    break
+
+        if not term_path:
+            messagebox.showwarning(
+                "No Terminal Path Specified",
+                "Please specify or browse for the MetaTrader 5 terminal path/executable.",
+            )
+            return
+
+        if not os.path.exists(term_path):
+            messagebox.showerror(
+                "Invalid Terminal Path",
+                f"The specified path does not exist on this machine:\n{term_path}",
+            )
+            return
+
+        try:
+            import subprocess
+            if os.path.isdir(term_path):
+                exe = os.path.join(term_path, "terminal64.exe")
+                if not os.path.exists(exe):
+                    exe = os.path.join(term_path, "terminal.exe")
+                if os.path.exists(exe):
+                    subprocess.Popen([exe])
+                else:
+                    messagebox.showerror(
+                        "Executable Not Found",
+                        f"Could not find terminal64.exe in directory: {term_path}",
+                    )
+                    return
+            else:
+                subprocess.Popen([term_path])
+
+            messagebox.showinfo(
+                "Terminal Launched",
+                f"Successfully launched MetaTrader 5 terminal for '{b_name}':\n{term_path}",
+            )
+        except Exception as e:
+            messagebox.showerror("Launch Error", f"Failed to launch MetaTrader 5 terminal: {e}")
+
+    def _update_broker_profile(self):
+        bname = self.cfg_bname_ent.get().strip() or "Primary Gateway"
+        server = self.cfg_bserver_ent.get().strip()
+        acc = self.cfg_bacc_ent.get().strip()
+        pwd = self.cfg_bpwd_ent.get().strip()
+        env = self.cfg_benv_var.get()
+        lev = database.normalize_leverage(self.cfg_lev_var.get())
+        self.cfg_lev_var.set(lev)
+        term_path = (
+            self.cfg_bpath_ent.get().strip()
+            if hasattr(self, "cfg_bpath_ent")
+            else ""
+        )
+
+        sel = self.broker_tree.selection()
+        if sel:
+            item = self.broker_tree.item(sel[0])
+            b_id = item["values"][0]
+            try:
+                if pwd and str(pwd).strip():
+                    database._execute_with_retry(
+                        """
+                        UPDATE broker_credentials
+                        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            bname,
+                            server,
+                            acc,
+                            database.encrypt_secret(pwd),
+                            lev,
+                            env,
+                            term_path,
+                            database.datetime.datetime.now().isoformat(),
+                            b_id,
+                        ),
+                    )
+                else:
+                    database._execute_with_retry(
+                        """
+                        UPDATE broker_credentials
+                        SET broker_name = ?, server = ?, account_id = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            bname,
+                            server,
+                            acc,
+                            lev,
+                            env,
+                            term_path,
+                            database.datetime.datetime.now().isoformat(),
+                            b_id,
+                        ),
+                    )
+                messagebox.showinfo(
+                    "Broker Profile Updated",
+                    f"Successfully updated broker profile '{bname}' (ID: {b_id}) in database.",
+                )
+                self._refresh_broker_tree()
+            except Exception as e:
+                messagebox.showerror(
+                    "Error", f"Failed to update broker profile: {e}"
+                )
+        else:
+            self._save_broker_credentials()
 
     def _delete_broker_profile(self):
         sel = self.broker_tree.selection()
@@ -5281,9 +5480,14 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         lev = database.normalize_leverage(self.cfg_lev_var.get())
         self.cfg_lev_var.set(lev)
         env = self.cfg_benv_var.get()
+        term_path = (
+            self.cfg_bpath_ent.get().strip()
+            if hasattr(self, "cfg_bpath_ent")
+            else ""
+        )
 
         database.save_broker_credentials(
-            server, acc, pwd, lev, broker_name=bname, environment=env
+            server, acc, pwd, lev, broker_name=bname, environment=env, terminal_path=term_path
         )
         messagebox.showinfo(
             "Broker Gateway Saved",
