@@ -5,7 +5,10 @@ and L2 order book slicing using actor-critic reward optimization.
 """
 
 import math
+import concurrent.futures
+import logging
 
+_log = logging.getLogger(__name__)
 
 
 class DRLExecutionPolicyAgent:
@@ -96,6 +99,17 @@ class DRLExecutionPolicyAgent:
         reward = pnl_delta - penalty
         self.episode_rewards.append(reward)
         return round(reward, 4)
+
+    def batch_select_actions_parallel(self, states_list):
+        """
+        Executes concurrent multi-symbol DRL action selection across worker threads.
+        """
+        if not states_list:
+            return []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(states_list), 8)) as executor:
+            actions = list(executor.map(self.select_action, states_list))
+        return actions
 
     def update_critic_actor_soft(self, state, action, reward, next_state):
         """Soft target network parameter update for SAC / DDPG policy iteration."""

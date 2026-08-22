@@ -463,12 +463,16 @@ class AutonomousScalper:
             cd_timer = f"{h_cd:02d}:{m_cd:02d}:{s_cd:02d}"
             coming_str_list.append(f"{name} ({cd_timer})")
 
+        # Overlapping sessions calculation (when >1 sessions are active concurrently)
+        overlapping_str = " | ".join(active) if len(active) > 1 else "None (Single Session)"
+
         return {
             "active": " | ".join(active) if active else "No active sessions",
-            "previous": " | ".join(previous) if previous else "None",
+            "overlapping": overlapping_str,
             "next_session": " | ".join(coming_str_list[:3])
             if coming_str_list
             else "None",
+            "previous": " | ".join(previous) if previous else "None",
             "countdown": "Active Tracker",
         }
 
