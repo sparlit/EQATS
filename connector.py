@@ -1,4 +1,5 @@
 import abc
+import concurrent.futures
 import logging
 import random
 import threading
@@ -196,21 +197,32 @@ class MT5Connector(TradingConnector):
         if server and str(server).strip() and server != "EAQTS-Demo-Server":
             init_kwargs["server"] = str(server).strip()
 
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
+            future = executor.submit(self._connect_impl, init_kwargs, login, password, server)
+            return future.result(timeout=5.0)
+        except concurrent.futures.TimeoutError:
+            raise ConnectionError(
+                "MetaTrader5 connection timed out (5s). Please ensure MetaTrader 5 application is open and running."
+            )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+    def _connect_impl(self, init_kwargs, login, password, server):
         initialized = False
         if init_kwargs:
             try:
                 initialized = self.mt5.initialize(**init_kwargs)
             except Exception as e:
-                print(
-                    f"Warning: mt5.initialize with credentials failed ({e}), attempting default initialize()."
-                )
+                _log.warning("mt5.initialize with credentials failed (%s), attempting default initialize()", e)
 
         if not initialized:
             initialized = self.mt5.initialize()
 
         if not initialized:
+            last_err = self.mt5.last_error() if hasattr(self.mt5, "last_error") else "Terminal not open or unresponsive"
             raise ConnectionError(
-                f"MetaTrader5 initialization failed. Error: {self.mt5.last_error()}"
+                f"MetaTrader5 initialization failed. Error: {last_err}"
             )
 
         if login and str(login).isdigit() and password and str(password).strip():
@@ -247,8 +259,15 @@ class MT5Connector(TradingConnector):
     def is_connected(self):
         if not self.mt5:
             return False
-        info = self.mt5.terminal_info()
-        return info is not None
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
+            future = executor.submit(self.mt5.terminal_info)
+            info = future.result(timeout=2.0)
+            return info is not None
+        except Exception:
+            return False
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def disconnect(self):
         if self.mt5:
