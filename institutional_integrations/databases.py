@@ -5,6 +5,7 @@ Integrates SQLAlchemy, DuckDB, QuestDB ILP, TinyDB, Neo4j, Pinecone, ChromaDB, F
 
 import socket
 import time
+import concurrent.futures
 from collections import deque
 
 
@@ -61,6 +62,64 @@ class QuestDBILPTickAdapter:
                 "buffer_size": len(self.fallback_buffer),
                 "error": str(e),
             }
+
+    def stream_ticks_batch_parallel(self, ticks_list):
+        """
+        Streams batch of L2 ticks concurrently across worker threads.
+        """
+        if not ticks_list:
+            return []
+
+        def _send(t):
+            return self.stream_tick(
+                t.get("symbol", "UNKNOWN"),
+                t.get("bid", 0.0),
+                t.get("ask", 0.0),
+                t.get("volume", 1.0),
+                t.get("imbalance", 0.0),
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(ticks_list), 8)) as executor:
+            results = list(executor.map(_send, ticks_list))
+        return results
+
+    def flush_fallback_buffer_to_sqlite(self):
+        """
+        Flushes buffered offline ticks from the ring-buffer directly into SQLite WAL persistence log.
+        """
+        if not self.fallback_buffer:
+            return {"flushed": 0, "status": "EMPTY"}
+
+        flushed_count = 0
+        try:
+            import database
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tick_history_fallback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL,
+                    symbol TEXT,
+                    bid REAL,
+                    ask REAL,
+                    volume REAL,
+                    imbalance REAL
+                )
+            """)
+
+            while self.fallback_buffer:
+                item = self.fallback_buffer.popleft()
+                cursor.execute(
+                    "INSERT INTO tick_history_fallback (timestamp, symbol, bid, ask, volume, imbalance) VALUES (?, ?, ?, ?, ?, ?)",
+                    (item["timestamp"], item["symbol"], item["bid"], item["ask"], item["volume"], item.get("imbalance", 0.0)),
+                )
+                flushed_count += 1
+
+            conn.commit()
+            conn.close()
+            return {"flushed": flushed_count, "status": "FLUSHED_TO_SQLITE_WAL"}
+        except Exception as e:
+            return {"flushed": flushed_count, "status": "ERROR", "error": str(e)}
 
 
 class CrossAssetCorrelationGraph:
