@@ -5,7 +5,7 @@ import random
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import config
 import database
@@ -4889,18 +4889,32 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             bg=self.bg_card,
             fg=self.fg_light,
         ).grid(row=3, column=0, sticky="w", pady=2)
+
+        path_frame = tk.Frame(bf_inputs, bg=self.bg_card)
+        path_frame.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2)
+
         self.cfg_bpath_ent = tk.Entry(
-            bf_inputs,
+            path_frame,
             font=("Consolas", 8),
             bg="#1c1c1c",
             fg=self.fg_accent,
             insertbackground=self.fg_accent,
-            width=48,
+            width=36,
         )
-        self.cfg_bpath_ent.grid(
-            row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2
-        )
+        self.cfg_bpath_ent.pack(side=tk.LEFT, padx=(0, 5))
         self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
+
+        tk.Button(
+            path_frame,
+            text="📁 BROWSE...",
+            font=("Consolas", 8, "bold"),
+            bg="#334155",
+            fg="#ffffff",
+            padx=6,
+            pady=1,
+            relief=tk.FLAT,
+            command=self._browse_terminal_path,
+        ).pack(side=tk.LEFT)
 
         b_btn_box = tk.Frame(bf_inputs, bg=self.bg_card)
         b_btn_box.grid(row=4, column=0, columnspan=4, sticky="w", pady=(10, 0))
@@ -5264,6 +5278,19 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 self.cfg_bacc_ent.insert(0, str(vals[3]))
                 self.cfg_benv_var.set(str(vals[4]))
                 self.cfg_lev_var.set(str(vals[5]))
+
+    def _browse_terminal_path(self):
+        selected_file = filedialog.askopenfilename(
+            title="Select MetaTrader 5 Executable",
+            filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")],
+        )
+        if not selected_file:
+            selected_file = filedialog.askdirectory(
+                title="Or Select MetaTrader 5 Installation Folder"
+            )
+        if selected_file:
+            self.cfg_bpath_ent.delete(0, tk.END)
+            self.cfg_bpath_ent.insert(0, str(selected_file))
 
     def _add_broker_profile(self):
         bname = self.cfg_bname_ent.get().strip() or "New Gateway"
