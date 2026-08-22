@@ -417,86 +417,105 @@ class ScalperGui:
             btn.pack(side=tk.LEFT, padx=3)
 
     def _build_session_timeline_panel(self):
-        """Builds a gorgeous, vibrant 3-row EQATS session timeline panel"""
+        """Builds a single-row, 4-column EQATS session timeline panel"""
         self.timeline_frame = tk.Frame(
             self.root,
             bg=self.bg_card,
             bd=1,
             relief=tk.SOLID,
-            padx=15,
-            pady=10,
+            padx=10,
+            pady=6,
             highlightbackground="#2d2d2d",
         )
         self.timeline_frame.pack(fill=tk.X, padx=20, pady=5)
 
-        # Row 1: Active
-        row_act = tk.Frame(self.timeline_frame, bg=self.bg_card)
-        row_act.pack(fill=tk.X, pady=2)
-        lbl_act_title = tk.Label(
-            row_act,
-            text="[ACTIVE SESSIONS]   >",
-            font=("Consolas", 9, "bold"),
+        # Single row divided into 4 columns
+        row_single = tk.Frame(self.timeline_frame, bg=self.bg_card)
+        row_single.pack(fill=tk.X, expand=True)
+
+        # Col 1: Current Session
+        col1 = tk.Frame(row_single, bg=self.bg_card)
+        col1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
+        tk.Label(
+            col1,
+            text="[CURRENT SESSION]",
+            font=("Consolas", 8, "bold"),
             bg=self.bg_card,
             fg=self.fg_green,
-            width=22,
             anchor="w",
-        )
-        lbl_act_title.pack(side=tk.LEFT)
+        ).pack(fill=tk.X)
         self.lbl_act_val = tk.Label(
-            row_act,
+            col1,
             text="No active sessions",
-            font=("Consolas", 9, "bold"),
+            font=("Consolas", 8, "bold"),
             bg=self.bg_card,
             fg="#ffffff",
             anchor="w",
         )
-        self.lbl_act_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.lbl_act_val.pack(fill=tk.X, expand=True)
 
-        # Row 2: Closed
-        row_cls = tk.Frame(self.timeline_frame, bg=self.bg_card)
-        row_cls.pack(fill=tk.X, pady=2)
-        lbl_cls_title = tk.Label(
-            row_cls,
-            text="[CLOSED <= 4H]     >",
-            font=("Consolas", 9, "bold"),
+        # Col 2: Overlapping Session
+        col2 = tk.Frame(row_single, bg=self.bg_card)
+        col2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
+        tk.Label(
+            col2,
+            text="[OVERLAPPING SESSION]",
+            font=("Consolas", 8, "bold"),
             bg=self.bg_card,
-            fg=self.fg_grey,
-            width=22,
+            fg=self.fg_cyan,
             anchor="w",
-        )
-        lbl_cls_title.pack(side=tk.LEFT)
-        self.lbl_cls_val = tk.Label(
-            row_cls,
+        ).pack(fill=tk.X)
+        self.lbl_ovl_val = tk.Label(
+            col2,
             text="None",
-            font=("Consolas", 9),
+            font=("Consolas", 8, "bold"),
             bg=self.bg_card,
-            fg=self.fg_grey,
+            fg=self.fg_cyan,
             anchor="w",
         )
-        self.lbl_cls_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.lbl_ovl_val.pack(fill=tk.X, expand=True)
 
-        # Row 3: Upcoming
-        row_upc = tk.Frame(self.timeline_frame, bg=self.bg_card)
-        row_upc.pack(fill=tk.X, pady=2)
-        lbl_upc_title = tk.Label(
-            row_upc,
-            text="[UPCOMING SESSIONS] >",
-            font=("Consolas", 9, "bold"),
+        # Col 3: Coming Session
+        col3 = tk.Frame(row_single, bg=self.bg_card)
+        col3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
+        tk.Label(
+            col3,
+            text="[COMING SESSION]",
+            font=("Consolas", 8, "bold"),
             bg=self.bg_card,
             fg=self.fg_accent,
-            width=22,
             anchor="w",
-        )
-        lbl_upc_title.pack(side=tk.LEFT)
+        ).pack(fill=tk.X)
         self.lbl_upc_val = tk.Label(
-            row_upc,
+            col3,
             text="None",
-            font=("Consolas", 9, "bold"),
+            font=("Consolas", 8, "bold"),
             bg=self.bg_card,
             fg=self.fg_accent,
             anchor="w",
         )
-        self.lbl_upc_val.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.lbl_upc_val.pack(fill=tk.X, expand=True)
+
+        # Col 4: Closed Session
+        col4 = tk.Frame(row_single, bg=self.bg_card)
+        col4.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
+        tk.Label(
+            col4,
+            text="[CLOSED SESSION]",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_grey,
+            anchor="w",
+        ).pack(fill=tk.X)
+        self.lbl_cls_val = tk.Label(
+            col4,
+            text="None",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_grey,
+            anchor="w",
+        )
+        self.lbl_cls_val.pack(fill=tk.X, expand=True)
 
     def _build_stats_ribbon(self):
         """Card grid displaying account statistics"""
@@ -11366,8 +11385,10 @@ SECURITY DOMAINS ENFORCED:
                 # Fetch active trading session and timeline countdown details
                 timeline = self.scalper._get_sessions_timeline()
                 self.lbl_act_val.config(text=timeline["active"])
-                self.lbl_cls_val.config(text=timeline["previous"])
+                if hasattr(self, "lbl_ovl_val"):
+                    self.lbl_ovl_val.config(text=timeline.get("overlapping", "None"))
                 self.lbl_upc_val.config(text=timeline["next_session"])
+                self.lbl_cls_val.config(text=timeline["previous"])
 
                 session_str = f"{timeline['active'].split('|')[0]} (Tracker Active)"
                 self.card_session.config(text=session_str)
