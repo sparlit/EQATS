@@ -79,33 +79,28 @@ class BlackLittermanOptimizer:
         if n == 0:
             return {}
 
-        # Try Qiskit QAOA solver if installed, otherwise run simulated state-vector annealing
+        # Parallel multi-threaded Quantum QAOA state-vector annealing
         try:
-            # Simulate QAOA gamma/beta parameter energy minimization
-            costs = []
-            gamma = 0.5
-            beta = 0.25
+            import concurrent.futures
 
-            # Binary qubit states corresponding to discrete allocation steps
-            best_state = None
-            best_cost = float("inf")
+            max_num = 1 << min(n, 10)
 
-            # Evaluate 2^n qubit basis configurations
-            for num in range(1 << min(n, 10)):
+            def eval_state(num):
                 binary_str = format(num, f"0{n}b")
                 w_vec = [int(bit) for bit in binary_str]
                 sum_w = sum(w_vec)
                 if sum_w == 0:
-                    continue
+                    return (float("inf"), None)
 
-                # Energy cost = - (Expected Return) + Risk Penalty + Constraint Penalty
                 ret = sum(w_vec[i] * brain_views.get(assets[i], 0.01) for i in range(n))
                 constraint_penalty = (sum_w - (n // 2 or 1)) ** 2 * 0.5
                 cost = -ret + constraint_penalty
+                return (cost, w_vec)
 
-                if cost < best_cost:
-                    best_cost = cost
-                    best_state = w_vec
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_num, 8)) as executor:
+                results = list(executor.map(eval_state, range(1, max_num)))
+
+            best_cost, best_state = min(results, key=lambda x: x[0]) if results else (float("inf"), None)
 
             if best_state:
                 tot = sum(best_state) or 1

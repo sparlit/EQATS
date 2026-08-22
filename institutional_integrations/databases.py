@@ -5,6 +5,7 @@ Integrates SQLAlchemy, DuckDB, QuestDB ILP, TinyDB, Neo4j, Pinecone, ChromaDB, F
 
 import socket
 import time
+import concurrent.futures
 from collections import deque
 
 
@@ -61,6 +62,26 @@ class QuestDBILPTickAdapter:
                 "buffer_size": len(self.fallback_buffer),
                 "error": str(e),
             }
+
+    def stream_ticks_batch_parallel(self, ticks_list):
+        """
+        Streams batch of L2 ticks concurrently across worker threads.
+        """
+        if not ticks_list:
+            return []
+
+        def _send(t):
+            return self.stream_tick(
+                t.get("symbol", "UNKNOWN"),
+                t.get("bid", 0.0),
+                t.get("ask", 0.0),
+                t.get("volume", 1.0),
+                t.get("imbalance", 0.0),
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(ticks_list), 8)) as executor:
+            results = list(executor.map(_send, ticks_list))
+        return results
 
 
 class CrossAssetCorrelationGraph:
