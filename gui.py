@@ -395,7 +395,7 @@ class ScalperGui:
             ("F6 ANR", "ANR"),
             ("F7 PORT", "PORT"),
             ("F8 MCTS", "MCTS"),
-            ("F9 VDS", "VDS"),
+            ("F9 POLY", "POLY"),
             ("F10 CHART", "CHART"),
             ("F11 SESS", "SESS"),
             ("F1 HELP", "HELP"),
