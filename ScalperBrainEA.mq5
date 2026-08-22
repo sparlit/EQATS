@@ -17,9 +17,6 @@ input string   InpFileName       = "scalper_telemetry.txt"; // Fallback State Fi
 input bool     InpUseCommonFolder = true;               // Use Common shared folder (FILE_COMMON)
 input int      InpTimerInterval  = 1;                   // Update Interval (seconds)
 
-// Socket Handle
-int m_socket = INVALID_HANDLE;
-
 // State variables
 string m_symbols[50];
 string m_prices[50];
@@ -61,46 +58,11 @@ int OnInit()
    ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, true);
    ChartSetInteger(0, CHART_EVENT_OBJECT_DELETE, true);
 
-   // Initialize Socket IPC Connection if enabled
-   if(InpUseSocketIPC)
-   {
-      InitSocketConnection();
-   }
-
    // Redraw initial layout
    DrawHeader();
    UpdateDashboard();
 
    return(INIT_SUCCEEDED);
-}
-
-//+------------------------------------------------------------------+
-//| InitSocketConnection                                             |
-//| Connects to local SocketIPCBridge server                          |
-//+------------------------------------------------------------------+
-void InitSocketConnection()
-{
-   ResetLastError();
-   if(m_socket != INVALID_HANDLE)
-   {
-      SocketClose(m_socket);
-      m_socket = INVALID_HANDLE;
-   }
-
-   m_socket = SocketCreate();
-   if(m_socket != INVALID_HANDLE)
-   {
-      if(!SocketConnect(m_socket, InpSocketHost, InpSocketPort, 1000))
-      {
-         Print("ScalperBrainEA: SocketConnect failed to ", InpSocketHost, ":", InpSocketPort, " (Code: ", GetLastError(), "). Using file fallback.");
-         SocketClose(m_socket);
-         m_socket = INVALID_HANDLE;
-      }
-      else
-      {
-         Print("ScalperBrainEA: Socket IPC push connection established with Python Brain on ", InpSocketHost, ":", InpSocketPort);
-      }
-   }
 }
 
 //+------------------------------------------------------------------+
@@ -110,11 +72,6 @@ void InitSocketConnection()
 void OnDeinit(const int reason)
 {
    EventKillTimer();
-   if(m_socket != INVALID_HANDLE)
-   {
-      SocketClose(m_socket);
-      m_socket = INVALID_HANDLE;
-   }
    DeleteDashboardObjects();
 }
 
@@ -150,10 +107,53 @@ void OnChartEvent(const int id,
       if(sparam == "SB_Btn_Resync")
       {
          Print("ScalperBrainEA: Manual IPC Resync requested by operator.");
-         InitSocketConnection();
          UpdateDashboard();
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| FetchSocketData                                                  |
+//| Performs a single-shot TCP request to Python SocketIPCBridge      |
+//+------------------------------------------------------------------+
+string FetchSocketData()
+{
+   ResetLastError();
+   int sock = SocketCreate();
+   if(sock == INVALID_HANDLE) return "";
+
+   if(!SocketConnect(sock, InpSocketHost, InpSocketPort, 500))
+   {
+      SocketClose(sock);
+      return "";
+   }
+
+   // Poll for readable payload up to 300ms
+   uint rsp_len = 0;
+   int wait_ms = 0;
+   while(wait_ms < 300)
+   {
+      rsp_len = SocketIsReadable(sock);
+      if(rsp_len > 0) break;
+      Sleep(10);
+      wait_ms += 10;
+   }
+
+   string result = "";
+   if(rsp_len > 0)
+   {
+      uchar buf[];
+      ArrayResize(buf, (int)rsp_len);
+      ArrayInitialize(buf, 0);
+      int read_bytes = SocketRead(sock, buf, (int)rsp_len, 500);
+      if(read_bytes > 0)
+      {
+         result = CharArrayToString(buf, 0, read_bytes, CP_UTF8);
+      }
+   }
+
+   SocketClose(sock);
+   return result;
 }
 
 //+------------------------------------------------------------------+
@@ -167,37 +167,7 @@ bool ParseStateData()
    // 1. Try Socket IPC Push Reading
    if(InpUseSocketIPC)
    {
-      if(m_socket == INVALID_HANDLE)
-      {
-         InitSocketConnection();
-      }
-
-      if(m_socket != INVALID_HANDLE)
-      {
-         uint rsp_len = SocketIsReadable(m_socket);
-         if(rsp_len > 0)
-         {
-            uchar buf[];
-            ArrayResize(buf, (int)rsp_len);
-            ArrayInitialize(buf, 0);
-            int read_bytes = SocketRead(m_socket, buf, (int)rsp_len, 500);
-            if(read_bytes > 0)
-            {
-               string chunk = CharArrayToString(buf, 0, read_bytes, CP_UTF8);
-               m_accumulated_buffer += chunk;
-               state_content = m_accumulated_buffer;
-            }
-            else if(read_bytes < 0)
-            {
-               Print("ScalperBrainEA: SocketRead returned error code: ", GetLastError(), ". Reconnecting socket.");
-               InitSocketConnection();
-            }
-         }
-         else if(StringLen(m_accumulated_buffer) > 0)
-         {
-            state_content = m_accumulated_buffer;
-         }
-      }
+      state_content = FetchSocketData();
    }
 
    // 2. Fallback to Shared Telemetry File if Socket empty
@@ -210,12 +180,6 @@ bool ParseStateData()
       int file_handle = FileOpen(InpFileName, flags);
       if(file_handle == INVALID_HANDLE)
       {
-         static int err_count = 0;
-         err_count++;
-         if(err_count % 10 == 1)
-         {
-            Print("ScalperBrainEA: Waiting for telemetry stream from Python Brain... (Error Code: ", GetLastError(), ")");
-         }
          return false;
       }
 
