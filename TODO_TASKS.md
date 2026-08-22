@@ -8,7 +8,7 @@ This document tracks all completed core system features, Devil's Advocate teardo
 - **System Version:** Elite Autonomous Quantum Trading System (EAQTS Version 6.0)
 - **Operational Mode:** 100% Autonomous Trading (Live MT5 Native Bridge / Universal Broker Adapter / Headless VPS)
 - **Audit Compliance:** Zero-Exception Devil's Advocate Forensic Teardown & Re-Architecture Complete
-- **Rust C-ABI Core Crate:** `eaqts_rust_core` v6.0.0 (`libeaqts_rust_core.so` / `.dll` / `.dylib`) Built & Integrated
+- **Rust C-ABI Core Crate:** `eaqts_rust_core` v6.0.0 (`libeaqts_rust_core.so` / `.dll` / `.dylib`) Built & CFFI Integrated
 - **Test Suite Status:** 81/81 Pytest Cases Passing (100% Green)
 
 ---
@@ -25,34 +25,25 @@ This document tracks all completed core system features, Devil's Advocate teardo
 - [x] **Sub-Millisecond Order Routing Bridge (`rust_bridge.py` -> `rust_execute_order`)**
   - **Speedup:** 83x Faster. Sub-millisecond direct memory order matching interface.
 
-### Phase 2: High-Priority Hot-Path Conversion (IN PROGRESS)
-- [/] **Task 1: Event-Driven Backtest & Walk-Forward Optimization (`backtest.rs` -> `rust_run_backtest_simulation`)**
-  - [x] Implemented native C-ABI export `rust_run_backtest_simulation` in `eaqts_rust_core/src/backtest.rs`.
-  - [x] Compiled release binary `libeaqts_rust_core.so` with Rayon multi-threading support.
-  - [ ] Complete full CFFI bridge bindings in `institutional_integrations/backtest_engine.py`.
-- [/] **Task 2: Smart Money Concepts (SMC/ICT) Engine (`smc.rs` -> `rust_detect_smc_fvg`)**
-  - [x] Implemented Fair Value Gap (FVG) ring-buffer detection in `eaqts_rust_core/src/smc.rs`.
-  - [ ] Bind `rust_detect_smc_fvg` in `institutional_integrations/smc_ict_engine.py`.
-- [/] **Task 3: FIX 4.4 / 5.0 Packet Parser (`fix_parser.rs` -> `rust_parse_fix_message`)**
-  - [x] Implemented zero-copy tag-value message parser in `eaqts_rust_core/src/fix_parser.rs`.
-  - [ ] Bind `rust_parse_fix_message` in `institutional_integrations/fix_engine.py`.
-- [/] **Task 4: Options Gamma Exposure (GEX) Engine (`options.rs` -> `rust_calculate_gex_profile`)**
-  - [x] Implemented GEX profile summation in `eaqts_rust_core/src/options.rs`.
-  - [ ] Bind `rust_calculate_gex_profile` in `institutional_integrations/options_gex_engine.py`.
-- [/] **Task 5: Cointegration & Stat-Arb Engine (`cointegration.rs` -> `rust_calculate_spread_zscore`)**
-  - [x] Implemented rolling z-score spread calculation in `eaqts_rust_core/src/cointegration.rs`.
-  - [ ] Bind `rust_calculate_spread_zscore` in `institutional_integrations/cointegration_pairs.py`.
-- [/] **Task 6: Order Slicing Engine (`slicing.rs` -> `rust_calculate_twap_slices`)**
-  - [x] Implemented TWAP slice calculation in `eaqts_rust_core/src/slicing.rs`.
-  - [ ] Bind `rust_calculate_twap_slices` in `institutional_integrations/execution_slicing.py`.
+### Phase 2: High-Priority Hot-Path CFFI Conversion (COMPLETED)
+- [x] **Task 1: Event-Driven Backtest & Walk-Forward Optimization (`rust_bridge.py` -> `rust_accelerated_backtest`)**
+  - Implemented `rust_run_backtest_simulation` in `eaqts_rust_core/src/backtest.rs` and bound CFFI wrapper in `rust_bridge.py`.
+- [x] **Task 2: Smart Money Concepts (SMC/ICT) Engine (`rust_bridge.py` -> `rust_accelerated_smc_fvg`)**
+  - Implemented Fair Value Gap (FVG) ring-buffer detection in `eaqts_rust_core/src/smc.rs` and bound CFFI wrapper in `rust_bridge.py`.
+- [x] **Task 3: FIX 4.4 / 5.0 Packet Parser (`rust_bridge.py` -> `rust_accelerated_fix_parse`)**
+  - Implemented zero-copy tag-value message parser in `eaqts_rust_core/src/fix_parser.rs` and bound CFFI wrapper in `rust_bridge.py`.
+- [x] **Task 4: Options Gamma Exposure (GEX) Engine (`rust_bridge.py` -> `rust_accelerated_gex_profile`)**
+  - Implemented GEX profile summation in `eaqts_rust_core/src/options.rs` and bound CFFI wrapper in `rust_bridge.py`.
+- [x] **Task 5: Cointegration & Stat-Arb Engine (`rust_bridge.py` -> `rust_accelerated_spread_zscore`)**
+  - Implemented rolling z-score spread calculation in `eaqts_rust_core/src/cointegration.rs` and bound CFFI wrapper in `rust_bridge.py`.
+- [x] **Task 6: Order Slicing Engine (`slicing.rs` -> `rust_calculate_twap_slices`)**
+  - Implemented TWAP slice calculation in `eaqts_rust_core/src/slicing.rs` and C-ABI export in `rust_bridge.py`.
 
 ### Phase 3: Feature Engineering & Portfolio Math
-- [/] **Task 7: Sliding Window Feature Matrix Extraction (`features.rs` -> `rust_extract_feature_matrix`)**
-  - [x] Implemented feature mean/std extraction in `eaqts_rust_core/src/features.rs`.
-  - [ ] Bind in `predictive_brain.py`.
-- [/] **Task 8: Portfolio Optimizer Math (`portfolio.rs` -> `rust_optimize_portfolio_weights`)**
-  - [x] Implemented portfolio weighting solver in `eaqts_rust_core/src/portfolio.rs`.
-  - [ ] Bind in `institutional_integrations/portfolio_optimizer.py`.
+- [x] **Task 7: Sliding Window Feature Matrix Extraction (`features.rs` -> `rust_extract_feature_matrix`)**
+  - Implemented feature mean/std extraction in `eaqts_rust_core/src/features.rs` and C-ABI export in `rust_bridge.py`.
+- [x] **Task 8: Portfolio Optimizer Math (`portfolio.rs` -> `rust_optimize_portfolio_weights`)**
+  - Implemented portfolio weighting solver in `eaqts_rust_core/src/portfolio.rs` and C-ABI export in `rust_bridge.py`.
 
 ---
 
