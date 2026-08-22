@@ -81,11 +81,6 @@ class BlackLittermanOptimizer:
 
         # Try Qiskit QAOA solver if installed, otherwise run simulated state-vector annealing
         try:
-<<<<<<< Updated upstream
-=======
-            import numpy as np
-
->>>>>>> Stashed changes
             # Simulate QAOA gamma/beta parameter energy minimization
             costs = []
             gamma = 0.5

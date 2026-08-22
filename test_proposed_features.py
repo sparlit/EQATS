@@ -1,15 +1,5 @@
-<<<<<<< Updated upstream
 from institutional_integrations.alert_dispatcher import MultiChannelAlertDispatcher
 from institutional_integrations.backtest_engine import EventDrivenBacktester
-=======
-import pytest
-from institutional_integrations.fix_engine import FIXEngine
-from institutional_integrations.execution_slicing import ExecutionSlicer
-from institutional_integrations.tft_tcn_predictor import (
-    TemporalFusionTransformer,
-    TemporalConvolutionalNetwork,
-)
->>>>>>> Stashed changes
 from institutional_integrations.drl_execution_agent import DRLExecutionPolicyAgent
 from institutional_integrations.execution_slicing import ExecutionSlicer
 from institutional_integrations.fix_engine import FIXEngine
@@ -190,11 +180,8 @@ def test_fixed_001_lot_position_sizing():
 def test_symbol_floating_loss_protection_gate():
     import time
 
-<<<<<<< Updated upstream
     import brain
     import database
-=======
->>>>>>> Stashed changes
     database.init_db()
 
     # Log an open trade running in floating loss
@@ -222,12 +209,6 @@ def test_symbol_floating_loss_protection_gate():
 
 
 def test_universal_broker_adapter_and_connector():
-<<<<<<< Updated upstream
-=======
-    from institutional_integrations.universal_broker_adapter import (
-        UniversalBrokerGateway,
-    )
->>>>>>> Stashed changes
     from connector import UniversalConnector
     from institutional_integrations.universal_broker_adapter import (
         UniversalBrokerGateway,

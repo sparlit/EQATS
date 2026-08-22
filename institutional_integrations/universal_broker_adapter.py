@@ -26,7 +26,6 @@ from institutional_integrations.circuit_breaker import CircuitBreaker
 
 _log = logging.getLogger(__name__)
 
-<<<<<<< Updated upstream
 _log = logging.getLogger(__name__)
 
 _log = logging.getLogger(__name__)
@@ -34,8 +33,6 @@ _log = logging.getLogger(__name__)
 _log = logging.getLogger(__name__)
 
 _log = logging.getLogger(__name__)
-=======
->>>>>>> Stashed changes
 
 class UniversalBrokerGateway:
     """

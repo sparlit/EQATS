@@ -77,11 +77,7 @@ def perform_statistical_pingouin_test(returns_a, returns_b):
     """
     try:
         import pandas as pd
-<<<<<<< Updated upstream
         import pingouin as pg
-=======
-
->>>>>>> Stashed changes
         df = pd.DataFrame({"A": returns_a, "B": returns_b})
         res = pg.ttest(df["A"], df["B"])
         return {
