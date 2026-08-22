@@ -5338,24 +5338,43 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.broker_tree.item(sel[0])
             b_id = item["values"][0]
             try:
-                database._execute_with_retry(
-                    """
-                    UPDATE broker_credentials
-                    SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        bname,
-                        server,
-                        acc,
-                        database.encrypt_secret(pwd),
-                        lev,
-                        env,
-                        term_path,
-                        database.datetime.datetime.now().isoformat(),
-                        b_id,
-                    ),
-                )
+                if pwd and str(pwd).strip():
+                    database._execute_with_retry(
+                        """
+                        UPDATE broker_credentials
+                        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            bname,
+                            server,
+                            acc,
+                            database.encrypt_secret(pwd),
+                            lev,
+                            env,
+                            term_path,
+                            database.datetime.datetime.now().isoformat(),
+                            b_id,
+                        ),
+                    )
+                else:
+                    database._execute_with_retry(
+                        """
+                        UPDATE broker_credentials
+                        SET broker_name = ?, server = ?, account_id = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            bname,
+                            server,
+                            acc,
+                            lev,
+                            env,
+                            term_path,
+                            database.datetime.datetime.now().isoformat(),
+                            b_id,
+                        ),
+                    )
                 messagebox.showinfo(
                     "Broker Profile Updated",
                     f"Successfully updated broker profile '{bname}' (ID: {b_id}) in database.",
