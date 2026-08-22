@@ -45,6 +45,9 @@ string m_overlaps = "No active overlap";
 string m_next_session = "Tokyo";
 string m_countdown = "00:00:00";
 
+// Persistent socket buffer for partial read accumulation
+string m_accumulated_buffer = "";
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //| Initializes timer, sockets and UI objects                        |
@@ -53,6 +56,10 @@ int OnInit()
 {
    // Set timer for visual dashboard updates
    EventSetTimer(InpTimerInterval);
+
+   // Enable chart events for interactive HUD controls
+   ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, true);
+   ChartSetInteger(0, CHART_EVENT_OBJECT_DELETE, true);
 
    // Initialize Socket IPC Connection if enabled
    if(InpUseSocketIPC)
@@ -74,6 +81,12 @@ int OnInit()
 void InitSocketConnection()
 {
    ResetLastError();
+   if(m_socket != INVALID_HANDLE)
+   {
+      SocketClose(m_socket);
+      m_socket = INVALID_HANDLE;
+   }
+
    m_socket = SocketCreate();
    if(m_socket != INVALID_HANDLE)
    {
@@ -124,6 +137,26 @@ void OnTimer()
 }
 
 //+------------------------------------------------------------------+
+//| OnChartEvent function                                            |
+//| Handles interactive HUD clicks (e.g. Resync socket button)       |
+//+------------------------------------------------------------------+
+void OnChartEvent(const int id,
+                  const long &lparam,
+                  const double &dparam,
+                  const string &sparam)
+{
+   if(id == CHARTEVENT_OBJECT_CLICK)
+   {
+      if(sparam == "SB_Btn_Resync")
+      {
+         Print("ScalperBrainEA: Manual IPC Resync requested by operator.");
+         InitSocketConnection();
+         UpdateDashboard();
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| ParseStateData                                                   |
 //| Reads state stream via Socket IPC or fallback shared file        |
 //+------------------------------------------------------------------+
@@ -144,13 +177,25 @@ bool ParseStateData()
          uint rsp_len = SocketIsReadable(m_socket);
          if(rsp_len > 0)
          {
-            char buf[];
+            uchar buf[];
             ArrayResize(buf, (int)rsp_len);
+            ArrayInitialize(buf, 0);
             int read_bytes = SocketRead(m_socket, buf, (int)rsp_len, 500);
             if(read_bytes > 0)
             {
-               state_content = CharArrayToString(buf, 0, read_bytes, CP_UTF8);
+               string chunk = CharArrayToString(buf, 0, read_bytes, CP_UTF8);
+               m_accumulated_buffer += chunk;
+               state_content = m_accumulated_buffer;
             }
+            else if(read_bytes < 0)
+            {
+               Print("ScalperBrainEA: SocketRead returned error code: ", GetLastError(), ". Reconnecting socket.");
+               InitSocketConnection();
+            }
+         }
+         else if(StringLen(m_accumulated_buffer) > 0)
+         {
+            state_content = m_accumulated_buffer;
          }
       }
    }
@@ -273,16 +318,35 @@ bool ParseStateData()
       }
    }
 
+   // Clear buffer after successful full line parse
+   m_accumulated_buffer = "";
    return true;
 }
 
 //+------------------------------------------------------------------+
 //| DrawHeader                                                       |
-//| Renders static GUI panels                                        |
+//| Renders static GUI panels & interactive controls                 |
 //+------------------------------------------------------------------+
 void DrawHeader()
 {
-   CreateLabel("SB_Title", "🤖 SCALPER BRAIN AUTONOMOUS SYSTEM v3.0", 20, 20, 14, clrSkyBlue, "Segoe UI Bold");
+   CreateLabel("SB_Title", "🤖 SCALPER BRAIN AUTONOMOUS SYSTEM v6.0", 20, 20, 14, clrSkyBlue, "Segoe UI Bold");
+
+   // Interactive Resync Button on HUD Header
+   if(ObjectFind(0, "SB_Btn_Resync") < 0)
+   {
+      ObjectCreate(0, "SB_Btn_Resync", OBJ_BUTTON, 0, 0, 0);
+   }
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_XDISTANCE, 450);
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_YDISTANCE, 18);
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_XSIZE, 120);
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_YSIZE, 24);
+   ObjectSetString(0, "SB_Btn_Resync", OBJPROP_TEXT, "🔄 RESYNC IPC");
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_COLOR, clrWhite);
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_BGCOLOR, clrDarkBlue);
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_FONTSIZE, 9);
+   ObjectSetString(0, "SB_Btn_Resync", OBJPROP_FONT, "Segoe UI Semibold");
+   ObjectSetInteger(0, "SB_Btn_Resync", OBJPROP_SELECTABLE, false);
 }
 
 //+------------------------------------------------------------------+
@@ -469,6 +533,7 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_H_AI_W1");
    ObjectDelete(0, "SB_H_AI_W2");
    ObjectDelete(0, "SB_H_AI_Act");
+   ObjectDelete(0, "SB_Btn_Resync");
 
    for(int i = 0; i < 50; i++)
    {
