@@ -6,12 +6,21 @@ This file operates completely autonomously of external libraries like pandas/ta 
 
 def calculate_ema(prices, period):
     """
-    Calculates Exponential Moving Average (EMA).
+    Calculates Exponential Moving Average (EMA) with Rust CFFI acceleration when available.
     Formula: EMA_today = Price_today * multiplier + EMA_yesterday * (1 - multiplier)
     multiplier = 2 / (period + 1)
     """
     if period <= 0 or len(prices) < period:
         return None
+
+    try:
+        from institutional_integrations.rust_bridge import rust_accelerated_ema, is_rust_available
+        if is_rust_available():
+            ema_series = rust_accelerated_ema(prices, period)
+            if ema_series and len(ema_series) == len(prices):
+                return ema_series[-1]
+    except Exception:
+        pass
 
     multiplier = 2.0 / (period + 1)
     # Start with simple moving average as first EMA value

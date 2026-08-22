@@ -4676,6 +4676,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             relief=tk.FLAT,
             command=self._delete_user_account,
         ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            btn_box,
+            text="🔄 REFRESH DIRECTORY",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._refresh_user_tree,
+        ).pack(side=tk.LEFT, padx=5)
 
         # 2. Broker Credentials & Gateway Settings Tab
         self.tab_cfg_broker = tk.Frame(
@@ -4907,6 +4918,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         ).pack(side=tk.LEFT, padx=(0, 5))
         tk.Button(
             b_btn_box,
+            text="✏️ UPDATE BROKER PROFILE",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._update_broker_profile,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
             text="⚡ SET ACTIVE GATEWAY",
             font=("Consolas", 8, "bold"),
             bg="#b45309",
@@ -4926,6 +4948,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             pady=3,
             relief=tk.FLAT,
             command=self._delete_broker_profile,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Button(
+            b_btn_box,
+            text="🔄 REFRESH BROKERS",
+            font=("Consolas", 8, "bold"),
+            bg="#4c1d95",
+            fg="#ffffff",
+            padx=8,
+            pady=3,
+            relief=tk.FLAT,
+            command=self._refresh_broker_tree,
         ).pack(side=tk.LEFT, padx=5)
 
         # 3. User Controls & Feature Permissions Tab
@@ -5045,8 +5078,23 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             )
             chk.pack(anchor="w", pady=3)
 
+        f_btn_box = tk.Frame(f_frame, bg=self.bg_card)
+        f_btn_box.pack(side=tk.BOTTOM, anchor="e", pady=(15, 0))
+
+        tk.Button(
+            f_btn_box,
+            text="🔄 REFRESH / UPDATE CONTROLS",
+            font=("Consolas", 8, "bold"),
+            bg="#1d4ed8",
+            fg="#ffffff",
+            padx=10,
+            pady=5,
+            relief=tk.FLAT,
+            command=self._refresh_feature_permissions,
+        ).pack(side=tk.LEFT, padx=(0, 5))
+
         btn_save_f = tk.Button(
-            f_frame,
+            f_btn_box,
             text="APPLY FEATURE PERMISSIONS & CONTROLS",
             font=("Consolas", 8, "bold"),
             bg="#15803d",
@@ -5056,7 +5104,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             relief=tk.FLAT,
             command=self._save_feature_permissions,
         )
-        btn_save_f.pack(side=tk.BOTTOM, anchor="e", pady=(15, 0))
+        btn_save_f.pack(side=tk.LEFT, padx=5)
 
         self._refresh_user_tree()
         self._refresh_broker_tree()
@@ -5078,6 +5126,8 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
                 tk.END,
                 values=(u["id"], u["username"], u["role"], mfa_str, created_str),
             )
+        self.selected_user_id = None
+        self.selected_username = None
 
     def _on_user_select(self, event):
         sel = self.cfg_user_tree.selection()
@@ -5085,8 +5135,12 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             item = self.cfg_user_tree.item(sel[0])
             vals = item["values"]
             if vals and len(vals) >= 3:
+                self.selected_user_id = vals[0]
+                self.selected_username = str(vals[1])
                 self.cfg_user_ent.delete(0, tk.END)
                 self.cfg_user_ent.insert(0, str(vals[1]))
+                self.cfg_pass_ent.delete(0, tk.END)
+                self.cfg_pin_ent.delete(0, tk.END)
                 self.cfg_role_var.set(str(vals[2]))
 
     def _add_user_account(self):
@@ -5117,17 +5171,23 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         pin = self.cfg_pin_ent.get().strip()
         role = self.cfg_role_var.get()
 
-        if not u:
-            messagebox.showerror("Error", "Please specify a Username to update.")
+        target_user = getattr(self, "selected_username", None) or u
+
+        if not target_user:
+            messagebox.showerror("Error", "Please select or specify a Username to update.")
             return
 
         try:
             database.update_user(
-                username=u,
+                username=target_user,
+                new_username=u if u != target_user else None,
                 new_password=p if p else None,
                 new_pin=pin if pin else None,
                 new_role=role,
             )
+            self.selected_username = u
+            self.cfg_pass_ent.delete(0, tk.END)
+            self.cfg_pin_ent.delete(0, tk.END)
             messagebox.showinfo(
                 "User Updated", f"Successfully updated account records for '{u}'."
             )
@@ -5250,6 +5310,40 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to set active broker: {e}")
 
+    def _update_broker_profile(self):
+        bname = self.cfg_bname_ent.get().strip() or "Primary Gateway"
+        server = self.cfg_bserver_ent.get().strip()
+        acc = self.cfg_bacc_ent.get().strip()
+        pwd = self.cfg_bpwd_ent.get().strip()
+        lev = database.normalize_leverage(self.cfg_lev_var.get())
+        self.cfg_lev_var.set(lev)
+        env = self.cfg_benv_var.get()
+        term_path = self.cfg_bpath_ent.get().strip()
+
+        if not server or not acc or not pwd:
+            messagebox.showerror(
+                "Error", "Please provide Server Name, Account ID, and Broker Password."
+            )
+            return
+
+        try:
+            database.save_broker_credentials(
+                server=server,
+                account_id=acc,
+                password=pwd,
+                leverage=lev,
+                environment=env,
+                broker_name=bname,
+                terminal_path=term_path,
+            )
+            messagebox.showinfo(
+                "Broker Gateway Updated",
+                f"Successfully updated broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}",
+            )
+            self._refresh_broker_tree()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update broker profile: {e}")
+
     def _delete_broker_profile(self):
         sel = self.broker_tree.selection()
         if not sel:
@@ -5290,6 +5384,15 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             f"Successfully saved encrypted broker credentials in SQLite:\nGateway: {bname}\nServer: {server}\nAccount: {acc}\nLeverage: {lev}",
         )
         self._refresh_broker_tree()
+
+    def _refresh_feature_permissions(self):
+        self.cfg_feat_trailing.set(config.TRAILING_STOP_ENABLED)
+        self.cfg_feat_rollover.set(config.BLOCK_ROLLOVER_HOUR)
+        self.cfg_feat_weekend.set(config.BLOCK_WEEKENDS)
+        messagebox.showinfo(
+            "Controls Refreshed",
+            "Refreshed feature control states from active system configuration.",
+        )
 
     def _save_feature_permissions(self):
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
@@ -10409,7 +10512,10 @@ SECURITY DOMAINS ENFORCED:
 
         core_cx = nw * 0.75
         core_cy = nh * 0.50
-        core_r = min(nh * 0.38, 70)
+        try:
+            core_r = min(float(nh) * 0.38, 70.0)
+        except Exception:
+            core_r = 70.0
 
         for ring_r in range(10, int(core_r), 12):
             c_ns.create_oval(core_cx - ring_r, core_cy - ring_r, core_cx + ring_r, core_cy + ring_r, outline="#1f242d", dash=(2, 2))
