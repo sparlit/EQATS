@@ -8738,14 +8738,16 @@ SECURITY DOMAINS ENFORCED:
         movers_assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD", "SOLUSD"]
         for idx, sym in enumerate(movers_assets):
             p_info = self.scalper.conn.get_current_price(sym)
-            bid = p_info["bid"]
+            bid = p_info.get("bid", 0.0)
             if bid > 0:
-                net_chg = (idx - 2.5) * (
-                    0.0002
-                    if "USD" in sym and sym != "BTCUSD" and sym != "XAUUSD"
-                    else 0.5
-                )
-                pct_chg = (net_chg / bid) * 100.0 if bid > 0 else 0.0
+                hist = self.scalper.conn.get_history(sym, 10)
+                if hist and len(hist) > 1:
+                    prev_close = hist[0]["close"]
+                    net_chg = bid - prev_close
+                    pct_chg = (net_chg / prev_close) * 100.0 if prev_close > 0 else 0.0
+                else:
+                    net_chg = 0.0
+                    pct_chg = 0.0
                 dir_reg = "BULLISH" if net_chg >= 0 else "BEARISH"
                 strength = "STRONG MOMENTUM" if abs(pct_chg) > 0.1 else "CONSOLIDATION"
 
