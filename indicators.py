@@ -503,3 +503,62 @@ def get_smc_analysis(history_bars):
             "bias": "NEUTRAL",
             "confluence_score": 50.0,
         }
+
+
+def calculate_order_flow_metrics(history_bars, order_book=None):
+    """
+    Computes microstructure order flow signals combining VPIN flow toxicity,
+    DOM level 2 depth imbalances, and short-term book pressure.
+    """
+    try:
+        import institutional_integrations.order_flow_imbalance as ofi
+
+        # Build proxy buy/sell volume buckets from price action and tick volumes
+        vol_buys = []
+        vol_sells = []
+        for bar in history_bars[-20:]:
+            high = bar.get("high", 0.0)
+            low = bar.get("low", 0.0)
+            close = bar.get("close", 0.0)
+            open_p = bar.get("open", close)
+            vol = bar.get("vol", bar.get("volume", (high - low) * 10000.0))
+
+            rng = max(1e-5, high - low)
+            body_ratio = (close - open_p) / rng if rng > 0 else 0.0
+
+            # Estimate buy vs sell volume based on close relative to bar range
+            buy_vol = vol * max(0.05, min(0.95, (close - low) / rng))
+            sell_vol = vol - buy_vol
+            vol_buys.append(buy_vol)
+            vol_sells.append(sell_vol)
+
+        avg_bucket = sum(vol_buys + vol_sells) / max(1.0, len(vol_buys) * 2.0)
+        vpin = ofi.calculate_vpin(vol_buys, vol_sells, bucket_size=max(1.0, avg_bucket))
+
+        dom_metrics = {"imbalance_ratio": 0.0, "dominant_side": "NEUTRAL"}
+        pressure_metrics = {"pressure_score": 0.0, "expected_direction": "BALANCED"}
+
+        if order_book and isinstance(order_book, dict):
+            dom_metrics = ofi.detect_bid_ask_imbalance(order_book)
+            pressure_metrics = ofi.predict_short_term_book_pressure(
+                dom_metrics.get("total_bid_qty", 0.0),
+                dom_metrics.get("total_ask_qty", 0.0),
+            )
+
+        return {
+            "vpin": vpin,
+            "is_toxic_flow": vpin >= 0.65,
+            "dom_imbalance": dom_metrics.get("imbalance_ratio", 0.0),
+            "dominant_side": dom_metrics.get("dominant_side", "NEUTRAL"),
+            "pressure_score": pressure_metrics.get("pressure_score", 0.0),
+            "expected_direction": pressure_metrics.get("expected_direction", "BALANCED"),
+        }
+    except Exception:
+        return {
+            "vpin": 0.15,
+            "is_toxic_flow": False,
+            "dom_imbalance": 0.0,
+            "dominant_side": "NEUTRAL",
+            "pressure_score": 0.0,
+            "expected_direction": "BALANCED",
+        }

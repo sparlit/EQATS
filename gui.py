@@ -1044,32 +1044,51 @@ class ScalperGui:
         matrix_canvas = tk.Canvas(login_win, bg="#000000", highlightthickness=0, bd=0)
         matrix_canvas.pack(fill=tk.BOTH, expand=True)
 
+        # Load user's selected designer login panel style from SQLite database
+        current_style = database.get_user_login_style("QUANT_OPERATOR")
+
+        STYLE_CONFIGS = {
+            "MATRIX_NEON": {
+                "bg": "#000000", "overlay_bg": "#05090e", "border": "#00ffcc",
+                "title_color": "#00ffcc", "accent": "#ffaa00", "btn_bg": "#0284c7",
+                "char_colors": ["#00ff66", "#00ffcc", "#00ffff", "#38bdf8", "#ffaa00", "#ff007f"],
+            },
+            "CYBERPUNK_NEON": {
+                "bg": "#090014", "overlay_bg": "#140029", "border": "#ff007f",
+                "title_color": "#ff007f", "accent": "#00ffff", "btn_bg": "#d946ef",
+                "char_colors": ["#ff007f", "#e11d48", "#f43f5e", "#c084fc", "#a855f7", "#38bdf8"],
+            },
+            "GOLD_SOVEREIGN": {
+                "bg": "#0a0800", "overlay_bg": "#1a1400", "border": "#fbbf24",
+                "title_color": "#fbbf24", "accent": "#38bdf8", "btn_bg": "#d97706",
+                "char_colors": ["#fbbf24", "#f59e0b", "#d97706", "#fef08a", "#ffffff", "#00ffcc"],
+            },
+            "DARK_OBSIDIAN": {
+                "bg": "#04070d", "overlay_bg": "#0a0e17", "border": "#38bdf8",
+                "title_color": "#38bdf8", "accent": "#f43f5e", "btn_bg": "#2563eb",
+                "char_colors": ["#38bdf8", "#0284c7", "#818cf8", "#f43f5e", "#10b981", "#ffffff"],
+            },
+        }
+
+        active_theme = STYLE_CONFIGS.get(current_style, STYLE_CONFIGS["MATRIX_NEON"])
+
         # Matrix rain animation parameters (optimized for 60 FPS performance)
         char_set = "0123456789ABCDEFΞΨΩΣΠ$%#@&*<>[]{}|+=-~"
         col_width = 28
         cols = max(15, screen_w // col_width)
         drops = [random.randint(-20, 0) for _ in range(cols)]
-        colors = [
-            "#00ff66",
-            "#00ffcc",
-            "#00ffff",
-            "#38bdf8",
-            "#ffaa00",
-            "#ff007f",
-            "#00ffaa",
-            "#a855f7",
-        ]
+        colors = active_theme["char_colors"]
 
         anim_running = [True]
 
         # Center Container Frame (Glassmorphism card styled over canvas)
         main_overlay = tk.Frame(
             login_win,
-            bg="#05090e",
+            bg=active_theme["overlay_bg"],
             bd=2,
             relief=tk.SOLID,
-            highlightbackground="#00ffcc",
-            highlightcolor="#00ffff",
+            highlightbackground=active_theme["border"],
+            highlightcolor=active_theme["title_color"],
         )
 
         # Position overlay in center of screen automatically above the background canvas
@@ -1190,7 +1209,7 @@ class ScalperGui:
             text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)",
             font=("Consolas", 15, "bold"),
             bg="#030712",
-            fg="#00ffcc",
+            fg=active_theme["title_color"],
         )
         lbl_header_title.pack(side=tk.LEFT)
 
@@ -1416,7 +1435,7 @@ class ScalperGui:
             right_login_frame,
             text="[ LOGIN <GO> ]",
             font=("Consolas", 11, "bold"),
-            bg="#0284c7",
+            bg=active_theme["btn_bg"],
             fg="#ffffff",
             activebackground="#0369a1",
             activeforeground="#ffffff",
@@ -7561,7 +7580,69 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
         self.crawl_text.insert(tk.END, crawl_data)
 
     def _show_cred_screen(self):
-        """CRED <GO>: User Credentials and MFA Gateways"""
+        """CRED <GO>: User Credentials, Login Panel Style Selector & MFA Gateways"""
+        self._add_screen_header(
+            "🔑 CRED: USER CREDENTIALS, LOGIN DESIGNER STYLES, & MFA CONTROLLER <GO>",
+            "MANAGE OPERATOR PASSWORDS, MFA TOKENS, AND DESIGNER LOGIN PANEL THEMES",
+            "CFG",
+        )
+
+        style_frame = tk.Frame(self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d")
+        style_frame.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(
+            style_frame,
+            text="🎨 DESIGNER LOGIN PANEL STYLE SELECTOR & THUMBNAIL PREVIEWS",
+            font=("Consolas", 10, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Cards for the 4 Designer Styles with Live Canvas Thumbnail Previews
+        styles_grid = tk.Frame(style_frame, bg=self.bg_card)
+        styles_grid.pack(fill=tk.X)
+
+        self.login_style_var = tk.StringVar(value=database.get_user_login_style("QUANT_OPERATOR"))
+
+        STYLES = [
+            ("MATRIX_NEON", "Matrix Neon Green", "#00ffcc", "#05090e", ["#00ff66", "#00ffcc", "#ffaa00"]),
+            ("CYBERPUNK_NEON", "Cyberpunk Hot Pink", "#ff007f", "#140029", ["#ff007f", "#e11d48", "#a855f7"]),
+            ("GOLD_SOVEREIGN", "Sovereign Gold", "#fbbf24", "#1a1400", ["#fbbf24", "#f59e0b", "#00ffcc"]),
+            ("DARK_OBSIDIAN", "Dark Obsidian Blue", "#38bdf8", "#0a0e17", ["#38bdf8", "#0284c7", "#f43f5e"]),
+        ]
+
+        for idx, (style_id, name, border_col, bg_col, dots) in enumerate(STYLES):
+            col_frame = tk.Frame(styles_grid, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground=border_col, padx=10, pady=10)
+            col_frame.grid(row=0, column=idx, padx=5, pady=5, sticky="nsew")
+            styles_grid.columnconfigure(idx, weight=1)
+
+            # Thumbnail Canvas Preview
+            thumb_canvas = tk.Canvas(col_frame, bg=bg_col, width=160, height=90, highlightthickness=1, highlightbackground=border_col)
+            thumb_canvas.pack(pady=(0, 8))
+
+            # Render Mini Matrix Rain / Particles on Thumbnail Canvas
+            for x_i in range(15, 150, 20):
+                for y_i in range(15, 80, 25):
+                    thumb_canvas.create_text(x_i, y_i, text=random.choice(["0", "1", "Ξ", "Ω"]), fill=random.choice(dots), font=("Consolas", 8, "bold"))
+            thumb_canvas.create_rectangle(30, 25, 130, 65, fill="#000000", outline=border_col)
+            thumb_canvas.create_text(80, 45, text="LOGIN", fill=border_col, font=("Consolas", 7, "bold"))
+
+            # Radio button selection
+            rb = tk.Radiobutton(
+                col_frame,
+                text=name,
+                value=style_id,
+                variable=self.login_style_var,
+                font=("Consolas", 8, "bold"),
+                bg="#111111",
+                fg=border_col,
+                selectcolor="#1c1c1c",
+                activebackground="#111111",
+                activeforeground=border_col,
+                command=self._save_login_style_preference,
+            )
+            rb.pack()
+
         lbl_title = tk.Label(
             self.screen_frame,
             text="CRED: SECURITY PRIVILEGES & MFA CREDENTIALS CONTROLLER <GO>",
@@ -7590,6 +7671,11 @@ NLP Sentiment Bias Score:    {random.uniform(0.6, 0.95):.4f} (CONVERGENT BULLISH
         )
         self.cred_text.pack(fill=tk.BOTH, expand=True)
         self._update_cred_screen_data()
+
+    def _save_login_style_preference(self):
+        selected = self.login_style_var.get()
+        database.update_user("QUANT_OPERATOR", login_style=selected)
+        messagebox.showinfo("Style Updated", f"Designer Login Panel Style updated to: {selected}\nChanges will apply on next operator authentication.")
 
     def _update_cred_screen_data(self):
         if not hasattr(self, "cred_text") or not self.cred_text:

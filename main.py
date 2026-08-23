@@ -725,34 +725,36 @@ class AutonomousScalper:
         )  # Optimized for Performance hybrid cores (12 logical threads)
         parallel_success = False
 
-        try:
-            # Use 'spawn' context to prevent multi-threaded fork deprecation warnings
-            ctx = mp.get_context("spawn")
-            with concurrent.futures.ProcessPoolExecutor(
-                max_workers=pool_workers, mp_context=ctx
-            ) as executor:
-                future_to_symbol = {
-                    executor.submit(
-                        self.evaluate_symbol_worker,
-                        symbol,
-                        list(active_positions),
-                        current_equity,
-                        trading_available,
-                    ): symbol
-                    for symbol in active_symbols
-                }
-                for future in concurrent.futures.as_completed(future_to_symbol):
-                    symbol = future_to_symbol[future]
-                    res = future.result()
-                    scans_list.append(res)
-                    if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
-                        pending_orders.append(
-                            (res["symbol"], res["decision"], res["analysis"])
-                        )
-                parallel_success = True
-        except Exception:
-            # Fall back gracefully to thread-pool under GIL-restricted sandboxes
-            pass
+        # Spawn ProcessPoolExecutor only if running in the MainProcess to prevent nested process pool deadlocks
+        if mp.current_process().name == "MainProcess":
+            try:
+                # Use 'spawn' context to prevent multi-threaded fork deprecation warnings
+                ctx = mp.get_context("spawn")
+                with concurrent.futures.ProcessPoolExecutor(
+                    max_workers=pool_workers, mp_context=ctx
+                ) as executor:
+                    future_to_symbol = {
+                        executor.submit(
+                            self.evaluate_symbol_worker,
+                            symbol,
+                            list(active_positions),
+                            current_equity,
+                            trading_available,
+                        ): symbol
+                        for symbol in active_symbols
+                    }
+                    for future in concurrent.futures.as_completed(future_to_symbol):
+                        symbol = future_to_symbol[future]
+                        res = future.result()
+                        scans_list.append(res)
+                        if res["decision"] in ["BUY", "SELL"] and res["analysis"]:
+                            pending_orders.append(
+                                (res["symbol"], res["decision"], res["analysis"])
+                            )
+                    parallel_success = True
+            except Exception:
+                # Fall back gracefully to thread-pool under GIL-restricted sandboxes
+                pass
 
         if not parallel_success:
             scans_list = []
