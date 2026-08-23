@@ -19,7 +19,6 @@ import time
 import database
 
 
-
 class BrainAgentContext:
     """Shared communication container passed across Brain AI Agents."""
 
@@ -295,7 +294,7 @@ class RiskAssessmentBrainAgent:
         equity = acc.get("equity", 10000.0)
         start_bal = (
             scalper_instance.daily_start_balance
-            if scalper_instance.daily_start_balance > 0
+            if getattr(scalper_instance, "daily_start_balance", 0.0) > 0
             else acc.get("balance", 10000.0)
         )
         drawdown_pct = (
@@ -353,12 +352,10 @@ class AgenticBrainsOrchestrator:
     """
 
     def __init__(self):
-        # Core Brain Agents
         self.research_agent = ResearchBrainAgent()
         self.analyst_agent = AnalystBrainAgent()
         self.prediction_agent = PredictionBrainAgent()
 
-        # Method Brain Agents
         self.method_agents = [
             ScalpingMethodAgent(),
             DayTradingMethodAgent(),
@@ -366,7 +363,6 @@ class AgenticBrainsOrchestrator:
             PositionTradingMethodAgent(),
         ]
 
-        # Strategy Brain Agents
         self.strategy_agents = [
             TrendFollowingStrategyAgent(),
             MeanReversionStrategyAgent(),
@@ -380,7 +376,6 @@ class AgenticBrainsOrchestrator:
             MtfConfluenceStrategyAgent(),
         ]
 
-        # Mechanism Brain Agents
         self.risk_assessment_agent = RiskAssessmentBrainAgent()
         self.lot_management_agent = LotManagementBrainAgent()
 
@@ -425,14 +420,12 @@ class AgenticBrainsOrchestrator:
         strategy_scores = {}
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            # Submit Method Agents in Parallel
             method_futures = {
                 executor.submit(
                     _eval_method_worker, agent, spread_pips, "MEDIUM"
                 ): agent
                 for agent in self.method_agents
             }
-            # Submit Strategy Agents in Parallel
             strategy_futures = {
                 executor.submit(
                     _eval_strategy_worker, agent, sentiment, accuracy
@@ -465,7 +458,6 @@ class AgenticBrainsOrchestrator:
         # 4. Master Orchestrator Directive Synthesis & Interventions
         directive = BrainOrchestratorDirective()
 
-        # Select optimal style and strategy
         best_method = (
             max(method_scores, key=method_scores.get) if method_scores else "SCALPING"
         )
@@ -486,7 +478,6 @@ class AgenticBrainsOrchestrator:
         directive.risk_ceiling_modifier = risk_res["risk_modifier"]
         directive.lot_multiplier = lot_res["lot_multiplier"]
 
-        # Apply Master Interventions
         interventions = []
         if risk_res["drawdown_pct"] >= 2.5:
             interventions.append(
