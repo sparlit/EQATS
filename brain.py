@@ -364,6 +364,16 @@ class ScalperBrain:
             else ("SELL" if smc_data["bias"] == "BEARISH" else "HOLD")
         )
 
+        # Order Flow & Microstructure Strategy
+        order_book_data = getattr(config, "CURRENT_ORDER_BOOK", None)
+        of_metrics = indicators.calculate_order_flow_metrics(history_bars, order_book=order_book_data)
+        sig_of = "HOLD"
+        if not of_metrics["is_toxic_flow"]:
+            if of_metrics["dominant_side"] == "BUY_DOMINANT" or of_metrics["expected_direction"] == "UPWARD_PRESSURE":
+                sig_of = "BUY"
+            elif of_metrics["dominant_side"] == "SELL_DOMINANT" or of_metrics["expected_direction"] == "DOWNWARD_PRESSURE":
+                sig_of = "SELL"
+
         strategy_mode = getattr(config, "ACTIVE_STRATEGY", "VOTING_ENSEMBLE")
         decision = "HOLD"
         explanation = ""
@@ -403,6 +413,9 @@ class ScalperBrain:
         elif strategy_mode == "SMC_ICT":
             decision = sig_smc
             explanation = f"SMC/ICT Structure: {decision} | Confluence: {smc_data['confluence_score']}%"
+        elif strategy_mode == "ORDER_FLOW":
+            decision = sig_of
+            explanation = f"Order Flow Microstructure: {decision} | VPIN: {of_metrics['vpin']}"
         else:  # VOTING_ENSEMBLE
             sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
 
@@ -416,19 +429,20 @@ class ScalperBrain:
             vs_val = sig_to_val(sig_vs)
             mtf_val = sig_to_val(sig_mtf)
             smc_val = sig_to_val(sig_smc)
+            of_val = sig_to_val(sig_of)
 
             # Regime-dependent strategy weighting
             if reg_state == "TRENDING":
-                tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w = (
-                    3.0, 0.0, 1.5, 2.5, 0.5, 0.0, 1.5, 1.5, 2.0, 2.0
+                tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w, of_w = (
+                    3.0, 0.0, 1.5, 2.5, 0.5, 0.0, 1.5, 1.5, 2.0, 2.0, 2.0
                 )
             else:  # RANGING
-                tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w = (
-                    0.0, 3.0, 1.0, 0.0, 0.5, 2.5, 0.5, 2.0, 1.0, 2.0
+                tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w, of_w = (
+                    0.0, 3.0, 1.0, 0.0, 0.5, 2.5, 0.5, 2.0, 1.0, 2.0, 2.5
                 )
 
             total_weight = (
-                tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w
+                tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w + of_w
             )
             weighted_score = (
                 (tf_val * tf_w)
@@ -441,6 +455,7 @@ class ScalperBrain:
                 + (vs_val * vs_w)
                 + (mtf_val * mtf_w)
                 + (smc_val * smc_w)
+                + (of_val * of_w)
             )
 
             normalized_score = (
