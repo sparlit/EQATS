@@ -16,7 +16,7 @@ def _get_symbol_pip_specs(symbol, current_price):
         return {"pip_size": 0.1, "pip_value_per_lot": 10.0}
     elif "XAG" in sym_upper or "SILVER" in sym_upper:
         return {"pip_size": 0.01, "pip_value_per_lot": 50.0}
-    elif any(c in sym_upper for c in ["BTC", "ETH", "SOL", "XRP", "CRYPTO"]):
+    elif any(c in sym_upper for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "CRYPTO"]):
         return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
     elif any(idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]):
         return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
@@ -27,6 +27,21 @@ def _get_symbol_pip_specs(symbol, current_price):
         return {"pip_size": 0.0001, "pip_value_per_lot": 10.0}
 
 
+def _get_symbol_min_lot(symbol):
+    """
+    Returns default minimum lot size per asset class to prevent broker [Invalid volume] rejections.
+    """
+    sym_upper = symbol.upper()
+    if "XRP" in sym_upper:
+        return 1.0
+    elif "LTC" in sym_upper or "SOL" in sym_upper:
+        return 0.1
+    elif any(idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500"]):
+        return 0.1
+    else:
+        return 0.01
+
+
 class ScalperBrain:
     """
     The master decision engine. Analyzes historical price bar data,
@@ -35,7 +50,7 @@ class ScalperBrain:
     """
 
     def __init__(self):
-        self.version = "3.2.0"
+        self.version = "3.2.1"
 
     def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """
@@ -572,13 +587,15 @@ class ScalperBrain:
         """
         Calculates dynamic position size using Fractional Kelly / ATR Volatility Sizing.
         Dynamic pip calculations accurately adapt across Forex, Metals, Crypto, and Equity Indices.
-        Enforces 0.01 fixed lots when FIXED_LOT_SIZE_ONLY is True (default).
+        Enforces asset-class minimum lot floors (e.g. 0.1 for LTC, 1.0 for XRP) to prevent broker rejection.
         """
+        min_lot = _get_symbol_min_lot(symbol)
+
         if getattr(config, "FIXED_LOT_SIZE_ONLY", True):
-            return 0.01
+            return min_lot
 
         if equity <= 0 or sl_distance <= 0:
-            return 0.01
+            return min_lot
 
         try:
             risk_pct = getattr(config, "RISK_PER_TRADE_PERCENT", 1.0) / 100.0
@@ -597,7 +614,7 @@ class ScalperBrain:
             kelly_lots = raw_lots * 0.25
 
             max_lot = getattr(config, "MAX_LOT_SIZE", 5.0)
-            lot_size = max(0.01, min(max_lot, round(kelly_lots, 2)))
+            lot_size = max(min_lot, min(max_lot, round(kelly_lots, 2)))
             return lot_size
         except Exception:
-            return 0.01
+            return min_lot

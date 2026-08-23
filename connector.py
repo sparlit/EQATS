@@ -1,6 +1,8 @@
 import abc
 import concurrent.futures
 import logging
+import math
+import random
 import threading
 
 import config
@@ -241,9 +243,7 @@ class MT5Connector(TradingConnector):
                 "Failed to retrieve MT5 account details. Is MT5 logged in?"
             )
 
-        # Check for Demo restriction if specified
         if self.demo_only:
-            # trade_mode 0 = Demo, 1 = Contest, 2 = Real
             if account_info.trade_mode == 2:
                 self.mt5.shutdown()
                 raise PermissionError(
@@ -276,7 +276,6 @@ class MT5Connector(TradingConnector):
                 _log.warning("MT5 shutdown error: %s", e)
             print("MT5 Connection closed.")
 
-        # Terminate MT5 process tree on application exit / disconnect
         try:
             import os
             import subprocess
@@ -338,11 +337,9 @@ class MT5Connector(TradingConnector):
                 {"open": 1.1000, "high": 1.1010, "low": 1.0990, "close": 1.1000}
                 for _ in range(count)
             ]
-        # We fetch M1 copy_rates
         import MetaTrader5 as mt5
 
         timeframe = mt5.TIMEFRAME_M1
-        # copy_rates_from_pos gets bars starting from position 0 (the current candle) backwards
         rates = self.mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
         if rates is None or len(rates) == 0:
             return []
@@ -377,7 +374,6 @@ class MT5Connector(TradingConnector):
             return {"bid": base_p, "ask": base_p + 0.0002}
         tick = self.mt5.symbol_info_tick(symbol)
         if tick is None:
-            # Fallback
             rates = self.mt5.copy_rates_from_pos(symbol, self.mt5.TIMEFRAME_M1, 0, 1)
             if rates is not None and len(rates) > 0:
                 return {"bid": rates[0]["close"], "ask": rates[0]["close"]}
@@ -399,10 +395,26 @@ class MT5Connector(TradingConnector):
         action = mt5.TRADE_ACTION_DEAL
         type_mt5 = mt5.ORDER_TYPE_BUY if order_type == "BUY" else mt5.ORDER_TYPE_SELL
 
+        # Query live broker volume constraints to avoid [Invalid volume] errors
+        info = self.mt5.symbol_info(symbol)
+        if info is not None:
+            vol_min = getattr(info, "volume_min", 0.01) or 0.01
+            vol_max = getattr(info, "volume_max", 500.0) or 500.0
+            vol_step = getattr(info, "volume_step", 0.01) or 0.01
+        else:
+            vol_min, vol_max, vol_step = 0.01, 500.0, 0.01
+
+        volume = float(lot_size)
+        if vol_step > 0:
+            steps = math.floor((volume - vol_min) / vol_step + 1e-9) if volume >= vol_min else 0
+            volume = vol_min + (steps * vol_step)
+
+        volume = max(vol_min, min(vol_max, round(volume, 4)))
+
         request = {
             "action": action,
             "symbol": symbol,
-            "volume": float(lot_size),
+            "volume": float(volume),
             "type": type_mt5,
             "price": float(price),
             "sl": float(sl),
@@ -467,7 +479,6 @@ class MT5Connector(TradingConnector):
         lot_size = target_order["lot_size"]
         direction = target_order["direction"]
 
-        # To close, we execute an opposite order
         close_type = mt5.ORDER_TYPE_SELL if direction == "BUY" else mt5.ORDER_TYPE_BUY
         price_info = self.get_current_price(symbol)
         price = price_info["bid"] if direction == "BUY" else price_info["ask"]
@@ -503,8 +514,6 @@ class MT5Connector(TradingConnector):
                 "error": f"Close request failed. Code: {result.retcode}",
             }
 
-        # Estimate profit (approximate, since broker calculates true value in account currency)
-        # For simplicity, we get standard profit from MT5 deal details later, or calculate it directly.
         profit_est = (result.price - target_order["open_price"]) * lot_size * 100000.0
         if direction == "SELL":
             profit_est = -profit_est
@@ -521,7 +530,6 @@ class MT5Connector(TradingConnector):
             return False
         import MetaTrader5 as mt5
 
-        # Fetch position info to get the symbol
         positions = self.mt5.positions_get(ticket=int(ticket))
         if not positions or len(positions) == 0:
             return False
@@ -537,24 +545,21 @@ class MT5Connector(TradingConnector):
         price_info = self.get_current_price(symbol)
         curr_price = price_info["bid"] if direction == "BUY" else price_info["ask"]
 
-        # Enforce minimum stop distance (add small 5 point safety buffer to be completely safe)
         min_distance = (stops_level + 5) * point
 
-        # Adjust SL
         if sl > 0:
             if direction == "BUY":
                 if sl > curr_price - min_distance:
                     sl = curr_price - min_distance
-            else:  # SELL
+            else:
                 if sl < curr_price + min_distance:
                     sl = curr_price + min_distance
 
-        # Adjust TP
         if tp > 0:
             if direction == "BUY":
                 if tp < curr_price + min_distance:
                     tp = curr_price + min_distance
-            else:  # SELL
+            else:
                 if tp > curr_price - min_distance:
                     tp = curr_price - min_distance
 
@@ -580,7 +585,6 @@ class MT5Connector(TradingConnector):
 
         orders_list = []
         for pos in positions:
-            # Filter positions by magic number autonomously
             if getattr(pos, "magic", 0) == 998822:
                 direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
                 orders_list.append(
@@ -597,10 +601,6 @@ class MT5Connector(TradingConnector):
         return orders_list
 
     def draw_dashboard(self, symbol, data):
-        """
-        Draws dynamic status info. Note: Drawing direct GUI graphical objects is not supported
-        by the official MetaTrader5 Python library, so we log all responsive statistics cleanly.
-        """
         if data:
             bal = data.get("balance", 0.0)
             eq = data.get("equity", 0.0)
@@ -628,10 +628,8 @@ class SimulatorConnector(TradingConnector):
         self.lock = threading.Lock()
         self.connected_status = True
 
-        # Keep internal simulated historical data for symbols
         self.historical_prices = {}
-        # Prepopulate history for key symbols
-        for sym in ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD", "ETHUSD"]:
+        for sym in ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD", "ETHUSD", "LTCUSD", "XRPUSD"]:
             self._generate_initial_history(sym)
 
     def connect(self):
@@ -646,7 +644,6 @@ class SimulatorConnector(TradingConnector):
 
     def get_account_info(self):
         with self.lock:
-            # Recalculate equity based on current floating profits
             floating_profit = 0.0
             for ticket, trade in self.open_trades.items():
                 prices = self.get_current_price(trade["symbol"])
@@ -679,8 +676,7 @@ class SimulatorConnector(TradingConnector):
         if len(bars) == 0:
             return {"bid": 1.0, "ask": 1.0}
         last_price = bars[0]["close"]
-        # Simulated small bid/ask spread
-        spread = last_price * 0.0001  # 0.01% spread
+        spread = last_price * 0.0001
         return {
             "bid": round(last_price - spread / 2.0, 5),
             "ask": round(last_price + spread / 2.0, 5),
@@ -753,7 +749,6 @@ class SimulatorConnector(TradingConnector):
             return list(self.open_trades.values())
 
     def draw_dashboard(self, symbol, data):
-        # Simulator does not have a physical UI chart; telemetry logged via dashboard/GUI.
         if data:
             eq = data.get("equity", 0.0)
             status = data.get("status", "OK")
@@ -761,22 +756,24 @@ class SimulatorConnector(TradingConnector):
                 f"🎮 [SIM DASHBOARD] {symbol} | Status: {status} | Equity: ${eq:,.2f}"
             )
 
-    # --- SIMULATOR UTILITIES ---
     def tick(self):
-        """
-        Advances the market clock and evaluates active stop-loss (SL) / take-profit (TP) conditions against live or cached ticks.
-        """
         closed_tickets = []
-        for symbol in list(self.historical_prices.keys()):
+        for symbol in self.historical_prices:
             last_bars = self.historical_prices[symbol]
             if not last_bars:
                 continue
             last_close = last_bars[-1]["close"]
-            # Append deterministic bar transition without random walk
+
+            ret = random.normalvariate(0.0001, 0.002)
+            new_close = last_close * (1 + ret)
             new_open = last_close
-            new_close = last_close
-            new_high = last_close
-            new_low = last_close
+
+            new_high = max(new_open, new_close) * (
+                1 + abs(random.normalvariate(0.0, 0.001))
+            )
+            new_low = min(new_open, new_close) * (
+                1 - abs(random.normalvariate(0.0, 0.001))
+            )
 
             last_bars.append(
                 {
@@ -790,7 +787,6 @@ class SimulatorConnector(TradingConnector):
                 self.historical_prices[symbol] = last_bars[-300:]
 
         with self.lock:
-            # Evaluate if SL or TP are hit
             for ticket, trade in list(self.open_trades.items()):
                 symbol = trade["symbol"]
                 last_bar = self.historical_prices[symbol][-1]
@@ -800,7 +796,6 @@ class SimulatorConnector(TradingConnector):
                 sl = trade["sl"]
                 tp = trade["tp"]
 
-                # Check if BOTH SL and TP are hit in the same high-volatility range
                 both_hit = False
                 if direction == "BUY":
                     if low <= sl and high >= tp:
@@ -810,49 +805,37 @@ class SimulatorConnector(TradingConnector):
                         both_hit = True
 
                 if both_hit:
-                    # Resolve double-hit ambiguity using the candle direction as a heuristic
                     is_green = last_bar["close"] >= last_bar["open"]
                     if direction == "BUY":
                         if is_green:
-                            # Assume price went up first to hit TP
                             self._process_hit(ticket, tp, "TP")
                         else:
-                            # Assume price went down first to hit SL (conservative)
                             self._process_hit(ticket, sl, "SL")
-                    else:  # SELL
+                    else:
                         if not is_green:
-                            # Assume price went down first to hit TP
                             self._process_hit(ticket, tp, "TP")
                         else:
-                            # Assume price went up first to hit SL (conservative)
                             self._process_hit(ticket, sl, "SL")
                     closed_tickets.append(ticket)
                 else:
-                    # Check Buy order
                     if direction == "BUY":
                         if low <= sl:
-                            # SL hit
                             self._process_hit(ticket, sl, "SL")
                             closed_tickets.append(ticket)
                         elif high >= tp:
-                            # TP hit
                             self._process_hit(ticket, tp, "TP")
                             closed_tickets.append(ticket)
-                    # Check Sell order
                     elif direction == "SELL":
                         if high >= sl:
-                            # SL hit
                             self._process_hit(ticket, sl, "SL")
                             closed_tickets.append(ticket)
                         elif low <= tp:
-                            # TP hit
                             self._process_hit(ticket, tp, "TP")
                             closed_tickets.append(ticket)
 
         return closed_tickets
 
     def _process_hit(self, ticket, hit_price, reason):
-        # Assumed inside a 'with self.lock' lock context
         trade = self.open_trades.pop(ticket)
         p_diff = hit_price - trade["open_price"]
         if trade["direction"] == "SELL":
@@ -864,7 +847,6 @@ class SimulatorConnector(TradingConnector):
         self.balance += profit
         self.equity = self.balance
 
-        # Log closed trade in DB
         import database
 
         database.log_trade_close(ticket, hit_price, profit, reason)
@@ -873,7 +855,6 @@ class SimulatorConnector(TradingConnector):
         )
 
     def _generate_initial_history(self, symbol):
-        # Generate 250 bars of realistic starting prices
         base_prices = {
             "EURUSD": 1.0950,
             "GBPUSD": 1.2720,
@@ -911,6 +892,15 @@ class SimulatorConnector(TradingConnector):
         price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
         for _ in range(250):
+            ret = random.normalvariate(0.00005, 0.0015)
+            new_close = price * (1 + ret)
+            new_open = price
+            high = max(new_open, new_close) * (
+                1 + abs(random.normalvariate(0.0, 0.0005))
+            )
+            low = min(new_open, new_close) * (
+                1 - abs(random.normalvariate(0.0, 0.0005))
+            )
             bars.append(
                 {
                     "open": round(price, 5),
@@ -930,6 +920,6 @@ class SimulatorConnector(TradingConnector):
         elif any(c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]):
             return 1.0
         elif "JPY" in symbol_upper:
-            return 1000.0  # Standard USDJPY contract is 100,000, scaled down JPY quote
+            return 1000.0
         else:
-            return 100000.0  # Forex default
+            return 100000.0
