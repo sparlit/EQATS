@@ -26,5 +26,5 @@ The Elite Autonomous Quantum Trading System (EAQTS v5.0) is built as a highly mo
 - Managed SQLite persistence with WAL mode (`PRAGMA journal_mode=WAL;`), busy timeouts, auto-checkpoints, and exponential backoff retry logic (`_execute_with_retry`).
 
 ### 6. Terminal User Interface (`gui.py`)
-- Professional Bloomberg-style desktop application featuring 33+ specialized terminal sheets (`MAIN`, `DOM`, `SESS`, `CHART`, `BACKTEST`, `PORT`, `RISK`, etc.).
+- Professional Institutional-style desktop application featuring 33+ specialized terminal sheets (`MAIN`, `DOM`, `SESS`, `CHART`, `BACKTEST`, `PORT`, `RISK`, etc.).
 - Multi-monitor detachable floating panels (`tk.Toplevel`).

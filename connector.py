@@ -760,6 +760,8 @@ class SimulatorConnector(TradingConnector):
         closed_tickets = []
         for symbol in self.historical_prices:
             last_bars = self.historical_prices[symbol]
+            if not last_bars:
+                continue
             last_close = last_bars[-1]["close"]
 
             ret = random.normalvariate(0.0001, 0.002)
@@ -901,13 +903,12 @@ class SimulatorConnector(TradingConnector):
             )
             bars.append(
                 {
-                    "open": round(new_open, 5),
-                    "high": round(high, 5),
-                    "low": round(low, 5),
-                    "close": round(new_close, 5),
+                    "open": round(price, 5),
+                    "high": round(price, 5),
+                    "low": round(price, 5),
+                    "close": round(price, 5),
                 }
             )
-            price = new_close
         self.historical_prices[symbol] = bars
 
     def _get_contract_multiplier(self, symbol):

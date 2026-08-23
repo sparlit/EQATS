@@ -17,7 +17,7 @@ The `gui.py` desktop GUI is the primary operational command terminal for the **E
 | $10,000.00   | $10,000.00  | 0 / 10     | London FX  | WR: 62%   | +$250.00   |
 +-------------------------------------------------------------------------------+
 | [ Central Switchable Display Sheet Frame ]                                    |
-| (MAIN, GP, WEI, NEWS, ANR, PORT, MCTS, VDS, CHART, SESS, MKT, WATCH, etc.)    |
+| (MAIN, GP, WEI, NEWS, ANL, PORT, MCTS, VDS, CHART, SESS, MKT, WATCH, etc.)    |
 +-------------------------------------------------------------------------------+
 | [ REAL-TIME SYSTEM DIAGNOSTICS & TELEMETRY STREAM CONSOLE ]                   |
 +-------------------------------------------------------------------------------+
@@ -36,12 +36,12 @@ Operators navigate the terminal by typing command codes into the `EAQTS >` input
 | **F2** | `MAIN <GO>` | Scans Matrix & Active Running Positions Terminal |
 | **F3** | `GP <GO>` | Graphical Price Chart & Quote Intelligence Card |
 | **F4** | `WEI <GO>` | World Exchange & Equity Indices Tracking Board (DXY, SPX, BTC) |
-| **F5** | `NEWS <GO>` | Live Bloomberg Macro Headlines & NLP Sentiment Scores |
-| **F6** | `ANR <GO>` | Consensus Analyst Recommendations & Neural Network MLP State |
+| **F5** | `NEWS <GO>` | Live Global Macro Headlines & NLP Sentiment Scores |
+| **F6** | `ANL <GO>` | Consensus Analyst Recommendations & Neural Network MLP State |
 | **F7** | `PORT <GO>` | Markowitz Portfolio Allocator & Mean-Variance Sharpe Solver |
 | **F8** | `MCTS <GO>` | Monte Carlo Risk Engine (95% VaR & Expected Shortfall) |
 | **F9** | `VDS <GO>` | Vector Database Hidden Layer Activations & L2 Search |
-| **F10** | `CHART <GO>` | TradingView-style Candlestick Chart & Performance Curve |
+| **F10** | `CHART <GO>` | Interactive Candlestick Chart & Performance Curve |
 | **F11** | `SESS <GO>` | Multi-Session World Timelines & Overlap Detectors |
 | **F1** | `HELP <GO>` | Operational Manual & Full Terminal Directory |
 
