@@ -68,7 +68,7 @@ This document provides a highly-detailed, state-of-the-art visual flowchart and 
                  ┌─────────────────────────┼─────────────────────────┐
                  ▼                         ▼                         ▼
 ┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐
-│   BLOOMBERG TERMINAL     │ │     NATIVE MT5 CHART     │ │   AUTO-REFRESH WEB APP   │
+│   QUANTUM TERMINAL     │ │     NATIVE MT5 CHART     │ │   AUTO-REFRESH WEB APP   │
 │     DESKTOP CLIENT       │ │     HUD DASHBOARD        │ │  WebSocket Telemetry Stream │
 │  • MAIN <GO>: Scans      │ │  • Native Experts EA     │ │  • Dynamic CSS Grid      │
 │  • GP <GO>: Price plot   │ │  • Reads FILE_COMMON     │ │  • Auto-updates          │

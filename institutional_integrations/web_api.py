@@ -41,7 +41,12 @@ class SocketIPCBridge:
             while self.running:
                 try:
                     conn, addr = self.server_socket.accept()
-                    payload = json.dumps(self.latest_state) + "\n"
+                    if isinstance(self.latest_state, str):
+                        payload = self.latest_state
+                    elif isinstance(self.latest_state, dict) and "pipe_text" in self.latest_state:
+                        payload = self.latest_state["pipe_text"]
+                    else:
+                        payload = json.dumps(self.latest_state) + "\n"
                     conn.sendall(payload.encode("utf-8"))
                     conn.close()
                 except socket.timeout:
@@ -51,18 +56,69 @@ class SocketIPCBridge:
         except Exception as e:
             print(f"Diagnostics: Socket IPC server failed to bind: {e}")
 
-    def push_state(self, equity, balance, active_positions, scans, session_info):
+    def format_pipe_state(self, equity, balance, active_positions, scans, session_info):
+        """Formats account and scan telemetry as pipe-delimited string for MT5 EA parser."""
+        if isinstance(session_info, dict):
+            active_session = session_info.get("active", "Active Session")
+            overlaps = session_info.get("overlaps", "None")
+            next_session = session_info.get("next", "Tokyo")
+            countdown = session_info.get("countdown", "00:00:00")
+        else:
+            active_session = str(session_info)
+            overlaps = "None"
+            next_session = "Tokyo"
+            countdown = "00:00:00"
+
+        header_line = f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{overlaps}|{next_session}|{countdown}"
+        lines = [header_line]
+
+        for pos in active_positions:
+            if isinstance(pos, dict):
+                t = pos.get("ticket", "0")
+                sym = pos.get("symbol", "UNKNOWN")
+                direction = pos.get("direction", "BUY")
+                open_p = pos.get("open_price", "0.0")
+                sl = pos.get("sl", "0.0")
+                tp = pos.get("tp", "0.0")
+                profit = pos.get("profit", "0.0")
+                lines.append(f"TRADE|{t}|{sym}|{direction}|{open_p}|{sl}|{tp}|{profit}")
+
+        lines.append("SCANS_HEADER")
+        for s in scans:
+            if isinstance(s, dict):
+                sym = s.get("symbol", "")
+                price = s.get("price", "0.0")
+                ema = s.get("ema200", "0.0")
+                trend = s.get("trend", "NEUTRAL")
+                rsi = s.get("rsi", "50.0")
+                atr = s.get("atr", "0.0")
+                status = s.get("status", "Hold")
+                w_ih = s.get("avg_w_ih", "0.0")
+                w_ho = s.get("avg_w_ho", "0.0")
+                bias = s.get("bias_out", "0.0")
+                act = s.get("hidden_act", "0,0,0,0,0")
+                lines.append(f"{sym}|{price}|{ema}|{trend}|{rsi}|{atr}|{status}|{w_ih}|{w_ho}|{bias}|{act}")
+
+        return "\n".join(lines) + "\n"
+
+    def push_state(self, equity, balance, active_positions, scans, session_info, raw_text=None):
         """Pushes current state payload in real-time to connected IPC listeners."""
-        self.latest_state = {
-            "timestamp": time.time(),
-            "equity": round(equity, 2),
-            "balance": round(balance, 2),
-            "active_positions_count": len(active_positions),
-            "active_positions": active_positions,
-            "session": session_info,
-            "scans": scans,
-        }
-        return {"status": "PUSHED", "payload_size": len(self.latest_state)}
+        if raw_text is not None:
+            self.latest_state = raw_text
+        else:
+            pipe_text = self.format_pipe_state(equity, balance, active_positions, scans, session_info)
+            self.latest_state = {
+                "timestamp": time.time(),
+                "equity": round(equity, 2),
+                "balance": round(balance, 2),
+                "active_positions_count": len(active_positions),
+                "active_positions": active_positions,
+                "session": session_info,
+                "scans": scans,
+                "pipe_text": pipe_text,
+            }
+        payload_size = len(self.latest_state) if isinstance(self.latest_state, str) else len(json.dumps(self.latest_state))
+        return {"status": "PUSHED", "payload_size": payload_size}
 
     def stop_server(self):
         self.running = False
