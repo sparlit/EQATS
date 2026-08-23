@@ -16,7 +16,7 @@ def _get_symbol_pip_specs(symbol, current_price):
         return {"pip_size": 0.1, "pip_value_per_lot": 10.0}
     elif "XAG" in sym_upper or "SILVER" in sym_upper:
         return {"pip_size": 0.01, "pip_value_per_lot": 50.0}
-    elif any(c in sym_upper for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "CRYPTO"]):
+    elif any(c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]):
         return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
     elif any(idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]):
         return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
@@ -583,6 +583,20 @@ class ScalperBrain:
             },
         }
 
+    def normalize_volume(self, symbol, volume, min_vol=0.01, max_vol=100.0, step_vol=0.01):
+        """Normalizes lot size according to minimum volume, maximum volume, and volume step."""
+        if volume <= 0:
+            return min_vol
+        norm_vol = max(min_vol, min(max_vol, float(volume)))
+        if step_vol > 0:
+            steps = round((norm_vol - min_vol) / step_vol)
+            calc_vol = min_vol + steps * step_vol
+            step_str = f"{step_vol:.8f}".rstrip("0")
+            precision = len(step_str.split(".")[1]) if "." in step_str else 0
+            norm_vol = round(calc_vol, precision)
+            norm_vol = max(min_vol, min(max_vol, norm_vol))
+        return norm_vol
+
     def _calculate_lot_size(self, symbol, equity, sl_distance, current_price=1.0):
         """
         Calculates dynamic position size using Fractional Kelly / ATR Volatility Sizing.
@@ -614,7 +628,7 @@ class ScalperBrain:
             kelly_lots = raw_lots * 0.25
 
             max_lot = getattr(config, "MAX_LOT_SIZE", 5.0)
-            lot_size = max(min_lot, min(max_lot, round(kelly_lots, 2)))
+            lot_size = self.normalize_volume(symbol, kelly_lots, min_vol=0.01, max_vol=max_lot, step_vol=0.01)
             return lot_size
         except Exception:
             return min_lot
