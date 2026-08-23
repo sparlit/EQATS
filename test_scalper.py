@@ -160,6 +160,21 @@ class TestScalperBrainAndConnector(unittest.TestCase):
         # Should be 'HOLD' since RSI on flat is 50
         self.assertEqual(res["decision"], "HOLD")
 
+    def test_order_flow_metrics_calculation(self):
+        history = [
+            {"open": 1.1000 + i * 0.0001, "high": 1.1005 + i * 0.0001, "low": 1.0995 + i * 0.0001, "close": 1.1004 + i * 0.0001}
+            for i in range(25)
+        ]
+        order_book = {
+            "bids": [(1.1020, 100.0), (1.1019, 150.0)],
+            "asks": [(1.1021, 20.0), (1.1022, 30.0)],
+        }
+        res = indicators.calculate_order_flow_metrics(history, order_book=order_book)
+        self.assertIn("vpin", res)
+        self.assertIn("dom_imbalance", res)
+        self.assertGreater(res["dom_imbalance"], 0.0)
+        self.assertEqual(res["dominant_side"], "BUY_DOMINANT")
+
 
 class TestAutonomousScalperIntegration(unittest.TestCase):
     def setUp(self):

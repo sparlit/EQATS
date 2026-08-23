@@ -149,9 +149,16 @@ def init_db():
         pin_hash TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',
         mfa_enabled INTEGER DEFAULT 1,
+        login_style TEXT DEFAULT 'MATRIX_NEON',
         created_at TEXT NOT NULL
     )
     """)
+
+    # Alter table if existing schema lacks login_style
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN login_style TEXT DEFAULT 'MATRIX_NEON'")
+    except sqlite3.OperationalError:
+        pass
 
     # Table for storing broker gateway connection details with encrypted secrets
     cursor.execute("""
@@ -401,8 +408,8 @@ def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
     _execute_with_retry(query, params)
 
 
-def update_user(username, new_password=None, new_pin=None, new_role=None, original_username=None):
-    """Updates username, password, PIN, or role for an existing user account with lock retries."""
+def update_user(username, new_password=None, new_pin=None, new_role=None, original_username=None, login_style=None):
+    """Updates username, password, PIN, role, or login_style for an existing user account with lock retries."""
     target_user = original_username if original_username else username
 
     if username and target_user and username.lower() != target_user.lower():
@@ -427,6 +434,26 @@ def update_user(username, new_password=None, new_pin=None, new_role=None, origin
             "UPDATE users SET role = ? WHERE LOWER(username) = LOWER(?)",
             (str(new_role).strip(), target_user),
         )
+    if login_style is not None and str(login_style).strip():
+        _execute_with_retry(
+            "UPDATE users SET login_style = ? WHERE LOWER(username) = LOWER(?)",
+            (str(login_style).strip(), target_user),
+        )
+
+
+def get_user_login_style(username="QUANT_OPERATOR"):
+    """Retrieves the preferred login screen style for a user."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT login_style FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+        row = cursor.fetchone()
+        conn.close()
+        if row and row["login_style"]:
+            return row["login_style"]
+    except Exception:
+        pass
+    return "MATRIX_NEON"
 
 
 def delete_user(username):

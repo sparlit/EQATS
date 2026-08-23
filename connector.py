@@ -395,6 +395,35 @@ class MT5Connector(TradingConnector):
             }
         import MetaTrader5 as mt5
 
+        # Normalize volume according to symbol properties (volume_min, volume_max, volume_step)
+        info = self.mt5.symbol_info(symbol)
+        type_filling = mt5.ORDER_FILLING_IOC
+        if info:
+            vol_min = getattr(info, "volume_min", 0.01)
+            vol_max = getattr(info, "volume_max", 100.0)
+            vol_step = getattr(info, "volume_step", 0.01)
+            if vol_min > 0:
+                lot_size = max(vol_min, min(vol_max, float(lot_size)))
+                if vol_step > 0:
+                    steps = round((lot_size - vol_min) / vol_step)
+                    calc_lots = vol_min + steps * vol_step
+                    step_str = f"{vol_step:.8f}".rstrip("0")
+                    precision = len(step_str.split(".")[1]) if "." in step_str else 0
+                    lot_size = round(calc_lots, precision)
+                    lot_size = max(vol_min, min(vol_max, lot_size))
+
+            # Dynamically determine supported order filling mode from symbol bitmask
+            # SYMBOL_FILLING_FOK = 1, SYMBOL_FILLING_IOC = 2
+            modes = getattr(info, "filling_mode", 0)
+            symbol_fok = getattr(mt5, "SYMBOL_FILLING_FOK", 1)
+            symbol_ioc = getattr(mt5, "SYMBOL_FILLING_IOC", 2)
+            if modes & symbol_fok:
+                type_filling = mt5.ORDER_FILLING_FOK
+            elif modes & symbol_ioc:
+                type_filling = mt5.ORDER_FILLING_IOC
+            else:
+                type_filling = mt5.ORDER_FILLING_RETURN
+
         price_info = self.get_current_price(symbol)
         price = price_info["ask"] if order_type == "BUY" else price_info["bid"]
         action = mt5.TRADE_ACTION_DEAL
@@ -412,7 +441,7 @@ class MT5Connector(TradingConnector):
             "magic": 998822,
             "comment": "Scalper Brain Bot",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": type_filling,
         }
 
         result = self.mt5.order_send(request)
