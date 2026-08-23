@@ -131,7 +131,7 @@ TAB_THEMES = {
         "badge_fg": "#e0e7ff",
         "title": "⚙️ QUANTUM SYSTEM CONFIGURATION & SECURITY GATEWAY",
     },
-    "ANR": {
+    "ANL": {
         "primary": "#06b6d4",     # Cyan
         "secondary": "#10b981",   # Green
         "bg_card": "#081d24",     # Dark Cyan
@@ -196,7 +196,7 @@ class ScalperGui:
     - GP <GO>: Graphical Price Tracking line chart, spread metrics, high/low boundaries.
     - WEI <GO>: World Currency and Macro Indices tracking board (DXY, BTC, S&P 500).
     - NEWS <GO>: Live Macro Headlines Feed with real-time NLP Sentiment Scores.
-    - ANR <GO>: Analyst Recommendations & Neural Network predictive AI analytics.
+    - ANL <GO>: Analyst Recommendations & Neural Network predictive AI analytics.
     - HELP <GO>: Directory of available terminal codes, shortcuts, and risk configs.
     """
 
@@ -312,7 +312,7 @@ class ScalperGui:
         self.root.bind("<F4>", lambda e: self.switch_to_screen("GP"))
         self.root.bind("<F5>", lambda e: self.switch_to_screen("WEI"))
         self.root.bind("<F6>", lambda e: self.switch_to_screen("NEWS"))
-        self.root.bind("<F7>", lambda e: self.switch_to_screen("ANR"))
+        self.root.bind("<F7>", lambda e: self.switch_to_screen("ANL"))
         self.root.bind("<F8>", lambda e: self.switch_to_screen("PORT"))
         self.root.bind("<F9>", lambda e: self.switch_to_screen("MCTS"))
         self.root.bind("<F10>", lambda e: self.switch_to_screen("CHART"))
@@ -455,18 +455,18 @@ class ScalperGui:
             "MAIN",
             "AGENT",
             "AIC",
-            "ANR",
+            "ANL",
             "BACKTEST",
             "CFG",
             "CHART",
             "CRAWL",
             "CRED",
             "DEEP MARKET SENTIMENT",
-            "DES",
+            "DESC",
             "DOM",
             "ECO",
             "ECOSYSTEM",
-            "EMSX",
+            "EXEC",
             "FEAT",
             "FLOW",
             "GP",
@@ -497,7 +497,7 @@ class ScalperGui:
             "WATCH",
             "WEI",
             "WHALE",
-            "YAS",
+            "YIELD",
         ]
         self.tab_selector_menu = tk.OptionMenu(
             header_frame,
@@ -1666,8 +1666,8 @@ class ScalperGui:
             self._show_wei_screen()
         elif screen_code == "NEWS":
             self._show_news_screen()
-        elif screen_code == "ANR":
-            self._show_anr_screen()
+        elif screen_code == "ANL":
+            self._show_anl_screen()
         elif screen_code == "PORT":
             self._show_port_screen()
         elif screen_code == "MCTS":
@@ -1678,14 +1678,14 @@ class ScalperGui:
             self._show_performance_chart_screen()
         elif screen_code == "SESS":
             self._show_session_screen()
-        elif screen_code == "DES":
-            self._show_des_screen()
-        elif screen_code == "YAS":
-            self._show_yas_screen()
+        elif screen_code == "DESC":
+            self._show_desc_screen()
+        elif screen_code == "YIELD":
+            self._show_yield_screen()
         elif screen_code == "ECO":
             self._show_eco_screen()
-        elif screen_code == "EMSX":
-            self._show_emsx_screen()
+        elif screen_code == "EXEC":
+            self._show_exec_screen()
         elif screen_code == "SET":
             self._show_set_screen()
         elif screen_code in ["CFG", "CONFIG"]:
@@ -2035,7 +2035,7 @@ class ScalperGui:
         """NEWS <GO>: Live Macro Headlines Feed and Sentiments"""
         self._add_screen_header(
             "📰 NEWS: GLOBAL MACRO HEADLINES & NLP SENTIMENT FEED <GO>",
-            "REAL-TIME FINANCIAL HEADLINES PARSED VIA BERT & VADER NLP MOTORS",
+            "REAL-TIME FINANCIAL HEADLINES PARSED VIA NEURAL TRANSFORMER & LEXICON NLP MOTORS",
             "NEWS",
         )
 
@@ -2054,11 +2054,11 @@ class ScalperGui:
                 self.news_tree.column(col, anchor=tk.W, width=100)
         self.news_tree.pack(fill=tk.BOTH, expand=True)
 
-    def _show_anr_screen(self):
-        """ANR <GO>: Analyst Recommendations & Artificial Neural Network Metrics"""
+    def _show_anl_screen(self):
+        """ANL <GO>: Analyst Recommendations & Artificial Neural Network Metrics"""
         lbl_title = tk.Label(
             self.screen_frame,
-            text="ANR: COGNITIVE ANALYST RECOMMENDATIONS & AI BIAS <GO>",
+            text="ANL: COGNITIVE ANALYST RECOMMENDATIONS & AI BIAS <GO>",
             font=("Consolas", 11, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent,
@@ -2272,16 +2272,16 @@ class ScalperGui:
 - GP        : Graphical Price Chart (supports indicator lines and pivot S/R).
 - WEI       : World Exchange & Equity Indices tracking board (DXY, BTC, SPX).
 - NEWS      : Live macro headlines feed with real-time NLP sentiment scores.
-- ANR       : Consensus recommendations matrix, MLP neural model, & Local LLM.
+- ANL       : Consensus recommendations matrix, MLP neural model, & Local LLM.
 - PORT      : Markowitz Mean-Variance Portfolio Allocator & Sharpe Solver.
 - MCTS      : Monte Carlo risk analytics, 95% VaR & Expected Shortfall (ES).
-- VDS       : Vector Database cluster map & FAISS L2 nearest-neighbor search.
+- VDS       : Vector Database cluster map & Vector Index L2 nearest-neighbor search.
 - CHART     : Interactive Candlestick Chart & Performance trajectory curve.
 - SESS      : Multi-session world timelines, countdowns & overlap detectors.
-- DES       : Security Description, contract specifications & tick properties.
-- YAS       : Dynamic Yield metrics, duration, convexity & carry swap spreads.
+- DESC      : Security Description, contract specifications & tick properties.
+- YIELD     : Dynamic Yield metrics, duration, convexity & carry swap spreads.
 - ECO       : Global Economic Calendar releases tracking actuals and forecasts.
-- EMSX      : Algorithmic transaction routing engine (FIT, FXGO, Dark Pools).
+- EXEC      : Algorithmic transaction routing engine (FIT, FXGO, Dark Pools).
 - SET       : System settings, risk per trade, theme customization & notifications.
 - CFG       : Multi-Broker DB, User Credentials CRUD & Feature Toggles.
 - ING       : Real-time Data Ingestion telemetry (REST & WebSockets feeds).
@@ -2298,7 +2298,7 @@ class ScalperGui:
 - MKT       : Integrated Market Scanners, Movers & 13 Specialized Sub-Tabs.
 - SYM       : Broker specs, lot sizes, margins, and spreads limits.
 - AIC       : AI & LLM hyperparameter configurations & learning attention weights.
-- CRAWL     : Scraper feeds (DeFiLlama, TokenTerminal, DropsTab, ICOdrops).
+- CRAWL     : Scraper feeds (DeFi Metrics, Protocol Analytics, Market Cap Feeds).
 - CRED      : Security privileges, dynamic TOTP tokens & MFA controllers.
 - TRADEBOOK : Settled closed trade logs & Cognitive Trade Reflection protocol.
 - POLY      : Polygon Prediction Market Autonomous Neural Dashboard (Live 8-panel visualizer).
@@ -2312,7 +2312,7 @@ class ScalperGui:
 2) MARKET TAB (MKT <GO>) — 13 SPECIALIZED SUB-TABS:
 --------------------------------------------------------------------------------
 The Market screen includes 13 sub-tabs accessible via the 2-row navigation bar:
-  1. Messages      : Live exchange messages, B-Pipe heartbeats & FIT quote requests.
+  1. Messages      : Live exchange messages, Direct-Pipe heartbeats & Quote requests.
   2. Movers        : Highest price change movers, net changes & momentum vibes.
   3. Scanners      : Real-time ATR, RSI oversold/overbought & Bollinger Band scans.
   4. Fundamentals  : Corporate issuer details, market caps, yields & filing links.
@@ -3175,7 +3175,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         lbl_status.pack(anchor="w", padx=15, pady=10)
 
     def _show_vds_screen(self):
-        """VDS <GO>: Vector Database Node Cluster & FAISS Search"""
+        """VDS <GO>: Vector Database Node Cluster & Vector Index Search"""
         lbl_title = tk.Label(
             self.screen_frame,
             text="VDS: VECTOR DATABASE & NEURAL REPRESENTATIONS <GO>",
@@ -3187,7 +3187,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         lbl_info = tk.Label(
             self.screen_frame,
-            text="QUERIES FAISS AND CHROMADB VECTOR DATABASES TO RETRIEVE NEAREST NEIGHBOR COGNITIVE ACTS",
+            text="QUERIES VECTOR INDEX AND EMBEDDINGS DATABASES TO RETRIEVE NEAREST NEIGHBOR COGNITIVE ACTS",
             font=("Consolas", 8),
             bg=self.bg_dark,
             fg=self.fg_grey,
@@ -4362,11 +4362,11 @@ SIMD Vectorization:       128-bit AVX2 Enabled
             else "No upcoming sessions today"
         )
 
-    def _show_des_screen(self):
-        """DES <GO>: Security Description"""
+    def _show_desc_screen(self):
+        """DESC <GO>: Security Description"""
         lbl_title = tk.Label(
             self.screen_frame,
-            text="DES: SECURITY DESCRIPTION & CONTRACT SPECIFICATION <GO>",
+            text="DESC: SECURITY DESCRIPTION & CONTRACT SPECIFICATION <GO>",
             font=("Consolas", 9, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent,
@@ -4433,7 +4433,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         desc_data = f"""
 ================================================================================
-DES <GO>: {symbol} SECURITY DESCRIPTION
+DESC <GO>: {symbol} SECURITY DESCRIPTION
 ================================================================================
 Asset Identifier:      {symbol} Spot Contract
 Asset Sector:          Dynamic Quantitative Asset
@@ -4459,11 +4459,11 @@ Regime Classifier:     ADAPTIVE QUANTUM MULTI-STYLE RUNNING
 """
         self.des_text.insert(tk.END, desc_data)
 
-    def _show_yas_screen(self):
-        """YAS <GO>: Yield Analysis"""
+    def _show_yield_screen(self):
+        """YIELD <GO>: Yield Analysis"""
         lbl_title = tk.Label(
             self.screen_frame,
-            text="YAS: YIELD & CREDIT SPREAD ANALYTICS <GO>",
+            text="YIELD: YIELD & CREDIT SPREAD ANALYTICS <GO>",
             font=("Consolas", 9, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent,
@@ -4515,7 +4515,7 @@ Regime Classifier:     ADAPTIVE QUANTUM MULTI-STYLE RUNNING
 
         yas_data = f"""
 ================================================================================
-YAS <GO>: COGNITIVE ASSET YIELD & CARRY SPREAD ANALYTICS
+YIELD <GO>: COGNITIVE ASSET YIELD & CARRY SPREAD ANALYTICS
 ================================================================================
 Selected Asset:        {symbol} Spot Contract
 Calculation Date:      {datetime.date.today().isoformat()}
@@ -4640,11 +4640,11 @@ YIELD VOLATILITY REGIME MATRIX:
         self.eco_tree.tag_configure("green", foreground=self.fg_green)
         self.eco_tree.tag_configure("yellow", foreground=self.fg_accent)
 
-    def _show_emsx_screen(self):
-        """EMSX <GO>: Execution Management System"""
+    def _show_exec_screen(self):
+        """EXEC <GO>: Execution Management System"""
         lbl_title = tk.Label(
             self.screen_frame,
-            text="EMSX: EXECUTION MANAGEMENT SYSTEM <GO>",
+            text="EXEC: EXECUTION MANAGEMENT SYSTEM <GO>",
             font=("Consolas", 9, "bold"),
             bg=self.bg_dark,
             fg=self.fg_accent,
@@ -4685,7 +4685,7 @@ YIELD VOLATILITY REGIME MATRIX:
 
         emsx_data = f"""
 ================================================================================
-EMSX <GO>: ELITE ALGORITHMIC TRANSACTION ROUTING ENGINE
+EXEC <GO>: ELITE ALGORITHMIC TRANSACTION ROUTING ENGINE
 ================================================================================
 Broker Interface State: {conn_state} (Thread-Safe Execution Locks Active)
 Execution Layer Class:  {sim_mode}
@@ -5511,12 +5511,12 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
     def _browse_terminal_path(self):
         selected_file = filedialog.askopenfilename(
-            title="Select MetaTrader 5 Executable",
+            title="Select Broker Terminal Executable",
             filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")],
         )
         if not selected_file:
             selected_file = filedialog.askdirectory(
-                title="Or Select MetaTrader 5 Installation Folder"
+                title="Or Select Broker Terminal Installation Folder"
             )
         if selected_file:
             self.cfg_bpath_ent.delete(0, tk.END)
@@ -5600,7 +5600,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         if not term_path:
             messagebox.showwarning(
                 "No Terminal Path Specified",
-                "Please specify or browse for the MetaTrader 5 terminal path/executable.",
+                "Please specify or browse for the Broker Terminal path/executable.",
             )
             return
 
@@ -5779,7 +5779,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         lbl_title.pack(anchor="w", pady=(0, 2))
         lbl_info = tk.Label(
             self.screen_frame,
-            text="CONFIGURE DASHBOARD VISUAL THEMES, REFRESH POLLING RATES, RISK PARAMETERS, AND TELEGRAM NOTIFICATIONS",
+            text="CONFIGURE DASHBOARD VISUAL THEMES, REFRESH POLLING RATES, RISK PARAMETERS, AND COMMUNICATION GATEWAY NOTIFICATIONS",
             font=("Consolas", 7),
             bg=self.bg_dark,
             fg=self.fg_grey,
@@ -6041,7 +6041,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.tab_set_tele = tk.Frame(
             self.set_notebook, bg=self.bg_dark, padx=20, pady=15
         )
-        self.set_notebook.add(self.tab_set_tele, text="Telegram Notifications")
+        self.set_notebook.add(self.tab_set_tele, text="Messaging Notifications")
 
         tg_frame = tk.Frame(
             self.tab_set_tele,
@@ -6114,7 +6114,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         btn_save_tg = tk.Button(
             tg_frame,
-            text="SAVE TELEGRAM NOTIFICATIONS",
+            text="SAVE COMMUNICATION GATEWAY NOTIFICATIONS",
             font=("Consolas", 8, "bold"),
             bg="#15803d",
             fg="#ffffff",
@@ -6127,7 +6127,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         # 4. WhatsApp Notifications Tab
         self.tab_set_wa = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
-        self.set_notebook.add(self.tab_set_wa, text="WhatsApp Notifications")
+        self.set_notebook.add(self.tab_set_wa, text="Mobile Alerts Gateway")
 
         wa_frame = tk.Frame(
             self.tab_set_wa,
@@ -6142,7 +6142,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
 
         tk.Label(
             wa_frame,
-            text="WHATSAPP ALERT GATEWAY CONFIGURATION",
+            text="MOBILE ALERTS GATEWAY CONFIGURATION",
             font=("Consolas", 9, "bold"),
             bg=self.bg_card,
             fg=self.fg_cyan,
@@ -7061,7 +7061,7 @@ MT5 Socket IPC Status:       Push streaming active (SocketIPCBridge / WebSockets
         lbl_title.pack(anchor="w", pady=(0, 2))
         lbl_info = tk.Label(
             self.screen_frame,
-            text="MONITORS B-UNIT TOKENS, B-PIPE PRIVATE ENCRYPTION NETWORKS, AND GDPR SECURITY SANITIZERS",
+            text="MONITORS SECURITY TOKENS, DIRECT-PIPE PRIVATE ENCRYPTION NETWORKS, AND GDPR SECURITY SANITIZERS",
             font=("Consolas", 7),
             bg=self.bg_dark,
             fg=self.fg_grey,
@@ -7090,8 +7090,8 @@ SEC <GO>: COMPLIANCE AND DATA PRIVACY AUDIT DESK
 ================================================================================
 HARDWARE & CRYPTOGRAPHY GATEWAYS:
 --------------------------------------------------------------------------------
-Biometric Token matching:    B-UNIT Fingerprint Matching (Enabled)
-Connection Channel network:  B-PIPE Isolated direct private line fiber-optic loop
+Biometric Token matching:    SECURE-TOKEN Biometric Matching (Enabled)
+Connection Channel network:  DIRECT-PIPE Isolated direct private line fiber-optic loop
 Transaction Encryption:      PyCryptodome AES-256 Symmetric key ciphering
 Secure Remote Auth:          Dynamic 2FA RSA-Tokens rotation
 
@@ -7517,7 +7517,7 @@ Trained context log:         Active (Syncing ticks, news data, and crawled web f
         lbl_title.pack(anchor="w", pady=(0, 2))
         lbl_info = tk.Label(
             self.screen_frame,
-            text="MONITORS REAL-TIME SCRAPED METRICS FROM DEFILLAMA, TOKENTERMINAL, AND COINMARKETCAP",
+            text="MONITORS REAL-TIME SCRAPED METRICS FROM DEFI METRICS, PROTOCOL ANALYTICS, AND MARKET CAP FEEDS",
             font=("Consolas", 7),
             bg=self.bg_dark,
             fg=self.fg_grey,
@@ -7546,10 +7546,10 @@ CRAWL <GO>: ALTERNATIVE DATA PIPELINE MONITOR
 ================================================================================
 REAL-TIME CRAWL LOGS AND TVL METRICS:
 --------------------------------------------------------------------------------
-1) DeFiLlama Scraper:        Parsed Ethereum network TVL metrics (Stable)
-2) TokenTerminal Scraper:    Parsed protocol transaction fee metrics (OK)
+1) DeFi Metrics Engine:        Parsed Ethereum network TVL metrics (Stable)
+2) Protocol Revenue Analytics:    Parsed protocol transaction fee metrics (OK)
 3) ICOdrops Scraper:         Parsed active/upcoming launch pipelines
-4) CoinMarketCap Scraper:    Parsed regional market caps and price rankings
+4) Global Market Cap Engine:    Parsed regional market caps and price rankings
 5) dropsTab / Farsight:      Downloaded VC funding and smart contract metrics
 6) DriveWorth / Alpaca:      Parsed macroeconomic metrics and supply squeezes
 
@@ -9325,7 +9325,7 @@ SECURITY DOMAINS ENFORCED:
             "HEADLINE",
             "POLARITY",
             "SUBJECTIVITY",
-            "BERT SCORE",
+            "TRANSFORMER SCORE",
             "SENTIMENT LABEL",
         )
         self.sent_tree = ttk.Treeview(
@@ -11600,19 +11600,19 @@ SECURITY DOMAINS ENFORCED:
                     self._update_wei_screen_data()
                 elif self.active_screen == "NEWS":
                     self._update_news_screen_data()
-                elif self.active_screen == "ANR":
+                elif self.active_screen == "ANL":
                     self._update_anr_screen_data()
                 elif self.active_screen == "CHART":
                     self._update_chart_screen_data(new_tick=True)
                 elif self.active_screen == "SESS":
                     self._update_session_screen_data()
-                elif self.active_screen == "DES":
+                elif self.active_screen == "DESC":
                     self._update_des_screen_data()
-                elif self.active_screen == "YAS":
+                elif self.active_screen == "YIELD":
                     self._update_yas_screen_data()
                 elif self.active_screen == "ECO":
                     self._update_eco_screen_data()
-                elif self.active_screen == "EMSX":
+                elif self.active_screen == "EXEC":
                     self._update_emsx_screen_data()
                 elif self.active_screen == "SET":
                     self._update_set_screen_data()
