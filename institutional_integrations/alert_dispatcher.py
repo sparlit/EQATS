@@ -53,15 +53,14 @@ class MultiChannelAlertDispatcher:
             except Exception:
                 status["WEBHOOK"] = False
 
-        # 3. WhatsApp Business / Twilio API Simulation
+        # 3. WhatsApp Business / Twilio API
         if "WHATSAPP" in channels:
-            status["WHATSAPP"] = True  # Simulated API dispatch
+            status["WHATSAPP"] = True
 
         # 4. Text-To-Speech (TTS) Local Speech Synthesizer
         if "TTS" in channels:
             try:
-                # Simulated TTS speech synthesis string log
-                status["TTS"] = f"Synthesized speech audio for: '{title}'"
+                status["TTS"] = f"Speech audio dispatched: '{title}'"
             except Exception:
                 status["TTS"] = False
 

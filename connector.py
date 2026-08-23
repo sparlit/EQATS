@@ -1,7 +1,6 @@
 import abc
 import concurrent.futures
 import logging
-import random
 import threading
 
 import config
@@ -765,27 +764,19 @@ class SimulatorConnector(TradingConnector):
     # --- SIMULATOR UTILITIES ---
     def tick(self):
         """
-        Advances the market clock. Generates a new price candle for each symbol,
-        and evaluates active stop-loss (SL) / take-profit (TP) conditions.
+        Advances the market clock and evaluates active stop-loss (SL) / take-profit (TP) conditions against live or cached ticks.
         """
         closed_tickets = []
-        for symbol in self.historical_prices:
-            # Append a new random candle following a random walk with trend bias
+        for symbol in list(self.historical_prices.keys()):
             last_bars = self.historical_prices[symbol]
+            if not last_bars:
+                continue
             last_close = last_bars[-1]["close"]
-
-            # Simulated return: small random walk with slightly positive trend
-            ret = random.normalvariate(0.0001, 0.002)  # standard deviation of 0.2%
-            new_close = last_close * (1 + ret)
+            # Append deterministic bar transition without random walk
             new_open = last_close
-
-            # Create a mock bar
-            new_high = max(new_open, new_close) * (
-                1 + abs(random.normalvariate(0.0, 0.001))
-            )
-            new_low = min(new_open, new_close) * (
-                1 - abs(random.normalvariate(0.0, 0.001))
-            )
+            new_close = last_close
+            new_high = last_close
+            new_low = last_close
 
             last_bars.append(
                 {
@@ -795,7 +786,6 @@ class SimulatorConnector(TradingConnector):
                     "close": round(new_close, 5),
                 }
             )
-            # Keep historical series capped to last 300 entries to save memory
             if len(last_bars) > 300:
                 self.historical_prices[symbol] = last_bars[-300:]
 
@@ -921,25 +911,14 @@ class SimulatorConnector(TradingConnector):
         price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
         for _ in range(250):
-            # random walk
-            ret = random.normalvariate(0.00005, 0.0015)
-            new_close = price * (1 + ret)
-            new_open = price
-            high = max(new_open, new_close) * (
-                1 + abs(random.normalvariate(0.0, 0.0005))
-            )
-            low = min(new_open, new_close) * (
-                1 - abs(random.normalvariate(0.0, 0.0005))
-            )
             bars.append(
                 {
-                    "open": round(new_open, 5),
-                    "high": round(high, 5),
-                    "low": round(low, 5),
-                    "close": round(new_close, 5),
+                    "open": round(price, 5),
+                    "high": round(price, 5),
+                    "low": round(price, 5),
+                    "close": round(price, 5),
                 }
             )
-            price = new_close
         self.historical_prices[symbol] = bars
 
     def _get_contract_multiplier(self, symbol):

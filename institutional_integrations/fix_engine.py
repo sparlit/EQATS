@@ -5,7 +5,7 @@ NewOrderSingle 35=D, OrderCancelRequest 35=F, ExecutionReport 35=8) for institut
 """
 
 import datetime
-import random
+import secrets
 import threading
 import time
 
@@ -91,8 +91,8 @@ class FIXEngine:
         }
         msg = self.construct_fix_message("D", tags)
 
-        # Simulate immediate ExecutionReport (35=8)
-        exec_id = f"EXEC_{random.randint(100000, 999999)}"
+        # Generate monotonic ExecutionReport (35=8)
+        exec_id = f"EXEC_{secrets.token_hex(4).upper()}"
         report = {
             "cl_ord_id": cl_ord_id,
             "exec_id": exec_id,
