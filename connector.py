@@ -392,6 +392,7 @@ class MT5Connector(TradingConnector):
 
         # Normalize volume according to symbol properties (volume_min, volume_max, volume_step)
         info = self.mt5.symbol_info(symbol)
+        type_filling = mt5.ORDER_FILLING_IOC
         if info:
             vol_min = getattr(info, "volume_min", 0.01)
             vol_max = getattr(info, "volume_max", 100.0)
@@ -405,6 +406,17 @@ class MT5Connector(TradingConnector):
                     precision = len(step_str.split(".")[1]) if "." in step_str else 0
                     lot_size = round(calc_lots, precision)
                     lot_size = max(vol_min, min(vol_max, lot_size))
+
+            # Dynamically determine supported order filling mode bitmask
+            modes = getattr(info, "filling_mode", 0)
+            if modes & mt5.ORDER_FILLING_IOC:
+                type_filling = mt5.ORDER_FILLING_IOC
+            elif modes & mt5.ORDER_FILLING_FOK:
+                type_filling = mt5.ORDER_FILLING_FOK
+            elif modes & mt5.ORDER_FILLING_RETURN:
+                type_filling = mt5.ORDER_FILLING_RETURN
+            else:
+                type_filling = mt5.ORDER_FILLING_RETURN
 
         price_info = self.get_current_price(symbol)
         price = price_info["ask"] if order_type == "BUY" else price_info["bid"]
@@ -439,7 +451,7 @@ class MT5Connector(TradingConnector):
             "magic": 998822,
             "comment": "Scalper Brain Bot",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": type_filling,
         }
 
         result = self.mt5.order_send(request)

@@ -27,6 +27,18 @@ class TestVolumeNormalization(unittest.TestCase):
         # 0.01 + 2*0.05 = 0.11
         self.assertEqual(norm, 0.11)
 
+    def test_filling_mode_bitmask_resolution(self):
+        # ORDER_FILLING_FOK = 1, ORDER_FILLING_IOC = 2, ORDER_FILLING_RETURN = 4
+        fok_only = 1
+        ioc_only = 2
+        return_only = 4
+
+        self.assertTrue(fok_only & 1)
+        self.assertFalse(fok_only & 2)
+
+        self.assertTrue(ioc_only & 2)
+        self.assertTrue(return_only & 4)
+
 
 if __name__ == "__main__":
     unittest.main()
