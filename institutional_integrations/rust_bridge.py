@@ -341,14 +341,15 @@ def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_
             _mark_rust_failure()
 
     # Python Fallback
-    import random
+    import numpy as np
+    rng = np.random.RandomState(42)
     drawdowns = []
     for _ in range(min(simulations, 200)): # capped for python fallback speed
         eq = initial_equity
         peak = initial_equity
         max_dd = 0.0
-        for _step in range(100):
-            ret = random.uniform(-0.015, 0.015) * (open_positions_count ** 0.5)
+        rets = rng.uniform(-0.015, 0.015, 100) * (open_positions_count ** 0.5)
+        for ret in rets:
             eq *= (1.0 + ret)
             if eq > peak:
                 peak = eq

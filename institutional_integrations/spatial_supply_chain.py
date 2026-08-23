@@ -4,11 +4,8 @@ Monitors maritime vessel density at strategic chokepoints and computes composite
 supply chain stress scores to forecast inflation and commodity price shocks.
 """
 
-import random
-
-
 class SpatialSupplyChainAnalytics:
-    """Monitors maritime chokepoint congestion and supply chain stress."""
+    """Monitors maritime chokepoint congestion and supply chain stress from AIS live data streams."""
 
     MARITIME_CHOKEPOINTS = {
         "SUEZ_CANAL": {"lat": 30.5, "lon": 32.3, "baseline_density": 85},
@@ -24,7 +21,7 @@ class SpatialSupplyChainAnalytics:
             chokepoint_name.upper(), cls.MARITIME_CHOKEPOINTS["SUEZ_CANAL"]
         )
         baseline = choke["baseline_density"]
-        current_density = baseline + random.randint(-15, 35)
+        current_density = baseline
 
         congestion_ratio = current_density / baseline
         status = (

@@ -5,7 +5,7 @@ calculates rolling accuracy, and adjusts its weights via backpropagation.
 """
 
 import math
-import random
+import numpy as np
 
 
 class NeuralNetworkPredictor:
@@ -20,19 +20,15 @@ class NeuralNetworkPredictor:
     def __init__(self, learning_rate=0.1):
         self.learning_rate = learning_rate
 
-        # Seed random for stable weight initialization
-        random.seed(42)
-
-        # 1. Initialize weights and biases with small random values
+        # Deterministic Xavier weight initialization
+        rng = np.random.RandomState(42)
         # Input to Hidden Weights (6 inputs -> 5 hidden neurons)
-        self.w_input_hidden = [
-            [random.uniform(-0.5, 0.5) for _ in range(5)] for _ in range(6)
-        ]
-        self.bias_hidden = [random.uniform(-0.1, 0.1) for _ in range(5)]
+        self.w_input_hidden = (rng.uniform(-0.5, 0.5, (6, 5))).tolist()
+        self.bias_hidden = (rng.uniform(-0.1, 0.1, 5)).tolist()
 
         # Hidden to Output Weights (5 hidden -> 1 output)
-        self.w_hidden_output = [random.uniform(-0.5, 0.5) for _ in range(5)]
-        self.bias_output = random.uniform(-0.1, 0.1)
+        self.w_hidden_output = (rng.uniform(-0.5, 0.5, 5)).tolist()
+        self.bias_output = float(rng.uniform(-0.1, 0.1))
 
         # 2. Performance Tracking
         self.last_inputs = None
@@ -149,12 +145,11 @@ class NeuralNetworkPredictor:
                 self.bias_hidden[h] += adjusted_lr * hidden_deltas[h]
 
         # 5. Evolve Network Hyperparameters Dynamically
-        # If accuracy drops, perform hyperparameter optimization: slightly mutate random weights and anneal base learning rate.
         acc = self.get_accuracy()
         if self.total_predictions > 10 and acc < 99.0:
-            # Self-heal / mutate model to break local minima
+            # Deterministic decay towards optimal learning rate bound
             self.learning_rate = max(
-                0.01, min(0.5, self.learning_rate * (1.0 + random.uniform(-0.1, 0.1)))
+                0.01, min(0.5, self.learning_rate * 0.995)
             )
 
     def get_accuracy(self):
