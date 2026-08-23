@@ -407,14 +407,15 @@ class MT5Connector(TradingConnector):
                     lot_size = round(calc_lots, precision)
                     lot_size = max(vol_min, min(vol_max, lot_size))
 
-            # Dynamically determine supported order filling mode bitmask
+            # Dynamically determine supported order filling mode from symbol bitmask
+            # SYMBOL_FILLING_FOK = 1, SYMBOL_FILLING_IOC = 2
             modes = getattr(info, "filling_mode", 0)
-            if modes & mt5.ORDER_FILLING_IOC:
-                type_filling = mt5.ORDER_FILLING_IOC
-            elif modes & mt5.ORDER_FILLING_FOK:
+            symbol_fok = getattr(mt5, "SYMBOL_FILLING_FOK", 1)
+            symbol_ioc = getattr(mt5, "SYMBOL_FILLING_IOC", 2)
+            if modes & symbol_fok:
                 type_filling = mt5.ORDER_FILLING_FOK
-            elif modes & mt5.ORDER_FILLING_RETURN:
-                type_filling = mt5.ORDER_FILLING_RETURN
+            elif modes & symbol_ioc:
+                type_filling = mt5.ORDER_FILLING_IOC
             else:
                 type_filling = mt5.ORDER_FILLING_RETURN
 
