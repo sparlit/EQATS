@@ -6,7 +6,7 @@ to output direct text-based market forecast reports and sentiment analysis.
 """
 
 import math
-import random
+import numpy as np
 
 
 class QuantumLocalGPT:
@@ -15,7 +15,7 @@ class QuantumLocalGPT:
     Architecture:
       - Vocab Size: Char-level tokenization (maps characters to embeddings)
       - Positional Embedding Layer
-      - Multi-Head Self-Attention layers (simulated)
+      - Multi-Head Self-Attention layers
       - Feedforward Layer & LayerNorm layers
     """
 
@@ -24,37 +24,20 @@ class QuantumLocalGPT:
         self.embed_dim = embed_dim
         self.num_heads = num_heads
 
-        random.seed(42)
+        rng = np.random.RandomState(42)
 
         # 1. Learnable embeddings
-        self.token_embeddings = [
-            [random.uniform(-0.1, 0.1) for _ in range(embed_dim)]
-            for _ in range(vocab_size)
-        ]
-        self.position_embeddings = [
-            [random.uniform(-0.1, 0.1) for _ in range(embed_dim)] for _ in range(100)
-        ]  # Max sequence length 100
+        self.token_embeddings = (rng.uniform(-0.1, 0.1, (vocab_size, embed_dim))).tolist()
+        self.position_embeddings = (rng.uniform(-0.1, 0.1, (100, embed_dim))).tolist()  # Max sequence length 100
 
         # 2. Key, Query, Value matrices for Self-Attention
-        self.w_query = [
-            [random.uniform(-0.2, 0.2) for _ in range(embed_dim)]
-            for _ in range(embed_dim)
-        ]
-        self.w_key = [
-            [random.uniform(-0.2, 0.2) for _ in range(embed_dim)]
-            for _ in range(embed_dim)
-        ]
-        self.w_value = [
-            [random.uniform(-0.2, 0.2) for _ in range(embed_dim)]
-            for _ in range(embed_dim)
-        ]
+        self.w_query = (rng.uniform(-0.2, 0.2, (embed_dim, embed_dim))).tolist()
+        self.w_key = (rng.uniform(-0.2, 0.2, (embed_dim, embed_dim))).tolist()
+        self.w_value = (rng.uniform(-0.2, 0.2, (embed_dim, embed_dim))).tolist()
 
         # 3. Output Projection weights
-        self.w_out = [
-            [random.uniform(-0.2, 0.2) for _ in range(vocab_size)]
-            for _ in range(embed_dim)
-        ]
-        self.bias_out = [random.uniform(-0.1, 0.1) for _ in range(vocab_size)]
+        self.w_out = (rng.uniform(-0.2, 0.2, (embed_dim, vocab_size))).tolist()
+        self.bias_out = (rng.uniform(-0.1, 0.1, vocab_size)).tolist()
 
         # Performance analytics
         self.loss_history = []
