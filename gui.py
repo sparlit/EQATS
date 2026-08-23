@@ -21,7 +21,7 @@ TAB_THEMES = {
         "border": "#7e22ce",
         "badge_bg": "#3b0764",
         "badge_fg": "#e9d5ff",
-        "title": "🔮 POLYMARKET AUTONOMOUS NEURAL DASHBOARD",
+        "title": "🔮 POLYGON PREDICTION MARKET AUTONOMOUS NEURAL DASHBOARD",
     },
     "MAIN": {
         "primary": "#10b981",     # Emerald Green
@@ -1732,7 +1732,7 @@ class ScalperGui:
             self._show_agent_screen()
         elif screen_code in ["ECOSYSTEM", "SYSTEM"]:
             self._show_ecosystem_screen()
-        elif screen_code in ["POLY", "POLYMARKET", "PM"]:
+        elif screen_code in ["POLY", "PREDICTION", "PM"]:
             self._show_poly_screen()
         elif screen_code in ["TZCONV", "TIMEZONE", "CONVERTER"]:
             self._show_tzconv_screen()
@@ -2276,7 +2276,7 @@ class ScalperGui:
 - PORT      : Markowitz Mean-Variance Portfolio Allocator & Sharpe Solver.
 - MCTS      : Monte Carlo risk analytics, 95% VaR & Expected Shortfall (ES).
 - VDS       : Vector Database cluster map & FAISS L2 nearest-neighbor search.
-- CHART     : TradingView-style Candlestick Chart & Performance trajectory curve.
+- CHART     : Interactive Candlestick Chart & Performance trajectory curve.
 - SESS      : Multi-session world timelines, countdowns & overlap detectors.
 - DES       : Security Description, contract specifications & tick properties.
 - YAS       : Dynamic Yield metrics, duration, convexity & carry swap spreads.
@@ -2301,7 +2301,7 @@ class ScalperGui:
 - CRAWL     : Scraper feeds (DeFiLlama, TokenTerminal, DropsTab, ICOdrops).
 - CRED      : Security privileges, dynamic TOTP tokens & MFA controllers.
 - TRADEBOOK : Settled closed trade logs & Cognitive Trade Reflection protocol.
-- POLY      : Polymarket Autonomous Neural Trading Dashboard (Live 8-panel visualizer).
+- POLY      : Polygon Prediction Market Autonomous Neural Dashboard (Live 8-panel visualizer).
 - TZCONV    : Forex Market Time Zone & Timeline Converter (Kolkata, UTC, NY, etc.).
 - AGENT     : AI System Supervisor Agent & Governance Desk.
 - ECOSYSTEM : Full System Visualizer & Parallel Multi-Agent Architecture.
@@ -3574,7 +3574,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         self.cursor_x = None
         self.cursor_y = None
 
-        # Bind interactive mouse events to Candlestick Canvas for TradingView style crosshair tracking
+        # Bind interactive mouse events to Candlestick Canvas for Crosshair tracking
         self.candlestick_canvas.bind("<Motion>", self.on_chart_mouse_motion)
         self.candlestick_canvas.bind("<Leave>", self.on_chart_mouse_leave)
 
@@ -3587,7 +3587,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         self._update_chart_screen_data()
 
     def on_chart_zoom(self, event):
-        """Adjusts the chart zoom multiplier on mousewheel scrolls, mimicking TradingView axes scale dragging"""
+        """Adjusts the chart zoom multiplier on mousewheel scrolls, interactive axes scale dragging"""
         if event.num == 4 or event.delta > 0:
             self.chart_zoom_mult = min(5.0, self.chart_zoom_mult * 1.1)
         elif event.num == 5 or event.delta < 0:
@@ -3624,7 +3624,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
         self._update_chart_screen_data(new_tick=True)
 
     def _update_chart_screen_data(self, new_tick=False):
-        """Draws a visual line graph of account equity and real-time candlesticks on canvases with scales resembling TradingView"""
+        """Draws a visual line graph of account equity and real-time candlesticks on canvases with interactive scales"""
         now_gmt = datetime.datetime.now(datetime.timezone.utc)
         # 1. Update Candlestick Chart Canvas
         if hasattr(self, "candlestick_canvas") and self.candlestick_canvas:
@@ -3830,7 +3830,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                     outline="",
                 )
 
-            # Draw live quote horizontal tracker line (TradingView-style)
+            # Draw live quote horizontal tracker line (Interactive Scale)
             latest_close = self.candlestick_data_list[-1]["close"]
             y_latest = int(
                 chart_h - (chart_h * (latest_close - min_price) / price_range)
@@ -4433,7 +4433,7 @@ SIMD Vectorization:       128-bit AVX2 Enabled
 
         desc_data = f"""
 ================================================================================
-BLOOMBERG DES <GO>: {symbol} SECURITY DESCRIPTION
+DES <GO>: {symbol} SECURITY DESCRIPTION
 ================================================================================
 Asset Identifier:      {symbol} Spot Contract
 Asset Sector:          Dynamic Quantitative Asset
@@ -5830,7 +5830,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             "CYBERPUNK_NEON",
             "EMERALD_QUANT",
             "SOLARIZED_DARK",
-            "BLOOMBERG_CLASSIC",
+            "AMBER_TERMINAL_CLASSIC",
             "MONOKAI_PRO",
             "NORD_DARK",
         )
@@ -6272,7 +6272,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             self.bg_card = "#1a242f"
             self.fg_accent = "#fee715"
             self.fg_green = "#00ff87"
-        elif theme_choice == "BLOOMBERG_CLASSIC":
+        elif theme_choice == "AMBER_TERMINAL_CLASSIC":
             self.bg_dark = "#0c0c0c"
             self.bg_card = "#161616"
             self.fg_accent = "#ff9900"
@@ -10327,7 +10327,7 @@ SECURITY DOMAINS ENFORCED:
 
 
     def _show_poly_screen(self):
-        """POLY <GO>: POLYMARKET AUTONOMOUS NEURAL TRADING DASHBOARD (EXACT 8-PANEL MATCH TO REFERENCE)"""
+        """POLY <GO>: POLYGON PREDICTION MARKET NEURAL DASHBOARD (EXACT 8-PANEL MATCH TO REFERENCE)"""
         poly_main = tk.Frame(self.screen_frame, bg="#0c0f12")
         poly_main.pack(fill=tk.BOTH, expand=True)
 
@@ -10337,7 +10337,7 @@ SECURITY DOMAINS ENFORCED:
 
         lbl_brand = tk.Label(
             hdr_frame,
-            text="HG  hot-garbage // POLYMARKET BOT  v6.0",
+            text="EAQTS // QUANTUM NEURAL BOT  v6.0",
             font=("Consolas", 9, "bold"),
             bg="#12161b",
             fg="#00e676",
@@ -10660,7 +10660,7 @@ SECURITY DOMAINS ENFORCED:
         self._update_poly_screen_data()
 
     def _update_poly_screen_data(self):
-        """Refreshes the Polymarket screen panels with 100% real and live trading telemetry, order book tick depth, and neural predictions."""
+        """Refreshes the prediction market screen panels with 100% real and live trading telemetry, order book tick depth, and neural predictions."""
         if not hasattr(self, "lbl_poly_pnl_val") or not self.lbl_poly_pnl_val:
             return
 
@@ -11650,7 +11650,7 @@ SECURITY DOMAINS ENFORCED:
                     self._update_mkt_screen_data()
                 elif self.active_screen == "TRADEBOOK":
                     self._update_tradebook_screen_data()
-                elif self.active_screen in ["POLY", "POLYMARKET", "PM"]:
+                elif self.active_screen in ["POLY", "PREDICTION", "PM"]:
                     self._update_poly_screen_data()
                 elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
                     self._update_tzconv_screen_data()

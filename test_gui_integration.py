@@ -190,7 +190,7 @@ def test_gui_screen_data_update_handlers():
 
 
 def test_gui_poly_screen_switch_and_update():
-    """Tests POLY <GO> Polymarket screen switching, panel creation, and telemetry updating."""
+    """Tests POLY <GO> Prediction market screen switching, panel creation, and telemetry updating."""
     database.init_db()
 
     mock_root = mock.MagicMock()
