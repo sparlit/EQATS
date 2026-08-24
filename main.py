@@ -695,7 +695,6 @@ class AutonomousScalper:
         # E. Core Scanning Loop & Status Reporting
         account = self.conn.get_account_info()
         current_equity = account["equity"]
-        current_balance = account["balance"]
 
         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         active_session = self._get_current_session()
@@ -992,7 +991,7 @@ if __name__ == "__main__":
     # Check if we should launch in GUI mode or fallback to classic CLI mode
     use_gui = True
     try:
-        import tkinter as tk
+        import tkinter  # noqa: F401
 
         if os.name != "nt" and not os.environ.get("DISPLAY"):
             use_gui = False

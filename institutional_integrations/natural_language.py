@@ -46,7 +46,7 @@ def extract_advanced_nlp_sentiments(headline):
 
         nlp = spacy.load("en_core_web_sm")
         doc = nlp(headline)
-        entities = [(ent.text, ent.label_) for ent in doc.ents]
+        _ = [(ent.text, ent.label_) for ent in doc.ents]
     except Exception:
         pass
 

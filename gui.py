@@ -3724,7 +3724,6 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 )
 
             # Draw horizontal timeline scale on bottom margin (X-Axis)
-            time_steps = len(self.candlestick_data_list)
             zoom = getattr(self, "chart_zoom_mult", 1.0)
             candle_w = max(1, int((chart_w / 30) * zoom))
             spacing = max(1, int((chart_w / 28) * zoom))
@@ -8664,7 +8663,6 @@ SECURITY DOMAINS ENFORCED:
             c_s3 = c - range_vl * 1.1 / 4.0
             c_r2 = c + range_vl * 1.1 / 6.0
             c_s2 = c - range_vl * 1.1 / 6.0
-            c_r1 = c + range_vl * 1.1 / 12.0
             c_s1 = c - range_vl * 1.1 / 12.0
             self.mkt_pivot_tree.insert(
                 "",
@@ -10042,7 +10040,7 @@ SECURITY DOMAINS ENFORCED:
     def _force_orchestrator_intervention(self):
         from brain_agents_orchestrator import global_brain_orchestrator
 
-        directive = global_brain_orchestrator.run_agentic_loop(
+        global_brain_orchestrator.run_agentic_loop(
             self.scalper, symbol=self.selected_symbol_gp
         )
         global_brain_orchestrator.master_interventions.append(
@@ -10718,7 +10716,7 @@ SECURITY DOMAINS ENFORCED:
             return
 
         import datetime, math, time
-        import database, brain, predictive_brain
+        import database
 
         account_info = {"balance": 10000.0, "equity": 10000.0}
         active_positions = []
@@ -10744,7 +10742,9 @@ SECURITY DOMAINS ENFORCED:
 
         if recent_trades:
             t_last = recent_trades[0]
-            t_str = f"• LIVE FEED • LAST TRADE: {t_last.get('symbol')} {t_last.get('type')} @ {t_last.get('open_price')} • PnL: ${t_last.get('profit', 0.0):.2f} • TIME: {t_last.get('close_time', 'NOW')}"
+            last_pnl = t_last.get('profit')
+            pnl_val = float(last_pnl) if last_pnl is not None else 0.0
+            t_str = f"• LIVE FEED • LAST TRADE: {t_last.get('symbol')} {t_last.get('type')} @ {t_last.get('open_price')} • PnL: ${pnl_val:.2f} • TIME: {t_last.get('close_time', 'NOW')}"
             self.lbl_poly_feed_marquee.config(text=t_str)
 
         pnl_prefix = "+" if net_profit >= 0 else ""
@@ -11558,35 +11558,6 @@ SECURITY DOMAINS ENFORCED:
         except Exception as e:
             messagebox.showerror("Reset Error", f"Error resetting engines: {e}")
 
-    def _show_desc_screen(self): pass
-    def _show_yield_screen(self): pass
-    def _show_eco_screen(self): pass
-    def _show_exec_screen(self): pass
-    def _show_set_screen(self): pass
-    def _show_cfg_screen(self): pass
-    def _show_ing_screen(self): pass
-    def _show_feat_screen(self): pass
-    def _show_strat_screen(self): pass
-    def _show_risk_screen(self): pass
-    def _show_ord_screen(self): pass
-    def _show_log_screen(self): pass
-    def _show_mon_screen(self): pass
-    def _show_sec_screen(self): pass
-    def _show_safe_screen(self): pass
-    def _show_pf_screen(self): pass
-    def _show_sym_screen(self): pass
-    def _show_aic_screen(self): pass
-    def _show_crawl_screen(self): pass
-    def _show_cred_screen(self): pass
-    def _show_watch_screen(self): pass
-    def _show_mkt_screen(self): pass
-    def _show_session_screen(self): pass
-    def on_chart_mouse_motion(self, event): pass
-    def on_chart_mouse_leave(self, event): pass
-    def on_chart_symbol_change(self, selection): pass
-    def on_chart_tf_change(self, selection): pass
-    def _update_chart_screen_data(self, new_tick=False): pass
-    def on_global_tab_change(self, selected): pass
 
     def exit_system(self):
         """Shuts down all background threads, stops the bot, disconnects feeds, and exits the application."""
@@ -12243,7 +12214,7 @@ SECURITY DOMAINS ENFORCED:
 
 def launch_gui():
     root = tk.Tk()
-    app = ScalperGui(root)
+    ScalperGui(root)
     root.mainloop()
 
 
