@@ -14,6 +14,7 @@ Architecture:
 
 import concurrent.futures
 import datetime
+import os
 import time
 
 import database
@@ -419,7 +420,9 @@ class AgenticBrainsOrchestrator:
         method_scores = {}
         strategy_scores = {}
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        cpu_cores = os.cpu_count() or 8
+        optimal_workers = max(4, min(cpu_cores * 2, 32))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
             method_futures = {
                 executor.submit(
                     _eval_method_worker, agent, spread_pips, "MEDIUM"
