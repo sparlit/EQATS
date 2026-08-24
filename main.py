@@ -245,19 +245,15 @@ class AutonomousScalper:
             c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]
         )
 
-        if config.BLOCK_WEEKENDS and not is_crypto_asset:
-            # Friday after 21:00 GMT to Sunday before 21:00 GMT
-            if (
-                (weekday == 4 and hour >= 21)
-                or weekday == 5
-                or (weekday == 6 and hour < 21)
-            ):
-                return False, "Hazardous session: Weekend market shutdown."
+        if config.BLOCK_WEEKENDS and not is_crypto_asset and (
+            (weekday == 4 and hour >= 21)
+            or weekday == 5
+            or (weekday == 6 and hour < 21)
+        ):
+            return False, "Hazardous session: Weekend market shutdown."
 
-        if config.BLOCK_ROLLOVER_HOUR:
-            # Rollover daily spread expansions occur between 22:00 and 23:00 GMT standardly
-            if hour == 22:
-                return False, "Hazardous session: Daily broker rollover hour."
+        if config.BLOCK_ROLLOVER_HOUR and hour == 22:
+            return False, "Hazardous session: Daily broker rollover hour."
 
         # B. Spread Protections
         bid = price_info["bid"]
@@ -695,7 +691,6 @@ class AutonomousScalper:
         # E. Core Scanning Loop & Status Reporting
         account = self.conn.get_account_info()
         current_equity = account["equity"]
-        current_balance = account["balance"]
 
         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         active_session = self._get_current_session()
@@ -720,9 +715,8 @@ class AutonomousScalper:
         import concurrent.futures
         import multiprocessing as mp
 
-        pool_workers = min(
-            12, max(1, len(active_symbols))
-        )  # Optimized for Performance hybrid cores (12 logical threads)
+        cpu_cores = os.cpu_count() or 8
+        pool_workers = max(1, min(cpu_cores, len(active_symbols)))
         parallel_success = False
 
         # Spawn ProcessPoolExecutor only if running in the MainProcess to prevent nested process pool deadlocks
@@ -993,9 +987,9 @@ if __name__ == "__main__":
     # Check if we should launch in GUI mode or fallback to classic CLI mode
     use_gui = True
     try:
-        import tkinter as tk
+        import tkinter
 
-        if os.name != "nt" and not os.environ.get("DISPLAY"):
+        if tkinter and os.name != "nt" and not os.environ.get("DISPLAY"):
             use_gui = False
     except ImportError:
         use_gui = False

@@ -1,7 +1,6 @@
 import os
 import unittest
 import random
-import time
 import math
 
 import brain

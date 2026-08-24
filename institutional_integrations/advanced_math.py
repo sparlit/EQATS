@@ -120,11 +120,6 @@ def evaluate_black_scholes_option_pricing(
         }
     except Exception:
         # High fidelity analytic approximations fallback
-        d1 = (
-            math.log(spot_price / strike_price)
-            + (risk_free_rate + 0.5 * volatility**2) * maturity_years
-        ) / (volatility * math.sqrt(maturity_years))
-        d2 = d1 - volatility * math.sqrt(maturity_years)
 
         # Simple estimate
         npv = (
