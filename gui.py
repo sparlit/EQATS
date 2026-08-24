@@ -11689,54 +11689,54 @@ SECURITY DOMAINS ENFORCED:
                     self._update_chart_screen_data(new_tick=True)
                 elif self.active_screen == "SESS":
                     self._update_session_screen_data()
-            elif self.active_screen == "DESC" and hasattr(self, "_update_des_screen_data"):
-                self._update_des_screen_data()
-            elif self.active_screen == "YIELD" and hasattr(self, "_update_yas_screen_data"):
-                self._update_yas_screen_data()
-            elif self.active_screen == "ECO" and hasattr(self, "_update_eco_screen_data"):
-                self._update_eco_screen_data()
-            elif self.active_screen == "EXEC" and hasattr(self, "_update_emsx_screen_data"):
-                self._update_emsx_screen_data()
-            elif self.active_screen == "SET" and hasattr(self, "_update_set_screen_data"):
-                self._update_set_screen_data()
-            elif self.active_screen == "ING" and hasattr(self, "_update_ing_screen_data"):
-                self._update_ing_screen_data()
-            elif self.active_screen == "FEAT" and hasattr(self, "_update_feat_screen_data"):
-                self._update_feat_screen_data()
-            elif self.active_screen == "STRAT" and hasattr(self, "_update_strat_screen_data"):
-                self._update_strat_screen_data()
-            elif self.active_screen == "RISK" and hasattr(self, "_update_risk_screen_data"):
-                self._update_risk_screen_data()
-            elif self.active_screen == "ORD" and hasattr(self, "_update_ord_screen_data"):
-                self._update_ord_screen_data()
-            elif self.active_screen == "LOG" and hasattr(self, "_update_log_screen_data"):
-                self._update_log_screen_data()
-            elif self.active_screen == "MON" and hasattr(self, "_update_mon_screen_data"):
-                self._update_mon_screen_data()
-            elif self.active_screen == "SEC" and hasattr(self, "_update_sec_screen_data"):
-                self._update_sec_screen_data()
-            elif self.active_screen == "SAFE" and hasattr(self, "_update_safe_screen_data"):
-                self._update_safe_screen_data()
-            elif self.active_screen == "PF" and hasattr(self, "_update_pf_screen_data"):
-                self._update_pf_screen_data()
-            elif self.active_screen == "SYM" and hasattr(self, "_update_sym_screen_data"):
-                self._update_sym_screen_data()
-            elif self.active_screen == "AIC" and hasattr(self, "_update_aic_screen_data"):
-                self._update_aic_screen_data()
-            elif self.active_screen == "CRAWL" and hasattr(self, "_update_crawl_screen_data"):
-                self._update_crawl_screen_data()
-            elif self.active_screen == "CRED" and hasattr(self, "_update_cred_screen_data"):
-                self._update_cred_screen_data()
-            elif self.active_screen == "WATCH" and hasattr(self, "_update_watch_screen_data"):
-                self._update_watch_screen_data()
-            elif self.active_screen == "MKT" and hasattr(self, "_update_mkt_screen_data"):
-                self._update_mkt_screen_data()
-            elif self.active_screen == "TRADEBOOK":
-                self._update_tradebook_screen_data()
-            elif self.active_screen in ["POLY", "PREDICTION", "PM"]:
-                self._update_poly_screen_data()
-            elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
-                self._update_tzconv_screen_data()
+                elif self.active_screen == "DESC" and hasattr(self, "_update_des_screen_data"):
+                    self._update_des_screen_data()
+                elif self.active_screen == "YIELD" and hasattr(self, "_update_yas_screen_data"):
+                    self._update_yas_screen_data()
+                elif self.active_screen == "ECO" and hasattr(self, "_update_eco_screen_data"):
+                    self._update_eco_screen_data()
+                elif self.active_screen == "EXEC" and hasattr(self, "_update_emsx_screen_data"):
+                    self._update_emsx_screen_data()
+                elif self.active_screen == "SET" and hasattr(self, "_update_set_screen_data"):
+                    self._update_set_screen_data()
+                elif self.active_screen == "ING" and hasattr(self, "_update_ing_screen_data"):
+                    self._update_ing_screen_data()
+                elif self.active_screen == "FEAT" and hasattr(self, "_update_feat_screen_data"):
+                    self._update_feat_screen_data()
+                elif self.active_screen == "STRAT" and hasattr(self, "_update_strat_screen_data"):
+                    self._update_strat_screen_data()
+                elif self.active_screen == "RISK" and hasattr(self, "_update_risk_screen_data"):
+                    self._update_risk_screen_data()
+                elif self.active_screen == "ORD" and hasattr(self, "_update_ord_screen_data"):
+                    self._update_ord_screen_data()
+                elif self.active_screen == "LOG" and hasattr(self, "_update_log_screen_data"):
+                    self._update_log_screen_data()
+                elif self.active_screen == "MON" and hasattr(self, "_update_mon_screen_data"):
+                    self._update_mon_screen_data()
+                elif self.active_screen == "SEC" and hasattr(self, "_update_sec_screen_data"):
+                    self._update_sec_screen_data()
+                elif self.active_screen == "SAFE" and hasattr(self, "_update_safe_screen_data"):
+                    self._update_safe_screen_data()
+                elif self.active_screen == "PF" and hasattr(self, "_update_pf_screen_data"):
+                    self._update_pf_screen_data()
+                elif self.active_screen == "SYM" and hasattr(self, "_update_sym_screen_data"):
+                    self._update_sym_screen_data()
+                elif self.active_screen == "AIC" and hasattr(self, "_update_aic_screen_data"):
+                    self._update_aic_screen_data()
+                elif self.active_screen == "CRAWL" and hasattr(self, "_update_crawl_screen_data"):
+                    self._update_crawl_screen_data()
+                elif self.active_screen == "CRED" and hasattr(self, "_update_cred_screen_data"):
+                    self._update_cred_screen_data()
+                elif self.active_screen == "WATCH" and hasattr(self, "_update_watch_screen_data"):
+                    self._update_watch_screen_data()
+                elif self.active_screen == "MKT" and hasattr(self, "_update_mkt_screen_data"):
+                    self._update_mkt_screen_data()
+                elif self.active_screen == "TRADEBOOK":
+                    self._update_tradebook_screen_data()
+                elif self.active_screen in ["POLY", "PREDICTION", "PM"]:
+                    self._update_poly_screen_data()
+                elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
+                    self._update_tzconv_screen_data()
 
                 self.lbl_clock.config(
                     text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}"

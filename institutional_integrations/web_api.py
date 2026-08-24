@@ -188,9 +188,9 @@ def fetch_yfinance_external_rates(symbol, period="1mo", interval="1d"):
         data = yf.download(yf_symbol, period=period, interval=interval, progress=False)
         closes = data["Close"].tolist()
         return [float(c) for c in closes]
-    except Exception:
-        # Graceful fallback mock
-        return [1.0952, 1.0948, 1.0965, 1.0980, 1.0955]
+    except Exception as e:
+        _log.debug("fetch_market_data_yfinance error for %s: %s", symbol, e)
+        return []
 
 
 def push_telemetry_to_kafka_queue(topic, payload_dict):

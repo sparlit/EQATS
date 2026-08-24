@@ -931,22 +931,15 @@ class SimulatorConnector(TradingConnector):
         }
         price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
-        for _ in range(250):
-            ret = random.normalvariate(0.00005, 0.0015)
-            new_close = price * (1 + ret)
-            new_open = price
-            high = max(new_open, new_close) * (
-                1 + abs(random.normalvariate(0.0, 0.0005))
-            )
-            low = min(new_open, new_close) * (
-                1 - abs(random.normalvariate(0.0, 0.0005))
-            )
+        # Populate deterministic historical bars seeded from real asset base prices
+        for i in range(250):
+            p = price * (1.0 + (i - 125) * 0.0001)
             bars.append(
                 {
-                    "open": round(price, 5),
-                    "high": round(price, 5),
-                    "low": round(price, 5),
-                    "close": round(price, 5),
+                    "open": round(p, 5),
+                    "high": round(p * 1.0002, 5),
+                    "low": round(p * 0.9998, 5),
+                    "close": round(p, 5),
                 }
             )
         self.historical_prices[symbol] = bars
