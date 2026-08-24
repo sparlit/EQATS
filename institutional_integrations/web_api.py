@@ -32,11 +32,12 @@ class SocketIPCBridge:
 
     def _server_loop(self):
         try:
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(5)
-            self.server_socket.settimeout(1.0)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.host, self.port))
+            sock.listen(5)
+            sock.settimeout(1.0)
+            self.server_socket = sock
 
             while self.running:
                 try:
@@ -52,9 +53,12 @@ class SocketIPCBridge:
                 except socket.timeout:
                     continue
                 except Exception as e:
+                    if not self.running:
+                        break
                     print(f"Diagnostics: Socket IPC server accept exception: {e}")
         except Exception as e:
-            print(f"Diagnostics: Socket IPC server failed to bind: {e}")
+            if self.running:
+                print(f"Diagnostics: Socket IPC server failed to bind: {e}")
 
     def format_pipe_state(self, equity, balance, active_positions, scans, session_info):
         """Formats account and scan telemetry as pipe-delimited string for MT5 EA parser."""
@@ -122,9 +126,11 @@ class SocketIPCBridge:
 
     def stop_server(self):
         self.running = False
-        if self.server_socket:
+        sock = self.server_socket
+        self.server_socket = None
+        if sock:
             try:
-                self.server_socket.close()
+                sock.close()
             except Exception:
                 pass
 
