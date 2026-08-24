@@ -441,14 +441,34 @@ class MT5Connector(TradingConnector):
 
         volume = max(vol_min, min(vol_max, round(volume, 4)))
 
+        # Validate SL and TP against broker minimum stop distance (trade_stops_level)
+        stops_level = info.trade_stops_level if info else 0
+        point = info.point if info else (0.01 if "JPY" in symbol.upper() else 0.00001)
+        min_distance = (stops_level + 5) * point
+
+        final_sl = float(sl)
+        final_tp = float(tp)
+
+        if final_sl > 0:
+            if order_type == "BUY" and final_sl > price - min_distance:
+                final_sl = price - min_distance
+            elif order_type == "SELL" and final_sl < price + min_distance:
+                final_sl = price + min_distance
+
+        if final_tp > 0:
+            if order_type == "BUY" and final_tp < price + min_distance:
+                final_tp = price + min_distance
+            elif order_type == "SELL" and final_tp > price - min_distance:
+                final_tp = price - min_distance
+
         request = {
             "action": action,
             "symbol": symbol,
             "volume": float(volume),
             "type": type_mt5,
             "price": float(price),
-            "sl": float(sl),
-            "tp": float(tp),
+            "sl": float(final_sl),
+            "tp": float(final_tp),
             "deviation": 20,
             "magic": 998822,
             "comment": "Scalper Brain Bot",
