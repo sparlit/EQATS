@@ -40,7 +40,6 @@ def extract_advanced_nlp_sentiments(headline):
             scores["textblob_polarity"] = -0.45
 
     # 2. spaCy Named Entity Recognition (NER)
-    entities = []
     try:
         import spacy
 

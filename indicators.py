@@ -520,7 +520,6 @@ def calculate_order_flow_metrics(history_bars, order_book=None):
             high = bar.get("high", 0.0)
             low = bar.get("low", 0.0)
             close = bar.get("close", 0.0)
-            open_p = bar.get("open", close)
             vol = bar.get("vol", bar.get("volume", (high - low) * 10000.0))
 
             rng = max(1e-5, high - low)

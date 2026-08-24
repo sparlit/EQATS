@@ -157,7 +157,7 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         # Extract features using tsfresh or sklearn
         from sklearn.ensemble import RandomForestRegressor  # noqa: F401
 
-        pass
+        _ = (lgb, xgb, RandomForestRegressor)
     except ImportError:
         pass
 

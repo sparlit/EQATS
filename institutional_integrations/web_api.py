@@ -4,9 +4,12 @@ Integrates FastAPI, WebSockets, ZeroMQ/TCP IPC sockets, Robyn, Kafka, Airflow, C
 """
 
 import json
+import logging
 import socket
 import threading
 import time
+
+_log = logging.getLogger(__name__)
 
 
 class SocketIPCBridge:

@@ -991,9 +991,9 @@ if __name__ == "__main__":
     # Check if we should launch in GUI mode or fallback to classic CLI mode
     use_gui = True
     try:
-        import tkinter  # noqa: F401
+        import tkinter
 
-        if os.name != "nt" and not os.environ.get("DISPLAY"):
+        if tkinter and os.name != "nt" and not os.environ.get("DISPLAY"):
             use_gui = False
     except ImportError:
         use_gui = False
