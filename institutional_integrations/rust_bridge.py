@@ -7,7 +7,6 @@ with self-healing dynamic fallback to Python when Rust binary is unavailable or 
 
 import ctypes
 import os
-import sys
 import time
 import logging
 
@@ -198,7 +197,6 @@ _load_rust_library()
 
 def is_rust_available() -> bool:
     """Checks if Rust engine is compiled, loaded, and available."""
-    global _LAST_FAILURE_TIME, _RUST_AVAILABLE
     if _RUST_AVAILABLE:
         return True
 

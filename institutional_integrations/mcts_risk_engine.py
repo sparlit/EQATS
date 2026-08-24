@@ -41,7 +41,6 @@ class BlackSwanStressEngine:
         results = {}
         for scenario_id, config in cls.HISTORICAL_SCENARIOS.items():
             shock = config["asset_shock_pct"]
-            vol_mult = config["volatility_mult"]
 
             # Position loss under extreme gapping/slippage
             position_drag = open_positions_count * 0.05  # 5% leverage amplification

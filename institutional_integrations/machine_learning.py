@@ -17,7 +17,6 @@ class ActorCriticPolicy:
         self.action_dim = action_dim
 
         try:
-            import torch
             import torch.nn as nn
 
             # Actor network layers
@@ -158,7 +157,7 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
         # Extract features using tsfresh or sklearn
         from sklearn.ensemble import RandomForestRegressor
 
-        pass
+        _ = (lgb, xgb, RandomForestRegressor)
     except ImportError:
         pass
 

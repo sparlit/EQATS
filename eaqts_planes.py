@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from typing import Optional, Dict, Any
 
 import config
 from event_bus import Event, global_event_bus
@@ -174,7 +175,7 @@ class DataPlane:
             )
         )
 
-    def query_pit_price(self, symbol: str, target_time_str: str) -> dict:
+    def query_pit_price(self, symbol: str, target_time_str: str) -> Optional[dict]:
         """Returns the available price record exactly at or before target_time_str (No Look-Ahead bias!)."""
         records = self._pit_database.get(symbol, [])
         valid_record = None
