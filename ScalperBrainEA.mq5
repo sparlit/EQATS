@@ -9,6 +9,8 @@
 #property description "Autonomous Scalper Brain EA - Zero-Latency Socket IPC & On-Chart Interactive HUD"
 #property indicator_chart_window
 
+#include <Trade\Trade.mqh>
+
 // Input Parameters
 input string   InpSocketHost     = "127.0.0.1";         // Socket IPC Bridge Host
 input int      InpSocketPort     = 9001;                // Socket IPC Bridge Port
@@ -16,6 +18,7 @@ input bool     InpUseSocketIPC   = true;                // Use Zero-Latency Sock
 input string   InpFileName       = "scalper_telemetry.txt"; // Fallback State File Name
 input bool     InpUseCommonFolder = true;               // Use Common shared folder (FILE_COMMON)
 input int      InpTimerInterval  = 1;                   // Update Interval (seconds)
+input bool     InpEmergencyCloseOnLockdown = true;       // Close positions on Emergency Lockdown signal
 
 // State variables
 string m_symbols[50];
@@ -221,6 +224,25 @@ bool ParseStateData()
             if(split_count >= 5) m_overlaps = parts[4];
             if(split_count >= 6) m_next_session = parts[5];
             if(split_count >= 7) m_countdown = parts[6];
+
+            // Emergency Lockdown Circuit Breaker Signal Check
+            if(StringFind(line, "LOCKDOWN") >= 0 || StringFind(line, "PANIC") >= 0)
+            {
+               Print("ScalperBrainEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
+               if(InpEmergencyCloseOnLockdown)
+               {
+                  // Close all active positions safely if emergency lockdown enabled
+                  for(int pos_i = PositionsTotal() - 1; pos_i >= 0; pos_i--)
+                  {
+                     ulong ticket = PositionGetTicket(pos_i);
+                     if(ticket > 0)
+                     {
+                        CTrade trade_obj;
+                        trade_obj.PositionClose(ticket);
+                     }
+                  }
+               }
+            }
          }
          continue;
       }

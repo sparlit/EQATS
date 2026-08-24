@@ -4,6 +4,7 @@ import logging
 import math
 import random
 import threading
+import time
 
 import config
 import database
@@ -653,8 +654,18 @@ class SimulatorConnector(TradingConnector):
         self.currency = "USD"
         self.is_demo = True
         self.open_trades = {}
-        self.ticket_counter = 100001
         self.lock = threading.Lock()
+        try:
+            database.init_db()
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(CAST(ticket AS INTEGER)) FROM trades WHERE ticket GLOB '[0-9]*'")
+            row = cursor.fetchone()
+            max_t = row[0] if row and row[0] is not None else 100000
+            self.ticket_counter = max(100001, max_t + 1)
+            conn.close()
+        except Exception:
+            self.ticket_counter = int(time.time() * 1000) % 90000000 + 100000
         self.connected_status = True
 
         self.historical_prices = {}
