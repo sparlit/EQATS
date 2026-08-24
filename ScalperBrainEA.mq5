@@ -55,6 +55,51 @@ string m_active_session = "Quiet Session";
 string m_overlaps = "No active overlap";
 string m_next_session = "Tokyo";
 string m_countdown = "00:00:00";
+bool m_show_extended_details = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
 
 // Interactivity States
 bool m_show_extended_details = true;
