@@ -119,9 +119,7 @@ def test_universal_broker_gateway_configurable_backoff_and_network_unreachable()
     gw = UniversalBrokerGateway(protocol="REST_WS", broker_config=config)
     assert gw.retry_backoff_delay == 0.05
 
-    t0 = time.time()
     res = gw.execute_order("GBPUSD", "SELL", 0.02, 1.2800, 1.2600)
-    elapsed = time.time() - t0
 
     assert res["success"] is False
     assert res["reason"] == "NETWORK_UNREACHABLE"

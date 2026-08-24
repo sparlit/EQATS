@@ -4,6 +4,7 @@ import logging
 import math
 import random
 import threading
+import time
 
 import config
 import database
@@ -440,14 +441,34 @@ class MT5Connector(TradingConnector):
 
         volume = max(vol_min, min(vol_max, round(volume, 4)))
 
+        # Validate SL and TP against broker minimum stop distance (trade_stops_level)
+        stops_level = info.trade_stops_level if info else 0
+        point = info.point if info else (0.01 if "JPY" in symbol.upper() else 0.00001)
+        min_distance = (stops_level + 5) * point
+
+        final_sl = float(sl)
+        final_tp = float(tp)
+
+        if final_sl > 0:
+            if order_type == "BUY" and final_sl > price - min_distance:
+                final_sl = price - min_distance
+            elif order_type == "SELL" and final_sl < price + min_distance:
+                final_sl = price + min_distance
+
+        if final_tp > 0:
+            if order_type == "BUY" and final_tp < price + min_distance:
+                final_tp = price + min_distance
+            elif order_type == "SELL" and final_tp > price - min_distance:
+                final_tp = price - min_distance
+
         request = {
             "action": action,
             "symbol": symbol,
             "volume": float(volume),
             "type": type_mt5,
             "price": float(price),
-            "sl": float(sl),
-            "tp": float(tp),
+            "sl": float(final_sl),
+            "tp": float(final_tp),
             "deviation": 20,
             "magic": 998822,
             "comment": "Scalper Brain Bot",
@@ -653,8 +674,18 @@ class SimulatorConnector(TradingConnector):
         self.currency = "USD"
         self.is_demo = True
         self.open_trades = {}
-        self.ticket_counter = 100001
         self.lock = threading.Lock()
+        try:
+            database.init_db()
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(CAST(ticket AS INTEGER)) FROM trades WHERE ticket GLOB '[0-9]*'")
+            row = cursor.fetchone()
+            max_t = row[0] if row and row[0] is not None else 100000
+            self.ticket_counter = max(100001, max_t + 1)
+            conn.close()
+        except Exception:
+            self.ticket_counter = int(time.time() * 1000) % 90000000 + 100000
         self.connected_status = True
 
         self.historical_prices = {}
@@ -920,22 +951,15 @@ class SimulatorConnector(TradingConnector):
         }
         price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
-        for _ in range(250):
-            ret = random.normalvariate(0.00005, 0.0015)
-            new_close = price * (1 + ret)
-            new_open = price
-            high = max(new_open, new_close) * (
-                1 + abs(random.normalvariate(0.0, 0.0005))
-            )
-            low = min(new_open, new_close) * (
-                1 - abs(random.normalvariate(0.0, 0.0005))
-            )
+        # Populate deterministic historical bars seeded from real asset base prices
+        for i in range(250):
+            p = price * (1.0 + (i - 125) * 0.0001)
             bars.append(
                 {
-                    "open": round(price, 5),
-                    "high": round(price, 5),
-                    "low": round(price, 5),
-                    "close": round(price, 5),
+                    "open": round(p, 5),
+                    "high": round(p * 1.0002, 5),
+                    "low": round(p * 0.9998, 5),
+                    "close": round(p, 5),
                 }
             )
         self.historical_prices[symbol] = bars

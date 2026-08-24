@@ -695,7 +695,6 @@ class AutonomousScalper:
         # E. Core Scanning Loop & Status Reporting
         account = self.conn.get_account_info()
         current_equity = account["equity"]
-        current_balance = account["balance"]
 
         timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         active_session = self._get_current_session()
@@ -720,9 +719,8 @@ class AutonomousScalper:
         import concurrent.futures
         import multiprocessing as mp
 
-        pool_workers = min(
-            12, max(1, len(active_symbols))
-        )  # Optimized for Performance hybrid cores (12 logical threads)
+        cpu_cores = os.cpu_count() or 8
+        pool_workers = max(1, min(cpu_cores, len(active_symbols)))
         parallel_success = False
 
         # Spawn ProcessPoolExecutor only if running in the MainProcess to prevent nested process pool deadlocks
@@ -993,9 +991,9 @@ if __name__ == "__main__":
     # Check if we should launch in GUI mode or fallback to classic CLI mode
     use_gui = True
     try:
-        import tkinter as tk
+        import tkinter
 
-        if os.name != "nt" and not os.environ.get("DISPLAY"):
+        if tkinter and os.name != "nt" and not os.environ.get("DISPLAY"):
             use_gui = False
     except ImportError:
         use_gui = False

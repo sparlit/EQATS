@@ -260,7 +260,6 @@ class ScalperBrain:
 
         # 3. EVALUATE STRATEGY 3: MACD_MOMENTUM
         sig_mac = "HOLD"
-        reasons_mac = []
         if macd["histogram"] > 0 and macd["macd"] > macd["signal"]:
             sig_mac = "BUY"
         elif macd["histogram"] < 0 and macd["macd"] < macd["signal"]:
@@ -268,7 +267,6 @@ class ScalperBrain:
 
         # 4. EVALUATE STRATEGY 4: BREAKOUT
         sig_bo = "HOLD"
-        reasons_bo = []
         donchian = indicators.calculate_donchian_channels(
             highs, lows, getattr(config, "BREAKOUT_PERIOD", 20)
         )
