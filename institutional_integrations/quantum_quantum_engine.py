@@ -94,9 +94,6 @@ class QuantumAutoEngine:
         """
         Simulates parsing real-time analytics data from the specified websites, APIs, and MCP databases.
         """
-        now = datetime.datetime.now()
-        symbol_upper = symbol.upper()
-
         # Live analytics data structure from registered providers / telemetry streams
         research_metrics = {
             "defillama_tvl_delta_pct": 0.0,

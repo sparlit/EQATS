@@ -524,7 +524,6 @@ def calculate_order_flow_metrics(history_bars, order_book=None):
             vol = bar.get("vol", bar.get("volume", (high - low) * 10000.0))
 
             rng = max(1e-5, high - low)
-            body_ratio = (close - open_p) / rng if rng > 0 else 0.0
 
             # Estimate buy vs sell volume based on close relative to bar range
             buy_vol = vol * max(0.05, min(0.95, (close - low) / rng))
