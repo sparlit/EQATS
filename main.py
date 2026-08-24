@@ -245,19 +245,15 @@ class AutonomousScalper:
             c in symbol_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP"]
         )
 
-        if config.BLOCK_WEEKENDS and not is_crypto_asset:
-            # Friday after 21:00 GMT to Sunday before 21:00 GMT
-            if (
-                (weekday == 4 and hour >= 21)
-                or weekday == 5
-                or (weekday == 6 and hour < 21)
-            ):
-                return False, "Hazardous session: Weekend market shutdown."
+        if config.BLOCK_WEEKENDS and not is_crypto_asset and (
+            (weekday == 4 and hour >= 21)
+            or weekday == 5
+            or (weekday == 6 and hour < 21)
+        ):
+            return False, "Hazardous session: Weekend market shutdown."
 
-        if config.BLOCK_ROLLOVER_HOUR:
-            # Rollover daily spread expansions occur between 22:00 and 23:00 GMT standardly
-            if hour == 22:
-                return False, "Hazardous session: Daily broker rollover hour."
+        if config.BLOCK_ROLLOVER_HOUR and hour == 22:
+            return False, "Hazardous session: Daily broker rollover hour."
 
         # B. Spread Protections
         bid = price_info["bid"]

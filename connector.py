@@ -244,12 +244,11 @@ class MT5Connector(TradingConnector):
                 "Failed to retrieve MT5 account details. Is MT5 logged in?"
             )
 
-        if self.demo_only:
-            if account_info.trade_mode == 2:
-                self.mt5.shutdown()
-                raise PermissionError(
-                    "CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override."
-                )
+        if self.demo_only and account_info.trade_mode == 2:
+            self.mt5.shutdown()
+            raise PermissionError(
+                "CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override."
+            )
 
         print(
             f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}"

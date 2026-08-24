@@ -1637,12 +1637,11 @@ class ScalperGui:
     def switch_to_screen(self, screen_code):
         """Switches the main dashboard window display dynamically"""
         # Intercept SET <GO> and CFG <GO> screen access to enforce secondary PIN authorization
-        if screen_code in ["SET", "CFG", "CONFIG"]:
-            if not self._prompt_secondary_pin():
-                print(
-                    f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller."
-                )
-                return
+        if screen_code in ["SET", "CFG", "CONFIG"] and not self._prompt_secondary_pin():
+            print(
+                f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller."
+            )
+            return
 
         # Clear out previous widgets
         for widget in self.screen_frame.winfo_children():

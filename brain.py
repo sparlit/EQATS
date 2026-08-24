@@ -199,8 +199,8 @@ class ScalperBrain:
                             "atr": round(atr_val, 5),
                         },
                     }
-        except Exception as e:
-            print(f"Warning: Symbol floating loss check error: {e}")
+        except (KeyError, ValueError, TypeError) as e:
+            _log.debug("Symbol floating loss check notice: %s", e)
 
         # --- AI Neural Predictor Integration ---
         predictor = predictive_brain.get_symbol_predictor(symbol)
@@ -315,7 +315,7 @@ class ScalperBrain:
                 sig_sa = "BUY"
             elif z_score >= 1.8:
                 sig_sa = "SELL"
-        except Exception:
+        except (KeyError, ValueError, ZeroDivisionError):
             sig_sa = "HOLD"
 
         # 8. EVALUATE STRATEGY 8: ORB
@@ -367,7 +367,7 @@ class ScalperBrain:
                 sig_mtf = "BUY"
             elif bearish_count >= 5:
                 sig_mtf = "SELL"
-        except Exception:
+        except (KeyError, ValueError, TypeError):
             sig_mtf = "HOLD"
 
         # SMC / ICT Strategy
@@ -502,8 +502,8 @@ class ScalperBrain:
             elif prevailing_sentiment == "BEARISH" and decision == "BUY":
                 decision = "HOLD"
                 explanation = f"HOLD (Macro Vetoed: News Sentiment BEARISH) | {explanation}"
-        except Exception as e:
-            print(f"Warning: News sentiment filter error: {e}")
+        except (KeyError, ValueError, TypeError) as e:
+            _log.debug("News sentiment filter notice: %s", e)
 
         # --- Dynamic Hybrid Volatility & Structure SL/TP ---
         sl = 0.0
@@ -553,7 +553,7 @@ class ScalperBrain:
             try:
                 from brain_agents_orchestrator import global_brain_orchestrator
                 brain_directive = global_brain_orchestrator.last_directive
-            except Exception:
+            except (ImportError, AttributeError):
                 brain_directive = None
 
         if brain_directive and hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
@@ -628,5 +628,5 @@ class ScalperBrain:
             max_lot = getattr(config, "MAX_LOT_SIZE", 5.0)
             lot_size = self.normalize_volume(symbol, kelly_lots, min_vol=0.01, max_vol=max_lot, step_vol=0.01)
             return lot_size
-        except Exception:
+        except (KeyError, ValueError, ZeroDivisionError, TypeError):
             return min_lot
