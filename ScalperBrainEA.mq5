@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "6.50"
-#property description "Elite Quantum Autonomous Scalper EA - Zero-Latency Socket IPC & On-Chart Interactive Institutional HUD"
+#property version   "7.00"
+#property description "Elite Quantum Autonomous Scalper EA v7.00 - Sub-Millisecond Socket IPC & Institutional Interactive HUD Visualizer"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -22,7 +22,7 @@ input bool     InpEmergencyCloseOnLockdown = true;                  // Close pos
 input color    InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
 input color    InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
 
-// State variables
+// Extended Symbol Scan Metrics
 string m_symbols[50];
 string m_prices[50];
 string m_ema200[50];
@@ -36,9 +36,18 @@ string m_bias_out[50];
 string m_hidden_act[50];
 int m_total_symbols = 0;
 
+// Detailed Active Position Telemetry
+string m_trade_tickets[20];
+string m_trade_symbols[20];
+string m_trade_dirs[20];
+string m_trade_open_prices[20];
+string m_trade_sls[20];
+string m_trade_tps[20];
+string m_trade_pnls[20];
 string m_trades_text[20];
 int m_total_trades = 0;
 
+// System Account & Risk Metrics
 string m_equity = "0.00";
 string m_balance = "0.00";
 string m_active_count = "0";
@@ -47,6 +56,10 @@ string m_overlaps = "No active overlap";
 string m_next_session = "Tokyo";
 string m_countdown = "00:00:00";
 bool m_show_extended_details = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
 
 // Persistent socket buffer for partial read accumulation
 string m_accumulated_buffer = "";
@@ -71,7 +84,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("ScalperBrainEA v6.50 Initialized. IPC Target: ", InpSocketHost, ":", InpSocketPort);
+   Print("ScalperBrainEA v7.00 Master HUD Initialized. IPC Target: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -83,7 +96,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("ScalperBrainEA Deinitialized cleanly.");
+   Print("ScalperBrainEA v7.00 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -130,6 +143,12 @@ void OnChartEvent(const int id,
       {
          m_show_extended_details = !m_show_extended_details;
          Print("ScalperBrainEA: Extended Neural telemetry details set to: ", m_show_extended_details);
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_CardToggle")
+      {
+         m_show_account_card = !m_show_account_card;
+         Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
    }
@@ -293,13 +312,15 @@ bool ParseStateData()
          // Trade row: TRADE|ticket|symbol|direction|open_price|sl|tp|profit
          if(split_count >= 8 && parts[0] == "TRADE" && m_total_trades < 20)
          {
-            string ticket = parts[1];
-            string symbol = parts[2];
-            string dir = parts[3];
-            string open_p = parts[4];
-            string profit = parts[7];
+            m_trade_tickets[m_total_trades] = parts[1];
+            m_trade_symbols[m_total_trades] = parts[2];
+            m_trade_dirs[m_total_trades] = parts[3];
+            m_trade_open_prices[m_total_trades] = parts[4];
+            m_trade_sls[m_total_trades] = parts[5];
+            m_trade_tps[m_total_trades] = parts[6];
+            m_trade_pnls[m_total_trades] = parts[7];
 
-            m_trades_text[m_total_trades] = symbol + " " + dir + " | Ticket: " + ticket + " | Entry: " + open_p + " | PnL: $" + profit;
+            m_trades_text[m_total_trades] = parts[2] + " " + parts[3] + " | Ticket: " + parts[1] + " | Open: " + parts[4] + " | SL: " + parts[5] + " | TP: " + parts[6] + " | PnL: $" + parts[7];
             m_total_trades++;
          }
       }
@@ -346,21 +367,18 @@ bool ParseStateData()
 //+------------------------------------------------------------------+
 void DrawInstitutionalHeader()
 {
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v6.50)", 20, 18, 13, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v7.00)", 20, 18, 13, clrLightCyan, "Segoe UI Bold");
 
-   // 1. Resync IPC Button
-   CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 620, 14, 110, 24, clrWhite, clrDarkBlue, 9);
-
-   // 2. Toggle Extended Details Button
-   CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI HUD", 740, 14, 110, 24, clrWhite, clrDarkSlateBlue, 9);
-
-   // 3. Emergency Panic Close All Button
-   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 860, 14, 130, 24, clrWhite, clrDarkRed, 9);
+   // Interactive Navigation Buttons
+   CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 14, 100, 24, clrWhite, clrDarkBlue, 8);
+   CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 690, 14, 90, 24, clrWhite, clrDarkSlateBlue, 8);
+   CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 790, 14, 110, 24, clrWhite, clrTeal, 8);
+   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 910, 14, 130, 24, clrWhite, clrDarkRed, 8);
 }
 
 //+------------------------------------------------------------------+
 //| UpdateDashboard                                                  |
-//| Re-built HUD matrix visualizer with color-coded neural panels    |
+//| Re-built HUD matrix visualizer with detailed execution cards     |
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
@@ -398,28 +416,40 @@ void UpdateDashboard()
    ObjectDelete(0, "SB_H_AI_W2");
    ObjectDelete(0, "SB_H_AI_Act");
 
-   // Account Metric Card
+   // Account Metric Card Calculation
    double float_eq = StringToDouble(m_equity);
    double float_bal = StringToDouble(m_balance);
    double pnl = float_eq - float_bal;
+   double drawdown_pct = (float_bal > 0) ? (pnl / float_bal) * 100.0 : 0.0;
    color pnl_color = (pnl >= 0.0) ? clrSpringGreen : clrDeepPink;
 
-   string metrics_text = "Balance: $" + m_balance + "  |  Equity: $" + m_equity + "  |  Floating PnL: $" + DoubleToString(pnl, 2) + "  |  Active Session: " + m_active_session;
-   CreateLabel("SB_Metrics", metrics_text, 20, 48, 10, clrWhite, "Segoe UI Semibold");
+   int current_y = 48;
+
+   if(m_show_account_card)
+   {
+      string metrics_text = "Balance: $" + m_balance + "  |  Equity: $" + m_equity + "  |  Floating PnL: $" + DoubleToString(pnl, 2) + " (" + DoubleToString(drawdown_pct, 2) + "%)  |  Active Session: " + m_active_session;
+      CreateLabel("SB_Metrics", metrics_text, 20, current_y, 10, clrWhite, "Segoe UI Semibold");
+      current_y += 22;
+   }
+   else
+   {
+      ObjectDelete(0, "SB_Metrics");
+   }
 
    // Section 1: Sessions Timeline Window
-   string timeline_text = "⏳ SESSION TIMELINE  |  Overlaps: " + m_overlaps + "  |  Next Window: " + m_next_session + " in " + m_countdown;
-   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, 70, 9, clrOrange, "Segoe UI Bold");
+   string timeline_text = "⏳ SESSION TIMELINE  |  Active Overlaps: " + m_overlaps + "  |  Next Window: " + m_next_session + " in " + m_countdown;
+   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, current_y, 9, clrOrange, "Segoe UI Bold");
+   current_y += 22;
 
    // Section 2: Active Trades visualizer card
-   CreateLabel("SB_TradeSec", "💼 ACTIVE EXECUTIONS (" + m_active_count + "/10 TRADES):", 20, 94, 10, clrSkyBlue, "Segoe UI Bold");
+   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING EXECUTIONS (" + m_active_count + "/10 OPEN POSITIONS):", 20, current_y, 10, clrSkyBlue, "Segoe UI Bold");
+   current_y += 20;
 
-   int current_y = 116;
    int line_height = 18;
 
    if(m_total_trades == 0)
    {
-      CreateLabel("SB_No_Trades", "No active positions. Neural brain monitoring liquidity...", 20, current_y, 9, clrGray, "Segoe UI Italic");
+      CreateLabel("SB_No_Trades", "No active open positions. Neural brain actively scanning multi-asset liquidity pools...", 20, current_y, 9, clrGray, "Segoe UI Italic");
       current_y += line_height;
    }
    else
@@ -581,6 +611,7 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_H_AI_Act");
    ObjectDelete(0, "SB_Btn_Resync");
    ObjectDelete(0, "SB_Btn_Toggle");
+   ObjectDelete(0, "SB_Btn_CardToggle");
    ObjectDelete(0, "SB_Btn_Panic");
 
    for(int i = 0; i < 50; i++)
