@@ -215,7 +215,7 @@ class TestAutonomousScalperIntegration(unittest.TestCase):
             scalper.tick_and_execute()
 
         # Verify db log files are updated
-        assessments = database.get_all_trades()
+        database.get_all_trades()
         # We have run historical scanning, we should at least check that SQLite db exists and has no errors
         self.assertTrue(os.path.exists("integration_test.db"))
 

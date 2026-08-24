@@ -127,7 +127,6 @@ class TradingSystemSupervisorAgent:
 
             safe_start = start_bal if start_bal > 0 else 10000.0
             current_loss = start_bal - equity
-            max_allowed = safe_start * (config.MAX_DAILY_DRAWDOWN_PERCENT / 100.0)
 
             if current_loss > 0:
                 drawdown_pct = (current_loss / safe_start) * 100.0
@@ -153,7 +152,7 @@ class TradingSystemSupervisorAgent:
         # 4. Model Alignment & Prediction Quality Check
         model_deductions = 0.0
         try:
-            prevailing_sentiment = database.get_prevailing_news_sentiment()
+            database.get_prevailing_news_sentiment()
             perf = database.get_all_time_performance()
             win_rate = perf["win_rate"]
 
