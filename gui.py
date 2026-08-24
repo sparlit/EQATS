@@ -9226,10 +9226,11 @@ SECURITY DOMAINS ENFORCED:
             lot_size = t.get("lot_size", 0.0)
             open_price = t.get("open_price", 0.0)
             close_price = t.get("close_price", 0.0)
-            profit = t.get("profit", 0.0)
+            profit = t.get("profit")
+            profit_val = float(profit) if profit is not None else 0.0
             reason = t.get("close_reason", "-")
 
-            profit_str = f"${profit:.2f}" if profit >= 0 else f"-${abs(profit):.2f}"
+            profit_str = f"${profit_val:.2f}" if profit_val >= 0 else f"-${abs(profit_val):.2f}"
 
             self.tradebook_tree.insert(
                 "",
@@ -10957,8 +10958,10 @@ SECURITY DOMAINS ENFORCED:
         c_em.create_line(15, 15, em_w - 15, em_h - 15, fill="#ff5252", dash=(2, 2))
         for idx, tr in enumerate(all_trades[:35]):
             sx = 15 + (idx / 35.0) * (em_w - 30)
-            sy = em_h - 15 - (max(0.0, min(100.0, tr.get("profit", 0.0) + 50)) / 100.0) * (em_h - 30)
-            sc = "#00e676" if tr.get("profit", 0.0) >= 0 else "#ff5252"
+            tr_p = tr.get("profit")
+            tr_profit = float(tr_p) if tr_p is not None else 0.0
+            sy = em_h - 15 - (max(0.0, min(100.0, tr_profit + 50)) / 100.0) * (em_h - 30)
+            sc = "#00e676" if tr_profit >= 0 else "#ff5252"
             c_em.create_oval(sx - 2, sy - 2, sx + 2, sy + 2, fill=sc, outline="")
 
         c_sig = self.canvas_poly_signals
