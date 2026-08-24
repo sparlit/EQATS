@@ -4,6 +4,7 @@ import logging
 import math
 import random
 import threading
+import time
 
 import config
 import database
@@ -653,8 +654,18 @@ class SimulatorConnector(TradingConnector):
         self.currency = "USD"
         self.is_demo = True
         self.open_trades = {}
-        self.ticket_counter = 100001
         self.lock = threading.Lock()
+        try:
+            database.init_db()
+            conn = database.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(CAST(ticket AS INTEGER)) FROM trades WHERE ticket GLOB '[0-9]*'")
+            row = cursor.fetchone()
+            max_t = row[0] if row and row[0] is not None else 100000
+            self.ticket_counter = max(100001, max_t + 1)
+            conn.close()
+        except Exception:
+            self.ticket_counter = int(time.time() * 1000) % 90000000 + 100000
         self.connected_status = True
 
         self.historical_prices = {}
@@ -920,22 +931,15 @@ class SimulatorConnector(TradingConnector):
         }
         price = base_prices.get(symbol.upper(), 1.0000)
         bars = []
-        for _ in range(250):
-            ret = random.normalvariate(0.00005, 0.0015)
-            new_close = price * (1 + ret)
-            new_open = price
-            high = max(new_open, new_close) * (
-                1 + abs(random.normalvariate(0.0, 0.0005))
-            )
-            low = min(new_open, new_close) * (
-                1 - abs(random.normalvariate(0.0, 0.0005))
-            )
+        # Populate deterministic historical bars seeded from real asset base prices
+        for i in range(250):
+            p = price * (1.0 + (i - 125) * 0.0001)
             bars.append(
                 {
-                    "open": round(price, 5),
-                    "high": round(price, 5),
-                    "low": round(price, 5),
-                    "close": round(price, 5),
+                    "open": round(p, 5),
+                    "high": round(p * 1.0002, 5),
+                    "low": round(p * 0.9998, 5),
+                    "close": round(p, 5),
                 }
             )
         self.historical_prices[symbol] = bars

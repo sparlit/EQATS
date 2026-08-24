@@ -145,7 +145,7 @@ class EventDrivenBacktester:
         """
         import concurrent.futures
 
-        def dummy_strategy(bars):
+        def momentum_trend_strategy(bars):
             closes = [b["close"] for b in bars]
             if len(closes) >= 5:
                 if closes[-1] > closes[-5]:
@@ -157,7 +157,7 @@ class EventDrivenBacktester:
         def eval_param_pair(sl_tp):
             sl, tp = sl_tp
             res = self.run_backtest(
-                historical_bars, dummy_strategy, sl_pips=sl, tp_pips=tp
+                historical_bars, momentum_trend_strategy, sl_pips=sl, tp_pips=tp
             )
             return (sl, tp), res
 
