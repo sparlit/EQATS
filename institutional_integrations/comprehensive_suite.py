@@ -12,8 +12,8 @@ import datetime
 def integrate_airflow():
     """Defines a simulated Apache Airflow DAG structure for scheduling daily optimization tasks."""
     try:
-        from airflow import DAG
-        from airflow.operators.python import PythonOperator
+        from airflow import DAG  # noqa: F401
+        from airflow.operators.python import PythonOperator  # noqa: F401
 
         dag = DAG("daily_portfolio_rebalance", start_date=datetime.datetime.now())
         _ = PythonOperator
