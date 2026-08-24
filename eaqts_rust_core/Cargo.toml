@@ -9,3 +9,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rayon = "1.8"
+pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+
+[features]
+default = []
+python = ["dep:pyo3"]
