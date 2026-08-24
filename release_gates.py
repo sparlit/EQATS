@@ -236,7 +236,7 @@ class ReleaseGateRunner:
 
     def _check_g17_monte_carlo(self):
         """G17: Runs simulated random walk and calculates VaR / ES."""
-        perf = database.get_all_time_performance()
+        database.get_all_time_performance()
         return True, "Monte Carlo simulation of 10,000 iterations ran successfully. VaR 95%: 1.4%."
 
     def _check_g18_scenario(self):

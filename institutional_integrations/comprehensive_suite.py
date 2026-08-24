@@ -16,6 +16,7 @@ def integrate_airflow():
         from airflow.operators.python import PythonOperator
 
         dag = DAG("daily_portfolio_rebalance", start_date=datetime.datetime.now())
+        _ = PythonOperator
         return {"status": "ACTIVE", "dag_id": dag.dag_id, "engine": "AIRFLOW"}
     except ImportError:
         return {
@@ -1602,7 +1603,7 @@ def integrate_typer():
     try:
         import typer
 
-        app = typer.Typer()
+        typer.Typer()
         return {"status": "ACTIVE", "app": "TYPER_CLI", "engine": "TYPER"}
     except Exception:
         return {
