@@ -89,6 +89,10 @@ bool m_show_account_card = true;
 bool m_show_extended_details = true;
 bool m_show_account_card = true;
 
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
 // Persistent socket buffer for partial read accumulation
 string m_accumulated_buffer = "";
 
@@ -186,6 +190,27 @@ void OnChartEvent(const int id,
          UpdateDashboard();
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| ExecutePanicCloseAll                                             |
+//| Instantly liquidates all open positions across terminal          |
+//+------------------------------------------------------------------+
+void ExecutePanicCloseAll()
+{
+   int closed_count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(m_trade_engine.PositionClose(ticket))
+         {
+            closed_count++;
+         }
+      }
+   }
+   Print("ScalperBrainEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
 }
 
 //+------------------------------------------------------------------+
