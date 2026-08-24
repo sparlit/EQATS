@@ -55,6 +55,27 @@ string m_active_session = "Quiet Session";
 string m_overlaps = "No active overlap";
 string m_next_session = "Tokyo";
 string m_countdown = "00:00:00";
+bool m_show_extended_details = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
 
 // Interactivity States
 bool m_show_extended_details = true;
@@ -150,7 +171,73 @@ void OnChartEvent(const int id,
          Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
+      else if(sparam == "SB_Btn_CardToggle")
+      {
+         m_show_account_card = !m_show_account_card;
+         Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_Panic")
+      {
+         Print("ScalperBrainEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
+         ExecutePanicCloseAll();
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_Toggle")
+      {
+         m_show_extended_details = !m_show_extended_details;
+         Print("ScalperBrainEA: Extended Neural telemetry details set to: ", m_show_extended_details);
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_CardToggle")
+      {
+         m_show_account_card = !m_show_account_card;
+         Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
+         UpdateDashboard();
+      }
    }
+}
+
+//+------------------------------------------------------------------+
+//| ExecutePanicCloseAll                                             |
+//| Instantly liquidates all open positions across terminal          |
+//+------------------------------------------------------------------+
+void ExecutePanicCloseAll()
+{
+   int closed_count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(m_trade_engine.PositionClose(ticket))
+         {
+            closed_count++;
+         }
+      }
+   }
+   Print("ScalperBrainEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
+}
+
+//+------------------------------------------------------------------+
+//| ExecutePanicCloseAll                                             |
+//| Instantly liquidates all open positions across terminal          |
+//+------------------------------------------------------------------+
+void ExecutePanicCloseAll()
+{
+   int closed_count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(m_trade_engine.PositionClose(ticket))
+         {
+            closed_count++;
+         }
+      }
+   }
+   Print("ScalperBrainEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
 }
 
 //+------------------------------------------------------------------+
