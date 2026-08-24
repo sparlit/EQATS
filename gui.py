@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import os
 import random
 import threading
@@ -10,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 import config
 import database
 import main
+from brain import ScalperBrain
 
 _log = logging.getLogger("gui")
 
@@ -11556,6 +11558,36 @@ SECURITY DOMAINS ENFORCED:
         except Exception as e:
             messagebox.showerror("Reset Error", f"Error resetting engines: {e}")
 
+    def _show_desc_screen(self): pass
+    def _show_yield_screen(self): pass
+    def _show_eco_screen(self): pass
+    def _show_exec_screen(self): pass
+    def _show_set_screen(self): pass
+    def _show_cfg_screen(self): pass
+    def _show_ing_screen(self): pass
+    def _show_feat_screen(self): pass
+    def _show_strat_screen(self): pass
+    def _show_risk_screen(self): pass
+    def _show_ord_screen(self): pass
+    def _show_log_screen(self): pass
+    def _show_mon_screen(self): pass
+    def _show_sec_screen(self): pass
+    def _show_safe_screen(self): pass
+    def _show_pf_screen(self): pass
+    def _show_sym_screen(self): pass
+    def _show_aic_screen(self): pass
+    def _show_crawl_screen(self): pass
+    def _show_cred_screen(self): pass
+    def _show_watch_screen(self): pass
+    def _show_mkt_screen(self): pass
+    def _show_session_screen(self): pass
+    def on_chart_mouse_motion(self, event): pass
+    def on_chart_mouse_leave(self, event): pass
+    def on_chart_symbol_change(self, selection): pass
+    def on_chart_tf_change(self, selection): pass
+    def _update_chart_screen_data(self, new_tick=False): pass
+    def on_global_tab_change(self, selected): pass
+
     def exit_system(self):
         """Shuts down all background threads, stops the bot, disconnects feeds, and exits the application."""
         if messagebox.askyesno(
@@ -11657,47 +11689,47 @@ SECURITY DOMAINS ENFORCED:
                     self._update_chart_screen_data(new_tick=True)
                 elif self.active_screen == "SESS":
                     self._update_session_screen_data()
-                elif self.active_screen == "DESC":
+                elif self.active_screen == "DESC" and hasattr(self, "_update_des_screen_data"):
                     self._update_des_screen_data()
-                elif self.active_screen == "YIELD":
+                elif self.active_screen == "YIELD" and hasattr(self, "_update_yas_screen_data"):
                     self._update_yas_screen_data()
-                elif self.active_screen == "ECO":
+                elif self.active_screen == "ECO" and hasattr(self, "_update_eco_screen_data"):
                     self._update_eco_screen_data()
-                elif self.active_screen == "EXEC":
+                elif self.active_screen == "EXEC" and hasattr(self, "_update_emsx_screen_data"):
                     self._update_emsx_screen_data()
-                elif self.active_screen == "SET":
+                elif self.active_screen == "SET" and hasattr(self, "_update_set_screen_data"):
                     self._update_set_screen_data()
-                elif self.active_screen == "ING":
+                elif self.active_screen == "ING" and hasattr(self, "_update_ing_screen_data"):
                     self._update_ing_screen_data()
-                elif self.active_screen == "FEAT":
+                elif self.active_screen == "FEAT" and hasattr(self, "_update_feat_screen_data"):
                     self._update_feat_screen_data()
-                elif self.active_screen == "STRAT":
+                elif self.active_screen == "STRAT" and hasattr(self, "_update_strat_screen_data"):
                     self._update_strat_screen_data()
-                elif self.active_screen == "RISK":
+                elif self.active_screen == "RISK" and hasattr(self, "_update_risk_screen_data"):
                     self._update_risk_screen_data()
-                elif self.active_screen == "ORD":
+                elif self.active_screen == "ORD" and hasattr(self, "_update_ord_screen_data"):
                     self._update_ord_screen_data()
-                elif self.active_screen == "LOG":
+                elif self.active_screen == "LOG" and hasattr(self, "_update_log_screen_data"):
                     self._update_log_screen_data()
-                elif self.active_screen == "MON":
+                elif self.active_screen == "MON" and hasattr(self, "_update_mon_screen_data"):
                     self._update_mon_screen_data()
-                elif self.active_screen == "SEC":
+                elif self.active_screen == "SEC" and hasattr(self, "_update_sec_screen_data"):
                     self._update_sec_screen_data()
-                elif self.active_screen == "SAFE":
+                elif self.active_screen == "SAFE" and hasattr(self, "_update_safe_screen_data"):
                     self._update_safe_screen_data()
-                elif self.active_screen == "PF":
+                elif self.active_screen == "PF" and hasattr(self, "_update_pf_screen_data"):
                     self._update_pf_screen_data()
-                elif self.active_screen == "SYM":
+                elif self.active_screen == "SYM" and hasattr(self, "_update_sym_screen_data"):
                     self._update_sym_screen_data()
-                elif self.active_screen == "AIC":
+                elif self.active_screen == "AIC" and hasattr(self, "_update_aic_screen_data"):
                     self._update_aic_screen_data()
-                elif self.active_screen == "CRAWL":
+                elif self.active_screen == "CRAWL" and hasattr(self, "_update_crawl_screen_data"):
                     self._update_crawl_screen_data()
-                elif self.active_screen == "CRED":
+                elif self.active_screen == "CRED" and hasattr(self, "_update_cred_screen_data"):
                     self._update_cred_screen_data()
-                elif self.active_screen == "WATCH":
+                elif self.active_screen == "WATCH" and hasattr(self, "_update_watch_screen_data"):
                     self._update_watch_screen_data()
-                elif self.active_screen == "MKT":
+                elif self.active_screen == "MKT" and hasattr(self, "_update_mkt_screen_data"):
                     self._update_mkt_screen_data()
                 elif self.active_screen == "TRADEBOOK":
                     self._update_tradebook_screen_data()

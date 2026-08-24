@@ -22,11 +22,10 @@ def calculate_portfolio_weights(returns_dict):
     try:
         import numpy as np
 
-        # Simulate asset historical return arrays
+        # Process asset historical return arrays
         ret_arrays = []
         for sym in symbols:
-            # Generate dummy history if returns list is empty
-            hist = returns_dict[sym] if returns_dict[sym] else [0.0001, -0.0002, 0.0003]
+            hist = returns_dict[sym] if returns_dict[sym] else [0.0]
             ret_arrays.append(hist)
 
         # Polars / Pandas dataframes
