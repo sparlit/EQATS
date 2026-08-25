@@ -188,8 +188,10 @@ class NeuralNetworkPredictor:
         }
 
 
+from typing import Dict, Any
+
 # Centralized predictive brain dictionary to keep track of predictors for each symbol
-_predictor_registry = {}
+_predictor_registry: Dict[str, Any] = {}
 
 
 def get_symbol_predictor(symbol):

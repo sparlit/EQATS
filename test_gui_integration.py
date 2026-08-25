@@ -122,40 +122,39 @@ def test_gui_data_flow_updates_without_display():
     mock_scalper = mock.MagicMock()
 
     # Mock _show_login_dialog to return True so initialization proceeds
-    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True):
-        with mock.patch("main.AutonomousScalper", return_value=mock_scalper):
-            import gui
+    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+        import gui
 
-            app = gui.ScalperGui(mock_root)
+        app = gui.ScalperGui(mock_root)
 
-            # Test strategy and style change handlers
-            app.on_strategy_change("BREAKOUT")
-            assert config.ACTIVE_STRATEGY == "BREAKOUT"
+        # Test strategy and style change handlers
+        app.on_strategy_change("BREAKOUT")
+        assert config.ACTIVE_STRATEGY == "BREAKOUT"
 
-            app.on_style_change("SWING_TRADING")
-            assert config.TRADING_STYLE == "SWING_TRADING"
+        app.on_style_change("SWING_TRADING")
+        assert config.TRADING_STYLE == "SWING_TRADING"
 
-            # Test mode toggle
-            initial_sim = config.SIMULATION_MODE
-            app.toggle_mode()
-            assert config.SIMULATION_MODE != initial_sim
-            app.toggle_mode()  # Reset back
+        # Test mode toggle
+        initial_sim = config.SIMULATION_MODE
+        app.toggle_mode()
+        assert config.SIMULATION_MODE != initial_sim
+        app.toggle_mode()  # Reset back
 
-            # Test calculation helpers
-            app.ent_mkt_loss_pct = mock.MagicMock()
-            app.ent_mkt_loss_pct.get.return_value = "20.0"
-            app.lbl_mkt_recovery_result = mock.MagicMock()
-            app._calc_gain_loss_recovery()
+        # Test calculation helpers
+        app.ent_mkt_loss_pct = mock.MagicMock()
+        app.ent_mkt_loss_pct.get.return_value = "20.0"
+        app.lbl_mkt_recovery_result = mock.MagicMock()
+        app._calc_gain_loss_recovery()
 
-            # Test position size calculator
-            app.ent_mkt_ps_bal = mock.MagicMock()
-            app.ent_mkt_ps_bal.get.return_value = "10000"
-            app.ent_mkt_ps_risk = mock.MagicMock()
-            app.ent_mkt_ps_risk.get.return_value = "1.0"
-            app.ent_mkt_ps_sl = mock.MagicMock()
-            app.ent_mkt_ps_sl.get.return_value = "20.0"
-            app.lbl_mkt_ps_result = mock.MagicMock()
-            app._calc_position_size()
+        # Test position size calculator
+        app.ent_mkt_ps_bal = mock.MagicMock()
+        app.ent_mkt_ps_bal.get.return_value = "10000"
+        app.ent_mkt_ps_risk = mock.MagicMock()
+        app.ent_mkt_ps_risk.get.return_value = "1.0"
+        app.ent_mkt_ps_sl = mock.MagicMock()
+        app.ent_mkt_ps_sl.get.return_value = "20"
+        app.lbl_mkt_ps_result = mock.MagicMock()
+        app._calc_position_size()
 
 
 def test_gui_screen_data_update_handlers():
@@ -169,24 +168,23 @@ def test_gui_screen_data_update_handlers():
         {"bid": 1.1001, "ask": 1.1003, "volume": 20},
     ]
 
-    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True):
-        with mock.patch("main.AutonomousScalper", return_value=mock_scalper):
-            import gui
+    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+        import gui
 
-            app = gui.ScalperGui(mock_root)
+        app = gui.ScalperGui(mock_root)
 
-            # DOM screen data update
-            app.dom_tree = mock.MagicMock()
-            app.dom_canvas = mock.MagicMock()
-            app.dom_canvas.winfo_width.return_value = 300
-            app.dom_canvas.winfo_height.return_value = 200
-            app._update_dom_screen_data()
+        # DOM screen data update
+        app.dom_tree = mock.MagicMock()
+        app.dom_canvas = mock.MagicMock()
+        app.dom_canvas.winfo_width.return_value = 300
+        app.dom_canvas.winfo_height.return_value = 200
+        app._update_dom_screen_data()
 
-            # Whale screen data update
-            app.whale_tree = mock.MagicMock()
-            app.lbl_whale_funding = mock.MagicMock()
-            app.lbl_whale_liq = mock.MagicMock()
-            app._update_whale_screen_data()
+        # Whale screen data update
+        app.whale_tree = mock.MagicMock()
+        app.lbl_whale_funding = mock.MagicMock()
+        app.lbl_whale_liq = mock.MagicMock()
+        app._update_whale_screen_data()
 
 
 def test_gui_poly_screen_switch_and_update():
@@ -198,14 +196,13 @@ def test_gui_poly_screen_switch_and_update():
     mock_scalper.conn.get_account_info.return_value = {"balance": 15000.0, "equity": 15250.0}
     mock_scalper.conn.get_open_orders.return_value = [{"symbol": "BTCUSD", "direction": "BUY"}]
 
-    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True):
-        with mock.patch("main.AutonomousScalper", return_value=mock_scalper):
-            import gui
+    with mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+        import gui
 
-            app = gui.ScalperGui(mock_root)
-            app.switch_to_screen("POLY")
-            assert app.active_screen == "POLY"
-            assert hasattr(app, "lbl_poly_pnl_val")
+        app = gui.ScalperGui(mock_root)
+        app.switch_to_screen("POLY")
+        assert app.active_screen == "POLY"
+        assert hasattr(app, "lbl_poly_pnl_val")
 
-            app._update_poly_screen_data()
-            assert app.lbl_poly_pnl_val is not None
+        app._update_poly_screen_data()
+        assert app.lbl_poly_pnl_val is not None
