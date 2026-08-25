@@ -1,11 +1,9 @@
 import os
 import unittest
-import time
 
 import brain
 import config
 import database
-import indicators
 import main
 
 
