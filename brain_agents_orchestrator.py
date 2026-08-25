@@ -14,6 +14,7 @@ Architecture:
 
 import concurrent.futures
 import datetime
+import os
 import time
 
 import database
@@ -24,7 +25,7 @@ class BrainAgentContext:
 
     def __init__(self, symbol="EURUSD"):
         self.symbol = symbol
-        self.timestamp = datetime.datetime.now().isoformat()
+        self.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         # Inter-agent shared state
         self.research_data = {}
@@ -40,7 +41,7 @@ class BrainAgentContext:
         self.interventions = []
 
     def log_agent_message(self, agent_name, message):
-        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
         entry = f"[{ts}] [{agent_name}] {message}"
         self.agent_messages.append(entry)
 
@@ -52,7 +53,7 @@ class BrainOrchestratorDirective:
     """
 
     def __init__(self):
-        self.timestamp = datetime.datetime.now().isoformat()
+        self.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.recommended_bias = "HOLD"  # 'BUY', 'SELL', 'HOLD'
         self.confidence_score = 0.0  # 0.0 to 100.0%
         self.recommended_style = "SCALPING"
@@ -389,7 +390,7 @@ class AgenticBrainsOrchestrator:
         )
 
     def _log_orchestrator(self, message):
-        ts = datetime.datetime.now().strftime("%H:%M:%S")
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
         entry = f"[{ts}] [ORCHESTRATOR] {message}"
         self.telemetry_history.append(entry)
         if len(self.telemetry_history) > 100:
@@ -403,7 +404,7 @@ class AgenticBrainsOrchestrator:
         a BrainOrchestratorDirective payload.
         """
         start_time = time.time()
-        self.last_loop_time = datetime.datetime.now().isoformat()
+        self.last_loop_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
         context = BrainAgentContext(symbol=symbol)
 
         # 1. Sequential Ingestion from Core Agents
@@ -419,7 +420,9 @@ class AgenticBrainsOrchestrator:
         method_scores = {}
         strategy_scores = {}
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        cpu_cores = os.cpu_count() or 8
+        optimal_workers = max(4, min(cpu_cores * 2, 32))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
             method_futures = {
                 executor.submit(
                     _eval_method_worker, agent, spread_pips, "MEDIUM"
@@ -437,14 +440,14 @@ class AgenticBrainsOrchestrator:
                 try:
                     res = fut.result()
                     method_scores[res["method"]] = res["score"]
-                except Exception as e:
+                except (ValueError, KeyError, TypeError, RuntimeError) as e:
                     print(f"⚠️ Method Agent evaluation error: {e}")
 
             for fut in concurrent.futures.as_completed(strategy_futures):
                 try:
                     res = fut.result()
                     strategy_scores[res["strategy"]] = res["score"]
-                except Exception as e:
+                except (ValueError, KeyError, TypeError, RuntimeError) as e:
                     print(f"⚠️ Strategy Agent evaluation error: {e}")
 
         # 3. Evaluate Trading Mechanism Brain Agents
