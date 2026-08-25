@@ -323,7 +323,7 @@ bool ParseStateData()
       }
       else
       {
-         if(split_count >= 6 && m_total_symbols < 50)
+         if(split_count >= 7 && m_total_symbols < 50)
          {
             m_symbols[m_total_symbols] = parts[0];
             m_prices[m_total_symbols] = parts[1];

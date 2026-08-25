@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                              ScalperBrainEA.mq5 |
+//|                                  EaqtsAutonomousScalperEA.mq5    |
 //|                     ELITE QUANTUM AUTONOMOUS TRADING SYSTEM EA   |
 //|                                       https://github.com/scalper |
 //+------------------------------------------------------------------+
@@ -113,7 +113,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("ScalperBrainEA v7.20 Master Full Dashboard Initialized. Target IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EaqtsAutonomousScalperEA v7.20 Master Full Dashboard Initialized. Target IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -125,7 +125,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("ScalperBrainEA v7.20 Deinitialized cleanly.");
+   Print("EaqtsAutonomousScalperEA v7.20 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -159,28 +159,49 @@ void OnChartEvent(const int id,
    {
       if(sparam == "SB_Btn_Resync")
       {
-         Print("ScalperBrainEA: Operator requested manual IPC telemetry resync.");
+         Print("EaqtsAutonomousScalperEA: Operator requested manual IPC telemetry resync.");
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Panic")
       {
-         Print("ScalperBrainEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
+         Print("EaqtsAutonomousScalperEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
          ExecutePanicCloseAll();
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Toggle")
       {
          m_show_extended_details = !m_show_extended_details;
-         Print("ScalperBrainEA: Extended Neural telemetry details set to: ", m_show_extended_details);
+         Print("EaqtsAutonomousScalperEA: Extended Neural telemetry details set to: ", m_show_extended_details);
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_CardToggle")
       {
          m_show_account_card = !m_show_account_card;
-         Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
+         Print("EaqtsAutonomousScalperEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| ExecutePanicCloseAll                                             |
+//| Instantly liquidates all open positions across terminal          |
+//+------------------------------------------------------------------+
+void ExecutePanicCloseAll()
+{
+   int closed_count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(m_trade_engine.PositionClose(ticket))
+         {
+            closed_count++;
+         }
+      }
+   }
+   Print("EaqtsAutonomousScalperEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
 }
 
 //+------------------------------------------------------------------+
@@ -332,7 +353,7 @@ bool ParseStateData()
 
             if(StringFind(line, "LOCKDOWN") >= 0 || StringFind(line, "PANIC") >= 0)
             {
-               Print("ScalperBrainEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
+               Print("EaqtsAutonomousScalperEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
                if(InpEmergencyCloseOnLockdown)
                {
                   ExecutePanicCloseAll();
@@ -369,7 +390,7 @@ bool ParseStateData()
       }
       else
       {
-         if(split_count >= 6 && m_total_symbols < 50)
+         if(split_count >= 7 && m_total_symbols < 50)
          {
             m_symbols[m_total_symbols] = parts[0];
             m_prices[m_total_symbols] = parts[1];
