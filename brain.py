@@ -357,13 +357,13 @@ class ScalperBrain:
             for p in [sma20, sma50, sma100]:
                 if current_price > p:
                     bullish_count += 1
-                else:
+                elif current_price < p:
                     bearish_count += 1
 
             for r in [rsi10, rsi14, rsi21]:
                 if r > 50:
                     bullish_count += 1
-                else:
+                elif r < 50:
                     bearish_count += 1
 
             if bullish_count >= 5:

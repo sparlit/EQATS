@@ -2,6 +2,7 @@ use std::os::raw::{c_char, c_double, c_int};
 use rayon::prelude::*;
 
 pub mod backtest;
+pub mod blockchain_db;
 pub mod cointegration;
 pub mod features;
 pub mod fix_parser;
