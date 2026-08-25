@@ -151,11 +151,11 @@ def generate_multi_model_ensemble_prediction(prices, steps_ahead=1):
 
     try:
         # XGBoost & LightGBM
-        import lightgbm as lgb
-        import xgboost as xgb
+        import lightgbm as lgb  # noqa: F401
+        import xgboost as xgb  # noqa: F401
 
         # Extract features using tsfresh or sklearn
-        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.ensemble import RandomForestRegressor  # noqa: F401
 
         _ = (lgb, xgb, RandomForestRegressor)
     except ImportError:
