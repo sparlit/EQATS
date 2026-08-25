@@ -18,7 +18,7 @@ class SocketIPCBridge:
     Replaces disk file polling (scalper_state.txt) with zero-latency (<1ms) push-based JSON socket streaming.
     """
 
-    def __init__(self, host="127.0.0.1", port=5555):
+    def __init__(self, host="127.0.0.1", port=9001):
         self.host = host
         self.port = port
         self.server_socket = None

@@ -58,6 +58,12 @@ class AutonomousScalper:
         self.self_healer = ii.QuantumSelfHealer()
         self.self_healer.start_non_stop_loop()
 
+        # Instantiate Zero-Latency Socket IPC Bridge for MT5 EA Telemetry Push (Port 9001)
+        from institutional_integrations.web_api import SocketIPCBridge
+
+        self.ipc_bridge = SocketIPCBridge(host="127.0.0.1", port=9001)
+        self.ipc_bridge.start_server()
+
         # Attach AI System Supervisor Agent
         self.supervisor = global_supervisor_agent
 
@@ -128,6 +134,10 @@ class AutonomousScalper:
         self.running = False
         try:
             self.self_healer.stop_loop()
+        except Exception:
+            pass
+        try:
+            self.ipc_bridge.stop_server()
         except Exception:
             pass
         self.conn.disconnect()
@@ -979,6 +989,19 @@ class AutonomousScalper:
                     trading_available = (
                         len(active_positions) < config.MAX_CONCURRENT_TRADES
                     )
+
+        # Push real-time state telemetry to connected MT5 EA via SocketIPCBridge on Port 9001
+        try:
+            sessions_timeline = self._get_sessions_timeline()
+            self.ipc_bridge.push_state(
+                equity=current_equity,
+                balance=account["balance"],
+                active_positions=active_positions,
+                scans=scans_list,
+                session_info=sessions_timeline,
+            )
+        except Exception as e:
+            print(f"Warning: Telemetry push exception: {e}")
 
         print("-" * 120)
 
