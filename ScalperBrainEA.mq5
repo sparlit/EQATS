@@ -55,6 +55,43 @@ string m_active_session = "Global Interbank";
 string m_overlaps = "Asian/European";
 string m_next_session = "New York";
 string m_countdown = "00:00:00";
+bool m_show_extended_details = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
 
 // Interactivity States
 bool m_show_extended_details = true;
