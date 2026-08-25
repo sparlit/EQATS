@@ -127,6 +127,9 @@ def test_master_orchestrator_interventions():
 
 
 def test_trading_engine_integration_decoupling():
+    database.init_db()
+    database._execute_with_retry("DELETE FROM trades WHERE status = 'OPEN'")
+
     scalper_brain = brain.ScalperBrain()
 
     # Generate dummy bars (needs >= 210 bars)
