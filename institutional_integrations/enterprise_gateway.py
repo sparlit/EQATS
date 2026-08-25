@@ -175,7 +175,7 @@ class ValkeySpeedLayerAdapter:
             self._memory_cache[key] = value
         return True
 
-    def get_key(self, key: str) -> str:
+    def get_key(self, key: str) -> str | None:
         if self._connected:
             try:
                 import redis  # type: ignore
