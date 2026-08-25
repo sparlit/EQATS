@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package eaqts.agent;
+
+message SignalEvaluationRequest {
+  string symbol = 1;
+  double timestamp = 2;
+  double current_price = 3;
+  string market_regime = 4;
+}
+
+message StrategySignal {
+  string agent_id = 1;
+  string strategy_name = 2;
+  string symbol = 3;
+  string action = 4; // BUY, SELL, FLAT
+  double confidence = 5; // 0.0 to 1.0
+  double target_price = 6;
+  double stop_loss = 7;
+  double take_profit = 8;
+  double lot_size = 9;
+  map<string, double> metrics = 10;
+}
+
+message SwarmConsensusResponse {
+  string symbol = 1;
+  string consensus_action = 2;
+  double consensus_confidence = 3;
+  double recommended_lot_size = 4;
+  repeated StrategySignal individual_signals = 5;
+  double system_risk_score = 6;
+}
+
+service AgentOrchestratorService {
+  rpc EvaluateSwarmSignals (SignalEvaluationRequest) returns (SwarmConsensusResponse);
+}

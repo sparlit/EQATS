@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package eaqts.execution;
+
+message OrderRequest {
+  string client_order_id = 1;
+  string symbol = 2;
+  string order_type = 3; // BUY, SELL, BUY_LIMIT, SELL_LIMIT, etc.
+  double volume = 4;
+  double price = 5;
+  double stop_loss = 6;
+  double take_profit = 7;
+  string comment = 8;
+  int64 magic_number = 9;
+}
+
+message OrderResponse {
+  bool success = 1;
+  string ticket_id = 2;
+  string status = 3; // FILLED, REJECTED, PENDING
+  double fill_price = 4;
+  double filled_volume = 5;
+  string error_message = 6;
+  double execution_latency_us = 7;
+}
+
+message ActiveTradeInfo {
+  string ticket = 1;
+  string symbol = 2;
+  string order_type = 3;
+  double volume = 4;
+  double open_price = 5;
+  double current_price = 6;
+  double stop_loss = 7;
+  double take_profit = 8;
+  double profit = 9;
+  double swap = 10;
+  double open_time = 11;
+}
+
+message ActiveTradesResponse {
+  repeated ActiveTradeInfo trades = 1;
+  double total_unrealized_pnl = 2;
+}
+
+service ExecutionEngineService {
+  rpc ExecuteOrder (OrderRequest) returns (OrderResponse);
+  rpc CloseOrder (OrderRequest) returns (OrderResponse);
+  rpc GetActiveTrades (OrderRequest) returns (ActiveTradesResponse);
+}

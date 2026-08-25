@@ -4,18 +4,20 @@ Operates as a distinct, multi-threaded & multi-processed parallel intelligence u
 SEPARATE from the core trading execution engine.
 
 Architecture:
-  - 6 Core Brain AI Agents (Research, Analyst, Prediction, Strategy, Risk, Execution)
+  - Core Brain AI Agents (Research, Analyst, Prediction, Strategy, Risk, Execution)
   - 4 Trading Method AI Agents & Brains (Scalping, Day Trading, Swing, Position)
-  - 10 Trading Strategy AI Agents & Brains (Trend, Mean Rev, MACD, Breakout, Carry, Grid, StatArb, ORB, VSA, MTF)
+  - 13 Trading Strategy AI Agents & Brains (SMC/ICT, Order Flow, VSA, StatArb, Mean Rev, Trend, MACD, Breakout, Carry, Grid, ORB, MTF, Deterministic Neural)
+  - Method Governor Brain & Strategy Governor Brain
   - 2 Trading Mechanism AI Agents & Brains (Risk Assessment, Lot Management)
   - Parallel Multiprocessing & Multithreading Processing Pipeline
-  - Master Agentic Brains Orchestrator
+  - Master Agentic Brains Swarm Orchestrator
 """
 
 import concurrent.futures
 import datetime
 import os
 import time
+import multiprocessing
 
 import database
 
@@ -59,6 +61,7 @@ class BrainOrchestratorDirective:
         self.recommended_style = "SCALPING"
         self.strategy_scores = {}
         self.method_scores = {}
+        self.governor_decisions = {}
         self.risk_ceiling_modifier = 1.0  # Multiplier (0.0 to 1.5)
         self.lot_multiplier = 1.0
         self.execution_instructions = {
@@ -76,6 +79,7 @@ class BrainOrchestratorDirective:
             "recommended_style": self.recommended_style,
             "strategy_scores": self.strategy_scores,
             "method_scores": self.method_scores,
+            "governor_decisions": self.governor_decisions,
             "risk_ceiling_modifier": round(self.risk_ceiling_modifier, 2),
             "lot_multiplier": round(self.lot_multiplier, 2),
             "execution_instructions": self.execution_instructions,
@@ -219,16 +223,28 @@ class PositionTradingMethodAgent:
 
 
 # ==============================================================================
-# TRADING STRATEGY AI AGENTS & BRAINS
+# 13 TRADING STRATEGY AI AGENTS & BRAINS
 # ==============================================================================
 
 
-class TrendFollowingStrategyAgent:
+class SmcIctStrategyAgent:
     def evaluate(self, sentiment, accuracy):
-        return {
-            "strategy": "TREND_FOLLOWING",
-            "score": 85.0 if sentiment in ["BULLISH", "BEARISH"] else 40.0,
-        }
+        return {"strategy": "SMC_ICT", "score": 88.0 if accuracy > 52 else 65.0}
+
+
+class OrderFlowStrategyAgent:
+    def evaluate(self, sentiment, accuracy):
+        return {"strategy": "ORDER_FLOW", "score": 86.0 if accuracy > 55 else 60.0}
+
+
+class VsaStrategyAgent:
+    def evaluate(self, sentiment, accuracy):
+        return {"strategy": "VSA", "score": 75.0}
+
+
+class StatArbStrategyAgent:
+    def evaluate(self, sentiment, accuracy):
+        return {"strategy": "STAT_ARB", "score": 70.0}
 
 
 class MeanReversionStrategyAgent:
@@ -236,6 +252,14 @@ class MeanReversionStrategyAgent:
         return {
             "strategy": "MEAN_REVERSION",
             "score": 85.0 if sentiment == "NEUTRAL" else 35.0,
+        }
+
+
+class TrendFollowingStrategyAgent:
+    def evaluate(self, sentiment, accuracy):
+        return {
+            "strategy": "TREND_FOLLOWING",
+            "score": 85.0 if sentiment in ["BULLISH", "BEARISH"] else 40.0,
         }
 
 
@@ -259,24 +283,53 @@ class GridTradeStrategyAgent:
         return {"strategy": "GRID_TRADE", "score": 55.0}
 
 
-class StatArbStrategyAgent:
-    def evaluate(self, sentiment, accuracy):
-        return {"strategy": "STAT_ARB", "score": 70.0}
-
-
 class OrbStrategyAgent:
     def evaluate(self, sentiment, accuracy):
         return {"strategy": "ORB", "score": 65.0}
 
 
-class VsaStrategyAgent:
-    def evaluate(self, sentiment, accuracy):
-        return {"strategy": "VSA", "score": 75.0}
-
-
 class MtfConfluenceStrategyAgent:
     def evaluate(self, sentiment, accuracy):
         return {"strategy": "MTF_CONFLUENCE", "score": 90.0 if accuracy > 55 else 60.0}
+
+
+class DeterministicNeuralStrategyAgent:
+    def evaluate(self, sentiment, accuracy):
+        return {"strategy": "DETERMINISTIC_NEURAL", "score": 82.0 if accuracy > 50 else 58.0}
+
+
+# ==============================================================================
+# GOVERNOR AI BRAINS
+# ==============================================================================
+
+class MethodGovernorBrain:
+    """Collectively governs, monitors, and synthesizes all Trading Method Agents."""
+    def govern(self, method_scores: dict) -> dict:
+        if not method_scores:
+            return {"top_method": "SCALPING", "governor_confidence": 50.0}
+        top_method = max(method_scores, key=method_scores.get)
+        avg_score = sum(method_scores.values()) / len(method_scores)
+        return {
+            "top_method": top_method,
+            "governor_confidence": round(avg_score, 2),
+            "consensus_spread": round(method_scores[top_method] - avg_score, 2),
+        }
+
+
+class StrategyGovernorBrain:
+    """Collectively governs, monitors, and synthesizes all 13 Trading Strategy Agents."""
+    def govern(self, strategy_scores: dict) -> dict:
+        if not strategy_scores:
+            return {"top_strategy": "SMC_ICT", "governor_confidence": 50.0}
+        sorted_strats = sorted(strategy_scores.items(), key=lambda x: x[1], reverse=True)
+        top_strat, top_score = sorted_strats[0]
+        avg_score = sum(strategy_scores.values()) / len(strategy_scores)
+        return {
+            "top_strategy": top_strat,
+            "top_score": top_score,
+            "governor_confidence": round(avg_score, 2),
+            "top_3_strategies": [s[0] for s in sorted_strats[:3]],
+        }
 
 
 # ==============================================================================
@@ -365,17 +418,23 @@ class AgenticBrainsOrchestrator:
         ]
 
         self.strategy_agents = [
-            TrendFollowingStrategyAgent(),
+            SmcIctStrategyAgent(),
+            OrderFlowStrategyAgent(),
+            VsaStrategyAgent(),
+            StatArbStrategyAgent(),
             MeanReversionStrategyAgent(),
+            TrendFollowingStrategyAgent(),
             MacdMomentumStrategyAgent(),
             BreakoutStrategyAgent(),
             CarryTradeStrategyAgent(),
             GridTradeStrategyAgent(),
-            StatArbStrategyAgent(),
             OrbStrategyAgent(),
-            VsaStrategyAgent(),
             MtfConfluenceStrategyAgent(),
+            DeterministicNeuralStrategyAgent(),
         ]
+
+        self.method_governor = MethodGovernorBrain()
+        self.strategy_governor = StrategyGovernorBrain()
 
         self.risk_assessment_agent = RiskAssessmentBrainAgent()
         self.lot_management_agent = LotManagementBrainAgent()
@@ -386,7 +445,7 @@ class AgenticBrainsOrchestrator:
         self.last_directive = BrainOrchestratorDirective()
 
         self._log_orchestrator(
-            "🤖 Master Agentic Brains Orchestrator initialized with Parallel Multiprocessing pipeline."
+            "🤖 Master Agentic Brains Orchestrator initialized with Parallel Multiprocessing & 13 Strategy Swarm."
         )
 
     def _log_orchestrator(self, message):
@@ -450,7 +509,10 @@ class AgenticBrainsOrchestrator:
                 except (ValueError, KeyError, TypeError, RuntimeError) as e:
                     print(f"⚠️ Strategy Agent evaluation error: {e}")
 
-        # 3. Evaluate Trading Mechanism Brain Agents
+        # 3. Evaluate Governors & Mechanisms
+        method_gov_res = self.method_governor.govern(method_scores)
+        strat_gov_res = self.strategy_governor.govern(strategy_scores)
+
         risk_res = self.risk_assessment_agent.evaluate(scalper_instance)
         perf_summary = database.get_all_time_performance()
         win_rate = perf_summary.get("win_rate", 50.0)
@@ -461,12 +523,14 @@ class AgenticBrainsOrchestrator:
         # 4. Master Orchestrator Directive Synthesis & Interventions
         directive = BrainOrchestratorDirective()
 
-        best_method = (
-            max(method_scores, key=method_scores.get) if method_scores else "SCALPING"
-        )
+        best_method = method_gov_res.get("top_method", "SCALPING")
         directive.recommended_style = best_method
         directive.method_scores = method_scores
         directive.strategy_scores = strategy_scores
+        directive.governor_decisions = {
+            "method_governor": method_gov_res,
+            "strategy_governor": strat_gov_res,
+        }
 
         if sentiment == "BULLISH" and accuracy >= 50.0:
             directive.recommended_bias = "BUY"
@@ -497,14 +561,14 @@ class AgenticBrainsOrchestrator:
 
         directive.guidance_notes.extend(
             [
-                f"Parallel Multi-Agent Sweep completed in {elapsed_ms:.1f}ms for {symbol}.",
-                f"Optimal Style: {best_method} | Macro: {sentiment} | WinRate: {win_rate}%",
+                f"Parallel Multi-Agent Swarm Sweep completed in {elapsed_ms:.1f}ms for {symbol}.",
+                f"Top Strategy: {strat_gov_res.get('top_strategy')} ({strat_gov_res.get('top_score')} pts) | Style: {best_method}",
             ]
         )
 
         self.last_directive = directive
         self._log_orchestrator(
-            f"Parallel Sweep ({elapsed_ms:.1f}ms): Bias={directive.recommended_bias}, Style={best_method}, RiskMod={directive.risk_ceiling_modifier}x."
+            f"Parallel Swarm Sweep ({elapsed_ms:.1f}ms): Bias={directive.recommended_bias}, TopStrat={strat_gov_res.get('top_strategy')}, RiskMod={directive.risk_ceiling_modifier}x."
         )
 
         return directive
