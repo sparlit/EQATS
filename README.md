@@ -1,15 +1,15 @@
-# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
-## EAQTS VERSION 3.0
-### Master Architecture, Engineering, AI, Trading, Risk, Execution, Data, Security, Validation and Autonomous Evolution Specification
+# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3)
+## EQATS VERSION 8.3 / VERSION 8.2 HYBRID ARCHITECTURE RELEASE
+### Master Architecture, Monolith-Microservices Isolation, AI Ensemble, Risk & Execution Specification
 
 ---
 
 # 0. DOCUMENT CONTROL
 
-**System Name:** Elite Quantum Autonomous Trading System (EAQTS Version 6.0)
-**Abbreviation:** EAQTS / EQATS
-**Specification:** Version 3.0
-**Status:** Authoritative Engineering Baseline
+**System Name:** Elite Quantum Autonomous Trading System (EQATS Version 8.3)
+**Abbreviation:** EQATS / EAQTS
+**Specification:** Version 8.3 / Version 8.2 Consolidated Baseline
+**Status:** Production Hybrid Baseline (`EQATS_VERSION_8_2_MASTER_PLAN_AND_DESIGN.md` & `EQATS_VERSION_8_3_AUDIT_REPORT.md`)
 **Purpose:** Autonomous multi-asset algorithmic trading operating system
 
 Version 3.0 is the consolidated master specification derived from EAQTS Versions 1.0, 2.0 and 2.1.

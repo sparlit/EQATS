@@ -183,3 +183,47 @@ class EventDrivenBacktester:
             "best_sharpe": best_sharpe,
             "best_results": best_results,
         }
+
+    def run_vectorized_backtest(self, numpy_close_prices, numpy_signals):
+        """
+        Executes vectorized array-based backtest over historical price vector using NumPy.
+        numpy_close_prices: 1D np.ndarray or list of closing prices
+        numpy_signals: 1D np.ndarray or list of signals (1 for BUY, -1 for SELL, 0 for HOLD)
+        """
+        import numpy as np
+
+        prices = np.asarray(numpy_close_prices, dtype=np.float64)
+        signals = np.asarray(numpy_signals, dtype=np.float64)
+
+        if len(prices) < 2 or len(signals) != len(prices):
+            return {"status": "INVALID_INPUT", "net_profit_usd": 0.0}
+
+        # Vectorized price returns calculation
+        price_returns = np.diff(prices) / prices[:-1]
+        strategy_returns = signals[:-1] * price_returns
+
+        cumulative_equity = self.initial_capital * np.cumprod(1.0 + strategy_returns)
+        equity_curve = np.insert(cumulative_equity, 0, self.initial_capital)
+
+        net_profit = equity_curve[-1] - self.initial_capital
+        win_rate = float(np.mean(strategy_returns > 0) * 100.0) if len(strategy_returns) > 0 else 0.0
+
+        # Vectorized Peak and Drawdown
+        peaks = np.maximum.accumulate(equity_curve)
+        drawdowns = (peaks - equity_curve) / np.maximum(peaks, 1e-5)
+        max_drawdown_pct = float(np.max(drawdowns) * 100.0)
+
+        # Vectorized Sharpe Ratio
+        mean_ret = np.mean(strategy_returns) if len(strategy_returns) > 0 else 0.0
+        std_ret = np.std(strategy_returns) if len(strategy_returns) > 1 else 1e-4
+        sharpe = float((mean_ret / max(std_ret, 1e-5)) * np.sqrt(252 * 1440))
+
+        return {
+            "initial_capital": self.initial_capital,
+            "final_capital": round(float(equity_curve[-1]), 2),
+            "net_profit_usd": round(float(net_profit), 2),
+            "win_rate_pct": round(win_rate, 2),
+            "max_drawdown_pct": round(max_drawdown_pct, 2),
+            "sharpe_ratio": round(sharpe, 2),
+            "vectorized": True
+        }
