@@ -109,7 +109,7 @@ autonomous_trading_system/
 ├── symbol_mapper.py                  # Master Symbology Mapper & Inbound/Outbound Instrument Translation
 ├── requirements.txt                  # Python Dependency Specifications
 ├── conftest.py                       # Root Pytest Path Injector
-├── ScalperBrainEA.mq5                # MetaTrader 5 Expert Advisor Bridge
+├── EaqtsAutonomousScalperEA.mq5        # MetaTrader 5 Expert Advisor Bridge
 ├── institutional_integrations/       # Institutional Quant & Analytics Engine Modules
 │   ├── fix_engine.py                 # Zero-Dependency FIX 4.4 Protocol Engine
 │   ├── execution_slicing.py          # TWAP, VWAP, and Iceberg Order Slicing Algorithms

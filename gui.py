@@ -2364,7 +2364,7 @@ A: Initial positions on any new symbol are strictly fixed at 0.01 lots.
 
 Q: How can I connect the system to my live MT5 terminal?
 A: Edit `config.py` and set `SIMULATION_MODE = False`. Launch MT5 on Windows and
-   attach `ScalperBrainEA.mq5` to an active chart.
+   attach `EaqtsAutonomousScalperEA.mq5` to an active chart.
 
 5) EMERGENCY SAFETY CONTROLS & MANUAL OVERRIDES:
 --------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                              ScalperBrainEA.mq5 |
+//|                                  EaqtsAutonomousScalperEA.mq5    |
 //|                     ELITE QUANTUM AUTONOMOUS TRADING SYSTEM EA   |
 //|                                       https://github.com/scalper |
 //+------------------------------------------------------------------+
@@ -55,43 +55,6 @@ string m_active_session = "Global Interbank";
 string m_overlaps = "Asian/European";
 string m_next_session = "New York";
 string m_countdown = "00:00:00";
-bool m_show_extended_details = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
 
 // Interactivity States
 bool m_show_extended_details = true;
@@ -125,7 +88,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("ScalperBrainEA v7.20 Master Full Dashboard Initialized. Target IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EaqtsAutonomousScalperEA v7.20 Master Full Dashboard Initialized. Target IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -137,7 +100,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("ScalperBrainEA v7.20 Deinitialized cleanly.");
+   Print("EaqtsAutonomousScalperEA v7.20 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -171,25 +134,25 @@ void OnChartEvent(const int id,
    {
       if(sparam == "SB_Btn_Resync")
       {
-         Print("ScalperBrainEA: Operator requested manual IPC telemetry resync.");
+         Print("EaqtsAutonomousScalperEA: Operator requested manual IPC telemetry resync.");
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Panic")
       {
-         Print("ScalperBrainEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
+         Print("EaqtsAutonomousScalperEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
          ExecutePanicCloseAll();
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Toggle")
       {
          m_show_extended_details = !m_show_extended_details;
-         Print("ScalperBrainEA: Extended Neural telemetry details set to: ", m_show_extended_details);
+         Print("EaqtsAutonomousScalperEA: Extended Neural telemetry details set to: ", m_show_extended_details);
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_CardToggle")
       {
          m_show_account_card = !m_show_account_card;
-         Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
+         Print("EaqtsAutonomousScalperEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
    }
@@ -213,7 +176,7 @@ void ExecutePanicCloseAll()
          }
       }
    }
-   Print("ScalperBrainEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
+   Print("EaqtsAutonomousScalperEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
 }
 
 //+------------------------------------------------------------------+
@@ -323,7 +286,7 @@ bool ParseStateData()
 
             if(StringFind(line, "LOCKDOWN") >= 0 || StringFind(line, "PANIC") >= 0)
             {
-               Print("ScalperBrainEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
+               Print("EaqtsAutonomousScalperEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
                if(InpEmergencyCloseOnLockdown)
                {
                   ExecutePanicCloseAll();
