@@ -35,7 +35,6 @@ class TradeMemoryReflectionProtocol:
         is_win = profit > 0.0
 
         # Calculate efficiency score
-        p_diff = abs(close_price - open_price)
         efficiency = 100.0 if is_win else 0.0
         if mae > 0:
             efficiency = max(0.0, min(100.0, (mfe / (mae + 0.0001)) * 50.0))
