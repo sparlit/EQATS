@@ -13,7 +13,7 @@ path = "src/bin/blockchain_db.rs"
 
 [dependencies]
 rayon = "1.8"
-pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+pyo3 = { version = "0.29", features = ["extension-module"], optional = true }
 
 [features]
 default = []
