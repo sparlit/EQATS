@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from typing import Optional
 
 import config
 from event_bus import Event, global_event_bus
@@ -174,7 +175,7 @@ class DataPlane:
             )
         )
 
-    def query_pit_price(self, symbol: str, target_time_str: str) -> dict:
+    def query_pit_price(self, symbol: str, target_time_str: str) -> Optional[dict]:
         """Returns the available price record exactly at or before target_time_str (No Look-Ahead bias!)."""
         records = self._pit_database.get(symbol, [])
         valid_record = None
@@ -500,9 +501,7 @@ class ExecutionPlane:
         if lot_size <= 0 or lot_size > 5.0:  # 5 Lots maximum fat-finger safe-limit
             return False
         notional = lot_size * current_price * 100000.0
-        if notional > 1000000.0:  # $1M limit per single trade
-            return False
-        return True
+        return notional <= 1000000.0  # $1M limit per single trade
 
     def prevent_self_trade(
         self, symbol: str, direction: str, open_positions: list

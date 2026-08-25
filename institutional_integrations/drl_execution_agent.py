@@ -38,7 +38,6 @@ class DRLExecutionPolicyAgent:
         Returns: dict with action parameters (sl_multiplier_adj, tp_multiplier_adj, partial_close_ratio, slice_count)
         """
         pnl_pct = state.get("floating_pnl_pct", 0.0)
-        atr_vol = state.get("atr_vol", 0.0010)
         rsi = state.get("rsi", 50.0)
         ob_imbalance = state.get(
             "order_book_imbalance", 0.0
