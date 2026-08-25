@@ -169,6 +169,7 @@ class CNNModel:
 class RNNLSTMModel:
     """Recurrent Neural Network / Long Short-Term Memory for sequential price forecasting."""
     def predict_sequence(self, series: np.ndarray) -> float:
+        curr_price = series[-1] if len(series) > 0 else 1.0
         try:
             import torch
             import torch.nn as nn
@@ -181,8 +182,9 @@ class RNNLSTMModel:
                     out, _ = self.lstm(x)
                     return self.fc(out[:, -1, :])
             net = LSTMNet()
-            x_t = torch.FloatTensor(series).view(1, -1, 1)
-            return float(net(x_t).item())
+            p_tensor = torch.FloatTensor(series[-10:] if len(series) >= 10 else series).view(1, -1, 1)
+            pred_delta = net(p_tensor).item()
+            return float(curr_price + (pred_delta * 0.0001 * curr_price))
         except Exception:
             # Exponentially Weighted Moving Average (EWMA) fallback
             alpha = 0.2
