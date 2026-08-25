@@ -1,4 +1,4 @@
-# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.2 & 8.3)
+# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3)
 ## PHASED, STAGED AND SUB-TASKED TODO TASKS LIST
 
 ---
@@ -54,4 +54,4 @@
   - [x] Task 5.2.2: Perform end-to-end integration test sweep (`test_exhaustive_all_modules_and_hidden_corners.py`).
 
 ---
-*EQATS Version 8.2 & 8.3 — Master TODO Tasks Specification*
+*EQATS Version 8.3 — Master TODO Tasks Specification*
