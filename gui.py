@@ -7526,7 +7526,7 @@ Trained context log:         Active (Syncing ticks, news data, and crawled web f
         if not hasattr(self, "crawl_text") or not self.crawl_text:
             return
         self.crawl_text.delete("1.0", tk.END)
-        crawl_data = f"""
+        crawl_data = """
 ================================================================================
 CRAWL <GO>: ALTERNATIVE DATA PIPELINE MONITOR
 ================================================================================
