@@ -113,6 +113,10 @@ bool m_show_account_card = true;
 bool m_show_extended_details = true;
 bool m_show_account_card = true;
 
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
 // Persistent socket buffer for partial read accumulation
 string m_accumulated_buffer = "";
 
