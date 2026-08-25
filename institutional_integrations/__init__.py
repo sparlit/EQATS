@@ -9,7 +9,7 @@ from .advanced_math import (  # noqa: F401
     evaluate_black_scholes_option_pricing,
 )
 from .brain_self_healer import QuantumSelfHealer
-from .comprehensive_suite import (
+from .comprehensive_suite import (  # noqa: F401
     integrate_airflow, integrate_akshare, integrate_altair, integrate_arrow, integrate_autots, integrate_backtrader,
     integrate_beautifulsoup, integrate_bert, integrate_bokeh, integrate_boto3, integrate_catboost, integrate_ccxt,
     integrate_chromadb, integrate_click, integrate_cupy, integrate_darts, integrate_dask, integrate_datatable,
@@ -50,6 +50,7 @@ __all__ = [
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
+    "integrate_pandas",
     "calculate_portfolio_weights",
     "perform_statistical_pingouin_test",
     "insert_vector_embedding",

@@ -1,9 +1,12 @@
+import logging
 import math
 
 import config
 import database
 import indicators
 import predictive_brain
+
+_log = logging.getLogger(__name__)
 
 
 def _get_symbol_pip_specs(symbol, current_price):
