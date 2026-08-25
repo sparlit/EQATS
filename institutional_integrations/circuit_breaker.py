@@ -152,11 +152,10 @@ class CircuitBreaker:
 
             if self._state == self.HALF_OPEN:
                 self._transition_to_nolock(self.OPEN, reason="probe_failed")
-            elif self._state == self.CLOSED:
-                if self._consecutive_failures >= self.failure_threshold:
-                    self._transition_to_nolock(
-                        self.OPEN, reason="failure_threshold_exceeded"
-                    )
+            elif self._state == self.CLOSED and self._consecutive_failures >= self.failure_threshold:
+                self._transition_to_nolock(
+                    self.OPEN, reason="failure_threshold_exceeded"
+                )
 
     def record_success(self):
         """Records a successful call and closes the circuit breaker."""

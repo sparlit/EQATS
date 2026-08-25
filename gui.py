@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import os
 import random
 import threading
@@ -10,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 import config
 import database
 import main
+from brain import ScalperBrain
 
 _log = logging.getLogger("gui")
 
@@ -1635,12 +1637,11 @@ class ScalperGui:
     def switch_to_screen(self, screen_code):
         """Switches the main dashboard window display dynamically"""
         # Intercept SET <GO> and CFG <GO> screen access to enforce secondary PIN authorization
-        if screen_code in ["SET", "CFG", "CONFIG"]:
-            if not self._prompt_secondary_pin():
-                print(
-                    f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller."
-                )
-                return
+        if screen_code in ["SET", "CFG", "CONFIG"] and not self._prompt_secondary_pin():
+            print(
+                f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller."
+            )
+            return
 
         # Clear out previous widgets
         for widget in self.screen_frame.winfo_children():
@@ -2363,7 +2364,7 @@ A: Initial positions on any new symbol are strictly fixed at 0.01 lots.
 
 Q: How can I connect the system to my live MT5 terminal?
 A: Edit `config.py` and set `SIMULATION_MODE = False`. Launch MT5 on Windows and
-   attach `ScalperBrainEA.mq5` to an active chart.
+   attach `EaqtsAutonomousScalperEA.mq5` to an active chart.
 
 5) EMERGENCY SAFETY CONTROLS & MANUAL OVERRIDES:
 --------------------------------------------------------------------------------
@@ -3722,7 +3723,6 @@ SIMD Vectorization:       128-bit AVX2 Enabled
                 )
 
             # Draw horizontal timeline scale on bottom margin (X-Axis)
-            time_steps = len(self.candlestick_data_list)
             zoom = getattr(self, "chart_zoom_mult", 1.0)
             candle_w = max(1, int((chart_w / 30) * zoom))
             spacing = max(1, int((chart_w / 28) * zoom))
@@ -8662,7 +8662,6 @@ SECURITY DOMAINS ENFORCED:
             c_s3 = c - range_vl * 1.1 / 4.0
             c_r2 = c + range_vl * 1.1 / 6.0
             c_s2 = c - range_vl * 1.1 / 6.0
-            c_r1 = c + range_vl * 1.1 / 12.0
             c_s1 = c - range_vl * 1.1 / 12.0
             self.mkt_pivot_tree.insert(
                 "",
@@ -9226,10 +9225,11 @@ SECURITY DOMAINS ENFORCED:
             lot_size = t.get("lot_size", 0.0)
             open_price = t.get("open_price", 0.0)
             close_price = t.get("close_price", 0.0)
-            profit = t.get("profit", 0.0)
+            profit = t.get("profit")
+            profit_val = float(profit) if profit is not None else 0.0
             reason = t.get("close_reason", "-")
 
-            profit_str = f"${profit:.2f}" if profit >= 0 else f"-${abs(profit):.2f}"
+            profit_str = f"${profit_val:.2f}" if profit_val >= 0 else f"-${abs(profit_val):.2f}"
 
             self.tradebook_tree.insert(
                 "",
@@ -10040,7 +10040,7 @@ SECURITY DOMAINS ENFORCED:
     def _force_orchestrator_intervention(self):
         from brain_agents_orchestrator import global_brain_orchestrator
 
-        directive = global_brain_orchestrator.run_agentic_loop(
+        global_brain_orchestrator.run_agentic_loop(
             self.scalper, symbol=self.selected_symbol_gp
         )
         global_brain_orchestrator.master_interventions.append(
@@ -10716,7 +10716,7 @@ SECURITY DOMAINS ENFORCED:
             return
 
         import datetime, math, time
-        import database, brain, predictive_brain
+        import database
 
         account_info = {"balance": 10000.0, "equity": 10000.0}
         active_positions = []
@@ -10742,7 +10742,9 @@ SECURITY DOMAINS ENFORCED:
 
         if recent_trades:
             t_last = recent_trades[0]
-            t_str = f"• LIVE FEED • LAST TRADE: {t_last.get('symbol')} {t_last.get('type')} @ {t_last.get('open_price')} • PnL: ${t_last.get('profit', 0.0):.2f} • TIME: {t_last.get('close_time', 'NOW')}"
+            last_pnl = t_last.get('profit')
+            pnl_val = float(last_pnl) if last_pnl is not None else 0.0
+            t_str = f"• LIVE FEED • LAST TRADE: {t_last.get('symbol')} {t_last.get('type')} @ {t_last.get('open_price')} • PnL: ${pnl_val:.2f} • TIME: {t_last.get('close_time', 'NOW')}"
             self.lbl_poly_feed_marquee.config(text=t_str)
 
         pnl_prefix = "+" if net_profit >= 0 else ""
@@ -10955,8 +10957,10 @@ SECURITY DOMAINS ENFORCED:
         c_em.create_line(15, 15, em_w - 15, em_h - 15, fill="#ff5252", dash=(2, 2))
         for idx, tr in enumerate(all_trades[:35]):
             sx = 15 + (idx / 35.0) * (em_w - 30)
-            sy = em_h - 15 - (max(0.0, min(100.0, tr.get("profit", 0.0) + 50)) / 100.0) * (em_h - 30)
-            sc = "#00e676" if tr.get("profit", 0.0) >= 0 else "#ff5252"
+            tr_p = tr.get("profit")
+            tr_profit = float(tr_p) if tr_p is not None else 0.0
+            sy = em_h - 15 - (max(0.0, min(100.0, tr_profit + 50)) / 100.0) * (em_h - 30)
+            sc = "#00e676" if tr_profit >= 0 else "#ff5252"
             c_em.create_oval(sx - 2, sy - 2, sx + 2, sy + 2, fill=sc, outline="")
 
         c_sig = self.canvas_poly_signals
@@ -11556,6 +11560,7 @@ SECURITY DOMAINS ENFORCED:
         except Exception as e:
             messagebox.showerror("Reset Error", f"Error resetting engines: {e}")
 
+
     def exit_system(self):
         """Shuts down all background threads, stops the bot, disconnects feeds, and exits the application."""
         if messagebox.askyesno(
@@ -11657,47 +11662,47 @@ SECURITY DOMAINS ENFORCED:
                     self._update_chart_screen_data(new_tick=True)
                 elif self.active_screen == "SESS":
                     self._update_session_screen_data()
-                elif self.active_screen == "DESC":
+                elif self.active_screen == "DESC" and hasattr(self, "_update_des_screen_data"):
                     self._update_des_screen_data()
-                elif self.active_screen == "YIELD":
+                elif self.active_screen == "YIELD" and hasattr(self, "_update_yas_screen_data"):
                     self._update_yas_screen_data()
-                elif self.active_screen == "ECO":
+                elif self.active_screen == "ECO" and hasattr(self, "_update_eco_screen_data"):
                     self._update_eco_screen_data()
-                elif self.active_screen == "EXEC":
+                elif self.active_screen == "EXEC" and hasattr(self, "_update_emsx_screen_data"):
                     self._update_emsx_screen_data()
-                elif self.active_screen == "SET":
+                elif self.active_screen == "SET" and hasattr(self, "_update_set_screen_data"):
                     self._update_set_screen_data()
-                elif self.active_screen == "ING":
+                elif self.active_screen == "ING" and hasattr(self, "_update_ing_screen_data"):
                     self._update_ing_screen_data()
-                elif self.active_screen == "FEAT":
+                elif self.active_screen == "FEAT" and hasattr(self, "_update_feat_screen_data"):
                     self._update_feat_screen_data()
-                elif self.active_screen == "STRAT":
+                elif self.active_screen == "STRAT" and hasattr(self, "_update_strat_screen_data"):
                     self._update_strat_screen_data()
-                elif self.active_screen == "RISK":
+                elif self.active_screen == "RISK" and hasattr(self, "_update_risk_screen_data"):
                     self._update_risk_screen_data()
-                elif self.active_screen == "ORD":
+                elif self.active_screen == "ORD" and hasattr(self, "_update_ord_screen_data"):
                     self._update_ord_screen_data()
-                elif self.active_screen == "LOG":
+                elif self.active_screen == "LOG" and hasattr(self, "_update_log_screen_data"):
                     self._update_log_screen_data()
-                elif self.active_screen == "MON":
+                elif self.active_screen == "MON" and hasattr(self, "_update_mon_screen_data"):
                     self._update_mon_screen_data()
-                elif self.active_screen == "SEC":
+                elif self.active_screen == "SEC" and hasattr(self, "_update_sec_screen_data"):
                     self._update_sec_screen_data()
-                elif self.active_screen == "SAFE":
+                elif self.active_screen == "SAFE" and hasattr(self, "_update_safe_screen_data"):
                     self._update_safe_screen_data()
-                elif self.active_screen == "PF":
+                elif self.active_screen == "PF" and hasattr(self, "_update_pf_screen_data"):
                     self._update_pf_screen_data()
-                elif self.active_screen == "SYM":
+                elif self.active_screen == "SYM" and hasattr(self, "_update_sym_screen_data"):
                     self._update_sym_screen_data()
-                elif self.active_screen == "AIC":
+                elif self.active_screen == "AIC" and hasattr(self, "_update_aic_screen_data"):
                     self._update_aic_screen_data()
-                elif self.active_screen == "CRAWL":
+                elif self.active_screen == "CRAWL" and hasattr(self, "_update_crawl_screen_data"):
                     self._update_crawl_screen_data()
-                elif self.active_screen == "CRED":
+                elif self.active_screen == "CRED" and hasattr(self, "_update_cred_screen_data"):
                     self._update_cred_screen_data()
-                elif self.active_screen == "WATCH":
+                elif self.active_screen == "WATCH" and hasattr(self, "_update_watch_screen_data"):
                     self._update_watch_screen_data()
-                elif self.active_screen == "MKT":
+                elif self.active_screen == "MKT" and hasattr(self, "_update_mkt_screen_data"):
                     self._update_mkt_screen_data()
                 elif self.active_screen == "TRADEBOOK":
                     self._update_tradebook_screen_data()
@@ -12211,7 +12216,7 @@ SECURITY DOMAINS ENFORCED:
 
 def launch_gui():
     root = tk.Tk()
-    app = ScalperGui(root)
+    ScalperGui(root)
     root.mainloop()
 
 

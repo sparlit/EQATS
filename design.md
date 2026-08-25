@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS users (
 ├── supervisor_agent.py               # AI supervisory monitoring agent
 ├── telegram_bot.py                   # Alert dispatcher (Telegram & Discord webhooks)
 ├── symbol_mapper.py                  # Master Symbology translation adapter
-├── ScalperBrainEA.mq5                # MT5 EA Bridge Source
+├── EaqtsAutonomousScalperEA.mq5        # MT5 EA Bridge Source
 ├── institutional_integrations/       # Advanced institutional engine modules
 ├── docs/                             # System Architecture, Runbook, and Deployment guides
 ├── council_logs/                     # Council round audit transcripts and JSON logs

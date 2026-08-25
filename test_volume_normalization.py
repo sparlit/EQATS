@@ -1,6 +1,5 @@
 import unittest
 from brain import ScalperBrain
-from connector import MT5Connector
 
 
 class TestVolumeNormalization(unittest.TestCase):
