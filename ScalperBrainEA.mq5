@@ -121,17 +121,6 @@ bool m_show_account_card = true;
 bool m_show_extended_details = true;
 bool m_show_account_card = true;
 
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// CTrade object for autonomous panic executions
-CTrade m_trade_engine;
-
 // CTrade object for autonomous panic executions
 CTrade m_trade_engine;
 
@@ -216,12 +205,6 @@ void OnChartEvent(const int id,
          Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
-      else if(sparam == "SB_Btn_Panic")
-      {
-         Print("ScalperBrainEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
-         ExecutePanicCloseAll();
-         UpdateDashboard();
-      }
       else if(sparam == "SB_Btn_Toggle")
       {
          m_show_extended_details = !m_show_extended_details;
@@ -235,6 +218,27 @@ void OnChartEvent(const int id,
          UpdateDashboard();
       }
    }
+}
+
+//+------------------------------------------------------------------+
+//| ExecutePanicCloseAll                                             |
+//| Instantly liquidates all open positions across terminal          |
+//+------------------------------------------------------------------+
+void ExecutePanicCloseAll()
+{
+   int closed_count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(m_trade_engine.PositionClose(ticket))
+         {
+            closed_count++;
+         }
+      }
+   }
+   Print("ScalperBrainEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
 }
 
 //+------------------------------------------------------------------+
