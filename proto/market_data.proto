@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package eaqts.marketdata;
+
+message TickData {
+  string symbol = 1;
+  double timestamp = 2;
+  double bid = 3;
+  double ask = 4;
+  double last = 5;
+  double volume = 6;
+  int64 flags = 7;
+}
+
+message OHLCVBar {
+  string symbol = 1;
+  string timeframe = 2;
+  double timestamp = 3;
+  double open = 4;
+  double high = 5;
+  double low = 6;
+  double close = 7;
+  double volume = 8;
+}
+
+message DOMLevel {
+  double price = 1;
+  double volume = 2;
+  int32 orders_count = 3;
+}
+
+message OrderBookDepth {
+  string symbol = 1;
+  double timestamp = 2;
+  repeated DOMLevel bids = 3;
+  repeated DOMLevel asks = 4;
+}
+
+message SubscribeMarketDataRequest {
+  repeated string symbols = 1;
+  repeated string timeframes = 2;
+  bool include_dom = 3;
+}
+
+message MarketDataResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+service MarketDataService {
+  rpc StreamTicks (SubscribeMarketDataRequest) returns (stream TickData);
+  rpc GetOrderBook (SubscribeMarketDataRequest) returns (OrderBookDepth);
+}
