@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "7.00"
-#property description "Elite Quantum Autonomous Scalper EA v7.00 - Sub-Millisecond Socket IPC & Institutional Interactive HUD Visualizer"
+#property version   "7.10"
+#property description "Elite Quantum Autonomous Scalper EA v7.10 - Institutional Multi-Panel Interactive HUD Visualizer"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -51,9 +51,9 @@ int m_total_trades = 0;
 string m_equity = "0.00";
 string m_balance = "0.00";
 string m_active_count = "0";
-string m_active_session = "Quiet Session";
-string m_overlaps = "No active overlap";
-string m_next_session = "Tokyo";
+string m_active_session = "Global Interbank";
+string m_overlaps = "Asian/European";
+string m_next_session = "New York";
 string m_countdown = "00:00:00";
 bool m_show_extended_details = true;
 
@@ -125,8 +125,12 @@ bool m_show_account_card = true;
 bool m_show_extended_details = true;
 bool m_show_account_card = true;
 
-// Persistent socket buffer for partial read accumulation
-string m_accumulated_buffer = "";
+// Interactivity States
+bool m_show_extended_details = true;
+bool m_show_account_card = true;
+
+// CTrade object for autonomous panic executions
+CTrade m_trade_engine;
 
 // CTrade object for autonomous panic executions
 CTrade m_trade_engine;
@@ -137,18 +141,15 @@ CTrade m_trade_engine;
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   // Set timer for visual dashboard updates
    EventSetTimer(InpTimerInterval);
 
-   // Enable chart events for interactive HUD controls
    ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, true);
    ChartSetInteger(0, CHART_EVENT_OBJECT_DELETE, true);
 
-   // Redraw initial institutional layout
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("ScalperBrainEA v7.00 Master HUD Initialized. IPC Target: ", InpSocketHost, ":", InpSocketPort);
+   Print("ScalperBrainEA v7.10 Master Full Dashboard Initialized. Target IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -160,7 +161,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("ScalperBrainEA v7.00 Deinitialized cleanly.");
+   Print("ScalperBrainEA v7.10 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -183,7 +184,7 @@ void OnTimer()
 
 //+------------------------------------------------------------------+
 //| OnChartEvent function                                            |
-//| Handles interactive HUD button actions (Resync, Panic, Toggle)   |
+//| Handles interactive HUD button actions                           |
 //+------------------------------------------------------------------+
 void OnChartEvent(const int id,
                   const long &lparam,
@@ -195,6 +196,24 @@ void OnChartEvent(const int id,
       if(sparam == "SB_Btn_Resync")
       {
          Print("ScalperBrainEA: Operator requested manual IPC telemetry resync.");
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_Panic")
+      {
+         Print("ScalperBrainEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
+         ExecutePanicCloseAll();
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_Toggle")
+      {
+         m_show_extended_details = !m_show_extended_details;
+         Print("ScalperBrainEA: Extended Neural telemetry details set to: ", m_show_extended_details);
+         UpdateDashboard();
+      }
+      else if(sparam == "SB_Btn_CardToggle")
+      {
+         m_show_account_card = !m_show_account_card;
+         Print("ScalperBrainEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Panic")
@@ -240,6 +259,27 @@ void ExecutePanicCloseAll()
 }
 
 //+------------------------------------------------------------------+
+//| ExecutePanicCloseAll                                             |
+//| Instantly liquidates all open positions across terminal          |
+//+------------------------------------------------------------------+
+void ExecutePanicCloseAll()
+{
+   int closed_count = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0)
+      {
+         if(m_trade_engine.PositionClose(ticket))
+         {
+            closed_count++;
+         }
+      }
+   }
+   Print("ScalperBrainEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
+}
+
+//+------------------------------------------------------------------+
 //| FetchSocketData                                                  |
 //| Performs a single-shot TCP request to Python SocketIPCBridge     |
 //+------------------------------------------------------------------+
@@ -255,7 +295,6 @@ string FetchSocketData()
       return "";
    }
 
-   // Poll for readable payload up to 300ms
    uint rsp_len = 0;
    int wait_ms = 0;
    while(wait_ms < 300)
@@ -291,13 +330,11 @@ bool ParseStateData()
 {
    string state_content = "";
 
-   // 1. Try Socket IPC Push Reading
    if(InpUseSocketIPC)
    {
       state_content = FetchSocketData();
    }
 
-   // 2. Fallback to Shared Telemetry File if Socket empty
    if(StringLen(state_content) == 0)
    {
       ResetLastError();
@@ -319,7 +356,6 @@ bool ParseStateData()
 
    if(StringLen(state_content) < 5) return false;
 
-   // Parse Content Lines
    m_total_symbols = 0;
    m_total_trades = 0;
    bool in_scans_section = false;
@@ -336,7 +372,6 @@ bool ParseStateData()
 
       if(i == 0)
       {
-         // Header line: equity|balance|active_count|active_session|overlaps|next_session|countdown
          string parts[];
          int split_count = StringSplit(line, '|', parts);
          if(split_count >= 3)
@@ -349,7 +384,6 @@ bool ParseStateData()
             if(split_count >= 6) m_next_session = parts[5];
             if(split_count >= 7) m_countdown = parts[6];
 
-            // Emergency Lockdown Circuit Breaker Signal Check
             if(StringFind(line, "LOCKDOWN") >= 0 || StringFind(line, "PANIC") >= 0)
             {
                Print("ScalperBrainEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
@@ -373,7 +407,6 @@ bool ParseStateData()
 
       if(!in_scans_section)
       {
-         // Trade row: TRADE|ticket|symbol|direction|open_price|sl|tp|profit
          if(split_count >= 8 && parts[0] == "TRADE" && m_total_trades < 20)
          {
             m_trade_tickets[m_total_trades] = parts[1];
@@ -390,7 +423,6 @@ bool ParseStateData()
       }
       else
       {
-         // Scan row: Symbol|Price|EMA200|Trend|RSI|ATR|Status|avg_w_ih|avg_w_ho|bias_output|hidden_activations
          if(split_count >= 6 && m_total_symbols < 50)
          {
             m_symbols[m_total_symbols] = parts[0];
@@ -421,8 +453,30 @@ bool ParseStateData()
       }
    }
 
-   m_accumulated_buffer = "";
    return true;
+}
+
+//+------------------------------------------------------------------+
+//| CreatePanelCard                                                  |
+//| Helper routine to draw background glassmorphism HUD cards        |
+//+------------------------------------------------------------------+
+void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, color border_color)
+{
+   if(ObjectFind(0, name) < 0)
+   {
+      ObjectCreate(0, name, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+   }
+
+   ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, name, OBJPROP_XSIZE, w);
+   ObjectSetInteger(0, name, OBJPROP_YSIZE, h);
+   ObjectSetInteger(0, name, OBJPROP_BGCOLOR, bg_color);
+   ObjectSetInteger(0, name, OBJPROP_BORDER_COLOR, border_color);
+   ObjectSetInteger(0, name, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+   ObjectSetInteger(0, name, OBJPROP_BACK, true);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
 }
 
 //+------------------------------------------------------------------+
@@ -431,13 +485,16 @@ bool ParseStateData()
 //+------------------------------------------------------------------+
 void DrawInstitutionalHeader()
 {
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v7.00)", 20, 18, 13, clrLightCyan, "Segoe UI Bold");
+   // Top Header Glass Card
+   CreatePanelCard("SB_Card_Header", 10, 10, 1040, 36, C'15,23,42', C'30,58,138');
 
-   // Interactive Navigation Buttons
-   CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 14, 100, 24, clrWhite, clrDarkBlue, 8);
-   CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 690, 14, 90, 24, clrWhite, clrDarkSlateBlue, 8);
-   CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 790, 14, 110, 24, clrWhite, clrTeal, 8);
-   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 910, 14, 130, 24, clrWhite, clrDarkRed, 8);
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v7.10)", 20, 18, 12, clrLightCyan, "Segoe UI Bold");
+
+   // Interactive Control Buttons
+   CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 100, 24, clrWhite, C'37,99,235', 8);
+   CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 690, 16, 90, 24, clrWhite, C'126,34,206', 8);
+   CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 790, 16, 110, 24, clrWhite, C'13,148,136', 8);
+   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 910, 16, 130, 24, clrWhite, C'185,28,28', 8);
 }
 
 //+------------------------------------------------------------------+
@@ -446,11 +503,7 @@ void DrawInstitutionalHeader()
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
-   if(!ParseStateData())
-   {
-      CreateLabel("SB_Status", "Status: STREAMING TELEMETRY VIA ZERO-LATENCY IPC SOCKET...", 20, 48, 10, clrGold, "Segoe UI");
-      return;
-   }
+   bool has_data = ParseStateData();
 
    // Clean up dynamic rows
    for(int i = 0; i < 40; i++)
@@ -480,6 +533,18 @@ void UpdateDashboard()
    ObjectDelete(0, "SB_H_AI_W2");
    ObjectDelete(0, "SB_H_AI_Act");
 
+   if(!has_data)
+   {
+      CreatePanelCard("SB_Card_Notice", 10, 52, 1040, 40, C'30,41,59', C'217,119,6');
+      CreateLabel("SB_Status", "⚠️ TELEMETRY STREAM OFFLINE: Socket IPC Port 9001 Listening... Start main.py to stream telemetry data.", 20, 62, 10, clrGold, "Segoe UI Bold");
+      return;
+   }
+   else
+   {
+      ObjectDelete(0, "SB_Card_Notice");
+      ObjectDelete(0, "SB_Status");
+   }
+
    // Account Metric Card Calculation
    double float_eq = StringToDouble(m_equity);
    double float_bal = StringToDouble(m_balance);
@@ -487,29 +552,35 @@ void UpdateDashboard()
    double drawdown_pct = (float_bal > 0) ? (pnl / float_bal) * 100.0 : 0.0;
    color pnl_color = (pnl >= 0.0) ? clrSpringGreen : clrDeepPink;
 
-   int current_y = 48;
+   int current_y = 52;
 
    if(m_show_account_card)
    {
+      CreatePanelCard("SB_Card_Account", 10, current_y, 1040, 32, C'15,23,42', C'59,130,246');
       string metrics_text = "Balance: $" + m_balance + "  |  Equity: $" + m_equity + "  |  Floating PnL: $" + DoubleToString(pnl, 2) + " (" + DoubleToString(drawdown_pct, 2) + "%)  |  Active Session: " + m_active_session;
-      CreateLabel("SB_Metrics", metrics_text, 20, current_y, 10, clrWhite, "Segoe UI Semibold");
-      current_y += 22;
+      CreateLabel("SB_Metrics", metrics_text, 20, current_y + 8, 10, clrWhite, "Segoe UI Semibold");
+      current_y += 38;
    }
    else
    {
+      ObjectDelete(0, "SB_Card_Account");
       ObjectDelete(0, "SB_Metrics");
    }
 
    // Section 1: Sessions Timeline Window
+   CreatePanelCard("SB_Card_Timeline", 10, current_y, 1040, 28, C'30,41,59', C'217,119,6');
    string timeline_text = "⏳ SESSION TIMELINE  |  Active Overlaps: " + m_overlaps + "  |  Next Window: " + m_next_session + " in " + m_countdown;
-   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, current_y, 9, clrOrange, "Segoe UI Bold");
-   current_y += 22;
+   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, current_y + 6, 9, clrOrange, "Segoe UI Bold");
+   current_y += 34;
 
    // Section 2: Active Trades visualizer card
-   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING EXECUTIONS (" + m_active_count + "/10 OPEN POSITIONS):", 20, current_y, 10, clrSkyBlue, "Segoe UI Bold");
-   current_y += 20;
+   int trades_height = (m_total_trades == 0) ? 44 : (28 + m_total_trades * 20);
+   CreatePanelCard("SB_Card_Trades", 10, current_y, 1040, trades_height, C'15,23,42', C'14,165,233');
 
-   int line_height = 18;
+   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING EXECUTIONS (" + m_active_count + " POSITIONS OPEN):", 20, current_y + 6, 10, clrSkyBlue, "Segoe UI Bold");
+   current_y += 26;
+
+   int line_height = 20;
 
    if(m_total_trades == 0)
    {
@@ -530,9 +601,13 @@ void UpdateDashboard()
    }
 
    // Section 3: Multi-Asset Cognitive Matrix Table
-   current_y += 8;
-   CreateLabel("SB_ScanSec", "🧠 MULTI-ASSET NEURAL MATRIX & QUANTITATIVE SIGNALS:", 20, current_y, 10, clrSkyBlue, "Segoe UI Bold");
-   current_y += 20;
+   current_y += 10;
+   int scan_rows = (m_total_symbols > 15) ? 15 : m_total_symbols;
+   int scans_height = 28 + (scan_rows + 1) * 20;
+   CreatePanelCard("SB_Card_Scans", 10, current_y, 1040, scans_height, C'15,23,42', C'99,102,241');
+
+   CreateLabel("SB_ScanSec", "🧠 MULTI-ASSET NEURAL MATRIX & QUANTITATIVE SIGNALS (" + (string)m_total_symbols + " ASSETS SCANNED):", 20, current_y + 6, 10, clrSkyBlue, "Segoe UI Bold");
+   current_y += 26;
 
    // Headers
    color head_col = clrDeepSkyBlue;
@@ -656,11 +731,18 @@ void CreateButton(string name, string text, int x, int y, int width, int height,
 //+------------------------------------------------------------------+
 void DeleteDashboardObjects()
 {
+   ObjectDelete(0, "SB_Card_Header");
    ObjectDelete(0, "SB_Title");
+   ObjectDelete(0, "SB_Card_Notice");
    ObjectDelete(0, "SB_Status");
+   ObjectDelete(0, "SB_Card_Account");
    ObjectDelete(0, "SB_Metrics");
+   ObjectDelete(0, "SB_Card_Timeline");
+   ObjectDelete(0, "SB_Timeline_Lbl");
+   ObjectDelete(0, "SB_Card_Trades");
    ObjectDelete(0, "SB_TradeSec");
    ObjectDelete(0, "SB_No_Trades");
+   ObjectDelete(0, "SB_Card_Scans");
    ObjectDelete(0, "SB_ScanSec");
    ObjectDelete(0, "SB_H_Sym");
    ObjectDelete(0, "SB_H_P");
@@ -669,7 +751,6 @@ void DeleteDashboardObjects()
    ObjectDelete(0, "SB_H_RSI");
    ObjectDelete(0, "SB_H_ATR");
    ObjectDelete(0, "SB_H_Stat");
-   ObjectDelete(0, "SB_Timeline_Lbl");
    ObjectDelete(0, "SB_H_AI_W1");
    ObjectDelete(0, "SB_H_AI_W2");
    ObjectDelete(0, "SB_H_AI_Act");
