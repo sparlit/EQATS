@@ -7,6 +7,10 @@ edition = "2021"
 name = "eaqts_rust_core"
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "blockchain_db"
+path = "src/bin/blockchain_db.rs"
+
 [dependencies]
 rayon = "1.8"
 pyo3 = { version = "0.20", features = ["extension-module"], optional = true }

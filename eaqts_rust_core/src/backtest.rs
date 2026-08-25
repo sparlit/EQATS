@@ -1,5 +1,4 @@
 use std::os::raw::{c_double, c_int};
-use rayon::prelude::*;
 
 #[no_mangle]
 pub extern "C" fn rust_run_backtest_simulation(
