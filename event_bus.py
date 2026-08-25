@@ -79,7 +79,7 @@ class EventBus:
 
         self._history.append(event)
 
-        # Notify any subscribed listeners
+        # Hybrid Event Dispatching: 1) Registry Pattern Dispatching
         if event.family in self._listeners:
             for listener in self._listeners[event.family]:
                 try:
@@ -88,6 +88,16 @@ class EventBus:
                     print(
                         f"ERROR: Listener {listener.__name__} crashed handling {event.family}: {e}"
                     )
+        # Hybrid Event Dispatching: 2) If-Elif-Else Fallback Loop Pattern Dispatching
+        elif event.family == "MARKET_DATA":
+            print(f"[EVENT BUS - IF-ELIF LOOP] Market data event received: {event.event_id}")
+        elif event.family == "TRADE_SIGNAL":
+            print(f"[EVENT BUS - IF-ELIF LOOP] Trade signal event received: {event.event_id}")
+        elif event.family == "RISK_VIOLATION":
+            print(f"[EVENT BUS - IF-ELIF LOOP] Risk violation event received: {event.event_id}")
+        else:
+            # Default fallback routing
+            pass
 
         # Global wildcard listeners if any
         if "*" in self._listeners:
