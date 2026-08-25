@@ -9,7 +9,27 @@ from .advanced_math import (
     evaluate_black_scholes_option_pricing,
 )
 from .brain_self_healer import QuantumSelfHealer
-from .comprehensive_suite import *
+from .comprehensive_suite import (
+    integrate_airflow, integrate_akshare, integrate_altair, integrate_arrow, integrate_autots, integrate_backtrader,
+    integrate_beautifulsoup, integrate_bert, integrate_bokeh, integrate_boto3, integrate_catboost, integrate_ccxt,
+    integrate_chromadb, integrate_click, integrate_cupy, integrate_darts, integrate_dask, integrate_datatable,
+    integrate_django, integrate_duckdb, integrate_edgartools, integrate_faiss, integrate_fastapi, integrate_flask,
+    integrate_folium, integrate_gensim, integrate_geopandas, integrate_github, integrate_gpio, integrate_great_expectations,
+    integrate_hadoop, integrate_jax, integrate_jupyter, integrate_kafka, integrate_kats, integrate_keras, integrate_kivy,
+    integrate_koalas, integrate_langchain, integrate_langextract, integrate_langgraph, integrate_lifelines,
+    integrate_lightgbm, integrate_litellm, integrate_llamaindex, integrate_loguru, integrate_matplotlib, integrate_modin,
+    integrate_neo4j, integrate_networkx, integrate_nltk, integrate_numpy, integrate_octoparse, integrate_openai,
+    integrate_opencv, integrate_pandas, integrate_pandera, integrate_paramiko, integrate_peewee, integrate_pinecone,
+    integrate_pingouin, integrate_plotly, integrate_pmdarima, integrate_polars, integrate_polyglot, integrate_prophet,
+    integrate_pycryptodome, integrate_pydantic, integrate_pyfolio, integrate_pygal, integrate_pygame, integrate_pymc3,
+    integrate_pyo3, integrate_pyscript, integrate_pyserial, integrate_pyspark, integrate_pystan, integrate_pytest,
+    integrate_pytorch, integrate_quantlib, integrate_ray, integrate_requests, integrate_rich, integrate_robyn,
+    integrate_rq, integrate_ruff, integrate_rust_wrapped_python, integrate_scikit_learn, integrate_scipy,
+    integrate_scrapy, integrate_seaborn, integrate_selenium, integrate_sentence_transformers, integrate_sktime,
+    integrate_spacy, integrate_sqlalchemy, integrate_statsmodels, integrate_sympy, integrate_talib, integrate_tensorflow,
+    integrate_textblob, integrate_textual, integrate_theano, integrate_tinydb, integrate_tkinter, integrate_transformers,
+    integrate_tsfresh, integrate_typer, integrate_vaex, integrate_xgboost, integrate_yfinance, integrate_zipline
+)
 from .data_science import calculate_portfolio_weights, perform_statistical_pingouin_test
 from .databases import (
     insert_vector_embedding,
@@ -25,3 +45,22 @@ from .natural_language import extract_advanced_nlp_sentiments
 from .quantum_quantum_engine import QuantumAutoEngine
 from .rust_bridge import execute_high_speed_rust_order_send
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue
+
+__all__ = [
+    "calculate_markov_regime_switching_probability",
+    "evaluate_black_scholes_option_pricing",
+    "QuantumSelfHealer",
+    "calculate_portfolio_weights",
+    "perform_statistical_pingouin_test",
+    "insert_vector_embedding",
+    "propagate_graph_breakout_warnings",
+    "query_high_speed_analytical_duckdb",
+    "start_go_concurrency_websocket_relay",
+    "evaluate_deep_rl_policy_action",
+    "generate_multi_model_ensemble_prediction",
+    "extract_advanced_nlp_sentiments",
+    "QuantumAutoEngine",
+    "execute_high_speed_rust_order_send",
+    "fetch_yfinance_external_rates",
+    "push_telemetry_to_kafka_queue",
+]
