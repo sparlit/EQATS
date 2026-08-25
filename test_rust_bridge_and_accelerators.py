@@ -3,7 +3,6 @@ Integration and Benchmarking Test Suite for Rust CFFI Acceleration Core and Fall
 """
 
 import time
-import pytest
 import numpy as np
 import indicators
 from institutional_integrations.rust_bridge import (

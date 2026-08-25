@@ -1,16 +1,10 @@
 import os
 import unittest
 import time
-import math
-
-import brain
 import brain_agents_orchestrator
 import config
-import connector
 import database
-import eaqts_planes
 import event_bus
-import indicators
 import main
 import predictive_brain
 import release_gates
@@ -18,7 +12,6 @@ import supervisor_agent
 import telegram_bot
 
 import institutional_integrations as ii
-import institutional_integrations.advanced_math as adv_math
 import institutional_integrations.alert_dispatcher as alert_disp
 import institutional_integrations.backtest_engine as backtest
 import institutional_integrations.brain_self_healer as self_healer
@@ -26,15 +19,12 @@ import institutional_integrations.causal_inference_engine as causal
 import institutional_integrations.circuit_breaker as cb
 import institutional_integrations.cointegration_pairs as cointeg
 import institutional_integrations.comprehensive_suite as suite
-import institutional_integrations.data_science as ds
 import institutional_integrations.databases as db_inst
 import institutional_integrations.drl_execution_agent as drl
 import institutional_integrations.execution_slicing as slicing
 import institutional_integrations.fix_engine as fix
 import institutional_integrations.go_gateway as go_gw
-import institutional_integrations.machine_learning as ml
 import institutional_integrations.mcts_risk_engine as mcts
-import institutional_integrations.natural_language as nlp
 import institutional_integrations.options_gex_engine as gex
 import institutional_integrations.order_flow_imbalance as ofi
 import institutional_integrations.portfolio_optimizer as port_opt
@@ -42,7 +32,6 @@ import institutional_integrations.quantum_local_llm as llm
 import institutional_integrations.quantum_quantum_engine as q_eng
 import institutional_integrations.rust_bridge as rust_b
 import institutional_integrations.smc_ict_engine as smc_eng
-import institutional_integrations.spatial_supply_chain as supply_chain
 import institutional_integrations.tft_tcn_predictor as tft_tcn
 import institutional_integrations.trade_memory_protocol as trade_mem
 import institutional_integrations.universal_broker_adapter as univ_adapter

@@ -22,11 +22,10 @@ def calculate_portfolio_weights(returns_dict):
     try:
         import numpy as np
 
-        # Simulate asset historical return arrays
+        # Process asset historical return arrays
         ret_arrays = []
         for sym in symbols:
-            # Generate dummy history if returns list is empty
-            hist = returns_dict[sym] if returns_dict[sym] else [0.0001, -0.0002, 0.0003]
+            hist = returns_dict[sym] if returns_dict[sym] else [0.0]
             ret_arrays.append(hist)
 
         # Polars / Pandas dataframes
@@ -34,7 +33,7 @@ def calculate_portfolio_weights(returns_dict):
             import polars as pl
 
             p_data = {sym: np.array(ret_arrays[i]) for i, sym in enumerate(symbols)}
-            pl_df = pl.DataFrame(p_data)
+            pl.DataFrame(p_data)
         except ImportError as e:
             print(f"Diagnostics: Polars optional import skipped: {e}")
 
@@ -46,8 +45,8 @@ def calculate_portfolio_weights(returns_dict):
         try:
             import jax.numpy as jnp
 
-            cov_j = jnp.array(cov_matrix)
-            mean_j = jnp.array(mean_returns)
+            jnp.array(cov_matrix)
+            jnp.array(mean_returns)
         except ImportError as e:
             print(f"Diagnostics: JAX optional import skipped: {e}")
 
