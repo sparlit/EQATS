@@ -28,11 +28,14 @@ class TestMultiStrategyMultiMethodConcurrent(unittest.TestCase):
         self.orig_strategy = getattr(config, "ACTIVE_STRATEGY", "MULTI_STRATEGY_CONCURRENT")
         self.orig_style = getattr(config, "TRADING_STYLE", "AUTO")
         self.orig_gate = getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True)
+        self.orig_max_trades = getattr(config, "MAX_CONCURRENT_TRADES", 20)
+        config.MAX_CONCURRENT_TRADES = 9999
 
     def tearDown(self):
         config.ACTIVE_STRATEGY = self.orig_strategy
         config.TRADING_STYLE = self.orig_style
         config.ENABLE_SYMBOL_FLOATING_LOSS_GATE = self.orig_gate
+        config.MAX_CONCURRENT_TRADES = self.orig_max_trades
 
     def _generate_bars(self, count=220, base_price=1.1000, step=0.0003):
         bars = []
