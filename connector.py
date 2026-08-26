@@ -139,6 +139,9 @@ class UniversalConnector(TradingConnector):
     def get_current_price(self, symbol):
         return self.sim_fallback.get_current_price(symbol)
 
+    def get_historical_ticks(self, symbol, count=20):
+        return self.sim_fallback.get_historical_ticks(symbol, count)
+
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         if self.gateway.is_connected() and self.protocol != "SIMULATOR":
             gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
@@ -379,6 +382,28 @@ class MT5Connector(TradingConnector):
                 return {"bid": rates[0]["close"], "ask": rates[0]["close"]}
             return {"bid": 0.0, "ask": 0.0}
         return {"bid": tick.bid, "ask": tick.ask}
+
+    def get_historical_ticks(self, symbol, count=20):
+        if not self.mt5:
+            price = self.get_current_price(symbol)
+            return [{"bid": price["bid"], "ask": price["ask"], "volume": 10} for _ in range(count)]
+        import datetime
+        import MetaTrader5 as mt5
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        ticks = self.mt5.copy_ticks_from(symbol, now, count, mt5.COPY_TICKS_ALL)
+        if ticks is None or len(ticks) == 0:
+            price = self.get_current_price(symbol)
+            return [{"bid": price["bid"], "ask": price["ask"], "volume": 10} for _ in range(count)]
+
+        res = []
+        for t in ticks:
+            res.append({
+                "bid": float(getattr(t, "bid", 0.0)),
+                "ask": float(getattr(t, "ask", 0.0)),
+                "volume": int(getattr(t, "volume", 10)),
+            })
+        return res
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         if not self.mt5:
@@ -729,6 +754,10 @@ class SimulatorConnector(TradingConnector):
         if symbol not in self.historical_prices:
             self._generate_initial_history(symbol)
         return self.historical_prices[symbol][-count:]
+
+    def get_historical_ticks(self, symbol, count=20):
+        price = self.get_current_price(symbol)
+        return [{"bid": price["bid"], "ask": price["ask"], "volume": 10} for _ in range(count)]
 
     def get_current_price(self, symbol):
         bars = self.get_history(symbol, 1)
