@@ -10994,16 +10994,34 @@ SECURITY DOMAINS ENFORCED:
 
         sym = "BTCUSD"
         curr_price = 63006.50
+        history_bars = []
         if self.scalper and self.scalper.conn:
             try:
                 px_info = self.scalper.conn.get_current_price("BTCUSD")
-                if isinstance(px_info, dict) and px_info.get("bid"):
+                if isinstance(px_info, dict) and px_info.get("bid") and px_info.get("bid") > 0:
                     curr_price = float(px_info["bid"])
+                history_bars = self.scalper.conn.get_history("BTCUSD", 20)
             except Exception:
                 pass
-        pct_change = 0.01
-        pct_arrow = "▼"
-        pct_color = "#ff5252"
+
+        if history_bars and isinstance(history_bars, list):
+            try:
+                prices = [float(b["close"]) for b in history_bars if isinstance(b, dict) and "close" in b]
+                first_p = float(history_bars[0]["close"]) if isinstance(history_bars[0], dict) else curr_price
+                net_change = curr_price - first_p
+                pct_change = (net_change / first_p) * 100.0 if first_p > 0 else 0.0
+                pct_arrow = "▲" if pct_change >= 0 else "▼"
+                pct_color = "#00e676" if pct_change >= 0 else "#ff5252"
+            except Exception:
+                prices = [curr_price] * 20
+                pct_change = 0.0
+                pct_arrow = "▲"
+                pct_color = "#00e676"
+        else:
+            prices = [curr_price] * 20
+            pct_change = 0.0
+            pct_arrow = "▲"
+            pct_color = "#00e676"
 
         self.lbl_poly_chart_price.config(
             text=f"{sym} • 5M   ${curr_price:,.2f}   {pct_arrow} {abs(pct_change):.2f}%",
@@ -11015,7 +11033,6 @@ SECURITY DOMAINS ENFORCED:
         cw = c_price.winfo_width() or 300
         ch = c_price.winfo_height() or 140
 
-        prices = [curr_price - i*0.5 for i in range(20)]
         min_p, max_p = min(prices), max(prices)
         p_range = max(0.01, max_p - min_p)
 
@@ -11038,13 +11055,20 @@ SECURITY DOMAINS ENFORCED:
         for item in self.tree_poly_ob.get_children():
             self.tree_poly_ob.delete(item)
 
-        spread = max(0.50, curr_price * 0.0001)
+        ask_p = px_info.get("ask", curr_price + 0.50) if isinstance(px_info, dict) else curr_price + 0.50
+        bid_p = px_info.get("bid", curr_price) if isinstance(px_info, dict) else curr_price
+        spread = max(0.10, ask_p - bid_p)
+
+        ticks = self.scalper.conn.get_historical_ticks("BTCUSD", 20) if (self.scalper and self.scalper.conn) else []
+        recent_vols = [t.get("volume", 10) for t in ticks[-5:]] if ticks else [25]
+        base_vol = int(sum(recent_vols) / len(recent_vols)) if recent_vols else 25
+
         ob_rows = [
-            ("564", f"{curr_price + spread*3:.2f}", f"${(curr_price + spread*3)*564:,.2f}", "ASK"),
-            ("534", f"{curr_price + spread*2:.2f}", f"${(curr_price + spread*2)*534:,.2f}", "ASK"),
-            ("520", f"{curr_price + spread*1:.2f}", f"${(curr_price + spread*1)*520:,.2f}", "ASK"),
-            ("508", f"{curr_price - spread*1:.2f}", f"${(curr_price - spread*1)*508:,.2f}", "BID"),
-            ("496", f"{curr_price - spread*2:.2f}", f"${(curr_price - spread*2)*496:,.2f}", "BID"),
+            (f"{base_vol * 4}", f"{ask_p + spread * 2:.2f}", f"{ask_p + spread * 2:.2f}", "ASK"),
+            (f"{base_vol * 3}", f"{ask_p + spread * 1:.2f}", f"{ask_p + spread * 1:.2f}", "ASK"),
+            (f"{base_vol * 2}", f"{ask_p:.2f}", f"{bid_p:.2f}", "MID"),
+            (f"{base_vol * 3}", f"{bid_p - spread * 1:.2f}", f"{bid_p - spread * 1:.2f}", "BID"),
+            (f"{base_vol * 4}", f"{bid_p - spread * 2:.2f}", f"{bid_p - spread * 2:.2f}", "BID"),
         ]
         for r in ob_rows:
             self.tree_poly_ob.insert("", tk.END, values=(r[0], r[1], r[2], r[3]))
