@@ -82,6 +82,44 @@ class TradeMemoryReflectionProtocol:
 
         return record
 
+    def log_no_trade_veto(self, symbol, direction, signal_probability, veto_reason):
+        """
+        Logs a post-mortem reflection record when a high-probability trade opportunity is vetoed
+        by hard risk kernel invariants (INV-001..INV-015), regime mismatches, or low confidence.
+        """
+        ts = datetime.datetime.now().isoformat()
+        reflection_note = (
+            f"NO-TRADE VETO [{symbol} {direction}]: Prob={signal_probability:.1f}%. "
+            f"Veto Reason: {veto_reason}."
+        )
+
+        record = {
+            "timestamp": ts,
+            "ticket": "VETO",
+            "symbol": symbol,
+            "direction": direction,
+            "open_price": 0.0,
+            "close_price": 0.0,
+            "profit": 0.0,
+            "reason": f"VETO: {veto_reason}",
+            "is_win": False,
+            "mfe": 0.0,
+            "mae": 0.0,
+            "efficiency_score": 0.0,
+            "reflection_note": reflection_note,
+        }
+
+        self.memory_records.append(record)
+        if len(self.memory_records) > 200:
+            self.memory_records.pop(0)
+
+        self.reflections_log.append(f"[{ts[:19]}] {reflection_note}")
+        if len(self.reflections_log) > 100:
+            self.reflections_log.pop(0)
+
+        print(f"🧠 [TRADE MEMORY VETO] {reflection_note}")
+        return record
+
     def get_summary(self, symbol=None):
         """Returns trade memory summary statistics."""
         records = self.memory_records
