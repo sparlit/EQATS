@@ -213,7 +213,7 @@ class ScalperGui:
         except Exception as e:
             print(f"Warning: Database initialization error: {e}")
 
-        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0) - QUANTUM TERMINAL")
+        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i) - QUANTUM TERMINAL")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
 
@@ -1028,7 +1028,7 @@ class ScalperGui:
     def _show_login_dialog(self):
         """Displays a secure, full-screen, vibrant EQATS Quantum Terminal login gateway with Matrix digital rain animation and rich metadata."""
         login_win = tk.Toplevel()
-        login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)")
+        login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)")
         login_win.configure(bg="#000000")
         login_win.attributes("-topmost", True)
 
@@ -1211,7 +1211,7 @@ class ScalperGui:
 
         lbl_header_title = tk.Label(
             header_frame,
-            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)",
+            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)",
             font=("Consolas", 15, "bold"),
             bg="#030712",
             fg=active_theme["title_color"],
@@ -1259,7 +1259,7 @@ class ScalperGui:
         ).pack(anchor="w", pady=(0, 10))
 
         desc_text = (
-            "The Elite Quantum Autonomous Trading System (EAQTS VERSION 6.0) is an institutional-grade, "
+            "The Elite Quantum Autonomous Trading System (EAQTS VERSION 8.3i) is an institutional-grade, "
             "multi-plane autonomous algorithmic trading system engineered for high-frequency "
             "and multi-style execution across global interbank markets.\n\n"
             "Key Architectural Capabilities:\n"
@@ -1483,7 +1483,7 @@ class ScalperGui:
 
         lbl_copyright_notice = tk.Label(
             footer_frame,
-            text="ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0) — PROPRIETARY SYSTEM CONSTITUTION ENFORCED. UNAUTHORIZED ACCESS IS MONITORED AND STRICTLY PROHIBITED.",
+            text="ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i) — PROPRIETARY SYSTEM CONSTITUTION ENFORCED. UNAUTHORIZED ACCESS IS MONITORED AND STRICTLY PROHIBITED.",
             font=("Consolas", 7),
             bg="#030712",
             fg="#64748b",
@@ -2287,7 +2287,7 @@ class ScalperGui:
         sb.config(command=text_widget.yview)
 
         help_content = """================================================================================
-          ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
+          ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)
                COMPLETE OPERATIONAL DIRECTORY & COMMAND MANUAL
 ================================================================================
 
@@ -10122,6 +10122,67 @@ SECURITY DOMAINS ENFORCED:
         self.agent_tele_text.see(tk.END)
         self.agent_tele_text.config(state=tk.DISABLED)
 
+    def _show_vtl_screen(self):
+        """VTL <GO>: System Vitals & Autonomous AI Swarm Microservices Dashboard Screen."""
+        self._add_screen_header(
+            "⚡ VTL: SYSTEM VITALS & AUTONOMOUS AI SWARM DASHBOARD <GO>",
+            "REAL-TIME HARDWARE METRICS, RUST TOKIO ENGINE, MICROSERVICES MATRIX & SWARM CONSENSUS",
+            "VTL",
+        )
+
+        container = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        container.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        for i in range(2):
+            container.grid_rowconfigure(i, weight=1)
+        for j in range(3):
+            container.grid_columnconfigure(j, weight=1)
+
+        theme = TAB_THEMES.get("VTL", TAB_THEMES["DEFAULT"])
+
+        # Card 1: Hardware Vitals
+        c1 = tk.LabelFrame(container, text=" 💻 HARDWARE & PROCESS VITALS ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
+        tk.Label(c1, text="CPU USAGE: 12.4%  [8 CORES PARALLEL]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
+        tk.Label(c1, text="RAM ALLOCATION: 412 MB / 16384 MB", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c1, text="GIL STATUS: BYPASSED (MULTIPROCESSING)", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+
+        # Card 2: Microservices Matrix
+        c2 = tk.LabelFrame(container, text=" ⚡ MICROSERVICES & DB MATRIX ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c2.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
+        tk.Label(c2, text="POSTGRESQL (TRUTH LEDGER):   ONLINE [0.4ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
+        tk.Label(c2, text="CLICKHOUSE (CHART DATA):   ONLINE [0.2ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c2, text="VALKEY (SPEED LAYER):       ONLINE [0.1ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c2, text="APACHE PULSAR (STREAMING):  ONLINE [0.5ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+
+        # Card 3: AI Swarm Topology
+        c3 = tk.LabelFrame(container, text=" 🧠 AI SWARM TOPOLOGY (13 STRATS) ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c3.grid(row=0, column=2, sticky="nsew", padx=4, pady=4)
+        tk.Label(c3, text="ACTIVE STRATEGY BRAINS: 13 / 13 ONLINE", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
+        tk.Label(c3, text="METHOD GOVERNOR: SCALPING (85.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c3, text="STRATEGY GOVERNOR: SMC_ICT (88.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+
+        # Card 4: Execution Pipeline Latency
+        c4 = tk.LabelFrame(container, text=" ⏱️ EXECUTION PIPELINE LATENCY ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c4.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
+        tk.Label(c4, text="MARKET TICK -> VALKEY CACHE:  42 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
+        tk.Label(c4, text="SWARM INFERENCE PARALLEL:    180 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c4, text="MONOLITH RISK CIRCUIT GATE:   15 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+
+        # Card 5: Pulsar Throughput Rate
+        c5 = tk.LabelFrame(container, text=" 📡 EVENT BUS STREAMING RATE ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c5.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
+        tk.Label(c5, text="PULSAR TICK TOPIC:   14,250 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
+        tk.Label(c5, text="SWARM SIGNAL TOPIC:     840 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c5, text="TRADE EVENTS TOPIC:      12 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+
+        # Card 6: Blockchain Ledger State
+        c6 = tk.LabelFrame(container, text=" 🔗 BLOCKCHAIN AUDIT LEDGER ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c6.grid(row=1, column=2, sticky="nsew", padx=4, pady=4)
+        tk.Label(c6, text="RUST DISKLEDGER ENGINE:  ACTIVE (WAL)", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
+        tk.Label(c6, text="MERKLE TREE ROOT HASH:   0x8f4a...e31b", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c6, text="BLOCK HEIGHT:            1,048,592", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+
     def _show_ecosystem_screen(self):
         """ECOSYSTEM <GO>: Full System Visualizer & Parallel Multi-Agent Architecture"""
         lbl_title = tk.Label(
@@ -12229,64 +12290,3 @@ def launch_gui():
 if __name__ == "__main__":
     launch_gui()
 
-    def _show_vtl_screen(self):
-        """VTL <GO>: System Vitals & Autonomous AI Swarm Microservices Dashboard Screen."""
-        theme = TAB_THEMES.get("VTL", TAB_THEMES["DEFAULT"])
-        self._add_screen_header(
-            "VTL <GO>",
-            "SYSTEM VITALS & AUTONOMOUS AI SWARM DASHBOARD",
-            "REAL-TIME HARDWARE METRICS, RUST TOKIO ENGINE, MICROSERVICES MATRIX & SWARM CONSENSUS",
-            "⚡ MULTI-PROCESSING ACTIVE | GIL-FREE PIPELINE | SUB-MS LATENCY",
-        )
-
-        container = tk.Frame(self.main_content_frame, bg=self.bg_dark)
-        container.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
-
-        # 6 Grid Cards Layout
-        for i in range(2):
-            container.grid_rowconfigure(i, weight=1)
-        for j in range(3):
-            container.grid_columnconfigure(j, weight=1)
-
-        # Card 1: Hardware Vitals
-        c1 = tk.LabelFrame(container, text=" 💻 HARDWARE & PROCESS VITALS ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
-        c1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
-        tk.Label(c1, text="CPU USAGE: 12.4%  [8 CORES PARALLEL]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c1, text="RAM ALLOCATION: 412 MB / 16384 MB", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c1, text="GIL STATUS: BYPASSED (MULTIPROCESSING)", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-
-        # Card 2: Microservices Matrix
-        c2 = tk.LabelFrame(container, text=" ⚡ MICROSERVICES & DB MATRIX ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
-        c2.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
-        tk.Label(c2, text="POSTGRESQL (TRUTH LEDGER):   ONLINE [0.4ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c2, text="CLICKHOUSE (CHART DATA):   ONLINE [0.2ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c2, text="VALKEY (SPEED LAYER):       ONLINE [0.1ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c2, text="APACHE PULSAR (STREAMING):  ONLINE [0.5ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-
-        # Card 3: AI Swarm Topology
-        c3 = tk.LabelFrame(container, text=" 🧠 AI SWARM TOPOLOGY (13 STRATS) ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
-        c3.grid(row=0, column=2, sticky="nsew", padx=4, pady=4)
-        tk.Label(c3, text="ACTIVE STRATEGY BRAINS: 13 / 13 ONLINE", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c3, text="METHOD GOVERNOR: SCALPING (85.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c3, text="STRATEGY GOVERNOR: SMC_ICT (88.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-
-        # Card 4: Execution Pipeline Latency
-        c4 = tk.LabelFrame(container, text=" ⏱️ EXECUTION PIPELINE LATENCY ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
-        c4.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
-        tk.Label(c4, text="MARKET TICK -> VALKEY CACHE:  42 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c4, text="SWARM INFERENCE PARALLEL:    180 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c4, text="MONOLITH RISK CIRCUIT GATE:   15 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-
-        # Card 5: Pulsar Throughput Rate
-        c5 = tk.LabelFrame(container, text=" 📡 EVENT BUS STREAMING RATE ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
-        c5.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
-        tk.Label(c5, text="PULSAR TICK TOPIC:   14,250 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c5, text="SWARM SIGNAL TOPIC:     840 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c5, text="TRADE EVENTS TOPIC:      12 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-
-        # Card 6: Blockchain Ledger State
-        c6 = tk.LabelFrame(container, text=" 🔗 BLOCKCHAIN AUDIT LEDGER ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
-        c6.grid(row=1, column=2, sticky="nsew", padx=4, pady=4)
-        tk.Label(c6, text="RUST DISKLEDGER ENGINE:  ACTIVE (WAL)", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c6, text="MERKLE TREE ROOT HASH:   0x8f4a...e31b", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c6, text="BLOCK HEIGHT:            1,048,592", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
