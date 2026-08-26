@@ -670,6 +670,7 @@ class MT5Connector(TradingConnector):
                         "sl": pos.sl,
                         "tp": pos.tp,
                         "lot_size": pos.volume,
+                        "profit": float(getattr(pos, "profit", 0.0)),
                     }
                 )
         return orders_list
@@ -834,7 +835,17 @@ class SimulatorConnector(TradingConnector):
 
     def get_open_orders(self):
         with self.lock:
-            return list(self.open_trades.values())
+            orders = []
+            for t_id, trade in self.open_trades.items():
+                prices = self.get_current_price(trade["symbol"])
+                curr_price = prices["bid"] if trade["direction"] == "BUY" else prices["ask"]
+                p_diff = (curr_price - trade["open_price"]) if trade["direction"] == "BUY" else (trade["open_price"] - curr_price)
+                mult = self._get_contract_multiplier(trade["symbol"])
+                profit = p_diff * trade["lot_size"] * mult
+                tr_copy = dict(trade)
+                tr_copy["profit"] = profit
+                orders.append(tr_copy)
+            return orders
 
     def draw_dashboard(self, symbol, data):
         if data:

@@ -946,6 +946,11 @@ class ScalperGui:
             "ORB",
             "VSA",
             "MTF_CONFLUENCE",
+            "SMC_ICT",
+            "ORDER_FLOW",
+            "MULTI_STRATEGY_CONCURRENT",
+            "MULTI_HYBRID_PARALLEL",
+            "AUTO",
             command=self.on_strategy_change,
         )
         self.strat_menu.config(
@@ -978,6 +983,7 @@ class ScalperGui:
             "DAY_TRADING",
             "SWING_TRADING",
             "POSITION_TRADING",
+            "AUTO",
             command=self.on_style_change,
         )
         self.style_menu.config(
@@ -6019,6 +6025,63 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.set_rr_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_rr_ent.insert(0, f"{config.RISK_REWARD_RATIO}")
 
+        tk.Label(
+            r_frame,
+            text="Global Risk Cap %:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=5, column=0, sticky="w", pady=4)
+        self.set_global_risk_cap_ent = tk.Entry(
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
+        )
+        self.set_global_risk_cap_ent.grid(row=5, column=1, sticky="w", padx=10, pady=4)
+        self.set_global_risk_cap_ent.insert(0, f"{getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)}")
+
+        self.set_float_loss_gate_var = tk.BooleanVar(value=getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True))
+        cb_float = tk.Checkbutton(
+            r_frame,
+            text="Enable Symbol Floating Loss Gate",
+            variable=self.set_float_loss_gate_var,
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+            selectcolor="#1c1c1c",
+            activebackground=self.bg_card,
+        )
+        cb_float.grid(row=6, column=0, columnspan=2, sticky="w", pady=2)
+
+        self.set_risk_sub_alloc_var = tk.BooleanVar(value=getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True))
+        cb_sub = tk.Checkbutton(
+            r_frame,
+            text="Dedicated Risk Sub-Allocation per Strategy",
+            variable=self.set_risk_sub_alloc_var,
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+            selectcolor="#1c1c1c",
+            activebackground=self.bg_card,
+        )
+        cb_sub.grid(row=7, column=0, columnspan=2, sticky="w", pady=2)
+
+        self.set_auto_risk_var = tk.BooleanVar(value=getattr(config, "AUTO_RISK_MANAGEMENT", False))
+        cb_auto = tk.Checkbutton(
+            r_frame,
+            text="AUTO Risk Management & Sizing",
+            variable=self.set_auto_risk_var,
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+            selectcolor="#1c1c1c",
+            activebackground=self.bg_card,
+        )
+        cb_auto.grid(row=8, column=0, columnspan=2, sticky="w", pady=2)
+
         btn_save_r = tk.Button(
             r_frame,
             text="SAVE RISK SETTINGS",
@@ -6030,7 +6093,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             relief=tk.FLAT,
             command=self._save_risk_settings,
         )
-        btn_save_r.grid(row=5, column=1, sticky="w", padx=10, pady=(10, 0))
+        btn_save_r.grid(row=9, column=1, sticky="w", padx=10, pady=(10, 0))
 
         # 3. Communication & Telegram Notifications Tab
         self.tab_set_tele = tk.Frame(
@@ -6319,9 +6382,17 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             config.MAX_DAILY_DRAWDOWN_PERCENT = float(self.set_dd_ent.get().strip())
             config.MAX_CONCURRENT_TRADES = int(self.set_maxtrades_ent.get().strip())
             config.RISK_REWARD_RATIO = float(self.set_rr_ent.get().strip())
+            if hasattr(self, "set_global_risk_cap_ent"):
+                config.GLOBAL_RISK_LIMIT_CAP_PERCENT = float(self.set_global_risk_cap_ent.get().strip())
+            if hasattr(self, "set_float_loss_gate_var"):
+                config.ENABLE_SYMBOL_FLOATING_LOSS_GATE = bool(self.set_float_loss_gate_var.get())
+            if hasattr(self, "set_risk_sub_alloc_var"):
+                config.DEDICATED_RISK_SUB_ALLOCATION_ENABLED = bool(self.set_risk_sub_alloc_var.get())
+            if hasattr(self, "set_auto_risk_var"):
+                config.AUTO_RISK_MANAGEMENT = bool(self.set_auto_risk_var.get())
             messagebox.showinfo(
                 "Risk Settings Saved",
-                "Risk parameters and drawdown circuit breakers updated successfully.",
+                "Risk parameters, sub-allocation limits, and circuit breakers updated successfully.",
             )
         except ValueError as e:
             messagebox.showerror(
