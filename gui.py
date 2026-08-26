@@ -213,7 +213,7 @@ class ScalperGui:
         except Exception as e:
             print(f"Warning: Database initialization error: {e}")
 
-        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0) - QUANTUM TERMINAL")
+        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i) - QUANTUM TERMINAL")
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
 
@@ -1028,7 +1028,7 @@ class ScalperGui:
     def _show_login_dialog(self):
         """Displays a secure, full-screen, vibrant EQATS Quantum Terminal login gateway with Matrix digital rain animation and rich metadata."""
         login_win = tk.Toplevel()
-        login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)")
+        login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)")
         login_win.configure(bg="#000000")
         login_win.attributes("-topmost", True)
 
@@ -1211,7 +1211,7 @@ class ScalperGui:
 
         lbl_header_title = tk.Label(
             header_frame,
-            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)",
+            text="⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)",
             font=("Consolas", 15, "bold"),
             bg="#030712",
             fg=active_theme["title_color"],
@@ -1259,7 +1259,7 @@ class ScalperGui:
         ).pack(anchor="w", pady=(0, 10))
 
         desc_text = (
-            "The Elite Quantum Autonomous Trading System (EAQTS VERSION 6.0) is an institutional-grade, "
+            "The Elite Quantum Autonomous Trading System (EAQTS VERSION 8.3i) is an institutional-grade, "
             "multi-plane autonomous algorithmic trading system engineered for high-frequency "
             "and multi-style execution across global interbank markets.\n\n"
             "Key Architectural Capabilities:\n"
@@ -1483,7 +1483,7 @@ class ScalperGui:
 
         lbl_copyright_notice = tk.Label(
             footer_frame,
-            text="ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0) — PROPRIETARY SYSTEM CONSTITUTION ENFORCED. UNAUTHORIZED ACCESS IS MONITORED AND STRICTLY PROHIBITED.",
+            text="ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i) — PROPRIETARY SYSTEM CONSTITUTION ENFORCED. UNAUTHORIZED ACCESS IS MONITORED AND STRICTLY PROHIBITED.",
             font=("Consolas", 7),
             bg="#030712",
             fg="#64748b",
@@ -2287,7 +2287,7 @@ class ScalperGui:
         sb.config(command=text_widget.yview)
 
         help_content = """================================================================================
-          ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
+          ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)
                COMPLETE OPERATIONAL DIRECTORY & COMMAND MANUAL
 ================================================================================
 
