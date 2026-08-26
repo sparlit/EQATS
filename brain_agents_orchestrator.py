@@ -479,8 +479,8 @@ class AgenticBrainsOrchestrator:
         method_scores = {}
         strategy_scores = {}
 
-        cpu_cores = os.cpu_count() or 8
-        optimal_workers = max(4, min(cpu_cores * 2, 32))
+        from institutional_integrations.system_autotune import global_tuned_config
+        optimal_workers = global_tuned_config.get("thread_pool_workers", max(4, min((os.cpu_count() or 8) * 2, 32)))
         with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
             method_futures = {
                 executor.submit(
