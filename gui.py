@@ -10984,8 +10984,23 @@ SECURITY DOMAINS ENFORCED:
         self.canvas_poly_matched.create_rectangle((matched_pct / 100.0) * w_m, 0, w_m, 6, fill="#ffb300", outline="")
 
         sym1, sym2 = "BTCUSD", "ETHUSD"
-        v1_pct = 57
-        v2_pct = 43
+        v1_vol = 1.0
+        v2_vol = 1.0
+        if self.scalper and self.scalper.conn:
+            try:
+                t1 = self.scalper.conn.get_historical_ticks("BTCUSD", 10)
+                t2 = self.scalper.conn.get_historical_ticks("ETHUSD", 10)
+                if t1:
+                    v1_vol = float(sum(t.get("volume", 1) for t in t1))
+                if t2:
+                    v2_vol = float(sum(t.get("volume", 1) for t in t2))
+            except Exception:
+                pass
+
+        tot_vol = max(1.0, v1_vol + v2_vol)
+        v1_pct = int((v1_vol / tot_vol) * 100.0)
+        v2_pct = 100 - v1_pct
+
         self.lbl_poly_volume.config(text=f"VOLUME BY ASSET:  {sym1[:3]} {v1_pct}%  •  {sym2[:3]} {v2_pct}%")
         self.canvas_poly_vol.delete("all")
         w_v = self.canvas_poly_vol.winfo_width() or 200
@@ -11212,7 +11227,16 @@ SECURITY DOMAINS ENFORCED:
         c_sk.create_rectangle(sk_w - 20, sk_h * 0.70, sk_w - 5, sk_h - 10, fill="#ffb300", outline="")
         c_sk.create_text(sk_w - 25, sk_h - 20, text="MATCHED", fill="#ffb300", font=("Consolas", 7, "bold"), anchor="e")
 
-        ftr_str = f"● {total_fills} FILLS | WIN RATE {win_rate:.1f}% | NET ${net_profit:,.2f} | SET EDGE {set_edge_cents:.2f}c | DRAWDOWN RISK {dd_risk:.1f}/10 ({dd_status})"
+        from brain_agents_orchestrator import global_brain_orchestrator
+        orch_summary = global_brain_orchestrator.get_status_summary()
+        last_dir = orch_summary.get("last_directive", {})
+        conf_score = last_dir.get("confidence_score", 50.0)
+        top_strat = last_dir.get("governor_decisions", {}).get("strategy_governor", {}).get("top_strategy", "SMC_ICT")
+
+        self.lbl_poly_ns_units.config(text=f"SWARM CONF: {conf_score:.1f}% • TOP: {top_strat}")
+        self.lbl_poly_hdr_ticks.config(text=f"BTC/USD ${curr_price:,.2f} | SPREAD: ${spread:.2f} | SWARM BIAS: {last_dir.get('recommended_bias', 'HOLD')} ({conf_score:.1f}%)")
+
+        ftr_str = f"● {total_fills} FILLS | WIN RATE {win_rate:.1f}% | NET ${net_profit:,.2f} | SET EDGE {set_edge_cents:.2f}c | DRAWDOWN RISK {dd_risk:.1f}/10 ({dd_status}) | SWARM: {top_strat}"
         self.lbl_poly_footer.config(text=ftr_str)
 
 
