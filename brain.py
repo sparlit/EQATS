@@ -120,6 +120,15 @@ class ScalperBrain:
                 "indicators": {},
             }
 
+        baseline_atr = (
+            sum(
+                indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
+                for i in range(max(15, len(closes) - 20), len(closes))
+            )
+            / 20.0
+        )
+        vol_ratio = atr_val / baseline_atr if baseline_atr > 0 else 1.0
+
         trend_direction = "UP" if current_price > ema_long else "DOWN"
 
         # --- Spread-to-ATR Admission Gate (Eliminates Spread Friction Losses) ---
@@ -147,9 +156,10 @@ class ScalperBrain:
         # --- Symbol Floating Loss Protection & Pyramiding Gate ---
         try:
             open_trades = database.get_open_trades()
+            max_concurrent = getattr(config, "MAX_CONCURRENT_TRADES", 9999)
 
-            if len(open_trades) >= getattr(config, "MAX_CONCURRENT_TRADES", 10):
-                msg = f"HOLD (Global Max Concurrent Trades Limit Reached: {len(open_trades)}/{getattr(config, 'MAX_CONCURRENT_TRADES', 10)})"
+            if len(open_trades) >= max_concurrent:
+                msg = f"HOLD (Global Max Concurrent Trades Limit Reached: {len(open_trades)}/{max_concurrent})"
                 database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
                 return {
                     "decision": "HOLD",
@@ -164,66 +174,67 @@ class ScalperBrain:
                     },
                 }
 
-            symbol_trades = [
-                t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()
-            ]
-            if symbol_trades:
-                any_loss = False
-                all_profit_1atr = True
-                for t in symbol_trades:
-                    direction = t.get("direction", "BUY")
-                    trade_profit = t.get("profit")
-                    open_price = float(t.get("open_price", current_price))
-                    p_diff = (
-                        (current_price - open_price)
-                        if direction == "BUY"
-                        else (open_price - current_price)
-                    )
+            if getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True):
+                symbol_trades = [
+                    t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()
+                ]
+                if symbol_trades:
+                    any_loss = False
+                    all_profit_1atr = True
+                    for t in symbol_trades:
+                        direction = t.get("direction", "BUY")
+                        trade_profit = t.get("profit")
+                        open_price = float(t.get("open_price", current_price))
+                        p_diff = (
+                            (current_price - open_price)
+                            if direction == "BUY"
+                            else (open_price - current_price)
+                        )
 
-                    if trade_profit is not None:
-                        is_losing = float(trade_profit) < 0
-                    else:
-                        is_losing = p_diff < 0
+                        if trade_profit is not None:
+                            is_losing = float(trade_profit) < 0
+                        else:
+                            is_losing = p_diff < 0
 
-                    if is_losing:
-                        any_loss = True
-                        all_profit_1atr = False
-                        break
+                        if is_losing:
+                            any_loss = True
+                            all_profit_1atr = False
+                            break
 
-                    if p_diff < atr_val:
-                        all_profit_1atr = False
+                        if p_diff < atr_val:
+                            all_profit_1atr = False
 
-                if any_loss:
-                    msg = f"HOLD (Symbol Floating Loss Protection Gate Active: open position on {symbol} in loss)"
-                    database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
-                    return {
-                        "decision": "HOLD",
-                        "lot_size": 0.0,
-                        "sl": 0.0,
-                        "tp": 0.0,
-                        "explanation": msg,
-                        "indicators": {
-                            "ema_long": round(ema_long, 5),
-                            "rsi": round(rsi_val, 2),
-                            "atr": round(atr_val, 5),
-                        },
-                    }
+                    if any_loss:
+                        msg = f"HOLD (Symbol Floating Loss Protection Gate Active: open position on {symbol} in loss)"
+                        database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                        return {
+                            "decision": "HOLD",
+                            "lot_size": 0.0,
+                            "sl": 0.0,
+                            "tp": 0.0,
+                            "explanation": msg,
+                            "indicators": {
+                                "ema_long": round(ema_long, 5),
+                                "rsi": round(rsi_val, 2),
+                                "atr": round(atr_val, 5),
+                            },
+                        }
 
-                if not all_profit_1atr:
-                    msg = f"HOLD (Pyramiding Gate: existing positions on {symbol} profit < 1.0x ATR threshold)"
-                    database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
-                    return {
-                        "decision": "HOLD",
-                        "lot_size": 0.0,
-                        "sl": 0.0,
-                        "tp": 0.0,
-                        "explanation": msg,
-                        "indicators": {
-                            "ema_long": round(ema_long, 5),
-                            "rsi": round(rsi_val, 2),
-                            "atr": round(atr_val, 5),
-                        },
-                    }
+                    if not all_profit_1atr:
+                        msg = f"HOLD (Pyramiding Gate: existing positions on {symbol} profit < 1.0x ATR threshold)"
+                        database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                        return {
+                            "decision": "HOLD",
+                            "lot_size": 0.0,
+                            "sl": 0.0,
+                            "tp": 0.0,
+                            "explanation": msg,
+                            "indicators": {
+                                "ema_long": round(ema_long, 5),
+                                "rsi": round(rsi_val, 2),
+                                "atr": round(atr_val, 5),
+                            },
+                        }
         except (KeyError, ValueError, TypeError) as e:
             _log.debug("Symbol floating loss check notice: %s", e)
 
@@ -412,166 +423,87 @@ class ScalperBrain:
             elif of_metrics["dominant_side"] == "SELL_DOMINANT" or of_metrics["expected_direction"] == "DOWNWARD_PRESSURE":
                 sig_of = "SELL"
 
-        strategy_mode = getattr(config, "ACTIVE_STRATEGY", "VOTING_ENSEMBLE")
-        decision = "HOLD"
-        explanation = ""
+        # Strategy evaluation map
+        all_strategies = {
+            "TREND_FOLLOWING": sig_tf,
+            "MEAN_REVERSION": sig_mr,
+            "MACD_MOMENTUM": sig_mac,
+            "BREAKOUT": sig_bo,
+            "CARRY_TRADE": sig_cy,
+            "GRID_TRADE": sig_gd,
+            "STAT_ARB": sig_sa,
+            "ORB": sig_or,
+            "VSA": sig_vs,
+            "MTF_CONFLUENCE": sig_mtf,
+            "SMC_ICT": sig_smc,
+            "ORDER_FLOW": sig_of,
+        }
 
-        reg_state = reg_info["regime"]
-
-        if strategy_mode == "TREND_FOLLOWING":
-            decision = sig_tf
-            explanation = f"Trend Setup: {decision}"
-        elif strategy_mode == "MEAN_REVERSION":
-            decision = sig_mr
-            explanation = f"Mean Reversion Setup: {decision}"
-        elif strategy_mode == "MACD_MOMENTUM":
-            decision = sig_mac
-            explanation = f"MACD Setup: {decision}"
-        elif strategy_mode == "BREAKOUT":
-            decision = sig_bo
-            explanation = f"Breakout Setup: {decision}"
-        elif strategy_mode == "CARRY_TRADE":
-            decision = sig_cy
-            explanation = f"Carry Trade: {decision}"
-        elif strategy_mode == "GRID_TRADE":
-            decision = sig_gd
-            explanation = f"Grid Placement Bias: {decision}"
-        elif strategy_mode == "STAT_ARB":
-            decision = sig_sa
-            explanation = f"StatArb Setup: {decision}"
-        elif strategy_mode == "ORB":
-            decision = sig_or
-            explanation = f"ORB Setup: {decision}"
-        elif strategy_mode == "VSA":
-            decision = sig_vs
-            explanation = f"VSA Setup: {decision}"
-        elif strategy_mode == "MTF_CONFLUENCE":
-            decision = sig_mtf
-            explanation = f"MTF Confluence: {decision}"
-        elif strategy_mode == "SMC_ICT":
-            decision = sig_smc
-            explanation = f"SMC/ICT Structure: {decision} | Confluence: {smc_data['confluence_score']}%"
-        elif strategy_mode == "ORDER_FLOW":
-            decision = sig_of
-            explanation = f"Order Flow Microstructure: {decision} | VPIN: {of_metrics['vpin']}"
-        else:  # VOTING_ENSEMBLE
-            sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
-
-            tf_val = sig_to_val(sig_tf)
-            mr_val = sig_to_val(sig_mr)
-            mac_val = sig_to_val(sig_mac)
-            bo_val = sig_to_val(sig_bo)
-            cy_val = sig_to_val(sig_cy)
-            sa_val = sig_to_val(sig_sa)
-            or_val_v = sig_to_val(sig_or)
-            vs_val = sig_to_val(sig_vs)
-            mtf_val = sig_to_val(sig_mtf)
-            smc_val = sig_to_val(sig_smc)
-            of_val = sig_to_val(sig_of)
-
-            # Regime-dependent strategy weighting
-            if reg_state == "TRENDING":
-                tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w, of_w = (
-                    3.0, 0.0, 1.5, 2.5, 0.5, 0.0, 1.5, 1.5, 2.0, 2.0, 2.0
-                )
-            else:  # RANGING
-                tf_w, mr_w, mac_w, bo_w, cy_w, sa_w, or_w, vs_w, mtf_w, smc_w, of_w = (
-                    0.0, 3.0, 1.0, 0.0, 0.5, 2.5, 0.5, 2.0, 1.0, 2.0, 2.5
-                )
-
-            total_weight = (
-                tf_w + mr_w + mac_w + bo_w + cy_w + sa_w + or_w + vs_w + mtf_w + smc_w + of_w
-            )
-            weighted_score = (
-                (tf_val * tf_w)
-                + (mr_val * mr_w)
-                + (mac_val * mac_w)
-                + (bo_val * bo_w)
-                + (cy_val * cy_w)
-                + (sa_val * sa_w)
-                + (or_val_v * or_w)
-                + (vs_val * vs_w)
-                + (mtf_val * mtf_w)
-                + (smc_val * smc_w)
-                + (of_val * of_w)
-            )
-
-            normalized_score = (
-                weighted_score / total_weight if total_weight > 0 else 0.0
-            )
-
-            if normalized_score >= 0.22:
-                if ai_bullish_prob >= 0.35:
-                    decision = "BUY"
-                    explanation = f"Regime Consensus BUY ({reg_info['detailed_regime']}) | Score: {normalized_score:.2f} | AI Bullish Prob: {ai_bullish_prob:.2f}"
-                else:
-                    decision = "HOLD"
-                    explanation = f"BUY Vetoed: AI strongly bearish ({ai_bullish_prob:.2f}) | Score: {normalized_score:.2f}"
-            elif normalized_score <= -0.22:
-                if ai_bullish_prob <= 0.65:
-                    decision = "SELL"
-                    explanation = f"Regime Consensus SELL ({reg_info['detailed_regime']}) | Score: {normalized_score:.2f} | AI Bullish Prob: {ai_bullish_prob:.2f}"
-                else:
-                    decision = "HOLD"
-                    explanation = f"SELL Vetoed: AI strongly bullish ({ai_bullish_prob:.2f}) | Score: {normalized_score:.2f}"
+        # Resolve TRADING_STYLE (Mode: SCALPING, DAY_TRADING, SWING_TRADING, POSITION_TRADING, AUTO)
+        style_mode = getattr(config, "TRADING_STYLE", "SCALPING")
+        if style_mode == "AUTO":
+            if vol_ratio <= 1.0:
+                style_mode = "SCALPING"
+            elif reg_info["regime"] == "TRENDING" and vol_ratio < 1.5:
+                style_mode = "DAY_TRADING"
+            elif vol_ratio >= 1.5:
+                style_mode = "SWING_TRADING"
             else:
-                decision = "HOLD"
-                explanation = f"Regime {reg_info['detailed_regime']} Neutral hold (Score: {normalized_score:+.2f})"
+                style_mode = "POSITION_TRADING"
 
-        # Macro NLP Veto Filter
+        # Resolve ACTIVE_STRATEGY (Mode: Individual strategy, VOTING_ENSEMBLE, MULTI_STRATEGY_CONCURRENT, MULTI_HYBRID_PARALLEL, AUTO)
+        strategy_mode = getattr(config, "ACTIVE_STRATEGY", "MULTI_STRATEGY_CONCURRENT")
+        if strategy_mode == "AUTO":
+            if reg_info["regime"] == "TRENDING":
+                strategy_mode = "MULTI_STRATEGY_CONCURRENT"
+            else:
+                strategy_mode = "VOTING_ENSEMBLE"
+
+        # Macro NLP Veto Filter state
+        prevailing_sentiment = "NEUTRAL"
         try:
             prevailing_sentiment = database.get_prevailing_news_sentiment()
-            if prevailing_sentiment == "BULLISH" and decision == "SELL":
-                decision = "HOLD"
-                explanation = f"HOLD (Macro Vetoed: News Sentiment BULLISH) | {explanation}"
-            elif prevailing_sentiment == "BEARISH" and decision == "BUY":
-                decision = "HOLD"
-                explanation = f"HOLD (Macro Vetoed: News Sentiment BEARISH) | {explanation}"
-        except (KeyError, ValueError, TypeError) as e:
+        except Exception as e:
             _log.debug("News sentiment filter notice: %s", e)
-
-        # --- Dynamic Hybrid Volatility & Structure SL/TP ---
-        sl = 0.0
-        tp = 0.0
-        lot_size = 0.0
-
-        style_mode = getattr(config, "TRADING_STYLE", "SCALPING")
-        style_multiplier = 1.5
-        style_target_rr = getattr(config, "RISK_REWARD_RATIO", 1.5)
-
-        if style_mode == "DAY_TRADING":
-            style_multiplier = 2.5
-            style_target_rr = 2.0
-        elif style_mode == "SWING_TRADING":
-            style_multiplier = 4.0
-            style_target_rr = 3.0
-        elif style_mode == "POSITION_TRADING":
-            style_multiplier = 6.0
-            style_target_rr = 4.5
-
-        volatility_ratio = atr_val / baseline_atr if baseline_atr > 0 else 1.0
-        adaptive_rr = style_target_rr * (1.25 if volatility_ratio > 1.2 else (0.85 if volatility_ratio < 0.8 else 1.0))
 
         swings = indicators.calculate_swing_points(highs, lows, window=2)
         swing_high = swings.get("last_swing_high")
         swing_low = swings.get("last_swing_low")
 
-        base_sl_dist = atr_val * style_multiplier
+        def compute_sl_tp_lot(m_style, raw_decision):
+            style_multiplier = 1.5
+            style_target_rr = getattr(config, "RISK_REWARD_RATIO", 2.0)
+            if m_style == "DAY_TRADING":
+                style_multiplier = 2.5
+                style_target_rr = 2.0
+            elif m_style == "SWING_TRADING":
+                style_multiplier = 4.0
+                style_target_rr = 3.0
+            elif m_style == "POSITION_TRADING":
+                style_multiplier = 6.0
+                style_target_rr = 4.5
 
-        if decision == "BUY":
-            struct_sl = swing_low if (swing_low and swing_low < current_price) else (current_price - base_sl_dist)
-            sl_dist = current_price - struct_sl
-            sl_dist = max(atr_val * 1.0, min(atr_val * 3.5, sl_dist))
-            sl = current_price - sl_dist
-            tp = current_price + (sl_dist * adaptive_rr)
-            lot_size = self._calculate_lot_size(symbol, current_equity, sl_dist, current_price)
-        elif decision == "SELL":
-            struct_sl = swing_high if (swing_high and swing_high > current_price) else (current_price + base_sl_dist)
-            sl_dist = struct_sl - current_price
-            sl_dist = max(atr_val * 1.0, min(atr_val * 3.5, sl_dist))
-            sl = current_price + sl_dist
-            tp = current_price - (sl_dist * adaptive_rr)
-            lot_size = self._calculate_lot_size(symbol, current_equity, sl_dist, current_price)
+            adaptive_rr = style_target_rr * (1.25 if vol_ratio > 1.2 else (0.85 if vol_ratio < 0.8 else 1.0))
+            base_sl_dist = atr_val * style_multiplier
+
+            if raw_decision == "BUY":
+                struct_sl = swing_low if (swing_low and swing_low < current_price) else (current_price - base_sl_dist)
+                sl_dist = current_price - struct_sl
+                sl_dist = max(atr_val * 1.0, min(atr_val * (style_multiplier * 1.5), sl_dist))
+                sl_val = current_price - sl_dist
+                tp_val = current_price + (sl_dist * adaptive_rr)
+                lot_val = self._calculate_lot_size(symbol, current_equity, sl_dist, current_price)
+            elif raw_decision == "SELL":
+                struct_sl = swing_high if (swing_high and swing_high > current_price) else (current_price + base_sl_dist)
+                sl_dist = struct_sl - current_price
+                sl_dist = max(atr_val * 1.0, min(atr_val * (style_multiplier * 1.5), sl_dist))
+                sl_val = current_price + sl_dist
+                tp_val = current_price - (sl_dist * adaptive_rr)
+                lot_val = self._calculate_lot_size(symbol, current_equity, sl_dist, current_price)
+            else:
+                sl_val, tp_val, lot_val = 0.0, 0.0, 0.0
+
+            return round(lot_val, 2), round(sl_val, 5), round(tp_val, 5)
 
         # Multi-Agent Brain Directive Modifiers
         if brain_directive is None:
@@ -581,18 +513,118 @@ class ScalperBrain:
             except (ImportError, AttributeError):
                 brain_directive = None
 
+        agent_notes = ""
         if brain_directive and hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
-            explanation += f" | Agents: {'; '.join(brain_directive.guidance_notes[:2])}"
+            agent_notes = f" | Agents: {'; '.join(brain_directive.guidance_notes[:2])}"
 
-        # Record all trade and non-trade activities into database and self-learning trade memory protocol
+        concurrent_decisions = []
+
+        if strategy_mode == "MULTI_HYBRID_PARALLEL":
+            # Concurrent execution across ALL trading methods and ALL strategies
+            methods_to_test = ["SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING"]
+            for m_style in methods_to_test:
+                for strat_name, raw_sig in all_strategies.items():
+                    if raw_sig in ["BUY", "SELL"]:
+                        # Check Macro NLP Veto
+                        if (prevailing_sentiment == "BULLISH" and raw_sig == "SELL") or (
+                            prevailing_sentiment == "BEARISH" and raw_sig == "BUY"
+                        ):
+                            continue
+
+                        lot_val, sl_val, tp_val = compute_sl_tp_lot(m_style, raw_sig)
+                        exp = f"[{m_style}] [{strat_name}] Authentic Signal: {raw_sig}{agent_notes}"
+                        prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
+                        concurrent_decisions.append({
+                            "symbol": symbol,
+                            "decision": raw_sig,
+                            "strategy": strat_name,
+                            "method": m_style,
+                            "lot_size": lot_val,
+                            "sl": sl_val,
+                            "tp": tp_val,
+                            "explanation": exp,
+                            "probability": prob,
+                        })
+        elif strategy_mode == "MULTI_STRATEGY_CONCURRENT":
+            # Concurrent execution across ALL strategies under current style mode
+            for strat_name, raw_sig in all_strategies.items():
+                if raw_sig in ["BUY", "SELL"]:
+                    if (prevailing_sentiment == "BULLISH" and raw_sig == "SELL") or (
+                        prevailing_sentiment == "BEARISH" and raw_sig == "BUY"
+                    ):
+                        continue
+
+                    lot_val, sl_val, tp_val = compute_sl_tp_lot(style_mode, raw_sig)
+                    exp = f"[{style_mode}] [{strat_name}] Authentic Signal: {raw_sig}{agent_notes}"
+                    prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
+                    concurrent_decisions.append({
+                        "symbol": symbol,
+                        "decision": raw_sig,
+                        "strategy": strat_name,
+                        "method": style_mode,
+                        "lot_size": lot_val,
+                        "sl": sl_val,
+                        "tp": tp_val,
+                        "explanation": exp,
+                        "probability": prob,
+                    })
+        else:
+            # Single strategy or VOTING_ENSEMBLE mode
+            single_dec = "HOLD"
+            single_exp = ""
+            if strategy_mode in all_strategies:
+                single_dec = all_strategies[strategy_mode]
+                single_exp = f"[{style_mode}] [{strategy_mode}] Setup: {single_dec}{agent_notes}"
+            else:  # VOTING_ENSEMBLE
+                sig_to_val = lambda s: 1.0 if s == "BUY" else (-1.0 if s == "SELL" else 0.0)
+                vals = [sig_to_val(s) for s in all_strategies.values()]
+                avg_val = sum(vals) / len(vals) if vals else 0.0
+
+                if avg_val >= 0.22 and ai_bullish_prob >= 0.35:
+                    single_dec = "BUY"
+                    single_exp = f"Regime Consensus BUY ({reg_info['detailed_regime']}) | Score: {avg_val:.2f}{agent_notes}"
+                elif avg_val <= -0.22 and ai_bullish_prob <= 0.65:
+                    single_dec = "SELL"
+                    single_exp = f"Regime Consensus SELL ({reg_info['detailed_regime']}) | Score: {avg_val:.2f}{agent_notes}"
+                else:
+                    single_dec = "HOLD"
+                    single_exp = f"Regime Neutral Hold ({reg_info['detailed_regime']}){agent_notes}"
+
+            # Macro NLP Filter
+            if prevailing_sentiment == "BULLISH" and single_dec == "SELL":
+                single_dec = "HOLD"
+                single_exp = f"HOLD (Macro Vetoed: News Sentiment BULLISH) | {single_exp}"
+            elif prevailing_sentiment == "BEARISH" and single_dec == "BUY":
+                single_dec = "HOLD"
+                single_exp = f"HOLD (Macro Vetoed: News Sentiment BEARISH) | {single_exp}"
+
+            if single_dec in ["BUY", "SELL"]:
+                lot_val, sl_val, tp_val = compute_sl_tp_lot(style_mode, single_dec)
+                prob = ai_bullish_prob if single_dec == "BUY" else (1.0 - ai_bullish_prob)
+                concurrent_decisions.append({
+                    "symbol": symbol,
+                    "decision": single_dec,
+                    "strategy": strategy_mode,
+                    "method": style_mode,
+                    "lot_size": lot_val,
+                    "sl": sl_val,
+                    "tp": tp_val,
+                    "explanation": single_exp,
+                    "probability": prob,
+                })
+
+        # Record assessment and trade memory
+        top_decision = concurrent_decisions[0]["decision"] if concurrent_decisions else "HOLD"
+        top_exp = concurrent_decisions[0]["explanation"] if concurrent_decisions else f"No authentic buy/sell signal in {strategy_mode} mode"
+
         try:
             from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
-            if decision == "HOLD":
+            if top_decision == "HOLD":
                 global_trade_memory_protocol.log_no_trade_veto(
                     symbol=symbol,
                     direction="HOLD",
                     signal_probability=ai_bullish_prob * 100.0,
-                    veto_reason=explanation,
+                    veto_reason=top_exp,
                     strategy_used=strategy_mode,
                 )
         except Exception as e:
@@ -603,16 +635,21 @@ class ScalperBrain:
             trend_direction=trend_direction,
             rsi_val=rsi_val,
             atr_val=atr_val,
-            decision=decision,
-            explanation=explanation,
+            decision=top_decision,
+            explanation=top_exp,
         )
 
+        top_lot = concurrent_decisions[0]["lot_size"] if concurrent_decisions else 0.0
+        top_sl = concurrent_decisions[0]["sl"] if concurrent_decisions else 0.0
+        top_tp = concurrent_decisions[0]["tp"] if concurrent_decisions else 0.0
+
         return {
-            "decision": decision,
-            "lot_size": round(lot_size, 2),
-            "sl": round(sl, 5),
-            "tp": round(tp, 5),
-            "explanation": explanation,
+            "decision": top_decision,
+            "lot_size": top_lot,
+            "sl": top_sl,
+            "tp": top_tp,
+            "explanation": top_exp,
+            "decisions": concurrent_decisions,
             "indicators": {
                 "ema_long": round(ema_long, 5),
                 "rsi": round(rsi_val, 2),

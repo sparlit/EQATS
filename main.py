@@ -800,21 +800,52 @@ class AutonomousScalper:
                 f"{s['symbol']:<9} | {s['price']:<10} | {s['ema200']:<10} | {s['trend']:<5} | {s['rsi']:<6} | {s['atr']:<8} | {s['status']}"
             )
 
+        # Unpack all decisions from scans_list
+        all_pending_decisions = []
+        for s in scans_list:
+            if s.get("analysis") and s["analysis"].get("decisions"):
+                for dec_item in s["analysis"]["decisions"]:
+                    all_pending_decisions.append(dec_item)
+            elif s.get("decision") in ["BUY", "SELL"] and s.get("analysis"):
+                all_pending_decisions.append({
+                    "symbol": s["symbol"],
+                    "decision": s["decision"],
+                    "lot_size": s["analysis"].get("lot_size", 0.01),
+                    "sl": s["analysis"].get("sl", 0.0),
+                    "tp": s["analysis"].get("tp", 0.0),
+                    "explanation": s["analysis"].get("explanation", ""),
+                    "strategy": getattr(config, "ACTIVE_STRATEGY", ""),
+                    "method": getattr(config, "TRADING_STYLE", ""),
+                    "probability": s["analysis"].get("probability", 0.85),
+                })
+
         # Process any pending orders sequentially under thread-safe lock
-        for symbol, decision, analysis in pending_orders:
+        for dec_item in all_pending_decisions:
             if not trading_available:
                 break
+
+            symbol = dec_item["symbol"]
+            decision = dec_item["decision"]
+            lot_size = dec_item["lot_size"]
+            sl = dec_item["sl"]
+            tp = dec_item["tp"]
+            explanation = dec_item["explanation"]
+            strat_tag = dec_item.get("strategy", "")
+            method_tag = dec_item.get("method", "")
 
             with self.trade_lock:
                 # Double-check constraints inside lock context
                 active_positions_refresh = self.conn.get_open_orders()
                 if len(active_positions_refresh) >= config.MAX_CONCURRENT_TRADES:
                     break
-                if any(
-                    p["symbol"].upper() == symbol.upper()
-                    for p in active_positions_refresh
-                ):
-                    continue
+
+                if getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True):
+                    # If floating loss gate enabled, check if existing position on symbol is in loss
+                    if any(
+                        p["symbol"].upper() == symbol.upper() and p.get("profit", 0.0) < 0
+                        for p in active_positions_refresh
+                    ):
+                        continue
 
                 # Find the scan matching this symbol to retrieve NN State and trends
                 scan_item = next(
@@ -822,7 +853,7 @@ class AutonomousScalper:
                     None,
                 )
                 tech_trend = scan_item["trend"] if scan_item else "UP"
-                ai_trend = "UP" if (analysis.get("probability", 0.5) >= 0.5) else "DOWN"
+                ai_trend = "UP" if (dec_item.get("probability", 0.85) >= 0.5) else "DOWN"
 
                 # Check State Disagreement (Section 22)
                 component_decisions = {
@@ -915,10 +946,10 @@ class AutonomousScalper:
 
                 # E. Fat-Finger checking
                 if not self.engine.execution.validate_fat_finger(
-                    symbol, analysis["lot_size"], feed_price
+                    symbol, lot_size, feed_price
                 ):
                     print(
-                        f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {analysis['lot_size']} or notional exceeds standard limits."
+                        f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {lot_size} or notional exceeds standard limits."
                     )
                     continue
 
@@ -945,13 +976,13 @@ class AutonomousScalper:
                 self.engine.risk.reserve_capital(symbol, config.RISK_PER_TRADE_PERCENT)
                 self.engine.risk.commit_reservation(symbol)
 
-                print(f"🧠 Brain signaled: {decision} on {symbol}! Executing order...")
+                print(f"🧠 Brain signaled: {decision} on {symbol} [{strat_tag}/{method_tag}]! Executing order...")
                 res = self.engine.execution.execute_admitted_order(
                     symbol=symbol,
                     direction=decision,
-                    lot=analysis["lot_size"],
-                    sl=analysis["sl"],
-                    tp=analysis["tp"],
+                    lot=lot_size,
+                    sl=sl,
+                    tp=tp,
                 )
 
                 if res["success"]:
@@ -960,18 +991,21 @@ class AutonomousScalper:
                         symbol=symbol,
                         direction=decision,
                         open_price=res["price"],
-                        sl=analysis["sl"],
-                        tp=analysis["tp"],
-                        lot_size=analysis["lot_size"],
+                        sl=sl,
+                        tp=tp,
+                        lot_size=lot_size,
+                        strategy=strat_tag,
+                        method=method_tag,
                     )
 
                     alert_msg = (
                         f"📊 *New Trade Executed!*\n"
                         f"Symbol: {symbol} ({decision})\n"
+                        f"Strategy: {strat_tag} | Method: {method_tag}\n"
                         f"Price: {res['price']:.5f}\n"
-                        f"Lot Size: {analysis['lot_size']}\n"
-                        f"SL: {analysis['sl']:.5f} | TP: {analysis['tp']:.5f}\n"
-                        f"Reason: {analysis['explanation']}"
+                        f"Lot Size: {lot_size}\n"
+                        f"SL: {sl:.5f} | TP: {tp:.5f}\n"
+                        f"Reason: {explanation}"
                     )
                     print(alert_msg.replace("*", ""))
                     telegram_bot.send_telegram_message(alert_msg)
@@ -982,9 +1016,11 @@ class AutonomousScalper:
                             "symbol": symbol,
                             "direction": decision,
                             "open_price": res["price"],
-                            "sl": analysis["sl"],
-                            "tp": analysis["tp"],
-                            "lot_size": analysis["lot_size"],
+                            "sl": sl,
+                            "tp": tp,
+                            "lot_size": lot_size,
+                            "strategy": strat_tag,
+                            "method": method_tag,
                         }
                     )
                     trading_available = (
