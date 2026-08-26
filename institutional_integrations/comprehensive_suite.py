@@ -58,11 +58,11 @@ def integrate_altair():
             "chart_spec": chart.to_json()[:50],
             "engine": "ALTAIR",
         }
-    except Exception:
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "chart_spec": "MockAltairSpec",
+            "reason": f"Altair not installed or failed: {e}",
+            "chart_spec": None,
             "engine": "ALTAIR",
         }
 
@@ -75,11 +75,11 @@ def integrate_autots():
 
         model = AutoTS(forecast_length=1, frequency="infer", prediction_interval=0.9)
         return {"status": "ACTIVE", "model_params": str(model), "engine": "AUTOTS"}
-    except Exception:
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "model_params": "MockAutoTS",
+            "reason": f"AutoTS not installed or failed: {e}",
+            "model_params": None,
             "engine": "AUTOTS",
         }
 
@@ -140,11 +140,11 @@ def integrate_bokeh():
         p = figure(title="Volatility Chart", x_axis_label='Time', y_axis_label='ATR')
         p.line([1, 2, 3], [4, 5, 6], legend_label="ATR", line_width=2)
         return {"status": "ACTIVE", "chart": str(p), "engine": "BOKEH"}
-    except Exception:
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "chart": "MockBokehFigure",
+            "reason": f"Bokeh not installed or failed: {e}",
+            "chart": None,
             "engine": "BOKEH",
         }
 
@@ -241,11 +241,11 @@ def integrate_darts():
         model = ExponentialSmoothing()
         model.fit(series)
         return {"status": "ACTIVE", "model": str(model), "engine": "DARTS"}
-    except Exception:
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "model": "MockDartsES",
+            "reason": f"Darts not installed or failed: {e}",
+            "model": None,
             "engine": "DARTS",
         }
 
@@ -1031,12 +1031,13 @@ def integrate_polyglot():
 def integrate_prophet():
     """Forecasts underlying asset volatility trends using Prophet."""
     try:
-        return {"status": "ACTIVE", "model": "PROPHET", "engine": "PROPHET"}
-    except Exception:
+        import prophet
+        return {"status": "ACTIVE", "model": prophet.__name__, "engine": "PROPHET"}
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "model": "MOCKED_PROPHET",
+            "reason": f"Prophet not installed or failed: {e}",
+            "model": None,
             "engine": "PROPHET",
         }
 
@@ -1675,12 +1676,13 @@ def integrate_backtrader():
 def integrate_catboost():
     """Fits categorical tree boosting models using CatBoost."""
     try:
-        return {"status": "ACTIVE", "model": "CATBOOST", "engine": "CATBOOST"}
-    except Exception:
+        import catboost
+        return {"status": "ACTIVE", "model": catboost.__name__, "engine": "CATBOOST"}
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "model": "MOCKED_CATBOOST",
+            "reason": f"CatBoost not installed or failed: {e}",
+            "model": None,
             "engine": "CATBOOST",
         }
 
@@ -1799,12 +1801,13 @@ def integrate_theano():
 def integrate_tsfresh():
     """Extracts features from timeseries metrics using tsfresh."""
     try:
-        return {"status": "ACTIVE", "lib": "TSFRESH", "engine": "TSFRESH"}
-    except Exception:
+        import tsfresh
+        return {"status": "ACTIVE", "lib": tsfresh.__name__, "engine": "TSFRESH"}
+    except Exception as e:
         return {
             "status": "UNAVAILABLE",
-            "fallback": True,
-            "lib": "TSFRESH_MOCKED",
+            "reason": f"tsfresh not installed or failed: {e}",
+            "lib": None,
             "engine": "TSFRESH",
         }
 
