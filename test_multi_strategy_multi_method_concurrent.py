@@ -4,7 +4,6 @@ import unittest
 import brain
 import config
 import database
-import main
 
 
 class TestMultiStrategyMultiMethodConcurrent(unittest.TestCase):
@@ -26,6 +25,14 @@ class TestMultiStrategyMultiMethodConcurrent(unittest.TestCase):
     def setUp(self):
         database.init_db()
         self.scalper_brain = brain.ScalperBrain()
+        self.orig_strategy = getattr(config, "ACTIVE_STRATEGY", "MULTI_STRATEGY_CONCURRENT")
+        self.orig_style = getattr(config, "TRADING_STYLE", "AUTO")
+        self.orig_gate = getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True)
+
+    def tearDown(self):
+        config.ACTIVE_STRATEGY = self.orig_strategy
+        config.TRADING_STYLE = self.orig_style
+        config.ENABLE_SYMBOL_FLOATING_LOSS_GATE = self.orig_gate
 
     def _generate_bars(self, count=220, base_price=1.1000, step=0.0003):
         bars = []
