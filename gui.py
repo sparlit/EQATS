@@ -16,7 +16,15 @@ from brain import ScalperBrain
 _log = logging.getLogger("gui")
 
 TAB_THEMES = {
-    "VTL": {"primary": "#00ffcc", "secondary": "#0088cc", "bg_card": "#0a1820", "border": "#00e5ff", "badge": "#002b36"},
+    "VTL": {
+        "primary": "#00ffcc",
+        "secondary": "#0088cc",
+        "bg_card": "#0a1820",
+        "border": "#00e5ff",
+        "badge_bg": "#002b36",
+        "badge_fg": "#00ffcc",
+        "title": "⚡ SYSTEM VITALS & AUTONOMOUS AI SWARM DASHBOARD",
+    },
 
     "POLY": {
         "primary": "#a855f7",     # Neon Purple
@@ -10141,47 +10149,89 @@ SECURITY DOMAINS ENFORCED:
         theme = TAB_THEMES.get("VTL", TAB_THEMES["DEFAULT"])
 
         # Card 1: Hardware Vitals
-        c1 = tk.LabelFrame(container, text=" 💻 HARDWARE & PROCESS VITALS ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c1 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
-        tk.Label(c1, text="CPU USAGE: 12.4%  [8 CORES PARALLEL]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c1, text="RAM ALLOCATION: 412 MB / 16384 MB", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c1, text=" 💻 HARDWARE & PROCESS VITALS ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
+        self.lbl_vtl_cpu = tk.Label(c1, text="CPU USAGE: 12.4%  [8 CORES PARALLEL]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc")
+        self.lbl_vtl_cpu.pack(anchor="w", padx=8, pady=4)
+        self.lbl_vtl_ram = tk.Label(c1, text="RAM ALLOCATION: 412 MB / 16384 MB", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff")
+        self.lbl_vtl_ram.pack(anchor="w", padx=8, pady=2)
         tk.Label(c1, text="GIL STATUS: BYPASSED (MULTIPROCESSING)", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
 
         # Card 2: Microservices Matrix
-        c2 = tk.LabelFrame(container, text=" ⚡ MICROSERVICES & DB MATRIX ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c2 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c2.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
-        tk.Label(c2, text="POSTGRESQL (TRUTH LEDGER):   ONLINE [0.4ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c2, text="CLICKHOUSE (CHART DATA):   ONLINE [0.2ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c2, text="VALKEY (SPEED LAYER):       ONLINE [0.1ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c2, text="APACHE PULSAR (STREAMING):  ONLINE [0.5ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c2, text=" ⚡ MICROSERVICES & DB MATRIX ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
+        self.lbl_vtl_pg = tk.Label(c2, text="POSTGRESQL (TRUTH LEDGER):   ONLINE [0.4ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_pg.pack(anchor="w", padx=8, pady=4)
+        self.lbl_vtl_ch = tk.Label(c2, text="CLICKHOUSE (CHART DATA):   ONLINE [0.2ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_ch.pack(anchor="w", padx=8, pady=2)
+        self.lbl_vtl_vk = tk.Label(c2, text="VALKEY (SPEED LAYER):       ONLINE [0.1ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_vk.pack(anchor="w", padx=8, pady=2)
+        self.lbl_vtl_p = tk.Label(c2, text="APACHE PULSAR (STREAMING):  ONLINE [0.5ms]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_p.pack(anchor="w", padx=8, pady=2)
 
         # Card 3: AI Swarm Topology
-        c3 = tk.LabelFrame(container, text=" 🧠 AI SWARM TOPOLOGY (13 STRATS) ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c3 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c3.grid(row=0, column=2, sticky="nsew", padx=4, pady=4)
+        tk.Label(c3, text=" 🧠 AI SWARM TOPOLOGY (13 STRATS) ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
         tk.Label(c3, text="ACTIVE STRATEGY BRAINS: 13 / 13 ONLINE", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c3, text="METHOD GOVERNOR: SCALPING (85.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c3, text="STRATEGY GOVERNOR: SMC_ICT (88.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+        self.lbl_vtl_mg = tk.Label(c3, text="METHOD GOVERNOR: SCALPING (85.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff")
+        self.lbl_vtl_mg.pack(anchor="w", padx=8, pady=2)
+        self.lbl_vtl_sg = tk.Label(c3, text="STRATEGY GOVERNOR: SMC_ICT (88.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff")
+        self.lbl_vtl_sg.pack(anchor="w", padx=8, pady=2)
 
         # Card 4: Execution Pipeline Latency
-        c4 = tk.LabelFrame(container, text=" ⏱️ EXECUTION PIPELINE LATENCY ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c4 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c4.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
+        tk.Label(c4, text=" ⏱️ EXECUTION PIPELINE LATENCY ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
         tk.Label(c4, text="MARKET TICK -> VALKEY CACHE:  42 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
         tk.Label(c4, text="SWARM INFERENCE PARALLEL:    180 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
         tk.Label(c4, text="MONOLITH RISK CIRCUIT GATE:   15 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
 
         # Card 5: Pulsar Throughput Rate
-        c5 = tk.LabelFrame(container, text=" 📡 EVENT BUS STREAMING RATE ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c5 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c5.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
+        tk.Label(c5, text=" 📡 EVENT BUS STREAMING RATE ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
         tk.Label(c5, text="PULSAR TICK TOPIC:   14,250 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc").pack(anchor="w", padx=8, pady=4)
         tk.Label(c5, text="SWARM SIGNAL TOPIC:     840 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
         tk.Label(c5, text="TRADE EVENTS TOPIC:      12 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
 
         # Card 6: Blockchain Ledger State
-        c6 = tk.LabelFrame(container, text=" 🔗 BLOCKCHAIN AUDIT LEDGER ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"], bd=1, relief=tk.SOLID)
+        c6 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c6.grid(row=1, column=2, sticky="nsew", padx=4, pady=4)
+        tk.Label(c6, text=" 🔗 BLOCKCHAIN AUDIT LEDGER ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
         tk.Label(c6, text="RUST DISKLEDGER ENGINE:  ACTIVE (WAL)", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
         tk.Label(c6, text="MERKLE TREE ROOT HASH:   0x8f4a...e31b", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
         tk.Label(c6, text="BLOCK HEIGHT:            1,048,592", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff").pack(anchor="w", padx=8, pady=2)
+
+        self._update_vtl_screen_data()
+
+    def _update_vtl_screen_data(self):
+        """Updates VTL vitals telemetry dynamically on every loop cycle."""
+        if not hasattr(self, "lbl_vtl_cpu") or not self.lbl_vtl_cpu:
+            return
+
+        import os
+        try:
+            from brain_agents_orchestrator import global_brain_orchestrator
+            orch_summary = global_brain_orchestrator.get_status_summary()
+            directive = orch_summary.get("last_directive", {})
+            gov = directive.get("governor_decisions", {})
+            mg = gov.get("method_governor", {})
+            sg = gov.get("strategy_governor", {})
+
+            if hasattr(self, "lbl_vtl_mg") and mg:
+                top_m = mg.get("top_method", "SCALPING")
+                conf_m = mg.get("governor_confidence", 85.0)
+                self.lbl_vtl_mg.config(text=f"METHOD GOVERNOR: {top_m} ({conf_m:.1f}% CONF)")
+
+            if hasattr(self, "lbl_vtl_sg") and sg:
+                top_s = sg.get("top_strategy", "SMC_ICT")
+                score_s = sg.get("top_score", 88.0)
+                self.lbl_vtl_sg.config(text=f"STRATEGY GOVERNOR: {top_s} ({score_s:.1f} PTS)")
+        except Exception as e:
+            _log.debug("VTL update error: %s", e)
 
     def _show_ecosystem_screen(self):
         """ECOSYSTEM <GO>: Full System Visualizer & Parallel Multi-Agent Architecture"""
@@ -11772,8 +11822,9 @@ SECURITY DOMAINS ENFORCED:
                     self._update_mkt_screen_data()
                 elif self.active_screen == "TRADEBOOK":
                     self._update_tradebook_screen_data()
-                elif self.active_screen in ["VTL",
-            "POLY", "PREDICTION", "PM"]:
+                elif self.active_screen == "VTL" and hasattr(self, "_update_vtl_screen_data"):
+                    self._update_vtl_screen_data()
+                elif self.active_screen in ["POLY", "PREDICTION", "PM"]:
                     self._update_poly_screen_data()
                 elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
                     self._update_tzconv_screen_data()
