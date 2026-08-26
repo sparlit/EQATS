@@ -442,7 +442,7 @@ class ScalperBrain:
         # Resolve TRADING_STYLE (Mode: SCALPING, DAY_TRADING, SWING_TRADING, POSITION_TRADING, AUTO)
         style_mode = getattr(config, "TRADING_STYLE", "SCALPING")
         if style_mode == "AUTO":
-            if spread_pips <= 2.0 and vol_ratio >= 1.0:
+            if vol_ratio <= 1.0:
                 style_mode = "SCALPING"
             elif reg_info["regime"] == "TRENDING" and vol_ratio < 1.5:
                 style_mode = "DAY_TRADING"
