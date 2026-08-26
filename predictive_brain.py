@@ -1,6 +1,6 @@
 """
-Self-Learning AI Prediction Brain - Neural Network MLP written in pure Python.
-Autonomously predicts the direction of the next candle, continuously trains on live data,
+Self-Learning AI Prediction Brain - Neural Network MLP written in pure Python (EQATS v8.3j).
+Autonomously predicts the direction of multi-bar forward price outcomes, continuously trains on live data,
 calculates rolling accuracy, and adjusts its weights via backpropagation.
 """
 
@@ -30,11 +30,12 @@ class NeuralNetworkPredictor:
         self.w_hidden_output = (rng.uniform(-0.5, 0.5, 5)).tolist()
         self.bias_output = float(rng.uniform(-0.1, 0.1))
 
-        # 2. Performance Tracking
+        # 2. Performance Tracking & Multi-Bar Forward Outcome Buffer
         self.last_inputs = None
         self.last_prediction = None
         self.correct_predictions = 0
         self.total_predictions = 0
+        self.pending_outcomes = []  # Buffer storing (inputs, prediction, target_bar_count)
 
     def _sigmoid(self, x):
         """Sigmoid activation function."""
@@ -79,7 +80,7 @@ class NeuralNetworkPredictor:
 
     def learn_and_adjust(self, actual_direction_bullish):
         """
-        Compares previous prediction against the actual next candle outcome,
+        Compares previous prediction against the actual multi-bar forward price outcome,
         updates rolling accuracy tracker, and runs backpropagation to adjust weights.
         Implements an enhanced self-evolving hyperparameter search loop to maximize accuracy up to 99%.
         actual_direction_bullish: int (1.0 for bullish close, 0.0 for bearish close)
