@@ -121,8 +121,7 @@ def test_gui_data_flow_updates_without_display():
     mock_root = mock.MagicMock()
     mock_scalper = mock.MagicMock()
 
-    # Mock ttk.Style, tk.StringVar, tk.OptionMenu, tk.Tk, and _show_login_dialog to prevent headless TclError
-    with mock.patch("gui.ttk.Style"), mock.patch("gui.tk.StringVar"), mock.patch("gui.tk.OptionMenu"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+    with mock.patch("gui.ttk.Style"), mock.patch("gui.tk.StringVar"), mock.patch("gui.tk.OptionMenu"), mock.patch("gui.messagebox"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
         import gui
 
         app = gui.ScalperGui(mock_root)
@@ -168,7 +167,7 @@ def test_gui_screen_data_update_handlers():
         {"bid": 1.1001, "ask": 1.1003, "volume": 20},
     ]
 
-    with mock.patch("gui.ttk.Style"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+    with mock.patch("gui.ttk.Style"), mock.patch("gui.tk.StringVar"), mock.patch("gui.tk.OptionMenu"), mock.patch("gui.messagebox"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
         import gui
 
         app = gui.ScalperGui(mock_root)
@@ -196,7 +195,7 @@ def test_gui_poly_screen_switch_and_update():
     mock_scalper.conn.get_account_info.return_value = {"balance": 15000.0, "equity": 15250.0}
     mock_scalper.conn.get_open_orders.return_value = [{"symbol": "BTCUSD", "direction": "BUY"}]
 
-    with mock.patch("gui.ttk.Style"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+    with mock.patch("gui.ttk.Style"), mock.patch("gui.tk.StringVar"), mock.patch("gui.tk.OptionMenu"), mock.patch("gui.messagebox"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
         import gui
 
         app = gui.ScalperGui(mock_root)
