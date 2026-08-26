@@ -1,13 +1,15 @@
 """
 Institutional Integration Suite.
 Consolidates advanced machine learning, data science, databases, natural language processing,
-and advanced quantitative mathematics modules.
+advanced quantitative mathematics modules, options & derivatives engines, hedge fund swarms,
+extended market connectors, quantitative portfolio analytics, and alpha strategy libraries.
 """
 
 from .advanced_math import (  # noqa: F401
     calculate_markov_regime_switching_probability,
     evaluate_black_scholes_option_pricing,
 )
+from .alpha_strategies_library import AlphaStrategyLibrary  # noqa: F401
 from .brain_self_healer import QuantumSelfHealer
 from .comprehensive_suite import (  # noqa: F401
     integrate_airflow, integrate_akshare, integrate_altair, integrate_arrow, integrate_autots, integrate_backtrader,
@@ -36,12 +38,23 @@ from .databases import (
     propagate_graph_breakout_warnings,
     query_high_speed_analytical_duckdb,
 )
+from .extended_market_connectors import ExtendedDataConnectors  # noqa: F401
+from .finagent_hedgefund_swarm import HedgeFundSwarmOrchestrator  # noqa: F401
 from .go_gateway import start_go_concurrency_websocket_relay  # noqa: F401
 from .machine_learning import (  # noqa: F401
     evaluate_deep_rl_policy_action,
     generate_multi_model_ensemble_prediction,
 )
 from .natural_language import extract_advanced_nlp_sentiments
+from .options_derivatives_engine import (  # noqa: F401
+    GammaExposureAnalyzer,
+    OptionStrategySimulator,
+    OptionsPricingEngine,
+)
+from .quant_portfolio_analytics import (  # noqa: F401
+    PortfolioOptimizationEngine,
+    QuantPerformanceMetrics,
+)
 from .quantum_quantum_engine import QuantumAutoEngine
 from .rust_bridge import execute_high_speed_rust_order_send
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue
@@ -64,4 +77,12 @@ __all__ = [
     "execute_high_speed_rust_order_send",
     "fetch_yfinance_external_rates",
     "push_telemetry_to_kafka_queue",
+    "OptionsPricingEngine",
+    "GammaExposureAnalyzer",
+    "OptionStrategySimulator",
+    "HedgeFundSwarmOrchestrator",
+    "ExtendedDataConnectors",
+    "PortfolioOptimizationEngine",
+    "QuantPerformanceMetrics",
+    "AlphaStrategyLibrary",
 ]

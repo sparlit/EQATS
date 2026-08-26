@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: eaqts
-Version: 6.0.0
-Summary: ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
+Version: 8.3.0
+Summary: ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3j)
 Author-email: Simon Peter <author@tsyslabs.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
