@@ -562,6 +562,20 @@ class ScalperBrain:
         if brain_directive and hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
             explanation += f" | Agents: {'; '.join(brain_directive.guidance_notes[:2])}"
 
+        # Record all trade and non-trade activities into database and self-learning trade memory protocol
+        try:
+            from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
+            if decision == "HOLD":
+                global_trade_memory_protocol.log_no_trade_veto(
+                    symbol=symbol,
+                    direction="HOLD",
+                    signal_probability=ai_bullish_prob * 100.0,
+                    veto_reason=explanation,
+                    strategy_used=strategy_mode,
+                )
+        except Exception as e:
+            _log.debug("Trade memory protocol logging notice: %s", e)
+
         database.log_assessment(
             symbol=symbol,
             trend_direction=trend_direction,
