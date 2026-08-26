@@ -752,6 +752,7 @@ def log_trade_close(ticket, close_price, profit, reason):
 
 def get_open_trades():
     """Returns all open trades, auto-initializing database if table does not exist."""
+    init_db()
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -759,14 +760,9 @@ def get_open_trades():
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
-    except sqlite3.OperationalError:
-        init_db()
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM trades WHERE status = 'OPEN'")
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(row) for row in rows]
+    except Exception as e:
+        _log.debug("get_open_trades error: %s", e)
+        return []
 
 
 def log_news_headline(headline, sentiment):

@@ -122,6 +122,28 @@ class ScalperBrain:
 
         trend_direction = "UP" if current_price > ema_long else "DOWN"
 
+        # --- Spread-to-ATR Admission Gate (Eliminates Spread Friction Losses) ---
+        pip_specs = _get_symbol_pip_specs(symbol, current_price)
+        pip_size = pip_specs["pip_size"]
+        spread_pips = (current_price * 0.0001 / pip_size) if pip_size > 0 else 1.0
+        atr_pips = (atr_val / pip_size) if pip_size > 0 else 10.0
+
+        if atr_pips > 0 and (spread_pips / atr_pips) > 0.35:
+            msg = f"HOLD (Spread-to-ATR Admission Gate Veto: Spread {spread_pips:.1f} pips consumes {(spread_pips/atr_pips)*100:.1f}% of ATR {atr_pips:.1f} pips > 35% limit)"
+            database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+            return {
+                "decision": "HOLD",
+                "lot_size": 0.0,
+                "sl": 0.0,
+                "tp": 0.0,
+                "explanation": msg,
+                "indicators": {
+                    "ema_long": round(ema_long, 5),
+                    "rsi": round(rsi_val, 2),
+                    "atr": round(atr_val, 5),
+                },
+            }
+
         # --- Symbol Floating Loss Protection & Pyramiding Gate ---
         try:
             open_trades = database.get_open_trades()
