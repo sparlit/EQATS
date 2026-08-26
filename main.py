@@ -801,13 +801,13 @@ class AutonomousScalper:
             )
 
         # Unpack all decisions from scans_list
-        all_pending_decisions = []
+        raw_pending_decisions = []
         for s in scans_list:
             if s.get("analysis") and s["analysis"].get("decisions"):
                 for dec_item in s["analysis"]["decisions"]:
-                    all_pending_decisions.append(dec_item)
+                    raw_pending_decisions.append(dec_item)
             elif s.get("decision") in ["BUY", "SELL"] and s.get("analysis"):
-                all_pending_decisions.append({
+                raw_pending_decisions.append({
                     "symbol": s["symbol"],
                     "decision": s["decision"],
                     "lot_size": s["analysis"].get("lot_size", 0.01),
@@ -818,6 +818,14 @@ class AutonomousScalper:
                     "method": getattr(config, "TRADING_STYLE", ""),
                     "probability": s["analysis"].get("probability", 0.85),
                 })
+
+        # Deduplicate pending decisions by (symbol, decision) keeping highest probability
+        dedup_dict = {}
+        for dec_item in raw_pending_decisions:
+            key = (dec_item["symbol"].upper(), dec_item["decision"])
+            if key not in dedup_dict or dec_item.get("probability", 0.0) > dedup_dict[key].get("probability", 0.0):
+                dedup_dict[key] = dec_item
+        all_pending_decisions = list(dedup_dict.values())
 
         # Process any pending orders sequentially under thread-safe lock
         for dec_item in all_pending_decisions:
@@ -839,12 +847,31 @@ class AutonomousScalper:
                 if len(active_positions_refresh) >= config.MAX_CONCURRENT_TRADES:
                     break
 
+                # Enforce per-symbol order limit for same symbol and direction
+                if any(
+                    p["symbol"].upper() == symbol.upper() and p.get("direction") == decision
+                    for p in active_positions_refresh
+                ):
+                    continue
+
                 if getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True):
                     # If floating loss gate enabled, check if existing position on symbol is in loss
-                    if any(
-                        p["symbol"].upper() == symbol.upper() and p.get("profit", 0.0) < 0
-                        for p in active_positions_refresh
-                    ):
+                    in_loss = False
+                    for p in active_positions_refresh:
+                        if p["symbol"].upper() == symbol.upper():
+                            p_profit = p.get("profit")
+                            if p_profit is not None:
+                                is_losing = float(p_profit) < 0
+                            else:
+                                p_open = float(p.get("open_price", 0.0))
+                                p_dir = p.get("direction", "BUY")
+                                price_curr = self.conn.get_current_price(symbol)["bid"]
+                                diff = (price_curr - p_open) if p_dir == "BUY" else (p_open - price_curr)
+                                is_losing = diff < 0
+                            if is_losing:
+                                in_loss = True
+                                break
+                    if in_loss:
                         continue
 
                 # Find the scan matching this symbol to retrieve NN State and trends
@@ -899,12 +926,19 @@ class AutonomousScalper:
                 )
                 is_symbol_tradable = symbol in config.SYMBOLS
 
+                global_risk_cap = getattr(config, "GLOBAL_RISK_LIMIT_CAP_PERCENT", 100.0)
+                sub_alloc_mod = 0.5 if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True) else 1.0
+                curr_portfolio_risk = (config.RISK_PER_TRADE_PERCENT * sub_alloc_mod) * (len(active_positions_refresh) + 1)
+
+                if curr_portfolio_risk > global_risk_cap:
+                    print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Aggregate risk {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}%.")
+                    continue
+
                 constitution_payload = {
                     "market_open": is_market_open,
                     "symbol_tradable": is_symbol_tradable,
                     "safety_violations": violations,
-                    "portfolio_risk_pct": config.RISK_PER_TRADE_PERCENT
-                    * (len(active_positions_refresh) + 1),
+                    "portfolio_risk_pct": curr_portfolio_risk,
                     "drawdown_pct": 0.0,
                     "spread_pips": float(
                         scan_item["spread"]

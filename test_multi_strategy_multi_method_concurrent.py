@@ -90,6 +90,7 @@ class TestMultiStrategyMultiMethodConcurrent(unittest.TestCase):
     def test_auto_strategy_and_style_resolution(self):
         config.ACTIVE_STRATEGY = "AUTO"
         config.TRADING_STYLE = "AUTO"
+        config.ENABLE_SYMBOL_FLOATING_LOSS_GATE = False
 
         bars = self._generate_bars(220, base_price=1.1000, step=0.0004)
         res = self.scalper_brain.evaluate("USDJPY", bars, 10000.0)

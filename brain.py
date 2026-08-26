@@ -613,6 +613,15 @@ class ScalperBrain:
                     "probability": prob,
                 })
 
+        # Emit only one decision per symbol, method, and direction, selecting highest probability result
+        if concurrent_decisions:
+            by_method_dir = {}
+            for dec in concurrent_decisions:
+                key = (dec.get("method", ""), dec["decision"])
+                if key not in by_method_dir or dec.get("probability", 0.0) > by_method_dir[key].get("probability", 0.0):
+                    by_method_dir[key] = dec
+            concurrent_decisions = list(by_method_dir.values())
+
         # Record assessment and trade memory
         top_decision = concurrent_decisions[0]["decision"] if concurrent_decisions else "HOLD"
         top_exp = concurrent_decisions[0]["explanation"] if concurrent_decisions else f"No authentic buy/sell signal in {strategy_mode} mode"
@@ -687,6 +696,16 @@ class ScalperBrain:
 
         try:
             risk_pct = getattr(config, "RISK_PER_TRADE_PERCENT", 1.0) / 100.0
+
+            if getattr(config, "AUTO_RISK_MANAGEMENT", False):
+                # Dynamic risk scaling based on volatility ratio
+                vol_mod = 1.2 if (sl_distance / (current_price or 1.0) < 0.002) else 0.8
+                risk_pct = max(0.005, min(0.03, risk_pct * vol_mod))
+
+            if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True):
+                # Sub-allocate per-strategy position risk
+                risk_pct = risk_pct * 0.5
+
             risk_amount = equity * risk_pct
 
             pip_specs = _get_symbol_pip_specs(symbol, current_price)
