@@ -1,7 +1,8 @@
 """
-Institutional System Capacity Auto-Detection & Dynamic Auto-Tuning Engine (EQATS v8.3i).
+Institutional System Capacity Auto-Detection & Dynamic Auto-Tuning Engine (EQATS v8.3j).
 Auto-detects CPU physical/logical cores, SIMD instruction sets, RAM total/free memory,
-Disk total/free space, GPU presence (CUDA/MPS/PyTorch/OpenCL) and VRAM capacity.
+Disk total/free space, GPU presence (CUDA/MPS/PyTorch/OpenCL), VRAM capacity, Network ping latency,
+and DNS lookup speeds.
 Dynamically computes system performance tiers and tunes worker pool concurrency,
 ML batch sizes, IPC polling intervals, and Valkey/SQLite cache sizes.
 """
