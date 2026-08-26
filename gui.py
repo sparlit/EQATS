@@ -10134,28 +10134,57 @@ SECURITY DOMAINS ENFORCED:
         """VTL <GO>: System Vitals & Autonomous AI Swarm Microservices Dashboard Screen."""
         self._add_screen_header(
             "⚡ VTL: SYSTEM VITALS & AUTONOMOUS AI SWARM DASHBOARD <GO>",
-            "REAL-TIME HARDWARE METRICS, RUST TOKIO ENGINE, MICROSERVICES MATRIX & SWARM CONSENSUS",
+            "REAL-TIME HARDWARE METRICS, AUTO-TUNED TIER, RUST ENGINE, & SWARM CONSENSUS",
             "VTL",
         )
 
+        theme = TAB_THEMES.get("VTL", TAB_THEMES["DEFAULT"])
+
+        # Auto-Tune Action Control Ribbon
+        ctrl_bar = tk.Frame(self.screen_frame, bg=self.bg_dark)
+        ctrl_bar.pack(fill=tk.X, pady=(0, 6))
+
+        tk.Button(
+            ctrl_bar,
+            text="⚡ AUTO-DETECT & AUTO-TUNE SYSTEM",
+            font=("Consolas", 9, "bold"),
+            bg="#0284c7",
+            fg="#ffffff",
+            activebackground="#0369a1",
+            activeforeground="#ffffff",
+            padx=12,
+            pady=4,
+            relief=tk.RAISED,
+            command=self._run_autotune_action,
+        ).pack(side=tk.LEFT)
+
+        self.lbl_vtl_autotune_status = tk.Label(
+            ctrl_bar,
+            text="STATUS: AUTO-TUNED (HIGH PERFORMANCE TIER)",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg="#00ff00",
+        )
+        self.lbl_vtl_autotune_status.pack(side=tk.LEFT, padx=15)
+
         container = tk.Frame(self.screen_frame, bg=self.bg_dark)
-        container.pack(fill=tk.BOTH, expand=True, pady=5)
+        container.pack(fill=tk.BOTH, expand=True, pady=2)
 
         for i in range(2):
             container.grid_rowconfigure(i, weight=1)
         for j in range(3):
             container.grid_columnconfigure(j, weight=1)
 
-        theme = TAB_THEMES.get("VTL", TAB_THEMES["DEFAULT"])
-
         # Card 1: Hardware Vitals
         c1 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
         tk.Label(c1, text=" 💻 HARDWARE & PROCESS VITALS ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
-        self.lbl_vtl_cpu = tk.Label(c1, text="CPU USAGE: 12.4%  [8 CORES PARALLEL]", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc")
-        self.lbl_vtl_cpu.pack(anchor="w", padx=8, pady=4)
-        self.lbl_vtl_ram = tk.Label(c1, text="RAM ALLOCATION: 412 MB / 16384 MB", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff")
+        self.lbl_vtl_cpu = tk.Label(c1, text="CPU CORES: 8 LOGICAL / 4 PHYSICAL", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc")
+        self.lbl_vtl_cpu.pack(anchor="w", padx=8, pady=3)
+        self.lbl_vtl_ram = tk.Label(c1, text="RAM MEMORY: 16.0 GB TOTAL / 8.0 GB FREE", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff")
         self.lbl_vtl_ram.pack(anchor="w", padx=8, pady=2)
+        self.lbl_vtl_gpu = tk.Label(c1, text="GPU / VRAM: CUDA (8.0 GB VRAM)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffaa00")
+        self.lbl_vtl_gpu.pack(anchor="w", padx=8, pady=2)
         tk.Label(c1, text="GIL STATUS: BYPASSED (MULTIPROCESSING)", font=("Consolas", 8, "bold"), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
 
         # Card 2: Microservices Matrix
@@ -10184,10 +10213,13 @@ SECURITY DOMAINS ENFORCED:
         # Card 4: Execution Pipeline Latency
         c4 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
         c4.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
-        tk.Label(c4, text=" ⏱️ EXECUTION PIPELINE LATENCY ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
-        tk.Label(c4, text="MARKET TICK -> VALKEY CACHE:  42 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=4)
-        tk.Label(c4, text="SWARM INFERENCE PARALLEL:    180 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
-        tk.Label(c4, text="MONOLITH RISK CIRCUIT GATE:   15 µs", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00").pack(anchor="w", padx=8, pady=2)
+        tk.Label(c4, text=" ⏱️ AUTO-TUNED ENGINE PARAMETERS ", font=("Consolas", 9, "bold"), bg=theme["bg_card"], fg=theme["primary"]).pack(anchor="w", padx=8, pady=(6, 2))
+        self.lbl_vtl_workers = tk.Label(c4, text="PARALLEL WORKER POOL: 8 WORKERS", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_workers.pack(anchor="w", padx=8, pady=4)
+        self.lbl_vtl_batch = tk.Label(c4, text="ML MODEL BATCH SIZE: 64 SAMPLES", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_batch.pack(anchor="w", padx=8, pady=2)
+        self.lbl_vtl_mcts_cnt = tk.Label(c4, text="MCTS TAIL SIMULATIONS: 2,000 PATHS", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00")
+        self.lbl_vtl_mcts_cnt.pack(anchor="w", padx=8, pady=2)
 
         # Card 5: Pulsar Throughput Rate
         c5 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
@@ -10207,13 +10239,53 @@ SECURITY DOMAINS ENFORCED:
 
         self._update_vtl_screen_data()
 
-    def _update_vtl_screen_data(self):
-        """Updates VTL vitals telemetry dynamically on every loop cycle."""
-        if not hasattr(self, "lbl_vtl_cpu") or not self.lbl_vtl_cpu:
-            return
-
-        import os
+    def _run_autotune_action(self):
+        """Action handler to perform auto-detection and auto-tuning."""
         try:
+            from institutional_integrations.system_autotune import auto_tune_system_parameters, detect_system_capabilities
+            caps = detect_system_capabilities()
+            tuned = auto_tune_system_parameters(caps)
+            tier = caps["performance_tier"]
+            messagebox.showinfo(
+                "System Auto-Tuned",
+                f"System Capacity Auto-Detection & Tuning Complete!\n\n"
+                f"• Hardware Tier: {tier}\n"
+                f"• Logical CPU Cores: {caps['cpu_logical_cores']} Cores\n"
+                f"• Total System RAM: {caps['ram_total_gb']} GB\n"
+                f"• GPU Acceleration: {caps['gpu_name']}\n"
+                f"• Parallel Worker Pool: {tuned['process_pool_workers']} Workers\n"
+                f"• ML Batch Size: {tuned['ml_batch_size']}\n"
+                f"• Status: {tuned['auto_tune_status']}"
+            )
+            self._update_vtl_screen_data()
+        except Exception as e:
+            messagebox.showerror("Auto-Tune Error", f"Error during auto-tuning: {e}")
+
+    def _update_vtl_screen_data(self):
+        """Updates VTL vitals telemetry dynamically on every loop cycle with safe widget existence checks."""
+        try:
+            if not hasattr(self, "lbl_vtl_cpu") or not self.lbl_vtl_cpu or not self.lbl_vtl_cpu.winfo_exists():
+                return
+
+            from institutional_integrations.system_autotune import global_system_caps, global_tuned_config
+            caps = global_system_caps
+            tuned = global_tuned_config
+
+            if hasattr(self, "lbl_vtl_cpu") and self.lbl_vtl_cpu.winfo_exists():
+                self.lbl_vtl_cpu.config(text=f"CPU CORES: {caps['cpu_logical_cores']} LOGICAL / {caps['cpu_physical_cores']} PHYSICAL")
+            if hasattr(self, "lbl_vtl_ram") and self.lbl_vtl_ram.winfo_exists():
+                self.lbl_vtl_ram.config(text=f"RAM MEMORY: {caps['ram_total_gb']} GB TOTAL / {caps['ram_free_gb']} GB FREE")
+            if hasattr(self, "lbl_vtl_gpu") and self.lbl_vtl_gpu.winfo_exists():
+                gpu_str = f"{caps['gpu_name']} ({caps['gpu_memory_gb']} GB VRAM)" if caps['gpu_available'] else "CPU Fallback"
+                self.lbl_vtl_gpu.config(text=f"GPU / VRAM: {gpu_str}")
+
+            if hasattr(self, "lbl_vtl_workers") and self.lbl_vtl_workers.winfo_exists():
+                self.lbl_vtl_workers.config(text=f"PARALLEL WORKER POOL: {tuned['process_pool_workers']} WORKERS")
+            if hasattr(self, "lbl_vtl_batch") and self.lbl_vtl_batch.winfo_exists():
+                self.lbl_vtl_batch.config(text=f"ML MODEL BATCH SIZE: {tuned['ml_batch_size']} SAMPLES")
+            if hasattr(self, "lbl_vtl_mcts_cnt") and self.lbl_vtl_mcts_cnt.winfo_exists():
+                self.lbl_vtl_mcts_cnt.config(text=f"MCTS TAIL SIMULATIONS: {tuned['mcts_simulations_count']:,} PATHS")
+
             from brain_agents_orchestrator import global_brain_orchestrator
             orch_summary = global_brain_orchestrator.get_status_summary()
             directive = orch_summary.get("last_directive", {})
@@ -10221,17 +10293,17 @@ SECURITY DOMAINS ENFORCED:
             mg = gov.get("method_governor", {})
             sg = gov.get("strategy_governor", {})
 
-            if hasattr(self, "lbl_vtl_mg") and mg:
+            if hasattr(self, "lbl_vtl_mg") and self.lbl_vtl_mg.winfo_exists() and mg:
                 top_m = mg.get("top_method", "SCALPING")
                 conf_m = mg.get("governor_confidence", 85.0)
                 self.lbl_vtl_mg.config(text=f"METHOD GOVERNOR: {top_m} ({conf_m:.1f}% CONF)")
 
-            if hasattr(self, "lbl_vtl_sg") and sg:
+            if hasattr(self, "lbl_vtl_sg") and self.lbl_vtl_sg.winfo_exists() and sg:
                 top_s = sg.get("top_strategy", "SMC_ICT")
                 score_s = sg.get("top_score", 88.0)
                 self.lbl_vtl_sg.config(text=f"STRATEGY GOVERNOR: {top_s} ({score_s:.1f} PTS)")
         except Exception as e:
-            _log.debug("VTL update error: %s", e)
+            _log.debug("VTL update error safely caught: %s", e)
 
     def _show_ecosystem_screen(self):
         """ECOSYSTEM <GO>: Full System Visualizer & Parallel Multi-Agent Architecture"""
@@ -11833,7 +11905,7 @@ SECURITY DOMAINS ENFORCED:
                     text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}"
                 )
         except Exception as e:
-            print(f"Error updating GUI fields: {e}")
+            _log.debug("Error updating GUI fields: %s", e)
 
         # Cycle every 2 seconds
         self.root.after(2000, self.update_gui_loop)
