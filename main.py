@@ -725,8 +725,9 @@ class AutonomousScalper:
         import concurrent.futures
         import multiprocessing as mp
 
-        cpu_cores = os.cpu_count() or 8
-        pool_workers = max(1, min(cpu_cores, len(active_symbols)))
+        from institutional_integrations.system_autotune import global_tuned_config
+        max_autotuned = global_tuned_config.get("process_pool_workers", os.cpu_count() or 8)
+        pool_workers = max(1, min(max_autotuned, len(active_symbols)))
         parallel_success = False
 
         # Spawn ProcessPoolExecutor only if running in the MainProcess to prevent nested process pool deadlocks

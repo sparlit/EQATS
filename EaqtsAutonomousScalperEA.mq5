@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "7.20"
-#property description "Elite Quantum Autonomous Scalper EA v7.20 - Institutional Multi-Panel Interactive HUD Visualizer"
+#property version   "8.30"
+#property description "Elite Quantum Autonomous Scalper EA v8.30 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -47,14 +47,16 @@ string m_trade_pnls[20];
 string m_trades_text[20];
 int m_total_trades = 0;
 
-// System Account & Risk Metrics
-string m_equity = "0.00";
-string m_balance = "0.00";
+// System Account & Risk & Auto-Tune Vitals
+string m_equity = "10000.00";
+string m_balance = "10000.00";
 string m_active_count = "0";
 string m_active_session = "Global Interbank";
 string m_overlaps = "Asian/European";
 string m_next_session = "New York";
 string m_countdown = "00:00:00";
+string m_hw_tier = "HIGH";
+string m_ping_ms = "1.2";
 
 // Interactivity States
 bool m_show_extended_details = true;
@@ -76,7 +78,6 @@ void DeleteDashboardObjects();
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
-//| Initializes timer, chart settings and HUD objects                |
 //+------------------------------------------------------------------+
 int OnInit()
 {
@@ -88,24 +89,22 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EaqtsAutonomousScalperEA v7.20 Master Full Dashboard Initialized. Target IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EaqtsAutonomousScalperEA v8.30 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
 //+------------------------------------------------------------------+
 //| Expert deinitialization function                                 |
-//| Cleans up GUI objects cleanly on EA stop                        |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EaqtsAutonomousScalperEA v7.20 Deinitialized cleanly.");
+   Print("EaqtsAutonomousScalperEA v8.30 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
-//| Fires updates on new price ticks                                 |
 //+------------------------------------------------------------------+
 void OnTick()
 {
@@ -114,7 +113,6 @@ void OnTick()
 
 //+------------------------------------------------------------------+
 //| Timer event function                                             |
-//| Fires updates on set time interval                               |
 //+------------------------------------------------------------------+
 void OnTimer()
 {
@@ -123,7 +121,6 @@ void OnTimer()
 
 //+------------------------------------------------------------------+
 //| OnChartEvent function                                            |
-//| Handles interactive HUD button actions                           |
 //+------------------------------------------------------------------+
 void OnChartEvent(const int id,
                   const long &lparam,
@@ -160,7 +157,6 @@ void OnChartEvent(const int id,
 
 //+------------------------------------------------------------------+
 //| ExecutePanicCloseAll                                             |
-//| Instantly liquidates all open positions across terminal          |
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll()
 {
@@ -181,7 +177,6 @@ void ExecutePanicCloseAll()
 
 //+------------------------------------------------------------------+
 //| FetchSocketData                                                  |
-//| Performs a single-shot TCP request to Python SocketIPCBridge     |
 //+------------------------------------------------------------------+
 string FetchSocketData()
 {
@@ -224,7 +219,6 @@ string FetchSocketData()
 
 //+------------------------------------------------------------------+
 //| ParseStateData                                                   |
-//| Reads state stream via Socket IPC or fallback shared file        |
 //+------------------------------------------------------------------+
 bool ParseStateData()
 {
@@ -358,7 +352,6 @@ bool ParseStateData()
 
 //+------------------------------------------------------------------+
 //| CreatePanelCard                                                  |
-//| Helper routine to draw background glassmorphism HUD cards        |
 //+------------------------------------------------------------------+
 void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, color border_color)
 {
@@ -381,23 +374,23 @@ void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, co
 
 //+------------------------------------------------------------------+
 //| DrawInstitutionalHeader                                          |
-//| Renders top control toolbar & action buttons                     |
 //+------------------------------------------------------------------+
 void DrawInstitutionalHeader()
 {
-   CreatePanelCard("SB_Card_Header", 10, 10, 1040, 36, C'15,23,42', C'30,58,138');
+   CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v7.20)", 20, 18, 12, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v8.30)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
 
-   CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 100, 24, clrWhite, C'37,99,235', 8);
-   CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 690, 16, 90, 24, clrWhite, C'126,34,206', 8);
-   CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 790, 16, 110, 24, clrWhite, C'13,148,136', 8);
-   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 910, 16, 130, 24, clrWhite, C'185,28,28', 8);
+   // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
+   CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);
+   CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 693, 16, 95, 24, clrWhite, C'126,34,206', 8);
+   CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 796, 16, 115, 24, clrWhite, C'13,148,136', 8);
+   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 919, 16, 140, 24, clrWhite, C'185,28,28', 8);
 }
 
 //+------------------------------------------------------------------+
 //| UpdateDashboard                                                  |
-//| Re-built HUD matrix visualizer with detailed execution cards     |
+//| Re-built HUD matrix visualizer with dynamic non-overlapping Y    |
 //+------------------------------------------------------------------+
 void UpdateDashboard()
 {
@@ -432,8 +425,8 @@ void UpdateDashboard()
 
    if(!has_data)
    {
-      CreatePanelCard("SB_Card_Notice", 10, 52, 1040, 40, C'30,41,59', C'217,119,6');
-      CreateLabel("SB_Status", "⚠️ TELEMETRY STREAM OFFLINE: Socket IPC Port 9001 Listening... Start main.py to stream telemetry data.", 20, 62, 10, clrGold, "Segoe UI Bold");
+      CreatePanelCard("SB_Card_Notice", 10, 54, 1060, 40, C'30,41,59', C'217,119,6');
+      CreateLabel("SB_Status", "⚠️ TELEMETRY STREAM OFFLINE: Socket IPC Port 9001 Listening... Start main.py to stream telemetry data.", 20, 64, 10, clrGold, "Segoe UI Bold");
       return;
    }
    else
@@ -447,14 +440,14 @@ void UpdateDashboard()
    double pnl = float_eq - float_bal;
    double drawdown_pct = (float_bal > 0) ? (pnl / float_bal) * 100.0 : 0.0;
 
-   int current_y = 52;
+   int current_y = 54;
 
    if(m_show_account_card)
    {
-      CreatePanelCard("SB_Card_Account", 10, current_y, 1040, 32, C'15,23,42', C'59,130,246');
-      string metrics_text = "Balance: $" + m_balance + "  |  Equity: $" + m_equity + "  |  Floating PnL: $" + DoubleToString(pnl, 2) + " (" + DoubleToString(drawdown_pct, 2) + "%)  |  Active Session: " + m_active_session;
-      CreateLabel("SB_Metrics", metrics_text, 20, current_y + 8, 10, clrWhite, "Segoe UI Semibold");
-      current_y += 38;
+      CreatePanelCard("SB_Card_Account", 10, current_y, 1060, 34, C'15,23,42', C'59,130,246');
+      string metrics_text = "Balance: $" + m_balance + "  |  Equity: $" + m_equity + "  |  Floating PnL: $" + DoubleToString(pnl, 2) + " (" + DoubleToString(drawdown_pct, 2) + "%)  |  Session: " + m_active_session + "  |  Tier: " + m_hw_tier + " [Ping: " + m_ping_ms + "ms]";
+      CreateLabel("SB_Metrics", metrics_text, 20, current_y + 8, 9, clrWhite, "Segoe UI Semibold");
+      current_y += 40;
    }
    else
    {
@@ -462,18 +455,18 @@ void UpdateDashboard()
       ObjectDelete(0, "SB_Metrics");
    }
 
-   CreatePanelCard("SB_Card_Timeline", 10, current_y, 1040, 28, C'30,41,59', C'217,119,6');
+   CreatePanelCard("SB_Card_Timeline", 10, current_y, 1060, 30, C'30,41,59', C'217,119,6');
    string timeline_text = "⏳ SESSION TIMELINE  |  Active Overlaps: " + m_overlaps + "  |  Next Window: " + m_next_session + " in " + m_countdown;
-   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, current_y + 6, 9, clrOrange, "Segoe UI Bold");
-   current_y += 34;
+   CreateLabel("SB_Timeline_Lbl", timeline_text, 20, current_y + 7, 9, clrOrange, "Segoe UI Bold");
+   current_y += 36;
 
-   int trades_height = (m_total_trades == 0) ? 44 : (28 + m_total_trades * 20);
-   CreatePanelCard("SB_Card_Trades", 10, current_y, 1040, trades_height, C'15,23,42', C'14,165,233');
+   int trades_height = (m_total_trades == 0) ? 46 : (30 + m_total_trades * 22);
+   CreatePanelCard("SB_Card_Trades", 10, current_y, 1060, trades_height, C'15,23,42', C'14,165,233');
 
-   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING EXECUTIONS (" + m_active_count + " POSITIONS OPEN):", 20, current_y + 6, 10, clrSkyBlue, "Segoe UI Bold");
-   current_y += 26;
+   CreateLabel("SB_TradeSec", "💼 ACTIVE RUNNING EXECUTIONS (" + m_active_count + " POSITIONS OPEN):", 20, current_y + 7, 10, clrSkyBlue, "Segoe UI Bold");
+   current_y += 28;
 
-   int line_height = 20;
+   int line_height = 22;
 
    if(m_total_trades == 0)
    {
@@ -493,32 +486,45 @@ void UpdateDashboard()
       }
    }
 
-   current_y += 10;
+   current_y += 12;
    int scan_rows = (m_total_symbols > 15) ? 15 : m_total_symbols;
-   int scans_height = 28 + (scan_rows + 1) * 20;
-   CreatePanelCard("SB_Card_Scans", 10, current_y, 1040, scans_height, C'15,23,42', C'99,102,241');
+   int scans_height = 30 + (scan_rows + 1) * 22;
+   CreatePanelCard("SB_Card_Scans", 10, current_y, 1060, scans_height, C'15,23,42', C'99,102,241');
 
-   CreateLabel("SB_ScanSec", "🧠 MULTI-ASSET NEURAL MATRIX & QUANTITATIVE SIGNALS (" + (string)m_total_symbols + " ASSETS SCANNED):", 20, current_y + 6, 10, clrSkyBlue, "Segoe UI Bold");
-   current_y += 26;
+   CreateLabel("SB_ScanSec", "🧠 MULTI-ASSET NEURAL MATRIX & QUANTITATIVE SIGNALS (" + (string)m_total_symbols + " ASSETS SCANNED):", 20, current_y + 7, 10, clrSkyBlue, "Segoe UI Bold");
+   current_y += 28;
 
    color head_col = clrDeepSkyBlue;
-   CreateLabel("SB_H_Sym", "SYMBOL", 20, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_P", "PRICE", 110, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_EMA", "EMA-200", 200, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_Tr", "TREND", 290, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_RSI", "RSI", 360, current_y, 9, head_col, "Segoe UI Bold");
-   CreateLabel("SB_H_ATR", "ATR", 420, current_y, 9, head_col, "Segoe UI Bold");
+
+   // Precise Non-Overlapping X Column Offsets
+   int col_x_sym   = 20;
+   int col_x_price = 115;
+   int col_x_ema   = 205;
+   int col_x_trend = 295;
+   int col_x_rsi   = 365;
+   int col_x_atr   = 425;
+   int col_x_w1    = 495;
+   int col_x_w2    = 595;
+   int col_x_act   = 705;
+   int col_x_stat  = 885;
+
+   CreateLabel("SB_H_Sym", "SYMBOL", col_x_sym, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_P", "PRICE", col_x_price, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_EMA", "EMA-200", col_x_ema, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_Tr", "TREND", col_x_trend, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_RSI", "RSI", col_x_rsi, current_y, 9, head_col, "Segoe UI Bold");
+   CreateLabel("SB_H_ATR", "ATR", col_x_atr, current_y, 9, head_col, "Segoe UI Bold");
 
    if(m_show_extended_details)
    {
-      CreateLabel("SB_H_AI_W1", "IN-WEIGHTS", 490, current_y, 9, clrOrange, "Segoe UI Bold");
-      CreateLabel("SB_H_AI_W2", "OUT-WEIGHTS", 590, current_y, 9, clrOrange, "Segoe UI Bold");
-      CreateLabel("SB_H_AI_Act", "NEURAL ACTIVATIONS", 700, current_y, 9, clrOrange, "Segoe UI Bold");
-      CreateLabel("SB_H_Stat", "DECISION TELEMETRY", 880, current_y, 9, head_col, "Segoe UI Bold");
+      CreateLabel("SB_H_AI_W1", "IN-WEIGHTS", col_x_w1, current_y, 9, clrOrange, "Segoe UI Bold");
+      CreateLabel("SB_H_AI_W2", "OUT-WEIGHTS", col_x_w2, current_y, 9, clrOrange, "Segoe UI Bold");
+      CreateLabel("SB_H_AI_Act", "NEURAL ACTIVATIONS", col_x_act, current_y, 9, clrOrange, "Segoe UI Bold");
+      CreateLabel("SB_H_Stat", "DECISION TELEMETRY", col_x_stat, current_y, 9, head_col, "Segoe UI Bold");
    }
    else
    {
-      CreateLabel("SB_H_Stat", "DECISION TELEMETRY", 490, current_y, 9, head_col, "Segoe UI Bold");
+      CreateLabel("SB_H_Stat", "DECISION TELEMETRY", col_x_w1, current_y, 9, head_col, "Segoe UI Bold");
    }
 
    current_y += line_height;
@@ -544,23 +550,23 @@ void UpdateDashboard()
 
       color trend_color = (trend_val == "UP") ? clrSpringGreen : clrDeepPink;
 
-      CreateLabel("SB_Row_Sym_" + (string)i, sym_name, 20, current_y, 9, clrYellow, "Segoe UI Semibold");
-      CreateLabel("SB_Row_P_" + (string)i, price_val, 110, current_y, 9, clrWhite, "Segoe UI");
-      CreateLabel("SB_Row_EMA_" + (string)i, ema_val, 200, current_y, 9, clrLightGray, "Segoe UI");
-      CreateLabel("SB_Row_Tr_" + (string)i, trend_val, 290, current_y, 9, trend_color, "Segoe UI Bold");
-      CreateLabel("SB_Row_RSI_" + (string)i, rsi_val, 360, current_y, 9, clrWhite, "Segoe UI");
-      CreateLabel("SB_Row_ATR_" + (string)i, atr_val, 420, current_y, 9, clrLightGray, "Segoe UI");
+      CreateLabel("SB_Row_Sym_" + (string)i, sym_name, col_x_sym, current_y, 9, clrYellow, "Segoe UI Semibold");
+      CreateLabel("SB_Row_P_" + (string)i, price_val, col_x_price, current_y, 9, clrWhite, "Segoe UI");
+      CreateLabel("SB_Row_EMA_" + (string)i, ema_val, col_x_ema, current_y, 9, clrLightGray, "Segoe UI");
+      CreateLabel("SB_Row_Tr_" + (string)i, trend_val, col_x_trend, current_y, 9, trend_color, "Segoe UI Bold");
+      CreateLabel("SB_Row_RSI_" + (string)i, rsi_val, col_x_rsi, current_y, 9, clrWhite, "Segoe UI");
+      CreateLabel("SB_Row_ATR_" + (string)i, atr_val, col_x_atr, current_y, 9, clrLightGray, "Segoe UI");
 
       if(m_show_extended_details)
       {
-         CreateLabel("SB_Row_AI_W1_" + (string)i, w1_val, 490, current_y, 9, clrOrange, "Courier New");
-         CreateLabel("SB_Row_AI_W2_" + (string)i, w2_val, 590, current_y, 9, clrOrange, "Courier New");
-         CreateLabel("SB_Row_AI_Act_" + (string)i, "[" + act_val + "]", 700, current_y, 8, clrPeachPuff, "Courier New");
-         CreateLabel("SB_Row_Stat_" + (string)i, status_val, 880, current_y, 9, status_color, "Segoe UI");
+         CreateLabel("SB_Row_AI_W1_" + (string)i, w1_val, col_x_w1, current_y, 9, clrOrange, "Courier New");
+         CreateLabel("SB_Row_AI_W2_" + (string)i, w2_val, col_x_w2, current_y, 9, clrOrange, "Courier New");
+         CreateLabel("SB_Row_AI_Act_" + (string)i, "[" + act_val + "]", col_x_act, current_y, 8, clrPeachPuff, "Courier New");
+         CreateLabel("SB_Row_Stat_" + (string)i, status_val, col_x_stat, current_y, 9, status_color, "Segoe UI");
       }
       else
       {
-         CreateLabel("SB_Row_Stat_" + (string)i, status_val, 490, current_y, 9, status_color, "Segoe UI");
+         CreateLabel("SB_Row_Stat_" + (string)i, status_val, col_x_w1, current_y, 9, status_color, "Segoe UI");
       }
 
       current_y += line_height;
@@ -571,7 +577,6 @@ void UpdateDashboard()
 
 //+------------------------------------------------------------------+
 //| CreateLabel                                                      |
-//| Helper routine to create or update drawing text labels           |
 //+------------------------------------------------------------------+
 void CreateLabel(string name, string text, int x, int y, int size, color col, string font)
 {
@@ -594,7 +599,6 @@ void CreateLabel(string name, string text, int x, int y, int size, color col, st
 
 //+------------------------------------------------------------------+
 //| CreateButton                                                     |
-//| Helper routine to create or update interactive UI buttons        |
 //+------------------------------------------------------------------+
 void CreateButton(string name, string text, int x, int y, int width, int height, color text_col, color bg_col, int font_size)
 {
@@ -618,7 +622,6 @@ void CreateButton(string name, string text, int x, int y, int width, int height,
 
 //+------------------------------------------------------------------+
 //| DeleteDashboardObjects                                           |
-//| Clear all HUD elements cleanly on shutdown                       |
 //+------------------------------------------------------------------+
 void DeleteDashboardObjects()
 {
