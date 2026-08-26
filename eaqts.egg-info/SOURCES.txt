@@ -32,6 +32,7 @@ institutional_integrations/quantum_quantum_engine.py
 institutional_integrations/rust_bridge.py
 institutional_integrations/smc_ict_engine.py
 institutional_integrations/spatial_supply_chain.py
+institutional_integrations/system_autotune.py
 institutional_integrations/tft_tcn_predictor.py
 institutional_integrations/trade_memory_protocol.py
 institutional_integrations/universal_broker_adapter.py
