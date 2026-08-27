@@ -1,5 +1,5 @@
 """
-EAQTS v8.0 Enterprise Database, Speed Layer & Message Streaming Gateway Module
+EQATS v8.0 Enterprise Database, Speed Layer & Message Streaming Gateway Module
 Implements adapters for PostgreSQL, ClickHouse, Valkey, Pulsar, and embedded fallback adapters.
 """
 
@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 class PostgresLedgerAdapter:
     """ACID-compliant Financial Ledger & Truth Layer Adapter with fallback to SQLite."""
     def __init__(self, connection_string: str = None):
-        self.connection_string = connection_string or os.getenv("POSTGRES_URL", "postgresql://localhost:5432/eaqts_ledger")
+        self.connection_string = connection_string or os.getenv("POSTGRES_URL", "postgresql://localhost:5432/eqats_ledger")
         self._connected = False
-        self._fallback_sqlite = "eaqts_v8_ledger.db"
+        self._fallback_sqlite = "eqats_v8_ledger.db"
         self._init_storage()
 
     def _init_storage(self):

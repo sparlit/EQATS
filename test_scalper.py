@@ -240,9 +240,9 @@ class TestInstitutionalIntegrations(unittest.TestCase):
             self.assertIn("engine", res)
 
 
-class TestEAQTSReleaseGates(unittest.TestCase):
+class TestEQATSReleaseGates(unittest.TestCase):
     def test_all_29_release_gates(self):
-        """Programmatically executes and verifies all 29 EAQTS Version 3.0 Production Release Gates (G01-G29)."""
+        """Programmatically executes and verifies all 29 EQATS Version 3.0 Production Release Gates (G01-G29)."""
         import release_gates
 
         runner = release_gates.ReleaseGateRunner()
@@ -252,7 +252,7 @@ class TestEAQTSReleaseGates(unittest.TestCase):
         self.assertEqual(len(runner.results), 29)
 
         # Print all gate evaluation results for transparency in test logs
-        print("\n--- EAQTS VERSION 3.0 PRODUCTION RELEASE GATES AUDIT REPORT ---")
+        print("\n--- EQATS VERSION 3.0 PRODUCTION RELEASE GATES AUDIT REPORT ---")
         for code, data in sorted(runner.results.items()):
             status_str = "PASSED" if data["passed"] else "FAILED"
             print(f"[{code}] {data['name']:<45} : {status_str} ({data['reason']})")

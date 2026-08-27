@@ -27,14 +27,14 @@ To establish the authoritative architectural, quantitative, and engineering base
 * **ML Engineer & Rust Engineer Position:** Python's Global Interpreter Lock (GIL) limits CPU-bound multi-threading.
 * **Consensus Resolution:** Deploy a dual GIL-bypass strategy:
   1. Process-level parallelism using `multiprocessing.ProcessPoolExecutor` with dynamic worker counts (`os.cpu_count()`) for isolated strategy agents and parallel ML inference swarms.
-  2. Native compiled Rust extension modules (`eaqts_rust_core`) via `pyo3` for all high-throughput numerical computations (SHA-256 block hashing, Merkle tree computation, tick ring-buffer streaming, MCTS risk tree searches, and technical indicator calculations).
+  2. Native compiled Rust extension modules (`eqats_rust_core`) via `pyo3` for all high-throughput numerical computations (SHA-256 block hashing, Merkle tree computation, tick ring-buffer streaming, MCTS risk tree searches, and technical indicator calculations).
 
 #### Debate Point 3: 4-Tier Data Fabric Architecture
 * **Consensus Resolution:** Standardize on a resilient 4-tier data architecture with zero-dependency local fallback support:
   1. **Valkey (Speed Layer):** Sub-millisecond in-memory cache for live tick feeds, order book depth, and transient state. Fallback: In-memory ring buffer (`deque(maxlen=1000)`).
   2. **PostgreSQL (Truth Layer):** ACID transactional financial ledger for accounts, users, trades, and configuration. Fallback: SQLite WAL mode database (`database.py`).
   3. **ClickHouse (Historical Analytics Layer):** High-compression columnar storage for multi-year tick backtesting and charting. Fallback: DiskLedger append-only storage.
-  4. **Blockchain DB Engine (Immutable Audit Layer):** Compiled Rust append-only ledger (`eaqts_rust_core/src/blockchain_db.rs`) with memory-aligned `Transaction` structs, SHA-256 block hashing, and Merkle tree state verification.
+  4. **Blockchain DB Engine (Immutable Audit Layer):** Compiled Rust append-only ledger (`eqats_rust_core/src/blockchain_db.rs`) with memory-aligned `Transaction` structs, SHA-256 block hashing, and Merkle tree state verification.
 
 ---
 
@@ -148,7 +148,7 @@ The terminal provides 33 color-coded dashboard sheets with tab-specific visual t
 
 # 5. METATRADER 5 EA DASHBOARD HUD SPECIFICATION
 
-`EaqtsAutonomousScalperEA.mq5` features an embedded glassmorphism chart visualizer:
+`EqatsAutonomousScalperEA.mq5` features an embedded glassmorphism chart visualizer:
 * **Header Banner:** Institutional branding, connection status badge, active AI mode pill.
 * **Telemetry Panels:** Real-time account equity, balance, margin, daily drawdown percentage, active trades count.
 * **Signal Probability Card:** Win probability gauge, neural net recommendation, active strategy signal scores.

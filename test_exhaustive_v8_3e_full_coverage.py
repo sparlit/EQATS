@@ -16,7 +16,7 @@ import brain
 import indicators
 import event_bus
 import brain_agents_orchestrator
-import eaqts_planes
+import eqats_planes
 import predictive_brain
 import release_gates
 import supervisor_agent

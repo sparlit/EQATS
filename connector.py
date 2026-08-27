@@ -199,7 +199,7 @@ class MT5Connector(TradingConnector):
             init_kwargs["login"] = int(str(login).strip())
         if password and str(password).strip():
             init_kwargs["password"] = str(password).strip()
-        if server and str(server).strip() and server != "EAQTS-Demo-Server":
+        if server and str(server).strip() and server != "EQATS-Demo-Server":
             init_kwargs["server"] = str(server).strip()
 
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)

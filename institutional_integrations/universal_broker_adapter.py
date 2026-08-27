@@ -1,7 +1,7 @@
 """
 Universal Broker Adapter & Platform Integration Architecture
 -----------------------------------------------------------
-Provides a protocol-agnostic, multi-broker gateway connecting EQATS / EAQTS to:
+Provides a protocol-agnostic, multi-broker gateway connecting EQATS / EQATS to:
  - MetaTrader 5 (MT5 IPC)
  - FIX 4.4 / 5.0 Protocol LPs
  - Institutional REST / WebSocket APIs

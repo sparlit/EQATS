@@ -1,4 +1,4 @@
-# 📖 EAQTS v5.0 OPERATIONAL RUNBOOK
+# 📖 EQATS v5.0 OPERATIONAL RUNBOOK
 
 ## Daily Operations & Monitoring
 

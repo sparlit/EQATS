@@ -58,7 +58,7 @@
     },
     "SYNTHESIZER": {
       "status": "COMPLETE",
-      "next_steps": "All success criteria for EAQTS v5.0 system re-architecture and audit remediations are met. Zero critical/high issues remain. Test suite is 100% green. Status set to 'done'."
+      "next_steps": "All success criteria for EQATS v5.0 system re-architecture and audit remediations are met. Zero critical/high issues remain. Test suite is 100% green. Status set to 'done'."
     }
   }
 }

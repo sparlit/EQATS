@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "setuptools-rust>=1.6.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "eaqts"
+name = "eqats"
 version = "8.3.0"
-description = "ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3l)"
+description = "ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3l)"
 authors = [
     { name = "Simon Peter", email = "author@tsyslabs.com" }
 ]
@@ -24,7 +24,7 @@ packages = ["institutional_integrations"]
 
 [tool.setuptools-rust]
 ext_modules = [
-    { target = "eaqts_rust_core", path = "eaqts_rust_core/Cargo.toml", binding = "PyO3" }
+    { target = "eqats_rust_core", path = "eqats_rust_core/Cargo.toml", binding = "PyO3" }
 ]
 
 [tool.ruff]
@@ -56,7 +56,7 @@ known-first-party = ["institutional_integrations", "brain", "connector", "databa
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
-exclude = ["build", "dist", "eaqts.egg-info", ".eggs"]
+exclude = ["build", "dist", "eqats.egg-info", ".eggs"]
 warn_unused_ignores = false
 warn_redundant_casts = false
 disable_error_code = ["import-untyped", "import-not-found", "var-annotated", "no-redef", "assignment", "misc"]

@@ -1,24 +1,24 @@
 # ELITE QUANTUM AUTONOMOUS TRADING SYSTEM
-## EAQTS VERSION 5.0
+## EQATS VERSION 5.0
 ### UNIFIED MASTER ARCHITECTURE, ENGINEERING, AI, TRADING, RISK, CAPITAL, EXECUTION, EXIT, SECURITY, RESILIENCE, VALIDATION, COMPLIANCE AND AUTONOMOUS EVOLUTION SPECIFICATION & FORENSIC AUDIT
 
-**System Name:** Elite Autonomous Quantum Trading System
-**Abbreviation:** EAQTS / EQATS
+**System Name:** Elite Quantum Autonomous Trading System
+**Abbreviation:** EQATS / EQATS
 **Specification:** Version 5.0
 **Status:** Authoritative Unified Master Baseline & Verified Forensic Audit
-**Supersedes:** EAQTS Versions 1.0, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 4.0
+**Supersedes:** EQATS Versions 1.0, 2.0, 2.1, 2.2, 2.3, 2.4, 3.0, 4.0
 
 ---
 
 # 0. EXECUTIVE DECLARATION & CONSOLIDATION DIRECTIVE
 
-This document represents the single canonical, unified specification and forensic code audit report for the **Elite Autonomous Quantum Trading System (EAQTS Version 5.0)**. It consolidates and verifies all requirements from EAQTS v1.0 through v4.0 into one unified master baseline.
+This document represents the single canonical, unified specification and forensic code audit report for the **Elite Quantum Autonomous Trading System (EQATS Version 5.0)**. It consolidates and verifies all requirements from EQATS v1.0 through v4.0 into one unified master baseline.
 
 The system is a **fully autonomous, hands-free, multi-asset, multi-agent AI quantitative trading operating system**. The only mandatory human action is **START AUTONOMOUS TRADER**.
 
 ```text
 ===================================================================================
-                       EAQTS VERSION 5.0 MASTER ARCHITECTURE
+                       EQATS VERSION 5.0 MASTER ARCHITECTURE
 ===================================================================================
 
                             ┌──────────────────────────┐
@@ -68,15 +68,15 @@ CORE BRAIN AI AGENTS (6)        TRADING METHOD BRAINS (4)       TRADING STRATEGY
 
 ---
 
-# 1. FORENSIC VERIFICATION MATRIX OF EAQTS VERSION 5.0 COMPONENTS
+# 1. FORENSIC VERIFICATION MATRIX OF EQATS VERSION 5.0 COMPONENTS
 
-Every requirement defined in Section 1 through Section 76 of the EAQTS Version 5.0 specification has been forensically verified across the codebase:
+Every requirement defined in Section 1 through Section 76 of the EQATS Version 5.0 specification has been forensically verified across the codebase:
 
 | Category | Component / Feature | File Location | Compliance Status |
 |---|---|---|:---:|
 | **1. Primary Directive** | Hands-Free Autonomous Trading Loop | `main.py` (`AutonomousScalper`) | **VERIFIED (100%)** |
 | **2. Zero-Incomplete-Code** | Zero stubs/placeholders in production paths | Entire Codebase | **VERIFIED (100%)** |
-| **3. Constitution Hierarchy** | 12-Level Authority Cascade (Level 0 to 11) | `eaqts_planes.py`, `main.py` | **VERIFIED (100%)** |
+| **3. Constitution Hierarchy** | 12-Level Authority Cascade (Level 0 to 11) | `eqats_planes.py`, `main.py` | **VERIFIED (100%)** |
 | **4. Multi-Agent AI Architecture** | 6 Core Brains, 4 Methods, 10 Strategies, 2 Mechanisms | `brain_agents_orchestrator.py` | **VERIFIED (100%)** |
 | **5. Parallel Execution** | GIL Bypass via ProcessPoolExecutor / ThreadPoolExecutor | `main.py`, `brain_agents_orchestrator.py` | **VERIFIED (100%)** |
 | **6. Institutional Engines** | Smart Money Concepts (SMC) & ICT Analysis | `smc_ict_engine.py`, `indicators.py` | **VERIFIED (100%)** |
@@ -84,14 +84,14 @@ Every requirement defined in Section 1 through Section 76 of the EAQTS Version 5
 | **8. Predictive Neural Engine** | MLP Neural Network Next-Candle Predictor | `predictive_brain.py`, `brain.py` | **VERIFIED (100%)** |
 | **9. Local Financial LLM** | `QuantumLocalGPT` & Vector Case Memory | `quantum_local_llm.py` | **VERIFIED (100%)** |
 | **10. Initial Position Sizing** | Initial trade size fixed at 0.01 lots for new symbols | `brain.py` (`_calculate_lot_size`) | **VERIFIED (100%)** |
-| **11. Safety Invariants** | INV-001 through INV-015 Enforcement | `eaqts_planes.py` (`SafetyPlane`) | **VERIFIED (100%)** |
+| **11. Safety Invariants** | INV-001 through INV-015 Enforcement | `eqats_planes.py` (`SafetyPlane`) | **VERIFIED (100%)** |
 | **12. Terminal Dashboard** | 33 Specialized Sheets + 13 Market Sub-Tabs | `gui.py` | **VERIFIED (100%)** |
 | **13. Sticky Header & Selection**| Fixed header frame & full row selection on `WATCH <GO>` | `gui.py` (`_select_watch_row`) | **VERIFIED (100%)** |
 | **14. Timezone Converter** | Forex Time Zone & Timeline Converter (`TZCONV <GO>`) | `gui.py` (`_draw_timezone_converter`) | **VERIFIED (100%)** |
 | **15. Manual Override & Exit** | Close All, Pause, Panic Lockdown, Reset, Exit System | `gui.py` (`manual_override_*`) | **VERIFIED (100%)** |
 | **16. Security & Encryption** | SHA-256 Hash Passwords/PINs, XOR-Base64 Broker Secrets | `database.py`, `gui.py` | **VERIFIED (100%)** |
 | **17. Release Gates Suite** | 29 Production Release Gates (G01 to G29) | `release_gates.py`, `test_scalper.py` | **VERIFIED (100%)** |
-| **18. Chaos & Stress Suite** | Liquidity Shocks, Spread Spikes, Disagreement Tests | `test_eaqts_24_chaos_stress.py` | **VERIFIED (100%)** |
+| **18. Chaos & Stress Suite** | Liquidity Shocks, Spread Spikes, Disagreement Tests | `test_eqats_24_chaos_stress.py` | **VERIFIED (100%)** |
 
 ---
 
@@ -116,7 +116,7 @@ A complete, file-by-file audit of every single source file in the repository wit
 ### 2.4 `brain_agents_orchestrator.py` (Multi-Agent Supervisory Architecture)
 - **Verified Capabilities:** Implements 6 Core Brain Agents, 4 Method Brains, 10 Strategy Brains, 2 Mechanism Brains, and `AgenticBrainsOrchestrator` using parallel `ThreadPoolExecutor` pipelines.
 
-### 2.5 `eaqts_planes.py` (Unified 9/12 Planes Engine & System Constitution)
+### 2.5 `eqats_planes.py` (Unified 9/12 Planes Engine & System Constitution)
 - **Verified Capabilities:** Enforces `SystemConstitution` Levels 0 through 11, Safety Invariants INV-001 through INV-015, microsecond timestamp monotonicity in DataPlane, fat-finger validation, and rate throttling in ExecutionPlane.
 
 ### 2.6 `database.py` (SQLite Persistence & Security)
@@ -128,14 +128,14 @@ A complete, file-by-file audit of every single source file in the repository wit
 ### 2.8 `trade_memory_protocol.py` (Trade Reflection Protocol)
 - **Verified Capabilities:** Calculates MFE, MAE, trade efficiency ratios, and logs post-mortem trade reflection entries into `database.py` and `gui.py`.
 
-### 2.9 `test_eaqts_24_chaos_stress.py` & `test_scalper.py` (Test Suites)
+### 2.9 `test_eqats_24_chaos_stress.py` & `test_scalper.py` (Test Suites)
 - **Verified Capabilities:** Validates chaos containment, spread spikes, rate throttling, release gates G01 to G29, multi-agent orchestrator, and SMC engine with 100% test pass rate across 31 pytest cases.
 
 ---
 
 # 3. CONCLUSION & MASTER OPERATING DECLARATION
 
-The **Elite Autonomous Quantum Trading System (EAQTS Version 5.0)** is fully implemented, verified, test-validated, and documented. It stands as an institutional-grade, hands-free, self-healing, multi-agent quantitative trading platform built with zero incomplete code, zero stubs, and complete operational provenance.
+The **Elite Quantum Autonomous Trading System (EQATS Version 5.0)** is fully implemented, verified, test-validated, and documented. It stands as an institutional-grade, hands-free, self-healing, multi-agent quantitative trading platform built with zero incomplete code, zero stubs, and complete operational provenance.
 
 ---
-*Elite Autonomous Quantum Trading System (EAQTS) — Version 5.0 Unified Master Baseline & Forensic Audit*
+*Elite Quantum Autonomous Trading System (EQATS) — Version 5.0 Unified Master Baseline & Forensic Audit*

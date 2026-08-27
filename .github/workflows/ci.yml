@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Pyflakes Analysis
         run: |
-          pyflakes indicators.py main.py brain.py connector.py database.py gui.py predictive_brain.py eaqts_planes.py institutional_integrations/comprehensive_suite.py institutional_integrations/web_api.py institutional_integrations/databases.py
+          pyflakes indicators.py main.py brain.py connector.py database.py gui.py predictive_brain.py eqats_planes.py institutional_integrations/comprehensive_suite.py institutional_integrations/web_api.py institutional_integrations/databases.py
 
       - name: Run Mypy Type Checking
         run: |
@@ -58,19 +58,19 @@ jobs:
       - name: Cache Cargo Dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: eaqts_rust_core
+          workspaces: eqats_rust_core
 
       - name: Run Cargo Format Check
         run: |
-          cargo fmt --manifest-path eaqts_rust_core/Cargo.toml --check
+          cargo fmt --manifest-path eqats_rust_core/Cargo.toml --check
 
       - name: Run Cargo Clippy Linter
         run: |
-          cargo clippy --manifest-path eaqts_rust_core/Cargo.toml --all-targets -- -A clippy::not_unsafe_ptr_arg_deref -A clippy::needless_range_loop
+          cargo clippy --manifest-path eqats_rust_core/Cargo.toml --all-targets -- -A clippy::not_unsafe_ptr_arg_deref -A clippy::needless_range_loop
 
       - name: Run Rust Core Unit Tests
         run: |
-          cargo test --manifest-path eaqts_rust_core/Cargo.toml --verbose
+          cargo test --manifest-path eqats_rust_core/Cargo.toml --verbose
 
   python-tests:
     name: Python Test Suite Execution
@@ -91,7 +91,7 @@ jobs:
       - name: Cache Cargo Dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: eaqts_rust_core
+          workspaces: eqats_rust_core
 
       - name: Install Python Dependencies
         run: |
@@ -127,7 +127,7 @@ jobs:
       - name: Cache Cargo Dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: eaqts_rust_core
+          workspaces: eqats_rust_core
 
       - name: Install Build Tooling
         run: |
@@ -140,6 +140,6 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: eaqts-distribution-packages
+          name: eqats-distribution-packages
           path: dist/*
           retention-days: 14

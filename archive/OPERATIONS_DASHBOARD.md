@@ -1,13 +1,13 @@
-# Operations Dashboard Guide — EQATS Quantum Terminal (`gui.py`) — EAQTS Version 6.0
+# Operations Dashboard Guide — EQATS Quantum Terminal (`gui.py`) — EQATS Version 6.0
 
 ## Overview
 
-The `gui.py` desktop GUI is the primary operational command terminal for the **Elite Quantum Autonomous Trading System (EAQTS / EQATS Version 6.0)**. Built in Tkinter, it provides a multi-sheet desktop interface for real-time market monitoring, algorithmic strategy selection, neural network telemetry, risk controls, and emergency manual overrides.
+The `gui.py` desktop GUI is the primary operational command terminal for the **Elite Quantum Autonomous Trading System (EQATS / EQATS Version 6.0)**. Built in Tkinter, it provides a multi-sheet desktop interface for real-time market monitoring, algorithmic strategy selection, neural network telemetry, risk controls, and emergency manual overrides.
 
 ```
 +-------------------------------------------------------------------------------+
-| EAQTS: ELITE QUANTUM TRADING SYSTEM <GO>            [ SIMULATION / MT5 LIVE ] |
-| Command Bar: EAQTS > MAIN <GO>          [F2 MAIN] [F3 GP] [F4 WEI] ...       |
+| EQATS: ELITE QUANTUM AUTONOMOUS TRADING SYSTEM <GO>            [ SIMULATION / MT5 LIVE ] |
+| Command Bar: EQATS > MAIN <GO>          [F2 MAIN] [F3 GP] [F4 WEI] ...       |
 +-------------------------------------------------------------------------------+
 | ACTIVE SESSIONS   > Tokyo FX | London FX | New York FX                         |
 | CLOSED <= 4H      > Wellington FX                                             |
@@ -29,7 +29,7 @@ The `gui.py` desktop GUI is the primary operational command terminal for the **E
 
 ## Command Navigation & F-Key Quick Links
 
-Operators navigate the terminal by typing command codes into the `EAQTS >` input box and pressing `<GO>` (or `Enter`), or by using function key shortcuts:
+Operators navigate the terminal by typing command codes into the `EQATS >` input box and pressing `<GO>` (or `Enter`), or by using function key shortcuts:
 
 | Shortcut Key | Terminal Code | Sheet Name & Operational Function |
 |---|---|---|
