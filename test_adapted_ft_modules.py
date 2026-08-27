@@ -7,15 +7,12 @@ Integration unit tests for adapted Fincept Terminal modules in institutional_int
  - alpha_strategies_library.py
 """
 
-import pytest
 import numpy as np
 
 from institutional_integrations.options_derivatives_engine import (
     OptionsPricingEngine, GammaExposureAnalyzer, OptionStrategySimulator
 )
-from institutional_integrations.finagent_hedgefund_swarm import (
-    AgentPersona, InvestmentCommitteeDeliberation, HedgeFundSwarmOrchestrator
-)
+from institutional_integrations.finagent_hedgefund_swarm import HedgeFundSwarmOrchestrator
 from institutional_integrations.extended_market_connectors import ExtendedDataConnectors
 from institutional_integrations.quant_portfolio_analytics import (
     PortfolioOptimizationEngine, QuantPerformanceMetrics

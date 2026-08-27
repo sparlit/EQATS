@@ -52,7 +52,12 @@ def get_connection():
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA busy_timeout=60000;")
     except sqlite3.OperationalError as e:
-        print(f"⚠️ SQLite PRAGMA configuration note: {e}")
+        _log.debug("SQLite PRAGMA WAL mode fallback: %s", e)
+        try:
+            conn.execute("PRAGMA journal_mode=DELETE;")
+            conn.execute("PRAGMA busy_timeout=60000;")
+        except Exception:
+            pass
     return conn
 
 
@@ -81,198 +86,207 @@ def checkpoint_wal(force=False):
 
 def init_db():
     """Initializes database tables if they do not exist."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Table for storing market assessments made by the brain
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS assessments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        symbol TEXT NOT NULL,
-        trend_direction TEXT,
-        rsi_val REAL,
-        atr_val REAL,
-        decision TEXT NOT NULL,
-        explanation TEXT NOT NULL
-    )
-    """)
-
-    # Table for storing all trades taken
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS trades (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ticket TEXT UNIQUE,
-        symbol TEXT NOT NULL,
-        direction TEXT NOT NULL, -- 'BUY' or 'SELL'
-        open_price REAL NOT NULL,
-        open_time TEXT NOT NULL,
-        sl REAL NOT NULL,
-        tp REAL NOT NULL,
-        lot_size REAL NOT NULL,
-        status TEXT NOT NULL, -- 'OPEN', 'CLOSED'
-        close_price REAL,
-        close_time TEXT,
-        profit REAL,
-        close_reason TEXT, -- 'SL', 'TP', 'MANUAL', 'DAILY_LIMIT'
-        strategy TEXT DEFAULT '',
-        method TEXT DEFAULT ''
-    )
-    """)
-
-    # Alter table if existing schema lacks strategy or method columns
-    for col_def in [("strategy TEXT DEFAULT ''", "strategy"), ("method TEXT DEFAULT ''", "method")]:
+    max_retries = 5
+    for attempt in range(max_retries):
         try:
-            cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_def[0]}")
-        except sqlite3.OperationalError:
-            pass
+            conn = get_connection()
+            cursor = conn.cursor()
 
-    # Table for performance metrics tracker
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS performance_metrics (
-        date TEXT PRIMARY KEY,
-        initial_balance REAL NOT NULL,
-        final_balance REAL NOT NULL,
-        trades_taken INTEGER DEFAULT 0,
-        win_rate REAL DEFAULT 0.0,
-        net_profit REAL DEFAULT 0.0
-    )
-    """)
+            # Table for storing market assessments made by the brain
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS assessments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                trend_direction TEXT,
+                rsi_val REAL,
+                atr_val REAL,
+                decision TEXT NOT NULL,
+                explanation TEXT NOT NULL
+            )
+            """)
 
-    # Table for news sentiment indexing
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        headline TEXT NOT NULL,
-        sentiment TEXT NOT NULL -- 'BULLISH', 'BEARISH', 'NEUTRAL'
-    )
-    """)
+            # Table for storing all trades taken
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trades (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket TEXT UNIQUE,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL, -- 'BUY' or 'SELL'
+                open_price REAL NOT NULL,
+                open_time TEXT NOT NULL,
+                sl REAL NOT NULL,
+                tp REAL NOT NULL,
+                lot_size REAL NOT NULL,
+                status TEXT NOT NULL, -- 'OPEN', 'CLOSED'
+                close_price REAL,
+                close_time TEXT,
+                profit REAL,
+                close_reason TEXT, -- 'SL', 'TP', 'MANUAL', 'DAILY_LIMIT'
+                strategy TEXT DEFAULT '',
+                method TEXT DEFAULT ''
+            )
+            """)
 
-    # Table for storing user access accounts with cryptographic hash credentials
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        pin_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',
-        mfa_enabled INTEGER DEFAULT 1,
-        login_style TEXT DEFAULT 'MATRIX_NEON',
-        created_at TEXT NOT NULL
-    )
-    """)
+            # Alter table if existing schema lacks strategy or method columns
+            for col_def in [("strategy TEXT DEFAULT ''", "strategy"), ("method TEXT DEFAULT ''", "method")]:
+                try:
+                    cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_def[0]}")
+                except sqlite3.OperationalError:
+                    pass
 
-    # Alter table if existing schema lacks login_style
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN login_style TEXT DEFAULT 'MATRIX_NEON'")
-    except sqlite3.OperationalError:
-        pass
+            # Table for performance metrics tracker
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS performance_metrics (
+                date TEXT PRIMARY KEY,
+                initial_balance REAL NOT NULL,
+                final_balance REAL NOT NULL,
+                trades_taken INTEGER DEFAULT 0,
+                win_rate REAL DEFAULT 0.0,
+                net_profit REAL DEFAULT 0.0
+            )
+            """)
 
-    # Table for storing broker gateway connection details with encrypted secrets
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS broker_credentials (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        broker_name TEXT DEFAULT 'PRIMARY GATEWAY',
-        server TEXT NOT NULL,
-        account_id TEXT NOT NULL,
-        password_encrypted TEXT NOT NULL,
-        leverage TEXT NOT NULL,
-        environment TEXT DEFAULT 'Demo',
-        protocol_type TEXT DEFAULT 'MT5',
-        api_key TEXT DEFAULT '',
-        api_secret TEXT DEFAULT '',
-        rest_url TEXT DEFAULT '',
-        ws_url TEXT DEFAULT '',
-        terminal_path TEXT DEFAULT '',
-        is_active INTEGER DEFAULT 1,
-        updated_at TEXT NOT NULL
-    )
-    """)
+            # Table for news sentiment indexing
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS news (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                headline TEXT NOT NULL,
+                sentiment TEXT NOT NULL -- 'BULLISH', 'BEARISH', 'NEUTRAL'
+            )
+            """)
 
-    # Alter table if existing schema lacks new multi-broker columns
-    _SCHEMA_ALTERS = [
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'",
-            "broker_name",
-        ),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'",
-            "environment",
-        ),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1",
-            "is_active",
-        ),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'",
-            "protocol_type",
-        ),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN api_key TEXT DEFAULT ''",
-            "api_key",
-        ),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''",
-            "api_secret",
-        ),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''",
-            "rest_url",
-        ),
-        ("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''", "ws_url"),
-        (
-            "ALTER TABLE broker_credentials ADD COLUMN terminal_path TEXT DEFAULT ''",
-            "terminal_path",
-        ),
-    ]
-    for _sql, _col in _SCHEMA_ALTERS:
-        try:
-            cursor.execute(_sql)
-        except sqlite3.OperationalError:
-            # Column already exists — expected when migrating existing DBs
-            _log.debug("Schema column %s already present, skipping.", _col)
+            # Table for storing user access accounts with cryptographic hash credentials
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                pin_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',
+                mfa_enabled INTEGER DEFAULT 1,
+                login_style TEXT DEFAULT 'MATRIX_NEON',
+                created_at TEXT NOT NULL
+            )
+            """)
 
-    # Prepopulate default admin operator account if empty
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute(
-            """
-        INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-            (
-                "QUANT_OPERATOR",
-                hash_credential("admin"),
-                hash_credential("741295"),
-                "SOVEREIGN_ADMIN",
-                1,
-                datetime.datetime.now().isoformat(),
-            ),
-        )
+            # Alter table if existing schema lacks login_style
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN login_style TEXT DEFAULT 'MATRIX_NEON'")
+            except sqlite3.OperationalError:
+                pass
 
-    # Prepopulate default broker credentials if empty
-    cursor.execute("SELECT COUNT(*) FROM broker_credentials")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute(
-            """
-        INSERT OR IGNORE INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                "Primary MetaTrader Gateway",
-                "EQATS-Demo-Server",
-                "10928471",
-                encrypt_secret("demoPass123!"),
-                "1:100",
-                "Demo",
-                1,
-                datetime.datetime.now().isoformat(),
-            ),
-        )
+            # Table for storing broker gateway connection details with encrypted secrets
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS broker_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                broker_name TEXT DEFAULT 'PRIMARY GATEWAY',
+                server TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                password_encrypted TEXT NOT NULL,
+                leverage TEXT NOT NULL,
+                environment TEXT DEFAULT 'Demo',
+                protocol_type TEXT DEFAULT 'MT5',
+                api_key TEXT DEFAULT '',
+                api_secret TEXT DEFAULT '',
+                rest_url TEXT DEFAULT '',
+                ws_url TEXT DEFAULT '',
+                terminal_path TEXT DEFAULT '',
+                is_active INTEGER DEFAULT 1,
+                updated_at TEXT NOT NULL
+            )
+            """)
 
-    conn.commit()
-    conn.close()
+            # Alter table if existing schema lacks new multi-broker columns
+            _SCHEMA_ALTERS = [
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'",
+                    "broker_name",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'",
+                    "environment",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1",
+                    "is_active",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'",
+                    "protocol_type",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN api_key TEXT DEFAULT ''",
+                    "api_key",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''",
+                    "api_secret",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''",
+                    "rest_url",
+                ),
+                ("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''", "ws_url"),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN terminal_path TEXT DEFAULT ''",
+                    "terminal_path",
+                ),
+            ]
+            for _sql, _col in _SCHEMA_ALTERS:
+                try:
+                    cursor.execute(_sql)
+                except sqlite3.OperationalError:
+                    # Column already exists — expected when migrating existing DBs
+                    _log.debug("Schema column %s already present, skipping.", _col)
+
+            # Prepopulate default admin operator account if empty
+            cursor.execute("SELECT COUNT(*) FROM users")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    """
+                INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        "QUANT_OPERATOR",
+                        hash_credential("admin"),
+                        hash_credential("741295"),
+                        "SOVEREIGN_ADMIN",
+                        1,
+                        datetime.datetime.now().isoformat(),
+                    ),
+                )
+
+            # Prepopulate default broker credentials if empty
+            cursor.execute("SELECT COUNT(*) FROM broker_credentials")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    """
+                INSERT OR IGNORE INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        "Primary MetaTrader Gateway",
+                        "EQATS-Demo-Server",
+                        "10928471",
+                        encrypt_secret("demoPass123!"),
+                        "1:100",
+                        "Demo",
+                        1,
+                        datetime.datetime.now().isoformat(),
+                    ),
+                )
+
+            conn.commit()
+            conn.close()
+            return
+        except sqlite3.OperationalError as e:
+            if attempt < max_retries - 1:
+                time.sleep(0.1 * (2**attempt))
+            else:
+                _log.debug("init_db retry exhausted: %s", e)
 
 
 def verify_user_password(username, password_input):
@@ -364,16 +378,20 @@ def _execute_with_retry(query, params=(), commit=True):
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
                 init_db()
-                with get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(query, params)
-                    if commit:
-                        conn.commit()
-                return True
-            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                try:
+                    with get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(query, params)
+                        if commit:
+                            conn.commit()
+                    return True
+                except Exception:
+                    pass
+            if attempt < max_retries - 1:
                 time.sleep(0.1 * (2**attempt))
             else:
-                raise e
+                _log.debug("Database write retry exhausted: %s", e)
+                return False
 
 
 def _fetch_with_retry(query, params=(), fetch_all=True):
@@ -389,15 +407,19 @@ def _fetch_with_retry(query, params=(), fetch_all=True):
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
                 init_db()
-                with get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(query, params)
-                    res = cursor.fetchall() if fetch_all else cursor.fetchone()
-                return res
-            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                try:
+                    with get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(query, params)
+                        res = cursor.fetchall() if fetch_all else cursor.fetchone()
+                    return res
+                except Exception:
+                    pass
+            if attempt < max_retries - 1:
                 time.sleep(0.1 * (2**attempt))
             else:
-                raise e
+                _log.debug("Database read retry exhausted: %s", e)
+                return [] if fetch_all else None
 
 
 def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
@@ -586,7 +608,7 @@ def save_broker_credentials(
     leverage = normalize_leverage(leverage)
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM broker_credentials WHERE is_active = 1 LIMIT 1")
+    cursor.execute("SELECT id FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
     row = cursor.fetchone()
     conn.close()
 
@@ -597,7 +619,7 @@ def save_broker_credentials(
         _execute_with_retry(
             """
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, terminal_path = ?, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
         WHERE id = ?
         """,
             (
@@ -618,6 +640,7 @@ def save_broker_credentials(
             ),
         )
     else:
+        _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
         _execute_with_retry(
             """
         INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, terminal_path, is_active, updated_at)
@@ -646,7 +669,7 @@ def get_broker_credentials():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 LIMIT 1")
+        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
         if not row:
             cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
@@ -656,7 +679,7 @@ def get_broker_credentials():
         init_db()
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 LIMIT 1")
+        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
         row = cursor.fetchone()
         if not row:
             cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
@@ -868,20 +891,16 @@ def get_daily_profit(date_str=None):
 def update_performance_metrics(date_str, current_balance):
     """
     Autonomously analyzes trading performance for a specific date and
-    upserts metrics into the performance_metrics table.
+    upserts metrics into the performance_metrics table with lock retries.
     """
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Query closed trades for the date
-    cursor.execute(
+    rows = _fetch_with_retry(
         """
         SELECT profit FROM trades
         WHERE status = 'CLOSED' AND close_time LIKE ?
     """,
         (f"{date_str}%",),
-    )
-    rows = cursor.fetchall()
+        fetch_all=True,
+    ) or []
 
     trades_taken = len(rows)
     net_profit = sum(row["profit"] for row in rows) if trades_taken > 0 else 0.0
@@ -889,11 +908,11 @@ def update_performance_metrics(date_str, current_balance):
     win_rate = (wins / trades_taken) * 100.0 if trades_taken > 0 else 0.0
 
     # Check if record exists
-    cursor.execute("SELECT 1 FROM performance_metrics WHERE date = ?", (date_str,))
-    exists = cursor.fetchone() is not None
+    exists_row = _fetch_with_retry("SELECT 1 FROM performance_metrics WHERE date = ?", (date_str,), fetch_all=False)
+    exists = exists_row is not None
 
     if exists:
-        cursor.execute(
+        _execute_with_retry(
             """
             UPDATE performance_metrics
             SET final_balance = ?, trades_taken = ?, win_rate = ?, net_profit = ?
@@ -902,7 +921,7 @@ def update_performance_metrics(date_str, current_balance):
             (current_balance, trades_taken, win_rate, net_profit, date_str),
         )
     else:
-        cursor.execute(
+        _execute_with_retry(
             """
             INSERT INTO performance_metrics (date, initial_balance, final_balance, trades_taken, win_rate, net_profit)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -916,9 +935,6 @@ def update_performance_metrics(date_str, current_balance):
                 net_profit,
             ),
         )
-
-    conn.commit()
-    conn.close()
 
 
 def get_all_time_performance():

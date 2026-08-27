@@ -20,22 +20,22 @@ _COOLDOWN_SECONDS = 10.0  # Temporarily fallback to Python for 10s upon failure 
 
 
 def _load_rust_library():
-    """Dynamically loads compiled eqats_rust_core library if present."""
+    """Dynamically loads compiled eaqts_rust_core library if present."""
     global _RUST_AVAILABLE, _RUST_LIB
 
     base_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "eqats_rust_core",
+        "eaqts_rust_core",
         "target",
         "release",
     )
 
     candidate_names = [
-        "libeqats_rust_core.so",
-        "eqats_rust_core.dll",
-        "libeqats_rust_core.dll",
-        "libeqats_rust_core.dylib",
-        "eqats_rust_core.so",
+        "libeaqts_rust_core.so",
+        "eaqts_rust_core.dll",
+        "libeaqts_rust_core.dll",
+        "libeaqts_rust_core.dylib",
+        "eaqts_rust_core.so",
     ]
 
     lib_path = None

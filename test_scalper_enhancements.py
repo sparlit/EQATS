@@ -34,6 +34,8 @@ def test_normalize_leverage_helper():
 
 def test_add_broker_account_leverage_normalization():
     """Verifies add_broker_account normalizes unformatted leverage inputs before persisting to SQLite."""
+    test_db = f"test_add_broker_{os.getpid()}_{int(time.time()*1000)}.db"
+    config.DB_PATH = test_db
     database.init_db()
     database.add_broker_account(
         "Test Gateway",
@@ -47,9 +49,17 @@ def test_add_broker_account_leverage_normalization():
     creds = database.get_broker_credentials()
     assert creds["leverage"] == "1:888"
 
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except Exception:
+            pass
+
 
 def test_leverage_persistence_and_custom_options():
     """Verifies leverage selection persistence (1:1 to 1:3000 / 1:10000) in SQLite database."""
+    test_db = f"test_leverage_{os.getpid()}_{int(time.time()*1000)}.db"
+    config.DB_PATH = test_db
     database.init_db()
 
     # Save custom leverage 1:888
@@ -87,6 +97,12 @@ def test_leverage_persistence_and_custom_options():
     )
     creds3 = database.get_broker_credentials()
     assert creds3["leverage"] == "1:10000"
+
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except Exception:
+            pass
 
 
 def test_fixed_001_lot_position_sizing():

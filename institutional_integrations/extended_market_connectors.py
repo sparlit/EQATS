@@ -6,7 +6,7 @@ Provides resilient data fetching with robust fallbacks.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import numpy as np
 
 _log = logging.getLogger(__name__)

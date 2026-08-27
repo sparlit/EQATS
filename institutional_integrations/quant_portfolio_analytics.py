@@ -5,9 +5,8 @@ Provides Mean-Variance, Risk Parity, Black-Litterman portfolio optimization,
 plus full performance risk metrics (Sharpe, Sortino, Calmar, VaR/CVaR, Max Drawdown).
 """
 
-import math
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, Any, Optional
 import numpy as np
 
 _log = logging.getLogger(__name__)
@@ -48,7 +47,6 @@ class PortfolioOptimizationEngine:
         # Regularize cov_matrix for stability
         cov_matrix += np.eye(num_assets) * 1e-6
         inv_cov = np.linalg.inv(cov_matrix)
-        ones = np.ones(num_assets)
 
         excess_returns = mean_returns - risk_free_rate
         raw_weights = np.dot(inv_cov, excess_returns)
@@ -89,7 +87,6 @@ class PortfolioOptimizationEngine:
         if returns_matrix.ndim != 2 or returns_matrix.shape[1] == 0:
             return {"weights": [], "status": "ERROR"}
 
-        num_assets = returns_matrix.shape[1]
         cov_matrix = np.cov(returns_matrix, rowvar=False) * 252.0
         vols = np.sqrt(np.diag(cov_matrix))
         vols[vols <= 0] = 1e-4
