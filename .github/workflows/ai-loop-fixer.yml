@@ -1,0 +1,91 @@
+name: AI Automated Fix Loop
+
+on:
+  push:
+    branches:
+      - 'ai-fix-/*'      # Runs on feature branches starting with ai-fix-
+  workflow_dispatch:     # Allows you to trigger this manually from GitHub UI
+
+jobs:
+  analyze-and-fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # Required so the bot can commit fixes back to your repo
+
+    steps:
+      # 1. Checkout the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Set up your runtime environment (Change this to Python/Go/Ruby if needed)
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-node-version: '20'
+          cache: 'npm'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      # 3. Setup your AI Agent CLI (Example using 'aider' via pipx)
+      - name: Install AI Agent CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y pipx
+          pipx install aider-chat
+          echo "/home/runner/.local/bin" >> $GITHUB_PATH
+
+      # 4. The Loop Control Logic
+      - name: Run Test-and-Fix Loop
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Set this in your GitHub Repo Secrets
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAX_ATTEMPTS: 5
+        run: |
+          # Configure Git Author
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+
+          attempt=1
+          success=false
+
+          while [ $attempt -le $MAX_ATTEMPTS ]; do
+            echo "=========================================="
+            echo "🔄 Starting Loop Attempt #$attempt of $MAX_ATTEMPTS"
+            echo "=========================================="
+
+            # Run your test/linter command and capture output to a log file
+            # Change 'npm test' to your specific test runner (e.g., 'pytest', 'eslint .')
+            if npm test > test_output.log 2>&1; then
+              echo "✅ All tests passed successfully!"
+              success=true
+              break
+            else
+              echo "❌ Tests failed. Sending error logs to AI Agent..."
+              cat test_output.log
+
+              # Invoke your AI Agent CLI (Adapting syntax to your specific agent)
+              # This command tells the agent the exact error log and instructs it to fix it.
+              aider --message "The test suite failed with the following errors. Please analyze the codebase, locate the bugs, and rewrite the broken code to fix them. Error Logs: $(cat test_output.log)" --yes
+
+              # Check if the AI actually changed any files
+              if [ -n "$(git status --porcelain)" ]; then
+                echo "🤖 AI made corrections. Committing changes..."
+                git add .
+                git commit -m "chore(ai-fix): automated correction attempt #$attempt"
+                git push origin ${GITHUB_REF_NAME}
+              else
+                echo "⚠️ AI ran but made no changes to the files. Breaking loop to avoid stagnation."
+                break
+              fi
+            fi
+
+            attempt=$((attempt+1))
+          done
+
+          # Final workflow evaluation
+          if [ "$success" = false ]; then
+            echo "❌ The AI agent was unable to fix all errors within $MAX_ATTEMPTS attempts."
+            exit 1
+          fi
