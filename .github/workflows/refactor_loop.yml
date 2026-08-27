@@ -1,0 +1,124 @@
+name: Automated Refactoring Loop
+
+on:
+  workflow_dispatch: # Allows you to start the process manually
+  repository_dispatch:
+    types: [continue-refactor] # Allows the workflow to call itself
+
+jobs:
+  refactor-step:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Crucial: Allows GitHub to commit changed code back to your repo
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Refactoring Tools
+      run: |
+        pip install black isort autoflake
+        # Add any other refactoring engines or tools you need here
+
+    - name: Parse Plan, Execute, and Update Markdown
+      id: process_task
+      run: |
+        python - << 'EOF'
+        import re
+        import os
+        import subprocess
+
+        PLAN_FILE = "refactor_plan.md"
+
+        if not os.path.exists(PLAN_FILE):
+            print(f"Error: {PLAN_FILE} not found.")
+            exit(1)
+
+        with open(PLAN_FILE, "r") as f:
+            lines = f.readlines()
+
+        task_found = False
+        updated_lines = []
+        current_command = []
+        inside_code_block = False
+        task_line_index = -1
+
+        # Look for the first uncompleted task "- [ ]"
+        for i, line in enumerate(lines):
+            if not task_found and line.strip().startswith("- [ ]"):
+                task_found = True
+                task_line_index = i
+                # Mark it as checked right away in memory
+                updated_lines.append(line.replace("- [ ]", "- [x]", 1))
+                continue
+            
+            if task_found and not inside_code_block:
+                if "```bash" in line:
+                    inside_code_block = True
+                    continue
+                # If we hit another task before a code block, stop looking
+                if line.strip().startswith("- [ ]") or line.strip().startswith("- [x]"):
+                    break
+            
+            if inside_code_block:
+                if "```" in line:
+                    inside_code_block = False
+                    break # We have our command
+                current_command.append(line.strip())
+            
+            updated_lines.append(line)
+
+        if not task_found:
+            print("🎉 All refactoring tasks are complete! Ending loop.")
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                print("more_tasks=false", file=fh)
+            exit(0)
+
+        # Reconstruct the rest of the file that wasn't processed yet
+        remaining_lines = lines[len(updated_lines)+1:] if inside_code_block else lines[i:]
+        
+        # Combine the updated code block execution mapping
+        cmd_to_run = " && ".join(current_command)
+        print(f"Executing Refactor Command: {cmd_to_run}")
+
+        try:
+            # Run the specific refactoring command
+            subprocess.run(cmd_to_run, shell=True, check=True)
+            
+            # If successful, rewrite the markdown file with the completed checkbox
+            # (We reconstruct the exact file mapping here)
+            with open(PLAN_FILE, "w") as f:
+                # Basic rewrite logic for demonstration:
+                lines[task_line_index] = lines[task_line_index].replace("- [ ]", "- [x]", 1)
+                f.writelines(lines)
+                
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+                print("more_tasks=true", file=fh)
+        except subprocess.CalledProcessError as e:
+            print(f"Refactoring command failed: {e}")
+            exit(1)
+        EOF
+
+    - name: Commit Refactored Code and Updated Plan
+      if: steps.process_task.outputs.more_tasks == 'true'
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@://github.com"
+        git add .
+        # Only commit if changes actually occurred
+        git diff-index --quiet HEAD || git commit -m "🤖 Auto-refactor: completed next task in plan"
+        git push origin HEAD:${{ github.ref_name }}
+
+    - name: Trigger Next Refactor Loop Task
+      if: steps.process_task.outputs.more_tasks == 'true'
+      run: |
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://github.com{{ github.repository }}/dispatches \
+          -d '{"event_type": "continue-refactor"}'
