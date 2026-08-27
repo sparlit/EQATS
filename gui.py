@@ -12243,10 +12243,24 @@ SECURITY DOMAINS ENFORCED:
         self.lbl_gp_rsi.config(text=f"RSI-14 Level: {rsi}")
         self.lbl_gp_atr.config(text=f"ATR Volatility: {atr}")
 
-        # Compute dummy pivot estimates
-        pivot_val = bid
+        # Compute exact Floor Pivot Points from historical bars
+        history_piv = self.scalper.conn.get_history(sym, 14)
+        if history_piv and len(history_piv) >= 1:
+            last_bar = history_piv[-1]
+            high_p = last_bar.get("high", bid)
+            low_p = last_bar.get("low", bid)
+            close_p = last_bar.get("close", bid)
+            pivot_val = (high_p + low_p + close_p) / 3.0
+            r1_val = (2.0 * pivot_val) - low_p
+            s1_val = (2.0 * pivot_val) - high_p
+        else:
+            pivot_val = bid
+            r1_val = pivot_val + 0.0010
+            s1_val = pivot_val - 0.0010
+
+        px_fmt = ".5f" if pivot_val < 100 else ".2f"
         self.lbl_gp_pivots.config(
-            text=f"R1: {pivot_val + 0.0015:.5f}\nPivot: {pivot_val:.5f}\nS1: {pivot_val - 0.0015:.5f}",
+            text=f"R1: {r1_val:{px_fmt}}\nPivot: {pivot_val:{px_fmt}}\nS1: {s1_val:{px_fmt}}",
             fg=self.fg_cyan,
         )
 
