@@ -5,17 +5,13 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.60"
-#property description "Elite Quantum Autonomous Scalper EA v8.60 - Multi-TF Pyramiding Cockpit with BreakEven Protection & Spread Safeguards"
+#property version   "8.70"
+#property description "Elite Quantum Autonomous Scalper EA v8.70 - Multi-TF Pyramiding Cockpit with Risk-Free Base Entry Check & Payload Gathering"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
 #include <Trade\SymbolInfo.mqh>
-
-#import "user32.dll"
-   int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
-#import
 
 #import "user32.dll"
    int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
@@ -115,6 +111,8 @@ void ApplyTrailingLogic();
 void ProcessBreakEvenProtection();
 void CheckPyramidScaling();
 bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPoints);
+bool IsInitialPositionRiskFree(ENUM_POSITION_TYPE type);
+string GatherCloseHistory(ENUM_TIMEFRAMES tf);
 void UpdateCandleCountdown();
 void SetupTimeframeCharts();
 void DrawInstitutionalHeader();
@@ -155,7 +153,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.60 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v8.70 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -166,7 +164,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.60 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v8.70 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -388,6 +386,46 @@ void ProcessBreakEvenProtection()
 }
 
 //+------------------------------------------------------------------+
+//| IsInitialPositionRiskFree (Adapted from AatEAv13)                |
+//+------------------------------------------------------------------+
+bool IsInitialPositionRiskFree(ENUM_POSITION_TYPE type)
+{
+   for(int i = 0; i < PositionsTotal(); i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && pos_info.PositionType() == type)
+         {
+            double openPrice = pos_info.PriceOpen();
+            double currentSL = pos_info.StopLoss();
+
+            if(type == POSITION_TYPE_BUY && currentSL < openPrice) return false;
+            if(type == POSITION_TYPE_SELL && (currentSL > openPrice || currentSL == 0.0)) return false;
+         }
+      }
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| GatherCloseHistory (Adapted from AatEAv13)                        |
+//+------------------------------------------------------------------+
+string GatherCloseHistory(ENUM_TIMEFRAMES tf)
+{
+   MqlRates rates[];
+   ArraySetAsSeries(rates, true);
+   int copied = CopyRates(_Symbol, tf, 0, 15, rates);
+   if(copied <= 0) return "0.0";
+   string res = "";
+   for(int i = copied - 1; i >= 0; i--)
+   {
+      res = res + StringFormat("%.5f", rates[i].close) + ((i > 0) ? "," : "");
+   }
+   return res;
+}
+
+//+------------------------------------------------------------------+
 //| IsPyramidStepValid (Adapted from AatEAv15)                        |
 //+------------------------------------------------------------------+
 bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPoints)
@@ -410,7 +448,7 @@ bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPo
 }
 
 //+------------------------------------------------------------------+
-//| CheckPyramidScaling (Adapted from AatEAv15 & AAT-Expert)         |
+//| CheckPyramidScaling (Adapted from AatEAv13 & AatEAv15)           |
 //+------------------------------------------------------------------+
 void CheckPyramidScaling()
 {
@@ -437,6 +475,9 @@ void CheckPyramidScaling()
    }
 
    if(pos_count == 0 || pos_count >= InpMaxPyramidPositions) return;
+
+   // Enforce that base initial position is already risk-free (SL at or above/below entry)
+   if(!IsInitialPositionRiskFree(type)) return;
 
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -726,7 +767,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.60)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.70)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
