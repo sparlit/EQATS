@@ -1061,6 +1061,24 @@ class AutonomousScalper:
                         len(active_positions) < config.MAX_CONCURRENT_TRADES
                     )
 
+        # Gather Kronos Foundation Model Telemetry
+        kronos_telemetry = {}
+        try:
+            import predictive_brain
+            for sym in config.SYMBOLS:
+                k_model = predictive_brain.get_kronos_predictor(sym)
+                df_bars = self.conn.get_history(sym, getattr(config, "TIMEFRAME", "M1"), count=60)
+                if df_bars is not None and not df_bars.empty:
+                    ohlcv = df_bars[["open", "high", "low", "close", "tick_volume"]].to_numpy()
+                    fc = k_model.forecast_probabilistic(ohlcv, forecast_horizon=24)
+                    kronos_telemetry[sym] = {
+                        "upside_prob": fc["upside_probability"],
+                        "vol_amp": fc["volatility_amplification"],
+                        "confidence": fc["model_confidence"],
+                    }
+        except Exception:
+            pass
+
         # Push real-time state telemetry to connected MT5 EA via SocketIPCBridge on Port 9001
         try:
             sessions_timeline = self._get_sessions_timeline()
@@ -1070,6 +1088,7 @@ class AutonomousScalper:
                 active_positions=active_positions,
                 scans=scans_list,
                 session_info=sessions_timeline,
+                kronos_telemetry=kronos_telemetry,
             )
         except Exception as e:
             print(f"Warning: Telemetry push exception: {e}")
