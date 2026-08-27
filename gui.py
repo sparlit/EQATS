@@ -12138,7 +12138,9 @@ SECURITY DOMAINS ENFORCED:
             )
 
     def _update_gp_screen_data(self):
-        """Updates and draws visual price lines and candle properties for the selected symbol on the Canvas"""
+        """
+        Refresh the selected symbol's price chart, quote details, technical indicators, and pivot levels.
+        """
         if not hasattr(self, "chart_canvas") or not self.chart_canvas:
             return
 
