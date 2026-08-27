@@ -1,4 +1,4 @@
-name: Jules Continuous Enhancement, Docs & Automerge Loop
+name: Jules Continuous Innovation & Automerge Loop
 
 on:
   push:
@@ -41,29 +41,21 @@ jobs:
         id: calc-version
         run: |
           echo "🔢 Calculating subsequent system version mapping..."
-          
-          # Fallback baseline version if no pattern matches yet
           CURRENT_VERSION="8.3k"
           
-          # Scrape current active version identifier string from the README metadata
           if [ -f README.md ]; then
-            FOUND_VER=$(grep -oP "(?<=EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
+            FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
             if [ -n "$FOUND_VER" ]; then
               CURRENT_VERSION="8.3$FOUND_VER"
             fi
           fi
           
-          # Extract trailing letter character to compute sequence shift
           CHAR_SUFFIX="${CURRENT_VERSION:3:1}"
-          
-          # Compute next character using byte value shifting arithmetic
           NEXT_CHAR=$(printf \\$(printf '%03o' "$(( $(printf '%d' "'$CHAR_SUFFIX") + 1 ))"))
           NEXT_VERSION="8.3$NEXT_CHAR"
           
           echo "Current parsed baseline: EQATS v$CURRENT_VERSION"
           echo "Target incremental milestone: EQATS v$NEXT_VERSION"
-          
-          # Set variables for use downstream in environment blocks
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
 
       # 4. Setup the open-source environment
@@ -110,15 +102,15 @@ jobs:
           echo "ruff=$CLEAN_RUFF" >> $GITHUB_OUTPUT
           echo "bandit=$CLEAN_BANDIT" >> $GITHUB_OUTPUT
 
-      # 8. Invoke Jules to Fix, Enhance, Document, and Bump System Release Version
-      - name: Invoke Jules Enhancement Agent
+      # 8. Invoke Jules to Expand Features, Innovate, Fix, Enhance, and Document
+      - name: Invoke Jules Innovation Agent
         if: steps.loop-check.outputs.continue_loop == 'true'
         uses: google-labs-code/jules-action@v1
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           branch: ${{ github.ref_name }}
           prompt: |
-            You are operating within an automated continuous optimization loop. Your goal is to fix bugs, optimize execution configurations, and stamp all assets with our new release identifier.
+            You are operating within an automated continuous innovation and optimization loop. Your goal is to systematically expand the system's capabilities by writing new features, optimization math modules, or execution components while maintaining flawless stability.
             
             TARGET BUILD MILESTONE VERSION: ${{ steps.calc-version.outputs.next_version }}
             Current Repository State: ${{ steps.run-tests.outputs.status }}
@@ -129,15 +121,16 @@ jobs:
             - Bandit Security Log Context: ${{ steps.run-scanners.outputs.bandit }}
 
             Execution Directives:
-            1. 🛠️ MANDATORY FIXES: If the state is 'BROKEN', prioritize fixing the root causes behind unit test failures, security flaws, or lint errors.
-            2. 📈 CODE ENHANCEMENT: Refactor the code to optimize performance, remove bottlenecks, simplify deeply nested loops, and maximize operational throughput.
-            3. 🔢 VERSION STAMPING: Update any internal software constant version variables, setup configuration strings, or dictionary logs to match exactly our targeted release build: version ${{ steps.calc-version.outputs.next_version }}.
-            4. 📝 DOCUMENTATION UPDATE: Scan all Markdown blueprint documentation (including README.md, audit documents, master design files, and tasks boards). Replace mentions of the previous version baseline with the new version string: ${{ steps.calc-version.outputs.next_version }}. Explicitly log your newly added microservices or optimizations under a fresh changelog subsection.
+            1. ⚙️ FEATURE EXPANSION & CREATION: Analyze the system master blueprints and check lists (e.g., TODO task maps and design logs). Identify unbuilt sheets, incomplete mathematical planes, or stubbed integrations. Actively engineer, code, and deploy complete, highly functional Python/Rust algorithms and features to satisfy those design specs. Do not leave placeholder text or boilerplate code.
+            2. 🛠️ MANDATORY FIXES: If the repo status is 'BROKEN', prioritize fixing the root causes behind unit test failures, security flaws, or lint errors.
+            3. 📈 PERFORMANCE ENHANCEMENT: Refactor adjacent layers to maximize data-throughput speeds, simplify nested logic loops, and minimize computation bottlenecks.
+            4. 🔢 VERSION STAMPING: Update any internal variables, config scripts, or GUI sheets to match the target release build version: ${{ steps.calc-version.outputs.next_version }}.
+            5. 📝 DOCUMENTATION RECORDING: Scan all repository Markdown files (including README.md, audit papers, master plans, and task lists). Replace instances of old versions with '${{ steps.calc-version.outputs.next_version }}'. Append a rigorous changelog section specifying exactly what new code modules or mathematical functions you have built.
             
             Commit Message Requirement:
             - You MUST prefix your commit message exactly with: "chore(ai-enhance): release version ${{ steps.calc-version.outputs.next_version }}" so our loop counters track the execution.
             
-            Verification: Ensure your enhancements run cleanly against the test runner before pushing back your final commit changes to this branch.
+            Verification: Ensure your new features are accompanied by corresponding unit tests, and that the whole test suite runs cleanly against the test runner before pushing back your final commit changes to this branch.
 
       # 9. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
       - name: Open and Automerge Pull Request
@@ -152,8 +145,8 @@ jobs:
           if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
             echo "txt=No open PR found. Creating a new Pull Request..."
             PR_URL=$(gh pr create \
-              --title "🚀 AI Auto-Optimization & Release [v${{ steps.calc-version.outputs.next_version }}]" \
-              --body "This Pull Request was generated autonomously by your Jules Enhancement Loop. It updates the global trading system engine infrastructure to baseline version release ${{ steps.calc-version.outputs.next_version }}." \
+              --title "🚀 AI Auto-Innovation & Feature Release [v${{ steps.calc-version.outputs.next_version }}]" \
+              --body "This Pull Request was generated autonomously by your Jules Innovation Loop. It adds new quantitative trading features, expands microservice code modules, refactors layout sheets, and advances the system architecture baseline version to release ${{ steps.calc-version.outputs.next_version }}." \
               --base main \
               --head "${{ github.ref_name }}")
             PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
