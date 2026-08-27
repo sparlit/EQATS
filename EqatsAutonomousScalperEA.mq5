@@ -92,8 +92,8 @@ int OnInit()
    ChartSetInteger(0, CHART_COLOR_CANDLE_BULL, C'16,185,129');
    ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR, C'239,68,68');
    ChartSetInteger(0, CHART_COLOR_CHART_LINE, C'56,189,248');
-   ChartSetInteger(0, CHART_COLOR_CHART_BULL, C'16,185,129');
-   ChartSetInteger(0, CHART_COLOR_CHART_BEAR, C'239,68,68');
+   ChartSetInteger(0, CHART_COLOR_CHART_UP, C'16,185,129');
+   ChartSetInteger(0, CHART_COLOR_CHART_DOWN, C'239,68,68');
    ChartSetInteger(0, CHART_SHOW_GRID, false);
    ChartSetInteger(0, CHART_SHIFT, true);
    ChartSetDouble(0, CHART_SHIFT_SIZE, 30.0);
