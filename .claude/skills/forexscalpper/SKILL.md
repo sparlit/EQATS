@@ -45,7 +45,7 @@ Follow these commit message conventions based on 1 analyzed commits.
 *Commit message example*
 
 ```text
-feat: ultimate release of Elite Autonomous Quantum Trading System
+feat: ultimate release of Elite Quantum Autonomous Trading System
 ```
 
 ## Architecture

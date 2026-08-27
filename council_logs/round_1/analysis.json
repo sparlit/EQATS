@@ -1,7 +1,7 @@
 {
   "round": 1,
   "role": "ANALYST",
-  "system_version": "EAQTS v5.0",
+  "system_version": "EQATS v5.0",
   "timestamp": "2024-05-20T00:00:00Z",
   "audit_summary": {
     "status": "COMPLETE",
@@ -97,7 +97,7 @@
   "gap_analysis": {
     "protocol_support": "Closed via UniversalBrokerGateway supporting MT5 Native, FIX 4.4 Protocol, REST/WS, IBKR, cTrader, CCXT, and Simulator.",
     "concurrency": "Closed via brain_agents_orchestrator.py ProcessPoolExecutor for multi-agent strategy evaluation and predictive_brain.py ThreadPoolExecutor.",
-    "risk_invariants": "Closed via 12 System Execution Planes and 15 System Safety Invariants in eaqts_planes.py.",
+    "risk_invariants": "Closed via 12 System Execution Planes and 15 System Safety Invariants in eqats_planes.py.",
     "headless_vps": "Closed via --headless CLI flag in main.py and config.py for 24x7 VPS daemon execution."
   },
   "risks_and_mitigations": {

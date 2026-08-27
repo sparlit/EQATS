@@ -3,14 +3,14 @@ import unittest
 import config
 import connector
 import database
-import eaqts_planes
+import eqats_planes
 import main
 
 
 
-class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
+class TestEQATS24ChaosStressCompliance(unittest.TestCase):
     """
-    Exhaustive programmatic test suite verifying EAQTS Version 3.0 Chaos Engineering,
+    Exhaustive programmatic test suite verifying EQATS Version 3.0 Chaos Engineering,
     Stress Scenarios, Disagreement Protocols, Reconciliation, and Throttling compliance.
     """
 
@@ -23,7 +23,7 @@ class TestEAQTS24ChaosStressCompliance(unittest.TestCase):
         database.init_db()
 
         self.conn = connector.SimulatorConnector(initial_balance=10000.0)
-        self.engine = eaqts_planes.init_core_engine(self.conn)
+        self.engine = eqats_planes.init_core_engine(self.conn)
 
     def tearDown(self):
         pass

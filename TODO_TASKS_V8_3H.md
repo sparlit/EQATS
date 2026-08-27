@@ -13,7 +13,7 @@
 - [x] Task 2.4: Enable Rust PyO3 native thread releases (`pyo3::Python::allow_threads`).
 
 ## PHASE 3: TOKIO RUST CORE & ENTERPRISE MIDDLEWARE ADAPTERS
-- [x] Task 3.1: Validate compiled Rust C-extensions (`eaqts_rust_core`).
+- [x] Task 3.1: Validate compiled Rust C-extensions (`eqats_rust_core`).
 - [x] Task 3.2: Verify append-only Rust Blockchain Database Engine (`blockchain_db`).
 - [x] Task 3.3: Verify gRPC/Protobuf schemas (`proto/`).
 - [x] Task 3.4: Verify PostgreSQL, ClickHouse, Valkey, and Pulsar enterprise adapters with embedded fallbacks.
@@ -32,5 +32,5 @@
 ## PHASE 6: EXHAUSTIVE TESTING & TERMINAL DASHBOARD
 - [x] Task 6.1: Execute `test_exhaustive_v8_3e_full_coverage.py` across 100% of modules.
 - [x] Task 6.2: Verify 33 GUI dashboard sheets and `VTL <GO>` vitals screen.
-- [x] Task 6.3: Verify MT5 EA glassmorphism HUD visualizer (`EaqtsAutonomousScalperEA.mq5`).
+- [x] Task 6.3: Verify MT5 EA glassmorphism HUD visualizer (`EqatsAutonomousScalperEA.mq5`).
 - [x] Task 6.4: Execute full 56-module test suite with 100% pass rate.

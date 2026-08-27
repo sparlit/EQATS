@@ -72,7 +72,7 @@ EQATS v8.0 divides operational responsibility into a **Modular Monolith Executio
   - Risk Allocation & Portfolio QAOA (`institutional_integrations/portfolio_optimizer.py`)
 - **Post-Trade Scope**:
   - Case-Based Learning & Reflection (`institutional_integrations/trade_memory_protocol.py`)
-  - Blockchain Ledger Persistence (`eaqts_rust_core/src/blockchain_db.rs`)
+  - Blockchain Ledger Persistence (`eqats_rust_core/src/blockchain_db.rs`)
   - ClickHouse Analytics Storage (`institutional_integrations/databases.py`)
   - Continuous Model Retraining
 
@@ -81,7 +81,7 @@ EQATS v8.0 divides operational responsibility into a **Modular Monolith Executio
 ## 3. INFRASTRUCTURE & DATA FABRIC
 
 ### 3.1 Tokio (Rust) Core Service Engine
-- **Framework**: Tokio asynchronous runtime (`eaqts_rust_core`) providing multi-threaded async event loops.
+- **Framework**: Tokio asynchronous runtime (`eqats_rust_core`) providing multi-threaded async event loops.
 - **Tonic gRPC**: High-speed gRPC server/client interfaces using Protobuf schemas in `proto/`.
 
 ### 3.2 4-Tier Database Fabric
@@ -142,7 +142,7 @@ EQATS v8.0 integrates a unified, parallelized Machine Learning Engine (`institut
 ## 6. GIL AVOIDANCE & RUST ACCELERATION
 
 - **Multiprocessing Process Pools**: Enforce `ProcessPoolExecutor` with `spawn` context across Python modules to achieve 100% parallel multi-core CPU utilization without GIL locks.
-- **Rust CFFI / PyO3 Extensions (`eaqts_rust_core`)**:
+- **Rust CFFI / PyO3 Extensions (`eqats_rust_core`)**:
   - Accelerated SMC Fair Value Gap & Order Block detection (`smc.rs`)
   - FIX 4.4 / 5.0 message parsing (`fix_parser.rs`)
   - Options GEX Profile calculation (`options.rs`)

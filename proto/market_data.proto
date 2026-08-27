@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package eaqts.marketdata;
+package eqats.marketdata;
 
 message TickData {
   string symbol = 1;

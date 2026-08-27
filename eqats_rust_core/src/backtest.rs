@@ -8,7 +8,12 @@ pub extern "C" fn rust_run_backtest_simulation(
     out_total_profit: *mut c_double,
     out_win_rate: *mut c_double,
 ) -> c_int {
-    if prices.is_null() || len <= 2 || initial_balance <= 0.0 || out_total_profit.is_null() || out_win_rate.is_null() {
+    if prices.is_null()
+        || len <= 2
+        || initial_balance <= 0.0
+        || out_total_profit.is_null()
+        || out_win_rate.is_null()
+    {
         return -1;
     }
 
@@ -28,7 +33,11 @@ pub extern "C" fn rust_run_backtest_simulation(
         }
     }
 
-    let win_rate = if trades > 0 { (wins as f64 / trades as f64) * 100.0 } else { 0.0 };
+    let win_rate = if trades > 0 {
+        (wins as f64 / trades as f64) * 100.0
+    } else {
+        0.0
+    };
     let total_profit = balance - initial_balance;
 
     unsafe {

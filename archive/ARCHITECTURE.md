@@ -1,7 +1,7 @@
-# 📐 EAQTS v5.0 SYSTEM ARCHITECTURE GUIDE
+# 📐 EQATS v5.0 SYSTEM ARCHITECTURE GUIDE
 
 ## Overview
-The Elite Autonomous Quantum Trading System (EAQTS v5.0) is built as a highly modular, event-driven, multi-threaded, and multi-processed quantitative trading infrastructure.
+The Elite Quantum Autonomous Trading System (EQATS v5.0) is built as a highly modular, event-driven, multi-threaded, and multi-processed quantitative trading infrastructure.
 
 ## System Layers
 
@@ -18,7 +18,7 @@ The Elite Autonomous Quantum Trading System (EAQTS v5.0) is built as a highly mo
 - `brain_agents_orchestrator.py`: Concurrently executes strategy agents (Scalper, SMC, Trend, Mean Reversion) across isolated CPU process workers (`ProcessPoolExecutor`).
 - `predictive_brain.py`: Batch multi-symbol inference via `ThreadPoolExecutor` with EWMA and Holt-Winters statistical forecasting fallback.
 
-### 4. Constitution & Risk Layer (`eaqts_planes.py`, `release_gates.py`)
+### 4. Constitution & Risk Layer (`eqats_planes.py`, `release_gates.py`)
 - Validates 12 System Execution Planes and 15 Safety Invariants (`INV-001` to `INV-015`).
 - Enforces Spread Volatility Spike Breaker, Symbol Loss Protection Gate, and Correlation Guard.
 

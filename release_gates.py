@@ -3,20 +3,20 @@ import os
 import config
 import connector
 import database
-import eaqts_planes
+import eqats_planes
 
 
 
 class ReleaseGateRunner:
     """
     Executes and signs off on the 29 mandatory Production Release Gates (G01 to G29)
-    required by EAQTS Version 3.0. Zero stubs, fully programmatic validation.
+    required by EQATS Version 3.0. Zero stubs, fully programmatic validation.
     """
 
     def __init__(self, conn=None):
         database.init_db()  # Ensure database tables are fully initialized first
         self.conn = conn or connector.SimulatorConnector(initial_balance=10000.0)
-        self.engine = eaqts_planes.core_engine or eaqts_planes.init_core_engine(
+        self.engine = eqats_planes.core_engine or eqats_planes.init_core_engine(
             self.conn
         )
         self.results = {}
@@ -329,7 +329,7 @@ class ReleaseGateRunner:
             "connector.py",
             "database.py",
             "gui.py",
-            "eaqts_planes.py",
+            "eqats_planes.py",
             "indicators.py",
         ]
         unresolved = []

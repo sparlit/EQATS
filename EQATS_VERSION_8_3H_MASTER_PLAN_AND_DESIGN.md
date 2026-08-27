@@ -89,7 +89,7 @@ An Expert Council comprising Quantitative System Architects, Microstructure Trad
 - **Phase 2: GIL Bypass & Multi-Agent Swarm Orchestration**
   - Enforce `ProcessPoolExecutor` and `multiprocessing` process pools across all 13 strategy agents, 4 method agents, and ML models.
 - **Phase 3: Tokio Rust Acceleration & Middleware Stack**
-  - Verify native PyO3 C-extensions in `eaqts_rust_core`, SHA-256 Merkle tree verification, and append-only blockchain database ledger.
+  - Verify native PyO3 C-extensions in `eqats_rust_core`, SHA-256 Merkle tree verification, and append-only blockchain database ledger.
 - **Phase 4: Vectorized Backtesting & Event-Driven Engine**
   - Verify vectorized array calculations in `backtest_engine.py` and dual dispatching (if-elif-else loop and registry pattern) in `event_bus.py`.
 - **Phase 5: Self-Learning Reflection Protocol & Microstructure Vetoes**

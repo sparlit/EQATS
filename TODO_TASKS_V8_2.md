@@ -20,7 +20,7 @@
   - [ ] Task 2.1.2: Define gRPC / Protocol Buffers payload schemas in `proto/` for market data, signals, and telemetry.
   - [ ] Task 2.1.3: Build high-throughput gRPC streaming client-server bridge between Python monolith and Rust microservices.
 - [ ] **Stage 2.2: Rust Core Performance & Blockchain DB**
-  - [ ] Task 2.2.1: Verify PyO3 C-extension compilation and native bindings in `eaqts_rust_core`.
+  - [ ] Task 2.2.1: Verify PyO3 C-extension compilation and native bindings in `eqats_rust_core`.
   - [ ] Task 2.2.2: Enhance Rust Blockchain Database Engine (`src/blockchain_db.rs`) with SHA-256 Merkle tree verification.
 
 ---
@@ -40,7 +40,7 @@
   - [ ] Task 4.1.1: Ensure all 33 dashboard sheets feature custom theme palettes (`TAB_THEMES`) and dynamic headers.
   - [ ] Task 4.1.2: Optimize GUI rendering loop to consume live IPC telemetry and multi-process data feeds smoothly.
 - [ ] **Stage 4.2: MT5 EA HUD & Telemetry Bridge**
-  - [ ] Task 4.2.1: Enhance `EaqtsAutonomousScalperEA.mq5` with glassmorphism HUD, signal gauge cards, and interactive buttons.
+  - [ ] Task 4.2.1: Enhance `EqatsAutonomousScalperEA.mq5` with glassmorphism HUD, signal gauge cards, and interactive buttons.
   - [ ] Task 4.2.2: Validate socket IPC bridge (`SocketIPCBridge`) port 9001 streaming performance under live scanning.
 
 ---

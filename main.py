@@ -13,7 +13,7 @@ import brain
 import config
 import connector
 import database
-import eaqts_planes
+import eqats_planes
 import indicators
 import predictive_brain
 import telegram_bot
@@ -25,7 +25,7 @@ class AutonomousScalper:
     """
     The main coordinator class for the Autonomous Forex Scalper.
     It orchestrates initialization, main loops, technical scans, execution,
-    trade monitoring, and risk/drawdown safeguards under the EAQTS 3.0 unified control flow.
+    trade monitoring, and risk/drawdown safeguards under the EQATS 3.0 unified control flow.
     """
 
     def __init__(self):
@@ -40,8 +40,8 @@ class AutonomousScalper:
             print("--- RUNNING IN LIVE MT5 WINDOWS MODE ---")
             self.conn = connector.MT5Connector(demo_only=config.DEMO_ACCOUNT_ONLY)
 
-        # 3. Instantiate the EAQTS 3.0 Unified 9 Planes Engine
-        self.engine = eaqts_planes.init_core_engine(self.conn)
+        # 3. Instantiate the EQATS 3.0 Unified 9 Planes Engine
+        self.engine = eqats_planes.init_core_engine(self.conn)
 
         self.brain = brain.ScalperBrain()
         self.running = False
@@ -587,7 +587,7 @@ class AutonomousScalper:
     def tick_and_execute(self):
         """
         Runs one iteration of checking market state, assessing trades,
-        updating open positions, and enforcing limits under EAQTS 3.0 logic.
+        updating open positions, and enforcing limits under EQATS 3.0 logic.
         """
         # Run Multi-Agent Brain Intelligence Collaborative Loop
         try:
@@ -900,7 +900,7 @@ class AutonomousScalper:
                 )
 
                 # ==================================================================
-                # EAQTS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
+                # EQATS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
                 # A. Evaluate Safety Invariants (INV-001 to INV-015)
                 violations = self.engine.safety.evaluate_invariants(
@@ -1061,6 +1061,24 @@ class AutonomousScalper:
                         len(active_positions) < config.MAX_CONCURRENT_TRADES
                     )
 
+        # Gather Kronos Foundation Model Telemetry
+        kronos_telemetry = {}
+        try:
+            import predictive_brain
+            for sym in config.SYMBOLS:
+                k_model = predictive_brain.get_kronos_predictor(sym)
+                df_bars = self.conn.get_history(sym, getattr(config, "TIMEFRAME", "M1"), count=60)
+                if df_bars is not None and not df_bars.empty:
+                    ohlcv = df_bars[["open", "high", "low", "close", "tick_volume"]].to_numpy()
+                    fc = k_model.forecast_probabilistic(ohlcv, forecast_horizon=24)
+                    kronos_telemetry[sym] = {
+                        "upside_prob": fc["upside_probability"],
+                        "vol_amp": fc["volatility_amplification"],
+                        "confidence": fc["model_confidence"],
+                    }
+        except Exception:
+            pass
+
         # Push real-time state telemetry to connected MT5 EA via SocketIPCBridge on Port 9001
         try:
             sessions_timeline = self._get_sessions_timeline()
@@ -1070,6 +1088,7 @@ class AutonomousScalper:
                 active_positions=active_positions,
                 scans=scans_list,
                 session_info=sessions_timeline,
+                kronos_telemetry=kronos_telemetry,
             )
         except Exception as e:
             print(f"Warning: Telemetry push exception: {e}")

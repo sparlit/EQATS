@@ -1,0 +1,52 @@
+name: Merge develop branch with auto-resolved conflicts
+on:
+  workflow_dispatch:
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: develop/v2.0 # Target branch
+
+      - name: Create feature branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c feature/develop/v2.0-update
+
+      - name: Merge develop branch
+        run: |
+          git fetch origin develop/v1.0
+          git merge origin/develop/v1.0 --no-commit --no-ff || true
+
+      - name: Resolve conflicts
+        id: resolve
+        uses: VeyronSakai/conflict-resolver@v0.1
+
+      - name: Handle resolution results
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UNRESOLVED_FILES: ${{ steps.resolve.outputs.unresolved-files }}
+          RESOLVED_FILES: ${{ steps.resolve.outputs.resolved-files }}
+        run: |
+          if [ -z "$UNRESOLVED_FILES" ]; then
+            # No unresolved conflicts - commit and create PR
+            git add .
+            git commit -m "Auto-resolve merge conflicts from develop/v1.0"
+            git push -u origin feature/develop/v2.0-update
+
+            gh pr create \
+              --title "Merge develop/v1.0 with auto-resolved conflicts" \
+              --base develop/v2.0 \
+              --head feature/develop/v2.0-update
+          else
+            # Unresolved conflicts remain - fail the workflow
+            echo "❌ Error: Unable to automatically resolve all conflicts"
+            echo "Unresolved files:"
+            echo "$UNRESOLVED_FILES"
+            exit 1
+          fi

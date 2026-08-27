@@ -1,9 +1,7 @@
 //! Ultra-Low Latency Mission-Critical Custom Blockchain Database Engine
 //! Multi-threaded Benchmark Loop Runner
 
-use eaqts_rust_core::blockchain_db::{
-    format_symbol, format_uuid, BlockchainEngine, Transaction,
-};
+use eqats_rust_core::blockchain_db::{format_symbol, format_uuid, BlockchainEngine, Transaction};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -12,7 +10,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn main() {
     println!("================================================================================");
-    println!("  ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)");
+    println!("  ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3i)");
     println!("  ULTRA-LOW LATENCY CUSTOM BLOCKCHAIN DATABASE ENGINE BENCHMARK");
     println!("================================================================================");
 
@@ -28,7 +26,7 @@ fn main() {
     let mut buyer_ids = Vec::with_capacity(num_users);
     let mut seller_ids = Vec::with_capacity(num_users);
 
-    let initial_state_snapshot = eaqts_rust_core::blockchain_db::StateLedger::new();
+    let initial_state_snapshot = eqats_rust_core::blockchain_db::StateLedger::new();
 
     for i in 0..num_users {
         let mut buyer = [0u8; 16];
@@ -50,7 +48,10 @@ fn main() {
         initial_state_snapshot.deposit_asset(&seller, &asset, 100_000);
     }
 
-    println!("[INIT] Seeded {} buyers and {} sellers with cash & asset balances.", num_users, num_users);
+    println!(
+        "[INIT] Seeded {} buyers and {} sellers with cash & asset balances.",
+        num_users, num_users
+    );
     println!("[INIT] Starting multi-threaded trade execution loop: 50,000 trades across 4 worker threads...");
 
     let total_trades = 50_000;
@@ -121,7 +122,10 @@ fn main() {
     println!("================================================================================");
     println!("  - Total Trades Settled : 50,000");
     println!("  - Execution Wall Time  : {:.3?}", total_elapsed);
-    println!("  - Overall Throughput   : {:.0} trades/sec", 50_000.0 / total_elapsed.as_secs_f64());
+    println!(
+        "  - Overall Throughput   : {:.0} trades/sec",
+        50_000.0 / total_elapsed.as_secs_f64()
+    );
     println!("  - Blocks Mined on Disk : {}", mined_blocks_count);
     println!(
         "  - Mining Rate          : {:.2} blocks/sec",
@@ -133,27 +137,38 @@ fn main() {
     println!("  - Sample Merkle Root   : {}", sample_block.merkle_root);
     println!("  - Sample Block Hash    : {}", sample_block.current_hash);
 
-    println!("\n[VERIFICATION] Executing Full Historical State Recovery & Chain Integrity Audit...");
+    println!(
+        "\n[VERIFICATION] Executing Full Historical State Recovery & Chain Integrity Audit..."
+    );
     let recovery_start = Instant::now();
     let recovered_ledger = engine
         .verify_and_recover_state(Some(&initial_state_snapshot))
         .expect("Historical state recovery and chain audit failed!");
 
     let recovery_elapsed = recovery_start.elapsed();
-    println!("[VERIFICATION] Chain audit & balance state recovery completed in {:.3?}", recovery_elapsed);
+    println!(
+        "[VERIFICATION] Chain audit & balance state recovery completed in {:.3?}",
+        recovery_elapsed
+    );
 
     // Verify sample buyer balance consistency
     let sample_buyer = buyer_ids[0];
     let live_cash = engine.state_ledger.get_cash(&sample_buyer);
     let recovered_cash = recovered_ledger.get_cash(&sample_buyer);
-    assert_eq!(live_cash, recovered_cash, "Live cash and recovered cash state mismatch!");
+    assert_eq!(
+        live_cash, recovered_cash,
+        "Live cash and recovered cash state mismatch!"
+    );
 
     let mut asset = [0u8; 8];
     asset[0..6].copy_from_slice(b"EURUSD");
     let sample_seller = seller_ids[0];
     let live_asset = engine.state_ledger.get_asset(&sample_seller, &asset);
     let recovered_asset = recovered_ledger.get_asset(&sample_seller, &asset);
-    assert_eq!(live_asset, recovered_asset, "Live asset and recovered asset state mismatch!");
+    assert_eq!(
+        live_asset, recovered_asset,
+        "Live asset and recovered asset state mismatch!"
+    );
 
     println!("================================================================================");
     println!("  [SUCCESS] ALL BLOCKCHAIN DATABASE ENGINE INVARIANTS VERIFIED 100% PERFECTLY");

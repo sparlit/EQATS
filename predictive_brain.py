@@ -193,6 +193,7 @@ from typing import Dict, Any
 
 # Centralized predictive brain dictionary to keep track of predictors for each symbol
 _predictor_registry: Dict[str, Any] = {}
+_kronos_registry: Dict[str, Any] = {}
 
 
 def get_symbol_predictor(symbol):
@@ -201,6 +202,15 @@ def get_symbol_predictor(symbol):
     if sym_upper not in _predictor_registry:
         _predictor_registry[sym_upper] = NeuralNetworkPredictor()
     return _predictor_registry[sym_upper]
+
+
+def get_kronos_predictor(symbol: str):
+    """Factory to fetch or create the dedicated Kronos foundation model predictor for a symbol."""
+    from institutional_integrations.kronos_model import KronosFoundationModel
+    sym_upper = symbol.upper()
+    if sym_upper not in _kronos_registry:
+        _kronos_registry[sym_upper] = KronosFoundationModel()
+    return _kronos_registry[sym_upper]
 
 
 def batch_predict_symbols_parallel(symbol_inputs_map):

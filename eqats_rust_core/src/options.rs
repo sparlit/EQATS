@@ -9,7 +9,13 @@ pub extern "C" fn rust_calculate_gex_profile(
     len: c_int,
     out_net_gex: *mut c_double,
 ) -> c_int {
-    if strikes.is_null() || gammas.is_null() || open_interest.is_null() || out_net_gex.is_null() || len <= 0 || spot <= 0.0 {
+    if strikes.is_null()
+        || gammas.is_null()
+        || open_interest.is_null()
+        || out_net_gex.is_null()
+        || len <= 0
+        || spot <= 0.0
+    {
         return -1;
     }
 

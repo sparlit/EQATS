@@ -1,5 +1,5 @@
 # EXHAUSTIVE ZERO-MOCK AUDIT REPORT & REMEDIATION PLAN
-**System Name:** ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 6.0)
+**System Name:** ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 6.0)
 **Audit Date:** Current Operational Cycle
 **Status:** COMPLETE AUDIT - ZERO-MOCK ENFORCEMENT
 
@@ -7,7 +7,7 @@
 
 ## 1. Executive Summary
 
-This document presents a comprehensive, zero-exception audit of all mock, synthetic, random, stub, dummy, and static data embedded across the codebase. To transform EAQTS Version 6.0 into a world-class institutional trading platform, every artificial feed, simulated random walk, fake candle generator, and placeholder response has been cataloged alongside its strict production remediation strategy.
+This document presents a comprehensive, zero-exception audit of all mock, synthetic, random, stub, dummy, and static data embedded across the codebase. To transform EQATS Version 6.0 into a world-class institutional trading platform, every artificial feed, simulated random walk, fake candle generator, and placeholder response has been cataloged alongside its strict production remediation strategy.
 
 ---
 

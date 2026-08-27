@@ -108,7 +108,7 @@ class SocketIPCBridge:
 
         return "\n".join(lines) + "\n"
 
-    def push_state(self, equity, balance, active_positions, scans, session_info, raw_text=None):
+    def push_state(self, equity, balance, active_positions, scans, session_info, raw_text=None, kronos_telemetry=None):
         """Pushes current state payload in real-time to connected IPC listeners."""
         if raw_text is not None:
             self.latest_state = raw_text
@@ -122,6 +122,7 @@ class SocketIPCBridge:
                 "active_positions": active_positions,
                 "session": session_info,
                 "scans": scans,
+                "kronos": kronos_telemetry or {},
                 "pipe_text": pipe_text,
             }
         payload_size = len(self.latest_state) if isinstance(self.latest_state, str) else len(json.dumps(self.latest_state))
