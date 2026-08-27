@@ -18,4 +18,4 @@ main.dist/
 
 # Rust Target Build Artifacts
 target/
-eaqts_rust_core/target/
+eqats_rust_core/target/

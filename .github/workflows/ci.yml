@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Pyflakes Linter Check
         run: |
-          pyflakes indicators.py main.py brain.py connector.py database.py gui.py predictive_brain.py eaqts_planes.py institutional_integrations/comprehensive_suite.py institutional_integrations/web_api.py institutional_integrations/databases.py
+          pyflakes indicators.py main.py brain.py connector.py database.py gui.py predictive_brain.py eqats_planes.py institutional_integrations/comprehensive_suite.py institutional_integrations/web_api.py institutional_integrations/databases.py
 
       - name: Run Mypy Type Analysis
         run: |

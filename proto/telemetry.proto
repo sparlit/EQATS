@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package eaqts.telemetry;
+package eqats.telemetry;
 
 message SystemVitalsPayload {
   double timestamp = 1;

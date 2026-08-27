@@ -1,7 +1,7 @@
-# EAQTS v5.0 Supported Protocols Reference
+# EQATS v5.0 Supported Protocols Reference
 
 ## Supported Connectivity Protocols
-EAQTS v5.0 provides native protocol abstraction across 7 broker integration drivers:
+EQATS v5.0 provides native protocol abstraction across 7 broker integration drivers:
 
 1. **MetaTrader 5 (MT5)**: IPC bindings via native `MetaTrader5` Python library.
 2. **FIX 4.4 / 5.0**: Institutional FIX Engine with logon, heartbeats, and NewOrderSingle tags.

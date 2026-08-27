@@ -7,7 +7,7 @@ import uuid
 
 class Event:
     """
-    A canonical, structured Event representation as defined in EAQTS Version 3.0.
+    A canonical, structured Event representation as defined in EQATS Version 3.0.
     """
 
     def __init__(

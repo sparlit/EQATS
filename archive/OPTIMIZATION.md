@@ -1,12 +1,12 @@
-# EAQTS v5.0 Optimization Guide
+# EQATS v5.0 Optimization Guide
 
 ## Overview
-This document details system optimization strategies implemented in EAQTS v5.0 to ensure zero-latency execution, low memory overhead, and 24x7 VPS process stability.
+This document details system optimization strategies implemented in EQATS v5.0 to ensure zero-latency execution, low memory overhead, and 24x7 VPS process stability.
 
 ## Key Optimizations
 
 ### 1. Process Spawn Context
-In Python 3.12, multi-threaded process forks are deprecated and prone to deadlock. EAQTS utilizes `multiprocessing.get_context('spawn')` when initializing process pools, ensuring isolated interpreter execution without inherited thread state.
+In Python 3.12, multi-threaded process forks are deprecated and prone to deadlock. EQATS utilizes `multiprocessing.get_context('spawn')` when initializing process pools, ensuring isolated interpreter execution without inherited thread state.
 
 ### 2. SQLite WAL Auto-Checkpointing
 High-frequency tick logging can inflate SQLite Write-Ahead Log (`.db-wal`) files. `DatabaseInfrastructure` automatically triggers `PRAGMA wal_checkpoint(PASSIVE)` during idle cycles or after batch transactions, flushing commits to the primary `.db` database without blocking read/write operations.

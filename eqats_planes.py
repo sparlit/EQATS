@@ -751,11 +751,11 @@ class OperationsResiliencePlane:
 
 
 # ==============================================================================
-# SYSTEM CONSTITUTION HIERARCHY (EAQTS VERSION 3.0)
+# SYSTEM CONSTITUTION HIERARCHY (EQATS VERSION 3.0)
 # ==============================================================================
 class SystemConstitution:
     """
-    Enforces the immutable EAQTS Version 3.0 System Constitution Hierarchy (LEVEL 0 to LEVEL 6).
+    Enforces the immutable EQATS Version 3.0 System Constitution Hierarchy (LEVEL 0 to LEVEL 6).
     Lower levels (AI recommendations, research proposals) can NEVER override higher levels
     (broker constraints, safety kernel, hard risk limits).
     """
@@ -854,9 +854,9 @@ class SystemConstitution:
 
 
 # ==============================================================================
-# UNIFIED CENTRAL ASSEMBLY (EAQTS Core Engine)
+# UNIFIED CENTRAL ASSEMBLY (EQATS Core Engine)
 # ==============================================================================
-class EAQTSCoreEngine:
+class EQATSCoreEngine:
     """
     Authoritative coordinator bridging all 9 specialized Planes
     and enforcing the Version 3.0 System Constitution Hierarchy.
@@ -881,5 +881,5 @@ core_engine = None
 
 def init_core_engine(connector_obj):
     global core_engine
-    core_engine = EAQTSCoreEngine(connector_obj)
+    core_engine = EQATSCoreEngine(connector_obj)
     return core_engine

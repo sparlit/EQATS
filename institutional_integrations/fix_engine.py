@@ -14,7 +14,7 @@ import time
 class FIXEngine:
     """Thread-safe low-latency FIX protocol session manager."""
 
-    def __init__(self, sender_comp_id="EAQTS_QUANT", target_comp_id="PRIME_POP_ECN"):
+    def __init__(self, sender_comp_id="EQATS_QUANT", target_comp_id="PRIME_POP_ECN"):
         self.sender_comp_id = sender_comp_id
         self.target_comp_id = target_comp_id
         self.seq_num = 1

@@ -7,19 +7,19 @@
 # 0. DOCUMENT CONTROL
 
 **System Name:** Elite Quantum Autonomous Trading System (EQATS Version 8.3)
-**Abbreviation:** EQATS / EAQTS
+**Abbreviation:** EQATS / EQATS
 **Specification:** Version 8.3 / Version 8.2 Consolidated Baseline
 **Status:** Production Hybrid Baseline (`EQATS_VERSION_8_2_MASTER_PLAN_AND_DESIGN.md` & `EQATS_VERSION_8_3_AUDIT_REPORT.md`)
 **Purpose:** Autonomous multi-asset algorithmic trading operating system
 
-Version 3.0 is the consolidated master specification derived from EAQTS Versions 1.0, 2.0 and 2.1.
+Version 3.0 is the consolidated master specification derived from EQATS Versions 1.0, 2.0 and 2.1.
 Version 3.0 supersedes Versions 1.0, 2.0 and 2.1 as the single authoritative design and implementation plan.
 
 ---
 
 # 0.1 CONSOLIDATION AND AUTHORITY RULES
 
-This document is the single consolidated EAQTS Version 3.0 engineering specification.
+This document is the single consolidated EQATS Version 3.0 engineering specification.
 The source hierarchy used to produce this document is:
 1. Version 2.1 — authoritative architectural and governance baseline.
 2. Version 2.0 — retained where it contains capabilities or detail not fully represented in Version 2.1.
@@ -33,7 +33,7 @@ Where earlier requirements conflicted with safety, deterministic controls, lawfu
 
 # 0.2 VERSION 3.0 DESIGN OBJECTIVE
 
-EAQTS Version 3.0 is a single integrated autonomous trading operating system rather than a collection of independent features.
+EQATS Version 3.0 is a single integrated autonomous trading operating system rather than a collection of independent features.
 
 The architecture unifies:
 - autonomous research;
@@ -70,7 +70,7 @@ The system explicitly supports the decision to trade and the decision not to tra
 
 Build a professional, autonomous, multi-asset trading operating system operating in a 100% hands-free configuration.
 
-After startup, EAQTS autonomously performs:
+After startup, EQATS autonomously performs:
 ```text
 AUTHENTICATE
 → INITIALIZE
@@ -125,7 +125,7 @@ Lower levels can never override higher levels. An AI model, strategy optimizer, 
 
 # 3. MASTER ARCHITECTURE & OPERATIONAL PLANES
 
-EAQTS Version 3.0 unifies 9 specialized architectural planes:
+EQATS Version 3.0 unifies 9 specialized architectural planes:
 
 1. **Control and Governance Plane:** Handles transactional configuration updates, validation signatures, and state rollbacks.
 2. **Data Plane:** Coordinates normalized multi-venue quote ingestion, point-in-time (PIT) time-series queries, crossed market detection, and data sanity filters.
@@ -269,4 +269,4 @@ The EQATS Quantum Terminal features 33 interactive sheets accessible via the glo
 ```
 
 ---
-*Elite Quantum Autonomous Trading System (EAQTS) — Version 6.0 Master Specification Handbook*
+*Elite Quantum Autonomous Trading System (EQATS) — Version 6.0 Master Specification Handbook*
