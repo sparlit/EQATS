@@ -41,7 +41,7 @@ jobs:
         id: calc-version
         run: |
           echo "🔢 Calculating subsequent system version mapping..."
-          CURRENT_VERSION="8.3k"
+          CURRENT_VERSION="8.4"
           
           if [ -f README.md ]; then
             FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
