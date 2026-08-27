@@ -1,0 +1,38 @@
+# Git Conflict Resolver Configuration Example
+# This file defines rules for automatically resolving Git conflicts
+
+rules:
+  # Always use theirs for package-lock.json
+  # This is useful when you want to accept incoming changes for dependency lock files
+  - paths: 'package-lock.json'
+    strategy: 'theirs'
+
+  # Always use theirs for yarn.lock
+  - paths: 'yarn.lock'
+    strategy: 'theirs'
+
+  # Always use ours for auto-generated files
+  - paths: '*.generated.ts'
+    strategy: 'ours'
+
+  - paths: '*.generated.js'
+    strategy: 'ours'
+
+  # For build output directories, always use ours
+  - paths: 'dist/**/*'
+    strategy: 'ours'
+
+  - paths: 'build/**/*'
+    strategy: 'ours'
+
+  # Example with conflict_type specification
+  # Only apply this rule when both sides modified the file
+  - paths: 'src/**/*.test.ts'
+    conflict_type: 'both-modified'
+    strategy: 'theirs'
+
+  # Another example with conflict_type
+  # When a file is added by both sides, prefer theirs
+  - paths: 'docs/**/*.md'
+    conflict_type: 'both-added'
+    strategy: 'theirs'
