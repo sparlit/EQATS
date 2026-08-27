@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.40"
-#property description "Elite Quantum Autonomous Scalper EA v8.40 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer"
+#property version   "8.41"
+#property description "Elite Quantum Autonomous Scalper EA v8.41 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer with Risk & Grid Safeguards"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -21,6 +21,15 @@ input int      InpTimerInterval            = 1;                     // Update In
 input bool     InpEmergencyCloseOnLockdown = true;                  // Close positions on Emergency Lockdown signal
 input color    InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
 input color    InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
+
+// Local Risk & Margin Safeguards (Adapted from BotCilento EA)
+input group "Local EA Risk & Margin Safeguards"
+input bool     InpEnableEmergencyClose      = true;                  // Enable emergency close at max drawdown
+input double   InpMaxDrawdownPercent        = 15.0;                  // Max drawdown % before panic close
+input double   InpDailyLossLimitPercent     = 5.0;                   // Max daily loss limit %
+input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
+input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
+input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
 
 // Extended Symbol Scan Metrics
 string m_symbols[50];
@@ -57,6 +66,11 @@ string m_next_session = "New York";
 string m_countdown = "00:00:00";
 string m_hw_tier = "HIGH";
 string m_ping_ms = "1.2";
+
+// Local Risk Monitoring State
+datetime m_last_daily_reset_check = 0;
+double   m_daily_start_balance    = 0.0;
+bool     m_daily_loss_limit_hit   = false;
 
 // Interactivity States
 bool m_show_extended_details = true;
@@ -116,10 +130,71 @@ void OnDeinit(const int reason)
 }
 
 //+------------------------------------------------------------------+
+//| CheckDailyLossAndRisk                                            |
+//+------------------------------------------------------------------+
+void CheckDailyLossAndRisk()
+{
+   datetime now = TimeCurrent();
+   if(m_daily_start_balance <= 0.0)
+   {
+      m_daily_start_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   }
+
+   MqlDateTime today, lastCheck;
+   TimeToStruct(now, today);
+   TimeToStruct(m_last_daily_reset_check, lastCheck);
+
+   if(today.day != lastCheck.day)
+   {
+      m_daily_start_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+      m_daily_loss_limit_hit = false;
+      m_last_daily_reset_check = now;
+   }
+
+   double current_bal = AccountInfoDouble(ACCOUNT_BALANCE);
+   double loss = m_daily_start_balance - current_bal;
+   double loss_pct = (m_daily_start_balance > 0.0) ? (loss / m_daily_start_balance) * 100.0 : 0.0;
+
+   if(!m_daily_loss_limit_hit && InpDailyLossLimitPercent > 0.0 && loss_pct >= InpDailyLossLimitPercent)
+   {
+      m_daily_loss_limit_hit = true;
+      Print("EqatsAutonomousScalperEA: Daily loss limit triggered (", DoubleToString(loss_pct, 2), "% >= ", DoubleToString(InpDailyLossLimitPercent, 2), "%). Executing Panic Close All!");
+      ExecutePanicCloseAll();
+   }
+
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double dd_pct = (current_bal > 0.0) ? ((current_bal - equity) / current_bal) * 100.0 : 0.0;
+   if(InpEnableEmergencyClose && InpMaxDrawdownPercent > 0.0 && dd_pct >= InpMaxDrawdownPercent)
+   {
+      Print("EqatsAutonomousScalperEA: Max drawdown percent reached (", DoubleToString(dd_pct, 2), "% >= ", DoubleToString(InpMaxDrawdownPercent, 2), "%). Executing Panic Close All!");
+      ExecutePanicCloseAll();
+   }
+
+   if(InpMaxPositionAgeHours > 0)
+   {
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket > 0 && PositionSelectByTicket(ticket))
+         {
+            datetime open_time = (datetime)PositionGetInteger(POSITION_TIME);
+            double age_hours = (double)(now - open_time) / 3600.0;
+            if(age_hours >= InpMaxPositionAgeHours)
+            {
+               Print("EqatsAutonomousScalperEA: Closing position #", ticket, " - Max position age reached (", DoubleToString(age_hours, 1), " hours)");
+               m_trade_engine.PositionClose(ticket);
+            }
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   CheckDailyLossAndRisk();
    UpdateDashboard();
 }
 
@@ -391,7 +466,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.40)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.41)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
    CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);
