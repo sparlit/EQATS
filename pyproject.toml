@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eaqts"
 version = "8.3.0"
-description = "ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3l)"
+description = "ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3l)"
 authors = [
     { name = "Simon Peter", email = "author@tsyslabs.com" }
 ]
