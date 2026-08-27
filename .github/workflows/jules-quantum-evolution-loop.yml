@@ -1,0 +1,192 @@
+name: EQATS Quantum Architectural Evolution Loop
+on:
+  push:
+    branches:
+      - 'ai-optimize-/*'   # Triggers automatically on pushes to these designated branches
+  workflow_dispatch:        # Allows manual invocation from the GitHub Actions UI
+jobs:
+  quantum-evolution:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # Grants Jules permission to push code updates
+      pull-requests: write  # Grants permissions to open and merge Pull Requests
+
+    steps:
+      # 1. Checkout the repository with full commit history to track the loop count
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # 2. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
+      - name: Enforce Circuit Breaker Limit
+        id: loop-check
+        run: |
+          echo "🔄 Checking automation iteration count..."
+          AI_COMMIT_COUNT=$(git log -n 6 --pretty=format:"%s" | grep -c "chore(ai-enhance):" || true)
+          echo "Recent AI execution commits found: $AI_COMMIT_COUNT"
+          
+          if [ "$AI_COMMIT_COUNT" -ge 5 ]; then
+            echo "🛑 Circuit Breaker Triggered: The loop has reached its maximum cap of 5 iterations."
+            echo "continue_loop=false" >> $GITHUB_OUTPUT
+          else
+            echo "continue_loop=true" >> $GITHUB_OUTPUT
+          fi
+      # 3. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
+      - name: Calculate Incremental Version
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        id: calc-version
+        run: |
+          echo "🔢 Calculating subsequent system version mapping..."
+          CURRENT_VERSION="8.3k"
+          
+          if [ -f README.md ]; then
+            FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
+            if [ -n "$FOUND_VER" ]; then
+              CURRENT_VERSION="8.3$FOUND_VER"
+            fi
+          fi
+          
+          CHAR_SUFFIX="${CURRENT_VERSION:3:1}"
+          NEXT_CHAR=$(printf \\$(printf '%03o' "$(( $(printf '%d' "'$CHAR_SUFFIX") + 1 ))"))
+          NEXT_VERSION="8.3$NEXT_CHAR"
+          
+          echo "Current parsed baseline: EQATS v$CURRENT_VERSION"
+          echo "Target incremental milestone: EQATS v$NEXT_VERSION"
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+      # 4. Setup Rust toolchain with Tokio features for the High-Performance Layer
+      - name: Setup Rust Toolchain (Tokio & PyO3 native components)
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      # 5. Setup Python 3.13+ Free-Threaded to bypass the GIL
+      - name: Setup Python Environment (GIL-Free Runtime)
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13t' # Activates the experimental Free-Threaded GIL-less mode
+          cache: 'pip'
+
+      # 6. Install dependencies and 100% FOSS Ruff + Bandit tooling
+      - name: Install Advanced Math Libraries & Ecosystem Scanners
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        run: |
+          python -m pip install --upgrade pip setuptools maturin
+          pip install ruff bandit pytest torch tensorflow keras scikit-learn lightgbm catboost prophet autots darts tsfresh
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      # 7. Run verification tests to check codebase integrity
+      - name: Run Test Suite Verification
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        id: run-tests
+        run: |
+          if pytest > test_output.log 2>&1; then
+            echo "status=HEALTHY" >> $GITHUB_OUTPUT
+            echo "logs=All primary functional unit tests are currently passing successfully." >> $GITHUB_OUTPUT
+          else
+            echo "status=BROKEN" >> $GITHUB_OUTPUT
+            CLEAN_LOGS=$(tail -n 25 test_output.log | tr '\n' ' ')
+            echo "logs=$CLEAN_LOGS" >> $GITHUB_OUTPUT
+          fi
+      # 8. Run Ruff and Bandit to extract static code evaluations
+      - name: Run Linter and Security Analysis
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        id: run-scanners
+        run: |
+          ruff check . --statistics > ruff_output.log 2>&1 || true
+          bandit -r . -ll --format txt > bandit_output.log 2>&1 || true
+          
+          CLEAN_RUFF=$(tail -n 20 ruff_output.log | tr '\n' ' ')
+          CLEAN_BANDIT=$(tail -n 20 bandit_output.log | tr '\n' ' ')
+          
+          echo "ruff=$CLEAN_RUFF" >> $GITHUB_OUTPUT
+          echo "bandit=$CLEAN_BANDIT" >> $GITHUB_OUTPUT
+      # 9. Invoke Jules with the absolute quantum transformation manifesto
+      - name: Invoke Jules Quantum Overhaul Agent
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        uses: google-labs-code/jules-action@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          branch: ${{ github.ref_name }}
+          prompt: |
+            You are the Master Architectural AI Agent for the Elite Quantum Autonomous Trading System (EQATS). You are executing inside an automated continuous refactoring loop. Your mandate is a total code transformation to elevate the system to version ${{ steps.calc-version.outputs.next_version }}.
+
+            TARGET BUILD MILESTONE VERSION: ${{ steps.calc-version.outputs.next_version }}
+            Current Repository State: ${{ steps.run-tests.outputs.status }}
+            
+            DIAGNOSTIC CRITERIA:
+            - Linter Violations: ${{ steps.run-scanners.outputs.ruff }}
+            - Security Vulnerability Risks: ${{ steps.run-scanners.outputs.bandit }}
+            - Engine Unit Test Outputs: ${{ steps.run-tests.outputs.logs }}
+
+            EXECUTION DIRECTIVES & COMPREHENSIVE REFACTORING SPECS:
+
+            1. 📊 RECONNAISSANCE & DIAGNOSTICS:
+               - Scan and thoroughly verify the existing trading system architecture.
+               - Flag, catalog, and immediately replace all bugs, errors, stubs, mocks, fake layers, and empty placeholders with production-grade execution assets.
+
+            2. 🧱 HYBRID ARCHITECTURE DIVISION (Monolith + Microservices):
+               - Anything that handles an ACTIVE, LIVE trade must remain inside the highly isolated, ultra-low latency Modular Monolith.
+               - Anything that runs BEFORE or AFTER a trade (Data Ingestion, NLP News Scraping, ML Model Retraining, Historical Backtesting Analytics) must be decoupled into independent Microservices.
+               - Build gRPC / Protocol Buffers specifications to manage all synchronous communication exchanges between the monolith core and microservices.
+               - Integrate Apache Pulsar as your asynchronous messaging, event streaming glue layer.
+
+            3. 🦀 RUST ACCELERATION & INFRASTRUCTURE TOPOLOGY:
+               - Build the historical charting and market tick data processing framework around a ClickHouse layer.
+               - Deploy PostgreSQL as the underlying single source of truth and financial ledger.
+               - Integrate Valkey as the ultra-fast in-memory caching and state speed layer.
+               - Identify math-heavy bottlenecks and compute paths (e.g., vectorized backtest models, indicator calculations) and rewrite them entirely in Rust using the Tokio runtime, exposing them via PyO3 native extensions.
+               - Incorporate a blockchain-based data structure system for transaction log hashing and immutable security verification tracing.
+
+            4. 🧠 INTER-AGENT ORCHESTRATION & MACHINE LEARNING ENSMBLING:
+               - Map a dedicated, independent AI agent brain to govern every discrete trading method and individual trading strategy in isolation.
+               - Build a Master Coordinator/Orchestrator Brain Agent to dynamically monitor, track weights, manage consensus voting protocols, and orchestrate the individual sub-agents.
+               - Incorporate multi-agent parallel workflows for all heavy systemic tasks.
+               - Integrate and scale these specific machine learning and neural networks algorithms wherever applicable across backtesting and predictive vectors:
+                 * Linear/Logistic Regression, KNN, SVM, Decision Trees, Random Forests, Gradient Boosting (XGBoost, CatBoost, LightGBM).
+                 * Deep Learning: FeedForward, CNNs, RNNs, Autoencoders, Transformers, GANNs, Diffusion Models.
+                 * Clustering & Explanations: K-Means, DBSCAN, SHAP metrics, PCA dimensionality reductions, and AUC metrics validation loops. Ensure proper calculation of Gradient Descent optimizations and the Bias-Variance Tradeoff configurations.
+
+            5. 🔓 PARALLEL MULTI-PROCESSING & PY-GIL ELIMINATION:
+               - Redesign and refactor every tab, system layout, task workflow, engine loop, module tool, and internal brain connection to operate using parallel multiprocessing or GIL-free threading architectures. Prevent any single-thread performance choking or application blockades.
+
+            6. 🖥️ TERMINAL GUI & MT5 EXPERT ADVISOR OVERHAUL:
+               - Rebuild the Tkinter Terminal interface sheets (all 33 tabs/sub-tabs) to reflect full performance vitals tracking metrics (CPU, Memory, Tick Latency, Feed Quality, Margin Drawdowns) alongside their regular layout states.
+               - Redesign the MetaTrader 5 Expert Advisor (MQL5 EA) integration wrapper to handle a full dashboard execution interface cleanly.
+
+            7. 🧪 EXHAUSTIVE 100% TESTING RADIUS:
+               - Expand and write concrete tests to guarantee absolute test coverage. No exceptions. Cover every hidden corner, module file, execution loop, strategy profile, tool call, API channel, and connectivity link.
+			   - Update all Markdown files, design blueprints, audit files, task logs, and the master README.md to match version ${{ steps.calc-version.outputs.next_version }} with comprehensive, updated changelogs tracking your architectural upgrades.
+
+		Commit Prefix Rule:
+		- You MUST prefix your commit message exactly with: "chore(ai-enhance): release version ${{ steps.calc-version.outputs.next_version }}"
+		
+		# 10. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
+		- name: Open and Automerge Pull Request
+		if: steps.loop-check.outputs.continue_loop == 'true'
+			env:
+			GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+			run: |
+			echo "🚀 Initiating hands-free deployment pipeline..."
+			PR_EXISTS=$(gh pr list --head "${{ github.ref_name }}" --base main --json number --jq '..number' || true)
+			if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
+				echo "txt=No open PR found. Creating a new Pull Request..."
+				PR_URL=$(gh pr create 
+				--title "🚀 QUANTUM EVOLUTION RELEASE [v${{ steps.calc-version.outputs.next_version }}]" 
+				--body "This Pull Request was generated autonomously by the EQATS Quantum Evolution Loop. It progresses the codebase towards a multi-processed hybrid microservices mesh architecture utilizing Rust (Tokio) and GIL-free Python 3.13t execution tracks." 
+				--base main 
+				--head "${{ github.ref_name }}")
+				PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
+			else
+				echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."
+				PR_NUMBER=$PR_EXISTS
+				fi
+				if [ -n "$PR_NUMBER" ]; then
+					echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
+					gh pr merge "$PR_NUMBER" --auto --squash
+					echo "✅ Automerge enabled successfully! Code will merge into main automatically."
+				else
+					echo "⚠️ Failed to resolve a valid Pull Request number. Skipping merge step."
+					fi
+
