@@ -13,11 +13,43 @@ jobs:
       contents: write       # Grants Jules permission to push the fixed code back
 
     steps:
-      # 1. Upgraded to v5 to natively run on Node 24 and clear the warning
+      # 1. Checkout the codebase using the latest runner engine version
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      # 2. Summon Jules to analyze the codebase architecture for structural issues
+      # 2. Set up the Python environment using the latest runner version
+      - name: Setup Python Environment
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # 3. Install dependencies and the linter tool
+      - name: Install Dependencies & Linter
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # 4. Run the Linter Check and capture all code formatting/syntax flaws
+      - name: Run Linter Scan
+        id: run-linter
+        run: |
+          echo "🔍 Scanning codebase for linting issues..."
+          # Run flake8 and save errors to lint_output.log. 
+          # The "|| true" ensures the workflow doesn't fail right here, allowing Jules to fix it.
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics > lint_output.log 2>&1 || true
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics >> lint_output.log 2>&1
+          
+          echo "📋 --- LINTER OUTPUT ---"
+          cat lint_output.log
+          echo "------------------------"
+          
+          # Compress and save the last 40 lines of lint logs for Jules
+          CLEAN_LINT_LOGS=$(tail -n 40 lint_output.log | tr '\n' ' ')
+          echo "lint_logs=$CLEAN_LINT_LOGS" >> $GITHUB_OUTPUT
+
+      # 5. Summon Jules with instructions containing the linter report
       - name: Summon Jules for Deep Scan
         uses: google-labs-code/jules-invoke@v1
         with:
@@ -26,8 +58,10 @@ jobs:
           prompt: |
             Perform a comprehensive architectural review and code quality deep-dive across the entire repository. 
             
-            Scan the codebase for the following items, fix them, and replace them with production-ready code:
-            
+            First, resolve the static analysis flaws discovered by our workflow's linter scanner:
+            ${{ steps.run-linter.outputs.lint_logs }}
+
+            Second, scan the codebase for the following items, fix them, and replace them with production-ready code:
             1. 🛑 UNFINISHED CODE: Locate all 'TODO', 'FIXME', 'BUG', or 'STUB' comments. Implement the actual intended production logic.
             2. 🧱 PLACEHOLDERS: Find any dummy data, mock responses, placeholder functions, or empty catch blocks, and replace them with real, operational logic.
             3. 📉 CODE FLAWS & BOTTLEENECKS: Identify unoptimized loops, redundant operations, deep nesting, or algorithmic inefficiencies that could cause performance slowdowns.
