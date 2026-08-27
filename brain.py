@@ -624,7 +624,7 @@ class ScalperBrain:
 
         # Record assessment and trade memory
         top_decision = concurrent_decisions[0]["decision"] if concurrent_decisions else "HOLD"
-        top_exp = concurrent_decisions[0]["explanation"] if concurrent_decisions else f"No authentic buy/sell signal in {strategy_mode} mode"
+        top_exp = concurrent_decisions[0]["explanation"] if concurrent_decisions else f"No authentic buy/sell signal in {strategy_mode} mode{agent_notes}"
 
         try:
             from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
