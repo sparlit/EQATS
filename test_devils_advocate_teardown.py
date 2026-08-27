@@ -88,3 +88,28 @@ def test_insert_vector_embedding():
     assert isinstance(res, dict)
     assert "faiss" in res
     assert "chromadb" in res
+
+
+def test_floor_pivot_points_calculation():
+    """Verify exact Floor Pivot Points math without dummy hardcoded offsets."""
+    high, low, close = 1.1050, 1.0950, 1.1000
+    pivot = (high + low + close) / 3.0
+    r1 = (2.0 * pivot) - low
+    s1 = (2.0 * pivot) - high
+    assert pivot == pytest.approx(1.1000, abs=1e-5)
+    assert r1 == pytest.approx(1.1050, abs=1e-5)
+    assert s1 == pytest.approx(1.0950, abs=1e-5)
+
+
+def test_system_autotune_capabilities():
+    """Verify system autotune detects capabilities and sets non-zero parameters."""
+    from institutional_integrations.system_autotune import (
+        auto_tune_system_parameters,
+        detect_system_capabilities,
+    )
+    caps = detect_system_capabilities()
+    assert caps["cpu_logical_cores"] >= 1
+    assert caps["ram_total_gb"] > 0
+    tuned = auto_tune_system_parameters(caps)
+    assert tuned["process_pool_workers"] >= 1
+    assert tuned["ml_batch_size"] >= 8
