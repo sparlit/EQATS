@@ -1,5 +1,5 @@
 """
-Institutional Trade Memory & Reflection Protocol (EQATS v8.3j).
+Institutional Trade Memory & Reflection Protocol (EQATS v8.4).
 Inspired by tradememory-protocol: records post-mortem trade reflections,
 calculates Maximum Favorable Excursion (MFE) / Maximum Adverse Excursion (MAE),
 computes trade efficiency scores, analyzes post-mortem feature correlations across
