@@ -1,4 +1,4 @@
-# EAQTS VERSION 3.0 UNIFIED AUDIT & SYSTEM VERIFICATION REPORT
+# EQATS VERSION 3.0 UNIFIED AUDIT & SYSTEM VERIFICATION REPORT
 ## COMPLIANCE, CHAOS ENGINEERING, AND PERFORMANCE VALIDATION REPORT
 
 ---
@@ -10,7 +10,7 @@ This report documents the official audit, verification, and code-level complianc
 Under the direct instructions of the Lead Operator, we have:
 1. **Scrutinized all 9 Specialized Architectural Planes** for gap analysis.
 2. **Actively patched and implemented code** to eliminate all discrepancies.
-3. **Designed and executed a robust chaos and stress-testing pipeline** under `test_eaqts_24_chaos_stress.py`.
+3. **Designed and executed a robust chaos and stress-testing pipeline** under `test_eqats_24_chaos_stress.py`.
 4. **Resolved Point-in-Time microsecond-level timestamp collisions** during rapid inserts to prevent look-ahead bias (G03).
 5. **Achieved 100% test coverage and compliance** across all 20 unified validation suites.
 
@@ -20,7 +20,7 @@ The system is hereby signed off as a **fully compliant, safety-controlled, and s
 
 ## 2. Gap Analysis and Structural Remediation
 
-We mapped every core control requirement of the EAQTS Version 3.0 design against the active repository and applied surgical additions in `eaqts_planes.py` and `main.py` to achieve zero-gap compliance.
+We mapped every core control requirement of the EQATS Version 3.0 design against the active repository and applied surgical additions in `eqats_planes.py` and `main.py` to achieve zero-gap compliance.
 
 | Spec Section | Requirement | Compliance Status | Implementation Evidence |
 | :--- | :--- | :--- | :--- |
@@ -38,10 +38,10 @@ We mapped every core control requirement of the EAQTS Version 3.0 design against
 
 ## 3. Chaos & Stress Engineering Compliance Tests
 
-To programmatically guarantee that the platform behaves exactly as specified under pressure, we wrote 9 high-fidelity compliance test cases in `test_eaqts_24_chaos_stress.py`.
+To programmatically guarantee that the platform behaves exactly as specified under pressure, we wrote 9 high-fidelity compliance test cases in `test_eqats_24_chaos_stress.py`.
 
 ```bash
-pytest test_eaqts_24_chaos_stress.py
+pytest test_eqats_24_chaos_stress.py
 ```
 
 ### Verified Test Configurations & Outpace Results:

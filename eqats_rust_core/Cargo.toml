@@ -1,10 +1,10 @@
 [package]
-name = "eaqts_rust_core"
+name = "eqats_rust_core"
 version = "6.0.0"
 edition = "2021"
 
 [lib]
-name = "eaqts_rust_core"
+name = "eqats_rust_core"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]

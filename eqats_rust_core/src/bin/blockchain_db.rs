@@ -1,7 +1,7 @@
 //! Ultra-Low Latency Mission-Critical Custom Blockchain Database Engine
 //! Multi-threaded Benchmark Loop Runner
 
-use eaqts_rust_core::blockchain_db::{
+use eqats_rust_core::blockchain_db::{
     format_symbol, format_uuid, BlockchainEngine, Transaction,
 };
 use std::fs;
@@ -12,7 +12,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn main() {
     println!("================================================================================");
-    println!("  ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS VERSION 8.3i)");
+    println!("  ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3i)");
     println!("  ULTRA-LOW LATENCY CUSTOM BLOCKCHAIN DATABASE ENGINE BENCHMARK");
     println!("================================================================================");
 
@@ -28,7 +28,7 @@ fn main() {
     let mut buyer_ids = Vec::with_capacity(num_users);
     let mut seller_ids = Vec::with_capacity(num_users);
 
-    let initial_state_snapshot = eaqts_rust_core::blockchain_db::StateLedger::new();
+    let initial_state_snapshot = eqats_rust_core::blockchain_db::StateLedger::new();
 
     for i in 0..num_users {
         let mut buyer = [0u8; 16];

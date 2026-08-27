@@ -1,23 +1,23 @@
 # ELITE QUANTUM AUTONOMOUS TRADING SYSTEM
-## EAQTS VERSION 4.0
+## EQATS VERSION 4.0
 ### Master Architecture, Engineering, AI, Trading, Risk, Execution, Data, Security, Validation and Autonomous Evolution Specification & System Audit
 
 ---
 
 # 0. DOCUMENT CONTROL & VERSION 4.0 DECLARATION
 
-**System Name:** Elite Autonomous Quantum Trading System
+**System Name:** Elite Quantum Autonomous Trading System
 **Specification:** Version 4.0 Master Architecture, Engineering, and Design Plan
 **Status:** Single Authoritative Master Design & Audit Baseline
 **Execution Environment:** Multi-Asset, Multi-Agent, Hands-Free Parallel Trading Operating System
 
-EAQTS Version 4.0 unifies and supersedes all previous specifications (v1.0, v2.0, v2.1, v2.4, v3.0). It establishes an institutional-grade, hedge-fund-class quantitative trading platform operating autonomously with 100% hands-free execution.
+EQATS Version 4.0 unifies and supersedes all previous specifications (v1.0, v2.0, v2.1, v2.4, v3.0). It establishes an institutional-grade, hedge-fund-class quantitative trading platform operating autonomously with 100% hands-free execution.
 
 ---
 
 # 1. SYSTEM CONSTITUTION & HIERARCHICAL GOVERNANCE (LEVEL 0 TO LEVEL 6)
 
-EAQTS Version 4.0 strictly enforces a 7-level immutable System Constitution Hierarchy. Lower levels (AI models, optimization proposals) can NEVER override higher levels (legal constraints, safety kernel, hard risk limits):
+EQATS Version 4.0 strictly enforces a 7-level immutable System Constitution Hierarchy. Lower levels (AI models, optimization proposals) can NEVER override higher levels (legal constraints, safety kernel, hard risk limits):
 
 ```text
 LEVEL 0 — LEGAL / EXCHANGE / BROKER CONSTRAINTS (Exchange hours, symbol permissions, contract rules)
@@ -81,7 +81,7 @@ CORE BRAIN AI AGENTS (6)            TRADING METHOD BRAINS (4)       TRADING STRA
 
 # 3. SYNTHESIS OF 50+ TOP OPEN-SOURCE QUANTITATIVE REPOSITORIES
 
-EAQTS Version 4.0 synthesizes and adapts the best features, algorithms, agents, facilities, and workflows from over 50 leading open-source quantitative trading projects:
+EQATS Version 4.0 synthesizes and adapts the best features, algorithms, agents, facilities, and workflows from over 50 leading open-source quantitative trading projects:
 
 1. **TradingAgents & AI-Trader (`TauricResearch`, `HKUDS`):** Adapted collaborative multi-agent information-passing context loops (`BrainAgentContext`) and master supervisory orchestration.
 2. **freqtrade:** Adapted dynamic strategy scoring, adaptive stop-loss normalization, and walk-forward backtesting pipelines.
@@ -193,7 +193,7 @@ A complete, file-by-file audit of every single source file in the repository wit
 - **Fixes Implemented:** Salt-based SHA-256 password/PIN hashing (`hash_credential`), XOR-Base64 encryption for broker credentials (`encrypt_secret`), multi-broker database management, and automatic schema migrations.
 - **Suggestions:** Migrate from SQLite to PostgreSQL / TimescaleDB for multi-node cluster deployment.
 
-### 5.9 `eaqts_planes.py` (Unified 9 Planes Engine & System Constitution)
+### 5.9 `eqats_planes.py` (Unified 9 Planes Engine & System Constitution)
 - **Flaws / Bottlenecks Identified:** Absence of explicit constitution hierarchy enforcement allowed lower-level recommendations to compete with safety kernel rules.
 - **Fixes Implemented:** Implemented `SystemConstitution` enforcing Level 0 through Level 6 hierarchy, microsecond timestamp monotonicity in `DataPlane`, and message rate throttling in `ExecutionPlane`.
 - **Suggestions:** Implement Hardware Security Module (HSM) key signing for Level 0 broker actions.
@@ -224,4 +224,4 @@ A complete, file-by-file audit of every single source file in the repository wit
 - **Suggestions:** Implement counterfactual trade replay simulation to benchmark alternative exit strategies.
 
 ---
-*Elite Autonomous Quantum Trading System (EAQTS) — Version 4.0 Master Architecture Specification & Complete System Audit*
+*Elite Quantum Autonomous Trading System (EQATS) — Version 4.0 Master Architecture Specification & Complete System Audit*

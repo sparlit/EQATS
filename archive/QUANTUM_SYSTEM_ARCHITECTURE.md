@@ -117,4 +117,4 @@ This document provides a highly-detailed, state-of-the-art visual flowchart and 
 - **Action:** MetaTrader 5 Python SDKs do not support drawing graphical objects directly onto active terminal charts on remote servers.
 - **Shared-File Synchronizer:**
   - On every tick, the Python application streams current scanning arrays, active sessions, floating P&L values, and neural network weights via push-based zero-latency Socket IPC and WebSockets (`SocketIPCBridge` / `TelemetryStreamServer`).
-  - Our native Expert Advisor (`EaqtsAutonomousScalperEA.mq5`) runs inside MT5, monitors the shared folder on tick triggers, parses the telemetry, and renders a gorgeous HUD overlay table directly on your chart backgrounds natively on Windows!
+  - Our native Expert Advisor (`EqatsAutonomousScalperEA.mq5`) runs inside MT5, monitors the shared folder on tick triggers, parses the telemetry, and renders a gorgeous HUD overlay table directly on your chart backgrounds natively on Windows!

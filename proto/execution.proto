@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package eaqts.execution;
+package eqats.execution;
 
 message OrderRequest {
   string client_order_id = 1;

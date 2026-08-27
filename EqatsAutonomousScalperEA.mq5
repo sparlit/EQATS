@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                  EaqtsAutonomousScalperEA.mq5    |
+//|                                  EqatsAutonomousScalperEA.mq5    |
 //|                     ELITE QUANTUM AUTONOMOUS TRADING SYSTEM EA   |
 //|                                       https://github.com/scalper |
 //+------------------------------------------------------------------+
@@ -89,7 +89,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EaqtsAutonomousScalperEA v8.30 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v8.30 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -100,7 +100,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EaqtsAutonomousScalperEA v8.30 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v8.30 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -131,25 +131,25 @@ void OnChartEvent(const int id,
    {
       if(sparam == "SB_Btn_Resync")
       {
-         Print("EaqtsAutonomousScalperEA: Operator requested manual IPC telemetry resync.");
+         Print("EqatsAutonomousScalperEA: Operator requested manual IPC telemetry resync.");
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Panic")
       {
-         Print("EaqtsAutonomousScalperEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
+         Print("EqatsAutonomousScalperEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
          ExecutePanicCloseAll();
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Toggle")
       {
          m_show_extended_details = !m_show_extended_details;
-         Print("EaqtsAutonomousScalperEA: Extended Neural telemetry details set to: ", m_show_extended_details);
+         Print("EqatsAutonomousScalperEA: Extended Neural telemetry details set to: ", m_show_extended_details);
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_CardToggle")
       {
          m_show_account_card = !m_show_account_card;
-         Print("EaqtsAutonomousScalperEA: Account summary card set to: ", m_show_account_card);
+         Print("EqatsAutonomousScalperEA: Account summary card set to: ", m_show_account_card);
          UpdateDashboard();
       }
    }
@@ -172,7 +172,7 @@ void ExecutePanicCloseAll()
          }
       }
    }
-   Print("EaqtsAutonomousScalperEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
+   Print("EqatsAutonomousScalperEA: Emergency Panic Close All finished. Closed positions: ", closed_count);
 }
 
 //+------------------------------------------------------------------+
@@ -280,7 +280,7 @@ bool ParseStateData()
 
             if(StringFind(line, "LOCKDOWN") >= 0 || StringFind(line, "PANIC") >= 0)
             {
-               Print("EaqtsAutonomousScalperEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
+               Print("EqatsAutonomousScalperEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
                if(InpEmergencyCloseOnLockdown)
                {
                   ExecutePanicCloseAll();
@@ -379,7 +379,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EAQTS v8.30)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.30)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
    CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);

@@ -1,4 +1,4 @@
-# EAQTS v5.0 Universal Gateway Specification
+# EQATS v5.0 Universal Gateway Specification
 
 ## Architecture
 The `UniversalBrokerGateway` class (`institutional_integrations/universal_broker_adapter.py`) decouples high-level trading brains from broker-specific protocol mechanics.

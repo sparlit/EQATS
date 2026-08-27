@@ -1,4 +1,4 @@
-# EAQTS v5.0 Performance Metrics & Benchmarks
+# EQATS v5.0 Performance Metrics & Benchmarks
 
 ## Latency Metrics
 - **Tick Ingestion to Brain Signal**: < 1.5ms
