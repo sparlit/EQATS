@@ -86,6 +86,18 @@ int OnInit()
    ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, true);
    ChartSetInteger(0, CHART_EVENT_OBJECT_DELETE, true);
 
+   // Apply Pitch Dark Theme & Vibrant Candle Styling to prevent candlestick background clutter
+   ChartSetInteger(0, CHART_COLOR_BACKGROUND, C'10,14,23');
+   ChartSetInteger(0, CHART_COLOR_FOREGROUND, C'226,232,240');
+   ChartSetInteger(0, CHART_COLOR_CANDLE_BULL, C'16,185,129');
+   ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR, C'239,68,68');
+   ChartSetInteger(0, CHART_COLOR_CHART_LINE, C'56,189,248');
+   ChartSetInteger(0, CHART_COLOR_CHART_BULL, C'16,185,129');
+   ChartSetInteger(0, CHART_COLOR_CHART_BEAR, C'239,68,68');
+   ChartSetInteger(0, CHART_SHOW_GRID, false);
+   ChartSetInteger(0, CHART_SHIFT, true);
+   ChartSetDouble(0, CHART_SHIFT_SIZE, 30.0);
+
    DrawInstitutionalHeader();
    UpdateDashboard();
 
@@ -368,7 +380,7 @@ void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, co
    ObjectSetInteger(0, name, OBJPROP_BGCOLOR, bg_color);
    ObjectSetInteger(0, name, OBJPROP_BORDER_COLOR, border_color);
    ObjectSetInteger(0, name, OBJPROP_BORDER_TYPE, BORDER_FLAT);
-   ObjectSetInteger(0, name, OBJPROP_BACK, true);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false); // Render in FRONT of candlesticks as solid dark HUD shield
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
 }
 
@@ -592,6 +604,7 @@ void CreateLabel(string name, string text, int x, int y, int size, color col, st
    ObjectSetInteger(0, name, OBJPROP_COLOR, col);
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, size);
    ObjectSetString(0, name, OBJPROP_FONT, font);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_SELECTED, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
