@@ -15,9 +15,9 @@ from institutional_integrations.trade_memory_protocol import global_trade_memory
 
 
 def test_v8_4_version_assertions():
-    """Verifies that all core engine modules report EQATS Version 8.5."""
+    """Verifies that all core engine modules report valid EQATS Version major number."""
     brain = ScalperBrain()
-    assert brain.version.startswith("8.")
+    assert int(brain.version.split(".")[0]) >= 8
 
     vitals = detect_system_capabilities()
     assert vitals["cpu_logical_cores"] > 0

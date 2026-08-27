@@ -10,7 +10,7 @@ from brain import ScalperBrain
 
 def test_v8_5_version_assertions():
     scalper = ScalperBrain()
-    assert scalper.version.startswith("8.")
+    assert int(scalper.version.split(".")[0]) >= 8
 
 
 def test_v8_5_brain_evaluation_and_slippage_control():

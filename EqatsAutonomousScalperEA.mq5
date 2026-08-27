@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.90"
-#property description "Elite Quantum Autonomous Scalper EA v8.90 - Multi-Asset Database Tracking Cockpit with Explicit Border Styling & Audit Logging"
+#property version   "9.10"
+#property description "Elite Quantum Autonomous Scalper EA v9.10 - Risk-Managed Multi-Timeframe Pyramiding Cockpit with Emergency Halt Safeguards"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -153,7 +153,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.90 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v9.10 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -164,7 +164,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.90 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v9.10 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -196,7 +196,7 @@ void CheckDailyLossAndRisk()
    if(!m_daily_loss_limit_hit && InpDailyLossLimitPercent > 0.0 && loss_pct >= InpDailyLossLimitPercent)
    {
       m_daily_loss_limit_hit = true;
-      Print("EqatsAutonomousScalperEA: Daily loss limit triggered (", DoubleToString(loss_pct, 2), "% >= ", DoubleToString(InpDailyLossLimitPercent, 2), "%). Executing Panic Close All!");
+      Print("EMERGENCY_HALT 🛑 EqatsAutonomousScalperEA: Daily loss limit triggered (", DoubleToString(loss_pct, 2), "% >= ", DoubleToString(InpDailyLossLimitPercent, 2), "%). Executing Panic Close All!");
       ExecutePanicCloseAll();
    }
 
@@ -204,7 +204,7 @@ void CheckDailyLossAndRisk()
    double dd_pct = (current_bal > 0.0) ? ((current_bal - equity) / current_bal) * 100.0 : 0.0;
    if(InpEnableEmergencyClose && InpMaxDrawdownPercent > 0.0 && dd_pct >= InpMaxDrawdownPercent)
    {
-      Print("EqatsAutonomousScalperEA: Max drawdown percent reached (", DoubleToString(dd_pct, 2), "% >= ", DoubleToString(InpMaxDrawdownPercent, 2), "%). Executing Panic Close All!");
+      Print("EMERGENCY_HALT 🛑 EqatsAutonomousScalperEA: Max drawdown percent reached (", DoubleToString(dd_pct, 2), "% >= ", DoubleToString(InpMaxDrawdownPercent, 2), "%). Executing Panic Close All!");
       ExecutePanicCloseAll();
    }
 
@@ -423,6 +423,23 @@ string GatherCloseHistory(ENUM_TIMEFRAMES tf)
       res = res + StringFormat("%.5f", rates[i].close) + ((i > 0) ? "," : "");
    }
    return res;
+}
+
+//+------------------------------------------------------------------+
+//| GatherAllTimeframeHistory (Adapted from AatEAv3)                 |
+//+------------------------------------------------------------------+
+string GatherAllTimeframeHistory()
+{
+   return StringFormat("M1:[%s]|M5:[%s]|M15:[%s]|M30:[%s]|H1:[%s]|H4:[%s]|D1:[%s]|W1:[%s]|MN:[%s]",
+                       GatherCloseHistory(PERIOD_M1),
+                       GatherCloseHistory(PERIOD_M5),
+                       GatherCloseHistory(PERIOD_M15),
+                       GatherCloseHistory(PERIOD_M30),
+                       GatherCloseHistory(PERIOD_H1),
+                       GatherCloseHistory(PERIOD_H4),
+                       GatherCloseHistory(PERIOD_D1),
+                       GatherCloseHistory(PERIOD_W1),
+                       GatherCloseHistory(PERIOD_MN1));
 }
 
 //+------------------------------------------------------------------+
@@ -768,7 +785,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.90)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.10)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
