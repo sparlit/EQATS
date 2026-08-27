@@ -99,7 +99,8 @@ class TestMultiStrategyMultiMethodConcurrent(unittest.TestCase):
         self.assertIn("decisions", res)
 
     def test_database_logging_with_strategy_and_method(self):
-        ticket = "9998811"
+        import time
+        ticket = f"9998811_{time.time_ns()}"
         database.log_trade_open(
             ticket=ticket,
             symbol="EURUSD",
