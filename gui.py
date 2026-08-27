@@ -1396,7 +1396,7 @@ class ScalperGui:
         # MFA Pin Input
         tk.Label(
             right_login_frame,
-            text="SECONDARY MFA PIN [123456]:",
+            text="SECONDARY MFA PIN:",
             font=("Consolas", 9, "bold"),
             bg="#0b1320",
             fg="#94a3b8",
@@ -1412,7 +1412,6 @@ class ScalperGui:
             highlightbackground="#334155",
         )
         mfa_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
-        mfa_ent.insert(0, "123456")
 
         error_lbl = tk.Label(
             right_login_frame,
@@ -1573,7 +1572,7 @@ class ScalperGui:
 
         def verify():
             typed = pin_ent.get().strip()
-            if database.verify_user_pin(typed) or typed in ["741295", "admin"]:
+            if database.verify_user_pin(typed):
                 approved[0] = True
                 pin_win.destroy()
             else:
