@@ -1,0 +1,70 @@
+name: Jules Automated Fix Loop
+
+on:
+  push:
+    branches:
+      - 'ai-fix-/*'       # Restricts the loop to designated feature branches for safety
+  workflow_dispatch:      # Allows manual triggers from the GitHub Actions UI
+
+jobs:
+  test-and-validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tests_failed: ${{ steps.run-tests.outputs.failed }}
+      error_logs: ${{ steps.run-tests.outputs.logs }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Setup environment to run your project validation (Node.js example)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Runs your tests, captures errors if any, and flags the failure state
+      - name: Run Test Suite
+        id: run-tests
+        run: |
+          if npm test > test_output.log 2>&1; then
+            echo "✅ Tests passed! No action required."
+            echo "failed=false" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Tests failed. Storing logs for Jules."
+            echo "failed=true" >> $GITHUB_OUTPUT
+            
+            # Compress log slightly to safely inject into environment variables
+            CLEAN_LOGS=$(tail -n 40 test_output.log | tr '\n' ' ')
+            echo "logs=$CLEAN_LOGS" >> $GITHUB_OUTPUT
+          fi
+
+  invoke-jules:
+    needs: test-and-validate
+    if: needs:test-and-validate.outputs.tests_failed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # Gives the environment permission to receive code updates
+
+    steps:
+      - name: Summon Jules Agent
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          branch: ${{ github.ref_name }}
+          prompt: |
+            The test suite in our repository failed on this branch. 
+            
+            Error logs from the test runner:
+            ${{ needs.test-and-validate.outputs.error_logs }}
+
+            Instructions:
+            1. Spin up the environment and re-verify these errors.
+            2. Analyze the relevant codebase files causing the failure.
+            3. Rewrite and correct the broken logic.
+            4. Ensure tests run successfully in your environment.
+            5. Commit and push the successful corrections back to this exact branch.
