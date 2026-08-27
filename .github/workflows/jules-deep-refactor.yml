@@ -13,41 +13,40 @@ jobs:
       contents: write       # Grants Jules permission to push the fixed code back
 
     steps:
-      # 1. Checkout the codebase using the latest runner engine version
+      # 1. Checkout the repository using standard FOSS git integrations
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      # 2. Set up the Python environment using the latest runner version
+      # 2. Setup the Python engine
       - name: Setup Python Environment
         uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      # 3. Install dependencies and the linter tool
-      - name: Install Dependencies & Linter
+      # 3. Install dependencies and Ruff (100% FOSS Rust-powered linter & formatter)
+      - name: Install Dependencies & Ruff Linter
         run: |
           python -m pip install --upgrade pip
-          pip install flake8
+          pip install ruff
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # 4. Run the Linter Check and capture all code formatting/syntax flaws
-      - name: Run Linter Scan
+      # 4. Run Ruff to catch syntax flaws, code smells, and TODO/stub patterns
+      - name: Run Open-Source Linter Scan
         id: run-linter
         run: |
-          echo "🔍 Scanning codebase for linting issues..."
-          # Run flake8 and save errors to lint_output.log. 
-          # The "|| true" ensures the workflow doesn't fail right here, allowing Jules to fix it.
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics > lint_output.log 2>&1 || true
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics >> lint_output.log 2>&1
+          echo "🔍 Scanning codebase with Ruff..."
           
-          echo "📋 --- LINTER OUTPUT ---"
+          # Run check and output to logs. '|| true' ensures the workflow hands off the logs to Jules instead of crashing.
+          ruff check . --statistics > lint_output.log 2>&1 || true
+          
+          echo "📋 --- RUFF LINTER OUTPUT ---"
           cat lint_output.log
-          echo "------------------------"
+          echo "----------------------------"
           
           # Compress and save the last 40 lines of lint logs for Jules
-          CLEAN_LINT_LOGS=$(tail -n 40 lint_output.log | tr '\n' ' ')
-          echo "lint_logs=$CLEAN_LINT_LOGS" >> $GITHUB_OUTPUT
+          CLEAN_LOGS=$(tail -n 40 lint_output.log | tr '\n' ' ')
+          echo "lint_logs=$CLEAN_LOGS" >> $GITHUB_OUTPUT
 
       # 5. Summon Jules with instructions containing the linter report
       - name: Summon Jules for Deep Scan
@@ -58,7 +57,7 @@ jobs:
           prompt: |
             Perform a comprehensive architectural review and code quality deep-dive across the entire repository. 
             
-            First, resolve the static analysis flaws discovered by our workflow's linter scanner:
+            First, resolve the code style violation issues and logic flaws discovered by our Ruff linter scanner:
             ${{ steps.run-linter.outputs.lint_logs }}
 
             Second, scan the codebase for the following items, fix them, and replace them with production-ready code:
