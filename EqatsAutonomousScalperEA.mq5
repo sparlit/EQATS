@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.30"
-#property description "Elite Quantum Autonomous Scalper EA v8.30 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer"
+#property version   "8.40"
+#property description "Elite Quantum Autonomous Scalper EA v8.40 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -89,7 +89,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.30 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v8.40 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -100,7 +100,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.30 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v8.40 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -379,7 +379,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.30)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.40)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
    CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);
