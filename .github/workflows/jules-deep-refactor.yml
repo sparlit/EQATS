@@ -24,47 +24,63 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      # 3. Install dependencies and Ruff (100% FOSS Rust-powered linter & formatter)
-      - name: Install Dependencies & Ruff Linter
+      # 3. Install project dependencies along with Ruff (Linter) and Bandit (Security SAST)
+      - name: Install Dependencies, Ruff, and Bandit
         run: |
           python -m pip install --upgrade pip
-          pip install ruff
+          pip install ruff bandit
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # 4. Run Ruff to catch syntax flaws, code smells, and TODO/stub patterns
-      - name: Run Open-Source Linter Scan
+      # 4. Run Ruff to catch code style issues, code smells, and TODO/stub patterns
+      - name: Run Open-Source Linter Scan (Ruff)
         id: run-linter
         run: |
           echo "🔍 Scanning codebase with Ruff..."
-          
-          # Run check and output to logs. '|| true' ensures the workflow hands off the logs to Jules instead of crashing.
           ruff check . --statistics > lint_output.log 2>&1 || true
           
           echo "📋 --- RUFF LINTER OUTPUT ---"
           cat lint_output.log
           echo "----------------------------"
           
-          # Compress and save the last 40 lines of lint logs for Jules
-          CLEAN_LOGS=$(tail -n 40 lint_output.log | tr '\n' ' ')
+          CLEAN_LOGS=$(tail -n 30 lint_output.log | tr '\n' ' ')
           echo "lint_logs=$CLEAN_LOGS" >> $GITHUB_OUTPUT
 
-      # 5. Summon Jules with instructions containing the linter report
+      # 5. Run Bandit to flag vulnerabilities (Insecure functions, shell executions, hardcoded tokens)
+      - name: Run Open-Source Security Scan (Bandit)
+        id: run-security
+        run: |
+          echo "🛡️ Scanning codebase for security flaws with Bandit..."
+          # -r flags recursive scan; -ll finds medium/high vulnerabilities.
+          # '|| true' ensures the pipeline doesn't stop, passing findings directly to Jules to correct.
+          bandit -r . -ll --format txt > security_output.log 2>&1 || true
+          
+          echo "📋 --- BANDIT VULNERABILITY OUTPUT ---"
+          cat security_output.log
+          echo "------------------------------------"
+          
+          CLEAN_SEC_LOGS=$(tail -n 30 security_output.log | tr '\n' ' ')
+          echo "security_logs=$CLEAN_SEC_LOGS" >> $GITHUB_OUTPUT
+
+      # 6. Summon Jules with the combined code-quality and security scanner context reports
       - name: Summon Jules for Deep Scan
-        uses: google-labs-code/jules-invoke@v1
+        uses: google-labs-code/jules-action@v1
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           branch: ${{ github.ref_name }}
           prompt: |
             Perform a comprehensive architectural review and code quality deep-dive across the entire repository. 
             
-            First, resolve the code style violation issues and logic flaws discovered by our Ruff linter scanner:
-            ${{ steps.run-linter.outputs.lint_logs }}
+            Mandatory Action Items:
+            
+            1. 🛡️ FIX SECURITY VULNERABILITIES: Resolve the high/medium security issues discovered by Bandit:
+               ${{ steps.run-security.outputs.security_logs }}
+            
+            2. 🧼 RESOLVE CODE STYLE FLAWS: Fix stylistic violations or coding flaws exposed by Ruff:
+               ${{ steps.run-linter.outputs.lint_logs }}
 
-            Second, scan the codebase for the following items, fix them, and replace them with production-ready code:
-            1. 🛑 UNFINISHED CODE: Locate all 'TODO', 'FIXME', 'BUG', or 'STUB' comments. Implement the actual intended production logic.
-            2. 🧱 PLACEHOLDERS: Find any dummy data, mock responses, placeholder functions, or empty catch blocks, and replace them with real, operational logic.
-            3. 📉 CODE FLAWS & BOTTLEENECKS: Identify unoptimized loops, redundant operations, deep nesting, or algorithmic inefficiencies that could cause performance slowdowns.
-            4. ⚠️ CODE SMELLS: Clean up unused imports, dead/unreachable code, global variables where isolated variables should be used, and missing type definitions/docstrings.
+            3. 🛑 RECTIFY UNFINISHED CODE: Locate all 'TODO', 'FIXME', 'BUG', or 'STUB' comments. Implement the actual intended production logic.
+            4. 🧱 REMOVE PLACEHOLDERS: Find any dummy data, mock responses, placeholder functions, or empty catch blocks, and replace them with real, operational logic.
+            5. 📉 OPTIMIZE BOTTLEENECKS: Identify unoptimized loops, redundant operations, deep nesting, or algorithmic inefficiencies that could cause performance slowdowns.
             
             Operational Constraints:
             - Make sure any real logic you write completely aligns with the existing architecture and patterns used in the repository.
