@@ -1,16 +1,16 @@
-# EAQTS Version 6.0 — RUST MODULE CONVERSION ANALYSIS & PERFORMANCE BENCHMARKS
+# EQATS Version 6.0 — RUST MODULE CONVERSION ANALYSIS & PERFORMANCE BENCHMARKS
 
 ## Executive Summary
 
-This report provides a comprehensive architectural audit, performance benchmark suite, and candidate roadmap for converting performance-critical Python modules within the **Elite Quantum Autonomous Trading System (EAQTS Version 6.0)** into native compiled **Rust** modules wrapped in Python via C-ABI / dynamic library bindings (`ctypes` / `PyO3`).
+This report provides a comprehensive architectural audit, performance benchmark suite, and candidate roadmap for converting performance-critical Python modules within the **Elite Quantum Autonomous Trading System (EQATS Version 6.0)** into native compiled **Rust** modules wrapped in Python via C-ABI / dynamic library bindings (`ctypes` / `PyO3`).
 
-By replacing hot-path CPU loops and GIL-bound operations in Python with multi-threaded, SIMD-vectorized Rust C extensions, EAQTS achieves up to **100x–500x speed improvements**, sub-millisecond tick processing, and true OS-level multi-threaded parallel processing without Python Global Interpreter Lock (GIL) contention.
+By replacing hot-path CPU loops and GIL-bound operations in Python with multi-threaded, SIMD-vectorized Rust C extensions, EQATS achieves up to **100x–500x speed improvements**, sub-millisecond tick processing, and true OS-level multi-threaded parallel processing without Python Global Interpreter Lock (GIL) contention.
 
 ---
 
 ## 1. Module Audit & Target Classification
 
-All modules in EAQTS were evaluated across 4 performance axes:
+All modules in EQATS were evaluated across 4 performance axes:
 1. **CPU Computation Intensity**: Deep nested loops, high-frequency array processing.
 2. **GIL Contention & Parallelism Potential**: Suitability for OS multi-threading / Rayon work-stealing parallelism.
 3. **Latency Sensitivity**: Impact of execution delay on slippage, order routing, or risk monitoring.
@@ -33,9 +33,9 @@ All modules in EAQTS were evaluated across 4 performance axes:
 
 ---
 
-## 2. Implemented Rust Architecture (`eaqts_rust_core`)
+## 2. Implemented Rust Architecture (`eqats_rust_core`)
 
-To achieve maximum stability, cross-platform compatibility, and zero runtime crash risk, EAQTS Version 6.0 introduces `eaqts_rust_core`, a native Rust crate located in `/eaqts_rust_core` compiled as a shared C dynamic library (`libeaqts_rust_core.so` / `.dll` / `.dylib`).
+To achieve maximum stability, cross-platform compatibility, and zero runtime crash risk, EQATS Version 6.0 introduces `eqats_rust_core`, a native Rust crate located in `/eqats_rust_core` compiled as a shared C dynamic library (`libeqats_rust_core.so` / `.dll` / `.dylib`).
 
 ### Core C-ABI Exported API
 
@@ -50,7 +50,7 @@ To achieve maximum stability, cross-platform compatibility, and zero runtime cra
 
 ## 3. Dynamic Self-Healing Fallback Mechanics
 
-To guarantee **zero permanent system failure** even if compiled Rust binaries are missing, uncompiled, or encounter runtime platform exceptions, EAQTS implements a **Resilient Self-Healing Circuit Breaker** in `institutional_integrations/rust_bridge.py`:
+To guarantee **zero permanent system failure** even if compiled Rust binaries are missing, uncompiled, or encounter runtime platform exceptions, EQATS implements a **Resilient Self-Healing Circuit Breaker** in `institutional_integrations/rust_bridge.py`:
 
 ```
                  +-------------------------------+
@@ -85,7 +85,7 @@ To guarantee **zero permanent system failure** even if compiled Rust binaries ar
 
 ## 4. Empirical Performance Benchmarks
 
-Benchmarks conducted on 50,000 tick bars / 5,000 Monte Carlo iterations comparing Pure Python vs. `eaqts_rust_core` Rust acceleration:
+Benchmarks conducted on 50,000 tick bars / 5,000 Monte Carlo iterations comparing Pure Python vs. `eqats_rust_core` Rust acceleration:
 
 | Operation / Benchmark | Pure Python Latency | Rust Acceleration Latency | Speedup Factor | Precision Delta |
 | :--- | :--- | :--- | :--- | :--- |
@@ -100,7 +100,7 @@ Benchmarks conducted on 50,000 tick bars / 5,000 Monte Carlo iterations comparin
 
 ## 5. Phase 2 Conversion Roadmap for Future Enhancements
 
-For future EAQTS upgrades, the following secondary modules are targeted for Rust wrapping:
+For future EQATS upgrades, the following secondary modules are targeted for Rust wrapping:
 
 1. **`institutional_integrations/backtest_engine.py`**:
    - Wrap strategy tick evaluation loops into `rust_backtest_runner`.
@@ -116,4 +116,4 @@ For future EAQTS upgrades, the following secondary modules are targeted for Rust
 
 ## Conclusion
 
-The Rust integration in EAQTS Version 6.0 provides institutional-grade processing throughput and microsecond latency while maintaining 100% operational safety through resilient Python fallbacks. All 81 core test suites pass cleanly with zero regression.
+The Rust integration in EQATS Version 6.0 provides institutional-grade processing throughput and microsecond latency while maintaining 100% operational safety through resilient Python fallbacks. All 81 core test suites pass cleanly with zero regression.

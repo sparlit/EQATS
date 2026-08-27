@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package eaqts.agent;
+package eqats.agent;
 
 message SignalEvaluationRequest {
   string symbol = 1;

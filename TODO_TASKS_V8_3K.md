@@ -5,7 +5,7 @@
 - [x] 1.2 Implement Limit/Stop Pending Order execution rules with strict SL/TP/TSL/TTP.
 
 ## Phase 2: Microservices Mesh & Data Fabric
-- [x] 2.1 Integrate Tokio/Rust C-extensions in `eaqts_rust_core`.
+- [x] 2.1 Integrate Tokio/Rust C-extensions in `eqats_rust_core`.
 - [x] 2.2 Wire PostgreSQL, ClickHouse, Valkey, and Pulsar streaming adapters in `institutional_integrations/enterprise_gateway.py`.
 - [x] 2.3 Integrate adapted Fincept Terminal engines (`options_derivatives_engine`, `finagent_hedgefund_swarm`, `extended_market_connectors`, `quant_portfolio_analytics`, `alpha_strategies_library`).
 

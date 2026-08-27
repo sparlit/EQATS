@@ -1,10 +1,10 @@
 README.md
 pyproject.toml
-eaqts.egg-info/PKG-INFO
-eaqts.egg-info/SOURCES.txt
-eaqts.egg-info/dependency_links.txt
-eaqts.egg-info/requires.txt
-eaqts.egg-info/top_level.txt
+eqats.egg-info/PKG-INFO
+eqats.egg-info/SOURCES.txt
+eqats.egg-info/dependency_links.txt
+eqats.egg-info/requires.txt
+eqats.egg-info/top_level.txt
 institutional_integrations/__init__.py
 institutional_integrations/advanced_math.py
 institutional_integrations/alert_dispatcher.py

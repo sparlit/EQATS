@@ -1,4 +1,4 @@
-# 🚀 EAQTS v5.0 PRODUCTION DEPLOYMENT GUIDE
+# 🚀 EQATS v5.0 PRODUCTION DEPLOYMENT GUIDE
 
 ## Prerequisites
 - **OS**: Linux (Ubuntu 22.04 LTS / Debian 12 recommended) or Windows Server 2022
@@ -9,8 +9,8 @@
 
 ### 1. Repository Installation
 ```bash
-git clone https://github.com/organization/scalper.git /opt/eaqts
-cd /opt/eaqts
+git clone https://github.com/organization/scalper.git /opt/eqats
+cd /opt/eqats
 ```
 
 ### 2. Virtual Environment & Dependencies
@@ -30,18 +30,18 @@ All 64 test cases must pass (100% green).
 
 ## Systemd Service Configuration (24x7 Linux VPS)
 
-Create `/etc/systemd/system/eaqts.service`:
+Create `/etc/systemd/system/eqats.service`:
 
 ```ini
 [Unit]
-Description=EAQTS Autonomous Quantum Trading Daemon
+Description=EQATS Autonomous Quantum Trading Daemon
 After=network.target
 
 [Service]
 Type=simple
 User=trader
-WorkingDirectory=/opt/eaqts
-ExecStart=/opt/eaqts/venv/bin/python main.py --headless
+WorkingDirectory=/opt/eqats
+ExecStart=/opt/eqats/venv/bin/python main.py --headless
 Restart=always
 RestartSec=10
 LimitNOFILE=65536
@@ -53,7 +53,7 @@ WantedBy=multi-user.target
 Enable and start the service:
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable eaqts
-sudo systemctl start eaqts
-sudo systemctl status eaqts
+sudo systemctl enable eqats
+sudo systemctl start eqats
+sudo systemctl status eqats
 ```

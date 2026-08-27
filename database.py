@@ -9,7 +9,7 @@ import config
 _log = logging.getLogger("database")
 
 
-def hash_credential(secret_text, salt="EAQTS_SOVEREIGN_SALT_2026"):
+def hash_credential(secret_text, salt="EQATS_SOVEREIGN_SALT_2026"):
     """Generates a salt-based SHA-256 cryptographic digest for passwords and PINs."""
     if not secret_text:
         secret_text = ""
@@ -17,7 +17,7 @@ def hash_credential(secret_text, salt="EAQTS_SOVEREIGN_SALT_2026"):
     return hashlib.sha256(salted_str.encode("utf-8")).hexdigest()
 
 
-def encrypt_secret(plain_text, key_seed="EAQTS_CIPHER_KEY_2026"):
+def encrypt_secret(plain_text, key_seed="EQATS_CIPHER_KEY_2026"):
     """Encrypts a string using reversible XOR-base64 ciphering for broker passwords."""
     if not plain_text:
         return ""
@@ -29,7 +29,7 @@ def encrypt_secret(plain_text, key_seed="EAQTS_CIPHER_KEY_2026"):
     return base64.b64encode(cipher_bytes).decode("utf-8")
 
 
-def decrypt_secret(cipher_text, key_seed="EAQTS_CIPHER_KEY_2026"):
+def decrypt_secret(cipher_text, key_seed="EQATS_CIPHER_KEY_2026"):
     """Decrypts a base64-XOR encrypted string back to plaintext."""
     if not cipher_text:
         return ""
@@ -261,7 +261,7 @@ def init_db():
         """,
             (
                 "Primary MetaTrader Gateway",
-                "EAQTS-Demo-Server",
+                "EQATS-Demo-Server",
                 "10928471",
                 encrypt_secret("demoPass123!"),
                 "1:100",
@@ -666,7 +666,7 @@ def get_broker_credentials():
     if not row:
         return {
             "broker_name": "Primary MetaTrader Gateway",
-            "server": "EAQTS-Demo-Server",
+            "server": "EQATS-Demo-Server",
             "account_id": "10928471",
             "password": "demoPass123!",
             "leverage": "1:100",
@@ -683,7 +683,7 @@ def get_broker_credentials():
         "broker_name": row["broker_name"]
         if "broker_name" in keys and row["broker_name"]
         else "Primary Gateway",
-        "server": row["server"] if "server" in keys else "EAQTS-Demo-Server",
+        "server": row["server"] if "server" in keys else "EQATS-Demo-Server",
         "account_id": row["account_id"] if "account_id" in keys else "10928471",
         "password": decrypt_secret(row["password_encrypted"])
         if "password_encrypted" in keys
