@@ -46,8 +46,8 @@ const SHA256_K: [u32; 64] = [
 /// Pure, zero-dependency SHA-256 digest computation
 pub fn sha256(data: &[u8]) -> [u8; 32] {
     let mut h: [u32; 8] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+        0x5be0cd19,
     ];
 
     let bit_len = (data.len() as u64) * 8;
@@ -71,7 +71,10 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
         for i in 16..64 {
             let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
             let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
-            w[i] = w[i - 16].wrapping_add(s0).wrapping_add(w[i - 7]).wrapping_add(s1);
+            w[i] = w[i - 16]
+                .wrapping_add(s0)
+                .wrapping_add(w[i - 7])
+                .wrapping_add(s1);
         }
 
         let mut a = h[0];
@@ -301,7 +304,8 @@ impl Block {
             .unwrap_or_default()
             .as_nanos() as u64;
         let merkle_root = sha256_hex(b"GENESIS_BLOCK_SETTLEMENT");
-        let previous_hash = "0000000000000000000000000000000000000000000000000000000000000000".to_string();
+        let previous_hash =
+            "0000000000000000000000000000000000000000000000000000000000000000".to_string();
         let current_hash = Self::calculate_hash(0, timestamp, &merkle_root, &previous_hash);
 
         Self {
@@ -368,13 +372,25 @@ impl Block {
 
         let mut offset = 0;
 
-        let index = u64::from_be_bytes(slice[offset..offset + 8].try_into().map_err(|_| "Invalid index")?);
+        let index = u64::from_be_bytes(
+            slice[offset..offset + 8]
+                .try_into()
+                .map_err(|_| "Invalid index")?,
+        );
         offset += 8;
 
-        let timestamp = u64::from_be_bytes(slice[offset..offset + 8].try_into().map_err(|_| "Invalid timestamp")?);
+        let timestamp = u64::from_be_bytes(
+            slice[offset..offset + 8]
+                .try_into()
+                .map_err(|_| "Invalid timestamp")?,
+        );
         offset += 8;
 
-        let merkle_len = u32::from_be_bytes(slice[offset..offset + 4].try_into().map_err(|_| "Invalid merkle_len")?) as usize;
+        let merkle_len = u32::from_be_bytes(
+            slice[offset..offset + 4]
+                .try_into()
+                .map_err(|_| "Invalid merkle_len")?,
+        ) as usize;
         offset += 4;
 
         if offset + merkle_len > slice.len() {
@@ -387,7 +403,11 @@ impl Block {
         if offset + 4 > slice.len() {
             return Err("Prev hash len offset out of bounds".to_string());
         }
-        let prev_len = u32::from_be_bytes(slice[offset..offset + 4].try_into().map_err(|_| "Invalid prev_len")?) as usize;
+        let prev_len = u32::from_be_bytes(
+            slice[offset..offset + 4]
+                .try_into()
+                .map_err(|_| "Invalid prev_len")?,
+        ) as usize;
         offset += 4;
 
         if offset + prev_len > slice.len() {
@@ -400,7 +420,11 @@ impl Block {
         if offset + 4 > slice.len() {
             return Err("Curr hash len offset out of bounds".to_string());
         }
-        let curr_len = u32::from_be_bytes(slice[offset..offset + 4].try_into().map_err(|_| "Invalid curr_len")?) as usize;
+        let curr_len = u32::from_be_bytes(
+            slice[offset..offset + 4]
+                .try_into()
+                .map_err(|_| "Invalid curr_len")?,
+        ) as usize;
         offset += 4;
 
         if offset + curr_len > slice.len() {
@@ -413,7 +437,11 @@ impl Block {
         if offset + 4 > slice.len() {
             return Err("Tx count offset out of bounds".to_string());
         }
-        let tx_count = u32::from_be_bytes(slice[offset..offset + 4].try_into().map_err(|_| "Invalid tx_count")?) as usize;
+        let tx_count = u32::from_be_bytes(
+            slice[offset..offset + 4]
+                .try_into()
+                .map_err(|_| "Invalid tx_count")?,
+        ) as usize;
         offset += 4;
 
         let mut transactions = Vec::with_capacity(tx_count);
@@ -512,7 +540,10 @@ impl StateLedger {
     pub fn validate_and_apply_trade(&self, tx: &Transaction) -> Result<(), String> {
         let mut guard = self.balances.write().unwrap();
 
-        let total_cost = tx.price.checked_mul(tx.quantity).ok_or("Price quantity overflow")?;
+        let total_cost = tx
+            .price
+            .checked_mul(tx.quantity)
+            .ok_or("Price quantity overflow")?;
 
         // 1. Validate Buyer Cash Balance
         let buyer_acc = guard.entry(tx.buyer_id).or_default();
@@ -527,7 +558,11 @@ impl StateLedger {
 
         // 2. Validate Seller Asset Balance
         let seller_acc = guard.entry(tx.seller_id).or_default();
-        let seller_asset_qty = seller_acc.assets.get(&tx.asset_symbol).copied().unwrap_or(0);
+        let seller_asset_qty = seller_acc
+            .assets
+            .get(&tx.asset_symbol)
+            .copied()
+            .unwrap_or(0);
         if seller_asset_qty < tx.quantity {
             return Err(format!(
                 "Insufficient asset balance for seller {}: available {}, required {}",
@@ -834,7 +869,10 @@ impl BlockchainEngine {
     }
 
     /// Verify historical genesis-to-head block integrity and rebuild state ledger from scratch
-    pub fn verify_and_recover_state(&self, initial_state: Option<&StateLedger>) -> Result<StateLedger, String> {
+    pub fn verify_and_recover_state(
+        &self,
+        initial_state: Option<&StateLedger>,
+    ) -> Result<StateLedger, String> {
         let blocks = self.disk_engine.read_all_blocks()?;
         if blocks.is_empty() {
             return Err("Cannot recover state: disk ledger is empty".to_string());
@@ -896,7 +934,10 @@ impl BlockchainEngine {
                 &curr.previous_hash,
             );
             if curr.current_hash != expected_hash {
-                return Err(format!("Block current hash mismatch at block {}", curr.index));
+                return Err(format!(
+                    "Block current hash mismatch at block {}",
+                    curr.index
+                ));
             }
 
             // Replay historical transaction deltas sequentially onto recovered balance ledger
@@ -955,7 +996,15 @@ mod tests {
         let mut asset = [0u8; 8];
         asset[0..6].copy_from_slice(b"EURUSD");
 
-        let tx = Transaction::new(1600000000000, trade_id, buyer_id, seller_id, asset, 110500, 10);
+        let tx = Transaction::new(
+            1600000000000,
+            trade_id,
+            buyer_id,
+            seller_id,
+            asset,
+            110500,
+            10,
+        );
         let bytes = tx.to_bytes();
         let deserialized = Transaction::from_bytes(&bytes);
 
@@ -1001,7 +1050,9 @@ mod tests {
             engine.state_ledger.deposit_asset(&seller, &asset, 500);
 
             let tx = Transaction::new(200, [5u8; 16], buyer, seller, asset, 200000, 2);
-            engine.execute_and_commit_trade(tx).expect("Trade execution failed");
+            engine
+                .execute_and_commit_trade(tx)
+                .expect("Trade execution failed");
 
             // Wait for worker to commit block
             thread::sleep(Duration::from_millis(100));
@@ -1011,7 +1062,9 @@ mod tests {
             assert_eq!(engine.state_ledger.get_asset(&buyer, &asset), 2);
             assert_eq!(engine.state_ledger.get_asset(&seller, &asset), 498);
 
-            let recovered = engine.verify_and_recover_state(Some(&init_state)).expect("State recovery failed");
+            let recovered = engine
+                .verify_and_recover_state(Some(&init_state))
+                .expect("State recovery failed");
             assert_eq!(recovered.get_cash(&buyer), 600_000);
             assert_eq!(recovered.get_cash(&seller), 400_000);
 

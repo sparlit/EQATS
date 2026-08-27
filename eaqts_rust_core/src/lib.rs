@@ -1,5 +1,5 @@
-use std::os::raw::{c_char, c_double, c_int};
 use rayon::prelude::*;
+use std::os::raw::{c_char, c_double, c_int};
 
 pub mod backtest;
 pub mod blockchain_db;
@@ -92,7 +92,11 @@ pub extern "C" fn rust_calculate_rsi(
     let period_f = period as f64;
     for i in ((period as usize) + 1)..len as usize {
         let diff = prices_slice[i] - prices_slice[i - 1];
-        let (gain, loss) = if diff >= 0.0 { (diff, 0.0) } else { (0.0, diff.abs()) };
+        let (gain, loss) = if diff >= 0.0 {
+            (diff, 0.0)
+        } else {
+            (0.0, diff.abs())
+        };
 
         avg_gain = (avg_gain * (period_f - 1.0) + gain) / period_f;
         avg_loss = (avg_loss * (period_f - 1.0) + loss) / period_f;
@@ -117,7 +121,14 @@ pub extern "C" fn rust_calculate_atr(
     period: c_int,
     out: *mut c_double,
 ) -> c_int {
-    if highs.is_null() || lows.is_null() || closes.is_null() || out.is_null() || len <= 0 || period <= 0 || len < period {
+    if highs.is_null()
+        || lows.is_null()
+        || closes.is_null()
+        || out.is_null()
+        || len <= 0
+        || period <= 0
+        || len < period
+    {
         return -1;
     }
 
@@ -166,25 +177,30 @@ pub extern "C" fn rust_calculate_vpin(
     bucket_size: c_double,
     out_vpin: *mut c_double,
 ) -> c_int {
-    if buy_volumes.is_null() || sell_volumes.is_null() || out_vpin.is_null() || len <= 0 || bucket_size <= 0.0 {
+    if buy_volumes.is_null()
+        || sell_volumes.is_null()
+        || out_vpin.is_null()
+        || len <= 0
+        || bucket_size <= 0.0
+    {
         return -1;
     }
 
     let buys = unsafe { std::slice::from_raw_parts(buy_volumes, len as usize) };
     let sells = unsafe { std::slice::from_raw_parts(sell_volumes, len as usize) };
 
-    let total_imbalance: f64 = (0..len as usize)
-        .map(|i| (buys[i] - sells[i]).abs())
-        .sum();
+    let total_imbalance: f64 = (0..len as usize).map(|i| (buys[i] - sells[i]).abs()).sum();
 
-    let total_volume: f64 = (0..len as usize)
-        .map(|i| buys[i] + sells[i])
-        .sum();
+    let total_volume: f64 = (0..len as usize).map(|i| buys[i] + sells[i]).sum();
 
     if total_volume <= 1e-8 {
-        unsafe { *out_vpin = 0.0; }
+        unsafe {
+            *out_vpin = 0.0;
+        }
     } else {
-        unsafe { *out_vpin = total_imbalance / total_volume; }
+        unsafe {
+            *out_vpin = total_imbalance / total_volume;
+        }
     }
 
     0
@@ -202,7 +218,11 @@ pub extern "C" fn rust_mcts_tail_risk_simulation(
     out_max_drawdown: *mut c_double,
     out_var_99: *mut c_double,
 ) -> c_int {
-    if simulations <= 0 || initial_equity <= 0.0 || out_max_drawdown.is_null() || out_var_99.is_null() {
+    if simulations <= 0
+        || initial_equity <= 0.0
+        || out_max_drawdown.is_null()
+        || out_var_99.is_null()
+    {
         return -1;
     }
 
@@ -217,10 +237,14 @@ pub extern "C" fn rust_mcts_tail_risk_simulation(
             let mut max_dd = 0.0;
 
             // Simple deterministic pseudo-RNG per thread for repeatable simulation speed
-            let mut rng_state = (seed as u64).wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let mut rng_state = (seed as u64)
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
 
             for _step in 0..100 {
-                rng_state = rng_state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                rng_state = rng_state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let norm = ((rng_state >> 33) as f64) / 2147483648.0 - 1.0; // [-1.0, 1.0]
 
                 // Shock step simulation
