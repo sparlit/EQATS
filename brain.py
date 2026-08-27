@@ -54,7 +54,7 @@ class ScalperBrain:
     """
 
     def __init__(self):
-        self.version = "8.4.0"
+        self.version = "8.5.0"
 
     def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """
@@ -674,7 +674,7 @@ class ScalperBrain:
         top_sl = concurrent_decisions[0]["sl"] if concurrent_decisions else 0.0
         top_tp = concurrent_decisions[0]["tp"] if concurrent_decisions else 0.0
 
-        v8_4_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
+        v8_5_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
 
         return {
             "decision": top_decision,
@@ -683,7 +683,8 @@ class ScalperBrain:
             "tp": top_tp,
             "explanation": top_exp,
             "decisions": concurrent_decisions,
-            "v8_4_slippage_pips": v8_4_slippage_pips,
+            "v8_4_slippage_pips": v8_5_slippage_pips,
+            "v8_5_slippage_pips": v8_5_slippage_pips,
             "indicators": {
                 "ema_long": round(ema_long, 5),
                 "rsi": round(rsi_val, 2),

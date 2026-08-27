@@ -5,11 +5,17 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.41"
-#property description "Elite Quantum Autonomous Scalper EA v8.41 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer with Risk & Grid Safeguards"
+#property version   "8.50"
+#property description "Elite Quantum Autonomous Scalper EA v8.50 - Full-Spectrum Glassmorphism Visualizer with AAT Trailing, Pyramiding & Multi-TF Auto Tiling"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
+#include <Trade\PositionInfo.mqh>
+#include <Trade\SymbolInfo.mqh>
+
+#import "user32.dll"
+   int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
+#import
 
 // Input Parameters
 input string   InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
@@ -30,6 +36,19 @@ input double   InpDailyLossLimitPercent     = 5.0;                   // Max dail
 input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
 input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
 input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
+
+// Dynamic Execution & AAT Advanced Features (Adapted from AAT-Expert-V1.0.0)
+input group "AAT Execution, Trailing & Pyramiding Parameters"
+input double   InpRiskPercent              = 1.0;                   // Risk per trade (%)
+input int      InpMagicNumber              = 123456;                // Magic Number
+input int      InpStopLossPoints           = 200;                   // Initial Stop Loss (points)
+input int      InpTakeProfitPoints         = 400;                   // Initial Take Profit (points)
+input bool     InpTrailingSL               = true;                  // Enable Trailing Stop Loss
+input bool     InpTrailingTP               = true;                  // Enable Trailing Take Profit
+input int      InpTrailingStep             = 50;                    // Trailing Step (points)
+input bool     InpEnablePyramiding         = true;                  // Enable Pyramid Scaling on Winner
+input int      InpMaxPyramidPositions      = 5;                     // Max Pyramid Positions
+input bool     InpAutoCharts               = false;                 // Auto-open & Tile Multi-TF Charts (M1..MN)
 
 // Extended Symbol Scan Metrics
 string m_symbols[50];
@@ -67,22 +86,26 @@ string m_countdown = "00:00:00";
 string m_hw_tier = "HIGH";
 string m_ping_ms = "1.2";
 
-// Local Risk Monitoring State
+// Local Risk Monitoring & AAT State
 datetime m_last_daily_reset_check = 0;
 double   m_daily_start_balance    = 0.0;
 bool     m_daily_loss_limit_hit   = false;
+string   m_candle_countdown       = "00:00";
+double   m_current_risk           = InpRiskPercent;
 
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
-
-// CTrade object for autonomous panic executions
-CTrade m_trade_engine;
+// MQL5 Object instances
+CTrade         m_trade_engine;
+CPositionInfo  pos_info;
+CSymbolInfo    symbol_info;
 
 //+------------------------------------------------------------------+
 //| Forward Declarations                                             |
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll();
+void ApplyTrailingLogic();
+void CheckPyramidScaling();
+void UpdateCandleCountdown();
+void SetupTimeframeCharts();
 void DrawInstitutionalHeader();
 void UpdateDashboard();
 void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, color border_color);
@@ -95,6 +118,10 @@ void DeleteDashboardObjects();
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   if(!symbol_info.Name(_Symbol)) return(INIT_FAILED);
+   m_trade_engine.SetExpertMagicNumber(InpMagicNumber);
+   m_current_risk = InpRiskPercent;
+
    EventSetTimer(InpTimerInterval);
 
    ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, true);
@@ -112,10 +139,12 @@ int OnInit()
    ChartSetInteger(0, CHART_SHIFT, true);
    ChartSetDouble(0, CHART_SHIFT_SIZE, 30.0);
 
+   if(InpAutoCharts) SetupTimeframeCharts();
+
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.40 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v8.50 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -126,7 +155,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.40 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v8.50 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -194,7 +223,10 @@ void CheckDailyLossAndRisk()
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   if(!symbol_info.RefreshRates()) return;
    CheckDailyLossAndRisk();
+   if(InpTrailingSL || InpTrailingTP) ApplyTrailingLogic();
+   if(InpEnablePyramiding) CheckPyramidScaling();
    UpdateDashboard();
 }
 
@@ -203,7 +235,143 @@ void OnTick()
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   UpdateCandleCountdown();
    UpdateDashboard();
+}
+
+//+------------------------------------------------------------------+
+//| UpdateCandleCountdown (Adapted from AAT-Expert-V1.0.0)           |
+//+------------------------------------------------------------------+
+void UpdateCandleCountdown()
+{
+   datetime next_bar = (datetime)SeriesInfoInteger(_Symbol, _Period, SERIES_LASTBAR_DATE) + PeriodSeconds(_Period);
+   long remaining = next_bar - TimeCurrent();
+   if(remaining < 0) remaining = 0;
+   m_candle_countdown = StringFormat("%02d:%02d", (int)remaining/60, (int)remaining%60);
+}
+
+//+------------------------------------------------------------------+
+//| SetupTimeframeCharts (Adapted from AAT-Expert-V1.0.0)            |
+//+------------------------------------------------------------------+
+void SetupTimeframeCharts()
+{
+   ENUM_TIMEFRAMES tfs[] = {PERIOD_M1, PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1, PERIOD_W1, PERIOD_MN1};
+   for(int i=0; i<ArraySize(tfs); i++) ChartOpen(_Symbol, tfs[i]);
+
+   long main_hwnd = ChartGetInteger(0, CHART_WINDOW_HANDLE);
+   PostMessageW(main_hwnd, 0x0111, 33054, 0); // 0x0111 = WM_COMMAND, 33054 = ID_WINDOW_TILE_VERT
+}
+
+//+------------------------------------------------------------------+
+//| ApplyTrailingLogic (Adapted from AAT-Expert-V1.0.0)              |
+//+------------------------------------------------------------------+
+void ApplyTrailingLogic()
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            double current_sl = pos_info.StopLoss();
+            double current_tp = pos_info.TakeProfit();
+            double new_sl = current_sl;
+            double new_tp = current_tp;
+
+            if(pos_info.PositionType() == POSITION_TYPE_BUY)
+            {
+               double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+               if(InpTrailingSL && InpStopLossPoints > 0)
+               {
+                  double target_sl = NormalizeDouble(bid - InpStopLossPoints * point, digits);
+                  if(target_sl > current_sl + InpTrailingStep * point || current_sl == 0.0) new_sl = target_sl;
+               }
+               if(InpTrailingTP && InpTakeProfitPoints > 0)
+               {
+                  double target_tp = NormalizeDouble(bid + InpTakeProfitPoints * point, digits);
+                  if(target_tp > current_tp + InpTrailingStep * point || current_tp == 0.0) new_tp = target_tp;
+               }
+            }
+            else if(pos_info.PositionType() == POSITION_TYPE_SELL)
+            {
+               double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+               if(InpTrailingSL && InpStopLossPoints > 0)
+               {
+                  double target_sl = NormalizeDouble(ask + InpStopLossPoints * point, digits);
+                  if(target_sl < current_sl - InpTrailingStep * point || current_sl == 0.0) new_sl = target_sl;
+               }
+               if(InpTrailingTP && InpTakeProfitPoints > 0)
+               {
+                  double target_tp = NormalizeDouble(ask - InpTakeProfitPoints * point, digits);
+                  if(target_tp < current_tp - InpTrailingStep * point || current_tp == 0.0) new_tp = target_tp;
+               }
+            }
+
+            if(new_sl != current_sl || new_tp != current_tp)
+            {
+               m_trade_engine.PositionModify(ticket, new_sl, new_tp);
+            }
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| CheckPyramidScaling (Adapted from AAT-Expert-V1.0.0)             |
+//+------------------------------------------------------------------+
+void CheckPyramidScaling()
+{
+   int pos_count = 0;
+   double last_open = 0.0;
+   ENUM_POSITION_TYPE type = POSITION_TYPE_BUY;
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            pos_count++;
+            if(pos_count == 1)
+            {
+               last_open = pos_info.PriceOpen();
+               type = pos_info.PositionType();
+            }
+         }
+      }
+   }
+
+   if(pos_count == 0 || pos_count >= InpMaxPyramidPositions) return;
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double profit_points = (type == POSITION_TYPE_BUY) ? (bid - last_open) / point : (last_open - ask) / point;
+
+   if(profit_points >= InpStopLossPoints) // Add every 1:1 RR distance
+   {
+      double price = (type == POSITION_TYPE_BUY) ? ask : bid;
+      ENUM_ORDER_TYPE order_type = (type == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+      if(m_trade_engine.PositionOpen(_Symbol, order_type, 0.01, price, last_open, 0, "EQATS Pyramid"))
+      {
+         for(int i = PositionsTotal() - 1; i >= 0; i--)
+         {
+            ulong ticket = PositionGetTicket(i);
+            if(ticket > 0 && pos_info.SelectByTicket(ticket))
+            {
+               if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+               {
+                  m_trade_engine.PositionModify(ticket, last_open, pos_info.TakeProfit());
+               }
+            }
+         }
+      }
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -466,7 +634,8 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.41)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.50)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
    CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);
@@ -715,6 +884,7 @@ void DeleteDashboardObjects()
 {
    ObjectDelete(0, "SB_Card_Header");
    ObjectDelete(0, "SB_Title");
+   ObjectDelete(0, "SB_CandleClock");
    ObjectDelete(0, "SB_Card_Notice");
    ObjectDelete(0, "SB_Status");
    ObjectDelete(0, "SB_Card_Account");
