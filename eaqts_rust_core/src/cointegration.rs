@@ -28,7 +28,11 @@ pub extern "C" fn rust_calculate_spread_zscore(
     let std_dev = (var_sum / (len as f64)).sqrt();
 
     let last_spread = spreads[len as usize - 1];
-    let zscore = if std_dev > 1e-8 { (last_spread - mean) / std_dev } else { 0.0 };
+    let zscore = if std_dev > 1e-8 {
+        (last_spread - mean) / std_dev
+    } else {
+        0.0
+    };
 
     unsafe {
         *out_zscore = zscore;
