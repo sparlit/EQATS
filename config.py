@@ -65,8 +65,14 @@ RISK_PER_TRADE_PERCENT = 1.0  # Risk exactly 1% of equity per trade
 MAX_DAILY_DRAWDOWN_PERCENT = (
     3.0  # Stop trading for the day if 3% of account balance is lost
 )
-MAX_CONCURRENT_TRADES = 10  # Max simultaneous open trades across all symbols (optimized for parallel multi-style scaling)
+MAX_CONCURRENT_TRADES = 20  # Max simultaneous open trades across all symbols (production safety limit)
 RISK_REWARD_RATIO = 2.0  # Win target is 2.0x of the stop loss distance
+
+# Advanced Risk Settings & Sub-Allocation Controls
+ENABLE_SYMBOL_FLOATING_LOSS_GATE = True  # Protects against stacking losses on same symbol
+GLOBAL_RISK_LIMIT_CAP_PERCENT = 100.0   # Max aggregate account risk percentage across all trades
+DEDICATED_RISK_SUB_ALLOCATION_ENABLED = True  # Sub-allocates risk per active strategy/method
+AUTO_RISK_MANAGEMENT = False            # Auto-tunes risk parameters based on account equity and regime
 ATR_PERIOD = 14  # Period for Average True Range volatility calculation
 ATR_MULTIPLIER_SL = 1.5  # Stop loss distance = 1.5 * ATR
 
@@ -80,10 +86,10 @@ TRAILING_STOP_ENABLED = True  # Dynamic profit lock
 TRAILING_STOP_ATR_MULT = 1.5  # Trailing distance = 1.5 * ATR
 
 # 4. Strategy Selection and Tuning
-# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE", "BREAKOUT", "CARRY_TRADE", "GRID_TRADE", "STAT_ARB", "ORB", "VSA", "MTF_CONFLUENCE"
+# Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE", "BREAKOUT", "CARRY_TRADE", "GRID_TRADE", "STAT_ARB", "ORB", "VSA", "MTF_CONFLUENCE", "SMC_ICT", "ORDER_FLOW", "MULTI_STRATEGY_CONCURRENT", "MULTI_HYBRID_PARALLEL", "AUTO"
 ACTIVE_STRATEGY = "VOTING_ENSEMBLE"
 
-# Supported active trading styles: "SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING"
+# Supported active trading styles: "SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING", "AUTO"
 TRADING_STYLE = "SCALPING"
 
 # --- BREAKOUT STRATEGY CONFIG ---

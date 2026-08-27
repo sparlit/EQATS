@@ -56,6 +56,7 @@ known-first-party = ["institutional_integrations", "brain", "connector", "databa
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
+exclude = ["build", "dist", "eaqts.egg-info", ".eggs"]
 warn_unused_ignores = false
 warn_redundant_casts = false
 disable_error_code = ["import-untyped", "import-not-found", "var-annotated", "no-redef", "assignment", "misc"]
