@@ -7,7 +7,7 @@ Implied Volatility Surface modeling, Gamma Exposure (GEX) analytics, and Options
 
 import math
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any, Tuple
 import numpy as np
 
 _log = logging.getLogger(__name__)

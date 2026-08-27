@@ -5,9 +5,8 @@ VIX Dual Thrust, Global Equity IBS Mean Reversion, Intraday Reversal Currency Al
 and Triple Leverage Volatility Decay Arbitrage.
 """
 
-import math
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any
 import numpy as np
 
 _log = logging.getLogger(__name__)

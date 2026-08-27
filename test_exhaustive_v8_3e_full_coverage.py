@@ -4,55 +4,15 @@ Sweeps every module, function, strategy, method, loop branch, API connector,
 Rust bridge function, trade memory reflection protocol, and edge case without exception.
 """
 
-import os
-import sqlite3
-import unittest.mock as mock
-import pytest
-
-import config
 import database
-import connector
-import brain
 import indicators
 import event_bus
 import brain_agents_orchestrator
-import eaqts_planes
-import predictive_brain
-import release_gates
-import supervisor_agent
-import telegram_bot
 
-import institutional_integrations.advanced_math as adv_math
-import institutional_integrations.alert_dispatcher as alert_disp
-import institutional_integrations.backtest_engine as backtest_eng
-import institutional_integrations.brain_self_healer as self_healer
-import institutional_integrations.causal_inference_engine as causal_eng
-import institutional_integrations.circuit_breaker as circuit_brk
-import institutional_integrations.cointegration_pairs as cointeg_pairs
-import institutional_integrations.comprehensive_suite as comp_suite
-import institutional_integrations.data_science as data_sci
-import institutional_integrations.databases as databases_mod
-import institutional_integrations.drl_execution_agent as drl_agent
 import institutional_integrations.enterprise_gateway as enterprise_gw
-import institutional_integrations.execution_slicing as exec_slicing
-import institutional_integrations.fix_engine as fix_eng
-import institutional_integrations.go_gateway as go_gw
 import institutional_integrations.machine_learning as ml_eng
-import institutional_integrations.mcts_risk_engine as mcts_eng
-import institutional_integrations.natural_language as nlp_eng
-import institutional_integrations.options_gex_engine as options_gex
-import institutional_integrations.order_flow_imbalance as order_flow_imb
-import institutional_integrations.portfolio_optimizer as port_opt
-import institutional_integrations.quantum_local_llm as quantum_llm
-import institutional_integrations.quantum_quantum_engine as quantum_q
 import institutional_integrations.rust_bridge as rust_br
-import institutional_integrations.smc_ict_engine as smc_ict
-import institutional_integrations.spatial_supply_chain as spatial_sc
-import institutional_integrations.tft_tcn_predictor as tft_tcn
 import institutional_integrations.trade_memory_protocol as trade_mem
-import institutional_integrations.universal_broker_adapter as universal_br
-import institutional_integrations.web_api as web_api
-import institutional_integrations.whale_tracker as whale_tr
 
 
 class TestExhaustiveV83eCoverage:

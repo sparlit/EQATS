@@ -5,10 +5,8 @@ Implements multi-persona hedge fund teams (Medallion Fund, Quant Research, Risk,
 deliberation workflows, decision memory, signal validation, and risk guardrails.
 """
 
-import math
 import logging
-from typing import Dict, List, Any, Optional, Tuple, Union
-import numpy as np
+from typing import Dict, List, Any, Optional
 
 _log = logging.getLogger(__name__)
 

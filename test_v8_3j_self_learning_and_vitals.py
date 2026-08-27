@@ -3,8 +3,6 @@ Integration test suite for EQATS v8.3j self-learning trade reflection, hardware 
 and zero-mock resilience.
 """
 
-import os
-import pytest
 from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
 from institutional_integrations.system_autotune import detect_system_capabilities, auto_tune_system_parameters
 
