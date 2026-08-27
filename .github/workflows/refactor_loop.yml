@@ -33,7 +33,7 @@ jobs:
         import os
         import subprocess
 
-        PLAN_FILE = "refactor_plan.md"
+        PLAN_FILE = "instructions.md"
 
         if not os.path.exists(PLAN_FILE):
             print(f"Error: {PLAN_FILE} not found.")
