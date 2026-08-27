@@ -8,6 +8,7 @@ ML batch sizes, IPC polling intervals, and Valkey/SQLite cache sizes.
 """
 
 import os
+import sys
 import shutil
 import platform
 import socket
@@ -131,6 +132,7 @@ def auto_tune_system_parameters(caps: dict = None) -> dict:
 
     tier = caps.get("performance_tier", "MEDIUM")
     l_cores = caps.get("cpu_logical_cores", 4)
+    ram_gb = caps.get("ram_total_gb", 16.0)
 
     # Base tuning mapping according to tier
     if tier == "ULTRA":

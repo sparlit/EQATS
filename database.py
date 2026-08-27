@@ -45,12 +45,7 @@ def decrypt_secret(cipher_text, key_seed="EAQTS_CIPHER_KEY_2026"):
 
 
 def get_connection():
-    """
-    Create a SQLite connection configured for row-based results and a 60-second busy timeout.
-    
-    Returns:
-    	sqlite3.Connection: A database connection using WAL journaling when available, with DELETE journaling as a fallback.
-    """
+    """Returns a thread-safe connection to the SQLite database with WAL journal mode and 60-second busy timeout."""
     conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
     conn.row_factory = sqlite3.Row
     try:
@@ -90,13 +85,7 @@ def checkpoint_wal(force=False):
 
 
 def init_db():
-    """
-    Initialize and migrate the SQLite database schema.
-    
-    Creates the application tables, adds missing columns to existing tables, and
-    seeds default administrator and broker records when those tables are empty.
-    Retries operational database failures with exponential backoff.
-    """
+    """Initializes database tables if they do not exist."""
     max_retries = 5
     for attempt in range(max_retries):
         try:
@@ -376,17 +365,7 @@ import time
 
 
 def _execute_with_retry(query, params=(), commit=True):
-    """
-    Execute a database write query with retries for operational failures.
-    
-    Parameters:
-    	query: The SQL statement to execute.
-    	params: Values bound to the SQL statement.
-    	commit: Whether to commit the transaction after execution.
-    
-    Returns:
-    	bool: True if the query executes successfully, False if all retry attempts fail.
-    """
+    """Executes a database write query using connection context manager with automatic retries and exponential backoff."""
     max_retries = 5
     for attempt in range(max_retries):
         try:
@@ -416,17 +395,7 @@ def _execute_with_retry(query, params=(), commit=True):
 
 
 def _fetch_with_retry(query, params=(), fetch_all=True):
-    """
-    Execute a database read query with retries.
-    
-    Parameters:
-    	query: (str): SQL query to execute.
-    	params (tuple): Values bound to the query parameters.
-    	fetch_all (bool): Whether to return all matching rows or a single row.
-    
-    Returns:
-    	list or tuple or None: The matching rows, a single matching row, an empty list when all-row retrieval fails, or None when single-row retrieval fails.
-    """
+    """Executes a database read query using connection context manager with automatic retries and exponential backoff."""
     max_retries = 5
     for attempt in range(max_retries):
         try:
@@ -454,16 +423,7 @@ def _fetch_with_retry(query, params=(), fetch_all=True):
 
 
 def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
-    """
-    Create a user account with hashed password and PIN credentials.
-    
-    Parameters:
-        username: Account username.
-        password: Account password.
-        pin: Account PIN.
-        role: User role assigned to the account.
-        mfa_enabled: Whether multi-factor authentication is enabled.
-    """
+    """Adds a new operator account with salt-hashed password and PIN with lock retries."""
     query = """
     INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -644,22 +604,7 @@ def save_broker_credentials(
     ws_url="",
     terminal_path="",
 ):
-    """Save or update the active broker credentials and connection settings.
-    
-    Parameters:
-    	server: Broker server or endpoint identifier.
-    	account_id: Broker account identifier.
-    	password: Broker account password.
-    	leverage: Requested trading leverage.
-    	broker_name: Display name for the broker.
-    	environment: Broker environment, such as demo or live.
-    	protocol_type: Connection protocol used by the broker.
-    	api_key: Optional broker API key.
-    	api_secret: Optional broker API secret.
-    	rest_url: Optional REST API endpoint.
-    	ws_url: Optional WebSocket API endpoint.
-    	terminal_path: Optional trading terminal path.
-    """
+    """Saves or updates primary active broker parameters in SQLite with lock retries."""
     leverage = normalize_leverage(leverage)
     conn = get_connection()
     cursor = conn.cursor()
@@ -720,13 +665,7 @@ def save_broker_credentials(
 
 
 def get_broker_credentials():
-    """
-    Retrieve the selected broker connection settings with decrypted credentials.
-    
-    Returns:
-    	dict: Broker settings, using the most recent active profile or default
-    	values when no profile is available.
-    """
+    """Retrieves active broker connection parameters and decrypts secrets."""
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -951,11 +890,8 @@ def get_daily_profit(date_str=None):
 
 def update_performance_metrics(date_str, current_balance):
     """
-    Update daily trading performance metrics for the specified date.
-    
-    Parameters:
-        date_str (str): Date used to identify the performance record and closed trades.
-        current_balance (float): Account balance at the end of the date.
+    Autonomously analyzes trading performance for a specific date and
+    upserts metrics into the performance_metrics table with lock retries.
     """
     rows = _fetch_with_retry(
         """

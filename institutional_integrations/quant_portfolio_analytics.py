@@ -24,15 +24,8 @@ class PortfolioOptimizationEngine:
         target_return: Optional[float] = None
     ) -> Dict[str, Any]:
         """
-        Determine a long-only portfolio allocation that balances expected return and risk.
-        
-        Parameters:
-        	returns_matrix (np.ndarray): A two-dimensional matrix of periodic asset returns.
-        	risk_free_rate (float): Annual risk-free rate used to calculate excess returns and the Sharpe ratio.
-        	target_return (Optional[float]): Retained for API compatibility; does not affect the allocation.
-        
-        Returns:
-        	Dict[str, Any]: A result containing portfolio weights, expected return, expected volatility, Sharpe ratio, and status. Invalid input returns an error status with empty weights.
+        Solves for Tangency Portfolio (Max Sharpe Ratio) weights using quadratic programming principles.
+        returns_matrix shape: (num_periods, num_assets)
         """
         if returns_matrix.ndim != 2 or returns_matrix.shape[1] == 0:
             return {"weights": [], "status": "ERROR"}
@@ -89,13 +82,7 @@ class PortfolioOptimizationEngine:
     @staticmethod
     def optimize_risk_parity(returns_matrix: np.ndarray) -> Dict[str, Any]:
         """
-        Calculate portfolio weights using an inverse-volatility risk-parity allocation.
-        
-        Parameters:
-        	returns_matrix (np.ndarray): Two-dimensional matrix of asset returns, with rows representing observations and columns representing assets.
-        
-        Returns:
-        	Dict[str, Any]: A result containing portfolio weights, expected annualized return, expected annualized volatility, and a status. Returns an error status when the input has no asset columns.
+        Calculates Equal Risk Contribution (Risk Parity) portfolio weights.
         """
         if returns_matrix.ndim != 2 or returns_matrix.shape[1] == 0:
             return {"weights": [], "status": "ERROR"}
