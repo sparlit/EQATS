@@ -123,8 +123,13 @@ def detect_system_capabilities() -> dict:
 
 def auto_tune_system_parameters(caps: dict = None) -> dict:
     """
-    Computes optimal performance configuration parameters based on detected system capabilities.
-    Adjusts worker counts, batch sizes, cache thresholds, and polling frequencies.
+    Create a performance configuration based on system capabilities.
+    
+    Parameters:
+        caps (dict, optional): System capability data. If omitted, capabilities are detected automatically.
+    
+    Returns:
+        dict: Tuned worker, batch, cache, polling, simulation, and backtesting parameters, including the capability data used.
     """
     if caps is None:
         caps = detect_system_capabilities()
