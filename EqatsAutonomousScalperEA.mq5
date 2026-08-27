@@ -17,6 +17,10 @@
    int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
 #import
 
+#import "user32.dll"
+   int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
+#import
+
 // User Interface & Socket IPC Inputs
 input string   InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
 input int      InpSocketPort               = 9001;                  // Socket IPC Bridge Port
