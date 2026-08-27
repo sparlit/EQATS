@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.80"
-#property description "Elite Quantum Autonomous Scalper EA v8.80 - Multi-Asset Database Tracking Cockpit with SYM Routing & M1/M5 History Pipeline"
+#property version   "8.90"
+#property description "Elite Quantum Autonomous Scalper EA v8.90 - Multi-Asset Database Tracking Cockpit with Explicit Border Styling & Audit Logging"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -153,7 +153,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.80 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v8.90 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -164,7 +164,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.80 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v8.90 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -548,6 +548,7 @@ void OnChartEvent(const int id,
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll()
 {
+   Print("MANUAL OVERRIDE: Panic button pressed. Purging open positions...");
    int closed_count = 0;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
@@ -767,14 +768,15 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.80)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.90)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
    CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);
    CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 693, 16, 95, 24, clrWhite, C'126,34,206', 8);
    CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 796, 16, 115, 24, clrWhite, C'13,148,136', 8);
-   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 919, 16, 140, 24, clrWhite, C'185,28,28', 8);
+   CreateButton("SB_Btn_Panic", "🚨 PANIC CLOSE ALL", 919, 16, 140, 24, clrWhite, C'185,28,28', 8);
+   ObjectSetInteger(0, "SB_Btn_Panic", OBJPROP_BORDER_COLOR, clrWhite);
 }
 
 //+------------------------------------------------------------------+

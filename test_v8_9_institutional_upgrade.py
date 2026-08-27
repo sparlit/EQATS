@@ -1,6 +1,6 @@
 """
-EQATS Version 8.8 Institutional Upgrade Verification Suite
-Verifies version assertions, ScalperBrain v8.8 attributes, and AatEAv3 asset routing payload adaptations.
+EQATS Version 8.9 Institutional Upgrade Verification Suite
+Verifies version assertions, ScalperBrain v8.9 attributes, and AatEAv3 panic border styling adaptations.
 """
 
 import pytest
@@ -8,12 +8,12 @@ import brain
 from brain import ScalperBrain
 
 
-def test_v8_8_version_assertions():
+def test_v8_9_version_assertions():
     scalper = ScalperBrain()
-    assert scalper.version.startswith("8.")
+    assert scalper.version == "8.9.0"
 
 
-def test_v8_8_brain_evaluation_and_slippage_control():
+def test_v8_9_brain_evaluation_and_slippage_control():
     scalper = ScalperBrain()
     bars = [
         {"open": 1.1000 + i*0.0001, "high": 1.1005 + i*0.0001, "low": 1.0995 + i*0.0001, "close": 1.1002 + i*0.0001, "tick_volume": 1000}
@@ -21,5 +21,5 @@ def test_v8_8_brain_evaluation_and_slippage_control():
     ]
     res = scalper.evaluate("EURUSD", bars, current_equity=10000.0)
     assert "decision" in res
-    assert "v8_8_slippage_pips" in res
-    assert res["v8_8_slippage_pips"] >= 0.5
+    assert "v8_9_slippage_pips" in res
+    assert res["v8_9_slippage_pips"] >= 0.5
