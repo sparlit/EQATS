@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.50"
-#property description "Elite Quantum Autonomous Scalper EA v8.50 - Full-Spectrum Glassmorphism Visualizer with AAT Trailing, Pyramiding & Multi-TF Auto Tiling"
+#property version   "8.60"
+#property description "Elite Quantum Autonomous Scalper EA v8.60 - Multi-TF Pyramiding Cockpit with BreakEven Protection & Spread Safeguards"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -17,7 +17,11 @@
    int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
 #import
 
-// Input Parameters
+#import "user32.dll"
+   int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
+#import
+
+// User Interface & Socket IPC Inputs
 input string   InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
 input int      InpSocketPort               = 9001;                  // Socket IPC Bridge Port
 input bool     InpUseSocketIPC             = true;                  // Use Zero-Latency Socket IPC Push
@@ -28,26 +32,31 @@ input bool     InpEmergencyCloseOnLockdown = true;                  // Close pos
 input color    InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
 input color    InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
 
-// Local Risk & Margin Safeguards (Adapted from BotCilento EA)
+// Local Risk & Margin Safeguards (Adapted from BotCilento EA & AatEAv15)
 input group "Local EA Risk & Margin Safeguards"
 input bool     InpEnableEmergencyClose      = true;                  // Enable emergency close at max drawdown
 input double   InpMaxDrawdownPercent        = 15.0;                  // Max drawdown % before panic close
 input double   InpDailyLossLimitPercent     = 5.0;                   // Max daily loss limit %
 input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
+input double   InputMinFreeMarginPct        = 30.0;                  // Minimum free margin percentage (%)
+input int      InputMaxAllowedSpread        = 40;                    // Max allowed spread (points)
 input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
 input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
 
-// Dynamic Execution & AAT Advanced Features (Adapted from AAT-Expert-V1.0.0)
-input group "AAT Execution, Trailing & Pyramiding Parameters"
+// Dynamic Execution & AAT Advanced Features (Adapted from AatEAv15)
+input group "AAT Execution, BreakEven, Trailing & Pyramiding"
 input double   InpRiskPercent              = 1.0;                   // Risk per trade (%)
 input int      InpMagicNumber              = 123456;                // Magic Number
 input int      InpStopLossPoints           = 200;                   // Initial Stop Loss (points)
 input int      InpTakeProfitPoints         = 400;                   // Initial Take Profit (points)
+input int      InputBreakEvenTrigger       = 250;                   // BreakEven Trigger (points)
+input int      InputBreakEvenBuffer        = 30;                    // BreakEven Buffer (points)
 input bool     InpTrailingSL               = true;                  // Enable Trailing Stop Loss
 input bool     InpTrailingTP               = true;                  // Enable Trailing Take Profit
 input int      InpTrailingStep             = 50;                    // Trailing Step (points)
 input bool     InpEnablePyramiding         = true;                  // Enable Pyramid Scaling on Winner
 input int      InpMaxPyramidPositions      = 5;                     // Max Pyramid Positions
+input int      InputPyramidStepPoints      = 200;                   // Pyramid Min Entry Step (points)
 input bool     InpAutoCharts               = false;                 // Auto-open & Tile Multi-TF Charts (M1..MN)
 
 // Extended Symbol Scan Metrics
@@ -103,7 +112,9 @@ CSymbolInfo    symbol_info;
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll();
 void ApplyTrailingLogic();
+void ProcessBreakEvenProtection();
 void CheckPyramidScaling();
+bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPoints);
 void UpdateCandleCountdown();
 void SetupTimeframeCharts();
 void DrawInstitutionalHeader();
@@ -144,7 +155,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.50 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v8.60 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -155,7 +166,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.50 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v8.60 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -224,7 +235,18 @@ void CheckDailyLossAndRisk()
 void OnTick()
 {
    if(!symbol_info.RefreshRates()) return;
+
+   // Check spread & margin safeguards (Adapted from AatEAv15)
+   double free_margin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double margin_pct = (balance > 0.0) ? (free_margin / balance) * 100.0 : 0.0;
+   long spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+
+   if(InputMaxAllowedSpread > 0 && spread > InputMaxAllowedSpread) return;
+   if(InputMinFreeMarginPct > 0.0 && margin_pct < InputMinFreeMarginPct) return;
+
    CheckDailyLossAndRisk();
+   ProcessBreakEvenProtection();
    if(InpTrailingSL || InpTrailingTP) ApplyTrailingLogic();
    if(InpEnablePyramiding) CheckPyramidScaling();
    UpdateDashboard();
@@ -321,7 +343,74 @@ void ApplyTrailingLogic()
 }
 
 //+------------------------------------------------------------------+
-//| CheckPyramidScaling (Adapted from AAT-Expert-V1.0.0)             |
+//| ProcessBreakEvenProtection (Adapted from AatEAv15)                |
+//+------------------------------------------------------------------+
+void ProcessBreakEvenProtection()
+{
+   if(InputBreakEvenTrigger <= 0) return;
+
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double beTrigger = InputBreakEvenTrigger * point;
+   double beBuffer = InputBreakEvenBuffer * point;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            ENUM_POSITION_TYPE type = pos_info.PositionType();
+            double openPrice = pos_info.PriceOpen();
+            double currentSL = pos_info.StopLoss();
+            double currentTP = pos_info.TakeProfit();
+
+            if(type == POSITION_TYPE_BUY)
+            {
+               double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+               if(currentSL < openPrice && (bid - openPrice > beTrigger))
+               {
+                  m_trade_engine.PositionModify(ticket, NormalizeDouble(openPrice + beBuffer, digits), currentTP);
+               }
+            }
+            else if(type == POSITION_TYPE_SELL)
+            {
+               double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+               if((currentSL == 0.0 || currentSL > openPrice) && (openPrice - ask > beTrigger))
+               {
+                  m_trade_engine.PositionModify(ticket, NormalizeDouble(openPrice - beBuffer, digits), currentTP);
+               }
+            }
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| IsPyramidStepValid (Adapted from AatEAv15)                        |
+//+------------------------------------------------------------------+
+bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPoints)
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double minDistance = stepPoints * point;
+
+   for(int i = 0; i < PositionsTotal(); i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && pos_info.PositionType() == type)
+         {
+            if(MathAbs(currentPrice - pos_info.PriceOpen()) < minDistance) return false;
+         }
+      }
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| CheckPyramidScaling (Adapted from AatEAv15 & AAT-Expert)         |
 //+------------------------------------------------------------------+
 void CheckPyramidScaling()
 {
@@ -351,11 +440,14 @@ void CheckPyramidScaling()
 
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double price = (type == POSITION_TYPE_BUY) ? ask : bid;
+
+   if(!IsPyramidStepValid(type, price, InputPyramidStepPoints)) return;
+
    double profit_points = (type == POSITION_TYPE_BUY) ? (bid - last_open) / point : (last_open - ask) / point;
 
    if(profit_points >= InpStopLossPoints) // Add every 1:1 RR distance
    {
-      double price = (type == POSITION_TYPE_BUY) ? ask : bid;
       ENUM_ORDER_TYPE order_type = (type == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
       if(m_trade_engine.PositionOpen(_Symbol, order_type, 0.01, price, last_open, 0, "EQATS Pyramid"))
       {
@@ -634,7 +726,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.50)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.60)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
