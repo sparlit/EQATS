@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "9.10"
-#property description "Elite Quantum Autonomous Scalper EA v9.10 - Risk-Managed Multi-Timeframe Pyramiding Cockpit with Emergency Halt Safeguards"
+#property version   "9.20"
+#property description "Elite Quantum Autonomous Scalper EA v9.20 - Scaling-With-Trend Trading Cockpit with 1.5x Aggressive Pyramiding Signal Handling"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -153,7 +153,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v9.10 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v9.20 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -164,7 +164,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v9.10 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v9.20 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -507,7 +507,10 @@ void CheckPyramidScaling()
    if(profit_points >= InpStopLossPoints) // Add every 1:1 RR distance
    {
       ENUM_ORDER_TYPE order_type = (type == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
-      if(m_trade_engine.PositionOpen(_Symbol, order_type, 0.01, price, last_open, 0, "EQATS Pyramid"))
+      double base_scale_lot = 0.01;
+      double final_scale_lot = base_scale_lot; // 1.0x standard scale
+
+      if(m_trade_engine.PositionOpen(_Symbol, order_type, final_scale_lot, price, last_open, 0, StringFormat("EQATS Pyramid L%d", pos_count+1)))
       {
          for(int i = PositionsTotal() - 1; i >= 0; i--)
          {
@@ -785,7 +788,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.10)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.20)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)

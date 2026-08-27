@@ -54,7 +54,7 @@ class ScalperBrain:
     """
 
     def __init__(self):
-        self.version = "9.1.0"
+        self.version = "9.2.0"
 
     def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """
@@ -674,7 +674,7 @@ class ScalperBrain:
         top_sl = concurrent_decisions[0]["sl"] if concurrent_decisions else 0.0
         top_tp = concurrent_decisions[0]["tp"] if concurrent_decisions else 0.0
 
-        v9_1_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
+        v9_2_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
 
         return {
             "decision": top_decision,
