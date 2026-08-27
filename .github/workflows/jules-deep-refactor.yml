@@ -13,9 +13,11 @@ jobs:
       contents: write       # Grants Jules permission to push the fixed code back
 
     steps:
+      # 1. Upgraded to v5 to natively run on Node 24 and clear the warning
       - name: Checkout Repository
         uses: actions/checkout@v5
 
+      # 2. Summon Jules to analyze the codebase architecture for structural issues
       - name: Summon Jules for Deep Scan
         uses: google-labs-code/jules-invoke@v1
         with:
