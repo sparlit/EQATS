@@ -1,0 +1,37 @@
+name: Jules Deep Project Refactor
+
+on:
+  push:
+    branches:
+      - 'ai-refactor-/*'    # Triggers when you push to branches like ai-refactor-auth
+  workflow_dispatch:        # Allows you to click "Run workflow" manually from GitHub UI
+
+jobs:
+  deep-clean:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # Grants Jules permission to push the fixed code back
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Summon Jules for Deep Scan
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          branch: ${{ github.ref_name }}
+          prompt: |
+            Perform a comprehensive architectural review and code quality deep-dive across the entire repository. 
+            
+            Scan the codebase for the following items, fix them, and replace them with production-ready code:
+            
+            1. 🛑 UNFINISHED CODE: Locate all 'TODO', 'FIXME', 'BUG', or 'STUB' comments. Implement the actual intended production logic.
+            2. 🧱 PLACEHOLDERS: Find any dummy data, mock responses, placeholder functions, or empty catch blocks, and replace them with real, operational logic.
+            3. 📉 CODE FLAWS & BOTTLEENECKS: Identify unoptimized loops, redundant operations, deep nesting, or algorithmic inefficiencies that could cause performance slowdowns.
+            4. ⚠️ CODE SMELLS: Clean up unused imports, dead/unreachable code, global variables where isolated variables should be used, and missing type definitions/docstrings.
+            
+            Operational Constraints:
+            - Make sure any real logic you write completely aligns with the existing architecture and patterns used in the repository.
+            - Run the project's existing test suite locally in your environment to ensure your optimizations do not break any features.
+            - Once all items are rectified and verified, commit and push the completed production-ready code back to this branch.
