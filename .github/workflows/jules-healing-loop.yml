@@ -45,7 +45,7 @@ jobs:
 
   invoke-jules:
     needs: test-and-validate
-    if: needs:test-and-validate.outputs.tests_failed == 'true'
+    if: needs.test-and-validate.outputs.tests_failed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write     # Gives the environment permission to receive code updates
