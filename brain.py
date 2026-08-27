@@ -1,5 +1,6 @@
 import logging
 import math
+import numpy as np
 
 import config
 import database
@@ -262,6 +263,19 @@ class ScalperBrain:
         predictor.learn_and_adjust(actual_bullish_close)
 
         ai_bullish_prob = predictor.predict(inputs)
+
+        # --- Kronos Financial Foundation Model Forecast Integration ---
+        kronos_model = predictive_brain.get_kronos_predictor(symbol)
+        vols = [bar.get("tick_volume", bar.get("volume", 1000.0)) for bar in history_bars]
+        min_len = min(len(highs), len(lows), len(closes), len(vols))
+        if min_len > 0:
+            opens_arr = np.roll(closes, 1)
+            opens_arr[0] = closes[0]
+            ohlcv_mat = np.column_stack((opens_arr[-min_len:], highs[-min_len:], lows[-min_len:], closes[-min_len:], vols[-min_len:]))
+        else:
+            ohlcv_mat = np.empty((0, 5))
+        kronos_res = kronos_model.forecast_probabilistic(ohlcv_mat, forecast_horizon=24)
+        kronos_upside_prob = kronos_res.get("upside_probability", 0.5)
 
         # 1. EVALUATE STRATEGY 1: TREND_FOLLOWING
         sig_tf = "HOLD"
@@ -589,6 +603,14 @@ class ScalperBrain:
                 else:
                     single_dec = "HOLD"
                     single_exp = f"Regime Neutral Hold ({reg_info['detailed_regime']}){agent_notes}"
+
+            # Kronos Probabilistic Foundation Veto Filter
+            if kronos_upside_prob < 0.25 and single_dec == "BUY":
+                single_dec = "HOLD"
+                single_exp = f"HOLD (Kronos Vetoed: Low Upside Probability {kronos_upside_prob:.2f}) | {single_exp}"
+            elif kronos_upside_prob > 0.75 and single_dec == "SELL":
+                single_dec = "HOLD"
+                single_exp = f"HOLD (Kronos Vetoed: High Upside Probability {kronos_upside_prob:.2f}) | {single_exp}"
 
             # Macro NLP Filter
             if prevailing_sentiment == "BULLISH" and single_dec == "SELL":

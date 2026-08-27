@@ -10999,6 +10999,24 @@ SECURITY DOMAINS ENFORCED:
         utc_str = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S UTC")
         self.lbl_poly_utc.config(text=utc_str)
 
+        # Update Kronos Model Telemetry Indicator in Header
+        try:
+            import predictive_brain
+            sym = getattr(config, "SYMBOL", "EURUSD")
+            k_model = predictive_brain.get_kronos_predictor(sym)
+            if self.scalper and self.scalper.conn:
+                df_b = self.scalper.conn.get_history(sym, getattr(config, "TIMEFRAME", "M1"), count=60)
+                if df_b is not None and not df_b.empty:
+                    ohlcv = df_b[["open", "high", "low", "close", "tick_volume"]].to_numpy()
+                    fc = k_model.forecast_probabilistic(ohlcv, forecast_horizon=24)
+                    up_p = fc.get("upside_probability", 0.5) * 100.0
+                    vol_a = fc.get("volatility_amplification", 0.0) * 100.0
+                    self.lbl_poly_hdr_status.config(
+                        text=f"• KRONOS FOUNDATION AI • {sym} UPSIDE {up_p:.1f}% • VOL AMP {vol_a:.1f}% • CONF {fc.get('model_confidence', 0.5):.2f}"
+                    )
+        except Exception as e:
+            _log.debug("GUI Kronos update notice: %s", e)
+
         if recent_trades:
             t_last = recent_trades[0]
             last_pnl = t_last.get('profit')

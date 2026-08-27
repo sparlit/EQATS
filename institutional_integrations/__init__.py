@@ -33,6 +33,7 @@ from .comprehensive_suite import (  # noqa: F401
     integrate_tsfresh, integrate_typer, integrate_vaex, integrate_xgboost, integrate_yfinance, integrate_zipline
 )
 from .data_science import calculate_portfolio_weights, perform_statistical_pingouin_test
+from .kronos_model import KronosFoundationModel, KronosTokenizer  # noqa: F401
 from .databases import (
     insert_vector_embedding,
     propagate_graph_breakout_warnings,
@@ -85,4 +86,6 @@ __all__ = [
     "PortfolioOptimizationEngine",
     "QuantPerformanceMetrics",
     "AlphaStrategyLibrary",
+    "KronosFoundationModel",
+    "KronosTokenizer",
 ]
