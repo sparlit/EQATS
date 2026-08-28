@@ -57,7 +57,81 @@ jobs:
           # Install using the lockfile for integrity-checked, reproducible installation
           npm ci
 
+      - name: Create OpenWiki exclusion configuration
+        # Configure path exclusions to prevent sensitive files from being sent to external services.
+        # This mitigates the risk of credential leakage, proprietary code exposure, and
+        # unintended data transfer to third-party inference and tracing providers.
+        run: |
+          cat > .openwikiignore << 'EOF'
+          # Exclude sensitive credential and security files
+          **/SECURITY*.md
+          **/CREDENTIALS*.md
+          **/*_CREDENTIALS*.md
+          **/*credentials*.py
+          **/*secrets*.py
+          migrate_credentials.py
+          
+          # Exclude database files that may contain sensitive data
+          *.db
+          *.db-journal
+          *.db-shm
+          *.db-wal
+          
+          # Exclude environment and configuration files
+          .env
+          .env.*
+          **/*.env
+          config.py
+          
+          # Exclude test files that may contain mock credentials
+          test_credential*.py
+          test_*_security.py
+          
+          # Exclude build artifacts and dependencies
+          __pycache__/
+          *.pyc
+          node_modules/
+          .venv/
+          target/
+          *.exe
+          *.pyd
+          
+          # Exclude logs that may contain sensitive runtime data
+          *.log
+          council_logs/
+          
+          # Exclude proprietary trading strategies and algorithms
+          institutional_integrations/
+          brain*.py
+          predictive_brain.py
+          eqats_planes.py
+          indicators.py
+          
+          # Exclude compiled binaries and Rust code
+          *.ex5
+          *.mq5
+          eqats_rust_core/
+          
+          # Exclude API integration files that may contain keys
+          ft.txt
+          EOF
+
       - name: Run OpenWiki
+        # SECURITY WARNING: This step sends repository content to external services:
+        # - NVIDIA inference API (for LLM processing)
+        # - LangSmith tracing service (for observability, DISABLED by default)
+        #
+        # Data boundary controls:
+        # - .openwikiignore excludes sensitive files (credentials, databases, proprietary code)
+        # - LangSmith tracing is DISABLED to prevent exfiltration of prompts/outputs
+        # - Only documentation files should be processed by OpenWiki
+        #
+        # For private repositories, consider:
+        # - Using a self-hosted inference provider
+        # - Implementing additional secret redaction
+        # - Establishing a formal data classification and retention policy
+        # - Auditing OpenWiki's actual file access patterns
+        #
         # Use npx to run from the local node_modules with locked dependencies.
         # API secrets are exposed to this step, but no repository-write token is available.
         # The GitHub token is not persisted in .git/config due to persist-credentials: false,
@@ -71,10 +145,12 @@ jobs:
           # For extra workspaces, add OPENWIKI_LANGSMITH_API_KEY_2, _3, ... as repo
           # secrets and env entries here.
           OPENWIKI_LANGSMITH_API_KEY: ${{ secrets.OPENWIKI_LANGSMITH_API_KEY }}
-          # Optional: also trace this workflow's own OpenWiki run to LangSmith.
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          LANGCHAIN_PROJECT: openwiki
-          LANGCHAIN_TRACING_V2: "true"
+          # SECURITY: LangSmith tracing is DISABLED to prevent repository content
+          # from being sent to LangSmith's external tracing service. Uncomment only
+          # if you have reviewed and accepted LangSmith's data retention policy.
+          # LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+          # LANGCHAIN_PROJECT: openwiki
+          # LANGCHAIN_TRACING_V2: "true"
 
       - name: Upload generated changes
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

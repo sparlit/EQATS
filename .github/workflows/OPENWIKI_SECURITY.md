@@ -4,7 +4,7 @@ This directory contains security-hardened configuration for the OpenWiki CI work
 
 ## Security Improvements
 
-The OpenWiki workflow has been hardened against supply chain attacks with the following measures:
+The OpenWiki workflow has been hardened against supply chain attacks and data exfiltration with the following measures:
 
 ### 1. Job-Level Permission Isolation
 - The workflow is split into two jobs: `generate` (read-only) and `create-pr` (write-only)
@@ -25,6 +25,33 @@ The OpenWiki workflow has been hardened against supply chain attacks with the fo
 - API secrets are only exposed to the OpenWiki execution step in the read-only job
 - The GitHub token with write permissions is only available in the `create-pr` job
 - **Benefit**: Reduces the attack surface by limiting when secrets are available and preventing write-capable tokens from being exposed to third-party code
+
+### 5. Data Boundary Controls (NEW)
+- **File**: `.openwikiignore` - Excludes sensitive files from being processed by OpenWiki
+- **LangSmith Tracing Disabled**: Prevents repository content from being sent to external tracing services
+- **Security Warnings**: Explicit documentation of external service usage and data flows
+- **Benefit**: Prevents credentials, proprietary code, and sensitive data from being sent to external inference and tracing services
+
+#### Excluded Paths
+The `.openwikiignore` file excludes:
+- Credential and security files (`**/SECURITY*.md`, `**/CREDENTIALS*.md`, etc.)
+- Database files (`*.db`, `*.db-journal`, etc.)
+- Environment and configuration files (`.env`, `config.py`)
+- Test files with mock credentials (`test_credential*.py`, `test_*_security.py`)
+- Build artifacts and dependencies (`__pycache__/`, `node_modules/`, `.venv/`, etc.)
+- Logs with sensitive runtime data (`*.log`, `council_logs/`)
+- Proprietary trading strategies (`institutional_integrations/`, `brain*.py`, etc.)
+- Compiled binaries and Rust code (`*.ex5`, `*.mq5`, `eqats_rust_core/`)
+- API integration files (`ft.txt`)
+
+#### LangSmith Tracing
+LangSmith tracing is **disabled by default** to prevent repository content from being sent to LangSmith's external tracing service. To enable:
+1. Review LangSmith's data retention and privacy policy
+2. Verify compliance with your organization's data classification policy
+3. Uncomment the `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT`, and `LANGCHAIN_TRACING_V2` environment variables
+4. Document the decision and obtain necessary approvals
+
+See `OPENWIKI_DATA_BOUNDARY_SECURITY.md` for detailed documentation on data boundary controls.
 
 ## Generating the Lockfile
 

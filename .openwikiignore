@@ -1,0 +1,62 @@
+# OpenWiki Path Exclusions
+# This file defines paths that should be excluded from OpenWiki processing
+# to prevent sensitive content from being sent to external inference services.
+
+# Exclude sensitive credential and security files
+**/SECURITY*.md
+**/CREDENTIALS*.md
+**/*_CREDENTIALS*.md
+**/*credentials*.py
+**/*secrets*.py
+migrate_credentials.py
+
+# Exclude database files that may contain sensitive data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Exclude environment and configuration files
+.env
+.env.*
+**/*.env
+config.py
+
+# Exclude test files that may contain mock credentials
+test_credential*.py
+test_*_security.py
+
+# Exclude build artifacts and dependencies
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+target/
+*.exe
+*.pyd
+
+# Exclude logs that may contain sensitive runtime data
+*.log
+council_logs/
+
+# Exclude proprietary trading strategies and algorithms
+institutional_integrations/
+brain*.py
+predictive_brain.py
+eqats_planes.py
+indicators.py
+
+# Exclude compiled binaries and Rust code
+*.ex5
+*.mq5
+eqats_rust_core/
+
+# Exclude API integration files that may contain keys
+ft.txt
+
+# Add additional exclusions below as needed
+# Pattern format follows .gitignore syntax:
+# - Use * for wildcards
+# - Use ** for recursive directory matching
+# - Use # for comments
+# - Patterns are relative to repository root
