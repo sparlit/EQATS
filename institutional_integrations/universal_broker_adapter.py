@@ -45,12 +45,25 @@ class UniversalBrokerGateway:
         "SIMULATOR",
     ]
 
-    def __init__(self, protocol="MT5", broker_config=None):
+    def __init__(self, protocol=\"MT5\", broker_config=None):
         self.protocol = protocol.upper() if protocol else "MT5"
         self.broker_config = broker_config or {}
         self.is_connected_flag = False
         self.lock = threading.Lock()
         self.fix_engine = None
+
+        # Validate protocol is supported before initialization
+        if self.protocol not in self.SUPPORTED_PROTOCOLS:
+            _log.error(
+                "UniversalBrokerGateway: Unsupported protocol '%s' specified. "
+                "Supported protocols: %s",
+                self.protocol,
+                ", ".join(self.SUPPORTED_PROTOCOLS)
+            )
+            raise ValueError(
+                f"Unsupported protocol '{self.protocol}'. "
+                f"Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}"
+            )
 
         # Configurable retry backoff delay (Round 3 FLAW-001)
         self.retry_backoff_delay = float(
@@ -195,12 +208,46 @@ class UniversalBrokerGateway:
                     self.is_connected_flag = False
                     return False
 
-            # REST_WS, IBKR, CTRADER, CCXT protocol interfaces
-            self.is_connected_flag = True
-            print(
-                f"Universal Broker Gateway: Connected via protocol [{self.protocol}] for Broker [{self.broker_config.get('broker_name', 'Default')}]"
+            # REST_WS, IBKR, CTRADER, CCXT protocol interfaces require rest_url
+            if self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
+                # Validate that rest_url is configured for REST-like protocols
+                if not hasattr(self, "rest_url") or not self.rest_url:
+                    _log.error(
+                        "UniversalBrokerGateway: Protocol %s requires 'rest_url' configuration. "
+                        "Connection rejected to prevent fail-open execution.",
+                        self.protocol
+                    )
+                    print(
+                        f"Universal Broker Gateway [{self.protocol}] Connection Error: "
+                        f"'rest_url' must be configured for protocol {self.protocol}. "
+                        f"Cannot establish connection without valid endpoint."
+                    )
+                    self.is_connected_flag = False
+                    return False
+                
+                # Endpoint is configured, mark as connected
+                self.is_connected_flag = True
+                print(
+                    f"Universal Broker Gateway: Connected via protocol [{self.protocol}] "
+                    f"for Broker [{self.broker_config.get('broker_name', 'Default')}] "
+                    f"at endpoint {self.rest_url}"
+                )
+                return True
+            
+            # Reject unsupported protocols to prevent fail-open fallback
+            _log.error(
+                "UniversalBrokerGateway: Unsupported protocol '%s'. "
+                "Supported protocols: %s. Connection rejected.",
+                self.protocol,
+                ", ".join(self.SUPPORTED_PROTOCOLS)
             )
-            return True
+            print(
+                f"Universal Broker Gateway Connection Error: "
+                f"Protocol '{self.protocol}' is not supported. "
+                f"Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}"
+            )
+            self.is_connected_flag = False
+            return False
 
     def is_connected(self):
         """Returns active connection status."""
@@ -526,14 +573,20 @@ class UniversalBrokerGateway:
                     "error": f"FIX order execution error: {e}",
                 }
 
-        # Fallback / Generic execution payload acknowledgment
-        ticket = f"UNI_{int(time.time() * 1000)}"
-        self._breaker.record_success()
+        # Fail-closed: No valid execution path was taken
+        # This prevents phantom orders when rest_url is missing or protocol is misconfigured
+        _log.error(
+            "UniversalBrokerGateway: Order execution failed - no valid execution path for protocol %s. "
+            "This indicates a configuration error (missing rest_url) or unsupported protocol.",
+            self.protocol
+        )
+        self._breaker.record_failure()
         return {
-            "success": True,
-            "ticket": ticket,
+            "success": False,
+            "ticket": "",
             "price": 0.0,
-            "error": "",
+            "error": f"No valid execution path for protocol {self.protocol}. Check configuration.",
+            "reason": "CONFIGURATION_ERROR",
             "protocol": self.protocol,
         }
 
