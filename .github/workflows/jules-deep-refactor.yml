@@ -1,10 +1,26 @@
 name: Jules Deep Project Refactor
 
 on:
-  push:
-    branches:
-      - 'ai-refactor-/*'    # Triggers when you push to branches like ai-refactor-auth
+  # SECURITY: Removed push trigger to prevent secret-bearing workflow from executing
+  # attacker-controlled branch contents. Push-triggered workflows evaluate the workflow
+  # definition from the pushed revision, allowing a repository contributor to modify
+  # this workflow in a branch matching 'ai-refactor-/*' and exfiltrate JULES_API_KEY
+  # or misuse the contents: write permission.
+  #
+  # MITIGATION: Use workflow_dispatch (manual trigger) only. This ensures:
+  # 1. The workflow code is always evaluated from the default branch (trusted)
+  # 2. Execution requires explicit user action, not automatic on push
+  # 3. Branch selection is controlled by the authorized user at trigger time
+  #
+  # To use: Navigate to Actions tab → Jules Deep Project Refactor → Run workflow
+  # → Select the branch you want to refactor → Run workflow
   workflow_dispatch:        # Allows you to click "Run workflow" manually from GitHub UI
+    inputs:
+      branch:
+        description: 'Branch to refactor (e.g., ai-refactor-auth)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   deep-clean:
@@ -14,9 +30,15 @@ jobs:
 
     steps:
       # 1. Checkout the repository using standard FOSS git integrations
+      # SECURITY: When triggered via workflow_dispatch, this checks out the workflow
+      # definition from the default branch (trusted code), then checks out the target
+      # branch content for refactoring. This prevents execution of attacker-modified
+      # workflow code while still allowing refactoring of feature branches.
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
+          # Use the branch input if provided, otherwise use the current branch
+          ref: ${{ inputs.branch || github.ref }}
           # SECURITY: Disable credential persistence to prevent pip-installed packages
           # from accessing the write-capable GITHUB_TOKEN via .git/config during
           # package build/install hooks. The Jules action receives the token directly
@@ -77,7 +99,8 @@ jobs:
         uses: google-labs-code/jules-action@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 # v1.x.x
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
-          branch: ${{ github.ref_name }}
+          # Use the branch input if provided, otherwise use the current branch name
+          branch: ${{ inputs.branch || github.ref_name }}
           prompt: |
             Perform a comprehensive architectural review and code quality deep-dive across the entire repository. 
             
