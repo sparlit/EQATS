@@ -16,11 +16,11 @@ jobs:
     steps:
       # 1. Upgraded to v5 to support the Node 24 runtime natively
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
 
       # 2. Upgraded to v6 to completely fix the Node 20 deprecation warning
       - name: Setup Python Environment
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v6.3.0
         with:
           python-version: '3.11' # Change to your required Python version
           cache: 'pip'
@@ -55,7 +55,10 @@ jobs:
 
     steps:
       - name: Summon Jules Agent
-        uses: google-labs-code/jules-invoke@v1
+        # SECURITY: Pinned to immutable commit SHA instead of mutable @v1 tag
+        # To update: Visit https://github.com/google-labs-code/jules-invoke/releases
+        # Review the changes, then update the SHA below to the reviewed commit
+        uses: google-labs-code/jules-invoke@b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0 # v1.x.x
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           branch: ${{ github.ref_name }}

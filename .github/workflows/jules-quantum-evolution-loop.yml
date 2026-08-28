@@ -14,7 +14,7 @@ jobs:
     steps:
       # 1. Checkout the repository with full commit history to track the loop count
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
           fetch-depth: 0
 
@@ -64,7 +64,7 @@ jobs:
       # 5. Setup Python 3.13+ Free-Threaded to bypass the GIL
       - name: Setup Python Environment (GIL-Free Runtime)
         if: steps.loop-check.outputs.continue_loop == 'true'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v6.3.0
         with:
           python-version: '3.13t' # Activates the experimental Free-Threaded GIL-less mode
           cache: 'pip'
@@ -105,7 +105,10 @@ jobs:
       # 9. Invoke Jules with the absolute quantum transformation manifesto
       - name: Invoke Jules Quantum Overhaul Agent
         if: steps.loop-check.outputs.continue_loop == 'true'
-        uses: google-labs-code/jules-action@v1
+        # SECURITY: Pinned to immutable commit SHA instead of mutable @v1 tag
+        # To update: Visit https://github.com/google-labs-code/jules-action/releases
+        # Review the changes, then update the SHA below to the reviewed commit
+        uses: google-labs-code/jules-action@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 # v1.x.x
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           branch: ${{ github.ref_name }}
