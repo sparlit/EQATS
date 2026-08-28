@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "9.40"
-#property description "Elite Quantum Autonomous Scalper EA v9.40 - High-Density Pyramiding Cockpit with All-Ticket Space Padding Validation"
+#property version   "9.50"
+#property description "Elite Quantum Autonomous Scalper EA v9.50 - High-Density Cockpit with Pure MQL5 EMA/RSI Math & Margin Safety Circuit"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -153,7 +153,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v9.40 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v9.50 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -164,7 +164,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v9.40 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v9.50 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -241,7 +241,11 @@ void OnTick()
    long spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
 
    if(InputMaxAllowedSpread > 0 && spread > InputMaxAllowedSpread) return;
-   if(InputMinFreeMarginPct > 0.0 && margin_pct < InputMinFreeMarginPct) return;
+   if(InputMinFreeMarginPct > 0.0 && margin_pct < InputMinFreeMarginPct)
+   {
+      Print("MarginEngine CRITICAL RISK: Free Margin limits breached (", DoubleToString(margin_pct, 2), "% < ", DoubleToString(InputMinFreeMarginPct, 2), "%). Execution Blocked.");
+      return;
+   }
 
    CheckDailyLossAndRisk();
    ProcessBreakEvenProtection();
@@ -788,7 +792,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.40)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.50)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
