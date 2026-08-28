@@ -113,18 +113,32 @@ class UniversalConnector(TradingConnector):
         # Track live broker tickets to route lifecycle operations correctly
         self.live_tickets = set()
         self.ticket_lock = threading.Lock()
+        # Track whether we successfully connected to live gateway
+        self.live_gateway_connected = False
 
     def connect(self):
+        # For SIMULATOR protocol, only use simulator
+        if self.protocol == "SIMULATOR":
+            _log.info("UniversalConnector: SIMULATOR protocol selected, using simulator mode.")
+            return self.sim_fallback.connect()
+        
+        # For non-SIMULATOR protocols, require live gateway connection
         try:
             res = self.gateway.connect()
             if res:
                 # Rebuild live_tickets set from existing gateway orders
                 self._sync_live_tickets()
+                self.live_gateway_connected = True
+                _log.info("UniversalConnector: Successfully connected to live gateway with protocol %s", self.protocol)
                 return True
+            else:
+                self.live_gateway_connected = False
+                _log.error("UniversalConnector: Live gateway connection failed for protocol %s", self.protocol)
+                return False
         except Exception as e:
-            print(f"UniversalConnector error on gateway connect: {e}")
-        print("UniversalConnector: Falling back to Simulator mode.")
-        return self.sim_fallback.connect()
+            self.live_gateway_connected = False
+            _log.error("UniversalConnector: Exception during gateway connect for protocol %s: %s", self.protocol, e)
+            raise ConnectionError(f"Failed to connect to live gateway with protocol {self.protocol}: {e}")
 
     def _sync_live_tickets(self):
         """Synchronizes live_tickets set with actual open orders from the gateway."""
@@ -142,16 +156,31 @@ class UniversalConnector(TradingConnector):
                 _log.warning("Failed to sync live tickets from gateway: %s", e)
 
     def is_connected(self):
-        return self.gateway.is_connected() or self.sim_fallback.is_connected()
+        # For SIMULATOR protocol, check simulator connection
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.is_connected()
+        # For non-SIMULATOR protocols, only report live gateway connection status
+        return self.gateway.is_connected()
 
     def disconnect(self):
         self.gateway.disconnect()
         self.sim_fallback.disconnect()
+        self.live_gateway_connected = False
 
     def get_account_info(self):
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.get_account_info()
         if self.gateway.is_connected():
             return self.gateway.get_account_info()
-        return self.sim_fallback.get_account_info()
+        # Return error state for disconnected non-SIMULATOR protocols
+        _log.error("UniversalConnector: Cannot get account info - gateway not connected")
+        return {
+            "balance": 0.0,
+            "equity": 0.0,
+            "currency": "USD",
+            "is_demo": False,
+            "error": "Gateway not connected"
+        }
 
     def get_history(self, symbol, count):
         return self.sim_fallback.get_history(symbol, count)
@@ -163,15 +192,46 @@ class UniversalConnector(TradingConnector):
         return self.sim_fallback.get_historical_ticks(symbol, count)
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
-        if self.gateway.is_connected() and self.protocol != "SIMULATOR":
-            gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
-            if gw_res.get("success"):
-                # Track this as a live broker ticket
-                live_ticket = gw_res.get("ticket")
-                with self.ticket_lock:
-                    self.live_tickets.add(str(live_ticket))
-                return gw_res
-        return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+        # For SIMULATOR protocol, use simulator
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+        
+        # For non-SIMULATOR protocols, require live gateway connection and successful execution
+        if not self.gateway.is_connected():
+            _log.error(
+                "UniversalConnector: Order execution rejected - live gateway not connected for protocol %s",
+                self.protocol
+            )
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"Live gateway not connected for protocol {self.protocol}. Cannot execute order."
+            }
+        
+        # Attempt live execution
+        gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
+        
+        # Only accept successful live execution results
+        if gw_res.get("success"):
+            # Track this as a live broker ticket
+            live_ticket = gw_res.get("ticket")
+            with self.ticket_lock:
+                self.live_tickets.add(str(live_ticket))
+            _log.info(
+                "UniversalConnector: Live order executed successfully on %s: ticket=%s",
+                self.protocol,
+                live_ticket
+            )
+            return gw_res
+        
+        # Failed live execution - return the failure, do NOT fall back to simulator
+        _log.error(
+            "UniversalConnector: Live order execution failed on %s: %s",
+            self.protocol,
+            gw_res.get("error", "Unknown error")
+        )
+        return gw_res
 
     def close_order(self, ticket, reason="MANUAL"):
         ticket_str = str(ticket)
@@ -202,22 +262,21 @@ class UniversalConnector(TradingConnector):
             return self.sim_fallback.modify_order(ticket, sl, tp)
 
     def get_open_orders(self):
-        # Merge orders from both live gateway and simulator
-        orders = []
+        # For SIMULATOR protocol, only return simulator orders
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.get_open_orders()
         
-        # Get simulator orders
-        sim_orders = self.sim_fallback.get_open_orders()
-        orders.extend(sim_orders)
-        
-        # Get live gateway orders if connected
-        if self.gateway.is_connected() and self.protocol != "SIMULATOR":
+        # For non-SIMULATOR protocols, only return live gateway orders
+        if self.gateway.is_connected():
             try:
                 live_orders = self.gateway.get_open_orders()
-                orders.extend(live_orders)
+                return live_orders
             except Exception as e:
-                _log.warning("Failed to retrieve live gateway orders: %s", e)
-        
-        return orders
+                _log.error("Failed to retrieve live gateway orders for protocol %s: %s", self.protocol, e)
+                return []
+        else:
+            _log.warning("UniversalConnector: Cannot get open orders - gateway not connected for protocol %s", self.protocol)
+            return []
 
     def draw_dashboard(self, symbol, data):
         self.sim_fallback.draw_dashboard(symbol, data)
