@@ -1,23 +1,22 @@
+Metadata-Version: 2.4
+Name: eqats
+Version: 8.4.0
+Summary: ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4)
+Author-email: Simon Peter <author@tsyslabs.com>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: requests>=2.28.0
+Requires-Dist: websockets>=11.0
+
 # ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4)
 ## EQATS VERSION 8.4 HYBRID ARCHITECTURE RELEASE
 ### Master Architecture, Monolith-Microservices Isolation, AI Ensemble, Risk & Execution Specification
 
 ---
-# My Project Repo
 
-## 🗺️ Project Roadmap
-<!-- ROADMAP_START -->
-- [x] Phase 1: MVP
-- [/] Phase 2: Beta Testing (In Progress)
-- [ ] Phase 3: Public Launch
-<!-- ROADMAP_END -->
-
-## ⏳ Recent Timeline Updates
-<!-- TIMELINE_START -->
-- Updated on 8/28/2026: Deployed latest features.
-<!-- TIMELINE_END -->
-
----
 # 0. DOCUMENT CONTROL
 
 **System Name:** Elite Quantum Autonomous Trading System (EQATS Version 8.4)
