@@ -57,6 +57,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_number }}
           fetch-depth: 0
+          persist-credentials: false
 
       # Set up Python environment (this is a Python project, not Node.js)
       - name: Setup Python Environment
@@ -100,12 +101,16 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
           fetch-depth: 0
+          persist-credentials: false
 
       # Now checkout the PR branch on top
       - name: Checkout PR Branch
         env:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Configure Git to use GITHUB_TOKEN for authentication instead of persisted credentials
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
           git fetch origin "$HEAD_BRANCH":pr-branch
           git checkout pr-branch
 
@@ -140,6 +145,7 @@ jobs:
       - name: Run AI Fix Loop
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAX_ATTEMPTS: 3
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
@@ -175,8 +181,8 @@ jobs:
               git add .
               git commit -m "fix: automated correction attempt #$attempt [ai-fix-bot]"
               
-              # Push changes back to PR branch
-              git push origin HEAD:"$HEAD_BRANCH"
+              # Push changes back to PR branch using GITHUB_TOKEN
+              git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" HEAD:"$HEAD_BRANCH"
               
               echo "✅ Changes pushed. PR updated for review."
               exit 0
