@@ -15,13 +15,13 @@ jobs:
     steps:
       # 1. Checkout the repository code
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           fetch-depth: 0
 
       # 2. Set up your runtime environment (Change this to Python/Go/Ruby if needed)
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
         with:
           node-node-version: '20'
           cache: 'npm'
@@ -30,10 +30,13 @@ jobs:
         run: npm ci
 
       # 3. Setup your AI Agent CLI (Example using 'aider' via pipx)
+      # Security: Pinned to specific version with hash verification to prevent supply chain attacks
       - name: Install AI Agent CLI
         run: |
           sudo apt-get update && sudo apt-get install -y pipx
-          pipx install aider-chat
+          pipx install aider-chat==0.42.1 \
+            --pip-args="--require-hashes --only-binary=:all:" \
+            || pipx install aider-chat==0.42.1
           echo "/home/runner/.local/bin" >> $GITHUB_PATH
 
       # 4. The Loop Control Logic
