@@ -458,25 +458,55 @@ class SafetyVerificationPlane:
         Returns a list of violation codes.
         
         Args:
-            current_risk: Legacy count-based risk (for backward compatibility)
+            current_risk: Legacy count-based risk (for backward compatibility, deprecated)
             active_count: Number of active positions
             has_reconciliation_mismatch: Whether positions are reconciled
             has_disagreement: Whether components disagree
-            actual_aggregate_exposure_pct: Actual stop-loss exposure as % of equity (preferred)
+            actual_aggregate_exposure_pct: Actual stop-loss exposure as % of equity (REQUIRED for INV-001)
+        
+        SECURITY: INV-001 now enforces GLOBAL_RISK_LIMIT_CAP_PERCENT using actual stop-loss
+        exposure calculated from lot size, stop distance, pip value, and equity. The count-based
+        fallback is deprecated and should only be used when stop-loss data is unavailable.
         """
         violations = []
         
-        # INV-001: Portfolio risk <= hard limit
-        # Use actual exposure if provided, otherwise fall back to count-based calculation
+        # INV-001: Portfolio risk <= GLOBAL_RISK_LIMIT_CAP_PERCENT
+        # SECURITY FIX: Use actual stop-loss exposure, not position count proxy
         if actual_aggregate_exposure_pct is not None:
-            # Calculate maximum allowed exposure based on configured limits
-            max_allowed_exposure = config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES
-            if actual_aggregate_exposure_pct > max_allowed_exposure:
+            # Use the configured global risk cap limit
+            global_risk_cap = getattr(config, "GLOBAL_RISK_LIMIT_CAP_PERCENT", 100.0)
+            if actual_aggregate_exposure_pct > global_risk_cap:
                 violations.append("INV-001")
+                global_event_bus.publish(
+                    Event(
+                        family="SafetyViolation",
+                        source="SafetyPlane",
+                        payload={
+                            "invariant": "INV-001",
+                            "actual_exposure_pct": actual_aggregate_exposure_pct,
+                            "limit_pct": global_risk_cap,
+                            "reason": f"Aggregate stop-loss exposure {actual_aggregate_exposure_pct:.2f}% exceeds global cap {global_risk_cap:.2f}%"
+                        },
+                    )
+                )
         else:
-            # Legacy count-based check (backward compatibility)
-            if current_risk > config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES:
+            # DEPRECATED: Legacy count-based check (backward compatibility only)
+            # This fallback should only occur when stop-loss data is unavailable
+            max_allowed_exposure = config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES
+            if current_risk > max_allowed_exposure:
                 violations.append("INV-001")
+                global_event_bus.publish(
+                    Event(
+                        family="SafetyViolation",
+                        source="SafetyPlane",
+                        payload={
+                            "invariant": "INV-001",
+                            "count_based_risk": current_risk,
+                            "limit_pct": max_allowed_exposure,
+                            "reason": f"FALLBACK: Count-based risk {current_risk:.2f}% exceeds limit {max_allowed_exposure:.2f}% (actual exposure unavailable)"
+                        },
+                    )
+                )
         
         # INV-002: Concurrent trades limit
         if active_count > config.MAX_CONCURRENT_TRADES:
