@@ -127,12 +127,63 @@ jobs:
           python-version: '3.10'
 
       # Install AI Agent CLI in isolated environment
+      # SECURITY: Use hash-pinned lockfile to prevent supply-chain attacks
+      # This tool runs with OPENAI_API_KEY and GITHUB_TOKEN access
       - name: Install AI Agent CLI
         run: |
           sudo apt-get update && sudo apt-get install -y pipx
-          pipx install aider-chat==0.42.1 \
-            --pip-args="--require-hashes --only-binary=:all:" \
-            || pipx install aider-chat==0.42.1
+          
+          # Check if hash-pinned lockfile exists and has real hashes
+          if [ -f .github/workflows/aider-requirements-lock.txt ]; then
+            # Verify lockfile has actual hashes (not placeholders)
+            if grep -q "sha256:8c5e8f5e5e5e5e5e" .github/workflows/aider-requirements-lock.txt; then
+              echo "❌ ERROR: aider-requirements-lock.txt contains placeholder hashes"
+              echo "❌ Real cryptographic hashes are required for supply-chain security"
+              echo ""
+              echo "To generate actual hashes, run locally:"
+              echo "  pip install pip-tools==7.4.1"
+              echo "  pip-compile --generate-hashes --allow-unsafe \\"
+              echo "    --output-file=.github/workflows/aider-requirements-lock.txt \\"
+              echo "    .github/workflows/aider-requirements.txt"
+              echo ""
+              echo "Then commit the generated lockfile."
+              echo ""
+              echo "⚠️  EMERGENCY FALLBACK: Set AIDER_ALLOW_UNVERIFIED=true to bypass (NOT RECOMMENDED)"
+              
+              if [ "$AIDER_ALLOW_UNVERIFIED" != "true" ]; then
+                exit 1
+              fi
+              
+              echo "⚠️  WARNING: Installing without hash verification (INSECURE)"
+              pipx install aider-chat==0.42.1 --pip-args="--only-binary=:all:"
+            else
+              # Install from hash-pinned lockfile with full verification
+              echo "🔒 Installing aider-chat from hash-pinned lockfile..."
+              pipx install aider-chat==0.42.1 \
+                --pip-args="--require-hashes --only-binary=:all: -r .github/workflows/aider-requirements-lock.txt"
+            fi
+          else
+            echo "❌ ERROR: aider-requirements-lock.txt not found"
+            echo "❌ Hash-pinned lockfile is required for supply-chain security"
+            echo ""
+            echo "To create the lockfile, run locally:"
+            echo "  pip install pip-tools==7.4.1"
+            echo "  pip-compile --generate-hashes --allow-unsafe \\"
+            echo "    --output-file=.github/workflows/aider-requirements-lock.txt \\"
+            echo "    .github/workflows/aider-requirements.txt"
+            echo ""
+            echo "Then commit the generated lockfile."
+            echo ""
+            echo "⚠️  EMERGENCY FALLBACK: Set AIDER_ALLOW_UNVERIFIED=true to bypass (NOT RECOMMENDED)"
+            
+            if [ "$AIDER_ALLOW_UNVERIFIED" != "true" ]; then
+              exit 1
+            fi
+            
+            echo "⚠️  WARNING: Installing without hash verification (INSECURE)"
+            pipx install aider-chat==0.42.1 --pip-args="--only-binary=:all:"
+          fi
+          
           echo "/home/runner/.local/bin" >> $GITHUB_PATH
 
       # Configure Git
