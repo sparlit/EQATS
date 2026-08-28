@@ -15,11 +15,51 @@ class ReleaseGateRunner:
 
     def __init__(self, conn=None):
         database.init_db()  # Ensure database tables are fully initialized first
+        
+        # SECURITY: Enforce simulation-only mode for release validation
+        # Release gates must never execute against live brokers
+        if conn is not None:
+            # Verify supplied connector is safe for testing
+            if not self._is_safe_connector(conn):
+                raise PermissionError(
+                    "CRITICAL SAFETY BLOCK: ReleaseGateRunner requires a SimulatorConnector "
+                    "or demo-only connector. Live broker connectors are prohibited during "
+                    "release validation to prevent unintended real trades."
+                )
+        
         self.conn = conn or connector.SimulatorConnector(initial_balance=10000.0)
         self.engine = eqats_planes.core_engine or eqats_planes.init_core_engine(
             self.conn
         )
         self.results = {}
+    
+    def _is_safe_connector(self, conn) -> bool:
+        """
+        Validates that a connector is safe for release gate testing.
+        Returns True only for SimulatorConnector or connectors with demo_only=True.
+        """
+        # Check if it's a SimulatorConnector (always safe)
+        if isinstance(conn, connector.SimulatorConnector):
+            return True
+        
+        # Check if it's an MT5Connector with demo_only enabled
+        if isinstance(conn, connector.MT5Connector):
+            return getattr(conn, 'demo_only', False) is True
+        
+        # Check if connector has is_demo attribute set to True
+        if hasattr(conn, 'is_demo') and getattr(conn, 'is_demo', False) is True:
+            return True
+        
+        # For any other connector type, check account info
+        try:
+            account_info = conn.get_account_info()
+            if isinstance(account_info, dict) and account_info.get('is_demo', False) is True:
+                return True
+        except Exception:
+            pass
+        
+        # Default to unsafe if we cannot verify
+        return False
 
     def run_all_gates(self) -> bool:
         """Runs all 29 release gates. Returns True if all are passed, False otherwise."""
@@ -189,16 +229,66 @@ class ReleaseGateRunner:
         return False, "Fat-finger checks failed to block extreme values."
 
     def _check_g11_independent_execution_verification(self):
-        """G11: Verifies executed ticket parameters match requested parameters."""
-        res = self.conn.execute_order("EURUSD", "BUY", 0.1, 1.0800, 1.1000)
-        if res["success"]:
-            ticket = res["ticket"]
+        """
+        G11: Verifies executed ticket parameters match requested parameters.
+        
+        SECURITY: This gate validates execution verification logic WITHOUT placing
+        real broker orders. It enforces simulation-only mode and validates that
+        order parameters are correctly recorded and retrievable.
+        """
+        # SECURITY ENFORCEMENT: Double-check connector safety before any execution
+        if not self._is_safe_connector(self.conn):
+            return False, "SECURITY VIOLATION: Connector is not safe for release validation."
+        
+        # SECURITY ENFORCEMENT: Verify DEMO_ACCOUNT_ONLY config if not in simulation
+        if not config.SIMULATION_MODE and not config.DEMO_ACCOUNT_ONLY:
+            return False, "SECURITY VIOLATION: Release validation requires DEMO_ACCOUNT_ONLY=True when not in SIMULATION_MODE."
+        
+        # Execute test order with explicit safety verification
+        try:
+            res = self.conn.execute_order("EURUSD", "BUY", 0.1, 1.0800, 1.1000)
+        except Exception as e:
+            return False, f"Execution verification failed with exception: {e}"
+        
+        # Validate execution succeeded
+        if not res.get("success", False):
+            return False, f"Execution verification failed: {res.get('error', 'Unknown error')}"
+        
+        ticket = res.get("ticket")
+        if not ticket:
+            return False, "Execution verification failed: No ticket returned"
+        
+        # Verify order is retrievable and parameters match
+        try:
             orders = self.conn.get_open_orders()
-            matching = [o for o in orders if str(o["ticket"]) == str(ticket)]
-            if matching:
+            matching = [o for o in orders if str(o.get("ticket")) == str(ticket)]
+            
+            if not matching:
+                return False, f"Execution verification failed: Order ticket {ticket} not found in open orders"
+            
+            # Validate order parameters match request
+            order = matching[0]
+            if order.get("symbol") != "EURUSD":
+                return False, f"Parameter mismatch: Expected symbol EURUSD, got {order.get('symbol')}"
+            if order.get("direction") != "BUY":
+                return False, f"Parameter mismatch: Expected direction BUY, got {order.get('direction')}"
+            if abs(order.get("lot_size", 0) - 0.1) > 0.001:
+                return False, f"Parameter mismatch: Expected lot 0.1, got {order.get('lot_size')}"
+            
+            # Clean up: Close the test order
+            close_res = self.conn.close_order(ticket)
+            if not close_res.get("success", False):
+                return False, f"Execution verification cleanup failed: Could not close order {ticket}"
+            
+            return True, "Execution parameter verification matched successfully. Test order opened and closed safely."
+            
+        except Exception as e:
+            # Attempt cleanup even on error
+            try:
                 self.conn.close_order(ticket)
-                return True, "Execution parameter verification matched successfully."
-        return True, "Simulated execution verified."
+            except Exception:
+                pass
+            return False, f"Execution verification failed during validation: {e}"
 
     def _check_g12_reconciliation(self):
         """G12: Reconciles active orders and local DB state."""
