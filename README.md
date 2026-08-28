@@ -7,10 +7,14 @@
 
 ## 🗺️ Project Roadmap
 <!-- ROADMAP_START -->
+- [x] Phase 1: MVP
+- [/] Phase 2: Beta Testing (In Progress)
+- [ ] Phase 3: Public Launch
 <!-- ROADMAP_END -->
 
 ## ⏳ Recent Timeline Updates
 <!-- TIMELINE_START -->
+- Updated on 8/28/2026: Deployed latest features.
 <!-- TIMELINE_END -->
 
 ---
