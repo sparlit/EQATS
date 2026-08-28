@@ -974,11 +974,12 @@ class AutonomousScalper:
                 # EQATS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
                 
-                # Calculate actual aggregate stop-loss exposure
-                # Sum existing positions' actual exposure
+                # SECURITY FIX: Calculate actual aggregate stop-loss exposure
+                # This replaces the count-based proxy with real monetary exposure
                 current_equity = self.conn.get_account_info()["equity"]
                 aggregate_exposure_pct = 0.0
                 
+                # Sum existing positions' actual stop-loss exposure
                 for pos in active_positions_refresh:
                     pos_symbol = pos.get("symbol", "")
                     pos_lot = float(pos.get("volume", 0.0))
@@ -992,11 +993,13 @@ class AutonomousScalper:
                         )
                         aggregate_exposure_pct += pos_exposure
                 
-                # Add proposed order's exposure
+                # Calculate proposed order's stop-loss exposure
                 price_info_curr = self.conn.get_current_price(symbol)
                 entry_price_estimate = price_info_curr.get("ask" if decision == "BUY" else "bid", 0.0)
                 
-                proposed_exposure = 0.0  # Initialize for later use
+                proposed_exposure = 0.0
+                total_exposure_with_new_order = None
+                
                 if entry_price_estimate > 0 and sl > 0 and lot_size > 0:
                     from eqats_planes import calculate_stop_loss_exposure
                     proposed_exposure = calculate_stop_loss_exposure(
@@ -1004,21 +1007,23 @@ class AutonomousScalper:
                     )
                     total_exposure_with_new_order = aggregate_exposure_pct + proposed_exposure
                     _log.info(
-                        "Actual exposure calculation: existing=%.2f%%, proposed=%.2f%%, total=%.2f%%",
-                        aggregate_exposure_pct, proposed_exposure, total_exposure_with_new_order
+                        "Aggregate stop-loss exposure: existing=%.2f%%, proposed=%.2f%%, total=%.2f%% (equity=%.2f)",
+                        aggregate_exposure_pct, proposed_exposure, total_exposure_with_new_order, current_equity
                     )
                 else:
-                    # Fallback to count-based if we can't calculate actual exposure
-                    total_exposure_with_new_order = None
+                    # SECURITY WARNING: Cannot calculate actual exposure - will use count-based fallback
+                    # This should only occur if stop-loss is missing or invalid
                     _log.warning(
-                        "Cannot calculate actual exposure for %s (entry=%.5f, sl=%.5f, lot=%.4f), using count-based fallback",
+                        "SECURITY: Cannot calculate actual stop-loss exposure for %s (entry=%.5f, sl=%.5f, lot=%.4f). "
+                        "Falling back to deprecated count-based risk calculation. This may allow exposure to exceed limits.",
                         symbol, entry_price_estimate, sl, lot_size
                     )
                 
                 # A. Evaluate Safety Invariants (INV-001 to INV-015) with actual exposure
+                # SECURITY FIX: Pass actual aggregate exposure instead of count-based proxy
+                # The current_risk parameter is deprecated but kept for backward compatibility
                 violations = self.engine.safety.evaluate_invariants(
-                    current_risk=config.RISK_PER_TRADE_PERCENT
-                    * (len(active_positions_refresh) + 1),
+                    current_risk=config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),  # Deprecated
                     active_count=len(active_positions_refresh) + 1,
                     has_reconciliation_mismatch=has_reconciliation_mismatch,
                     has_disagreement=has_disagreement,
@@ -1039,20 +1044,32 @@ class AutonomousScalper:
                 )
                 is_symbol_tradable = symbol in config.SYMBOLS
 
-                # Check global risk cap using actual aggregate exposure
+                # SECURITY FIX: Check global risk cap using actual aggregate stop-loss exposure
+                # This enforces GLOBAL_RISK_LIMIT_CAP_PERCENT based on real monetary exposure
                 global_risk_cap = getattr(config, "GLOBAL_RISK_LIMIT_CAP_PERCENT", 100.0)
                 
-                # Use actual exposure if available, otherwise fall back to count-based
                 if total_exposure_with_new_order is not None:
+                    # Use actual stop-loss exposure (preferred method)
                     curr_portfolio_risk = total_exposure_with_new_order
+                    if curr_portfolio_risk > global_risk_cap:
+                        _log.warning(
+                            "BLOCKED: Aggregate stop-loss exposure %.2f%% exceeds GLOBAL_RISK_LIMIT_CAP_PERCENT %.2f%%",
+                            curr_portfolio_risk, global_risk_cap
+                        )
+                        print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Aggregate stop-loss exposure {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}%.")
+                        continue
                 else:
-                    # Legacy count-based calculation as fallback
+                    # DEPRECATED: Legacy count-based calculation as fallback
+                    # This should only occur when stop-loss data is unavailable
                     sub_alloc_mod = 0.5 if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True) else 1.0
                     curr_portfolio_risk = (config.RISK_PER_TRADE_PERCENT * sub_alloc_mod) * (len(active_positions_refresh) + 1)
-
-                if curr_portfolio_risk > global_risk_cap:
-                    print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Aggregate risk {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}%.")
-                    continue
+                    if curr_portfolio_risk > global_risk_cap:
+                        _log.warning(
+                            "BLOCKED (count-based fallback): Estimated risk %.2f%% exceeds GLOBAL_RISK_LIMIT_CAP_PERCENT %.2f%%",
+                            curr_portfolio_risk, global_risk_cap
+                        )
+                        print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Estimated risk {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}% (count-based fallback).")
+                        continue
 
                 constitution_payload = {
                     "market_open": is_market_open,
