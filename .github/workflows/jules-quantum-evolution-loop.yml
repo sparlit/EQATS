@@ -14,7 +14,13 @@ jobs:
     environment: quantum-evolution
     permissions:
       contents: write       # Grants Jules permission to push code updates
-      pull-requests: write  # Grants permissions to open and merge Pull Requests
+      pull-requests: none   # SECURITY: No PR permissions in validation job
+    # SECURITY: Output the validated SHA to pass to the isolated PR job
+    outputs:
+      continue_loop: ${{ steps.loop-check.outputs.continue_loop }}
+      next_version: ${{ steps.calc-version.outputs.next_version }}
+      post_agent_sha: ${{ steps.post-agent-sha.outputs.sha }}
+      validation_passed: ${{ steps.validation-gate.outputs.passed }}
 
     steps:
       # 1. Checkout the repository with full commit history to track the loop count
@@ -319,46 +325,64 @@ jobs:
           bandit -r . -ll --format txt
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # 11. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
-      - name: Open and Automerge Pull Request
+      # 11. VALIDATION GATE: Mark validation as passed for the isolated PR job
+      - name: Mark Validation Gate as Passed
         if: steps.loop-check.outputs.continue_loop == 'true'
+        id: validation-gate
+        run: |
+          echo "✅ All post-change validation gates passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
+
+  # SECURITY: Isolated job for PR operations that never executes repository-controlled code
+  # This job runs in a fresh runner with no repository code checkout, preventing PATH tampering
+  create-pull-request:
+    needs: quantum-evolution
+    if: needs.quantum-evolution.outputs.continue_loop == 'true' && needs.quantum-evolution.outputs.validation_passed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read        # Minimal read access for repository metadata
+      pull-requests: write  # Required for PR operations
+    steps:
+      # SECURITY: This job intentionally does NOT check out repository code
+      # This prevents any repository-controlled code from tampering with PATH or environment
+      # before the gh CLI is invoked with the GITHUB_TOKEN
+      
+      - name: Open and Automerge Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_NAME: ${{ github.ref_name }}
-          TARGET_VERSION: ${{ steps.calc-version.outputs.next_version }}
-          POST_CHANGE_SHA: ${{ steps.post-agent-sha.outputs.sha }}
+          TARGET_VERSION: ${{ needs.quantum-evolution.outputs.next_version }}
+          POST_CHANGE_SHA: ${{ needs.quantum-evolution.outputs.post_agent_sha }}
+          REPO_NAME: ${{ github.repository }}
         run: |
           echo "🚀 Initiating hands-free deployment pipeline..."
+          echo "📌 Operating on validated SHA: $POST_CHANGE_SHA"
+          
+          # SECURITY: Verify gh CLI is from the runner's trusted system PATH
+          GH_PATH=$(which gh)
+          echo "🔍 Using gh CLI from: $GH_PATH"
+          if [[ ! "$GH_PATH" =~ ^/usr/ ]] && [[ ! "$GH_PATH" =~ ^/opt/hostedtoolcache/ ]]; then
+            echo "❌ SECURITY GATE FAILED: gh CLI resolved to unexpected path: $GH_PATH"
+            echo "Expected gh to be in /usr/* or /opt/hostedtoolcache/*"
+            exit 1
+          fi
+          
           # Check if the execution context is already running directly on main branch
           if [ "$BRANCH_NAME" = "main" ]; then
             echo "⚠️ Workflow executed directly on the main branch. Skipping Pull Request generation."
           else
-            # SECURITY: Verify we are operating on a trusted repository branch
-            REPO_OWNER="${{ github.repository_owner }}"
-            REPO_NAME="${{ github.repository }}"
-            CURRENT_REPO=$(git remote get-url origin)
-            
-            if [[ ! "$CURRENT_REPO" =~ "$REPO_NAME" ]]; then
-              echo "❌ SECURITY GATE FAILED: Repository provenance mismatch"
-              echo "Expected: $REPO_NAME"
-              echo "Got: $CURRENT_REPO"
-              exit 1
-            fi
-            
-            PR_EXISTS=$(gh pr list --head "$BRANCH_NAME" --base main --json number --jq '..number' || true)
+            PR_EXISTS=$(gh pr list --repo "$REPO_NAME" --head "$BRANCH_NAME" --base main --json number --jq '.[0].number' || true)
             if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
-              echo "txt=No open PR found. Creating a new Pull Request..."
-              PR_URL=$(gh pr create \
+              echo "📝 No open PR found. Creating a new Pull Request..."
+              PR_URL=$(gh pr create --repo "$REPO_NAME" \
                 --title "🚀 QUANTUM EVOLUTION RELEASE [v${TARGET_VERSION}]" \
                 --body "This Pull Request was generated autonomously by the EQATS Quantum Evolution Loop. It progresses the codebase towards a multi-processed hybrid microservices mesh architecture utilizing Rust (Tokio) and GIL-free Python 3.13t execution tracks.
 
 **Post-Change Validation Results:**
-- ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
-- ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
-- ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+- ✅ All validation gates passed in isolated job
 - 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
 
-**SECURITY NOTICE:** This PR has passed automated post-change validation gates. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
+**SECURITY NOTICE:** This PR has passed automated post-change validation gates in an isolated runner. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
                 --base main \
                 --head "$BRANCH_NAME")
               PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
@@ -366,9 +390,10 @@ jobs:
               echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."
               PR_NUMBER=$PR_EXISTS
             fi
+            
             if [ -n "$PR_NUMBER" ]; then
               # SECURITY: Verify the PR head SHA matches our validated post-change SHA
-              PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+              PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$REPO_NAME" --json headRefOid --jq '.headRefOid')
               
               if [ "$PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
                 echo "❌ SECURITY GATE FAILED: PR head SHA mismatch"
@@ -385,12 +410,12 @@ jobs:
               # - Status checks from CI workflow
               # - Manual approval from CODEOWNERS
               # - Up-to-date branches
-              if ! gh pr merge "$PR_NUMBER" --auto --squash 2> merge_err.log; then
+              if ! gh pr merge "$PR_NUMBER" --repo "$REPO_NAME" --auto --squash 2> merge_err.log; then
                 cat merge_err.log
                 if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
                   echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
                   echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
-                  if gh pr merge "$PR_NUMBER" --squash; then
+                  if gh pr merge "$PR_NUMBER" --repo "$REPO_NAME" --squash; then
                     echo "✅ Direct squash merge completed successfully."
                   else
                     echo "⚠️ Direct merge deferred to repository administrator. Please configure required status checks in Branch Protection settings (see .github/workflows/REQUIRED_STATUS_CHECKS.md)."
