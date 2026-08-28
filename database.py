@@ -2,11 +2,102 @@ import base64
 import datetime
 import hashlib
 import logging
+import os
 import sqlite3
 
 import config
 
 _log = logging.getLogger("database")
+
+# Encryption key management with environment variable support
+_ENCRYPTION_KEY = None
+_ENCRYPTION_SALT = None
+
+
+def _get_encryption_key():
+    """
+    Retrieves or generates the encryption key for broker credentials.
+    
+    The key is derived from an environment variable EQATS_MASTER_KEY using PBKDF2.
+    If no environment variable is set, falls back to a machine-specific derived key
+    that provides better security than the previous hardcoded seed while maintaining
+    backward compatibility for existing deployments.
+    
+    Returns:
+        bytes: 32-byte encryption key suitable for Fernet symmetric encryption
+    """
+    global _ENCRYPTION_KEY, _ENCRYPTION_SALT
+    
+    if _ENCRYPTION_KEY is not None:
+        return _ENCRYPTION_KEY
+    
+    # Check for user-provided master key in environment
+    master_password = os.environ.get("EQATS_MASTER_KEY", "")
+    
+    if not master_password:
+        # Fallback: derive from machine-specific identifiers for better security than hardcoded seed
+        # This is still not ideal but significantly better than a source-embedded constant
+        try:
+            import platform
+            machine_id = platform.node() + platform.machine()
+        except Exception:
+            machine_id = "EQATS_DEFAULT_MACHINE"
+        
+        master_password = f"EQATS_DERIVED_{machine_id}_2026"
+        _log.warning(
+            "No EQATS_MASTER_KEY environment variable set. Using machine-derived key. "
+            "For production deployments, set EQATS_MASTER_KEY to a strong passphrase."
+        )
+    
+    # Retrieve or generate salt
+    _ENCRYPTION_SALT = _get_or_create_salt()
+    
+    # Derive key using PBKDF2 with 480,000 iterations (OWASP 2023 recommendation)
+    _ENCRYPTION_KEY = hashlib.pbkdf2_hmac(
+        'sha256',
+        master_password.encode('utf-8'),
+        _ENCRYPTION_SALT,
+        480000,
+        dklen=32
+    )
+    
+    return _ENCRYPTION_KEY
+
+
+def _get_or_create_salt():
+    """
+    Retrieves or creates a persistent salt for key derivation.
+    
+    The salt is stored in a file adjacent to the database to ensure
+    consistent key derivation across application restarts.
+    
+    Returns:
+        bytes: 32-byte salt for PBKDF2 key derivation
+    """
+    salt_file = config.DB_PATH + ".salt"
+    
+    try:
+        if os.path.exists(salt_file):
+            with open(salt_file, 'rb') as f:
+                salt = f.read()
+                if len(salt) == 32:
+                    return salt
+    except Exception as e:
+        _log.debug("Could not read salt file: %s", e)
+    
+    # Generate new salt
+    salt = os.urandom(32)
+    
+    try:
+        with open(salt_file, 'wb') as f:
+            f.write(salt)
+        # Set restrictive permissions on Unix-like systems
+        if hasattr(os, 'chmod'):
+            os.chmod(salt_file, 0o600)
+    except Exception as e:
+        _log.warning("Could not persist salt file: %s", e)
+    
+    return salt
 
 
 def hash_credential(secret_text, salt="EQATS_SOVEREIGN_SALT_2026"):
@@ -17,8 +108,97 @@ def hash_credential(secret_text, salt="EQATS_SOVEREIGN_SALT_2026"):
     return hashlib.sha256(salted_str.encode("utf-8")).hexdigest()
 
 
-def encrypt_secret(plain_text, key_seed="EQATS_CIPHER_KEY_2026"):
-    """Encrypts a string using reversible XOR-base64 ciphering for broker passwords."""
+def encrypt_secret(plain_text):
+    """
+    Encrypts sensitive broker credentials using Fernet authenticated encryption.
+    
+    This function provides confidentiality and integrity protection for broker
+    passwords, API keys, and API secrets. The encryption key is derived from
+    a user-provided master key (EQATS_MASTER_KEY environment variable) or a
+    machine-specific fallback using PBKDF2 key derivation.
+    
+    Args:
+        plain_text: The plaintext credential to encrypt
+        
+    Returns:
+        str: Base64-encoded Fernet ciphertext, or empty string if input is empty
+    """
+    if not plain_text:
+        return ""
+    
+    try:
+        from cryptography.fernet import Fernet
+        
+        # Get or derive encryption key
+        key = _get_encryption_key()
+        
+        # Fernet requires base64-encoded 32-byte key
+        fernet_key = base64.urlsafe_b64encode(key)
+        cipher = Fernet(fernet_key)
+        
+        # Encrypt and return as string
+        encrypted = cipher.encrypt(plain_text.encode('utf-8'))
+        return encrypted.decode('utf-8')
+        
+    except ImportError:
+        _log.error(
+            "cryptography library not available. Install with: pip install cryptography"
+        )
+        # Fallback to legacy XOR for backward compatibility during transition
+        return _legacy_encrypt_secret(plain_text)
+    except Exception as e:
+        _log.error("Encryption failed: %s", e)
+        return ""
+
+
+def decrypt_secret(cipher_text):
+    """
+    Decrypts Fernet-encrypted broker credentials.
+    
+    Attempts to decrypt using Fernet authenticated encryption. If decryption fails
+    (e.g., for legacy XOR-encrypted data), attempts legacy decryption for backward
+    compatibility during migration.
+    
+    Args:
+        cipher_text: The encrypted credential string
+        
+    Returns:
+        str: Decrypted plaintext, or empty string on failure
+    """
+    if not cipher_text:
+        return ""
+    
+    try:
+        from cryptography.fernet import Fernet
+        
+        # Get or derive encryption key
+        key = _get_encryption_key()
+        
+        # Fernet requires base64-encoded 32-byte key
+        fernet_key = base64.urlsafe_b64encode(key)
+        cipher = Fernet(fernet_key)
+        
+        # Decrypt and return as string
+        decrypted = cipher.decrypt(cipher_text.encode('utf-8'))
+        return decrypted.decode('utf-8')
+        
+    except ImportError:
+        _log.error(
+            "cryptography library not available. Install with: pip install cryptography"
+        )
+        # Fallback to legacy XOR for backward compatibility
+        return _legacy_decrypt_secret(cipher_text)
+    except Exception:
+        # If Fernet decryption fails, try legacy XOR decryption for backward compatibility
+        try:
+            return _legacy_decrypt_secret(cipher_text)
+        except Exception:
+            _log.debug("Failed to decrypt credential with both Fernet and legacy methods")
+            return ""
+
+
+def _legacy_encrypt_secret(plain_text, key_seed="EQATS_CIPHER_KEY_2026"):
+    """Legacy XOR-based encryption for backward compatibility only."""
     if not plain_text:
         return ""
     key_bytes = hashlib.sha256(key_seed.encode("utf-8")).digest()
@@ -29,8 +209,8 @@ def encrypt_secret(plain_text, key_seed="EQATS_CIPHER_KEY_2026"):
     return base64.b64encode(cipher_bytes).decode("utf-8")
 
 
-def decrypt_secret(cipher_text, key_seed="EQATS_CIPHER_KEY_2026"):
-    """Decrypts a base64-XOR encrypted string back to plaintext."""
+def _legacy_decrypt_secret(cipher_text, key_seed="EQATS_CIPHER_KEY_2026"):
+    """Legacy XOR-based decryption for backward compatibility only."""
     if not cipher_text:
         return ""
     try:
@@ -188,8 +368,8 @@ def init_db():
                 leverage TEXT NOT NULL,
                 environment TEXT DEFAULT 'Demo',
                 protocol_type TEXT DEFAULT 'MT5',
-                api_key TEXT DEFAULT '',
-                api_secret TEXT DEFAULT '',
+                api_key_encrypted TEXT DEFAULT '',
+                api_secret_encrypted TEXT DEFAULT '',
                 rest_url TEXT DEFAULT '',
                 ws_url TEXT DEFAULT '',
                 terminal_path TEXT DEFAULT '',
@@ -197,6 +377,17 @@ def init_db():
                 updated_at TEXT NOT NULL
             )
             """)
+            
+            # Migrate legacy schema: rename api_key to api_key_encrypted and api_secret to api_secret_encrypted
+            try:
+                cursor.execute("SELECT api_key FROM broker_credentials LIMIT 1")
+                # If we get here, old schema exists - need to migrate
+                _log.info("Migrating broker_credentials schema to encrypt api_key field")
+                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_key TO api_key_encrypted")
+                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_secret TO api_secret_encrypted")
+            except sqlite3.OperationalError:
+                # New schema already in place or table doesn't exist yet
+                pass
 
             # Alter table if existing schema lacks new multi-broker columns
             _SCHEMA_ALTERS = [
@@ -510,6 +701,25 @@ def get_all_brokers():
     for r in rows:
         b = dict(r)
         b["password"] = decrypt_secret(b.get("password_encrypted", ""))
+        
+        # Handle both old schema (api_key) and new schema (api_key_encrypted)
+        keys = r.keys() if hasattr(r, "keys") else []
+        if "api_key_encrypted" in keys:
+            b["api_key"] = decrypt_secret(b.get("api_key_encrypted", ""))
+        elif "api_key" in keys:
+            # Legacy plaintext field - keep as is for now
+            b["api_key"] = b.get("api_key", "")
+        else:
+            b["api_key"] = ""
+            
+        if "api_secret_encrypted" in keys:
+            b["api_secret"] = decrypt_secret(b.get("api_secret_encrypted", ""))
+        elif "api_secret" in keys:
+            # Legacy field - might be encrypted with old XOR
+            b["api_secret"] = decrypt_secret(b.get("api_secret", ""))
+        else:
+            b["api_secret"] = ""
+        
         brokers.append(b)
     return brokers
 
@@ -553,7 +763,7 @@ def add_broker_account(
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry(
         """
-    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, terminal_path, is_active, updated_at)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
@@ -564,7 +774,7 @@ def add_broker_account(
             leverage,
             environment,
             protocol_type,
-            api_key,
+            encrypt_secret(api_key) if api_key else "",
             encrypt_secret(api_secret) if api_secret else "",
             rest_url,
             ws_url,
@@ -611,13 +821,14 @@ def save_broker_credentials(
     conn.close()
 
     enc_pwd = encrypt_secret(password)
+    enc_key = encrypt_secret(api_key) if api_key else ""
     enc_secret = encrypt_secret(api_secret) if api_secret else ""
 
     if row:
         _execute_with_retry(
             """
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key = ?, api_secret = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key_encrypted = ?, api_secret_encrypted = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
         WHERE id = ?
         """,
             (
@@ -628,7 +839,7 @@ def save_broker_credentials(
                 leverage,
                 environment,
                 protocol_type,
-                api_key,
+                enc_key,
                 enc_secret,
                 rest_url,
                 ws_url,
@@ -641,7 +852,7 @@ def save_broker_credentials(
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
         _execute_with_retry(
             """
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key, api_secret, rest_url, ws_url, terminal_path, is_active, updated_at)
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         """,
             (
@@ -652,7 +863,7 @@ def save_broker_credentials(
                 leverage,
                 environment,
                 protocol_type,
-                api_key,
+                enc_key,
                 enc_secret,
                 rest_url,
                 ws_url,
@@ -700,6 +911,29 @@ def get_broker_credentials():
         }
 
     keys = row.keys() if hasattr(row, "keys") else []
+    
+    # Handle both old schema (api_key) and new schema (api_key_encrypted)
+    api_key_field = "api_key_encrypted" if "api_key_encrypted" in keys else "api_key"
+    api_secret_field = "api_secret_encrypted" if "api_secret_encrypted" in keys else "api_secret"
+    
+    # Decrypt api_key if it's in the encrypted field, otherwise use plaintext (legacy)
+    if api_key_field == "api_key_encrypted" and row[api_key_field]:
+        api_key_value = decrypt_secret(row[api_key_field])
+    elif api_key_field == "api_key" and row[api_key_field]:
+        # Legacy plaintext - encrypt it on next save
+        api_key_value = row[api_key_field]
+    else:
+        api_key_value = ""
+    
+    # Decrypt api_secret
+    if api_secret_field == "api_secret_encrypted" and row[api_secret_field]:
+        api_secret_value = decrypt_secret(row[api_secret_field])
+    elif api_secret_field == "api_secret" and row[api_secret_field]:
+        # Legacy - might be encrypted with old XOR or plaintext
+        api_secret_value = decrypt_secret(row[api_secret_field]) if row[api_secret_field] else ""
+    else:
+        api_secret_value = ""
+    
     return {
         "broker_name": row["broker_name"]
         if "broker_name" in keys and row["broker_name"]
@@ -716,10 +950,8 @@ def get_broker_credentials():
         "protocol_type": row["protocol_type"]
         if "protocol_type" in keys and row["protocol_type"]
         else "MT5",
-        "api_key": row["api_key"] if "api_key" in keys and row["api_key"] else "",
-        "api_secret": decrypt_secret(row["api_secret"])
-        if "api_secret" in keys and row["api_secret"]
-        else "",
+        "api_key": api_key_value,
+        "api_secret": api_secret_value,
         "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
         "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else "",
         "terminal_path": row["terminal_path"]
