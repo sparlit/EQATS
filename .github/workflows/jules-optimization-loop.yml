@@ -19,6 +19,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # 2. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
       - name: Enforce Circuit Breaker Limit
@@ -172,6 +173,7 @@ jobs:
         with:
           ref: ${{ steps.post-agent-sha.outputs.sha }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Re-install Dependencies for Post-Change Validation
         if: steps.loop-check.outputs.continue_loop == 'true'
