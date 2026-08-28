@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "9.70"
-#property description "Elite Quantum Autonomous Scalper EA v9.70 - Autonomous Full-Execution Strategy Stack with Institutional Liquidity Lock Guard"
+#property version   "10.00"
+#property description "Elite Quantum Autonomous Scalper EA v10.00 - Role-Based Trade Executor Stack with Dual Event Polling & Zero-Latency IPC"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -153,7 +153,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v9.70 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v10.00 Initialized cleanly (Role: TRADE_EXECUTOR). IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -164,7 +164,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v9.70 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v10.00 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -792,7 +792,7 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.70)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v10.00 | ROLE: EXECUTOR)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
    CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
