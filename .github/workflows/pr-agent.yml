@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: PR Agent action step
         id: pragent
-        uses: the-pr-agent/pr-agent@main
+        uses: the-pr-agent/pr-agent@db3f2a5a8c487c28efaf566bebabb1778fb08ed7 # main
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
