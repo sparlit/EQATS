@@ -10,8 +10,37 @@ jobs:
       pull-requests: write # Allows the AI to post inline comments
       contents: read
     steps:
-      - name: Checkout Repo
+      - name: Checkout base branch configuration
         uses: actions/checkout@v4
+        with:
+          # Pin configuration to base branch to prevent credential exfiltration
+          # This ensures .ai-review.yaml comes from the trusted base, not the PR
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: |
+            .ai-review.yaml
+            .github/workflows/.ai-review.yaml
+          sparse-checkout-cone-mode: false
+          path: base-config
+
+      - name: Checkout PR code for review
+        uses: actions/checkout@v4
+        with:
+          # Checkout PR code for the action to review
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Overwrite PR configuration with trusted base configuration
+        run: |
+          # Use configuration from base branch, not from PR
+          # This prevents attackers from modifying api_url or api_token to exfiltrate credentials
+          if [ -f base-config/.ai-review.yaml ]; then
+            cp base-config/.ai-review.yaml .ai-review.yaml
+            echo "Using .ai-review.yaml from base branch"
+          elif [ -f base-config/.github/workflows/.ai-review.yaml ]; then
+            cp base-config/.github/workflows/.ai-review.yaml .ai-review.yaml
+            echo "Using .github/workflows/.ai-review.yaml from base branch"
+          else
+            echo "Warning: No .ai-review.yaml found in base branch"
+          fi
 
       - name: Run AI Code Reviewer
         uses: Nikita-Filonov/ai-review@e3e19d6d06c4ee6951c7a132d2a1090f8b04a947 # main # Or another marketplace alternative
