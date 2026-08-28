@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.40"
-#property description "Elite Quantum Autonomous Scalper EA v8.40 - Advanced Pyramiding, Trailing SL/TP, L99 Watchdog & Full-Spectrum Cockpit"
+#property version   "10.40"
+#property description "Elite Quantum Autonomous Scalper EA v10.40 - OnTradeTransaction Server Fill Callbacks & Automated Socket Reconnection"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -187,7 +187,7 @@ int OnInit()
    UpdateDashboard();
 
    string role_str = (InpEARole == ROLE_DATA_COLLECTOR) ? "DATA_COLLECTOR" : "TRADE_EXECUTOR";
-   Print("EqatsAutonomousScalperEA v8.40 Initialized cleanly (Role: ", role_str, " | Consecutive Loss Safeguard Active). IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v10.40 Initialized cleanly (Role: ", role_str, " | L99 Watchdog Active | Fill Callbacks Active). IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -198,7 +198,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.40 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v10.40 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
