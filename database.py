@@ -9,6 +9,18 @@ import config
 
 _log = logging.getLogger("database")
 
+# Try to import bcrypt for secure password hashing
+try:
+    import bcrypt
+    _BCRYPT_AVAILABLE = True
+    _BCRYPT_ROUNDS = 12  # 2^12 iterations, OWASP recommended minimum
+except ImportError:
+    _BCRYPT_AVAILABLE = False
+    _log.warning(
+        "bcrypt library not available. Password security is degraded. "
+        "Install with: pip install bcrypt"
+    )
+
 # Encryption key management with environment variable support
 _ENCRYPTION_KEY = None
 _ENCRYPTION_SALT = None
@@ -101,11 +113,97 @@ def _get_or_create_salt():
 
 
 def hash_credential(secret_text, salt="EQATS_SOVEREIGN_SALT_2026"):
-    """Generates a salt-based SHA-256 cryptographic digest for passwords and PINs."""
+    """
+    DEPRECATED: Legacy SHA-256 hashing for backward compatibility only.
+    
+    This function uses a fast, globally-salted SHA-256 digest which is vulnerable
+    to offline brute-force attacks. It is retained only for verifying existing
+    credentials during migration. New credentials should use hash_credential_secure().
+    """
     if not secret_text:
         secret_text = ""
     salted_str = f"{secret_text}:{salt}"
     return hashlib.sha256(salted_str.encode("utf-8")).hexdigest()
+
+
+def hash_credential_secure(secret_text):
+    """
+    Generates a cryptographically secure password hash using bcrypt with per-credential
+    random salt and configurable work factor.
+    
+    Uses bcrypt with 12 rounds (2^12 = 4096 iterations), providing strong protection
+    against offline brute-force and dictionary attacks. Each hash includes a unique
+    random salt, preventing precomputation attacks and making identical credentials
+    distinguishable across accounts.
+    
+    Args:
+        secret_text: The password or PIN to hash
+        
+    Returns:
+        str: bcrypt hash string (includes algorithm, cost, salt, and hash)
+             Format: $2b$12$[22-char-salt][31-char-hash]
+             Falls back to legacy SHA-256 if bcrypt unavailable (with warning)
+    """
+    if not secret_text:
+        secret_text = ""
+    
+    if _BCRYPT_AVAILABLE:
+        # bcrypt automatically generates a unique random salt per hash
+        # and includes it in the output string along with the cost parameter
+        password_bytes = secret_text.encode('utf-8')
+        hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
+        return hashed.decode('utf-8')
+    else:
+        # Fallback to legacy method if bcrypt not available
+        # This maintains functionality but logs a warning
+        _log.warning(
+            "Using legacy SHA-256 hashing due to missing bcrypt. "
+            "Install bcrypt for proper password security: pip install bcrypt"
+        )
+        return hash_credential(secret_text)
+
+
+def verify_credential(secret_text, stored_hash):
+    """
+    Verifies a password or PIN against a stored hash, supporting both legacy SHA-256
+    and modern bcrypt hashes with automatic migration.
+    
+    This function provides backward compatibility by detecting the hash format:
+    - bcrypt hashes start with '$2a$', '$2b$', or '$2y$'
+    - Legacy SHA-256 hashes are 64-character hex strings
+    
+    Args:
+        secret_text: The plaintext password/PIN to verify
+        stored_hash: The hash from the database
+        
+    Returns:
+        tuple: (is_valid: bool, needs_rehash: bool)
+               is_valid: True if credential matches
+               needs_rehash: True if using legacy hash and should be upgraded
+    """
+    if not secret_text or not stored_hash:
+        return (False, False)
+    
+    # Detect bcrypt hash format
+    if stored_hash.startswith(('$2a$', '$2b$', '$2y$')):
+        if _BCRYPT_AVAILABLE:
+            try:
+                password_bytes = secret_text.encode('utf-8')
+                hash_bytes = stored_hash.encode('utf-8')
+                is_valid = bcrypt.checkpw(password_bytes, hash_bytes)
+                return (is_valid, False)  # Modern hash, no rehash needed
+            except Exception as e:
+                _log.debug("bcrypt verification failed: %s", e)
+                return (False, False)
+        else:
+            # bcrypt hash but library not available
+            _log.error("Cannot verify bcrypt hash without bcrypt library")
+            return (False, False)
+    else:
+        # Legacy SHA-256 hash - verify and flag for rehashing
+        legacy_hash = hash_credential(secret_text)
+        is_valid = (stored_hash == legacy_hash)
+        return (is_valid, is_valid)  # If valid, needs rehash to bcrypt
 
 
 def encrypt_secret(plain_text):
@@ -455,8 +553,8 @@ def init_db():
                 """,
                     (
                         "QUANT_OPERATOR",
-                        hash_credential("admin"),
-                        hash_credential("741295"),
+                        hash_credential_secure("admin"),
+                        hash_credential_secure("741295"),
                         "SOVEREIGN_ADMIN",
                         1,
                         datetime.datetime.now().isoformat(),
@@ -494,25 +592,62 @@ def init_db():
 
 
 def verify_user_password(username, password_input):
-    """Verifies a user's password against the encrypted hash stored in SQLite (case-insensitive username)."""
+    """
+    Verifies a user's password against the stored hash in SQLite (case-insensitive username).
+    
+    Supports both legacy SHA-256 and modern bcrypt hashes. Automatically upgrades
+    legacy hashes to bcrypt upon successful authentication (transparent migration).
+    
+    Returns:
+        bool: True if password is valid, False otherwise
+    """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
         "SELECT password_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,)
     )
     row = cursor.fetchone()
-    conn.close()
-
+    
     if not row:
+        conn.close()
         return False
-    return row["password_hash"] == hash_credential(password_input)
+    
+    stored_hash = row["password_hash"]
+    is_valid, needs_rehash = verify_credential(password_input, stored_hash)
+    
+    # Automatic migration: upgrade legacy hash to bcrypt on successful login
+    if is_valid and needs_rehash:
+        try:
+            new_hash = hash_credential_secure(password_input)
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
+                (new_hash, username)
+            )
+            conn.commit()
+            _log.info("Upgraded password hash to bcrypt for user: %s", username)
+        except Exception as e:
+            _log.warning("Failed to upgrade password hash for %s: %s", username, e)
+    
+    conn.close()
+    return is_valid
 
 
 def verify_user_credentials(username, password_input, pin_input=None):
     """
     Validates a user's login credentials (username, password, and optional PIN/MFA)
-    directly against salt-hashed SQLite database records.
-    Returns: bool indicating authentication success.
+    against stored hashes in SQLite database.
+    
+    Supports both legacy SHA-256 and modern bcrypt hashes with automatic migration
+    to bcrypt upon successful authentication. Each credential is verified independently
+    and upgraded if needed.
+    
+    Args:
+        username: User account name (case-insensitive)
+        password_input: Plaintext password to verify
+        pin_input: Optional plaintext PIN for MFA verification
+        
+    Returns:
+        bool: True if authentication succeeds, False otherwise
     """
     conn = get_connection()
     cursor = conn.cursor()
@@ -521,34 +656,83 @@ def verify_user_credentials(username, password_input, pin_input=None):
         (username,),
     )
     row = cursor.fetchone()
-    conn.close()
-
+    
     if not row:
+        conn.close()
         return False
 
-    pwd_valid = row["password_hash"] == hash_credential(password_input)
+    # Verify password with automatic migration
+    stored_password_hash = row["password_hash"]
+    pwd_valid, pwd_needs_rehash = verify_credential(password_input, stored_password_hash)
+    
     if not pwd_valid:
+        conn.close()
         return False
+    
+    # Upgrade password hash if needed
+    if pwd_needs_rehash:
+        try:
+            new_hash = hash_credential_secure(password_input)
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
+                (new_hash, username)
+            )
+            conn.commit()
+            _log.info("Upgraded password hash to bcrypt for user: %s", username)
+        except Exception as e:
+            _log.warning("Failed to upgrade password hash for %s: %s", username, e)
 
+    # Verify PIN if provided
     if pin_input is not None and str(pin_input).strip():
         typed_pin = str(pin_input).strip()
-        # Verify strictly against database-stored salt hash credential
-        pin_valid = row["pin_hash"] == hash_credential(typed_pin)
+        stored_pin_hash = row["pin_hash"]
+        pin_valid, pin_needs_rehash = verify_credential(typed_pin, stored_pin_hash)
+        
+        # Upgrade PIN hash if needed
+        if pin_valid and pin_needs_rehash:
+            try:
+                new_pin_hash = hash_credential_secure(typed_pin)
+                cursor.execute(
+                    "UPDATE users SET pin_hash = ? WHERE LOWER(username) = LOWER(?)",
+                    (new_pin_hash, username)
+                )
+                conn.commit()
+                _log.info("Upgraded PIN hash to bcrypt for user: %s", username)
+            except Exception as e:
+                _log.warning("Failed to upgrade PIN hash for %s: %s", username, e)
+        
+        conn.close()
         return pin_valid
 
+    conn.close()
     return True
 
 
 def verify_user_pin(pin_input):
-    """Verifies a secondary security PIN against active operators in SQLite."""
+    """
+    Verifies a secondary security PIN against active operators in SQLite.
+    
+    Supports both legacy SHA-256 and modern bcrypt hashes. Note: This function
+    checks against all users' PINs and does not perform automatic migration
+    since it doesn't identify a specific user.
+    
+    Returns:
+        bool: True if PIN matches any user's stored PIN hash
+    """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT pin_hash FROM users")
     rows = cursor.fetchall()
     conn.close()
 
-    target_hash = hash_credential(pin_input)
-    return any(r["pin_hash"] == target_hash for r in rows)
+    # Check against all stored PIN hashes
+    for row in rows:
+        stored_hash = row["pin_hash"]
+        is_valid, _ = verify_credential(pin_input, stored_hash)
+        if is_valid:
+            return True
+    
+    return False
 
 
 def get_all_users():
@@ -625,15 +809,28 @@ def _fetch_with_retry(query, params=(), fetch_all=True):
 
 
 def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
-    """Adds a new operator account with salt-hashed password and PIN with lock retries."""
+    """
+    Adds a new operator account with cryptographically secure bcrypt-hashed password and PIN.
+    
+    Uses bcrypt with per-credential random salts and configurable work factor (12 rounds)
+    to protect against offline brute-force attacks. Each credential receives a unique
+    salt automatically embedded in the bcrypt hash.
+    
+    Args:
+        username: Unique username for the account
+        password: Plaintext password (will be hashed with bcrypt)
+        pin: Plaintext PIN (will be hashed with bcrypt)
+        role: User role (default: QUANT_TRADER)
+        mfa_enabled: Whether MFA is enabled (default: 1/True)
+    """
     query = """
     INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
     """
     params = (
         username,
-        hash_credential(password),
-        hash_credential(pin),
+        hash_credential_secure(password),
+        hash_credential_secure(pin),
         role,
         int(mfa_enabled),
         datetime.datetime.now().isoformat(),
@@ -642,7 +839,21 @@ def add_user(username, password, pin, role="QUANT_TRADER", mfa_enabled=1):
 
 
 def update_user(username, new_password=None, new_pin=None, new_role=None, original_username=None, login_style=None):
-    """Updates username, password, PIN, role, or login_style for an existing user account with lock retries."""
+    """
+    Updates username, password, PIN, role, or login_style for an existing user account.
+    
+    Password and PIN updates use cryptographically secure bcrypt hashing with unique
+    per-credential random salts and 12-round work factor. This replaces any legacy
+    SHA-256 hashes with modern bcrypt hashes.
+    
+    Args:
+        username: New username (if changing username)
+        new_password: New plaintext password (will be hashed with bcrypt)
+        new_pin: New plaintext PIN (will be hashed with bcrypt)
+        new_role: New role assignment
+        original_username: Original username (if changing username)
+        login_style: Preferred login screen style
+    """
     target_user = original_username if original_username else username
 
     if username and target_user and username.lower() != target_user.lower():
@@ -655,12 +866,12 @@ def update_user(username, new_password=None, new_pin=None, new_role=None, origin
     if new_password is not None and str(new_password).strip():
         _execute_with_retry(
             "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
-            (hash_credential(str(new_password).strip()), target_user),
+            (hash_credential_secure(str(new_password).strip()), target_user),
         )
     if new_pin is not None and str(new_pin).strip():
         _execute_with_retry(
             "UPDATE users SET pin_hash = ? WHERE LOWER(username) = LOWER(?)",
-            (hash_credential(str(new_pin).strip()), target_user),
+            (hash_credential_secure(str(new_pin).strip()), target_user),
         )
     if new_role is not None and str(new_role).strip():
         _execute_with_retry(
@@ -672,6 +883,61 @@ def update_user(username, new_password=None, new_pin=None, new_role=None, origin
             "UPDATE users SET login_style = ? WHERE LOWER(username) = LOWER(?)",
             (str(login_style).strip(), target_user),
         )
+
+
+def get_credential_migration_status():
+    """
+    Returns the migration status of user credentials from legacy SHA-256 to bcrypt.
+    
+    This diagnostic function helps administrators understand which users still have
+    legacy hashes that need migration. Migration happens automatically on next login,
+    but this function provides visibility into the migration progress.
+    
+    Returns:
+        dict: {
+            'total_users': int,
+            'bcrypt_passwords': int,
+            'legacy_passwords': int,
+            'bcrypt_pins': int,
+            'legacy_pins': int,
+            'migration_complete': bool
+        }
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT password_hash, pin_hash FROM users")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    total = len(rows)
+    bcrypt_passwords = 0
+    legacy_passwords = 0
+    bcrypt_pins = 0
+    legacy_pins = 0
+    
+    for row in rows:
+        # Check password hash format
+        pwd_hash = row["password_hash"]
+        if pwd_hash and pwd_hash.startswith(('$2a$', '$2b$', '$2y$')):
+            bcrypt_passwords += 1
+        else:
+            legacy_passwords += 1
+        
+        # Check PIN hash format
+        pin_hash = row["pin_hash"]
+        if pin_hash and pin_hash.startswith(('$2a$', '$2b$', '$2y$')):
+            bcrypt_pins += 1
+        else:
+            legacy_pins += 1
+    
+    return {
+        'total_users': total,
+        'bcrypt_passwords': bcrypt_passwords,
+        'legacy_passwords': legacy_passwords,
+        'bcrypt_pins': bcrypt_pins,
+        'legacy_pins': legacy_pins,
+        'migration_complete': (legacy_passwords == 0 and legacy_pins == 0)
+    }
 
 
 def get_user_login_style(username="QUANT_OPERATOR"):
