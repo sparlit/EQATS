@@ -1,5 +1,5 @@
 """
-Self-Learning AI Prediction Brain - Neural Network MLP written in pure Python (EQATS v8.3j).
+Self-Learning AI Prediction Brain - Neural Network MLP written in pure Python (EQATS v8.4).
 Autonomously predicts the direction of multi-bar forward price outcomes, continuously trains on live data,
 calculates rolling accuracy, and adjusts its weights via backpropagation.
 """
