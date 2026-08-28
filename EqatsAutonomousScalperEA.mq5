@@ -64,6 +64,33 @@ input int      InpMaxPyramidPositions      = 5;                     // Max Pyram
 input int      InputPyramidStepPoints      = 200;                   // Pyramid Min Entry Step (points)
 input bool     InpAutoCharts               = false;                 // Auto-open & Tile Multi-TF Charts (M1..MN)
 
+// Local Risk & Margin Safeguards (Adapted from BotCilento EA & AatEAv15)
+input group "Local EA Risk & Margin Safeguards"
+input bool     InpEnableEmergencyClose      = true;                  // Enable emergency close at max drawdown
+input double   InpMaxDrawdownPercent        = 15.0;                  // Max drawdown % before panic close
+input double   InpDailyLossLimitPercent     = 5.0;                   // Max daily loss limit %
+input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
+input double   InputMinFreeMarginPct        = 30.0;                  // Minimum free margin percentage (%)
+input int      InputMaxAllowedSpread        = 40;                    // Max allowed spread (points)
+input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
+input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
+
+// Dynamic Execution & AAT Advanced Features (Adapted from AatEAv15)
+input group "AAT Execution, BreakEven, Trailing & Pyramiding"
+input double   InpRiskPercent              = 1.0;                   // Risk per trade (%)
+input int      InpMagicNumber              = 123456;                // Magic Number
+input int      InpStopLossPoints           = 200;                   // Initial Stop Loss (points)
+input int      InpTakeProfitPoints         = 400;                   // Initial Take Profit (points)
+input int      InputBreakEvenTrigger       = 250;                   // BreakEven Trigger (points)
+input int      InputBreakEvenBuffer        = 30;                    // BreakEven Buffer (points)
+input bool     InpTrailingSL               = true;                  // Enable Trailing Stop Loss
+input bool     InpTrailingTP               = true;                  // Enable Trailing Take Profit
+input int      InpTrailingStep             = 50;                    // Trailing Step (points)
+input bool     InpEnablePyramiding         = true;                  // Enable Pyramid Scaling on Winner
+input int      InpMaxPyramidPositions      = 5;                     // Max Pyramid Positions
+input int      InputPyramidStepPoints      = 200;                   // Pyramid Min Entry Step (points)
+input bool     InpAutoCharts               = false;                 // Auto-open & Tile Multi-TF Charts (M1..MN)
+
 // Extended Symbol Scan Metrics
 string m_symbols[50];
 string m_prices[50];

@@ -1,0 +1,32 @@
+name: Update README Automatically
+
+on:
+  push:
+    branches:
+      - main
+  issues:
+    types: [opened, edited, closed] # Triggers when roadmap issues change
+  workflow_dispatch: # Allows you to run it manually
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Update Script
+        run: node update-readme.js
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+          git add README.md
+          git diff-index --quiet HEAD || git commit -m "chore: auto-update roadmap and timeline in README"
+          git push

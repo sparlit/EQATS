@@ -87,10 +87,10 @@ TRAILING_STOP_ATR_MULT = 1.5  # Trailing distance = 1.5 * ATR
 
 # 4. Strategy Selection and Tuning
 # Supported active strategies: "TREND_FOLLOWING", "MEAN_REVERSION", "MACD_MOMENTUM", "VOTING_ENSEMBLE", "BREAKOUT", "CARRY_TRADE", "GRID_TRADE", "STAT_ARB", "ORB", "VSA", "MTF_CONFLUENCE", "SMC_ICT", "ORDER_FLOW", "MULTI_STRATEGY_CONCURRENT", "MULTI_HYBRID_PARALLEL", "AUTO"
-ACTIVE_STRATEGY = "VOTING_ENSEMBLE"
+ACTIVE_STRATEGY = "AUTO"
 
 # Supported active trading styles: "SCALPING", "DAY_TRADING", "SWING_TRADING", "POSITION_TRADING", "AUTO"
-TRADING_STYLE = "SCALPING"
+TRADING_STYLE = "AUTO"
 
 # --- BREAKOUT STRATEGY CONFIG ---
 BREAKOUT_PERIOD = 20  # Lookback period for Donchian Channel breakout detection
@@ -161,4 +161,4 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 # 7. Execution Loop
-CHECK_INTERVAL_SECONDS = 15  # How often to check for candles and trade opportunities
+CHECK_INTERVAL_SECONDS = 5  # How often to check for candles and trade opportunities
