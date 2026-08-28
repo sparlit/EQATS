@@ -137,18 +137,20 @@ jobs:
         if: steps.loop-check.outputs.continue_loop == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          TARGET_VERSION: ${{ steps.calc-version.outputs.next_version }}
         run: |
           echo "🚀 Initiating hands-free deployment pipeline..."
           
-          PR_EXISTS=$(gh pr list --head "${{ github.ref_name }}" --base main --json number --jq '..number' || true)
+          PR_EXISTS=$(gh pr list --head "$BRANCH_NAME" --base main --json number --jq '..number' || true)
           
           if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
             echo "txt=No open PR found. Creating a new Pull Request..."
             PR_URL=$(gh pr create \
-              --title "🚀 AI Auto-Innovation & Feature Release [v${{ steps.calc-version.outputs.next_version }}]" \
-              --body "This Pull Request was generated autonomously by your Jules Innovation Loop. It adds new quantitative trading features, expands microservice code modules, refactors layout sheets, and advances the system architecture baseline version to release ${{ steps.calc-version.outputs.next_version }}." \
+              --title "🚀 AI Auto-Innovation & Feature Release [v${TARGET_VERSION}]" \
+              --body "This Pull Request was generated autonomously by your Jules Innovation Loop. It adds new quantitative trading features, expands microservice code modules, refactors layout sheets, and advances the system architecture baseline version to release ${TARGET_VERSION}." \
               --base main \
-              --head "${{ github.ref_name }}")
+              --head "$BRANCH_NAME")
             PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
           else
             echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."

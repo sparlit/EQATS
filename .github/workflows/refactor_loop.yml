@@ -20,7 +20,7 @@ jobs:
         persist-credentials: false
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a20 # v5.3.0
       with:
         python-version: '3.10'
 
@@ -111,6 +111,8 @@ jobs:
 
     - name: Commit Refactored Code and Updated Plan
       if: steps.process_task.outputs.more_tasks == 'true'
+      env:
+        BRANCH_NAME: ${{ github.ref_name }}
       run: |
         # Security: Re-authenticate only for the commit step, after package installation
         # This ensures packages cannot access credentials during installation
@@ -120,7 +122,7 @@ jobs:
         git add .
         # Only commit if changes actually occurred
         git diff-index --quiet HEAD || git commit -m "🤖 Auto-refactor: completed next task in plan"
-        git push origin HEAD:${{ github.ref_name }}
+        git push origin "HEAD:$BRANCH_NAME"
 
     - name: Trigger Next Refactor Loop Task
       if: steps.process_task.outputs.more_tasks == 'true'

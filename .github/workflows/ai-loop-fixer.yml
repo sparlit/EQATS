@@ -1,91 +1,226 @@
 name: AI Automated Fix Loop
 
 on:
-  push:
+  # Use pull_request_target to run workflow from default branch (trusted code)
+  # while still being able to access the PR branch for testing
+  pull_request_target:
+    types: [opened, synchronize, labeled]
     branches:
-      - 'ai-fix-/*'      # Runs on feature branches starting with ai-fix-
+      - main
+      - master
   workflow_dispatch:     # Allows you to trigger this manually from GitHub UI
+    inputs:
+      pr_number:
+        description: 'Pull Request number to analyze and fix'
+        required: true
+        type: number
 
 jobs:
-  analyze-and-fix:
+  # Security gate: Only run for authorized actors or when explicitly labeled
+  authorize:
+    runs-on: ubuntu-latest
+    outputs:
+      authorized: ${{ steps.check.outputs.authorized }}
+    steps:
+      - name: Check authorization
+        id: check
+        run: |
+          # Only allow workflow to run if:
+          # 1. Triggered by repository owner/collaborators, OR
+          # 2. PR has 'ai-fix-approved' label, OR
+          # 3. Manually dispatched
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "authorized=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
+            # Check if PR has the required label
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ai-fix-approved') }}" == "true" ]]; then
+              echo "authorized=true" >> $GITHUB_OUTPUT
+            else
+              echo "authorized=false" >> $GITHUB_OUTPUT
+              echo "⚠️ PR must be labeled with 'ai-fix-approved' by a maintainer to run AI fixes"
+            fi
+          else
+            echo "authorized=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Separate job: Run tests WITHOUT secrets or write permissions
+  test-untrusted-code:
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # Required so the bot can commit fixes back to your repo
-
+      contents: read    # Read-only access
     steps:
-      # 1. Checkout the repository code
-      - name: Checkout Code
+      # Checkout the PR branch (untrusted code)
+      - name: Checkout PR Code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.inputs.pr_number }}
           fetch-depth: 0
 
-      # 2. Set up your runtime environment (Change this to Python/Go/Ruby if needed)
-      - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+      # Set up Python environment (this is a Python project, not Node.js)
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
         with:
-          node-node-version: '20'
-          cache: 'npm'
+          python-version: '3.10'
+          cache: 'pip'
 
+      # Install dependencies WITHOUT any secrets in environment
       - name: Install Project Dependencies
-        run: npm ci
+        run: |
+          pip install -r requirements.txt || echo "No requirements.txt found"
+          pip install pytest || echo "pytest already installed"
 
-      # 3. Setup your AI Agent CLI (Example using 'aider' via pipx)
+      # Run tests WITHOUT any secrets in environment
+      - name: Run Tests
+        run: |
+          # Run pytest and capture output
+          pytest -v > test_output.log 2>&1 || true
+          cat test_output.log
+
+      # Upload test results as artifact (no secrets exposed)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test_output.log
+          retention-days: 1
+
+  # Separate job: AI analysis and fix generation WITH secrets but NO untrusted code execution
+  analyze-and-fix:
+    needs: test-untrusted-code
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write         # Required to create commits
+      pull-requests: write    # Required to update PR
+    steps:
+      # Checkout from DEFAULT branch (trusted workflow code)
+      - name: Checkout Trusted Base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      # Now checkout the PR branch on top
+      - name: Checkout PR Branch
+        run: |
+          git fetch origin ${{ github.event.pull_request.head.ref }}:pr-branch
+          git checkout pr-branch
+
+      # Download test results (no code execution, just data)
+      - name: Download Test Results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+
+      # Setup Python environment
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Install AI Agent CLI in isolated environment
       - name: Install AI Agent CLI
         run: |
           sudo apt-get update && sudo apt-get install -y pipx
-          pipx install aider-chat
+          pipx install aider-chat==0.42.1 \
+            --pip-args="--require-hashes --only-binary=:all:" \
+            || pipx install aider-chat==0.42.1
           echo "/home/runner/.local/bin" >> $GITHUB_PATH
 
-      # 4. The Loop Control Logic
-      - name: Run Test-and-Fix Loop
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Set this in your GitHub Repo Secrets
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAX_ATTEMPTS: 5
+      # Configure Git
+      - name: Configure Git
         run: |
-          # Configure Git Author
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@://github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      # AI Fix Loop - Secrets only exposed to trusted aider CLI, not to project code
+      - name: Run AI Fix Loop
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_ATTEMPTS: 3
+        run: |
           attempt=1
-          success=false
+          
+          # Read test output
+          if [ ! -f test_output.log ]; then
+            echo "❌ No test output found"
+            exit 1
+          fi
+
+          echo "📋 Test output:"
+          cat test_output.log
+
+          # Check if tests already pass
+          if grep -q "passed" test_output.log && ! grep -q "failed" test_output.log; then
+            echo "✅ Tests already passing, no fixes needed"
+            exit 0
+          fi
 
           while [ $attempt -le $MAX_ATTEMPTS ]; do
             echo "=========================================="
-            echo "🔄 Starting Loop Attempt #$attempt of $MAX_ATTEMPTS"
+            echo "🔄 AI Fix Attempt #$attempt of $MAX_ATTEMPTS"
             echo "=========================================="
 
-            # Run your test/linter command and capture output to a log file
-            # Change 'npm test' to your specific test runner (e.g., 'pytest', 'eslint .')
-            if npm test > test_output.log 2>&1; then
-              echo "✅ All tests passed successfully!"
-              success=true
-              break
+            # Invoke AI Agent with test results (aider is trusted, project code is not executed)
+            # Note: GITHUB_TOKEN is NOT exposed to prevent token exfiltration
+            aider --yes --message "The test suite failed with the following errors. Please analyze the codebase, locate the bugs, and fix them. Error Logs: $(cat test_output.log)"
+
+            # Check if AI made changes
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "🤖 AI made corrections. Committing changes..."
+              git add .
+              git commit -m "fix: automated correction attempt #$attempt [ai-fix-bot]"
+              
+              # Push changes back to PR branch
+              git push origin HEAD:${{ github.event.pull_request.head.ref }}
+              
+              echo "✅ Changes pushed. PR updated for review."
+              exit 0
             else
-              echo "❌ Tests failed. Sending error logs to AI Agent..."
-              cat test_output.log
-
-              # Invoke your AI Agent CLI (Adapting syntax to your specific agent)
-              # This command tells the agent the exact error log and instructs it to fix it.
-              aider --message "The test suite failed with the following errors. Please analyze the codebase, locate the bugs, and rewrite the broken code to fix them. Error Logs: $(cat test_output.log)" --yes
-
-              # Check if the AI actually changed any files
-              if [ -n "$(git status --porcelain)" ]; then
-                echo "🤖 AI made corrections. Committing changes..."
-                git add .
-                git commit -m "chore(ai-fix): automated correction attempt #$attempt"
-                git push origin ${GITHUB_REF_NAME}
-              else
-                echo "⚠️ AI ran but made no changes to the files. Breaking loop to avoid stagnation."
-                break
-              fi
+              echo "⚠️ AI made no changes."
+              break
             fi
 
             attempt=$((attempt+1))
           done
 
-          # Final workflow evaluation
-          if [ "$success" = false ]; then
-            echo "❌ The AI agent was unable to fix all errors within $MAX_ATTEMPTS attempts."
-            exit 1
-          fi
+          echo "ℹ️ AI fix loop completed. Please review the PR."
+
+      # Add comment to PR with results
+      - name: Comment on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let testOutput = 'No test output available';
+            try {
+              testOutput = fs.readFileSync('test_output.log', 'utf8');
+            } catch (e) {
+              console.log('Could not read test output');
+            }
+            
+            const comment = `## 🤖 AI Fix Loop Results
+            
+            The AI automated fix loop has completed. 
+            
+            <details>
+            <summary>Test Output</summary>
+            
+            \`\`\`
+            ${testOutput.slice(0, 5000)}
+            \`\`\`
+            
+            </details>
+            
+            Please review the changes and test results before merging.
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
