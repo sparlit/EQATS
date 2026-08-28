@@ -45,7 +45,7 @@ class UniversalBrokerGateway:
         "SIMULATOR",
     ]
 
-    def __init__(self, protocol=\"MT5\", broker_config=None):
+    def __init__(self, protocol="MT5", broker_config=None):
         self.protocol = protocol.upper() if protocol else "MT5"
         self.broker_config = broker_config or {}
         self.is_connected_flag = False
@@ -542,7 +542,7 @@ class UniversalBrokerGateway:
                 "success": False,
                 "ticket": "",
                 "price": 0.0,
-                "error": f"lot_size {lot_size_float} must be finite and positive.",
+                "error": f"Invalid lot_size '{lot_size_float}': must be finite and positive.",
                 "reason": "INVALID_QUANTITY",
                 "protocol": self.protocol,
             }

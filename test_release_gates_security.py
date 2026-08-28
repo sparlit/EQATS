@@ -63,6 +63,9 @@ class MockLiveConnector(connector.TradingConnector):
     def draw_dashboard(self, symbol, data):
         pass
 
+    def get_symbol_volume_constraints(self, symbol="EURUSD"):
+        return {"min_lot": 0.01, "max_lot": 100.0, "step_lot": 0.01}
+
 
 class MockDemoConnector(connector.TradingConnector):
     """Mock connector that simulates a demo broker connection (safe for testing)."""
@@ -118,6 +121,9 @@ class MockDemoConnector(connector.TradingConnector):
 
     def draw_dashboard(self, symbol, data):
         pass
+
+    def get_symbol_volume_constraints(self, symbol="EURUSD"):
+        return {"min_lot": 0.01, "max_lot": 100.0, "step_lot": 0.01}
 
 
 class TestReleaseGatesSecurity(unittest.TestCase):

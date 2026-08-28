@@ -143,3 +143,20 @@ jobs:
           name: eqats-distribution-packages
           path: dist/*
           retention-days: 14
+
+  required-status-check:
+    name: Required Status Check
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, rust-core, python-tests, build-artifacts]
+    if: always()
+    steps:
+      - name: Evaluate Sub-Job Results
+        run: |
+          if [ "${{ needs.lint-and-typecheck.result }}" != "success" ] || \
+             [ "${{ needs.rust-core.result }}" != "success" ] || \
+             [ "${{ needs.python-tests.result }}" != "success" ] || \
+             [ "${{ needs.build-artifacts.result }}" != "success" ]; then
+            echo "❌ Required status check failed: One or more CI pipeline jobs failed or were skipped."
+            exit 1
+          fi
+          echo "✅ All required CI pipeline status checks passed successfully."

@@ -324,7 +324,10 @@ def _legacy_decrypt_secret(cipher_text, key_seed="EQATS_CIPHER_KEY_2026"):
 
 def get_connection():
     """Returns a thread-safe connection to the SQLite database with WAL journal mode and 60-second busy timeout."""
-    conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
+    if config.DB_PATH == ":memory:":
+        conn = sqlite3.connect("file::memory:?cache=shared", uri=True, timeout=60.0)
+    else:
+        conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -467,7 +470,7 @@ def init_db():
                 environment TEXT DEFAULT 'Demo',
                 protocol_type TEXT DEFAULT 'MT5',
                 api_key_encrypted TEXT DEFAULT '',
-                ****pted TEXT DEFAULT '',
+                api_secret_encrypted TEXT DEFAULT '',
                 rest_url TEXT DEFAULT '',
                 ws_url TEXT DEFAULT '',
                 terminal_path TEXT DEFAULT '',
@@ -489,15 +492,19 @@ def init_db():
             )
             """)
             
-            # Migrate legacy schema: rename api_key to api_key_encrypted and ****cret to ****pted
+            # Migrate legacy schema: rename api_key to api_key_encrypted and api_secret to api_secret_encrypted
             try:
                 cursor.execute("SELECT api_key FROM broker_credentials LIMIT 1")
                 # If we get here, old schema exists - need to migrate
                 _log.info("Migrating broker_credentials schema to encrypt api_key field")
                 cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_key TO api_key_encrypted")
-                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN ****cret TO ****pted")
             except sqlite3.OperationalError:
                 # New schema already in place or table doesn't exist yet
+                pass
+
+            try:
+                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_secret TO api_secret_encrypted")
+            except sqlite3.OperationalError:
                 pass
 
             # Alter table if existing schema lacks new multi-broker columns
@@ -523,8 +530,8 @@ def init_db():
                     "api_key",
                 ),
                 (
-                    "ALTER TABLE broker_credentials ADD COLUMN ****cret TEXT DEFAULT ''",
-                    "****cret",
+                    "ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''",
+                    "api_secret",
                 ),
                 (
                     "ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''",
@@ -569,11 +576,12 @@ def init_db():
             conn.commit()
             conn.close()
             return
-        except sqlite3.OperationalError as e:
+        except Exception as e:
+            _log.warning("init_db attempt %d failed: %s", attempt + 1, e)
             if attempt < max_retries - 1:
                 time.sleep(0.1 * (2**attempt))
             else:
-                _log.debug("init_db retry exhausted: %s", e)
+                _log.error("init_db retry exhausted: %s", e)
 
 
 def verify_user_password(username, password_input):
@@ -937,6 +945,7 @@ def get_credential_migration_status():
 
 def get_user_login_style(username="QUANT_OPERATOR"):
     """Retrieves the preferred login screen style for a user."""
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -986,13 +995,13 @@ def get_all_brokers():
         else:
             b["api_key"] = ""
             
-        if "****pted" in keys:
-            b["****cret"] = decrypt_secret(b.get("****pted", ""))
-        elif "****cret" in keys:
+        if "api_secret_encrypted" in keys:
+            b["api_secret"] = decrypt_secret(b.get("api_secret_encrypted", ""))
+        elif "api_secret" in keys:
             # Legacy field - might be encrypted with old XOR
-            b["****cret"] = decrypt_secret(b.get("****cret", ""))
+            b["api_secret"] = decrypt_secret(b.get("api_secret", ""))
         else:
-            b["****cret"] = ""
+            b["api_secret"] = ""
         
         brokers.append(b)
     return brokers
@@ -1048,7 +1057,10 @@ def validate_terminal_path(terminal_path: str) -> str:
     # Normalize path separators and resolve to absolute path
     try:
         import pathlib
-        path_obj = pathlib.Path(path_str)
+        if '\\' in path_str or (len(path_str) > 1 and path_str[1] == ':'):
+            path_obj = pathlib.PureWindowsPath(path_str)
+        else:
+            path_obj = pathlib.Path(path_str)
         
         # Check 1: Must end with terminal64.exe or terminal.exe (case-insensitive)
         filename_lower = path_obj.name.lower()
@@ -1068,31 +1080,35 @@ def validate_terminal_path(terminal_path: str) -> str:
             raise ValueError("Terminal path must be an absolute path")
         
         # Check 3: Must not contain directory traversal sequences
-        normalized_str = str(path_obj.resolve())
-        if '..' in path_str or '..' in normalized_str:
+        if hasattr(path_obj, "resolve"):
+            normalized_str = str(path_obj.resolve())
+        else:
+            normalized_str = str(path_obj)
+
+        if ".." in path_str or ".." in normalized_str:
             _log.warning(
                 "Terminal path validation failed: directory traversal detected in '%s'",
-                path_str
+                path_str,
             )
             raise ValueError("Terminal path must not contain directory traversal sequences")
-        
+
         # Check 4: If file exists, verify it's a regular file
-        if path_obj.exists():
+        if hasattr(path_obj, "exists") and path_obj.exists():
             if not path_obj.is_file():
                 _log.warning(
                     "Terminal path validation failed: path exists but is not a regular file: '%s'",
-                    normalized_str
+                    normalized_str,
                 )
                 raise ValueError("Terminal path must point to a regular file")
-            
+
             # Additional check: resolve symlinks and verify final target
             try:
                 resolved_path = path_obj.resolve(strict=True)
                 resolved_filename = resolved_path.name.lower()
-                if resolved_filename not in ('terminal64.exe', 'terminal.exe', 'terminal64', 'terminal'):
+                if resolved_filename not in ("terminal64.exe", "terminal.exe", "terminal64", "terminal"):
                     _log.warning(
                         "Terminal path validation failed: resolved path does not point to MT5 terminal: '%s'",
-                        str(resolved_path)
+                        str(resolved_path),
                     )
                     raise ValueError("Resolved terminal path does not point to a valid MT5 terminal executable")
             except Exception as e:
@@ -1163,7 +1179,7 @@ def add_broker_account(
     environment="Demo",
     protocol_type="MT5",
     api_key="",
-    ****cret="",
+    api_secret="",
     rest_url="",
     ws_url="",
     terminal_path="",
@@ -1198,7 +1214,7 @@ def add_broker_account(
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry(
         """
-    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, ****pted, rest_url, ws_url, terminal_path, is_active, updated_at)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
@@ -1210,7 +1226,7 @@ def add_broker_account(
             environment,
             protocol_type,
             encrypt_secret(api_key) if api_key else "",
-            encrypt_secret(****cret) if ****cret else "",
+            encrypt_secret(api_secret) if api_secret else "",
             rest_url,
             ws_url,
             validated_terminal_path,
@@ -1242,7 +1258,7 @@ def save_broker_credentials(
     environment="Demo",
     protocol_type="MT5",
     api_key="",
-    ****cret="",
+    api_secret="",
     rest_url="",
     ws_url="",
     terminal_path="",
@@ -1280,13 +1296,13 @@ def save_broker_credentials(
 
     enc_pwd = encrypt_secret(password)
     enc_key = encrypt_secret(api_key) if api_key else ""
-    enc_secret = encrypt_secret(****cret) if ****cret else ""
+    enc_secret = encrypt_secret(api_secret) if api_secret else ""
 
     if row:
         _execute_with_retry(
             """
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key_encrypted = ?, ****pted = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key_encrypted = ?, api_secret_encrypted = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
         WHERE id = ?
         """,
             (
@@ -1310,7 +1326,7 @@ def save_broker_credentials(
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
         _execute_with_retry(
             """
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, ****pted, rest_url, ws_url, terminal_path, is_active, updated_at)
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         """,
             (
@@ -1351,7 +1367,14 @@ def get_broker_credentials():
             cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
             row = cursor.fetchone()
         conn.close()
+        conn = None
     except sqlite3.OperationalError:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            conn = None
         init_db()
         conn = get_connection()
         cursor = conn.cursor()
@@ -1376,7 +1399,7 @@ def get_broker_credentials():
     
     # Handle both old schema (api_key) and new schema (api_key_encrypted)
     api_key_field = "api_key_encrypted" if "api_key_encrypted" in keys else "api_key"
-    ****cret_field = "****pted" if "****pted" in keys else "****cret"
+    api_secret_field = "api_secret_encrypted" if "api_secret_encrypted" in keys else "api_secret"
     
     # Decrypt api_key if it's in the encrypted field, otherwise use plaintext (legacy)
     if api_key_field == "api_key_encrypted" and row[api_key_field]:
@@ -1387,14 +1410,14 @@ def get_broker_credentials():
     else:
         api_key_value = ""
     
-    # Decrypt ****cret
-    if ****cret_field == "****pted" and row[****cret_field]:
-        ****cret_value = decrypt_secret(row[****cret_field])
-    elif ****cret_field == "****cret" and row[****cret_field]:
+    # Decrypt api_secret
+    if api_secret_field == "api_secret_encrypted" and row[api_secret_field]:
+        api_secret_value = decrypt_secret(row[api_secret_field])
+    elif api_secret_field == "api_secret" and row[api_secret_field]:
         # Legacy - might be encrypted with old XOR or plaintext
-        ****cret_value = decrypt_secret(row[****cret_field]) if row[****cret_field] else ""
+        api_secret_value = decrypt_secret(row[api_secret_field]) if row[api_secret_field] else ""
     else:
-        ****cret_value = ""
+        api_secret_value = ""
     
     # SECURITY: Return actual database values without hardcoded fallbacks
     # Empty/missing fields return empty strings, not hardcoded demo credentials
@@ -1415,7 +1438,7 @@ def get_broker_credentials():
         if "protocol_type" in keys and row["protocol_type"]
         else "MT5",
         "api_key": api_key_value,
-        "****cret": ****cret_value,
+        "api_secret": api_secret_value,
         "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
         "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else "",
         "terminal_path": row["terminal_path"]
