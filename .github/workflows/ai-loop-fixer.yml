@@ -19,22 +19,58 @@ jobs:
   # Security gate: Only run for authorized actors or when explicitly labeled
   authorize:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write  # Required to remove label on synchronize
     outputs:
       authorized: ${{ steps.check.outputs.authorized }}
     steps:
       - name: Check authorization
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Only allow workflow to run if:
-          # 1. Triggered by repository owner/collaborators, OR
-          # 2. PR has 'ai-fix-approved' label, OR
-          # 3. Manually dispatched
+          # 1. Manually dispatched, OR
+          # 2. PR has 'ai-fix-approved' label AND action is 'labeled' (fresh approval), OR
+          # 3. Reject on 'synchronize' to prevent stale approval bypass
+          
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "authorized=true" >> $GITHUB_OUTPUT
+            echo "✅ Authorized via manual workflow dispatch"
           elif [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
-            # Check if PR has the required label
-            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ai-fix-approved') }}" == "true" ]]; then
+            # On synchronize event, invalidate any existing approval
+            if [[ "${{ github.event.action }}" == "synchronize" ]]; then
+              echo "authorized=false" >> $GITHUB_OUTPUT
+              echo "⚠️ PR head changed - approval invalidated for security"
+              
+              # Remove the approval label if present to require fresh review
+              if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ai-fix-approved') }}" == "true" ]]; then
+                echo "🔒 Removing stale 'ai-fix-approved' label - new revision requires fresh approval"
+                gh api \
+                  --method DELETE \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  "/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ai-fix-approved" || true
+                
+                # Add comment explaining the security measure
+                gh api \
+                  --method POST \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "X-GitHub-Api-Version: 2022-11-28" \
+                  "/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+                  -f body="🔒 **Security Notice**: The \`ai-fix-approved\` label has been automatically removed because new commits were pushed to this PR (head SHA changed from the approved revision). A maintainer must re-approve this PR by re-adding the label if the new changes should be processed by the AI fix workflow." || true
+              fi
+              exit 0
+            fi
+            
+            # Only authorize on 'labeled' event with the specific label
+            if [[ "${{ github.event.action }}" == "labeled" ]] && [[ "${{ github.event.label.name }}" == "ai-fix-approved" ]]; then
               echo "authorized=true" >> $GITHUB_OUTPUT
+              echo "✅ Authorized: Fresh approval via 'ai-fix-approved' label on SHA ${{ github.event.pull_request.head.sha }}"
+            # Also allow 'opened' event if already labeled (edge case for reopened PRs)
+            elif [[ "${{ github.event.action }}" == "opened" ]] && [[ "${{ contains(github.event.pull_request.labels.*.name, 'ai-fix-approved') }}" == "true" ]]; then
+              echo "authorized=true" >> $GITHUB_OUTPUT
+              echo "✅ Authorized: PR opened with existing 'ai-fix-approved' label"
             else
               echo "authorized=false" >> $GITHUB_OUTPUT
               echo "⚠️ PR must be labeled with 'ai-fix-approved' by a maintainer to run AI fixes"
