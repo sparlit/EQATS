@@ -13,6 +13,10 @@ jobs:
 
     steps:
       # 1. Checkout the repository with full commit history to track the loop count
+      # SECURITY NOTE: persist-credentials defaults to true, which stores the GitHub token
+      # in the local git config. This is required for the Jules action to push commits.
+      # All subsequent steps that execute external code (especially third-party actions)
+      # inherit access to this credential. Ensure all actions are pinned to reviewed SHAs.
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
@@ -55,12 +59,15 @@ jobs:
           echo "Target incremental milestone: EQATS v$NEXT_VERSION"
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
       # 4. Native Rust toolchain installation (Node-less, completely clears deprecation warnings)
-      - name: Install Rust Toolchain (Native Shell Injection)
+      # SECURITY: Using dtolnay/rust-toolchain pinned to commit SHA instead of curl|sh
+      # This prevents arbitrary code execution from a potentially compromised rustup.rs endpoint
+      # To update: Visit https://github.com/dtolnay/rust-toolchain/releases
+      # Review the changes, then update the SHA below to the reviewed commit
+      - name: Install Rust Toolchain
         if: steps.loop-check.outputs.continue_loop == 'true'
-        run: |
-          echo "🦀 Setting up native Rust environment..."
-          curl --proto '=https' --tlsv1.2 -sSf https://rustup.rs | sh -s -- -y --default-toolchain stable
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1ae401b6fa7b6f9402f0e5 # master as of 2024-01-19
+        with:
+          toolchain: stable
       # 5. Setup Python 3.13+ Free-Threaded to bypass the GIL
       - name: Setup Python Environment (GIL-Free Runtime)
         if: steps.loop-check.outputs.continue_loop == 'true'

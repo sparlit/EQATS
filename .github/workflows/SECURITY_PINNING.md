@@ -63,6 +63,22 @@ The following actions are already pinned to verified commit SHAs:
 
 - `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v5.2.2)
 - `actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b` (v6.3.0)
+- `dtolnay/rust-toolchain@1482605bfc5719782e1ae401b6fa7b6f9402f0e5` (master as of 2024-01-19)
+
+### Security Note: Rust Installation
+
+The workflow previously used `curl --proto '=https' --tlsv1.2 -sSf https://rustup.rs | sh` to install Rust. This pattern was replaced with the `dtolnay/rust-toolchain` action because:
+
+1. **Arbitrary Code Execution Risk**: Piping curl output to sh executes whatever the remote server returns, with no verification
+2. **Mutable Endpoint**: The `https://rustup.rs` endpoint and `stable` toolchain are mutable and can change without notice
+3. **No Integrity Verification**: HTTPS only verifies transport security, not content integrity
+4. **Credential Exposure**: The script executes after checkout with persisted GitHub credentials
+
+The `dtolnay/rust-toolchain` action provides:
+- Pinnable to specific commit SHAs for immutability
+- No arbitrary remote script execution
+- Proper GitHub Actions integration and caching
+- Community-audited and widely trusted
 
 ## Update Process
 
