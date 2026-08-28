@@ -398,6 +398,96 @@ class UniversalBrokerGateway:
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         """Executes trade order using active protocol route with circuit breaker, configurable retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
+        # SECURITY: Validate order_type to prevent fail-open direction encoding
+        # Only accept case-insensitive "BUY" or "SELL" - reject all other values
+        if not isinstance(order_type, str) or order_type.upper() not in ("BUY", "SELL"):
+            _log.error(
+                "UniversalBrokerGateway: Invalid order_type '%s' for %s. Must be 'BUY' or 'SELL'.",
+                order_type,
+                symbol
+            )
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"Invalid order_type '{order_type}'. Must be 'BUY' or 'SELL'.",
+                "reason": "INVALID_DIRECTION",
+                "protocol": self.protocol,
+            }
+        
+        # SECURITY: Validate lot_size to prevent invalid quantity submission
+        # Enforce finite, positive, and within reasonable bounds (0.01 to 100.0)
+        try:
+            lot_size_float = float(lot_size)
+        except (TypeError, ValueError):
+            _log.error(
+                "UniversalBrokerGateway: Invalid lot_size '%s' for %s. Must be numeric.",
+                lot_size,
+                symbol
+            )
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"Invalid lot_size '{lot_size}'. Must be a numeric value.",
+                "reason": "INVALID_QUANTITY",
+                "protocol": self.protocol,
+            }
+        
+        # Check for finite, positive value
+        import math
+        if not math.isfinite(lot_size_float) or lot_size_float <= 0.0:
+            _log.error(
+                "UniversalBrokerGateway: lot_size %s for %s is not finite and positive.",
+                lot_size_float,
+                symbol
+            )
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"lot_size {lot_size_float} must be finite and positive.",
+                "reason": "INVALID_QUANTITY",
+                "protocol": self.protocol,
+            }
+        
+        # Enforce minimum and maximum bounds to prevent fat-finger and venue constraint violations
+        # These bounds align with standard broker constraints and fat-finger limits
+        MIN_LOT_SIZE = 0.01
+        MAX_LOT_SIZE = 100.0
+        
+        if lot_size_float < MIN_LOT_SIZE:
+            _log.error(
+                "UniversalBrokerGateway: lot_size %s for %s below minimum %s.",
+                lot_size_float,
+                symbol,
+                MIN_LOT_SIZE
+            )
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"lot_size {lot_size_float} below minimum {MIN_LOT_SIZE}.",
+                "reason": "QUANTITY_TOO_SMALL",
+                "protocol": self.protocol,
+            }
+        
+        if lot_size_float > MAX_LOT_SIZE:
+            _log.error(
+                "UniversalBrokerGateway: lot_size %s for %s exceeds maximum %s.",
+                lot_size_float,
+                symbol,
+                MAX_LOT_SIZE
+            )
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": f"lot_size {lot_size_float} exceeds maximum {MAX_LOT_SIZE}.",
+                "reason": "QUANTITY_TOO_LARGE",
+                "protocol": self.protocol,
+            }
+        
         # Circuit Breaker check before attempting order execution
         if not self._breaker.allow():
             _log.warning(
@@ -425,8 +515,8 @@ class UniversalBrokerGateway:
                 {
                     "client_order_id": client_order_id,
                     "symbol": symbol,
-                    "side": order_type,
-                    "volume": lot_size,
+                    "side": order_type,  # Already validated as "BUY" or "SELL"
+                    "volume": lot_size_float,  # Use validated float quantity
                     "sl": sl,
                     "tp": tp,
                 }
@@ -655,13 +745,15 @@ class UniversalBrokerGateway:
 
         if self.protocol == "FIX" and self.fix_engine:
             try:
+                # SECURITY: order_type and lot_size are already validated at function entry
+                # Safe to convert validated order_type to FIX side code
                 side = "1" if order_type.upper() == "BUY" else "2"
                 cl_ord_id = f"EQATS_{int(time.time() * 1000)}"
                 fix_msg = self.fix_engine.create_new_order_single(
                     cl_ord_id=cl_ord_id,
                     symbol=symbol,
                     side=side,
-                    quantity=lot_size,
+                    quantity=lot_size_float,  # Use validated float quantity
                     ord_type="2",  # Limit / Market
                     price=0.0,
                 )
