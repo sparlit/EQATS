@@ -1058,11 +1058,48 @@ class AutonomousScalper:
                 )
 
                 # B. Estimate Expected Net Value
+                # SECURITY FIX: Calculate actual expected value from signal probability and SL/TP distances
+                # The gross edge must be derived from the decision's win probability and risk/reward ratio
+                signal_probability = dec_item.get("probability", 0.5)
+                
+                # Calculate stop-loss and take-profit distances in price units
+                if decision == "BUY":
+                    sl_distance = abs(entry_price_estimate - sl) if sl > 0 else 0.0
+                    tp_distance = abs(tp - entry_price_estimate) if tp > 0 else 0.0
+                else:  # SELL
+                    sl_distance = abs(sl - entry_price_estimate) if sl > 0 else 0.0
+                    tp_distance = abs(entry_price_estimate - tp) if tp > 0 else 0.0
+                
+                # Calculate actual spread for this symbol
+                actual_spread = price_info_curr.get("ask", 0.0) - price_info_curr.get("bid", 0.0)
+                
+                # Estimate commission based on lot size and symbol
+                # Standard forex commission is approximately $7 per lot round-turn
+                estimated_commission_per_lot = 0.00007  # As fraction of price for standard forex
+                estimated_commission = estimated_commission_per_lot * lot_size
+                
+                # Estimate slippage based on spread (typically 0.5-1.0x spread)
+                estimated_slippage = actual_spread * 0.5
+                
+                # Calculate gross edge: Expected win minus expected loss
+                # Gross Edge = (Win Probability × TP Distance) - (Loss Probability × SL Distance)
+                loss_probability = 1.0 - signal_probability
+                gross_edge = (signal_probability * tp_distance) - (loss_probability * sl_distance)
+                
+                # Calculate expected net value
                 env = self.engine.risk.calculate_expected_net_value(
-                    gross_edge=config.RISK_PER_TRADE_PERCENT * 2.0,  # Expected win
-                    spread=0.0002,
-                    commission=0.0001,
-                    slippage=0.0001,
+                    gross_edge=gross_edge,
+                    spread=actual_spread,
+                    commission=estimated_commission,
+                    slippage=estimated_slippage,
+                )
+                
+                # Log the calculation for audit trail
+                _log.info(
+                    "Expected Net Value calculation for %s: probability=%.3f, SL_dist=%.5f, TP_dist=%.5f, "
+                    "gross_edge=%.5f, spread=%.5f, commission=%.5f, slippage=%.5f, ENV=%.5f",
+                    symbol, signal_probability, sl_distance, tp_distance, 
+                    gross_edge, actual_spread, estimated_commission, estimated_slippage, env
                 )
 
                 # C. System Constitution Hierarchy Evaluation (Level 0 - Level 6)

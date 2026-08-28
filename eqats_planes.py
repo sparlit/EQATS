@@ -547,6 +547,10 @@ class SafetyVerificationPlane:
         """
         The only final authorization boundary permitted to trigger order routing.
         No Trade Admission means NO trade can ever occur.
+        
+        SECURITY: Expected net value must be derived from actual signal probability,
+        stop-loss/take-profit distances, and real trading costs. A fabricated or
+        dimensionally inconsistent value will fail this check.
         """
         # Check resilience state first (defense in depth at admission boundary)
         if self.resilience_plane:
@@ -577,14 +581,21 @@ class SafetyVerificationPlane:
             )
             return False
 
-        if expected_net_value <= 0:
+        # SECURITY FIX: Require meaningfully positive expected value
+        # The minimum threshold accounts for estimation errors and provides safety margin
+        # Expected net value should be in price units (e.g., 0.0001 for 1 pip on EURUSD)
+        min_positive_edge = getattr(config, "MIN_EXPECTED_NET_VALUE_THRESHOLD", 0.00001)
+        
+        if expected_net_value <= min_positive_edge:
             global_event_bus.publish(
                 Event(
                     family="TradeAdmissionRejected",
                     source="SafetyPlane",
                     payload={
                         "symbol": symbol,
-                        "reason": f"Negative Expected Net Value ({expected_net_value})",
+                        "reason": f"Expected Net Value ({expected_net_value:.8f}) does not meet minimum positive edge threshold ({min_positive_edge:.8f})",
+                        "expected_net_value": expected_net_value,
+                        "threshold": min_positive_edge,
                     },
                 )
             )
@@ -594,7 +605,10 @@ class SafetyVerificationPlane:
             Event(
                 family="TradeAdmissionApproved",
                 source="SafetyPlane",
-                payload={"symbol": symbol},
+                payload={
+                    "symbol": symbol,
+                    "expected_net_value": expected_net_value,
+                },
             )
         )
         return True

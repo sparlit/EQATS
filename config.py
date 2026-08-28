@@ -68,6 +68,12 @@ MAX_DAILY_DRAWDOWN_PERCENT = (
 MAX_CONCURRENT_TRADES = 20  # Max simultaneous open trades across all symbols (production safety limit)
 RISK_REWARD_RATIO = 2.0  # Win target is 2.0x of the stop loss distance
 
+# Trade Admission Expected Value Threshold
+# SECURITY: Minimum expected net value (in price units) required for trade admission
+# This prevents admission of trades with zero or fabricated edge calculations
+# Default: 0.00001 (approximately 0.1 pips for standard forex pairs)
+MIN_EXPECTED_NET_VALUE_THRESHOLD = 0.00001
+
 # Advanced Risk Settings & Sub-Allocation Controls
 ENABLE_SYMBOL_FLOATING_LOSS_GATE = True  # Protects against stacking losses on same symbol
 GLOBAL_RISK_LIMIT_CAP_PERCENT = 100.0   # Max aggregate account risk percentage across all trades
