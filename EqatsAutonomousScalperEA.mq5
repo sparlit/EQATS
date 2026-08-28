@@ -46,6 +46,10 @@ input double   InpDailyLossLimitPercent     = 5.0;                   // Max dail
 input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
 input double   InputMinFreeMarginPct        = 30.0;                  // Minimum free margin percentage (%)
 input int      InputMaxAllowedSpread        = 40;                    // Max allowed spread (points)
+input int      InpConsecutiveLossPause      = 3;                     // Max consecutive losses before pause
+input int      InpPauseDurationMinutes      = 30;                    // Consecutive loss pause duration (min)
+input double   InpConsensusThreshold        = 0.70;                  // Signal Consensus Score Threshold
+input double   InpSpreadFilterMultiplier    = 2.0;                   // Spread Filter Multiplier vs average
 input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
 input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
 
@@ -116,6 +120,11 @@ int      m_recovery_counter       = 0;
 string   m_watchdog_status        = "STABLE";
 string   m_arbitrage_status       = "STABLE";
 
+// Consecutive Loss Pause Engine State (Adapted from AAT_Expert.mq5)
+int      m_consecutive_losses     = 0;
+datetime m_last_loss_time         = 0;
+bool     m_pause_active           = false;
+
 // MQL5 Object instances
 CTrade         m_trade_engine;
 CPositionInfo  pos_info;
@@ -128,6 +137,7 @@ void ExecutePanicCloseAll();
 void EmergencyMoveToBE();
 void CheckWatchdog();
 void CheckArbitrageDiscrepancy();
+bool CheckConsecutiveLosses();
 void ExecuteNewsStraddle();
 void ApplyTrailingLogic();
 void ProcessBreakEvenProtection();
@@ -281,6 +291,13 @@ void OnTick()
    CheckDailyLossAndRisk();
    CheckArbitrageDiscrepancy();
 
+   // Verify consecutive loss pause safeguard
+   if(!CheckConsecutiveLosses())
+   {
+      UpdateDashboard();
+      return;
+   }
+
    // In DATA_COLLECTOR mode, process telemetry updates without executing live trade modifications
    if(InpEARole == ROLE_DATA_COLLECTOR)
    {
@@ -335,6 +352,22 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
          Print("EqatsAutonomousScalperEA OnTradeTransaction DEAL_ADD: Ticket #", ticket,
                " | Side: ", side, " | Symbol: ", trans.symbol,
                " | Volume: ", trans.volume, " | Price: ", trans.price, " | Status: FILLED_ON_SERVER");
+
+         // Track deal profit to update consecutive losses counter (Adapted from AAT_Expert)
+         if(trans.symbol == _Symbol)
+         {
+            double deal_profit = HistoryDealGetDouble(ticket, DEAL_PROFIT);
+            if(deal_profit < 0.0)
+            {
+               m_consecutive_losses++;
+               m_last_loss_time = TimeCurrent();
+               Print("EqatsAutonomousScalperEA: Recorded losing deal #", ticket, " ($", DoubleToString(deal_profit, 2), "). Consecutive losses: ", m_consecutive_losses);
+            }
+            else if(deal_profit > 0.0)
+            {
+               m_consecutive_losses = 0;
+            }
+         }
       }
    }
 }
@@ -427,6 +460,31 @@ void ExecuteNewsStraddle()
    m_trade_engine.PositionOpen(_Symbol, ORDER_TYPE_BUY, 0.01, ask, ask - sl_dist, 0, "News Straddle B");
    m_trade_engine.PositionOpen(_Symbol, ORDER_TYPE_SELL, 0.01, bid, bid + sl_dist, 0, "News Straddle S");
    Print("EqatsAutonomousScalperEA: ExecuteNewsStraddle placed simultaneous Buy & Sell straddle legs.");
+}
+
+//+------------------------------------------------------------------+
+//| CheckConsecutiveLosses (Adapted from AAT_Expert.mq5)             |
+//+------------------------------------------------------------------+
+bool CheckConsecutiveLosses()
+{
+   datetime now = TimeCurrent();
+   if(m_pause_active && m_last_loss_time > 0 && (now - m_last_loss_time) > (InpPauseDurationMinutes * 60))
+   {
+      m_consecutive_losses = 0;
+      m_pause_active = false;
+      Print("EqatsAutonomousScalperEA: Consecutive loss pause duration elapsed. Resuming active executions.");
+   }
+
+   if(InpConsecutiveLossPause > 0 && m_consecutive_losses >= InpConsecutiveLossPause)
+   {
+      if(!m_pause_active)
+      {
+         m_pause_active = true;
+         Print("EqatsAutonomousScalperEA: Consecutive loss limit triggered (", m_consecutive_losses, " >= ", InpConsecutiveLossPause, "). Trade executions paused for ", InpPauseDurationMinutes, " minutes.");
+      }
+      return false;
+   }
+   return true;
 }
 
 //+------------------------------------------------------------------+
