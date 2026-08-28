@@ -103,8 +103,10 @@ jobs:
 
       # Now checkout the PR branch on top
       - name: Checkout PR Branch
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          git fetch origin ${{ github.event.pull_request.head.ref }}:pr-branch
+          git fetch origin "$HEAD_BRANCH":pr-branch
           git checkout pr-branch
 
       # Download test results (no code execution, just data)
@@ -139,6 +141,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MAX_ATTEMPTS: 3
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           attempt=1
           
@@ -173,7 +176,7 @@ jobs:
               git commit -m "fix: automated correction attempt #$attempt [ai-fix-bot]"
               
               # Push changes back to PR branch
-              git push origin HEAD:${{ github.event.pull_request.head.ref }}
+              git push origin HEAD:"$HEAD_BRANCH"
               
               echo "✅ Changes pushed. PR updated for review."
               exit 0
