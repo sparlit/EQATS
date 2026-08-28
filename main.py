@@ -973,13 +973,56 @@ class AutonomousScalper:
                 # ==================================================================
                 # EQATS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
-                # A. Evaluate Safety Invariants (INV-001 to INV-015)
+                
+                # Calculate actual aggregate stop-loss exposure
+                # Sum existing positions' actual exposure
+                current_equity = self.conn.get_account_info()["equity"]
+                aggregate_exposure_pct = 0.0
+                
+                for pos in active_positions_refresh:
+                    pos_symbol = pos.get("symbol", "")
+                    pos_lot = float(pos.get("volume", 0.0))
+                    pos_open_price = float(pos.get("open_price", 0.0))
+                    pos_sl = float(pos.get("sl", 0.0))
+                    
+                    if pos_lot > 0 and pos_open_price > 0 and pos_sl > 0:
+                        from eqats_planes import calculate_stop_loss_exposure
+                        pos_exposure = calculate_stop_loss_exposure(
+                            pos_symbol, pos_lot, pos_open_price, pos_sl, current_equity
+                        )
+                        aggregate_exposure_pct += pos_exposure
+                
+                # Add proposed order's exposure
+                price_info_curr = self.conn.get_current_price(symbol)
+                entry_price_estimate = price_info_curr.get("ask" if decision == "BUY" else "bid", 0.0)
+                
+                proposed_exposure = 0.0  # Initialize for later use
+                if entry_price_estimate > 0 and sl > 0 and lot_size > 0:
+                    from eqats_planes import calculate_stop_loss_exposure
+                    proposed_exposure = calculate_stop_loss_exposure(
+                        symbol, lot_size, entry_price_estimate, sl, current_equity
+                    )
+                    total_exposure_with_new_order = aggregate_exposure_pct + proposed_exposure
+                    _log.info(
+                        "Actual exposure calculation: existing=%.2f%%, proposed=%.2f%%, total=%.2f%%",
+                        aggregate_exposure_pct, proposed_exposure, total_exposure_with_new_order
+                    )
+                else:
+                    # Fallback to count-based if we can't calculate actual exposure
+                    total_exposure_with_new_order = None
+                    _log.warning(
+                        "Cannot calculate actual exposure for %s (entry=%.5f, sl=%.5f, lot=%.4f), using count-based fallback",
+                        symbol, entry_price_estimate, sl, lot_size
+                    )
+                
+                # A. Evaluate Safety Invariants (INV-001 to INV-015) with actual exposure
                 violations = self.engine.safety.evaluate_invariants(
                     current_risk=config.RISK_PER_TRADE_PERCENT
                     * (len(active_positions_refresh) + 1),
                     active_count=len(active_positions_refresh) + 1,
                     has_reconciliation_mismatch=has_reconciliation_mismatch,
                     has_disagreement=has_disagreement,
+                    actual_aggregate_exposure_pct=total_exposure_with_new_order,
                 )
 
                 # B. Estimate Expected Net Value
@@ -991,15 +1034,21 @@ class AutonomousScalper:
                 )
 
                 # C. System Constitution Hierarchy Evaluation (Level 0 - Level 6)
-                price_info_curr = self.conn.get_current_price(symbol)
                 is_market_open, _ = self._is_market_open_and_liquid(
                     symbol, price_info_curr
                 )
                 is_symbol_tradable = symbol in config.SYMBOLS
 
+                # Check global risk cap using actual aggregate exposure
                 global_risk_cap = getattr(config, "GLOBAL_RISK_LIMIT_CAP_PERCENT", 100.0)
-                sub_alloc_mod = 0.5 if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True) else 1.0
-                curr_portfolio_risk = (config.RISK_PER_TRADE_PERCENT * sub_alloc_mod) * (len(active_positions_refresh) + 1)
+                
+                # Use actual exposure if available, otherwise fall back to count-based
+                if total_exposure_with_new_order is not None:
+                    curr_portfolio_risk = total_exposure_with_new_order
+                else:
+                    # Legacy count-based calculation as fallback
+                    sub_alloc_mod = 0.5 if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True) else 1.0
+                    curr_portfolio_risk = (config.RISK_PER_TRADE_PERCENT * sub_alloc_mod) * (len(active_positions_refresh) + 1)
 
                 if curr_portfolio_risk > global_risk_cap:
                     print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Aggregate risk {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}%.")
@@ -1106,7 +1155,12 @@ class AutonomousScalper:
                     continue
 
                 # Commit Reservation & execute
-                self.engine.risk.reserve_capital(symbol, config.RISK_PER_TRADE_PERCENT)
+                # Reserve actual exposure amount instead of configured percentage
+                if total_exposure_with_new_order is not None and proposed_exposure > 0:
+                    self.engine.risk.reserve_capital(symbol, proposed_exposure)
+                else:
+                    # Fallback to configured percentage if actual exposure unavailable
+                    self.engine.risk.reserve_capital(symbol, config.RISK_PER_TRADE_PERCENT)
                 self.engine.risk.commit_reservation(symbol)
 
                 print(f"🧠 Brain signaled: {decision} on {symbol} [{strat_tag}/{method_tag}]! Executing order...")
