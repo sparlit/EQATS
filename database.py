@@ -369,7 +369,7 @@ def init_db():
                 environment TEXT DEFAULT 'Demo',
                 protocol_type TEXT DEFAULT 'MT5',
                 api_key_encrypted TEXT DEFAULT '',
-                api_secret_encrypted TEXT DEFAULT '',
+                ****pted TEXT DEFAULT '',
                 rest_url TEXT DEFAULT '',
                 ws_url TEXT DEFAULT '',
                 terminal_path TEXT DEFAULT '',
@@ -377,14 +377,27 @@ def init_db():
                 updated_at TEXT NOT NULL
             )
             """)
+
+            # Table for persisting daily circuit breaker state across process restarts
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS circuit_breaker_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                trading_date TEXT NOT NULL,
+                daily_start_balance REAL NOT NULL,
+                is_halted INTEGER NOT NULL DEFAULT 0,
+                halt_timestamp TEXT,
+                halt_reason TEXT,
+                updated_at TEXT NOT NULL
+            )
+            """)
             
-            # Migrate legacy schema: rename api_key to api_key_encrypted and api_secret to api_secret_encrypted
+            # Migrate legacy schema: rename api_key to api_key_encrypted and ****cret to ****pted
             try:
                 cursor.execute("SELECT api_key FROM broker_credentials LIMIT 1")
                 # If we get here, old schema exists - need to migrate
                 _log.info("Migrating broker_credentials schema to encrypt api_key field")
                 cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_key TO api_key_encrypted")
-                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_secret TO api_secret_encrypted")
+                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN ****cret TO ****pted")
             except sqlite3.OperationalError:
                 # New schema already in place or table doesn't exist yet
                 pass
@@ -412,8 +425,8 @@ def init_db():
                     "api_key",
                 ),
                 (
-                    "ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''",
-                    "api_secret",
+                    "ALTER TABLE broker_credentials ADD COLUMN ****cret TEXT DEFAULT ''",
+                    "****cret",
                 ),
                 (
                     "ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''",
@@ -712,13 +725,13 @@ def get_all_brokers():
         else:
             b["api_key"] = ""
             
-        if "api_secret_encrypted" in keys:
-            b["api_secret"] = decrypt_secret(b.get("api_secret_encrypted", ""))
-        elif "api_secret" in keys:
+        if "****pted" in keys:
+            b["****cret"] = decrypt_secret(b.get("****pted", ""))
+        elif "****cret" in keys:
             # Legacy field - might be encrypted with old XOR
-            b["api_secret"] = decrypt_secret(b.get("api_secret", ""))
+            b["****cret"] = decrypt_secret(b.get("****cret", ""))
         else:
-            b["api_secret"] = ""
+            b["****cret"] = ""
         
         brokers.append(b)
     return brokers
@@ -751,7 +764,7 @@ def add_broker_account(
     environment="Demo",
     protocol_type="MT5",
     api_key="",
-    api_secret="",
+    ****cret="",
     rest_url="",
     ws_url="",
     terminal_path="",
@@ -763,7 +776,7 @@ def add_broker_account(
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry(
         """
-    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)
+    INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, ****pted, rest_url, ws_url, terminal_path, is_active, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
@@ -775,7 +788,7 @@ def add_broker_account(
             environment,
             protocol_type,
             encrypt_secret(api_key) if api_key else "",
-            encrypt_secret(api_secret) if api_secret else "",
+            encrypt_secret(****cret) if ****cret else "",
             rest_url,
             ws_url,
             terminal_path,
@@ -807,7 +820,7 @@ def save_broker_credentials(
     environment="Demo",
     protocol_type="MT5",
     api_key="",
-    api_secret="",
+    ****cret="",
     rest_url="",
     ws_url="",
     terminal_path="",
@@ -822,13 +835,13 @@ def save_broker_credentials(
 
     enc_pwd = encrypt_secret(password)
     enc_key = encrypt_secret(api_key) if api_key else ""
-    enc_secret = encrypt_secret(api_secret) if api_secret else ""
+    enc_secret = encrypt_secret(****cret) if ****cret else ""
 
     if row:
         _execute_with_retry(
             """
         UPDATE broker_credentials
-        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key_encrypted = ?, api_secret_encrypted = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
+        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key_encrypted = ?, ****pted = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?
         WHERE id = ?
         """,
             (
@@ -852,7 +865,7 @@ def save_broker_credentials(
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
         _execute_with_retry(
             """
-        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)
+        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, ****pted, rest_url, ws_url, terminal_path, is_active, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
         """,
             (
@@ -905,7 +918,7 @@ def get_broker_credentials():
             "environment": "Demo",
             "protocol_type": "MT5",
             "api_key": "",
-            "api_secret": "",
+            "****cret": "",
             "rest_url": "",
             "ws_url": "",
         }
@@ -914,7 +927,7 @@ def get_broker_credentials():
     
     # Handle both old schema (api_key) and new schema (api_key_encrypted)
     api_key_field = "api_key_encrypted" if "api_key_encrypted" in keys else "api_key"
-    api_secret_field = "api_secret_encrypted" if "api_secret_encrypted" in keys else "api_secret"
+    ****cret_field = "****pted" if "****pted" in keys else "****cret"
     
     # Decrypt api_key if it's in the encrypted field, otherwise use plaintext (legacy)
     if api_key_field == "api_key_encrypted" and row[api_key_field]:
@@ -925,14 +938,14 @@ def get_broker_credentials():
     else:
         api_key_value = ""
     
-    # Decrypt api_secret
-    if api_secret_field == "api_secret_encrypted" and row[api_secret_field]:
-        api_secret_value = decrypt_secret(row[api_secret_field])
-    elif api_secret_field == "api_secret" and row[api_secret_field]:
+    # Decrypt ****cret
+    if ****cret_field == "****pted" and row[****cret_field]:
+        ****cret_value = decrypt_secret(row[****cret_field])
+    elif ****cret_field == "****cret" and row[****cret_field]:
         # Legacy - might be encrypted with old XOR or plaintext
-        api_secret_value = decrypt_secret(row[api_secret_field]) if row[api_secret_field] else ""
+        ****cret_value = decrypt_secret(row[****cret_field]) if row[****cret_field] else ""
     else:
-        api_secret_value = ""
+        ****cret_value = ""
     
     return {
         "broker_name": row["broker_name"]
@@ -951,7 +964,7 @@ def get_broker_credentials():
         if "protocol_type" in keys and row["protocol_type"]
         else "MT5",
         "api_key": api_key_value,
-        "api_secret": api_secret_value,
+        "****cret": ****cret_value,
         "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
         "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else "",
         "terminal_path": row["terminal_path"]
@@ -1202,6 +1215,101 @@ def get_all_trades():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def save_circuit_breaker_state(trading_date, daily_start_balance, is_halted=False, halt_reason=None):
+    """
+    Persists the daily circuit breaker state to SQLite for recovery across process restarts.
+    
+    This function ensures that the daily drawdown baseline and halt status survive
+    supervisor restarts, crashes, maintenance restarts, or operator restarts.
+    
+    Args:
+        trading_date: ISO format date string (YYYY-MM-DD)
+        daily_start_balance: The account balance at the start of the trading day
+        is_halted: Boolean indicating if the circuit breaker has been triggered
+        halt_reason: Optional string describing why the circuit breaker was triggered
+    """
+    halt_timestamp = datetime.datetime.now().isoformat() if is_halted else None
+    
+    _execute_with_retry(
+        """
+        INSERT OR REPLACE INTO circuit_breaker_state 
+        (id, trading_date, daily_start_balance, is_halted, halt_timestamp, halt_reason, updated_at)
+        VALUES (1, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            trading_date,
+            daily_start_balance,
+            1 if is_halted else 0,
+            halt_timestamp,
+            halt_reason or "",
+            datetime.datetime.now().isoformat(),
+        ),
+    )
+
+
+def load_circuit_breaker_state():
+    """
+    Loads the persisted circuit breaker state from SQLite.
+    
+    Returns a dictionary with:
+        - trading_date: The date for which the state was saved
+        - daily_start_balance: The baseline balance for drawdown calculations
+        - is_halted: Boolean indicating if trading is halted
+        - halt_timestamp: When the halt was triggered (if applicable)
+        - halt_reason: Why the halt was triggered (if applicable)
+    
+    Returns None if no state exists in the database.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM circuit_breaker_state WHERE id = 1")
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                "trading_date": row["trading_date"],
+                "daily_start_balance": row["daily_start_balance"],
+                "is_halted": bool(row["is_halted"]),
+                "halt_timestamp": row["halt_timestamp"],
+                "halt_reason": row["halt_reason"],
+            }
+        return None
+    except sqlite3.OperationalError:
+        # Table doesn't exist yet - will be created by init_db
+        return None
+
+
+def clear_circuit_breaker_halt():
+    """
+    Clears the halt status while preserving the daily baseline.
+    
+    This should only be called by an operator who has manually reviewed
+    the situation and decided to resume trading for the current day.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT trading_date, daily_start_balance FROM circuit_breaker_state WHERE id = 1")
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            _execute_with_retry(
+                """
+                UPDATE circuit_breaker_state 
+                SET is_halted = 0, halt_timestamp = NULL, halt_reason = NULL, updated_at = ?
+                WHERE id = 1
+                """,
+                (datetime.datetime.now().isoformat(),),
+            )
+            return True
+        return False
+    except sqlite3.OperationalError:
+        return False
 
 
 if __name__ == "__main__":
