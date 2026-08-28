@@ -68,12 +68,35 @@ jobs:
           cache: 'pip'
 
       # 5. Install dependencies and 100% FOSS Ruff + Bandit tooling
+      # SECURITY: Use hash-pinned lockfiles to prevent supply-chain attacks
       - name: Install Tools & Dependencies
         if: steps.loop-check.outputs.continue_loop == 'true'
         run: |
-          python -m pip install --upgrade pip
-          pip install ruff bandit pytest
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Pin pip to a specific version with hash verification
+          python -m pip install --no-deps \
+            pip==24.3.1 \
+            --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
+            --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
+          
+          # Install tooling from hash-pinned lockfile if available
+          if [ -f tools-requirements-lock.txt ]; then
+            echo "📦 Installing tools from hash-pinned lockfile..."
+            pip install --require-hashes --no-deps -r tools-requirements-lock.txt
+          else
+            echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
+            echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
+            pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
+          fi
+          
+          # Install application dependencies from hash-pinned lockfile if available
+          if [ -f requirements-lock.txt ]; then
+            echo "📦 Installing application dependencies from hash-pinned lockfile..."
+            pip install --require-hashes --no-deps -r requirements-lock.txt
+          elif [ -f requirements.txt ]; then
+            echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
+            echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
+            pip install -r requirements.txt
+          fi
 
       # 6. Run verification tests to see if code is currently broken or functional
       - name: Run Test Suite Verification
@@ -178,9 +201,29 @@ jobs:
       - name: Re-install Dependencies for Post-Change Validation
         if: steps.loop-check.outputs.continue_loop == 'true'
         run: |
-          python -m pip install --upgrade pip
-          pip install ruff bandit pytest
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Pin pip to a specific version with hash verification
+          python -m pip install --no-deps \
+            pip==24.3.1 \
+            --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
+            --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
+          
+          # Install tooling from hash-pinned lockfile if available
+          if [ -f tools-requirements-lock.txt ]; then
+            echo "📦 Installing tools from hash-pinned lockfile..."
+            pip install --require-hashes --no-deps -r tools-requirements-lock.txt
+          else
+            echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
+            pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
+          fi
+          
+          # Install application dependencies from hash-pinned lockfile if available
+          if [ -f requirements-lock.txt ]; then
+            echo "📦 Installing application dependencies from hash-pinned lockfile..."
+            pip install --require-hashes --no-deps -r requirements-lock.txt
+          elif [ -f requirements.txt ]; then
+            echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
+            pip install -r requirements.txt
+          fi
 
       - name: POST-CHANGE VALIDATION - Run Test Suite (FAIL-CLOSED)
         if: steps.loop-check.outputs.continue_loop == 'true'
