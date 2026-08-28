@@ -10,7 +10,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn main() {
     println!("================================================================================");
-    println!("  ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3i)");
+    println!("  ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4)");
     println!("  ULTRA-LOW LATENCY CUSTOM BLOCKCHAIN DATABASE ENGINE BENCHMARK");
     println!("================================================================================");
 

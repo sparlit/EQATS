@@ -5,13 +5,19 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "8.30"
-#property description "Elite Quantum Autonomous Scalper EA v8.30 - Non-Overlapping Multi-Panel Glassmorphism HUD Visualizer"
+#property version   "9.70"
+#property description "Elite Quantum Autonomous Scalper EA v9.70 - Autonomous Full-Execution Strategy Stack with Institutional Liquidity Lock Guard"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
+#include <Trade\PositionInfo.mqh>
+#include <Trade\SymbolInfo.mqh>
 
-// Input Parameters
+#import "user32.dll"
+   int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
+#import
+
+// User Interface & Socket IPC Inputs
 input string   InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
 input int      InpSocketPort               = 9001;                  // Socket IPC Bridge Port
 input bool     InpUseSocketIPC             = true;                  // Use Zero-Latency Socket IPC Push
@@ -21,6 +27,33 @@ input int      InpTimerInterval            = 1;                     // Update In
 input bool     InpEmergencyCloseOnLockdown = true;                  // Close positions on Emergency Lockdown signal
 input color    InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
 input color    InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
+
+// Local Risk & Margin Safeguards (Adapted from BotCilento EA & AatEAv15)
+input group "Local EA Risk & Margin Safeguards"
+input bool     InpEnableEmergencyClose      = true;                  // Enable emergency close at max drawdown
+input double   InpMaxDrawdownPercent        = 15.0;                  // Max drawdown % before panic close
+input double   InpDailyLossLimitPercent     = 5.0;                   // Max daily loss limit %
+input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
+input double   InputMinFreeMarginPct        = 30.0;                  // Minimum free margin percentage (%)
+input int      InputMaxAllowedSpread        = 40;                    // Max allowed spread (points)
+input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
+input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
+
+// Dynamic Execution & AAT Advanced Features (Adapted from AatEAv15)
+input group "AAT Execution, BreakEven, Trailing & Pyramiding"
+input double   InpRiskPercent              = 1.0;                   // Risk per trade (%)
+input int      InpMagicNumber              = 123456;                // Magic Number
+input int      InpStopLossPoints           = 200;                   // Initial Stop Loss (points)
+input int      InpTakeProfitPoints         = 400;                   // Initial Take Profit (points)
+input int      InputBreakEvenTrigger       = 250;                   // BreakEven Trigger (points)
+input int      InputBreakEvenBuffer        = 30;                    // BreakEven Buffer (points)
+input bool     InpTrailingSL               = true;                  // Enable Trailing Stop Loss
+input bool     InpTrailingTP               = true;                  // Enable Trailing Take Profit
+input int      InpTrailingStep             = 50;                    // Trailing Step (points)
+input bool     InpEnablePyramiding         = true;                  // Enable Pyramid Scaling on Winner
+input int      InpMaxPyramidPositions      = 5;                     // Max Pyramid Positions
+input int      InputPyramidStepPoints      = 200;                   // Pyramid Min Entry Step (points)
+input bool     InpAutoCharts               = false;                 // Auto-open & Tile Multi-TF Charts (M1..MN)
 
 // Extended Symbol Scan Metrics
 string m_symbols[50];
@@ -58,17 +91,30 @@ string m_countdown = "00:00:00";
 string m_hw_tier = "HIGH";
 string m_ping_ms = "1.2";
 
-// Interactivity States
-bool m_show_extended_details = true;
-bool m_show_account_card = true;
+// Local Risk Monitoring & AAT State
+datetime m_last_daily_reset_check = 0;
+double   m_daily_start_balance    = 0.0;
+bool     m_daily_loss_limit_hit   = false;
+string   m_candle_countdown       = "00:00";
+double   m_current_risk           = InpRiskPercent;
 
-// CTrade object for autonomous panic executions
-CTrade m_trade_engine;
+// MQL5 Object instances
+CTrade         m_trade_engine;
+CPositionInfo  pos_info;
+CSymbolInfo    symbol_info;
 
 //+------------------------------------------------------------------+
 //| Forward Declarations                                             |
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll();
+void ApplyTrailingLogic();
+void ProcessBreakEvenProtection();
+void CheckPyramidScaling();
+bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPoints);
+bool IsInitialPositionRiskFree(ENUM_POSITION_TYPE type);
+string GatherCloseHistory(ENUM_TIMEFRAMES tf);
+void UpdateCandleCountdown();
+void SetupTimeframeCharts();
 void DrawInstitutionalHeader();
 void UpdateDashboard();
 void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, color border_color);
@@ -81,15 +127,33 @@ void DeleteDashboardObjects();
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   if(!symbol_info.Name(_Symbol)) return(INIT_FAILED);
+   m_trade_engine.SetExpertMagicNumber(InpMagicNumber);
+   m_current_risk = InpRiskPercent;
+
    EventSetTimer(InpTimerInterval);
 
    ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, true);
    ChartSetInteger(0, CHART_EVENT_OBJECT_DELETE, true);
 
+   // Apply Pitch Dark Theme & Vibrant Candle Styling to prevent candlestick background clutter
+   ChartSetInteger(0, CHART_COLOR_BACKGROUND, C'10,14,23');
+   ChartSetInteger(0, CHART_COLOR_FOREGROUND, C'226,232,240');
+   ChartSetInteger(0, CHART_COLOR_CANDLE_BULL, C'16,185,129');
+   ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR, C'239,68,68');
+   ChartSetInteger(0, CHART_COLOR_CHART_LINE, C'56,189,248');
+   ChartSetInteger(0, CHART_COLOR_CHART_UP, C'16,185,129');
+   ChartSetInteger(0, CHART_COLOR_CHART_DOWN, C'239,68,68');
+   ChartSetInteger(0, CHART_SHOW_GRID, false);
+   ChartSetInteger(0, CHART_SHIFT, true);
+   ChartSetDouble(0, CHART_SHIFT_SIZE, 30.0);
+
+   if(InpAutoCharts) SetupTimeframeCharts();
+
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v8.30 Non-Overlapping HUD Visualizer Initialized. IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v9.70 Initialized cleanly. IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -100,7 +164,67 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v8.30 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v9.70 Deinitialized cleanly.");
+}
+
+//+------------------------------------------------------------------+
+//| CheckDailyLossAndRisk                                            |
+//+------------------------------------------------------------------+
+void CheckDailyLossAndRisk()
+{
+   datetime now = TimeCurrent();
+   if(m_daily_start_balance <= 0.0)
+   {
+      m_daily_start_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   }
+
+   MqlDateTime today, lastCheck;
+   TimeToStruct(now, today);
+   TimeToStruct(m_last_daily_reset_check, lastCheck);
+
+   if(today.day != lastCheck.day)
+   {
+      m_daily_start_balance = AccountInfoDouble(ACCOUNT_BALANCE);
+      m_daily_loss_limit_hit = false;
+      m_last_daily_reset_check = now;
+   }
+
+   double current_bal = AccountInfoDouble(ACCOUNT_BALANCE);
+   double loss = m_daily_start_balance - current_bal;
+   double loss_pct = (m_daily_start_balance > 0.0) ? (loss / m_daily_start_balance) * 100.0 : 0.0;
+
+   if(!m_daily_loss_limit_hit && InpDailyLossLimitPercent > 0.0 && loss_pct >= InpDailyLossLimitPercent)
+   {
+      m_daily_loss_limit_hit = true;
+      Print("EMERGENCY_HALT 🛑 EqatsAutonomousScalperEA: Daily loss limit triggered (", DoubleToString(loss_pct, 2), "% >= ", DoubleToString(InpDailyLossLimitPercent, 2), "%). Executing Panic Close All!");
+      ExecutePanicCloseAll();
+   }
+
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double dd_pct = (current_bal > 0.0) ? ((current_bal - equity) / current_bal) * 100.0 : 0.0;
+   if(InpEnableEmergencyClose && InpMaxDrawdownPercent > 0.0 && dd_pct >= InpMaxDrawdownPercent)
+   {
+      Print("EMERGENCY_HALT 🛑 EqatsAutonomousScalperEA: Max drawdown percent reached (", DoubleToString(dd_pct, 2), "% >= ", DoubleToString(InpMaxDrawdownPercent, 2), "%). Executing Panic Close All!");
+      ExecutePanicCloseAll();
+   }
+
+   if(InpMaxPositionAgeHours > 0)
+   {
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+      {
+         ulong ticket = PositionGetTicket(i);
+         if(ticket > 0 && PositionSelectByTicket(ticket))
+         {
+            datetime open_time = (datetime)PositionGetInteger(POSITION_TIME);
+            double age_hours = (double)(now - open_time) / 3600.0;
+            if(age_hours >= InpMaxPositionAgeHours)
+            {
+               Print("EqatsAutonomousScalperEA: Closing position #", ticket, " - Max position age reached (", DoubleToString(age_hours, 1), " hours)");
+               m_trade_engine.PositionClose(ticket);
+            }
+         }
+      }
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -108,6 +232,25 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   if(!symbol_info.RefreshRates()) return;
+
+   // Check spread & margin safeguards (Adapted from AatEAv15)
+   double free_margin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+   double margin_pct = (balance > 0.0) ? (free_margin / balance) * 100.0 : 0.0;
+   long spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+
+   if(InputMaxAllowedSpread > 0 && spread > InputMaxAllowedSpread) return;
+   if(InputMinFreeMarginPct > 0.0 && margin_pct < InputMinFreeMarginPct)
+   {
+      Print("MarginEngine CRITICAL RISK: Free Margin limits breached (", DoubleToString(margin_pct, 2), "% < ", DoubleToString(InputMinFreeMarginPct, 2), "%). Execution Blocked.");
+      return;
+   }
+
+   CheckDailyLossAndRisk();
+   ProcessBreakEvenProtection();
+   if(InpTrailingSL || InpTrailingTP) ApplyTrailingLogic();
+   if(InpEnablePyramiding) CheckPyramidScaling();
    UpdateDashboard();
 }
 
@@ -116,7 +259,276 @@ void OnTick()
 //+------------------------------------------------------------------+
 void OnTimer()
 {
+   UpdateCandleCountdown();
    UpdateDashboard();
+}
+
+//+------------------------------------------------------------------+
+//| UpdateCandleCountdown (Adapted from AAT-Expert-V1.0.0)           |
+//+------------------------------------------------------------------+
+void UpdateCandleCountdown()
+{
+   datetime next_bar = (datetime)SeriesInfoInteger(_Symbol, _Period, SERIES_LASTBAR_DATE) + PeriodSeconds(_Period);
+   long remaining = next_bar - TimeCurrent();
+   if(remaining < 0) remaining = 0;
+   m_candle_countdown = StringFormat("%02d:%02d", (int)remaining/60, (int)remaining%60);
+}
+
+//+------------------------------------------------------------------+
+//| SetupTimeframeCharts (Adapted from AAT-Expert-V1.0.0)            |
+//+------------------------------------------------------------------+
+void SetupTimeframeCharts()
+{
+   ENUM_TIMEFRAMES tfs[] = {PERIOD_M1, PERIOD_M5, PERIOD_M15, PERIOD_M30, PERIOD_H1, PERIOD_H4, PERIOD_D1, PERIOD_W1, PERIOD_MN1};
+   for(int i=0; i<ArraySize(tfs); i++) ChartOpen(_Symbol, tfs[i]);
+
+   long main_hwnd = ChartGetInteger(0, CHART_WINDOW_HANDLE);
+   PostMessageW(main_hwnd, 0x0111, 33054, 0); // 0x0111 = WM_COMMAND, 33054 = ID_WINDOW_TILE_VERT
+}
+
+//+------------------------------------------------------------------+
+//| ApplyTrailingLogic (Adapted from AAT-Expert-V1.0.0)              |
+//+------------------------------------------------------------------+
+void ApplyTrailingLogic()
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            double current_sl = pos_info.StopLoss();
+            double current_tp = pos_info.TakeProfit();
+            double new_sl = current_sl;
+            double new_tp = current_tp;
+
+            if(pos_info.PositionType() == POSITION_TYPE_BUY)
+            {
+               double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+               if(InpTrailingSL && InpStopLossPoints > 0)
+               {
+                  double target_sl = NormalizeDouble(bid - InpStopLossPoints * point, digits);
+                  if(target_sl > current_sl + InpTrailingStep * point || current_sl == 0.0) new_sl = target_sl;
+               }
+               if(InpTrailingTP && InpTakeProfitPoints > 0)
+               {
+                  double target_tp = NormalizeDouble(bid + InpTakeProfitPoints * point, digits);
+                  if(target_tp > current_tp + InpTrailingStep * point || current_tp == 0.0) new_tp = target_tp;
+               }
+            }
+            else if(pos_info.PositionType() == POSITION_TYPE_SELL)
+            {
+               double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+               if(InpTrailingSL && InpStopLossPoints > 0)
+               {
+                  double target_sl = NormalizeDouble(ask + InpStopLossPoints * point, digits);
+                  if(target_sl < current_sl - InpTrailingStep * point || current_sl == 0.0) new_sl = target_sl;
+               }
+               if(InpTrailingTP && InpTakeProfitPoints > 0)
+               {
+                  double target_tp = NormalizeDouble(ask - InpTakeProfitPoints * point, digits);
+                  if(target_tp < current_tp - InpTrailingStep * point || current_tp == 0.0) new_tp = target_tp;
+               }
+            }
+
+            if(new_sl != current_sl || new_tp != current_tp)
+            {
+               m_trade_engine.PositionModify(ticket, new_sl, new_tp);
+            }
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| ProcessBreakEvenProtection (Adapted from AatEAv15)                |
+//+------------------------------------------------------------------+
+void ProcessBreakEvenProtection()
+{
+   if(InputBreakEvenTrigger <= 0) return;
+
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double beTrigger = InputBreakEvenTrigger * point;
+   double beBuffer = InputBreakEvenBuffer * point;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            ENUM_POSITION_TYPE type = pos_info.PositionType();
+            double openPrice = pos_info.PriceOpen();
+            double currentSL = pos_info.StopLoss();
+            double currentTP = pos_info.TakeProfit();
+
+            if(type == POSITION_TYPE_BUY)
+            {
+               double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+               if(currentSL < openPrice && (bid - openPrice > beTrigger))
+               {
+                  m_trade_engine.PositionModify(ticket, NormalizeDouble(openPrice + beBuffer, digits), currentTP);
+               }
+            }
+            else if(type == POSITION_TYPE_SELL)
+            {
+               double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+               if((currentSL == 0.0 || currentSL > openPrice) && (openPrice - ask > beTrigger))
+               {
+                  m_trade_engine.PositionModify(ticket, NormalizeDouble(openPrice - beBuffer, digits), currentTP);
+               }
+            }
+         }
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| IsInitialPositionRiskFree (Adapted from AatEAv13)                |
+//+------------------------------------------------------------------+
+bool IsInitialPositionRiskFree(ENUM_POSITION_TYPE type)
+{
+   for(int i = 0; i < PositionsTotal(); i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && pos_info.PositionType() == type)
+         {
+            double openPrice = pos_info.PriceOpen();
+            double currentSL = pos_info.StopLoss();
+
+            if(type == POSITION_TYPE_BUY && currentSL < openPrice) return false;
+            if(type == POSITION_TYPE_SELL && (currentSL > openPrice || currentSL == 0.0)) return false;
+         }
+      }
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| GatherCloseHistory (Adapted from AatEAv13)                        |
+//+------------------------------------------------------------------+
+string GatherCloseHistory(ENUM_TIMEFRAMES tf)
+{
+   MqlRates rates[];
+   ArraySetAsSeries(rates, true);
+   int copied = CopyRates(_Symbol, tf, 0, 15, rates);
+   if(copied <= 0) return "0.0";
+   string res = "";
+   for(int i = copied - 1; i >= 0; i--)
+   {
+      res = res + StringFormat("%.5f", rates[i].close) + ((i > 0) ? "," : "");
+   }
+   return res;
+}
+
+//+------------------------------------------------------------------+
+//| GatherAllTimeframeHistory (Adapted from AatEAv3)                 |
+//+------------------------------------------------------------------+
+string GatherAllTimeframeHistory()
+{
+   return StringFormat("M1:[%s]|M5:[%s]|M15:[%s]|M30:[%s]|H1:[%s]|H4:[%s]|D1:[%s]|W1:[%s]|MN:[%s]",
+                       GatherCloseHistory(PERIOD_M1),
+                       GatherCloseHistory(PERIOD_M5),
+                       GatherCloseHistory(PERIOD_M15),
+                       GatherCloseHistory(PERIOD_M30),
+                       GatherCloseHistory(PERIOD_H1),
+                       GatherCloseHistory(PERIOD_H4),
+                       GatherCloseHistory(PERIOD_D1),
+                       GatherCloseHistory(PERIOD_W1),
+                       GatherCloseHistory(PERIOD_MN1));
+}
+
+//+------------------------------------------------------------------+
+//| IsPyramidStepValid (Adapted from AatEAv15)                        |
+//+------------------------------------------------------------------+
+bool IsPyramidStepValid(ENUM_POSITION_TYPE type, double currentPrice, int stepPoints)
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double minDistance = stepPoints * point;
+
+   for(int i = 0; i < PositionsTotal(); i++)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && pos_info.PositionType() == type)
+         {
+            if(MathAbs(currentPrice - pos_info.PriceOpen()) < minDistance) return false;
+         }
+      }
+   }
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//| CheckPyramidScaling (Adapted from AatEAv13 & AatEAv15)           |
+//+------------------------------------------------------------------+
+void CheckPyramidScaling()
+{
+   int pos_count = 0;
+   double last_open = 0.0;
+   ENUM_POSITION_TYPE type = POSITION_TYPE_BUY;
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            pos_count++;
+            if(pos_count == 1)
+            {
+               last_open = pos_info.PriceOpen();
+               type = pos_info.PositionType();
+            }
+         }
+      }
+   }
+
+   if(pos_count == 0 || pos_count >= InpMaxPyramidPositions) return;
+
+   // Enforce that base initial position is already risk-free (SL at or above/below entry)
+   if(!IsInitialPositionRiskFree(type)) return;
+
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double price = (type == POSITION_TYPE_BUY) ? ask : bid;
+
+   if(!IsPyramidStepValid(type, price, InputPyramidStepPoints)) return;
+
+   double profit_points = (type == POSITION_TYPE_BUY) ? (bid - last_open) / point : (last_open - ask) / point;
+
+   if(profit_points >= InpStopLossPoints) // Add every 1:1 RR distance
+   {
+      ENUM_ORDER_TYPE order_type = (type == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+      double base_scale_lot = 0.01;
+      double final_scale_lot = base_scale_lot; // 1.0x standard scale
+
+      if(m_trade_engine.PositionOpen(_Symbol, order_type, final_scale_lot, price, last_open, 0, StringFormat("EQATS Pyramid L%d", pos_count+1)))
+      {
+         for(int i = PositionsTotal() - 1; i >= 0; i--)
+         {
+            ulong ticket = PositionGetTicket(i);
+            if(ticket > 0 && pos_info.SelectByTicket(ticket))
+            {
+               if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+               {
+                  m_trade_engine.PositionModify(ticket, last_open, pos_info.TakeProfit());
+               }
+            }
+         }
+      }
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -160,6 +572,7 @@ void OnChartEvent(const int id,
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll()
 {
+   Print("MANUAL OVERRIDE: Panic button pressed. Purging open positions...");
    int closed_count = 0;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
@@ -368,7 +781,7 @@ void CreatePanelCard(string name, int x, int y, int w, int h, color bg_color, co
    ObjectSetInteger(0, name, OBJPROP_BGCOLOR, bg_color);
    ObjectSetInteger(0, name, OBJPROP_BORDER_COLOR, border_color);
    ObjectSetInteger(0, name, OBJPROP_BORDER_TYPE, BORDER_FLAT);
-   ObjectSetInteger(0, name, OBJPROP_BACK, true);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false); // Render in FRONT of candlesticks as solid dark HUD shield
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
 }
 
@@ -379,13 +792,15 @@ void DrawInstitutionalHeader()
 {
    CreatePanelCard("SB_Card_Header", 10, 10, 1060, 38, C'15,23,42', C'30,58,138');
 
-   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v8.30)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_Title", "⚡ ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS v9.70)", 20, 18, 11, clrLightCyan, "Segoe UI Bold");
+   CreateLabel("SB_CandleClock", "⏱️ BAR T-: " + m_candle_countdown, 480, 18, 10, clrYellow, "Segoe UI Bold");
 
    // Precise Non-Overlapping Action Button Offsets (Width=100..130, Spacing=8px)
    CreateButton("SB_Btn_Resync", "🔄 RESYNC IPC", 580, 16, 105, 24, clrWhite, C'37,99,235', 8);
    CreateButton("SB_Btn_Toggle", "📊 TOGGLE AI", 693, 16, 95, 24, clrWhite, C'126,34,206', 8);
    CreateButton("SB_Btn_CardToggle", "💳 ACCOUNT CARD", 796, 16, 115, 24, clrWhite, C'13,148,136', 8);
-   CreateButton("SB_Btn_Panic", "🔒 PANIC CLOSE ALL", 919, 16, 140, 24, clrWhite, C'185,28,28', 8);
+   CreateButton("SB_Btn_Panic", "🚨 PANIC CLOSE ALL", 919, 16, 140, 24, clrWhite, C'185,28,28', 8);
+   ObjectSetInteger(0, "SB_Btn_Panic", OBJPROP_BORDER_COLOR, clrWhite);
 }
 
 //+------------------------------------------------------------------+
@@ -592,6 +1007,7 @@ void CreateLabel(string name, string text, int x, int y, int size, color col, st
    ObjectSetInteger(0, name, OBJPROP_COLOR, col);
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, size);
    ObjectSetString(0, name, OBJPROP_FONT, font);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, name, OBJPROP_SELECTED, false);
    ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
@@ -627,6 +1043,7 @@ void DeleteDashboardObjects()
 {
    ObjectDelete(0, "SB_Card_Header");
    ObjectDelete(0, "SB_Title");
+   ObjectDelete(0, "SB_CandleClock");
    ObjectDelete(0, "SB_Card_Notice");
    ObjectDelete(0, "SB_Status");
    ObjectDelete(0, "SB_Card_Account");

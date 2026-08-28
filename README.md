@@ -1,14 +1,14 @@
-# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.3)
-## EQATS VERSION 8.3 / VERSION 8.2 HYBRID ARCHITECTURE RELEASE
+# ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4)
+## EQATS VERSION 8.4 HYBRID ARCHITECTURE RELEASE
 ### Master Architecture, Monolith-Microservices Isolation, AI Ensemble, Risk & Execution Specification
 
 ---
 
 # 0. DOCUMENT CONTROL
 
-**System Name:** Elite Quantum Autonomous Trading System (EQATS Version 8.3)
+**System Name:** Elite Quantum Autonomous Trading System (EQATS Version 8.4)
 **Abbreviation:** EQATS / EQATS
-**Specification:** Version 8.3 / Version 8.2 Consolidated Baseline
+**Specification:** Version 8.4 Institutional Upgrade Baseline
 **Status:** Production Hybrid Baseline (`EQATS_VERSION_8_2_MASTER_PLAN_AND_DESIGN.md` & `EQATS_VERSION_8_3_AUDIT_REPORT.md`)
 **Purpose:** Autonomous multi-asset algorithmic trading operating system
 
