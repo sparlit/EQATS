@@ -1,10 +1,25 @@
 name: Jules Continuous Innovation & Automerge Loop
 
+# SECURITY: This workflow exposes JULES_API_KEY and has contents:write + pull-requests:write permissions.
+# It MUST NOT trigger on push events from contributor-controlled branches, as push-triggered workflows
+# evaluate the workflow file and checkout code from the pushed revision, allowing attackers to:
+# - Modify this workflow to exfiltrate secrets
+# - Execute malicious code in dependency installation or tests
+# - Alter permissions and conditions within repository policy limits
+#
+# SAFE USAGE:
+# - Manual trigger via workflow_dispatch (requires write access to repository)
+# - Automated trigger only from protected branches where pushes require approval
+#
+# See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
+
 on:
-  push:
-    branches:
-      - 'ai-optimize-/*'   # Triggers automatically on pushes to these designated branches
-  workflow_dispatch:        # Allows manual invocation from the GitHub Actions UI
+  workflow_dispatch:        # Allows manual invocation from the GitHub Actions UI (SAFE: requires write access)
+    inputs:
+      branch:
+        description: 'Branch to run optimization on (e.g., ai-optimize/feature-name)'
+        required: true
+        type: string
 
 # SECURITY: Prevent concurrent workflow runs on the same branch to avoid TOCTOU races
 concurrency:
@@ -20,9 +35,11 @@ jobs:
 
     steps:
       # 1. Checkout the repository with full commit history to track the loop count
+      # SECURITY: When triggered via workflow_dispatch, explicitly checkout the user-specified branch
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
+          ref: ${{ inputs.branch || github.ref }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -165,7 +182,7 @@ jobs:
         uses: google-labs-code/jules-action@a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 # v1.x.x
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
-          branch: ${{ github.ref_name }}
+          branch: ${{ inputs.branch || github.ref_name }}
           prompt: |
             You are operating within an automated continuous innovation and optimization loop. Your goal is to systematically expand the system's capabilities by writing new features, optimization math modules, or execution components while maintaining flawless stability.
             
@@ -234,8 +251,9 @@ jobs:
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-agent-sha
         run: |
-          git fetch origin ${{ github.ref_name }}
-          POST_CHANGE_SHA=$(git rev-parse origin/${{ github.ref_name }})
+          BRANCH_REF="${{ inputs.branch || github.ref_name }}"
+          git fetch origin "$BRANCH_REF"
+          POST_CHANGE_SHA=$(git rev-parse "origin/$BRANCH_REF")
           echo "sha=$POST_CHANGE_SHA" >> $GITHUB_OUTPUT
           echo "📌 Post-agent HEAD SHA: $POST_CHANGE_SHA"
 
@@ -303,7 +321,7 @@ jobs:
         if: steps.loop-check.outputs.continue_loop == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH_NAME: ${{ github.ref_name }}
+          BRANCH_NAME: ${{ inputs.branch || github.ref_name }}
           TARGET_VERSION: ${{ steps.calc-version.outputs.next_version }}
           POST_CHANGE_SHA: ${{ steps.post-agent-sha.outputs.sha }}
         run: |
