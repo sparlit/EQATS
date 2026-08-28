@@ -311,6 +311,28 @@ class UniversalBrokerGateway:
             "protocol": self.protocol,
         }
 
+    def get_symbol_volume_constraints(self, symbol):
+        """
+        Returns broker volume constraints for the symbol.
+        SECURITY: This method provides the actual broker minimums that must be
+        applied BEFORE risk validation to prevent safety control bypass.
+        """
+        if self.protocol == "MT5":
+            try:
+                import MetaTrader5 as mt5
+                
+                info = mt5.symbol_info(symbol)
+                if info:
+                    vol_min = getattr(info, "volume_min", 0.01) or 0.01
+                    vol_max = getattr(info, "volume_max", 100.0) or 100.0
+                    vol_step = getattr(info, "volume_step", 0.01) or 0.01
+                    return {"volume_min": vol_min, "volume_max": vol_max, "volume_step": vol_step}
+            except Exception as e:
+                _log.warning("Failed to get MT5 symbol info for %s: %s", symbol, e)
+        
+        # Return safe defaults for other protocols or on error
+        return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
+
     def _reconcile_order_status(self, client_order_id):
         """
         Queries the broker to check if an order with the given client_order_id was accepted.

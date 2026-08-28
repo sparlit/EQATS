@@ -56,10 +56,27 @@ class TradingConnector(abc.ABC):
         raise NotImplementedError("Subclasses must implement get_current_price()")
 
     @abc.abstractmethod
+    def get_symbol_volume_constraints(self, symbol):
+        """
+        Returns broker volume constraints for the symbol.
+        Returns: { 'volume_min': float, 'volume_max': float, 'volume_step': float }
+        
+        SECURITY: This method must be called BEFORE risk validation to ensure
+        that fat-finger checks and notional limits are applied to the actual
+        volume that will be submitted to the broker, not a smaller pre-normalized value.
+        """
+        raise NotImplementedError("Subclasses must implement get_symbol_volume_constraints()")
+
+    @abc.abstractmethod
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         """
         Places a trade order.
         order_type: 'BUY' or 'SELL'
+        
+        SECURITY: lot_size MUST be pre-normalized to broker constraints before calling
+        this method. This method MUST NOT modify lot_size to prevent bypassing
+        fat-finger and risk admission checks.
+        
         Returns: { 'success': bool, 'ticket': str, 'price': float, 'error': str }
         """
         raise NotImplementedError("Subclasses must implement execute_order()")
@@ -190,6 +207,27 @@ class UniversalConnector(TradingConnector):
 
     def get_historical_ticks(self, symbol, count=20):
         return self.sim_fallback.get_historical_ticks(symbol, count)
+
+    def get_symbol_volume_constraints(self, symbol):
+        """
+        Returns broker volume constraints for the symbol.
+        SECURITY: Must be called before risk validation to ensure proper volume normalization.
+        """
+        # For SIMULATOR protocol, return simulator constraints
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.get_symbol_volume_constraints(symbol)
+        
+        # For non-SIMULATOR protocols, query live gateway if connected
+        if self.gateway.is_connected():
+            try:
+                return self.gateway.get_symbol_volume_constraints(symbol)
+            except Exception as e:
+                _log.warning("Failed to get volume constraints from gateway for %s: %s", symbol, e)
+                # Return safe defaults
+                return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
+        else:
+            # Return safe defaults if not connected
+            return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         # For SIMULATOR protocol, use simulator
@@ -523,7 +561,31 @@ class MT5Connector(TradingConnector):
             })
         return res
 
+    def get_symbol_volume_constraints(self, symbol):
+        """
+        Returns broker volume constraints for the symbol.
+        SECURITY: This method provides the actual broker minimums that must be
+        applied BEFORE risk validation to prevent safety control bypass.
+        """
+        if not self.mt5:
+            # Return safe defaults when not connected
+            return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
+        
+        info = self.mt5.symbol_info(symbol)
+        if info:
+            vol_min = getattr(info, "volume_min", 0.01) or 0.01
+            vol_max = getattr(info, "volume_max", 100.0) or 100.0
+            vol_step = getattr(info, "volume_step", 0.01) or 0.01
+            return {"volume_min": vol_min, "volume_max": vol_max, "volume_step": vol_step}
+        else:
+            # Return safe defaults if symbol info unavailable
+            return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
+
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
+        """
+        SECURITY FIX: lot_size MUST be pre-normalized to broker constraints before calling.
+        This method no longer modifies lot_size to prevent bypassing fat-finger checks.
+        """
         if not self.mt5:
             return {
                 "success": False,
@@ -533,23 +595,10 @@ class MT5Connector(TradingConnector):
             }
         import MetaTrader5 as mt5
 
-        # Normalize volume according to symbol properties (volume_min, volume_max, volume_step)
+        # Query symbol info for order filling mode and stop level validation
         info = self.mt5.symbol_info(symbol)
         type_filling = mt5.ORDER_FILLING_IOC
         if info:
-            vol_min = getattr(info, "volume_min", 0.01)
-            vol_max = getattr(info, "volume_max", 100.0)
-            vol_step = getattr(info, "volume_step", 0.01)
-            if vol_min > 0:
-                lot_size = max(vol_min, min(vol_max, float(lot_size)))
-                if vol_step > 0:
-                    steps = round((lot_size - vol_min) / vol_step)
-                    calc_lots = vol_min + steps * vol_step
-                    step_str = f"{vol_step:.8f}".rstrip("0")
-                    precision = len(step_str.split(".")[1]) if "." in step_str else 0
-                    lot_size = round(calc_lots, precision)
-                    lot_size = max(vol_min, min(vol_max, lot_size))
-
             # Dynamically determine supported order filling mode from symbol bitmask
             # SYMBOL_FILLING_FOK = 1, SYMBOL_FILLING_IOC = 2
             modes = getattr(info, "filling_mode", 0)
@@ -567,21 +616,9 @@ class MT5Connector(TradingConnector):
         action = mt5.TRADE_ACTION_DEAL
         type_mt5 = mt5.ORDER_TYPE_BUY if order_type == "BUY" else mt5.ORDER_TYPE_SELL
 
-        # Query live broker volume constraints to avoid [Invalid volume] errors
-        info = self.mt5.symbol_info(symbol)
-        if info is not None:
-            vol_min = getattr(info, "volume_min", 0.01) or 0.01
-            vol_max = getattr(info, "volume_max", 500.0) or 500.0
-            vol_step = getattr(info, "volume_step", 0.01) or 0.01
-        else:
-            vol_min, vol_max, vol_step = 0.01, 500.0, 0.01
-
+        # SECURITY FIX: Use lot_size as-is without modification
+        # Volume normalization must happen BEFORE risk validation in the main loop
         volume = float(lot_size)
-        if vol_step > 0:
-            steps = math.floor((volume - vol_min) / vol_step + 1e-9) if volume >= vol_min else 0
-            volume = vol_min + (steps * vol_step)
-
-        volume = max(vol_min, min(vol_max, round(volume, 4)))
 
         # Validate SL and TP against broker minimum stop distance (trade_stops_level)
         stops_level = info.trade_stops_level if info else 0
@@ -888,6 +925,14 @@ class SimulatorConnector(TradingConnector):
             "bid": round(last_price - spread / 2.0, 5),
             "ask": round(last_price + spread / 2.0, 5),
         }
+
+    def get_symbol_volume_constraints(self, symbol):
+        """
+        Returns simulated broker volume constraints.
+        SECURITY: Simulator uses standard constraints to match typical broker behavior.
+        """
+        # Return standard constraints that match typical broker minimums
+        return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         with self.lock:

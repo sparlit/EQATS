@@ -20,6 +20,8 @@ import telegram_bot
 from event_bus import Event, global_event_bus
 from supervisor_agent import global_supervisor_agent
 
+_log = logging.getLogger(__name__)
+
 
 class AutonomousScalper:
     """
@@ -1046,6 +1048,34 @@ class AutonomousScalper:
                         f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed."
                     )
                     continue
+
+                # SECURITY FIX: Normalize lot_size to broker constraints BEFORE validation
+                # This ensures fat-finger checks and notional limits are applied to the
+                # actual volume that will be submitted, preventing safety control bypass
+                constraints = self.conn.get_symbol_volume_constraints(symbol)
+                vol_min = constraints["volume_min"]
+                vol_max = constraints["volume_max"]
+                vol_step = constraints["volume_step"]
+                
+                # Apply broker volume constraints
+                normalized_lot_size = max(vol_min, min(vol_max, float(lot_size)))
+                if vol_step > 0:
+                    steps = round((normalized_lot_size - vol_min) / vol_step)
+                    calc_lots = vol_min + steps * vol_step
+                    step_str = f"{vol_step:.8f}".rstrip("0")
+                    precision = len(step_str.split(".")[1]) if "." in step_str else 0
+                    normalized_lot_size = round(calc_lots, precision)
+                    normalized_lot_size = max(vol_min, min(vol_max, normalized_lot_size))
+                
+                # Log volume adjustment if it occurred
+                if abs(normalized_lot_size - lot_size) > 0.001:
+                    _log.info(
+                        "Volume normalized for %s: %.4f -> %.4f (broker min=%.4f)",
+                        symbol, lot_size, normalized_lot_size, vol_min
+                    )
+                
+                # Use normalized volume for all subsequent checks and execution
+                lot_size = normalized_lot_size
 
                 # E. Fat-Finger checking
                 if not self.engine.execution.validate_fat_finger(
