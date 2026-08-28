@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "10.00"
-#property description "Elite Quantum Autonomous Scalper EA v10.00 - Role-Based Trade Executor Stack with Dual Event Polling & Zero-Latency IPC"
+#property version   "10.10"
+#property description "Elite Quantum Autonomous Scalper EA v10.10 - L99 Active Watchdog Heartbeat, Emergency Move-To-BE & Arbitrage Discrepancy Alert"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -18,12 +18,14 @@
 #import
 
 // User Interface & Socket IPC Inputs
+input string   InpMasterKey                = "AAT_SECURE_FOSS_KEY_256_BIT_STRIP"; // Master Handshake Key
 input string   InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
 input int      InpSocketPort               = 9001;                  // Socket IPC Bridge Port
 input bool     InpUseSocketIPC             = true;                  // Use Zero-Latency Socket IPC Push
 input string   InpFileName                 = "scalper_telemetry.txt"; // Fallback State File Name
 input bool     InpUseCommonFolder          = true;                  // Use Common shared folder (FILE_COMMON)
 input int      InpTimerInterval            = 1;                     // Update Interval (seconds)
+input int      InpWatchdogSec              = 10;                    // Symmetric Watchdog Heartbeat Timeout (sec)
 input bool     InpEmergencyCloseOnLockdown = true;                  // Close positions on Emergency Lockdown signal
 input color    InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
 input color    InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
@@ -91,12 +93,19 @@ string m_countdown = "00:00:00";
 string m_hw_tier = "HIGH";
 string m_ping_ms = "1.2";
 
-// Local Risk Monitoring & AAT State
+// Local Risk Monitoring & L99 Watchdog State
 datetime m_last_daily_reset_check = 0;
 double   m_daily_start_balance    = 0.0;
 bool     m_daily_loss_limit_hit   = false;
 string   m_candle_countdown       = "00:00";
 double   m_current_risk           = InpRiskPercent;
+
+// Watchdog & Arbitrage State Variables
+bool     m_watchdog_active        = false;
+datetime m_last_success_time      = 0;
+int      m_recovery_counter       = 0;
+string   m_watchdog_status        = "STABLE";
+string   m_arbitrage_status       = "STABLE";
 
 // MQL5 Object instances
 CTrade         m_trade_engine;
@@ -107,6 +116,9 @@ CSymbolInfo    symbol_info;
 //| Forward Declarations                                             |
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll();
+void EmergencyMoveToBE();
+void CheckWatchdog();
+void CheckArbitrageDiscrepancy();
 void ApplyTrailingLogic();
 void ProcessBreakEvenProtection();
 void CheckPyramidScaling();
@@ -130,6 +142,7 @@ int OnInit()
    if(!symbol_info.Name(_Symbol)) return(INIT_FAILED);
    m_trade_engine.SetExpertMagicNumber(InpMagicNumber);
    m_current_risk = InpRiskPercent;
+   m_last_success_time = TimeCurrent();
 
    EventSetTimer(InpTimerInterval);
 
@@ -153,7 +166,7 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v10.00 Initialized cleanly (Role: TRADE_EXECUTOR). IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v10.10 Initialized cleanly (Role: TRADE_EXECUTOR | L99 Watchdog Active). IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -164,7 +177,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v10.00 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v10.10 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -234,6 +247,13 @@ void OnTick()
 {
    if(!symbol_info.RefreshRates()) return;
 
+   // Check L99 Watchdog Active Circuit Breaker
+   if(m_watchdog_active)
+   {
+      UpdateDashboard();
+      return;
+   }
+
    // Check spread & margin safeguards (Adapted from AatEAv15)
    double free_margin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
@@ -248,6 +268,7 @@ void OnTick()
    }
 
    CheckDailyLossAndRisk();
+   CheckArbitrageDiscrepancy();
    ProcessBreakEvenProtection();
    if(InpTrailingSL || InpTrailingTP) ApplyTrailingLogic();
    if(InpEnablePyramiding) CheckPyramidScaling();
@@ -260,7 +281,104 @@ void OnTick()
 void OnTimer()
 {
    UpdateCandleCountdown();
+   CheckWatchdog();
    UpdateDashboard();
+}
+
+//+------------------------------------------------------------------+
+//| EmergencyMoveToBE (Adapted from AAT V5.0.0)                      |
+//+------------------------------------------------------------------+
+void EmergencyMoveToBE()
+{
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double beBuffer = InputBreakEvenBuffer * point;
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && pos_info.SelectByTicket(ticket))
+      {
+         if(pos_info.Symbol() == _Symbol && (pos_info.Magic() == InpMagicNumber || InpMagicNumber == 0))
+         {
+            ENUM_POSITION_TYPE type = pos_info.PositionType();
+            double openPrice = pos_info.PriceOpen();
+            double currentSL = pos_info.StopLoss();
+            double currentTP = pos_info.TakeProfit();
+
+            if(type == POSITION_TYPE_BUY && currentSL < openPrice)
+            {
+               m_trade_engine.PositionModify(ticket, NormalizeDouble(openPrice + beBuffer, digits), currentTP);
+            }
+            else if(type == POSITION_TYPE_SELL && (currentSL == 0.0 || currentSL > openPrice))
+            {
+               m_trade_engine.PositionModify(ticket, NormalizeDouble(openPrice - beBuffer, digits), currentTP);
+            }
+         }
+      }
+   }
+   Print("EqatsAutonomousScalperEA: EmergencyMoveToBE executed across active open positions.");
+}
+
+//+------------------------------------------------------------------+
+//| CheckWatchdog (Adapted from AAT V5.0.0)                          |
+//+------------------------------------------------------------------+
+void CheckWatchdog()
+{
+   datetime now = TimeCurrent();
+   if(m_last_success_time > 0 && (now - m_last_success_time) > InpWatchdogSec)
+   {
+      if(!m_watchdog_active)
+      {
+         Print("Watchdog CRITICAL: Heartbeat Lost! (", (now - m_last_success_time), "s > ", InpWatchdogSec, "s). Emergency Protocol Active.");
+         EmergencyMoveToBE();
+         m_watchdog_active = true;
+         m_recovery_counter = 0;
+         m_watchdog_status = "WATCHDOG HALT 🛑";
+      }
+   }
+   else if(m_watchdog_active)
+   {
+      m_recovery_counter++;
+      m_watchdog_status = "RECOVERING " + IntegerToString(m_recovery_counter) + "/3 ⏳";
+      if(m_recovery_counter >= 3)
+      {
+         m_watchdog_active = false;
+         m_recovery_counter = 0;
+         m_watchdog_status = "STABLE ✅";
+         Print("Watchdog RECOVERED: Resuming normal autonomous operations.");
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| CheckArbitrageDiscrepancy (Adapted from AAT V5.0.0)             |
+//+------------------------------------------------------------------+
+void CheckArbitrageDiscrepancy()
+{
+   double current_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(point <= 0) return;
+
+   // Check shared global benchmark variable if set by feed connector
+   string g_var_name = "EQATS_BENCHMARK_" + _Symbol + "_REF";
+   if(GlobalVariableCheck(g_var_name))
+   {
+      double benchmark = GlobalVariableGet(g_var_name);
+      if(benchmark > 0.0)
+      {
+         double diff_points = MathAbs(current_price - benchmark) / point;
+         if(diff_points > 50.0)
+         {
+            m_arbitrage_status = "ARB ALERT ⚠️ (" + DoubleToString(diff_points, 1) + " pts)";
+            Print("EqatsAutonomousScalperEA: Arbitrage Discrepancy detected: ", DoubleToString(diff_points, 1), " points");
+         }
+         else
+         {
+            m_arbitrage_status = "STABLE ✅";
+         }
+      }
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -662,6 +780,9 @@ bool ParseStateData()
    }
 
    if(StringLen(state_content) < 5) return false;
+
+   // Record successful telemetry packet receipt timestamp for L99 Watchdog Heartbeat
+   m_last_success_time = TimeCurrent();
 
    m_total_symbols = 0;
    m_total_trades = 0;
