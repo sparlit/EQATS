@@ -33,8 +33,82 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # 2. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
+      # 2. SECURITY GATE: Verify repository provenance BEFORE running any repository-controlled code
+      # This check must occur before tests, linters, or any other repository-derived code execution
+      # to prevent malicious code from modifying the git remote configuration
+      - name: Verify Repository Provenance (Pre-Execution Gate)
+        id: verify-provenance
+        run: |
+          echo "🔒 SECURITY: Verifying repository provenance before executing repository-controlled code..."
+          
+          # Extract the expected repository owner and name from GitHub context
+          EXPECTED_OWNER="${{ github.repository_owner }}"
+          EXPECTED_REPO="${{ github.repository }}"
+          EXPECTED_HOST="github.com"
+          
+          # Get the current git remote URL
+          CURRENT_REMOTE=$(git remote get-url origin)
+          
+          echo "Expected repository: $EXPECTED_REPO"
+          echo "Expected owner: $EXPECTED_OWNER"
+          echo "Expected host: $EXPECTED_HOST"
+          echo "Current remote URL: $CURRENT_REMOTE"
+          
+          # Parse the remote URL to extract host, owner, and repository
+          # Support both HTTPS and SSH formats:
+          # - https://github.com/owner/repo.git
+          # - git@github.com:owner/repo.git
+          
+          if [[ "$CURRENT_REMOTE" =~ ^https://([^/]+)/([^/]+)/([^/]+)(\.git)?$ ]]; then
+            REMOTE_HOST="${BASH_REMATCH[1]}"
+            REMOTE_OWNER="${BASH_REMATCH[2]}"
+            REMOTE_REPO_NAME="${BASH_REMATCH[3]}"
+            REMOTE_FULL_REPO="${REMOTE_OWNER}/${REMOTE_REPO_NAME}"
+          elif [[ "$CURRENT_REMOTE" =~ ^git@([^:]+):([^/]+)/([^/]+)(\.git)?$ ]]; then
+            REMOTE_HOST="${BASH_REMATCH[1]}"
+            REMOTE_OWNER="${BASH_REMATCH[2]}"
+            REMOTE_REPO_NAME="${BASH_REMATCH[3]}"
+            REMOTE_FULL_REPO="${REMOTE_OWNER}/${REMOTE_REPO_NAME}"
+          else
+            echo "❌ SECURITY GATE FAILED: Unable to parse remote URL format"
+            echo "Remote URL: $CURRENT_REMOTE"
+            exit 1
+          fi
+          
+          echo "Parsed remote host: $REMOTE_HOST"
+          echo "Parsed remote owner: $REMOTE_OWNER"
+          echo "Parsed remote repository: $REMOTE_FULL_REPO"
+          
+          # Perform exact string matching (not substring/regex matching)
+          # This prevents look-alike repositories from passing the check
+          if [ "$REMOTE_HOST" != "$EXPECTED_HOST" ]; then
+            echo "❌ SECURITY GATE FAILED: Host mismatch"
+            echo "Expected host: $EXPECTED_HOST"
+            echo "Actual host: $REMOTE_HOST"
+            exit 1
+          fi
+          
+          if [ "$REMOTE_OWNER" != "$EXPECTED_OWNER" ]; then
+            echo "❌ SECURITY GATE FAILED: Owner mismatch"
+            echo "Expected owner: $EXPECTED_OWNER"
+            echo "Actual owner: $REMOTE_OWNER"
+            exit 1
+          fi
+          
+          if [ "$REMOTE_FULL_REPO" != "$EXPECTED_REPO" ]; then
+            echo "❌ SECURITY GATE FAILED: Repository mismatch"
+            echo "Expected repository: $EXPECTED_REPO"
+            echo "Actual repository: $REMOTE_FULL_REPO"
+            exit 1
+          fi
+          
+          echo "✅ SECURITY GATE PASSED: Repository provenance verified"
+          echo "verified_repo=$EXPECTED_REPO" >> $GITHUB_OUTPUT
+          echo "verified_host=$EXPECTED_HOST" >> $GITHUB_OUTPUT
+
+      # 3. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
       - name: Enforce Circuit Breaker Limit
+        if: steps.verify-provenance.outputs.verified_repo != ''
         id: loop-check
         run: |
           echo "🔄 Checking automation iteration count..."
@@ -47,7 +121,7 @@ jobs:
           else
             echo "continue_loop=true" >> $GITHUB_OUTPUT
           fi
-      # 3. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
+      # 4. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
       - name: Calculate Incremental Version
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: calc-version
@@ -69,7 +143,7 @@ jobs:
           echo "Current parsed baseline: EQATS v$CURRENT_VERSION"
           echo "Target incremental milestone: EQATS v$NEXT_VERSION"
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-      # 4. Native Rust toolchain installation (Node-less, completely clears deprecation warnings)
+      # 5. Native Rust toolchain installation (Node-less, completely clears deprecation warnings)
       # SECURITY: Using dtolnay/rust-toolchain pinned to commit SHA instead of curl|sh
       # This prevents arbitrary code execution from a potentially compromised rustup.rs endpoint
       # To update: Visit https://github.com/dtolnay/rust-toolchain/releases
@@ -79,7 +153,7 @@ jobs:
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1ae401b6fa7b6f9402f0e5 # master as of 2024-01-19
         with:
           toolchain: stable
-      # 5. Setup Python 3.13+ Free-Threaded to bypass the GIL
+      # 6. Setup Python 3.13+ Free-Threaded to bypass the GIL
       - name: Setup Python Environment (GIL-Free Runtime)
         if: steps.loop-check.outputs.continue_loop == 'true'
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v6.3.0
@@ -87,7 +161,7 @@ jobs:
           python-version: '3.13t' # Activates the experimental Free-Threaded GIL-less mode
           cache: 'pip'
 
-      # 6. Install dependencies and 100% FOSS Ruff + Bandit tooling
+      # 7. Install dependencies and 100% FOSS Ruff + Bandit tooling
       # SECURITY: Use hash-pinned lockfiles to prevent supply-chain attacks
       - name: Install Advanced Math Libraries & Ecosystem Scanners
         if: steps.loop-check.outputs.continue_loop == 'true'
@@ -126,7 +200,7 @@ jobs:
             echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
             pip install -r requirements.txt
           fi
-      # 7. Run verification tests to check codebase integrity
+      # 8. Run verification tests to check codebase integrity
       - name: Run Test Suite Verification
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: run-tests
@@ -148,7 +222,7 @@ jobs:
               sed 's/USER://gi' > test_summary.txt
             echo "--- END OF TEST OUTPUT ---" >> test_summary.txt
           fi
-      # 8. Run Ruff and Bandit to extract static code evaluations
+      # 9. Run Ruff and Bandit to extract static code evaluations
       - name: Run Linter and Security Analysis
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: run-scanners
@@ -156,28 +230,12 @@ jobs:
           ruff check . --statistics > ruff_output.log 2>&1 || true
           bandit -r . -ll --format txt > bandit_output.log 2>&1 || true
           
-          # SECURITY: Sanitize diagnostic outputs to prevent prompt injection
-          # Extract only structured information, strip potential instruction-like content
-          tail -n 20 ruff_output.log | \
-            sed 's/[Ii]gnore previous instructions\?//gi' | \
-            sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
-            sed 's/[Ff]orget [^.]*above//gi' | \
-            sed 's/[Nn]ew instructions\?://gi' | \
-            sed 's/SYSTEM://gi' | \
-            sed 's/ASSISTANT://gi' | \
-            sed 's/USER://gi' > ruff_summary.txt
-          echo "--- END OF RUFF OUTPUT ---" >> ruff_summary.txt
-          
-          tail -n 20 bandit_output.log | \
-            sed 's/[Ii]gnore previous instructions\?//gi' | \
-            sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
-            sed 's/[Ff]orget [^.]*above//gi' | \
-            sed 's/[Nn]ew instructions\?://gi' | \
-            sed 's/SYSTEM://gi' | \
-            sed 's/ASSISTANT://gi' | \
-            sed 's/USER://gi' > bandit_summary.txt
-          echo "--- END OF BANDIT OUTPUT ---" >> bandit_summary.txt
-      # 9. Invoke Jules with the absolute quantum transformation manifesto
+          # SECURITY: Base64 encode diagnostic outputs to prevent prompt injection
+          tail -n 20 ruff_output.log > ruff_summary_raw.txt
+          tail -n 20 bandit_output.log > bandit_summary_raw.txt
+          base64 -w 0 ruff_summary_raw.txt > ruff_summary.txt
+          base64 -w 0 bandit_summary_raw.txt > bandit_summary.txt
+      # 10. Invoke Jules with the absolute quantum transformation manifesto
       - name: Invoke Jules Quantum Overhaul Agent
         if: steps.loop-check.outputs.continue_loop == 'true'
         # SECURITY: Pinned to immutable commit SHA instead of mutable @v1 tag
@@ -280,7 +338,7 @@ jobs:
             Commit Prefix Rule:
             - You MUST prefix your commit message exactly with: "chore(ai-enhance): release version ${{ steps.calc-version.outputs.next_version }}"
 
-      # 10. POST-CHANGE VALIDATION GATE: Capture exact SHA and re-validate after Jules modifications
+      # 11. POST-CHANGE VALIDATION GATE: Capture exact SHA and re-validate after Jules modifications
       - name: Capture Post-Agent Commit SHA
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-agent-sha
@@ -373,8 +431,8 @@ jobs:
           bandit -r . -ll --format txt
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # 11. VALIDATION GATE: Mark validation as passed for the isolated PR job
-      - name: Mark Validation Gate as Passed
+      # 12. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
+      - name: Open and Automerge Pull Request
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: validation-gate
         run: |
@@ -399,9 +457,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_NAME: ${{ github.ref_name }}
-          TARGET_VERSION: ${{ needs.quantum-evolution.outputs.next_version }}
-          POST_CHANGE_SHA: ${{ needs.quantum-evolution.outputs.post_agent_sha }}
-          REPO_NAME: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.calc-version.outputs.next_version }}
+          POST_CHANGE_SHA: ${{ steps.post-agent-sha.outputs.sha }}
+          VERIFIED_REPO: ${{ steps.verify-provenance.outputs.verified_repo }}
         run: |
           echo "🚀 Initiating hands-free deployment pipeline..."
           echo "📌 Operating on validated SHA: $POST_CHANGE_SHA"
@@ -419,10 +477,14 @@ jobs:
           if [ "$BRANCH_NAME" = "main" ]; then
             echo "⚠️ Workflow executed directly on the main branch. Skipping Pull Request generation."
           else
-            PR_EXISTS=$(gh pr list --repo "$REPO_NAME" --head "$BRANCH_NAME" --base main --json number --jq '.[0].number' || true)
+            # SECURITY: Use the verified repository from the pre-execution gate
+            # All gh commands explicitly specify --repo to prevent using a potentially modified git remote
+            echo "Using verified repository: $VERIFIED_REPO"
+            
+            PR_EXISTS=$(gh pr list --repo "$VERIFIED_REPO" --head "$BRANCH_NAME" --base main --json number --jq '..number' || true)
             if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
-              echo "📝 No open PR found. Creating a new Pull Request..."
-              PR_URL=$(gh pr create --repo "$REPO_NAME" \
+              echo "txt=No open PR found. Creating a new Pull Request..."
+              PR_URL=$(gh pr create --repo "$VERIFIED_REPO" \
                 --title "🚀 QUANTUM EVOLUTION RELEASE [v${TARGET_VERSION}]" \
                 --body "This Pull Request was generated autonomously by the EQATS Quantum Evolution Loop. It progresses the codebase towards a multi-processed hybrid microservices mesh architecture utilizing Rust (Tokio) and GIL-free Python 3.13t execution tracks.
 
@@ -441,7 +503,7 @@ jobs:
             
             if [ -n "$PR_NUMBER" ]; then
               # SECURITY: Verify the PR head SHA matches our validated post-change SHA
-              PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$REPO_NAME" --json headRefOid --jq '.headRefOid')
+              PR_HEAD_SHA=$(gh pr view --repo "$VERIFIED_REPO" "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
               
               if [ "$PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
                 echo "❌ SECURITY GATE FAILED: PR head SHA mismatch"
@@ -458,12 +520,12 @@ jobs:
               # - Status checks from CI workflow
               # - Manual approval from CODEOWNERS
               # - Up-to-date branches
-              if ! gh pr merge "$PR_NUMBER" --repo "$REPO_NAME" --auto --squash 2> merge_err.log; then
+              if ! gh pr merge --repo "$VERIFIED_REPO" "$PR_NUMBER" --auto --squash 2> merge_err.log; then
                 cat merge_err.log
                 if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
                   echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
                   echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
-                  if gh pr merge "$PR_NUMBER" --repo "$REPO_NAME" --squash; then
+                  if gh pr merge --repo "$VERIFIED_REPO" "$PR_NUMBER" --squash; then
                     echo "✅ Direct squash merge completed successfully."
                   else
                     echo "⚠️ Direct merge deferred to repository administrator. Please configure required status checks in Branch Protection settings (see .github/workflows/REQUIRED_STATUS_CHECKS.md)."
