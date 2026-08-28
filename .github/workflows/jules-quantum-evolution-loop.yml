@@ -147,7 +147,72 @@ jobs:
           tail -n 20 bandit_output.log > bandit_summary_raw.txt
           base64 -w 0 ruff_summary_raw.txt > ruff_summary.txt
           base64 -w 0 bandit_summary_raw.txt > bandit_summary.txt
-      # 9. Invoke Jules with the absolute quantum transformation manifesto
+      # 9. Capture trusted baseline configurations before agent modifications
+      # SECURITY: Store trusted configuration files to prevent agent from weakening validation
+      - name: Capture Trusted Baseline Configurations
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        id: capture-baseline
+        run: |
+          echo "📸 Capturing trusted baseline configurations before agent modifications..."
+          mkdir -p .trusted-baseline
+          
+          # Capture pyproject.toml for Ruff, Bandit, and pytest configuration
+          if [ -f pyproject.toml ]; then
+            cp pyproject.toml .trusted-baseline/pyproject.toml
+            echo "✅ Captured pyproject.toml"
+          else
+            echo "⚠️  No pyproject.toml found"
+          fi
+          
+          # Capture requirements files to prevent dependency injection
+          if [ -f requirements.txt ]; then
+            cp requirements.txt .trusted-baseline/requirements.txt
+            echo "✅ Captured requirements.txt"
+          fi
+          if [ -f requirements-lock.txt ]; then
+            cp requirements-lock.txt .trusted-baseline/requirements-lock.txt
+            echo "✅ Captured requirements-lock.txt"
+          fi
+          if [ -f tools-requirements-lock.txt ]; then
+            cp tools-requirements-lock.txt .trusted-baseline/tools-requirements-lock.txt
+            echo "✅ Captured tools-requirements-lock.txt"
+          fi
+          
+          # Capture any standalone configuration files
+          if [ -f pytest.ini ]; then
+            cp pytest.ini .trusted-baseline/pytest.ini
+            echo "✅ Captured pytest.ini"
+          fi
+          if [ -f .bandit ]; then
+            cp .bandit .trusted-baseline/.bandit
+            echo "✅ Captured .bandit"
+          fi
+          if [ -f ruff.toml ]; then
+            cp ruff.toml .trusted-baseline/ruff.toml
+            echo "✅ Captured ruff.toml"
+          fi
+          
+          # Store the pre-agent commit SHA for reference
+          PRE_AGENT_SHA=$(git rev-parse HEAD)
+          echo "pre_agent_sha=$PRE_AGENT_SHA" >> $GITHUB_OUTPUT
+          echo "📌 Pre-agent baseline SHA: $PRE_AGENT_SHA"
+          
+          # Create a manifest of captured files
+          ls -la .trusted-baseline/ > .trusted-baseline/manifest.txt
+          echo "📋 Baseline manifest:"
+          cat .trusted-baseline/manifest.txt
+
+      # SECURITY: Upload trusted baseline as artifact to persist across checkout steps
+      - name: Upload Trusted Baseline Artifact
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: trusted-baseline-configs
+          path: .trusted-baseline/
+          retention-days: 1
+          if-no-files-found: error
+
+      # 10. Invoke Jules with the absolute quantum transformation manifesto
       - name: Invoke Jules Quantum Overhaul Agent
         if: steps.loop-check.outputs.continue_loop == 'true'
         # SECURITY: Pinned to immutable commit SHA instead of mutable @v1 tag
@@ -230,7 +295,8 @@ jobs:
             Commit Prefix Rule:
             - You MUST prefix your commit message exactly with: "chore(ai-enhance): release version ${{ steps.calc-version.outputs.next_version }}"
 
-      # 10. POST-CHANGE VALIDATION GATE: Capture exact SHA and re-validate after Jules modifications
+      # 11. POST-CHANGE VALIDATION GATE: Capture exact SHA and re-validate after Jules modifications
+      # SECURITY: This validation uses TRUSTED baseline configurations, not agent-modified ones
       - name: Capture Post-Agent Commit SHA
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-agent-sha
@@ -246,6 +312,77 @@ jobs:
         with:
           ref: ${{ steps.post-agent-sha.outputs.sha }}
           fetch-depth: 1
+          persist-credentials: false
+
+      # SECURITY: Download trusted baseline artifact to restore configurations
+      - name: Download Trusted Baseline Artifact
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: trusted-baseline-configs
+          path: .trusted-baseline/
+
+      # SECURITY: Restore trusted baseline configurations to prevent validation bypass
+      - name: Restore Trusted Baseline Configurations
+        if: steps.loop-check.outputs.continue_loop == 'true'
+        run: |
+          echo "🔒 Restoring trusted baseline configurations for validation..."
+          
+          # Check if we have a trusted baseline from the pre-agent checkout
+          if [ ! -d .trusted-baseline ]; then
+            echo "❌ SECURITY GATE FAILED: Trusted baseline directory not found"
+            echo "This indicates the baseline capture step failed or was bypassed"
+            exit 1
+          fi
+          
+          # Verify the baseline manifest exists
+          if [ ! -f .trusted-baseline/manifest.txt ]; then
+            echo "❌ SECURITY GATE FAILED: Baseline manifest not found"
+            exit 1
+          fi
+          
+          echo "📋 Baseline manifest contents:"
+          cat .trusted-baseline/manifest.txt
+          
+          # Restore trusted configuration files for validation
+          # These will be used by pytest, ruff, and bandit instead of agent-modified versions
+          if [ -f .trusted-baseline/pyproject.toml ]; then
+            cp .trusted-baseline/pyproject.toml pyproject.toml.trusted
+            echo "✅ Restored trusted pyproject.toml"
+          fi
+          
+          if [ -f .trusted-baseline/pytest.ini ]; then
+            cp .trusted-baseline/pytest.ini pytest.ini.trusted
+            echo "✅ Restored trusted pytest.ini"
+          fi
+          
+          if [ -f .trusted-baseline/.bandit ]; then
+            cp .trusted-baseline/.bandit .bandit.trusted
+            echo "✅ Restored trusted .bandit"
+          fi
+          
+          if [ -f .trusted-baseline/ruff.toml ]; then
+            cp .trusted-baseline/ruff.toml ruff.toml.trusted
+            echo "✅ Restored trusted ruff.toml"
+          fi
+          
+          # Restore trusted requirements files for dependency installation
+          if [ -f .trusted-baseline/requirements-lock.txt ]; then
+            cp .trusted-baseline/requirements-lock.txt requirements-lock.txt.trusted
+            echo "✅ Restored trusted requirements-lock.txt"
+          fi
+          
+          if [ -f .trusted-baseline/requirements.txt ]; then
+            cp .trusted-baseline/requirements.txt requirements.txt.trusted
+            echo "✅ Restored trusted requirements.txt"
+          fi
+          
+          if [ -f .trusted-baseline/tools-requirements-lock.txt ]; then
+            cp .trusted-baseline/tools-requirements-lock.txt tools-requirements-lock.txt.trusted
+            echo "✅ Restored trusted tools-requirements-lock.txt"
+          fi
+          
+          echo "🔐 Trusted baseline configurations restored successfully"
 
       - name: Re-install Rust Toolchain for Post-Change Validation
         if: steps.loop-check.outputs.continue_loop == 'true'
@@ -260,9 +397,12 @@ jobs:
           python-version: '3.13t'
           cache: 'pip'
 
-      - name: Re-install Dependencies for Post-Change Validation
+      # SECURITY: Install dependencies using TRUSTED baseline requirements, not agent-modified ones
+      - name: Re-install Dependencies for Post-Change Validation (Using Trusted Baseline)
         if: steps.loop-check.outputs.continue_loop == 'true'
         run: |
+          echo "🔒 Installing dependencies using TRUSTED baseline requirements..."
+          
           # Pin pip to a specific version with hash verification
           python -m pip install --no-deps \
             pip==24.3.1 \
@@ -272,54 +412,133 @@ jobs:
           # Install build tools with pinned versions
           pip install --no-deps setuptools==75.6.0 maturin==1.7.4
           
-          # Install tooling from hash-pinned lockfile if available
-          if [ -f tools-requirements-lock.txt ]; then
-            echo "📦 Installing tools from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r tools-requirements-lock.txt
+          # SECURITY: Install tooling from TRUSTED baseline lockfile, not agent-modified version
+          if [ -f tools-requirements-lock.txt.trusted ]; then
+            echo "📦 Installing tools from TRUSTED hash-pinned lockfile..."
+            pip install --require-hashes --no-deps -r tools-requirements-lock.txt.trusted
           else
-            echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
+            echo "⚠️  WARNING: Trusted tools lockfile not found, using hardcoded pinned versions"
             pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
           fi
           
-          # Install ML libraries with pinned versions
+          # Install ML libraries with pinned versions (these are workflow-controlled, not from repo)
           pip install torch==2.5.1 tensorflow==2.18.0 keras==3.7.0 \
             scikit-learn==1.6.0 lightgbm==4.5.0 catboost==1.2.7 \
             prophet==1.1.6 autots==0.6.15 darts==0.32.0 tsfresh==0.20.3
           
-          # Install application dependencies from hash-pinned lockfile if available
-          if [ -f requirements-lock.txt ]; then
-            echo "📦 Installing application dependencies from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r requirements-lock.txt
-          elif [ -f requirements.txt ]; then
-            echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
-            pip install -r requirements.txt
+          # SECURITY: Install application dependencies from TRUSTED baseline, not agent-modified version
+          if [ -f requirements-lock.txt.trusted ]; then
+            echo "📦 Installing application dependencies from TRUSTED hash-pinned lockfile..."
+            pip install --require-hashes --no-deps -r requirements-lock.txt.trusted
+          elif [ -f requirements.txt.trusted ]; then
+            echo "⚠️  WARNING: Trusted requirements-lock.txt not found, using trusted requirements.txt"
+            pip install -r requirements.txt.trusted
+          else
+            echo "❌ SECURITY WARNING: No trusted requirements file found"
+            echo "Proceeding with validation but dependency integrity cannot be guaranteed"
           fi
 
-      - name: POST-CHANGE VALIDATION - Run Test Suite (FAIL-CLOSED)
+      # SECURITY: Run pytest with TRUSTED configuration, not agent-modified pytest.ini or pyproject.toml
+      - name: POST-CHANGE VALIDATION - Run Test Suite (FAIL-CLOSED with Trusted Config)
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-change-tests
         run: |
           echo "🧪 Running post-change test validation on SHA ${{ steps.post-agent-sha.outputs.sha }}"
-          pytest -v
+          echo "🔒 Using TRUSTED baseline configuration to prevent test manipulation"
+          
+          # Use trusted pytest configuration if available
+          if [ -f pytest.ini.trusted ]; then
+            echo "Using trusted pytest.ini configuration"
+            pytest -v -c pytest.ini.trusted
+          elif [ -f pyproject.toml.trusted ]; then
+            echo "Using trusted pyproject.toml configuration"
+            # Create a temporary pytest config that uses trusted pyproject.toml settings
+            # Extract pytest config from trusted pyproject.toml
+            python3 << 'PYEOF'
+import tomllib
+with open('pyproject.toml.trusted', 'rb') as f:
+    config = tomllib.load(f)
+    if 'tool' in config and 'pytest' in config['tool'] and 'ini_options' in config['tool']['pytest']:
+        pytest_config = config['tool']['pytest']['ini_options']
+        with open('pytest.trusted.ini', 'w') as out:
+            out.write('[pytest]\n')
+            for key, value in pytest_config.items():
+                if isinstance(value, list):
+                    out.write(f'{key} = {" ".join(value)}\n')
+                else:
+                    out.write(f'{key} = {value}\n')
+PYEOF
+            pytest -v -c pytest.trusted.ini
+          else
+            echo "⚠️  No trusted pytest configuration found, using default pytest settings"
+            # Use minimal safe defaults that can't be manipulated
+            pytest -v --strict-markers
+          fi
+          
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      - name: POST-CHANGE VALIDATION - Run Ruff Linter (FAIL-CLOSED)
+      # SECURITY: Run Ruff with TRUSTED configuration, not agent-modified pyproject.toml or ruff.toml
+      - name: POST-CHANGE VALIDATION - Run Ruff Linter (FAIL-CLOSED with Trusted Config)
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-change-ruff
         run: |
           echo "🔍 Running post-change Ruff validation"
-          ruff check . --statistics
+          echo "🔒 Using TRUSTED baseline configuration to prevent rule weakening"
+          
+          # Use trusted Ruff configuration
+          if [ -f ruff.toml.trusted ]; then
+            echo "Using trusted ruff.toml configuration"
+            ruff check . --config ruff.toml.trusted --statistics
+          elif [ -f pyproject.toml.trusted ]; then
+            echo "Using trusted pyproject.toml configuration"
+            ruff check . --config pyproject.toml.trusted --statistics
+          else
+            echo "⚠️  No trusted Ruff configuration found, using strict default rules"
+            # Use strict defaults that can't be weakened by agent
+            ruff check . --select ALL --ignore E501 --statistics
+          fi
+          
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      - name: POST-CHANGE VALIDATION - Run Bandit Security Scanner (FAIL-CLOSED)
+      # SECURITY: Run Bandit with TRUSTED configuration, not agent-modified .bandit or pyproject.toml
+      - name: POST-CHANGE VALIDATION - Run Bandit Security Scanner (FAIL-CLOSED with Trusted Config)
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-change-bandit
         run: |
           echo "🔒 Running post-change Bandit security validation"
-          bandit -r . -ll --format txt
+          echo "🔒 Using TRUSTED baseline configuration to prevent exclusion manipulation"
+          
+          # Use trusted Bandit configuration
+          if [ -f .bandit.trusted ]; then
+            echo "Using trusted .bandit configuration"
+            bandit -r . -c .bandit.trusted -ll --format txt
+          elif [ -f pyproject.toml.trusted ]; then
+            echo "Using trusted pyproject.toml configuration"
+            # Extract bandit config from trusted pyproject.toml if it exists
+            if grep -q '\[tool.bandit\]' pyproject.toml.trusted; then
+              python3 << 'PYEOF'
+import tomllib
+with open('pyproject.toml.trusted', 'rb') as f:
+    config = tomllib.load(f)
+    if 'tool' in config and 'bandit' in config['tool']:
+        import yaml
+        with open('.bandit.trusted.yaml', 'w') as out:
+            yaml.dump(config['tool']['bandit'], out)
+PYEOF
+              bandit -r . -c .bandit.trusted.yaml -ll --format txt
+            else
+              echo "No bandit config in trusted pyproject.toml, using strict defaults"
+              bandit -r . -ll --format txt
+            fi
+          else
+            echo "⚠️  No trusted Bandit configuration found, using strict default rules"
+            # Use strict defaults: -ll = only report medium and high severity
+            bandit -r . -ll --format txt
+          fi
+          
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # 11. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
+      # 12. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
       - name: Open and Automerge Pull Request
         if: steps.loop-check.outputs.continue_loop == 'true'
         env:
@@ -327,6 +546,7 @@ jobs:
           BRANCH_NAME: ${{ github.ref_name }}
           TARGET_VERSION: ${{ steps.calc-version.outputs.next_version }}
           POST_CHANGE_SHA: ${{ steps.post-agent-sha.outputs.sha }}
+          PRE_AGENT_SHA: ${{ steps.capture-baseline.outputs.pre_agent_sha }}
         run: |
           echo "🚀 Initiating hands-free deployment pipeline..."
           # Check if the execution context is already running directly on main branch
@@ -357,8 +577,9 @@ jobs:
 - ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
 - ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
 - 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
+- 🔒 Baseline SHA: ${PRE_AGENT_SHA}
 
-**SECURITY NOTICE:** This PR has passed automated post-change validation gates. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
+**SECURITY NOTICE:** This PR has passed automated post-change validation gates using TRUSTED baseline configurations. The validation tools (pytest, ruff, bandit) were executed with configuration files captured BEFORE agent modifications to prevent validation bypass through configuration weakening. Manual review is still recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
                 --base main \
                 --head "$BRANCH_NAME")
               PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
