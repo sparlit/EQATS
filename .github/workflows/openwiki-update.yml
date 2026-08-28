@@ -5,13 +5,19 @@ on:
   schedule:
     - cron: "0 8 * * *"
 
+# Default to read-only permissions for all jobs. Write permissions are granted
+# only to the create-pr job, isolating repository-write capability from third-party
+# code execution during package installation and OpenWiki generation.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  update:
+  generate:
     runs-on: ubuntu-latest
+    # This job runs third-party code (npm packages, OpenWiki) with read-only
+    # permissions. No repository-write token is available to compromised dependencies.
+    permissions:
+      contents: read
     steps:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -32,7 +38,7 @@ jobs:
       - name: Install OpenWiki with locked dependencies
         # Use a committed package.json and package-lock.json for reproducible builds.
         # This ensures all transitive dependencies are pinned and integrity-checked.
-        # Secrets are NOT exposed during installation.
+        # No write-capable token is available during installation.
         working-directory: .github/workflows
         run: |
           # Copy the package.json to use for installation
@@ -53,8 +59,9 @@ jobs:
 
       - name: Run OpenWiki
         # Use npx to run from the local node_modules with locked dependencies.
-        # Secrets are only exposed to this execution step, not the installation step.
-        # The GitHub token is not persisted in .git/config due to persist-credentials: false.
+        # API secrets are exposed to this step, but no repository-write token is available.
+        # The GitHub token is not persisted in .git/config due to persist-credentials: false,
+        # and this job has only read permissions, preventing unauthorized repository modification.
         run: npx --prefix .github/workflows openwiki code --update --print
         env:
           OPENWIKI_PROVIDER: nvidia
@@ -69,10 +76,45 @@ jobs:
           LANGCHAIN_PROJECT: openwiki
           LANGCHAIN_TRACING_V2: "true"
 
+      - name: Upload generated changes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: openwiki-changes
+          path: |
+            openwiki/
+            AGENTS.md
+            CLAUDE.md
+            .github/workflows/openwiki-update.yml
+            .github/workflows/openwiki-package-lock.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  create-pr:
+    runs-on: ubuntu-latest
+    needs: generate
+    # This job has write permissions but does not execute third-party code.
+    # It only downloads artifacts and creates a pull request.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Credential persistence is acceptable here since no third-party code runs,
+          # but we disable it for defense in depth.
+          persist-credentials: false
+
+      - name: Download generated changes
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        with:
+          name: openwiki-changes
+          path: .
+
       - name: Create OpenWiki update pull request
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
-          # Provide token explicitly since persist-credentials is disabled for security
+          # Provide token explicitly since persist-credentials is disabled
           token: ${{ secrets.GITHUB_TOKEN }}
           add-paths: |
             openwiki
