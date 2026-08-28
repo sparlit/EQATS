@@ -7,10 +7,12 @@ jobs:
     if: ${{ github.event.sender.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
+      # Minimal permissions for PR review agent to post comments and feedback
       issues: write
       pull-requests: write
-      contents: write
-      checks: write
+      # Explicitly deny other permissions to prevent privilege escalation
+      contents: read
+      checks: read
     name: Run pr agent on every pull request, respond to user comments
     steps:
       - name: PR Agent action step
