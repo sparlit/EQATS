@@ -246,6 +246,13 @@ def test_connector_validates_terminal_path():
 
     try:
         database.init_db()
+        database.add_broker_account(
+            broker_name="Test Gateway",
+            server="test.server.com",
+            account_id="11111",
+            password="pwd",
+            is_active=1,
+        )
 
         # Manually insert a malicious path into the database (simulating a bypass)
         conn = database.get_connection()
