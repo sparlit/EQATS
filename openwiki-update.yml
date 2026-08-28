@@ -17,7 +17,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          persist-credentials: true
+          # Disable credential persistence to prevent installed packages from
+          # accessing the GitHub token via .git/config
+          persist-credentials: false
           # Full history so `openwiki code --update` can diff HEAD against the
           # commit it last documented; a shallow clone hides that commit and the
           # update runs against an empty change summary.
@@ -28,13 +30,33 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install OpenWiki
-        # mermaid + jsdom are optional; they add high-fidelity validation of Mermaid diagrams. Remove if your wiki has none.
-        run: npm install --global openwiki mermaid@11.16.0 jsdom@29.1.1
+      - name: Install OpenWiki with locked dependencies
+        # Use a committed package.json and package-lock.json for reproducible builds.
+        # This ensures all transitive dependencies are pinned and integrity-checked.
+        # Secrets are NOT exposed during installation.
+        working-directory: .github/workflows
+        run: |
+          # Copy the package.json to use for installation
+          cp openwiki-package.json package.json
+          
+          # If package-lock.json doesn't exist, generate it (first run only)
+          # On subsequent runs, the committed lockfile ensures reproducible builds
+          if [ ! -f openwiki-package-lock.json ]; then
+            npm install --package-lock-only
+            mv package-lock.json openwiki-package-lock.json
+            echo "WARNING: Generated new lockfile. This should be committed to the repository."
+          else
+            cp openwiki-package-lock.json package-lock.json
+          fi
+          
+          # Install using the lockfile for integrity-checked, reproducible installation
+          npm ci
 
       - name: Run OpenWiki
-        # --update also handles the first run for code docs when env vars are set.
-        run: openwiki code --update --print
+        # Use npx to run from the local node_modules with locked dependencies.
+        # Secrets are only exposed to this execution step, not the installation step.
+        # The GitHub token is not persisted in .git/config due to persist-credentials: false.
+        run: npx --prefix .github/workflows openwiki code --update --print
         env:
           # OpenWiki sends anonymous reliability telemetry from CI runs.
           # Uncomment to disable:
@@ -50,11 +72,14 @@ jobs:
       - name: Create OpenWiki update pull request
         uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
+          # Provide token explicitly since persist-credentials is disabled for security
+          token: ${{ secrets.GITHUB_TOKEN }}
           add-paths: |
             openwiki
             AGENTS.md
             CLAUDE.md
             .github/workflows/openwiki-update.yml
+            .github/workflows/openwiki-package-lock.json
           branch: openwiki/update
           commit-message: "docs: update OpenWiki"
           title: "docs: update OpenWiki"
