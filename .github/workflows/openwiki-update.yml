@@ -44,15 +44,32 @@ jobs:
           # Copy the package.json to use for installation
           cp openwiki-package.json package.json
           
-          # If package-lock.json doesn't exist, generate it (first run only)
-          # On subsequent runs, the committed lockfile ensures reproducible builds
+          # Require a committed lockfile to prevent runtime dependency resolution.
+          # Generating the lockfile at runtime would allow transitive dependencies
+          # to be resolved from the live npm registry, enabling supply-chain attacks
+          # via compromised packages that execute code during npm ci installation.
           if [ ! -f openwiki-package-lock.json ]; then
-            npm install --package-lock-only
-            mv package-lock.json openwiki-package-lock.json
-            echo "WARNING: Generated new lockfile. This should be committed to the repository."
-          else
-            cp openwiki-package-lock.json package-lock.json
+            echo "ERROR: openwiki-package-lock.json not found."
+            echo ""
+            echo "For security, this workflow requires a committed lockfile to ensure"
+            echo "all transitive dependencies are reviewed and integrity-checked before"
+            echo "installation. Generating the lockfile at runtime would allow untrusted"
+            echo "code execution via compromised npm packages."
+            echo ""
+            echo "To generate the lockfile in a controlled environment:"
+            echo "  cd .github/workflows"
+            echo "  cp openwiki-package.json package.json"
+            echo "  npm install --package-lock-only"
+            echo "  mv package-lock.json openwiki-package-lock.json"
+            echo "  rm package.json"
+            echo "  git add openwiki-package-lock.json"
+            echo "  git commit -m 'chore: add OpenWiki dependency lockfile'"
+            echo ""
+            exit 1
           fi
+          
+          # Copy the committed lockfile
+          cp openwiki-package-lock.json package-lock.json
           
           # Install using the lockfile for integrity-checked, reproducible installation
           npm ci
