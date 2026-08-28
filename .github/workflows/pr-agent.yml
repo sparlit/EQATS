@@ -7,15 +7,20 @@ jobs:
     if: ${{ github.event.sender.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
-      issues: write
-      pull-requests: write
-      contents: write
-      checks: write
+      # SECURITY: Permissions minimized to least-privilege principle
+      issues: write          # Required: respond to issue comments
+      pull-requests: write   # Required: comment on pull requests
+      contents: read         # Reduced from write: only read access needed
+      checks: read           # Reduced from write: only read access needed
     name: Run pr agent on every pull request, respond to user comments
     steps:
       - name: PR Agent action step
         id: pragent
-        uses: the-pr-agent/pr-agent@db3f2a5a8c487c28efaf566bebabb1778fb08ed7 # main
+        # SECURITY: Action pinned to full commit SHA to prevent supply-chain attacks.
+        # Verified commit from the-pr-agent/pr-agent repository.
+        # To update: verify new commit, update SHA, and document the version/date.
+        # Reference: https://github.com/the-pr-agent/pr-agent/commit/db3f2a5a8c487c28efaf566bebabb1778fb08ed7
+        uses: the-pr-agent/pr-agent@db3f2a5a8c487c28efaf566bebabb1778fb08ed7
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
