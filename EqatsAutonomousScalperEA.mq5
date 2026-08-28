@@ -206,6 +206,12 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void CheckDailyLossAndRisk()
 {
+   // DATA_COLLECTOR mode must not execute any position-closing logic
+   if(InpEARole == ROLE_DATA_COLLECTOR)
+   {
+      return;
+   }
+
    datetime now = TimeCurrent();
    if(m_daily_start_balance <= 0.0)
    {
@@ -249,6 +255,15 @@ void CheckDailyLossAndRisk()
          ulong ticket = PositionGetTicket(i);
          if(ticket > 0 && PositionSelectByTicket(ticket))
          {
+            // Only close positions matching this EA's magic number and symbol
+            long pos_magic = PositionGetInteger(POSITION_MAGIC);
+            string pos_symbol = PositionGetString(POSITION_SYMBOL);
+            
+            if(pos_magic != InpMagicNumber || pos_symbol != _Symbol)
+            {
+               continue;
+            }
+            
             datetime open_time = (datetime)PositionGetInteger(POSITION_TIME);
             double age_hours = (double)(now - open_time) / 3600.0;
             if(age_hours >= InpMaxPositionAgeHours)
@@ -377,6 +392,12 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 //+------------------------------------------------------------------+
 void EmergencyMoveToBE()
 {
+   // DATA_COLLECTOR mode must not execute any position-modifying logic
+   if(InpEARole == ROLE_DATA_COLLECTOR)
+   {
+      return;
+   }
+
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    double beBuffer = InputBreakEvenBuffer * point;
@@ -802,8 +823,15 @@ void OnChartEvent(const int id,
       }
       else if(sparam == "SB_Btn_Panic")
       {
-         Print("EqatsAutonomousScalperEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
-         ExecutePanicCloseAll();
+         if(InpEARole == ROLE_DATA_COLLECTOR)
+         {
+            Print("EqatsAutonomousScalperEA: 🚨 PANIC CLOSE ALL blocked - EA is in DATA_COLLECTOR mode (telemetry only)");
+         }
+         else
+         {
+            Print("EqatsAutonomousScalperEA: 🚨 EMERGENCY PANIC CLOSE ALL CLICKED BY OPERATOR!");
+            ExecutePanicCloseAll();
+         }
          UpdateDashboard();
       }
       else if(sparam == "SB_Btn_Toggle")
@@ -826,13 +854,29 @@ void OnChartEvent(const int id,
 //+------------------------------------------------------------------+
 void ExecutePanicCloseAll()
 {
+   // DATA_COLLECTOR mode must not execute any position-closing logic
+   if(InpEARole == ROLE_DATA_COLLECTOR)
+   {
+      Print("EqatsAutonomousScalperEA: ExecutePanicCloseAll blocked - EA is in DATA_COLLECTOR mode (telemetry only)");
+      return;
+   }
+
    Print("MANUAL OVERRIDE: Panic button pressed. Purging open positions...");
    int closed_count = 0;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
-      if(ticket > 0)
+      if(ticket > 0 && PositionSelectByTicket(ticket))
       {
+         // Only close positions matching this EA's magic number and symbol
+         long pos_magic = PositionGetInteger(POSITION_MAGIC);
+         string pos_symbol = PositionGetString(POSITION_SYMBOL);
+         
+         if(pos_magic != InpMagicNumber || pos_symbol != _Symbol)
+         {
+            continue;
+         }
+         
          if(m_trade_engine.PositionClose(ticket))
          {
             closed_count++;
@@ -951,9 +995,13 @@ bool ParseStateData()
             if(StringFind(line, "LOCKDOWN") >= 0 || StringFind(line, "PANIC") >= 0)
             {
                Print("EqatsAutonomousScalperEA: EMERGENCY LOCKDOWN / PANIC SIGNAL DETECTED IN TELEMETRY STREAM!");
-               if(InpEmergencyCloseOnLockdown)
+               if(InpEmergencyCloseOnLockdown && InpEARole != ROLE_DATA_COLLECTOR)
                {
                   ExecutePanicCloseAll();
+               }
+               else if(InpEARole == ROLE_DATA_COLLECTOR)
+               {
+                  Print("EqatsAutonomousScalperEA: Emergency close blocked - EA is in DATA_COLLECTOR mode (telemetry only)");
                }
             }
          }
