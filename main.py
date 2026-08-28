@@ -107,11 +107,57 @@ class AutonomousScalper:
         account_info = self.conn.get_account_info()
         self.daily_start_balance = account_info["balance"]
         self.last_day_str = datetime.date.today().isoformat()
+        # SECURITY FIX: Load persisted circuit breaker state
+        persisted_state = database.load_circuit_breaker_state()
+        current_date = datetime.date.today().isoformat()
+        
+        if persisted_state and persisted_state["trading_date"] == current_date:
+            # Same trading day - recover the baseline and halt state
+            self.daily_start_balance = persisted_state["daily_start_balance"]
+            self.last_day_str = persisted_state["trading_date"]
+            
+            if persisted_state["is_halted"]:
+                # Circuit breaker was triggered earlier today - restore HALTED state
+                self.engine.resilience.transition_state("HALTED")
+                halt_msg = (
+                    f"⚠️ *CIRCUIT BREAKER STATE RECOVERED FROM DATABASE*\\n"
+                    f"Trading was halted earlier today at {persisted_state['halt_timestamp']}.\\n"
+                    f"Reason: {persisted_state['halt_reason']}\\n"
+                    f"Daily baseline: {self.daily_start_balance:.2f}\\n"
+                    f"Current balance: {account_info['balance']:.2f}\\n"
+                    f"Trading remains HALTED until manual operator override or next trading day."
+                )
+                print(halt_msg.replace("*", ""))
+                telegram_bot.send_telegram_message(halt_msg)
+            else:
+                # Same day, not halted - use persisted baseline
+                recovery_msg = (
+                    f"📊 *Daily baseline recovered from database*\\n"
+                    f"Date: {current_date}\\n"
+                    f"Baseline: {self.daily_start_balance:.2f}\\n"
+                    f"Current: {account_info['balance']:.2f}"
+                )
+                print(recovery_msg.replace("*", ""))
+        else:
+            # New trading day or no persisted state - establish new baseline
+            self.daily_start_balance = account_info["balance"]
+            self.last_day_str = current_date
+            
+            # Persist the new baseline to database
+            database.save_circuit_breaker_state(
+                trading_date=current_date,
+                daily_start_balance=self.daily_start_balance,
+                is_halted=False
+            )
+            
+            new_day_msg = f"🌅 New trading day baseline established: {self.daily_start_balance:.2f}"
+            print(new_day_msg)
 
         start_msg = (
             f"🚀 *Elite Quantum Autonomous Trading System Started!*\n"
             f"Mode: {'Simulation' if config.SIMULATION_MODE else 'MT5 Terminal'}\n"
             f"Balance: {account_info['balance']:.2f} {account_info['currency']}\n"
+            f"Daily Baseline: {self.daily_start_balance:.2f}\\n"
             f"Risk Per Trade: {config.RISK_PER_TRADE_PERCENT}%\n"
             f"Max Drawdown Limit: {config.MAX_DAILY_DRAWDOWN_PERCENT}%"
         )
@@ -615,12 +661,26 @@ class AutonomousScalper:
         # Log heartbeat metrics on the Operations plane
         self.engine.resilience.log_heartbeat(0.12)
 
+        # SECURITY FIX: Check if circuit breaker is in HALTED state
+        if self.engine.resilience.get_state() == "HALTED":
+            # Trading is halted - skip all trading logic
+            print("⚠️ Trading is HALTED due to circuit breaker. Skipping tick cycle.")
+            return
+
         # A. Check and update the daily drawdown start baseline
         current_date = datetime.date.today().isoformat()
         if current_date != self.last_day_str:
             account_info = self.conn.get_account_info()
             self.daily_start_balance = account_info["balance"]
             self.last_day_str = current_date
+            
+            # SECURITY FIX: Persist new daily baseline to database
+            database.save_circuit_breaker_state(
+                trading_date=current_date,
+                daily_start_balance=self.daily_start_balance,
+                is_halted=False
+            )
+            
             print(
                 f"New day detected: {current_date}. Resetting daily baseline to {self.daily_start_balance:.2f}"
             )
@@ -654,6 +714,15 @@ class AutonomousScalper:
 
             # Transition safety state machine to HALTED (Section 41)
             self.engine.resilience.transition_state("HALTED")
+            
+            # SECURITY FIX: Persist HALTED state to database
+            halt_reason = f"Daily drawdown limit reached: {abs(daily_floating_loss):.2f} USD ({config.MAX_DAILY_DRAWDOWN_PERCENT}%)"
+            database.save_circuit_breaker_state(
+                trading_date=current_date,
+                daily_start_balance=self.daily_start_balance,
+                is_halted=True,
+                halt_reason=halt_reason
+            )
 
             # Autonomously close all active trades immediately to preserve remaining capital!
             active_positions = self.conn.get_open_orders()
