@@ -110,16 +110,36 @@ class UniversalConnector(TradingConnector):
             protocol=self.protocol, broker_config=self.broker_config
         )
         self.sim_fallback = SimulatorConnector(initial_balance=initial_balance)
+        # Track live broker tickets to route lifecycle operations correctly
+        self.live_tickets = set()
+        self.ticket_lock = threading.Lock()
 
     def connect(self):
         try:
             res = self.gateway.connect()
             if res:
+                # Rebuild live_tickets set from existing gateway orders
+                self._sync_live_tickets()
                 return True
         except Exception as e:
             print(f"UniversalConnector error on gateway connect: {e}")
         print("UniversalConnector: Falling back to Simulator mode.")
         return self.sim_fallback.connect()
+
+    def _sync_live_tickets(self):
+        """Synchronizes live_tickets set with actual open orders from the gateway."""
+        if self.gateway.is_connected() and self.protocol != "SIMULATOR":
+            try:
+                live_orders = self.gateway.get_open_orders()
+                with self.ticket_lock:
+                    self.live_tickets.clear()
+                    for order in live_orders:
+                        ticket = str(order.get("ticket", ""))
+                        if ticket:
+                            self.live_tickets.add(ticket)
+                _log.info("Synchronized %d live tickets from gateway", len(self.live_tickets))
+            except Exception as e:
+                _log.warning("Failed to sync live tickets from gateway: %s", e)
 
     def is_connected(self):
         return self.gateway.is_connected() or self.sim_fallback.is_connected()
@@ -146,19 +166,58 @@ class UniversalConnector(TradingConnector):
         if self.gateway.is_connected() and self.protocol != "SIMULATOR":
             gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
             if gw_res.get("success"):
-                # Sync into internal trade tracker
-                self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+                # Track this as a live broker ticket
+                live_ticket = gw_res.get("ticket")
+                with self.ticket_lock:
+                    self.live_tickets.add(str(live_ticket))
                 return gw_res
         return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
 
     def close_order(self, ticket, reason="MANUAL"):
-        return self.sim_fallback.close_order(ticket, reason)
+        ticket_str = str(ticket)
+        with self.ticket_lock:
+            is_live = ticket_str in self.live_tickets
+        
+        if is_live:
+            # Route to live broker gateway
+            result = self.gateway.close_order(ticket, reason)
+            if result.get("success"):
+                with self.ticket_lock:
+                    self.live_tickets.discard(ticket_str)
+            return result
+        else:
+            # Route to simulator
+            return self.sim_fallback.close_order(ticket, reason)
 
     def modify_order(self, ticket, sl, tp):
-        return self.sim_fallback.modify_order(ticket, sl, tp)
+        ticket_str = str(ticket)
+        with self.ticket_lock:
+            is_live = ticket_str in self.live_tickets
+        
+        if is_live:
+            # Route to live broker gateway
+            return self.gateway.modify_order(ticket, sl, tp)
+        else:
+            # Route to simulator
+            return self.sim_fallback.modify_order(ticket, sl, tp)
 
     def get_open_orders(self):
-        return self.sim_fallback.get_open_orders()
+        # Merge orders from both live gateway and simulator
+        orders = []
+        
+        # Get simulator orders
+        sim_orders = self.sim_fallback.get_open_orders()
+        orders.extend(sim_orders)
+        
+        # Get live gateway orders if connected
+        if self.gateway.is_connected() and self.protocol != "SIMULATOR":
+            try:
+                live_orders = self.gateway.get_open_orders()
+                orders.extend(live_orders)
+            except Exception as e:
+                _log.warning("Failed to retrieve live gateway orders: %s", e)
+        
+        return orders
 
     def draw_dashboard(self, symbol, data):
         self.sim_fallback.draw_dashboard(symbol, data)
