@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
@@ -190,6 +191,48 @@ class UniversalBrokerGateway:
             "protocol": self.protocol,
         }
 
+    def _reconcile_order_status(self, client_order_id):
+        """
+        Queries the broker to check if an order with the given client_order_id was accepted.
+        Returns dict with 'found': bool, 'ticket': str, 'price': float if found.
+        This prevents duplicate order submission after ambiguous timeout.
+        """
+        if not hasattr(self, "rest_url") or not self.rest_url:
+            return {"found": False}
+        
+        try:
+            # Query broker order status endpoint with client_order_id
+            query_url = f"{self.rest_url}/v1/order/status?client_order_id={client_order_id}"
+            req = urllib.request.Request(query_url, headers={"Content-Type": "application/json"})
+            
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                status_data = json.loads(resp.read().decode("utf-8"))
+                
+                # If broker confirms the order exists, return its details
+                if status_data.get("found") or status_data.get("status") in ["ACCEPTED", "FILLED", "PARTIAL"]:
+                    _log.info(
+                        "Order reconciliation: client_order_id %s found at broker with status %s",
+                        client_order_id,
+                        status_data.get("status", "UNKNOWN")
+                    )
+                    return {
+                        "found": True,
+                        "ticket": str(status_data.get("ticket", status_data.get("order_id", ""))),
+                        "price": float(status_data.get("price", 0.0)),
+                        "status": status_data.get("status", "ACCEPTED")
+                    }
+                else:
+                    return {"found": False}
+                    
+        except Exception as e:
+            # If reconciliation query fails, we cannot confirm order status
+            _log.warning(
+                "Order reconciliation query failed for client_order_id %s: %s",
+                client_order_id,
+                e
+            )
+            return {"found": False}
+
     def execute_order(self, symbol, order_type, lot_size, sl, tp):
         """Executes trade order using active protocol route with circuit breaker, configurable retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
         # Circuit Breaker check before attempting order execution
@@ -212,8 +255,12 @@ class UniversalBrokerGateway:
             and hasattr(self, "rest_url")
             and self.rest_url
         ):
+            # Generate stable client_order_id for idempotent retry
+            client_order_id = f"EQATS_{uuid.uuid4().hex[:16]}_{int(time.time() * 1000)}"
+            
             payload = json.dumps(
                 {
+                    "client_order_id": client_order_id,
                     "symbol": symbol,
                     "side": order_type,
                     "volume": lot_size,
@@ -250,6 +297,31 @@ class UniversalBrokerGateway:
                         symbol,
                         e,
                     )
+                    
+                    # After timeout, reconcile to check if order was actually accepted
+                    _log.info(
+                        "Attempting order reconciliation for client_order_id %s after timeout",
+                        client_order_id
+                    )
+                    reconcile_result = self._reconcile_order_status(client_order_id)
+                    
+                    if reconcile_result.get("found"):
+                        # Order was accepted despite timeout - return success
+                        _log.info(
+                            "Order reconciliation successful: order %s was accepted at broker",
+                            reconcile_result.get("ticket")
+                        )
+                        self._breaker.record_success()
+                        return {
+                            "success": True,
+                            "ticket": reconcile_result.get("ticket", ""),
+                            "price": reconcile_result.get("price", 0.0),
+                            "error": "",
+                            "protocol": self.protocol,
+                            "reconciled": True,
+                        }
+                    
+                    # Order not found at broker - safe to retry with same client_order_id
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
                 except (
@@ -283,6 +355,31 @@ class UniversalBrokerGateway:
                         symbol,
                         e,
                     )
+                    
+                    # Attempt reconciliation for ambiguous errors that might hide accepted orders
+                    _log.info(
+                        "Attempting order reconciliation for client_order_id %s after exception",
+                        client_order_id
+                    )
+                    reconcile_result = self._reconcile_order_status(client_order_id)
+                    
+                    if reconcile_result.get("found"):
+                        # Order was accepted despite exception - return success
+                        _log.info(
+                            "Order reconciliation successful: order %s was accepted at broker",
+                            reconcile_result.get("ticket")
+                        )
+                        self._breaker.record_success()
+                        return {
+                            "success": True,
+                            "ticket": reconcile_result.get("ticket", ""),
+                            "price": reconcile_result.get("price", 0.0),
+                            "error": "",
+                            "protocol": self.protocol,
+                            "reconciled": True,
+                        }
+                    
+                    # Order not found - safe to retry with same client_order_id
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
 
