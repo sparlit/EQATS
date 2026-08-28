@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "10.10"
-#property description "Elite Quantum Autonomous Scalper EA v10.10 - L99 Active Watchdog Heartbeat, Emergency Move-To-BE & Arbitrage Discrepancy Alert"
+#property version   "10.20"
+#property description "Elite Quantum Autonomous Scalper EA v10.20 - Role-Based Data Collector & Trade Executor Stack with L99 Active Watchdog"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -17,18 +17,52 @@
    int PostMessageW(long hWnd, uint Msg, uint wParam, uint lParam);
 #import
 
+enum ENUM_EA_ROLE
+{
+   ROLE_TRADE_EXECUTOR = 0, // Full Execution Strategy Stack
+   ROLE_DATA_COLLECTOR = 1  // Data Collector Mode (Telemetry & Ticks Only)
+};
+
 // User Interface & Socket IPC Inputs
-input string   InpMasterKey                = "AAT_SECURE_FOSS_KEY_256_BIT_STRIP"; // Master Handshake Key
-input string   InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
-input int      InpSocketPort               = 9001;                  // Socket IPC Bridge Port
-input bool     InpUseSocketIPC             = true;                  // Use Zero-Latency Socket IPC Push
-input string   InpFileName                 = "scalper_telemetry.txt"; // Fallback State File Name
-input bool     InpUseCommonFolder          = true;                  // Use Common shared folder (FILE_COMMON)
-input int      InpTimerInterval            = 1;                     // Update Interval (seconds)
-input int      InpWatchdogSec              = 10;                    // Symmetric Watchdog Heartbeat Timeout (sec)
-input bool     InpEmergencyCloseOnLockdown = true;                  // Close positions on Emergency Lockdown signal
-input color    InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
-input color    InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
+input string       InpMasterKey                = "AAT_SECURE_FOSS_KEY_256_BIT_STRIP"; // Master Handshake Key
+input ENUM_EA_ROLE InpEARole                   = ROLE_TRADE_EXECUTOR; // EA Operating Role
+input string       InpSocketHost               = "127.0.0.1";           // Socket IPC Bridge Host
+input int          InpSocketPort               = 9001;                  // Socket IPC Bridge Port
+input bool         InpUseSocketIPC             = true;                  // Use Zero-Latency Socket IPC Push
+input string       InpFileName                 = "scalper_telemetry.txt"; // Fallback State File Name
+input bool         InpUseCommonFolder          = true;                  // Use Common shared folder (FILE_COMMON)
+input int          InpTimerInterval            = 1;                     // Update Interval (seconds)
+input int          InpWatchdogSec              = 10;                    // Symmetric Watchdog Heartbeat Timeout (sec)
+input bool         InpEmergencyCloseOnLockdown = true;                  // Close positions on Emergency Lockdown signal
+input color        InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
+input color        InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
+
+// Local Risk & Margin Safeguards (Adapted from BotCilento EA & AatEAv15)
+input group "Local EA Risk & Margin Safeguards"
+input bool     InpEnableEmergencyClose      = true;                  // Enable emergency close at max drawdown
+input double   InpMaxDrawdownPercent        = 15.0;                  // Max drawdown % before panic close
+input double   InpDailyLossLimitPercent     = 5.0;                   // Max daily loss limit %
+input double   InpMinFreeMarginBuffer       = 100.0;                 // Minimum free margin buffer ($ USD)
+input double   InputMinFreeMarginPct        = 30.0;                  // Minimum free margin percentage (%)
+input int      InputMaxAllowedSpread        = 40;                    // Max allowed spread (points)
+input int      InpMaxPositionAgeHours       = 72;                    // Max position age (hours, 0=disabled)
+input int      InpMaxTradesPerSecond        = 2;                     // Max trades per second rate limit
+
+// Dynamic Execution & AAT Advanced Features (Adapted from AatEAv15)
+input group "AAT Execution, BreakEven, Trailing & Pyramiding"
+input double   InpRiskPercent              = 1.0;                   // Risk per trade (%)
+input int      InpMagicNumber              = 123456;                // Magic Number
+input int      InpStopLossPoints           = 200;                   // Initial Stop Loss (points)
+input int      InpTakeProfitPoints         = 400;                   // Initial Take Profit (points)
+input int      InputBreakEvenTrigger       = 250;                   // BreakEven Trigger (points)
+input int      InputBreakEvenBuffer        = 30;                    // BreakEven Buffer (points)
+input bool     InpTrailingSL               = true;                  // Enable Trailing Stop Loss
+input bool     InpTrailingTP               = true;                  // Enable Trailing Take Profit
+input int      InpTrailingStep             = 50;                    // Trailing Step (points)
+input bool     InpEnablePyramiding         = true;                  // Enable Pyramid Scaling on Winner
+input int      InpMaxPyramidPositions      = 5;                     // Max Pyramid Positions
+input int      InputPyramidStepPoints      = 200;                   // Pyramid Min Entry Step (points)
+input bool     InpAutoCharts               = false;                 // Auto-open & Tile Multi-TF Charts (M1..MN)
 
 // Local Risk & Margin Safeguards (Adapted from BotCilento EA & AatEAv15)
 input group "Local EA Risk & Margin Safeguards"
@@ -166,7 +200,8 @@ int OnInit()
    DrawInstitutionalHeader();
    UpdateDashboard();
 
-   Print("EqatsAutonomousScalperEA v10.10 Initialized cleanly (Role: TRADE_EXECUTOR | L99 Watchdog Active). IPC: ", InpSocketHost, ":", InpSocketPort);
+   string role_str = (InpEARole == ROLE_DATA_COLLECTOR) ? "DATA_COLLECTOR" : "TRADE_EXECUTOR";
+   Print("EqatsAutonomousScalperEA v10.20 Initialized cleanly (Role: ", role_str, " | L99 Watchdog Active). IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -177,7 +212,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v10.10 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v10.20 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -269,6 +304,14 @@ void OnTick()
 
    CheckDailyLossAndRisk();
    CheckArbitrageDiscrepancy();
+
+   // In DATA_COLLECTOR mode, process telemetry updates without executing live trade modifications
+   if(InpEARole == ROLE_DATA_COLLECTOR)
+   {
+      UpdateDashboard();
+      return;
+   }
+
    ProcessBreakEvenProtection();
    if(InpTrailingSL || InpTrailingTP) ApplyTrailingLogic();
    if(InpEnablePyramiding) CheckPyramidScaling();
