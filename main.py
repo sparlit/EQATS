@@ -974,6 +974,33 @@ class AutonomousScalper:
                 # EQATS 3.0 UNIFIED SAFETY, RISK AND TRADE ADMISSION ENFORCEMENT
                 # ==================================================================
                 
+                # SECURITY FIX: Normalize lot_size to broker constraints BEFORE exposure calculation
+                # This ensures exposure calculations, safety checks, and execution all use the same volume
+                constraints = self.conn.get_symbol_volume_constraints(symbol)
+                vol_min = constraints["volume_min"]
+                vol_max = constraints["volume_max"]
+                vol_step = constraints["volume_step"]
+                
+                # Apply broker volume constraints
+                normalized_lot_size = max(vol_min, min(vol_max, float(lot_size)))
+                if vol_step > 0:
+                    steps = round((normalized_lot_size - vol_min) / vol_step)
+                    calc_lots = vol_min + steps * vol_step
+                    step_str = f"{vol_step:.8f}".rstrip("0")
+                    precision = len(step_str.split(".")[1]) if "." in step_str else 0
+                    normalized_lot_size = round(calc_lots, precision)
+                    normalized_lot_size = max(vol_min, min(vol_max, normalized_lot_size))
+                
+                # Log volume adjustment if it occurred
+                if abs(normalized_lot_size - lot_size) > 0.001:
+                    _log.info(
+                        "Volume normalized for %s: %.4f -> %.4f (broker min=%.4f, max=%.4f, step=%.4f)",
+                        symbol, lot_size, normalized_lot_size, vol_min, vol_max, vol_step
+                    )
+                
+                # SECURITY: Use normalized volume for all subsequent calculations and checks
+                lot_size = normalized_lot_size
+                
                 # SECURITY FIX: Calculate actual aggregate stop-loss exposure
                 # This replaces the count-based proxy with real monetary exposure
                 current_equity = self.conn.get_account_info()["equity"]
@@ -993,7 +1020,7 @@ class AutonomousScalper:
                         )
                         aggregate_exposure_pct += pos_exposure
                 
-                # Calculate proposed order's stop-loss exposure
+                # Calculate proposed order's stop-loss exposure using NORMALIZED lot size
                 price_info_curr = self.conn.get_current_price(symbol)
                 entry_price_estimate = price_info_curr.get("ask" if decision == "BUY" else "bid", 0.0)
                 
@@ -1007,8 +1034,8 @@ class AutonomousScalper:
                     )
                     total_exposure_with_new_order = aggregate_exposure_pct + proposed_exposure
                     _log.info(
-                        "Aggregate stop-loss exposure: existing=%.2f%%, proposed=%.2f%%, total=%.2f%% (equity=%.2f)",
-                        aggregate_exposure_pct, proposed_exposure, total_exposure_with_new_order, current_equity
+                        "Aggregate stop-loss exposure: existing=%.2f%%, proposed=%.2f%%, total=%.2f%% (equity=%.2f, normalized_lot=%.4f)",
+                        aggregate_exposure_pct, proposed_exposure, total_exposure_with_new_order, current_equity, lot_size
                     )
                 else:
                     # SECURITY WARNING: Cannot calculate actual exposure - will use count-based fallback
@@ -1115,35 +1142,7 @@ class AutonomousScalper:
                     )
                     continue
 
-                # SECURITY FIX: Normalize lot_size to broker constraints BEFORE validation
-                # This ensures fat-finger checks and notional limits are applied to the
-                # actual volume that will be submitted, preventing safety control bypass
-                constraints = self.conn.get_symbol_volume_constraints(symbol)
-                vol_min = constraints["volume_min"]
-                vol_max = constraints["volume_max"]
-                vol_step = constraints["volume_step"]
-                
-                # Apply broker volume constraints
-                normalized_lot_size = max(vol_min, min(vol_max, float(lot_size)))
-                if vol_step > 0:
-                    steps = round((normalized_lot_size - vol_min) / vol_step)
-                    calc_lots = vol_min + steps * vol_step
-                    step_str = f"{vol_step:.8f}".rstrip("0")
-                    precision = len(step_str.split(".")[1]) if "." in step_str else 0
-                    normalized_lot_size = round(calc_lots, precision)
-                    normalized_lot_size = max(vol_min, min(vol_max, normalized_lot_size))
-                
-                # Log volume adjustment if it occurred
-                if abs(normalized_lot_size - lot_size) > 0.001:
-                    _log.info(
-                        "Volume normalized for %s: %.4f -> %.4f (broker min=%.4f)",
-                        symbol, lot_size, normalized_lot_size, vol_min
-                    )
-                
-                # Use normalized volume for all subsequent checks and execution
-                lot_size = normalized_lot_size
-
-                # E. Fat-Finger checking
+                # F. Fat-Finger checking (using normalized lot_size from earlier)
                 if not self.engine.execution.validate_fat_finger(
                     symbol, lot_size, feed_price
                 ):
@@ -1152,7 +1151,7 @@ class AutonomousScalper:
                     )
                     continue
 
-                # F. Self-Trade prevention check
+                # G. Self-Trade prevention check
                 if self.engine.execution.prevent_self_trade(
                     symbol, decision, active_positions_refresh
                 ):
@@ -1161,7 +1160,7 @@ class AutonomousScalper:
                     )
                     continue
 
-                # G. Rate limits check (Section 24.1)
+                # H. Rate limits check (Section 24.1)
                 if not self.engine.execution.check_rate_limits():
                     print("🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
                     # Transition resilience state on throttling
