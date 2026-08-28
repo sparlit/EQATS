@@ -6,6 +6,61 @@ import config
 from event_bus import Event, global_event_bus
 
 
+def calculate_stop_loss_exposure(symbol: str, lot_size: float, entry_price: float, 
+                                  stop_loss: float, equity: float) -> float:
+    """
+    Calculates the actual monetary stop-loss exposure as a percentage of equity.
+    
+    Args:
+        symbol: Trading symbol
+        lot_size: Position size in lots
+        entry_price: Entry price
+        stop_loss: Stop-loss price
+        equity: Current account equity
+        
+    Returns:
+        Stop-loss exposure as percentage of equity
+    """
+    if equity <= 0 or lot_size <= 0 or entry_price <= 0 or stop_loss <= 0:
+        return 0.0
+    
+    # Calculate stop-loss distance in price units
+    sl_distance = abs(entry_price - stop_loss)
+    
+    # Get symbol-specific pip specifications
+    sym_upper = symbol.upper()
+    if "XAU" in sym_upper or "GOLD" in sym_upper:
+        pip_size = 0.1
+        pip_value_per_lot = 10.0
+    elif "XAG" in sym_upper or "SILVER" in sym_upper:
+        pip_size = 0.01
+        pip_value_per_lot = 50.0
+    elif any(c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]):
+        pip_size = 1.0
+        pip_value_per_lot = 1.0
+    elif any(idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]):
+        pip_size = 1.0
+        pip_value_per_lot = 1.0
+    elif "JPY" in sym_upper:
+        pip_size = 0.01
+        pip_value_per_lot = 6.5
+    else:
+        # Standard FX Major / Minor
+        pip_size = 0.0001
+        pip_value_per_lot = 10.0
+    
+    # Calculate stop-loss in pips
+    sl_pips = sl_distance / pip_size if pip_size > 0 else 0.0
+    
+    # Calculate monetary exposure
+    monetary_exposure = lot_size * sl_pips * pip_value_per_lot
+    
+    # Convert to percentage of equity
+    exposure_percent = (monetary_exposure / equity) * 100.0 if equity > 0 else 0.0
+    
+    return exposure_percent
+
+
 
 # ==============================================================================
 # 1. CONTROL & GOVERNANCE PLANE
@@ -396,15 +451,33 @@ class SafetyVerificationPlane:
         active_count: int,
         has_reconciliation_mismatch: bool = False,
         has_disagreement: bool = False,
+        actual_aggregate_exposure_pct: float = None,
     ) -> list:
         """
         Evaluates deterministically core system safety truths.
         Returns a list of violation codes.
+        
+        Args:
+            current_risk: Legacy count-based risk (for backward compatibility)
+            active_count: Number of active positions
+            has_reconciliation_mismatch: Whether positions are reconciled
+            has_disagreement: Whether components disagree
+            actual_aggregate_exposure_pct: Actual stop-loss exposure as % of equity (preferred)
         """
         violations = []
+        
         # INV-001: Portfolio risk <= hard limit
-        if current_risk > config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES:
-            violations.append("INV-001")
+        # Use actual exposure if provided, otherwise fall back to count-based calculation
+        if actual_aggregate_exposure_pct is not None:
+            # Calculate maximum allowed exposure based on configured limits
+            max_allowed_exposure = config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES
+            if actual_aggregate_exposure_pct > max_allowed_exposure:
+                violations.append("INV-001")
+        else:
+            # Legacy count-based check (backward compatibility)
+            if current_risk > config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES:
+                violations.append("INV-001")
+        
         # INV-002: Concurrent trades limit
         if active_count > config.MAX_CONCURRENT_TRADES:
             violations.append("INV-002")
