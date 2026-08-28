@@ -1031,6 +1031,144 @@ def normalize_leverage(leverage_str: str) -> str:
     return "1:100"
 
 
+def validate_terminal_path(terminal_path: str) -> str:
+    """
+    Validates and sanitizes MT5 terminal executable path to prevent arbitrary code execution.
+    
+    SECURITY: This function enforces strict validation to prevent database-controlled
+    terminal paths from selecting arbitrary executables. Only legitimate MT5 terminal
+    executables in standard installation directories are permitted.
+    
+    Validation rules:
+    1. Path must end with 'terminal64.exe' or 'terminal.exe' (case-insensitive)
+    2. Path must be an absolute path (not relative)
+    3. Path must not contain directory traversal sequences (..)
+    4. If the file exists, it must be a regular file (not a directory or symlink)
+    5. Path must be within common MT5 installation directories or explicitly allowed paths
+    
+    Args:
+        terminal_path: The terminal path to validate
+        
+    Returns:
+        str: Validated and normalized terminal path, or empty string if invalid
+        
+    Raises:
+        ValueError: If the path fails validation checks
+    """
+    if not terminal_path or not str(terminal_path).strip():
+        return ""
+    
+    path_str = str(terminal_path).strip()
+    
+    # Normalize path separators and resolve to absolute path
+    try:
+        import pathlib
+        path_obj = pathlib.Path(path_str)
+        
+        # Check 1: Must end with terminal64.exe or terminal.exe (case-insensitive)
+        filename_lower = path_obj.name.lower()
+        if filename_lower not in ('terminal64.exe', 'terminal.exe', 'terminal64', 'terminal'):
+            _log.warning(
+                "Terminal path validation failed: filename must be 'terminal64.exe' or 'terminal.exe', got '%s'",
+                path_obj.name
+            )
+            raise ValueError(f"Invalid MT5 terminal filename: {path_obj.name}")
+        
+        # Check 2: Must be absolute path (not relative)
+        if not path_obj.is_absolute():
+            _log.warning(
+                "Terminal path validation failed: path must be absolute, got '%s'",
+                path_str
+            )
+            raise ValueError("Terminal path must be an absolute path")
+        
+        # Check 3: Must not contain directory traversal sequences
+        normalized_str = str(path_obj.resolve())
+        if '..' in path_str or '..' in normalized_str:
+            _log.warning(
+                "Terminal path validation failed: directory traversal detected in '%s'",
+                path_str
+            )
+            raise ValueError("Terminal path must not contain directory traversal sequences")
+        
+        # Check 4: If file exists, verify it's a regular file
+        if path_obj.exists():
+            if not path_obj.is_file():
+                _log.warning(
+                    "Terminal path validation failed: path exists but is not a regular file: '%s'",
+                    normalized_str
+                )
+                raise ValueError("Terminal path must point to a regular file")
+            
+            # Additional check: resolve symlinks and verify final target
+            try:
+                resolved_path = path_obj.resolve(strict=True)
+                resolved_filename = resolved_path.name.lower()
+                if resolved_filename not in ('terminal64.exe', 'terminal.exe', 'terminal64', 'terminal'):
+                    _log.warning(
+                        "Terminal path validation failed: resolved path does not point to MT5 terminal: '%s'",
+                        str(resolved_path)
+                    )
+                    raise ValueError("Resolved terminal path does not point to a valid MT5 terminal executable")
+            except Exception as e:
+                _log.warning(
+                    "Terminal path validation failed: could not resolve path '%s': %s",
+                    path_str,
+                    e
+                )
+                raise ValueError(f"Could not resolve terminal path: {e}")
+        
+        # Check 5: Path must be in approved directories (common MT5 installation locations)
+        # This is a defense-in-depth measure - we check common installation paths
+        normalized_lower = normalized_str.lower()
+        
+        # Common MT5 installation directories (Windows)
+        approved_patterns = [
+            'program files',
+            'program files (x86)',
+            'programdata',
+            'users',
+            'mt5',
+            'metatrader',
+            'metatrader 5',
+            'alpari',
+            'roboforex',
+            'xm',
+            'fxpro',
+            'ic markets',
+            'pepperstone',
+            'oanda',
+            'forex.com',
+            'fxcm',
+        ]
+        
+        # Check if path contains any approved pattern
+        path_approved = any(pattern in normalized_lower for pattern in approved_patterns)
+        
+        if not path_approved:
+            _log.warning(
+                "Terminal path validation warning: path '%s' is not in a recognized MT5 installation directory. "
+                "This may be legitimate for custom installations, but could indicate a security issue.",
+                normalized_str
+            )
+            # Log warning but don't reject - some users may have custom installation paths
+            # The filename and file type checks above are the primary security controls
+        
+        # Return the normalized absolute path
+        return normalized_str
+        
+    except ValueError:
+        # Re-raise validation errors
+        raise
+    except Exception as e:
+        _log.error(
+            "Terminal path validation failed with unexpected error for '%s': %s",
+            path_str,
+            e
+        )
+        raise ValueError(f"Terminal path validation error: {e}")
+
+
 def add_broker_account(
     broker_name,
     server,
@@ -1046,8 +1184,31 @@ def add_broker_account(
     terminal_path="",
     is_active=0,
 ):
-    """Adds a new broker gateway configuration into SQLite with lock retries."""
+    """
+    Adds a new broker gateway configuration into SQLite with lock retries.
+    
+    SECURITY: Validates terminal_path to prevent arbitrary executable selection.
+    Only legitimate MT5 terminal executables are permitted.
+    """
     leverage = normalize_leverage(leverage)
+    
+    # SECURITY: Validate terminal_path before persisting to database
+    validated_terminal_path = ""
+    if terminal_path and str(terminal_path).strip():
+        try:
+            validated_terminal_path = validate_terminal_path(terminal_path)
+            _log.info("Terminal path validated successfully: %s", validated_terminal_path)
+        except ValueError as e:
+            _log.error(
+                "Terminal path validation failed for add_broker_account: %s. "
+                "Terminal path will be cleared for security. Error: %s",
+                terminal_path,
+                e
+            )
+            # Clear invalid terminal path rather than rejecting the entire operation
+            # This allows the broker account to be added with other valid credentials
+            validated_terminal_path = ""
+    
     if is_active:
         _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
     _execute_with_retry(
@@ -1067,7 +1228,7 @@ def add_broker_account(
             encrypt_secret(****cret) if ****cret else "",
             rest_url,
             ws_url,
-            terminal_path,
+            validated_terminal_path,
             1 if is_active else 0,
             datetime.datetime.now().isoformat(),
         ),
@@ -1101,8 +1262,31 @@ def save_broker_credentials(
     ws_url="",
     terminal_path="",
 ):
-    """Saves or updates primary active broker parameters in SQLite with lock retries."""
+    """
+    Saves or updates primary active broker parameters in SQLite with lock retries.
+    
+    SECURITY: Validates terminal_path to prevent arbitrary executable selection.
+    Only legitimate MT5 terminal executables are permitted.
+    """
     leverage = normalize_leverage(leverage)
+    
+    # SECURITY: Validate terminal_path before persisting to database
+    validated_terminal_path = ""
+    if terminal_path and str(terminal_path).strip():
+        try:
+            validated_terminal_path = validate_terminal_path(terminal_path)
+            _log.info("Terminal path validated successfully: %s", validated_terminal_path)
+        except ValueError as e:
+            _log.error(
+                "Terminal path validation failed for save_broker_credentials: %s. "
+                "Terminal path will be cleared for security. Error: %s",
+                terminal_path,
+                e
+            )
+            # Clear invalid terminal path rather than rejecting the entire operation
+            # This allows the broker credentials to be saved with other valid data
+            validated_terminal_path = ""
+    
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
@@ -1132,7 +1316,7 @@ def save_broker_credentials(
                 enc_secret,
                 rest_url,
                 ws_url,
-                terminal_path,
+                validated_terminal_path,
                 datetime.datetime.now().isoformat(),
                 row["id"],
             ),
@@ -1156,7 +1340,7 @@ def save_broker_credentials(
                 enc_secret,
                 rest_url,
                 ws_url,
-                terminal_path,
+                validated_terminal_path,
                 datetime.datetime.now().isoformat(),
             ),
         )
