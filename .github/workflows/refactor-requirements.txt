@@ -29,7 +29,7 @@ bandit==1.8.0
 # Bandit transitive dependencies (pinned to prevent dependency confusion attacks)
 # These are required by bandit and must be pinned to prevent malicious versions
 # from being selected during dependency resolution
-GitPython==3.1.43
+GitPython==3.1.58
 PyYAML==6.0.2
 stevedore==5.3.0
 pbr==6.1.0
