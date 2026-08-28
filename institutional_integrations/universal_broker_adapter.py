@@ -300,7 +300,11 @@ class UniversalBrokerGateway:
                 pass
 
         # Default / Fallback account state for generic LPs / Simulator / REST
+        # SECURITY: Handle None credentials gracefully (fail-closed behavior)
         creds = database.get_broker_credentials()
+        if creds is None:
+            creds = {"leverage": "1:100", "environment": "Demo"}
+        
         leverage_str = creds.get("leverage", "1:100")
         return {
             "balance": 10000.0,

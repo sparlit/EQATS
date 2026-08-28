@@ -4961,7 +4961,18 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
         self.broker_tree.bind("<<TreeviewSelect>>", self._on_broker_tree_select)
 
         # Retrieve active broker credentials from database
+        # SECURITY: Handle None credentials gracefully (fail-closed behavior)
         b_creds = database.get_broker_credentials()
+        if b_creds is None:
+            b_creds = {
+                "broker_name": "",
+                "server": "",
+                "account_id": "",
+                "password": "",
+                "environment": "Demo",
+                "leverage": "1:100",
+                "terminal_path": ""
+            }
 
         # Form Inputs Frame
         bf_inputs = tk.Frame(b_frame, bg=self.bg_card)
@@ -4983,7 +4994,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             width=22,
         )
         self.cfg_bname_ent.grid(row=0, column=1, sticky="w", padx=5, pady=2)
-        self.cfg_bname_ent.insert(0, b_creds.get("broker_name", "Primary Gateway"))
+        self.cfg_bname_ent.insert(0, b_creds.get("broker_name", ""))
 
         tk.Label(
             bf_inputs,
@@ -5001,7 +5012,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             width=22,
         )
         self.cfg_bserver_ent.grid(row=0, column=3, sticky="w", padx=5, pady=2)
-        self.cfg_bserver_ent.insert(0, b_creds["server"])
+        self.cfg_bserver_ent.insert(0, b_creds.get("server", ""))
 
         tk.Label(
             bf_inputs,
@@ -5019,7 +5030,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             width=22,
         )
         self.cfg_bacc_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
-        self.cfg_bacc_ent.insert(0, b_creds["account_id"])
+        self.cfg_bacc_ent.insert(0, b_creds.get("account_id", ""))
 
         tk.Label(
             bf_inputs,
@@ -5038,7 +5049,7 @@ Execution Guard Invariant: Trade Admission Controller (Section 23 Master Gate)
             width=22,
         )
         self.cfg_bpwd_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
-        self.cfg_bpwd_ent.insert(0, b_creds["password"])
+        self.cfg_bpwd_ent.insert(0, b_creds.get("password", ""))
 
         tk.Label(
             bf_inputs,
