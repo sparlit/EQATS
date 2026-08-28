@@ -417,14 +417,102 @@ class UniversalBrokerGateway:
             for attempt in range(max_attempts):
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
+                        # Validate HTTP status code - only 200/201 indicate successful order acceptance
+                        http_status = resp.getcode()
+                        if http_status not in (200, 201):
+                            last_err = f"HTTP {http_status}: Broker returned non-success status code"
+                            _log.error(
+                                "Universal Broker REST Gateway order rejected with HTTP %d for %s",
+                                http_status,
+                                symbol
+                            )
+                            self._breaker.record_failure()
+                            return {
+                                "success": False,
+                                "ticket": "",
+                                "price": 0.0,
+                                "error": last_err,
+                                "reason": "HTTP_ERROR",
+                                "protocol": self.protocol,
+                            }
+                        
                         res_data = json.loads(resp.read().decode("utf-8"))
+                        
+                        # Validate application-level status - must be ACCEPTED, FILLED, or PARTIAL
+                        order_status = res_data.get("status", "").upper()
+                        if order_status not in ("ACCEPTED", "FILLED", "PARTIAL"):
+                            # Order was rejected, pending, or status is missing/invalid
+                            last_err = f"Order not accepted by broker. Status: {order_status or 'MISSING'}"
+                            _log.error(
+                                "Universal Broker REST Gateway order rejected for %s. Status: %s, Response: %s",
+                                symbol,
+                                order_status or "MISSING",
+                                res_data
+                            )
+                            self._breaker.record_failure()
+                            return {
+                                "success": False,
+                                "ticket": "",
+                                "price": 0.0,
+                                "error": last_err,
+                                "reason": order_status or "INVALID_STATUS",
+                                "protocol": self.protocol,
+                            }
+                        
+                        # Validate broker-issued ticket - must be present and non-empty
+                        broker_ticket = res_data.get("ticket") or res_data.get("order_id")
+                        if not broker_ticket or str(broker_ticket).strip() == "":
+                            last_err = "Broker response missing valid order ticket/ID"
+                            _log.error(
+                                "Universal Broker REST Gateway order for %s missing broker ticket. Response: %s",
+                                symbol,
+                                res_data
+                            )
+                            self._breaker.record_failure()
+                            return {
+                                "success": False,
+                                "ticket": "",
+                                "price": 0.0,
+                                "error": last_err,
+                                "reason": "MISSING_TICKET",
+                                "protocol": self.protocol,
+                            }
+                        
+                        # Validate execution price - must be present and positive
+                        execution_price = res_data.get("price")
+                        if execution_price is None or float(execution_price) <= 0.0:
+                            last_err = f"Broker response missing valid execution price: {execution_price}"
+                            _log.error(
+                                "Universal Broker REST Gateway order for %s has invalid price. Response: %s",
+                                symbol,
+                                res_data
+                            )
+                            self._breaker.record_failure()
+                            return {
+                                "success": False,
+                                "ticket": "",
+                                "price": 0.0,
+                                "error": last_err,
+                                "reason": "INVALID_PRICE",
+                                "protocol": self.protocol,
+                            }
+                        
+                        # All validations passed - order was successfully accepted/filled
+                        _log.info(
+                            "Universal Broker REST Gateway order accepted for %s: ticket=%s, price=%s, status=%s",
+                            symbol,
+                            broker_ticket,
+                            execution_price,
+                            order_status
+                        )
                         self._breaker.record_success()
                         return {
                             "success": True,
-                            "ticket": str(res_data.get("ticket", "REST_1001")),
-                            "price": float(res_data.get("price", 0.0)),
+                            "ticket": str(broker_ticket),
+                            "price": float(execution_price),
                             "error": "",
                             "protocol": self.protocol,
+                            "status": order_status,
                         }
                 except (socket.timeout, TimeoutError) as e:
                     last_err = f"Socket Timeout 3.0s: {e}"
