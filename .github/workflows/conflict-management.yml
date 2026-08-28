@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Label Merge Conflicts
-        uses: prince-chrismc/label-merge-conflicts-action@v3
+        uses: prince-chrismc/label-merge-conflicts-action@21e6705eaa6aab66e4e486279389c8e3e4c465b7 # v3.0.4
         continue-on-error: true
         with:
           conflict_label_name: "has conflict"
