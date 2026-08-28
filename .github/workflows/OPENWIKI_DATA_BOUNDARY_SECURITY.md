@@ -66,6 +66,7 @@ For repositories containing proprietary or sensitive information, consider:
 - Deploy a self-hosted LLM (e.g., Ollama, vLLM, LocalAI)
 - Configure OpenWiki to use the self-hosted endpoint
 - Maintain full control over data boundaries
+- See OPENWIKI_DATA_CLASSIFICATION_POLICY.md for approved self-hosted solutions
 
 ### 2. Additional Secret Redaction
 - Implement pre-processing to redact patterns like API keys, tokens, passwords
@@ -76,6 +77,7 @@ For repositories containing proprietary or sensitive information, consider:
 - Establish formal policies for what data can be sent to external services
 - Document approved providers and retention requirements
 - Require security review for new external service integrations
+- **See OPENWIKI_DATA_CLASSIFICATION_POLICY.md for the formal policy framework**
 
 ### 4. Audit OpenWiki File Access
 - Monitor which files OpenWiki actually accesses during execution
@@ -151,6 +153,7 @@ This security configuration should be reviewed:
 - LangSmith Privacy Policy: https://www.langchain.com/privacy
 - NVIDIA API Terms: https://www.nvidia.com/en-us/data-center/products/ai-enterprise/terms-of-use/
 - GitHub Actions Security: https://docs.github.com/en/actions/security-guides
+- **OPENWIKI_DATA_CLASSIFICATION_POLICY.md**: Formal data classification and retention policy
 
 ## Contact
 

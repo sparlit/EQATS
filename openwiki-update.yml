@@ -112,20 +112,44 @@ jobs:
           EOF
 
       - name: Run OpenWiki
-        # SECURITY WARNING: This step sends repository content to external services:
-        # - OpenRouter inference API (for LLM processing)
-        # - LangSmith tracing service (for observability, DISABLED by default)
+        # ============================================================================
+        # SECURITY WARNING: THIRD-PARTY DATA BOUNDARY
+        # ============================================================================
+        # This step sends repository-derived content to external inference services.
+        # Despite path exclusions, non-excluded source code, comments, and documentation
+        # will be transmitted to third-party providers for LLM processing.
         #
-        # Data boundary controls:
-        # - .openwikiignore excludes sensitive files (credentials, databases, proprietary code)
-        # - LangSmith tracing is DISABLED to prevent exfiltration of prompts/outputs
-        # - Only documentation files should be processed by OpenWiki
+        # CURRENT CONFIGURATION:
+        # - Provider: OpenRouter inference API (external third-party service)
+        # - Data sent: Repository source code, comments, documentation (excluding .openwikiignore patterns)
+        # - Data retention: Subject to provider's terms (see OpenRouter Terms of Service)
+        # - LangSmith tracing: DISABLED (would send prompts/outputs to additional third party)
         #
-        # For private repositories, consider:
-        # - Using a self-hosted inference provider
-        # - Implementing additional secret redaction
-        # - Establishing a formal data classification and retention policy
-        # - Auditing OpenWiki's actual file access patterns
+        # IMPLEMENTED CONTROLS:
+        # - Path exclusions via .openwikiignore (credentials, databases, proprietary algorithms)
+        # - LangSmith tracing disabled by default
+        # - No repository-write token available during OpenWiki execution
+        # - GitHub token not persisted in .git/config
+        #
+        # RESIDUAL RISK:
+        # - Non-excluded repository content is transmitted to external provider
+        # - No secret redaction or pattern-based filtering applied
+        # - Provider's data retention policy applies to transmitted content
+        # - No technical enforcement of approved-provider policy
+        #
+        # RECOMMENDED FOR PRIVATE REPOSITORIES:
+        # 1. Self-hosted inference: Deploy Ollama/vLLM/LocalAI and set OPENWIKI_PROVIDER
+        #    to a local endpoint (e.g., http://localhost:11434) to eliminate external data transfer
+        # 2. Secret redaction: Implement pre-processing with git-secrets or truffleHog
+        # 3. Data classification: Establish formal policy for external service usage
+        # 4. Provider approval: Document approved providers and retention requirements
+        # 5. Audit file access: Monitor which files OpenWiki actually processes
+        # 6. Network controls: Implement egress filtering to approved endpoints only
+        #
+        # TO USE SELF-HOSTED PROVIDER (eliminates external data transfer):
+        # - Set OPENWIKI_PROVIDER to your self-hosted endpoint
+        # - Remove or comment out external provider API keys
+        # - Verify .openwikiignore patterns are still appropriate
         #
         # Use npx to run from the local node_modules with locked dependencies.
         # Secrets are only exposed to this execution step, not the installation step.
@@ -135,7 +159,8 @@ jobs:
           # OpenWiki sends anonymous reliability telemetry from CI runs.
           # Uncomment to disable:
           # OPENWIKI_TELEMETRY_DISABLED: "1"
-          # TODO: Replace with your preferred inference provider and model
+          # EXTERNAL PROVIDER CONFIGURATION (sends data to third party)
+          # For private repositories, consider using a self-hosted provider instead
           OPENWIKI_PROVIDER: openrouter
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENWIKI_MODEL_ID: z-ai/glm-5.2
