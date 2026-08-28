@@ -1,10 +1,25 @@
 name: Jules Automated Fix Loop
 
+# SECURITY: This workflow exposes JULES_API_KEY and has contents:write permissions.
+# It MUST NOT trigger on push events from contributor-controlled branches, as push-triggered workflows
+# evaluate the workflow file and checkout code from the pushed revision, allowing attackers to:
+# - Modify this workflow to exfiltrate secrets
+# - Execute malicious code in dependency installation or tests
+# - Alter permissions and conditions within repository policy limits
+#
+# SAFE USAGE:
+# - Manual trigger via workflow_dispatch (requires write access to repository)
+# - Automated trigger only from protected branches where pushes require approval
+#
+# See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
+
 on:
-  push:
-    branches:
-      - 'ai-fix-/*'       # Restricts the loop to designated feature branches for safety
-  workflow_dispatch:      # Allows manual triggers from the GitHub Actions UI
+  workflow_dispatch:      # Allows manual triggers from the GitHub Actions UI (SAFE: requires write access)
+    inputs:
+      branch:
+        description: 'Branch to run healing on (e.g., ai-fix/broken-tests)'
+        required: true
+        type: string
 
 jobs:
   test-and-validate:
@@ -14,8 +29,11 @@ jobs:
     
     steps:
       # 1. Upgraded to v5 to support the Node 24 runtime natively
+      # SECURITY: When triggered via workflow_dispatch, explicitly checkout the user-specified branch
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
+        with:
+          ref: ${{ inputs.branch || github.ref }}
 
       # 2. Upgraded to v6 to completely fix the Node 20 deprecation warning
       - name: Setup Python Environment
@@ -64,8 +82,11 @@ jobs:
 
     steps:
       # 1. Checkout the repository so Jules can access it
+      # SECURITY: When triggered via workflow_dispatch, explicitly checkout the user-specified branch
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
+        with:
+          ref: ${{ inputs.branch || github.ref }}
 
       # 2. Download diagnostic file from previous job
       - name: Download Test Error Summary
@@ -80,7 +101,7 @@ jobs:
         uses: google-labs-code/jules-invoke@b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0 # v1.x.x
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
-          branch: ${{ github.ref_name }}
+          branch: ${{ inputs.branch || github.ref_name }}
           prompt: |
             The test suite in our repository failed on this branch. 
             
