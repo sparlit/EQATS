@@ -6,6 +6,11 @@ on:
       - 'ai-optimize-/*'   # Triggers automatically on pushes to these designated branches
   workflow_dispatch:        # Allows manual invocation from the GitHub Actions UI
 
+# SECURITY: Prevent concurrent workflow runs on the same branch to avoid TOCTOU races
+concurrency:
+  group: jules-optimization-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   analyze-enhance-and-deploy:
     runs-on: ubuntu-latest
@@ -307,18 +312,43 @@ jobs:
             fi
             
             echo "✅ PR head SHA verified: $PR_HEAD_SHA"
+            
+            # SECURITY: Add a comment documenting the validated SHA for audit trail
+            gh pr comment "$PR_NUMBER" --body "🔒 **Security Validation Checkpoint**
+            
+This PR has been validated at commit: \`${POST_CHANGE_SHA}\`
+
+**Validation Results:**
+- ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
+- ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
+- ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+
+**SECURITY NOTICE:** Any commits pushed after \`${POST_CHANGE_SHA}\` have NOT been validated by this workflow and MUST be reviewed manually before merge."
+            
             echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
             
-            # SECURITY NOTE: Auto-merge will only complete if branch protection rules are satisfied
-            # Recommended: Configure branch protection on 'main' to require:
-            # - Status checks from CI workflow
-            # - Manual approval from CODEOWNERS
-            # - Up-to-date branches
+            # SECURITY CRITICAL: Auto-merge will only complete if branch protection rules are satisfied
+            # REQUIRED (not optional): Configure branch protection on 'main' to require:
+            # - Status checks from CI workflow (MANDATORY for security)
+            # - Manual approval from CODEOWNERS (MANDATORY for security)
+            # - Up-to-date branches (MANDATORY for security)
+            # Without these protections, an attacker can push unvalidated code after this check.
             if ! gh pr merge "$PR_NUMBER" --auto --squash 2> merge_err.log; then
               cat merge_err.log
               if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
                 echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
                 echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
+                
+                # SECURITY: Perform immediate final SHA check before direct merge to minimize TOCTOU window
+                FINAL_PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+                if [ "$FINAL_PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
+                  echo "❌ SECURITY GATE FAILED: PR head changed between validation and merge"
+                  echo "Expected (validated): $POST_CHANGE_SHA"
+                  echo "Current PR head: $FINAL_PR_HEAD_SHA"
+                  echo "⚠️ A concurrent push occurred. This PR requires re-validation."
+                  exit 1
+                fi
+                
                 if gh pr merge "$PR_NUMBER" --squash; then
                   echo "✅ Direct squash merge completed successfully."
                 else
@@ -328,7 +358,20 @@ jobs:
                 echo "⚠️ Automerge command encountered an unexpected error. See log above."
               fi
             else
+              # SECURITY: Perform immediate final SHA check after enabling auto-merge
+              # This minimizes (but does not eliminate) the TOCTOU window
+              sleep 1  # Brief delay to allow any concurrent operations to complete
+              FINAL_PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+              if [ "$FINAL_PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
+                echo "❌ SECURITY ALERT: PR head changed after auto-merge was enabled"
+                echo "Expected (validated): $POST_CHANGE_SHA"
+                echo "Current PR head: $FINAL_PR_HEAD_SHA"
+                echo "🚨 Disabling auto-merge due to concurrent modification"
+                gh pr merge "$PR_NUMBER" --disable-auto
+                exit 1
+              fi
               echo "✅ Automerge enabled successfully! Code will merge into main after branch protection requirements are met."
+              echo "⚠️ SECURITY REMINDER: Branch protection with required status checks and approvals is MANDATORY to prevent unvalidated commits from being merged."
             fi
           else
             echo "⚠️ Failed to resolve a valid Pull Request number. Skipping merge step."
