@@ -2,10 +2,30 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
   issue_comment:
+    # SECURITY: Restrict to 'created' only to prevent resource abuse from comment edits/deletes
+    types: [created]
+
+# SECURITY: Concurrency control prevents multiple simultaneous runs from consuming resources
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
 jobs:
   pr_agent_job:
-    if: ${{ github.event.sender.type != 'Bot' }}
+    # SECURITY: Multi-layer validation to prevent resource abuse:
+    # 1. Exclude bot accounts
+    # 2. For issue_comment events, require comment to start with a PR agent command (/, @)
+    # 3. Ensure comment is on a pull request (not a standalone issue)
+    if: |
+      github.event.sender.type != 'Bot' && (
+        github.event_name == 'pull_request' ||
+        (github.event_name == 'issue_comment' && 
+         github.event.issue.pull_request &&
+         (startsWith(github.event.comment.body, '/') || startsWith(github.event.comment.body, '@')))
+      )
     runs-on: ubuntu-latest
+    # SECURITY: Timeout prevents unbounded execution and resource consumption
+    timeout-minutes: 10
     permissions:
       # SECURITY: Permissions minimized to least-privilege principle
       issues: write          # Required: respond to issue comments
