@@ -561,25 +561,10 @@ def init_db():
                     ),
                 )
 
-            # Prepopulate default broker credentials if empty
-            cursor.execute("SELECT COUNT(*) FROM broker_credentials")
-            if cursor.fetchone()[0] == 0:
-                cursor.execute(
-                    """
-                INSERT OR IGNORE INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, is_active, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        "Primary MetaTrader Gateway",
-                        "EQATS-Demo-Server",
-                        "10928471",
-                        encrypt_secret("demoPass123!"),
-                        "1:100",
-                        "Demo",
-                        1,
-                        datetime.datetime.now().isoformat(),
-                    ),
-                )
+            # SECURITY: Do not prepopulate broker credentials with hardcoded values
+            # Users must explicitly configure broker credentials via add_broker_account()
+            # or save_broker_credentials() to ensure deployment-specific secret provisioning
+            # This implements fail-closed behavior as required by security policy
 
             conn.commit()
             conn.close()
@@ -1347,7 +1332,16 @@ def save_broker_credentials(
 
 
 def get_broker_credentials():
-    """Retrieves active broker connection parameters and decrypts secrets."""
+    """
+    Retrieves active broker connection parameters and decrypts secrets.
+    
+    SECURITY: Implements fail-closed behavior. Returns None when no credentials
+    are configured, requiring explicit deployment-specific secret provisioning.
+    Callers must handle None return value and fail safely.
+    
+    Returns:
+        dict: Broker credentials with decrypted secrets, or None if not configured
+    """
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -1369,19 +1363,14 @@ def get_broker_credentials():
         conn.close()
 
     if not row:
-        return {
-            "broker_name": "Primary MetaTrader Gateway",
-            "server": "EQATS-Demo-Server",
-            "account_id": "10928471",
-            "password": "demoPass123!",
-            "leverage": "1:100",
-            "environment": "Demo",
-            "protocol_type": "MT5",
-            "api_key": "",
-            "****cret": "",
-            "rest_url": "",
-            "ws_url": "",
-        }
+        # SECURITY: Fail-closed behavior - do not return hardcoded credentials
+        # Users must explicitly configure broker credentials before connecting
+        _log.error(
+            "No broker credentials configured in database. "
+            "Please configure credentials using add_broker_account() or save_broker_credentials() "
+            "before attempting to connect to a broker."
+        )
+        return None
 
     keys = row.keys() if hasattr(row, "keys") else []
     
@@ -1407,14 +1396,16 @@ def get_broker_credentials():
     else:
         ****cret_value = ""
     
+    # SECURITY: Return actual database values without hardcoded fallbacks
+    # Empty/missing fields return empty strings, not hardcoded demo credentials
     return {
         "broker_name": row["broker_name"]
         if "broker_name" in keys and row["broker_name"]
         else "Primary Gateway",
-        "server": row["server"] if "server" in keys else "EQATS-Demo-Server",
-        "account_id": row["account_id"] if "account_id" in keys else "10928471",
+        "server": row["server"] if "server" in keys and row["server"] else "",
+        "account_id": row["account_id"] if "account_id" in keys and row["account_id"] else "",
         "password": decrypt_secret(row["password_encrypted"])
-        if "password_encrypted" in keys
+        if "password_encrypted" in keys and row["password_encrypted"]
         else "",
         "leverage": row["leverage"] if "leverage" in keys else "1:100",
         "environment": row["environment"]

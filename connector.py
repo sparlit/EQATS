@@ -122,7 +122,19 @@ class UniversalConnector(TradingConnector):
 
     def __init__(self, protocol="MT5", broker_config=None, initial_balance=10000.0):
         self.protocol = protocol
-        self.broker_config = broker_config or database.get_broker_credentials()
+        
+        # SECURITY: Fail-closed behavior for missing credentials
+        if broker_config is None:
+            broker_config = database.get_broker_credentials()
+            if broker_config is None and protocol != "SIMULATOR":
+                raise ValueError(
+                    "No broker credentials configured. "
+                    "Please configure credentials using database.add_broker_account() or "
+                    "database.save_broker_credentials() before connecting to a live broker, "
+                    "or use protocol='SIMULATOR' for simulation mode."
+                )
+        
+        self.broker_config = broker_config
         self.gateway = UniversalBrokerGateway(
             protocol=self.protocol, broker_config=self.broker_config
         )
@@ -342,7 +354,15 @@ class MT5Connector(TradingConnector):
                 "Please run in SIMULATION_MODE = True."
             )
 
+        # SECURITY: Fail-closed behavior for missing credentials
         creds = database.get_broker_credentials()
+        if creds is None:
+            raise ValueError(
+                "No broker credentials configured. "
+                "Please configure credentials using database.add_broker_account() or "
+                "database.save_broker_credentials() before connecting to MetaTrader 5."
+            )
+        
         path = creds.get("terminal_path") or getattr(config, "MT5_TERMINAL_PATH", None)
         server = creds.get("server")
         login = creds.get("account_id")
