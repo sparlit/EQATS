@@ -303,18 +303,20 @@ void OnTick()
       return;
    }
 
-   CheckDailyLossAndRisk();
-   CheckArbitrageDiscrepancy();
-
-   // Verify consecutive loss pause safeguard
-   if(!CheckConsecutiveLosses())
+   // In DATA_COLLECTOR mode, process telemetry updates without executing live trade modifications
+   // This guard must be placed BEFORE any position-modifying logic to enforce the telemetry-only boundary
+   if(InpEARole == ROLE_DATA_COLLECTOR)
    {
       UpdateDashboard();
       return;
    }
 
-   // In DATA_COLLECTOR mode, process telemetry updates without executing live trade modifications
-   if(InpEARole == ROLE_DATA_COLLECTOR)
+   // All position-modifying logic below this point is protected by the DATA_COLLECTOR role guard
+   CheckDailyLossAndRisk();
+   CheckArbitrageDiscrepancy();
+
+   // Verify consecutive loss pause safeguard
+   if(!CheckConsecutiveLosses())
    {
       UpdateDashboard();
       return;
