@@ -1,0 +1,174 @@
+# Dependency Lockfiles with Cryptographic Hashes
+
+## ⚠️ IMPORTANT: Generate and Commit Lockfiles
+
+This directory should contain hash-pinned lockfiles for supply-chain security:
+- `requirements-lock.txt` - Application dependencies with SHA256 hashes
+- `tools-requirements-lock.txt` - CI/CD tooling dependencies with SHA256 hashes
+
+**These files SHOULD be committed to the repository** for maximum security.
+
+## Why Hash-Pinned Lockfiles?
+
+The workflows in this repository run with elevated permissions (`contents: write`, 
+`pull-requests: write`) and can modify repository content. Without hash verification:
+
+1. **Supply-Chain Attack Risk**: A compromised upstream package could execute malicious
+   code during installation or when imported by pytest/tooling
+2. **Credential Exposure**: The malicious code would have access to persisted GitHub
+   credentials and repository write permissions
+3. **Silent Compromise**: Tag-based or version-range dependencies can be silently
+   replaced without detection
+
+Hash-pinned lockfiles ensure:
+- Exact version pinning (no floating versions)
+- Cryptographic integrity verification (SHA256 hashes)
+- Immutable dependency resolution
+- Audit trail for dependency changes
+
+## Generating Lockfiles
+
+### Option 1: Automated Script (Recommended)
+
+Run the provided script to generate both lockfiles:
+
+```bash
+bash .github/workflows/generate-lockfiles.sh
+```
+
+This will create:
+- `requirements-lock.txt` from `requirements.txt`
+- `tools-requirements-lock.txt` from pinned tool versions
+
+### Option 2: Manual Generation
+
+If you need to customize the process:
+
+```bash
+# Install pip-tools
+pip install pip-tools==7.4.1
+
+# Generate application dependencies lockfile
+pip-compile --generate-hashes --allow-unsafe \
+  --output-file=requirements-lock.txt requirements.txt
+
+# Generate tooling dependencies lockfile
+cat > /tmp/tools-requirements.txt <<EOF
+ruff==0.8.4
+bandit[toml]==1.8.0
+pytest==8.3.4
+EOF
+
+pip-compile --generate-hashes --allow-unsafe \
+  --output-file=tools-requirements-lock.txt /tmp/tools-requirements.txt
+```
+
+## Workflow Behavior
+
+The GitHub Actions workflows are configured to:
+
+1. **Prefer lockfiles**: If `*-lock.txt` files exist, install with `--require-hashes`
+2. **Fallback gracefully**: If lockfiles are missing, install with version pins and emit warnings
+3. **Fail on hash mismatch**: If hashes don't match, pip will refuse to install
+
+## Updating Dependencies
+
+When updating dependencies:
+
+1. Update version in `requirements.txt` or the workflow file
+2. Regenerate lockfiles: `bash .github/workflows/generate-lockfiles.sh`
+3. Review the diff to understand what changed
+4. Test the new versions locally
+5. Commit both the version change and the regenerated lockfiles
+
+## Security Considerations
+
+### Why Commit Lockfiles?
+
+Committing lockfiles provides the strongest security guarantees:
+- **Immutable dependencies**: Exact versions and hashes are version-controlled
+- **Audit trail**: All dependency changes are visible in git history
+- **Reproducible builds**: Same dependencies across all environments
+- **No network trust**: Don't rely on PyPI being available or uncompromised during CI
+
+### Platform Considerations
+
+Lockfiles may contain platform-specific binary hashes (wheels for different OS/architectures).
+Since the workflows run on `ubuntu-latest`, generate lockfiles in that environment:
+
+```bash
+# Option 1: Generate in Docker
+docker run --rm -v $(pwd):/work -w /work python:3.11-slim \
+  bash .github/workflows/generate-lockfiles.sh
+
+# Option 2: Generate in GitHub Actions (create a PR)
+# The workflow will warn about missing lockfiles, then you can generate them
+```
+
+### Best Practice
+
+For maximum security:
+1. Generate lockfiles locally in the target environment (Linux/ubuntu-latest)
+2. **Commit them to the repository**
+3. Regenerate whenever dependencies change
+4. Use Dependabot or Renovate to automate updates
+5. Review lockfile diffs carefully before merging
+
+## Troubleshooting
+
+### "No matching distribution found"
+
+This usually means:
+- A package version doesn't exist for your platform
+- PyPI is temporarily unavailable
+- A package was yanked from PyPI
+
+Solution: Update to a different version or check PyPI availability.
+
+### "Hash mismatch"
+
+This means:
+- The lockfile is stale and needs regeneration
+- A package was republished with different content (security concern!)
+- The lockfile was manually edited incorrectly
+
+Solution: Regenerate lockfiles. If a package was republished, investigate why.
+
+### "WARNING: tools-requirements-lock.txt not found"
+
+This is expected if lockfiles haven't been generated yet. The workflow will:
+1. Install with version pins (less secure but functional)
+2. Emit a warning
+3. Continue execution
+
+To resolve: Generate and commit the lockfiles.
+
+## Initial Setup
+
+To set up hash-pinned dependencies for the first time:
+
+```bash
+# 1. Generate lockfiles
+bash .github/workflows/generate-lockfiles.sh
+
+# 2. Review the generated files
+git diff requirements-lock.txt tools-requirements-lock.txt
+
+# 3. Commit to repository
+git add requirements-lock.txt tools-requirements-lock.txt
+git commit -m "security: add hash-pinned dependency lockfiles"
+
+# 4. Push to repository
+git push origin main
+```
+
+After this, all workflow runs will use hash-verified dependencies.
+
+## References
+
+- [pip-tools documentation](https://pip-tools.readthedocs.io/)
+- [PEP 665: Specifying Installation Requirements](https://peps.python.org/pep-0665/)
+- [Securing the Software Supply Chain](https://slsa.dev/)
+- [GitHub Actions Security Hardening](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
+
+
