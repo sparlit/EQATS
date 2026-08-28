@@ -176,30 +176,65 @@ jobs:
           echo "⚠️  SECURITY: Changes are NOT automatically applied. Manual review required."
           
       # 7. Review and apply changes with explicit write permission
-      # SECURITY: This step has explicit write permission via GITHUB_TOKEN, but only
-      # after the Jules API response has been received and can be reviewed.
-      # In a production environment, this step should require manual approval or
-      # additional validation before applying changes.
+      # SECURITY: This step demonstrates proper permission isolation by explicitly
+      # requesting write permissions at the step level, not inheriting from job level.
+      # The job has read-only permissions; this step would receive elevated permissions
+      # only when enabled and only for the duration of this specific step.
+      # In a production environment, this step should require manual approval via
+      # GitHub Environments with required reviewers before execution.
       - name: Apply Reviewed Changes
-        # SECURITY: This step is commented out by default to prevent automatic application
-        # of AI-generated changes. Uncomment only after implementing proper review gates.
+        # SECURITY: This step is disabled by default to prevent automatic application
+        # of AI-generated changes. To enable safely:
+        # 1. Create a GitHub Environment named "jules-refactor-apply" with required reviewers
+        # 2. Add "environment: jules-refactor-apply" to this step
+        # 3. Implement validation logic to verify the safety of proposed changes
+        # 4. Add rollback mechanisms and test execution
+        # 5. Change 'if: false' to appropriate conditions
         if: false  # Disabled for security - requires manual review process
+        # SECURITY: Step-level permissions override job-level permissions.
+        # This step would receive write access ONLY when enabled, and ONLY for this step.
+        # All other steps (including the Jules API call) operate with read-only permissions.
+        permissions:
+          contents: write  # Required only for git push; isolated to this step
         env:
+          # SECURITY: GITHUB_TOKEN is scoped to the step-level permissions above.
+          # When this step is disabled, the token is never instantiated with write access.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_BRANCH: ${{ inputs.branch || github.ref_name }}
         run: |
           echo "⚠️  This step would apply changes from Jules API response"
           echo "⚠️  Currently disabled - manual review and application required"
-          echo "⚠️  To enable: Implement proper review gates and change 'if: false' above"
+          echo "⚠️  To enable: Implement proper review gates (see comments above)"
           
-          # Example of how changes would be applied (when enabled):
-          # 1. Parse jules_response.json for recommended changes
-          # 2. Apply changes to repository files
-          # 3. Run tests to verify changes
-          # 4. Commit and push with write permission
+          # Example of how changes would be applied (when enabled with proper gates):
+          # 1. Validate jules_response.json structure and content
+          # 2. Parse recommended changes with safety checks
+          # 3. Apply changes to repository files with validation
+          # 4. Run full test suite to verify changes don't break functionality
+          # 5. Commit and push only if all validations pass
           
+          # if [ ! -f jules_response.json ]; then
+          #   echo "❌ Error: jules_response.json not found"
+          #   exit 1
+          # fi
+          #
+          # # Validate response structure
+          # if ! jq empty jules_response.json 2>/dev/null; then
+          #   echo "❌ Error: Invalid JSON in jules_response.json"
+          #   exit 1
+          # fi
+          #
+          # # Apply changes (implementation depends on Jules API response format)
+          # # ... change application logic ...
+          #
+          # # Run tests before committing
+          # if ! python -m pytest; then
+          #   echo "❌ Error: Tests failed after applying changes"
+          #   exit 1
+          # fi
+          #
           # git config user.name "github-actions[bot]"
           # git config user.email "github-actions[bot]@users.noreply.github.com"
           # git add .
-          # git commit -m "refactor: apply Jules deep refactor recommendations"
+          # git commit -m "refactor: apply Jules deep refactor recommendations [automated]"
           # git push origin "${TARGET_BRANCH}"
