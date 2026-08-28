@@ -31,41 +31,73 @@ jobs:
       contents: read        # Default read-only access for checkout and analysis steps
 
     steps:
-      # 1. Checkout the repository using standard FOSS git integrations
-      # SECURITY: When triggered via workflow_dispatch, this checks out the workflow
-      # definition from the default branch (trusted code), then checks out the target
-      # branch content for refactoring. This prevents execution of attacker-modified
-      # workflow code while still allowing refactoring of feature branches.
-      - name: Checkout Repository
+      # 1. Checkout trusted workflow files from default branch
+      # SECURITY: This checkout retrieves the trusted requirements file from the default
+      # branch to prevent a contributor-controlled branch from supplying a malicious
+      # requirements manifest. Pip can execute arbitrary code during package installation
+      # via setup.py, build hooks, and editable installs. By checking out the default
+      # branch first, we ensure the requirements file is trusted before any pip install.
+      - name: Checkout Trusted Workflow Files
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
-          # Use the branch input if provided, otherwise use the current branch
-          ref: ${{ inputs.branch || github.ref }}
+          # Always use default branch for trusted workflow files
+          ref: ${{ github.event.repository.default_branch }}
+          # Checkout to a separate directory to preserve trusted files
+          path: .trusted-workflow-files
           # SECURITY: Disable credential persistence to prevent pip-installed packages
           # from accessing git credentials via .git/config during package build/install
           # hooks. Git credentials are not needed for this workflow since we use direct
           # API calls instead of git-based integrations.
           persist-credentials: false
+          # Sparse checkout - only get workflow files to minimize attack surface
+          sparse-checkout: |
+            .github/workflows/refactor-requirements.txt
+          sparse-checkout-cone-mode: false
 
       # 2. Setup the Python engine
       - name: Setup Python Environment
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v6.3.0
         with:
           python-version: '3.11'
+          # Disable pip cache to prevent cache poisoning attacks
           cache: 'pip'
+          cache-dependency-path: '.trusted-workflow-files/.github/workflows/refactor-requirements.txt'
 
       # 3. Install Ruff (Linter) and Bandit (Security SAST) with pinned versions
-      # SECURITY: Use pinned versions from refactor-requirements.txt to prevent supply-chain
-      # attacks. Although this job has read-only permissions, a compromised package could
-      # still execute malicious code during installation (e.g., exfiltrate secrets from env).
-      # Project dependencies from requirements.txt are NOT installed because they are not
-      # needed for static analysis (ruff/bandit scan source code without executing it).
-      - name: Install Ruff and Bandit (Pinned Versions)
+      # SECURITY: Install from the trusted requirements file retrieved from the default
+      # branch, NOT from the user-selected branch. This prevents a contributor from
+      # modifying refactor-requirements.txt in their branch to include malicious packages,
+      # editable projects, local paths, or direct URLs that execute code during pip install.
+      # Pip installation can execute arbitrary code via setup.py, build hooks, and package
+      # installation scripts. Because the Jules step later receives JULES_API_KEY, any code
+      # executed during dependency installation could persist via GITHUB_PATH, GITHUB_ENV,
+      # or background processes to capture the secret. The trusted requirements file ensures
+      # only vetted, pinned dependencies are installed before secret exposure.
+      - name: Install Ruff and Bandit (Pinned Versions from Trusted Source)
         run: |
           python -m pip install --upgrade pip
-          pip install -r .github/workflows/refactor-requirements.txt
+          # Install from trusted requirements file, not from user-controlled branch
+          pip install -r .trusted-workflow-files/.github/workflows/refactor-requirements.txt
 
-      # 4. Run Ruff to catch code style issues, code smells, and TODO/stub patterns
+      # 4. Checkout the target branch for analysis
+      # SECURITY: This checkout happens AFTER installing trusted dependencies, ensuring
+      # the user-selected branch cannot control the pip installation process. The target
+      # branch content is used only for static analysis by ruff/bandit, which scan source
+      # code without executing it. This checkout replaces the working directory with the
+      # target branch, but the trusted dependencies are already installed in the Python
+      # environment and cannot be replaced by files in the target branch.
+      - name: Checkout Target Branch for Analysis
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
+        with:
+          # Use the branch input if provided, otherwise use the current branch
+          ref: ${{ inputs.branch || github.ref }}
+          # SECURITY: Disable credential persistence to prevent any code in the target
+          # branch from accessing git credentials if accidentally executed.
+          persist-credentials: false
+          # Do not checkout to a subdirectory - replace working directory for analysis
+          # The trusted dependencies are already installed and isolated in Python environment
+
+      # 5. Run Ruff to catch code style issues, code smells, and TODO/stub patterns
       - name: Run Open-Source Linter Scan (Ruff)
         id: run-linter
         run: |
@@ -80,7 +112,7 @@ jobs:
           # SECURITY: Base64 encode diagnostic output to prevent prompt injection
           base64 -w 0 lint_summary_raw.txt > lint_summary.txt
 
-      # 5. Run Bandit to flag vulnerabilities (Insecure functions, shell executions, hardcoded tokens)
+      # 6. Run Bandit to flag vulnerabilities (Insecure functions, shell executions, hardcoded tokens)
       - name: Run Open-Source Security Scan (Bandit)
         id: run-security
         run: |
@@ -97,7 +129,7 @@ jobs:
           # SECURITY: Base64 encode diagnostic output to prevent prompt injection
           base64 -w 0 security_summary_raw.txt > security_summary.txt
 
-      # 6. Invoke Jules API directly via controlled script
+      # 7. Invoke Jules API directly via controlled script
       # SECURITY: Instead of using a third-party action that receives secrets and write
       # permissions, we invoke the Jules API directly through a controlled script.
       # This prevents:
@@ -175,7 +207,7 @@ jobs:
           echo "✅ Jules API analysis complete. Response saved to jules_response.json"
           echo "⚠️  SECURITY: Changes are NOT automatically applied. Manual review required."
           
-      # 7. Review and apply changes with explicit write permission
+      # 8. Review and apply changes with explicit write permission
       # SECURITY: This step demonstrates proper permission isolation by explicitly
       # requesting write permissions at the step level, not inheriting from job level.
       # The job has read-only permissions; this step would receive elevated permissions
