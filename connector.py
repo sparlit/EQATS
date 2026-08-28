@@ -350,7 +350,21 @@ class MT5Connector(TradingConnector):
 
         init_kwargs = {}
         if path and str(path).strip():
-            init_kwargs["path"] = str(path).strip()
+            # SECURITY: Validate terminal path before passing to MT5 initialize
+            # This is defense-in-depth - validation should also occur at database write time
+            try:
+                validated_path = database.validate_terminal_path(str(path).strip())
+                init_kwargs["path"] = validated_path
+                _log.info("Using validated MT5 terminal path: %s", validated_path)
+            except ValueError as e:
+                _log.error(
+                    "Terminal path validation failed in MT5Connector.connect(): %s. "
+                    "Path will not be used. Error: %s",
+                    path,
+                    e
+                )
+                # Do not add path to init_kwargs - let MT5 use default path
+                # This prevents arbitrary executable execution even if database validation was bypassed
         if login and str(login).strip() and str(login).isdigit():
             init_kwargs["login"] = int(str(login).strip())
         if password and str(password).strip():
