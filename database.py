@@ -328,10 +328,8 @@ def verify_user_credentials(username, password_input, pin_input=None):
 
     if pin_input is not None and str(pin_input).strip():
         typed_pin = str(pin_input).strip()
-        # Accept either the user's specific pin_hash or the standard default 123456/741295
-        pin_valid = (row["pin_hash"] == hash_credential(typed_pin)) or (
-            typed_pin in ["123456", "741295", "admin"]
-        )
+        # Verify strictly against database-stored salt hash credential
+        pin_valid = row["pin_hash"] == hash_credential(typed_pin)
         return pin_valid
 
     return True
@@ -972,3 +970,33 @@ def get_all_trades():
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="EQATS Database Administrative CLI Utility")
+    parser.add_argument("--reset-admin", action="store_true", help="Reset default QUANT_OPERATOR admin user")
+    parser.add_argument("--username", type=str, default="QUANT_OPERATOR", help="Target username")
+    parser.add_argument("--password", type=str, help="New password for user")
+    parser.add_argument("--pin", type=str, help="New secondary MFA PIN for user")
+    parser.add_argument("--role", type=str, default="SOVEREIGN_ADMIN", help="Role for user")
+
+    args = parser.parse_args()
+    init_db()
+
+    if args.reset_admin or args.password or args.pin:
+        target_user = args.username
+        new_pass = args.password or "admin"
+        new_pin = args.pin or "741295"
+        update_user(target_user, new_password=new_pass, new_pin=new_pin, new_role=args.role)
+        print("================================================================================")
+        print("  EQATS LOCAL ADMINISTRATIVE RECOVERY TOOL")
+        print("================================================================================")
+        print(f"  User Credentials Updated for: '{target_user}'")
+        print(f"  Password:                     '{new_pass}'")
+        print(f"  Secondary MFA PIN:            '{new_pin}'")
+        print(f"  Role:                         '{args.role}'")
+        print("================================================================================")
+    else:
+        parser.print_help()
