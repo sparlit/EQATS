@@ -52,12 +52,16 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      # 3. Install project dependencies along with Ruff (Linter) and Bandit (Security SAST)
-      - name: Install Dependencies, Ruff, and Bandit
+      # 3. Install Ruff (Linter) and Bandit (Security SAST) with pinned versions
+      # SECURITY: Use pinned versions from refactor-requirements.txt to prevent supply-chain
+      # attacks. This job has contents:write permission, so a compromised package could
+      # execute malicious code during installation and modify the repository.
+      # Project dependencies from requirements.txt are NOT installed because they are not
+      # needed for static analysis (ruff/bandit scan source code without executing it).
+      - name: Install Ruff and Bandit (Pinned Versions)
         run: |
           python -m pip install --upgrade pip
-          pip install ruff bandit
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r .github/workflows/refactor-requirements.txt
 
       # 4. Run Ruff to catch code style issues, code smells, and TODO/stub patterns
       - name: Run Open-Source Linter Scan (Ruff)
