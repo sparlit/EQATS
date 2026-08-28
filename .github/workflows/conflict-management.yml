@@ -50,15 +50,16 @@ jobs:
       - name: Pull and Force Merge (Theirs)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
-          git checkout "$HEAD_BRANCH"
-          if ! git merge "origin/$BASE_BRANCH" -X theirs -m "chore: auto-resolved conflicts favoring theirs"; then
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+
+          git checkout $HEAD_BRANCH
+          if ! git merge origin/$BASE_BRANCH -X theirs -m "chore: auto-resolved conflicts favoring theirs"; then
             echo "Merge failed even with conflict strategy. Manual intervention required."
             exit 1
           fi
-          git push origin "$HEAD_BRANCH"
+          git push origin $HEAD_BRANCH
 
       - name: Remove Label
         if: success()

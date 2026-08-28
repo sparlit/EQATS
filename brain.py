@@ -54,7 +54,7 @@ class ScalperBrain:
     """
 
     def __init__(self):
-        self.version = "10.3.0"
+        self.version = "10.4.0"
 
     def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """
@@ -675,7 +675,7 @@ class ScalperBrain:
         top_sl = concurrent_decisions[0]["sl"] if concurrent_decisions else 0.0
         top_tp = concurrent_decisions[0]["tp"] if concurrent_decisions else 0.0
 
-        v10_3_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
+        v10_4_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
 
         return {
             "decision": top_decision,
@@ -684,23 +684,24 @@ class ScalperBrain:
             "tp": top_tp,
             "explanation": top_exp,
             "decisions": concurrent_decisions,
-            "v8_4_slippage_pips": v10_3_slippage_pips,
-            "v8_5_slippage_pips": v10_3_slippage_pips,
-            "v8_6_slippage_pips": v10_3_slippage_pips,
-            "v8_7_slippage_pips": v10_3_slippage_pips,
-            "v8_8_slippage_pips": v10_3_slippage_pips,
-            "v8_9_slippage_pips": v10_3_slippage_pips,
-            "v9_1_slippage_pips": v10_3_slippage_pips,
-            "v9_2_slippage_pips": v10_3_slippage_pips,
-            "v9_3_slippage_pips": v10_3_slippage_pips,
-            "v9_4_slippage_pips": v10_3_slippage_pips,
-            "v9_5_slippage_pips": v10_3_slippage_pips,
-            "v9_6_slippage_pips": v10_3_slippage_pips,
-            "v9_7_slippage_pips": v10_3_slippage_pips,
-            "v10_0_slippage_pips": v10_3_slippage_pips,
-            "v10_1_slippage_pips": v10_3_slippage_pips,
-            "v10_2_slippage_pips": v10_3_slippage_pips,
-            "v10_3_slippage_pips": v10_3_slippage_pips,
+            "v8_4_slippage_pips": v10_4_slippage_pips,
+            "v8_5_slippage_pips": v10_4_slippage_pips,
+            "v8_6_slippage_pips": v10_4_slippage_pips,
+            "v8_7_slippage_pips": v10_4_slippage_pips,
+            "v8_8_slippage_pips": v10_4_slippage_pips,
+            "v8_9_slippage_pips": v10_4_slippage_pips,
+            "v9_1_slippage_pips": v10_4_slippage_pips,
+            "v9_2_slippage_pips": v10_4_slippage_pips,
+            "v9_3_slippage_pips": v10_4_slippage_pips,
+            "v9_4_slippage_pips": v10_4_slippage_pips,
+            "v9_5_slippage_pips": v10_4_slippage_pips,
+            "v9_6_slippage_pips": v10_4_slippage_pips,
+            "v9_7_slippage_pips": v10_4_slippage_pips,
+            "v10_0_slippage_pips": v10_4_slippage_pips,
+            "v10_1_slippage_pips": v10_4_slippage_pips,
+            "v10_2_slippage_pips": v10_4_slippage_pips,
+            "v10_3_slippage_pips": v10_4_slippage_pips,
+            "v10_4_slippage_pips": v10_4_slippage_pips,
             "indicators": {
                 "ema_long": round(ema_long, 5),
                 "rsi": round(rsi_val, 2),

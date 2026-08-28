@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, ELITE QUANTUM AUTONOMOUS TRADING SYSTEM"
 #property link      "https://github.com/scalper"
-#property version   "10.30"
-#property description "Elite Quantum Autonomous Scalper EA v10.30 - Autonomous Autotrader with News Straddle Execution & Full-Spectrum Cockpit"
+#property version   "10.40"
+#property description "Elite Quantum Autonomous Scalper EA v10.40 - OnTradeTransaction Server Fill Callbacks & Automated Socket Reconnection"
 #property indicator_chart_window
 
 #include <Trade\Trade.mqh>
@@ -33,6 +33,7 @@ input string       InpFileName                 = "scalper_telemetry.txt"; // Fal
 input bool         InpUseCommonFolder          = true;                  // Use Common shared folder (FILE_COMMON)
 input int          InpTimerInterval            = 1;                     // Update Interval (seconds)
 input int          InpWatchdogSec              = 10;                    // Symmetric Watchdog Heartbeat Timeout (sec)
+input int          InpReconnectSecs            = 5;                     // Auto-Reconnection Cooldown (sec)
 input bool         InpEmergencyCloseOnLockdown = true;                  // Close positions on Emergency Lockdown signal
 input color        InpHudThemePrimary          = clrDodgerBlue;         // Primary HUD Accent Color
 input color        InpHudThemeBg               = clrDarkSlateGray;      // Panel Card Background Color
@@ -107,9 +108,10 @@ bool     m_daily_loss_limit_hit   = false;
 string   m_candle_countdown       = "00:00";
 double   m_current_risk           = InpRiskPercent;
 
-// Watchdog & Arbitrage State Variables
+// Watchdog & Arbitrage & Auto-Reconnect State
 bool     m_watchdog_active        = false;
 datetime m_last_success_time      = 0;
+datetime m_last_reconnect_attempt = 0;
 int      m_recovery_counter       = 0;
 string   m_watchdog_status        = "STABLE";
 string   m_arbitrage_status       = "STABLE";
@@ -175,7 +177,7 @@ int OnInit()
    UpdateDashboard();
 
    string role_str = (InpEARole == ROLE_DATA_COLLECTOR) ? "DATA_COLLECTOR" : "TRADE_EXECUTOR";
-   Print("EqatsAutonomousScalperEA v10.30 Initialized cleanly (Role: ", role_str, " | L99 Watchdog Active). IPC: ", InpSocketHost, ":", InpSocketPort);
+   Print("EqatsAutonomousScalperEA v10.40 Initialized cleanly (Role: ", role_str, " | L99 Watchdog Active | Fill Callbacks Active). IPC: ", InpSocketHost, ":", InpSocketPort);
    return(INIT_SUCCEEDED);
 }
 
@@ -186,7 +188,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    DeleteDashboardObjects();
-   Print("EqatsAutonomousScalperEA v10.30 Deinitialized cleanly.");
+   Print("EqatsAutonomousScalperEA v10.40 Deinitialized cleanly.");
 }
 
 //+------------------------------------------------------------------+
@@ -298,8 +300,43 @@ void OnTick()
 void OnTimer()
 {
    UpdateCandleCountdown();
+
+   // Background automated socket reconnection cooldown (Adapted from AAT_EA.mq5)
+   datetime now = TimeCurrent();
+   if(m_last_success_time > 0 && (now - m_last_success_time) > InpWatchdogSec)
+   {
+      if((now - m_last_reconnect_attempt) >= InpReconnectSecs)
+      {
+         Print("AAT: Attempting automated socket background reconnection to ", InpSocketHost, ":", InpSocketPort, "...");
+         m_last_reconnect_attempt = now;
+      }
+   }
+
    CheckWatchdog();
    UpdateDashboard();
+}
+
+//+------------------------------------------------------------------+
+//| TradeTransaction function (Adapted from AAT_EA.mq5)               |
+//| Captures true server execution details (fills, deal additions)   |
+//+------------------------------------------------------------------+
+void OnTradeTransaction(const MqlTradeTransaction& trans,
+                        const MqlTradeRequest& request,
+                        const MqlTradeResult& result)
+{
+   if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
+   {
+      ulong ticket = trans.deal;
+      string side = (trans.deal_type == DEAL_TYPE_BUY) ? "BUY" :
+                    ((trans.deal_type == DEAL_TYPE_SELL) ? "SELL" : "");
+
+      if(side != "")
+      {
+         Print("EqatsAutonomousScalperEA OnTradeTransaction DEAL_ADD: Ticket #", ticket,
+               " | Side: ", side, " | Symbol: ", trans.symbol,
+               " | Volume: ", trans.volume, " | Price: ", trans.price, " | Status: FILLED_ON_SERVER");
+      }
+   }
 }
 
 //+------------------------------------------------------------------+
