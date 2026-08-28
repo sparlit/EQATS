@@ -386,8 +386,9 @@ class SafetyVerificationPlane:
     Enforces Safety Invariants (INV-001 to INV-014) and acts as the Trade Admission Controller.
     """
 
-    def __init__(self):
+    def __init__(self, resilience_plane=None):
         self.hard_risk_limit = config.MAX_DAILY_DRAWDOWN_PERCENT
+        self.resilience_plane = resilience_plane
 
     def evaluate_invariants(
         self,
@@ -444,6 +445,22 @@ class SafetyVerificationPlane:
         The only final authorization boundary permitted to trigger order routing.
         No Trade Admission means NO trade can ever occur.
         """
+        # Check resilience state first (defense in depth at admission boundary)
+        if self.resilience_plane:
+            current_state = self.resilience_plane.get_state()
+            if current_state in ["HALTED", "DEFENSIVE"]:
+                global_event_bus.publish(
+                    Event(
+                        family="TradeAdmissionRejected",
+                        source="SafetyPlane",
+                        payload={
+                            "symbol": symbol,
+                            "reason": f"Resilience state is {current_state}. Trade admissions blocked.",
+                        },
+                    )
+                )
+                return False
+        
         if len(safety_violations) > 0:
             global_event_bus.publish(
                 Event(
@@ -489,10 +506,11 @@ class ExecutionPlane:
     self-trade prevention, cancel-on-disconnect, and position lifecycle verification.
     """
 
-    def __init__(self, connector_obj):
+    def __init__(self, connector_obj, resilience_plane=None):
         self.conn = connector_obj
         self._message_history = []  # Timestamps of sent orders
         self.rate_state = "NORMAL"  # NORMAL -> THROTTLED -> HALTED
+        self.resilience_plane = resilience_plane
 
     def validate_fat_finger(
         self, symbol: str, lot_size: float, current_price: float
@@ -562,6 +580,26 @@ class ExecutionPlane:
         self, symbol: str, direction: str, lot: float, sl: float, tp: float
     ) -> dict:
         """Routes approved intent to live connection."""
+        # CANONICAL ENFORCEMENT: Check resilience state at broker-facing execution boundary
+        if self.resilience_plane:
+            current_state = self.resilience_plane.get_state()
+            if current_state in ["HALTED", "DEFENSIVE"]:
+                global_event_bus.publish(
+                    Event(
+                        family="OrderRejected",
+                        source="ExecutionPlane",
+                        payload={
+                            "symbol": symbol,
+                            "direction": direction,
+                            "error": f"Execution blocked: Resilience state is {current_state}",
+                        },
+                    )
+                )
+                return {
+                    "success": False,
+                    "error": f"Execution blocked: Resilience state is {current_state}",
+                }
+        
         global_event_bus.publish(
             Event(
                 family="OrderSubmitted",
@@ -717,6 +755,11 @@ class OperationsResiliencePlane:
 
     def get_state(self) -> str:
         return self._state
+    
+    @property
+    def current_state(self) -> str:
+        """Property for backward compatibility with GUI and other callers."""
+        return self._state
 
     def verify_split_brain(self) -> bool:
         """Verifies only a single master instance has execution authorization."""
@@ -869,10 +912,11 @@ class EQATSCoreEngine:
         self.intelligence = IntelligencePlane()
         self.strategy = StrategyPlane()
         self.risk = OpportunityRiskPlane()
-        self.safety = SafetyVerificationPlane()
-        self.execution = ExecutionPlane(connector_obj)
-        self.learning = LearningGovernancePlane()
         self.resilience = OperationsResiliencePlane()
+        # Pass resilience_plane to safety and execution for state enforcement
+        self.safety = SafetyVerificationPlane(resilience_plane=self.resilience)
+        self.execution = ExecutionPlane(connector_obj, resilience_plane=self.resilience)
+        self.learning = LearningGovernancePlane()
 
 
 # Global engine container initialized dynamically at startup
