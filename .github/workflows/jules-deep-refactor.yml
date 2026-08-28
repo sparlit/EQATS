@@ -16,6 +16,12 @@ jobs:
       # 1. Checkout the repository using standard FOSS git integrations
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
+        with:
+          # SECURITY: Disable credential persistence to prevent pip-installed packages
+          # from accessing the write-capable GITHUB_TOKEN via .git/config during
+          # package build/install hooks. The Jules action receives the token directly
+          # via the GITHUB_TOKEN environment variable and does not require git credentials.
+          persist-credentials: false
 
       # 2. Setup the Python engine
       - name: Setup Python Environment
