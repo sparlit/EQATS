@@ -3,7 +3,17 @@
 ### Master Architecture, Monolith-Microservices Isolation, AI Ensemble, Risk & Execution Specification
 
 ---
+# My Project Repo
 
+## 🗺️ Project Roadmap
+<!-- ROADMAP_START -->
+<!-- ROADMAP_END -->
+
+## ⏳ Recent Timeline Updates
+<!-- TIMELINE_START -->
+<!-- TIMELINE_END -->
+
+---
 # 0. DOCUMENT CONTROL
 
 **System Name:** Elite Quantum Autonomous Trading System (EQATS Version 8.4)
