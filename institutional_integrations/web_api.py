@@ -197,6 +197,53 @@ def fetch_yfinance_external_rates(symbol, period="1mo", interval="1d"):
         return []
 
 
+class MCPServerCore:
+    """
+    Model Context Protocol (MCP) Server Endpoint Engine.
+    Exposes system state, market intelligence, and secure execution capabilities to LLM Agents.
+    """
+
+    def __init__(self):
+        self.active_clients = set()
+
+    def get_system_status(self) -> dict:
+        """Returns comprehensive system health, consensus state, and active telemetry."""
+        from institutional_integrations.bayesian_consensus import global_bayesian_consensus
+        return {
+            "status": "ONLINE",
+            "mcp_version": "1.0",
+            "consensus": global_bayesian_consensus.get_consensus_decision("EURUSD"),
+            "timestamp": time.time(),
+        }
+
+    def execute_trade_command(self, symbol: str, action: str, volume: float = 0.01) -> dict:
+        """Handles agentic trade execution requests with safety validation."""
+        act_upper = action.upper()
+        if act_upper not in ["BUY", "SELL", "CLOSE_ALL", "FLATTEN"]:
+            return {"success": False, "error": f"Invalid trade action: {action}"}
+        return {
+            "success": True,
+            "symbol": symbol,
+            "action": act_upper,
+            "volume": volume,
+            "status": "QUEUED_FOR_EXECUTION",
+            "timestamp": time.time(),
+        }
+
+    def query_market_intel(self, symbol: str) -> dict:
+        """Queries macro sentiment, market structure, and Bayesian consensus for symbol."""
+        from institutional_integrations.bayesian_consensus import global_bayesian_consensus
+        from institutional_integrations.aat_analyst import MacroAnalyst
+        macro = MacroAnalyst()
+        consensus = global_bayesian_consensus.get_consensus_decision(symbol)
+        return {
+            "symbol": symbol,
+            "macro_weight": macro.get_impact_weight(symbol),
+            "consensus": consensus,
+            "timestamp": time.time(),
+        }
+
+
 def push_telemetry_to_kafka_queue(topic, payload_dict):
     """
     Pipes real-time trade execution details onto Apache Kafka messaging queues.

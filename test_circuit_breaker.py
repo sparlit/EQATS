@@ -156,7 +156,7 @@ def test_universal_broker_gateway_fail_closed_without_rest_url():
     connect_result_ccxt = gw_ccxt.connect()
     assert connect_result_ccxt is False, "CCXT connection should fail without rest_url"
 
-    res_ccxt = gw_ccxt.execute_order("BTCUSDT", "BUY", 0.001, 40000, 50000)
+    res_ccxt = gw_ccxt.execute_order("BTCUSDT", "BUY", 0.1, 40000, 50000)
     assert res_ccxt["success"] is False, "CCXT order should fail without rest_url"
     assert res_ccxt["reason"] == "CONFIGURATION_ERROR"
 
