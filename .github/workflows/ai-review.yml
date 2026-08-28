@@ -1,0 +1,20 @@
+name: AI PR Reviewer
+on:
+  pull_request:
+    types: [opened, synchronize] # Runs on new PRs and every new commit push
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Allows the AI to post inline comments
+      contents: read
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Run AI Code Reviewer
+        uses: Nikita-Filonov/ai-review@main # Or another marketplace alternative
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.YOUR_OPENAI_OR_CLAUDE_KEY }}
