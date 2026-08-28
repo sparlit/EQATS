@@ -13,8 +13,10 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+      uses: actions/checkout@v4
       with:
+        # Security: Disable credential persistence to prevent compromised packages
+        # from accessing repository credentials during installation or execution
         persist-credentials: false
 
     - name: Set up Python
@@ -24,8 +26,9 @@ jobs:
 
     - name: Install Refactoring Tools
       run: |
-        pip install black isort autoflake
-        # Add any other refactoring engines or tools you need here
+        # Security: Install pinned versions with hash verification to prevent
+        # supply-chain attacks from compromised PyPI packages
+        pip install --require-hashes -r .github/workflows/refactor-requirements.txt
 
     - name: Parse Plan, Execute, and Update Markdown
       id: process_task
@@ -111,8 +114,11 @@ jobs:
       env:
         BRANCH_NAME: ${{ github.ref_name }}
       run: |
+        # Security: Re-authenticate only for the commit step, after package installation
+        # This ensures packages cannot access credentials during installation
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@://github.com"
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git add .
         # Only commit if changes actually occurred
         git diff-index --quiet HEAD || git commit -m "🤖 Auto-refactor: completed next task in plan"
