@@ -70,6 +70,15 @@ class UniversalBrokerGateway:
             self.broker_config.get("retry_backoff_delay", 0.2)
         )
 
+        # Response size and duration limits to prevent resource exhaustion
+        # Default: 1MB max response size, 5 second total response deadline
+        self.max_response_bytes = int(
+            self.broker_config.get("max_response_bytes", 1048576)  # 1MB default
+        )
+        self.response_deadline_seconds = float(
+            self.broker_config.get("response_deadline_seconds", 5.0)
+        )
+
         # Circuit Breaker initialization
         cb_threshold = int(self.broker_config.get("failure_threshold", 5))
         cb_cooldown = float(self.broker_config.get("cooldown_seconds", 30.0))
@@ -169,6 +178,88 @@ class UniversalBrokerGateway:
         )
         
         return headers
+
+    def _read_response_safely(self, response):
+        """
+        Reads HTTP response with size and duration limits to prevent resource exhaustion.
+        
+        This method mitigates the risk of a compromised or malicious broker endpoint
+        causing excessive memory allocation or keeping synchronous order execution
+        occupied through slow-drip responses.
+        
+        Args:
+            response: urllib response object with read() method
+            
+        Returns:
+            bytes: Response body data
+            
+        Raises:
+            ValueError: If response exceeds size limit or duration deadline
+            TimeoutError: If total response duration exceeds deadline
+        """
+        start_time = time.time()
+        chunks = []
+        total_bytes = 0
+        chunk_size = 8192  # Read in 8KB chunks
+        
+        while True:
+            # Check total duration deadline
+            elapsed = time.time() - start_time
+            if elapsed > self.response_deadline_seconds:
+                _log.error(
+                    "Response reading exceeded deadline of %.1fs (elapsed: %.1fs, bytes read: %d)",
+                    self.response_deadline_seconds,
+                    elapsed,
+                    total_bytes
+                )
+                raise TimeoutError(
+                    f"Response reading exceeded deadline of {self.response_deadline_seconds}s "
+                    f"(elapsed: {elapsed:.1f}s, bytes read: {total_bytes})"
+                )
+            
+            # Read next chunk with remaining deadline as timeout
+            remaining_timeout = max(0.1, self.response_deadline_seconds - elapsed)
+            try:
+                chunk = response.read(chunk_size)
+            except socket.timeout:
+                # Socket timeout during chunk read - check if we have partial data
+                if chunks:
+                    _log.warning(
+                        "Socket timeout after reading %d bytes in %.1fs",
+                        total_bytes,
+                        elapsed
+                    )
+                raise
+            
+            if not chunk:
+                # End of response
+                break
+            
+            total_bytes += len(chunk)
+            
+            # Check size limit
+            if total_bytes > self.max_response_bytes:
+                _log.error(
+                    "Response size %d bytes exceeds maximum allowed %d bytes",
+                    total_bytes,
+                    self.max_response_bytes
+                )
+                raise ValueError(
+                    f"Response size {total_bytes} bytes exceeds maximum allowed "
+                    f"{self.max_response_bytes} bytes"
+                )
+            
+            chunks.append(chunk)
+        
+        response_data = b"".join(chunks)
+        
+        _log.debug(
+            "Successfully read %d bytes in %.3fs",
+            total_bytes,
+            time.time() - start_time
+        )
+        
+        return response_data
 
     def connect(self):
         """Establishes connection using the configured protocol adapter."""
@@ -361,7 +452,8 @@ class UniversalBrokerGateway:
             req = urllib.request.Request(query_url, headers=headers)
             
             with urllib.request.urlopen(req, timeout=3.0) as resp:
-                status_data = json.loads(resp.read().decode("utf-8"))
+                response_data = self._read_response_safely(resp)
+                status_data = json.loads(response_data.decode("utf-8"))
                 
                 # If broker confirms the order exists, return its details
                 if status_data.get("found") or status_data.get("status") in ["ACCEPTED", "FILLED", "PARTIAL"]:
@@ -564,7 +656,8 @@ class UniversalBrokerGateway:
                                 "protocol": self.protocol,
                             }
                         
-                        res_data = json.loads(resp.read().decode("utf-8"))
+                        response_data = self._read_response_safely(resp)
+                        res_data = json.loads(response_data.decode("utf-8"))
                         
                         # Validate application-level status - must be ACCEPTED, FILLED, or PARTIAL
                         order_status = res_data.get("status", "").upper()
@@ -922,7 +1015,8 @@ class UniversalBrokerGateway:
             for attempt in range(max_attempts):
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
-                        res_data = json.loads(resp.read().decode("utf-8"))
+                        response_data = self._read_response_safely(resp)
+                        res_data = json.loads(response_data.decode("utf-8"))
                         self._breaker.record_success()
                         return {
                             "success": res_data.get("success", True),
@@ -1082,7 +1176,8 @@ class UniversalBrokerGateway:
             for attempt in range(max_attempts):
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
-                        res_data = json.loads(resp.read().decode("utf-8"))
+                        response_data = self._read_response_safely(resp)
+                        res_data = json.loads(response_data.decode("utf-8"))
                         self._breaker.record_success()
                         return res_data.get("success", True)
                 except (socket.timeout, TimeoutError) as e:
@@ -1194,7 +1289,8 @@ class UniversalBrokerGateway:
 
             try:
                 with urllib.request.urlopen(req, timeout=3.0) as resp:
-                    res_data = json.loads(resp.read().decode("utf-8"))
+                    response_data = self._read_response_safely(resp)
+                    res_data = json.loads(response_data.decode("utf-8"))
                     return res_data.get("orders", [])
             except Exception as e:
                 _log.warning(
