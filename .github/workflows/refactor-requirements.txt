@@ -1,15 +1,40 @@
-# Pinned refactoring tool dependencies with SHA256 hashes for supply-chain security
-# This file pins exact versions and hashes to prevent supply-chain attacks
+# Pinned refactoring tool dependencies for supply-chain security
+# This file pins exact versions to prevent supply-chain attacks during CI workflows
+# Used by: jules-deep-refactor.yml
 # Last updated: 2024-01-15
-# Python version: 3.10+
+# Python version: 3.11+
 #
-# To regenerate hashes:
-#   pip download --no-deps <package>==<version>
-#   sha256sum <downloaded-file>
+# SECURITY NOTE: These tools are installed in a workflow with contents:write permission.
+# Exact version pinning prevents malicious package releases from executing arbitrary code
+# during pip install and potentially compromising the repository.
 #
-# Or use pip-compile with --generate-hashes flag
+# To update versions:
+#   1. Review the changelog and code changes for the new version
+#   2. Test the new version in a non-production environment
+#   3. Update the version pin below
+#   4. Optionally add SHA256 hashes for additional integrity verification:
+#      pip download --no-deps <package>==<version>
+#      sha256sum <downloaded-file>
+#
+# For hash-based verification, use: pip install --require-hashes -r refactor-requirements.txt
 
-# Black - Code formatter
+# Ruff - Fast Python linter (used in jules-deep-refactor.yml)
+# Pinned to specific version to prevent supply-chain attacks
+ruff==0.8.4
+
+# Bandit - Security linter (used in jules-deep-refactor.yml)  
+# Pinned to specific version to prevent supply-chain attacks
+bandit==1.8.0
+
+# Bandit transitive dependencies (pinned to prevent dependency confusion attacks)
+# These are required by bandit and must be pinned to prevent malicious versions
+# from being selected during dependency resolution
+GitPython==3.1.43
+PyYAML==6.0.2
+stevedore==5.3.0
+pbr==6.1.0
+
+# Black - Code formatter (used in other workflows)
 black==26.3.1 \
     --hash=sha256:0126ae5b7c09957da2bdbd91a9ba1207453feada9e9fe51992848658c6c8e01c \
     --hash=sha256:0f76ff19ec5297dd8e66eb64deda23631e642c9393ab592826fd4bdc97a4bce7 \
