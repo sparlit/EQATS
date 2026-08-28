@@ -361,14 +361,26 @@ class UniversalBrokerGateway:
                 
                 # If broker confirms the order exists, return its details
                 if status_data.get("found") or status_data.get("status") in ["ACCEPTED", "FILLED", "PARTIAL"]:
+                    # Validate that broker returned a valid ticket/order_id
+                    broker_ticket = status_data.get("ticket") or status_data.get("order_id")
+                    if not broker_ticket or str(broker_ticket).strip() == "":
+                        _log.error(
+                            "Order reconciliation: client_order_id %s found at broker but missing valid ticket. "
+                            "Response: %s",
+                            client_order_id,
+                            status_data
+                        )
+                        return {"found": False}
+                    
                     _log.info(
-                        "Order reconciliation: client_order_id %s found at broker with status %s",
+                        "Order reconciliation: client_order_id %s found at broker with status %s, ticket %s",
                         client_order_id,
-                        status_data.get("status", "UNKNOWN")
+                        status_data.get("status", "UNKNOWN"),
+                        broker_ticket
                     )
                     return {
                         "found": True,
-                        "ticket": str(status_data.get("ticket", status_data.get("order_id", ""))),
+                        "ticket": str(broker_ticket),
                         "price": float(status_data.get("price", 0.0)),
                         "status": status_data.get("status", "ACCEPTED")
                     }

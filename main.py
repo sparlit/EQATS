@@ -1226,7 +1226,8 @@ class AutonomousScalper:
                 )
 
                 if res["success"]:
-                    database.log_trade_open(
+                    # Attempt to log trade to database
+                    db_write_success = database.log_trade_open(
                         ticket=res["ticket"],
                         symbol=symbol,
                         direction=decision,
@@ -1237,6 +1238,49 @@ class AutonomousScalper:
                         strategy=strat_tag,
                         method=method_tag,
                     )
+                    
+                    # SECURITY: If database write fails (e.g., duplicate ticket), close the broker position immediately
+                    if not db_write_success:
+                        _log.error(
+                            "CRITICAL: Failed to log trade %s to database. "
+                            "This may indicate a duplicate ticket or integrity violation. "
+                            "Closing broker position immediately to prevent untracked exposure.",
+                            res["ticket"]
+                        )
+                        print(
+                            f"🚨 CRITICAL ERROR: Failed to log trade {res['ticket']} to database. "
+                            f"Closing broker position immediately to prevent untracked exposure."
+                        )
+                        
+                        # Close the broker position immediately
+                        close_result = self.conn.close_order(
+                            res["ticket"], 
+                            reason="DATABASE_WRITE_FAILURE"
+                        )
+                        
+                        if close_result.get("success"):
+                            _log.info(
+                                "Successfully closed untracked position %s after database write failure",
+                                res["ticket"]
+                            )
+                        else:
+                            _log.error(
+                                "CRITICAL: Failed to close untracked position %s after database write failure. "
+                                "Manual intervention required. Error: %s",
+                                res["ticket"],
+                                close_result.get("error", "Unknown error")
+                            )
+                            # Send critical alert
+                            telegram_bot.send_telegram_message(
+                                f"🚨 *CRITICAL ALERT*\n"
+                                f"Failed to close untracked position {res['ticket']} after database write failure.\n"
+                                f"Manual intervention required immediately.\n"
+                                f"Symbol: {symbol}, Direction: {decision}, Price: {res['price']:.5f}"
+                            )
+                        
+                        # Release reserved capital since trade was not successfully recorded
+                        self.engine.risk.release_reservation(symbol)
+                        continue
 
                     alert_msg = (
                         f"📊 *New Trade Executed!*\n"

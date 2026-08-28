@@ -761,6 +761,16 @@ def _execute_with_retry(query, params=(), commit=True):
                 if commit:
                     conn.commit()
             return True
+        except sqlite3.IntegrityError as e:
+            # IntegrityError indicates constraint violation (e.g., duplicate ticket, UNIQUE constraint)
+            # This is not a transient error and should not be retried
+            _log.error(
+                "Database integrity constraint violation: %s. Query: %s, Params: %s",
+                e,
+                query[:100],  # Log first 100 chars of query for diagnostics
+                params if len(str(params)) < 200 else str(params)[:200] + "..."
+            )
+            return False
         except sqlite3.OperationalError as e:
             if "no such table" in str(e).lower():
                 init_db()
@@ -1259,8 +1269,25 @@ def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanat
 
 
 def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, strategy="", method=""):
-    """Logs the initiation of a trade with lock retries."""
-    _execute_with_retry(
+    """
+    Logs the initiation of a trade with lock retries.
+    
+    Returns:
+        bool: True if trade was successfully logged, False if database write failed
+              (e.g., due to duplicate ticket constraint violation)
+    """
+    # Validate ticket is non-empty before attempting database write
+    if not ticket or str(ticket).strip() == "":
+        _log.error(
+            "log_trade_open: Rejected attempt to log trade with empty ticket. "
+            "Symbol: %s, Direction: %s, Price: %s",
+            symbol,
+            direction,
+            open_price
+        )
+        return False
+    
+    result = _execute_with_retry(
         """
     INSERT INTO trades (ticket, symbol, direction, open_price, open_time, sl, tp, lot_size, status, strategy, method)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1279,6 +1306,19 @@ def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, stra
             method,
         ),
     )
+    
+    if not result:
+        _log.error(
+            "log_trade_open: Failed to log trade to database. "
+            "Ticket: %s, Symbol: %s, Direction: %s, Price: %s. "
+            "This may indicate a duplicate ticket or database constraint violation.",
+            ticket,
+            symbol,
+            direction,
+            open_price
+        )
+    
+    return result
 
 
 def log_trade_close(ticket, close_price, profit, reason):
