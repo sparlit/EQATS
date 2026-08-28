@@ -78,15 +78,65 @@ class FIXEngine:
 
     def send_message(self, msg):
         """Sends a FIX message over the active socket connection."""
-        if not self.socket:
-            raise RuntimeError("FIXEngine: Cannot send message - no active connection")
+        with self.lock:
+            if not self.socket:
+                raise RuntimeError("FIXEngine: Cannot send message - no active connection")
+            
+            try:
+                self.socket.sendall(msg.encode("utf-8") if isinstance(msg, str) else msg)
+                _log.debug("FIXEngine: Sent message: %s", msg[:100])
+            except Exception as e:
+                _log.error("FIXEngine: Failed to send message - %s", e)
+                raise
+
+    def construct_and_send_message(self, msg_type, body_tags):
+        """
+        Atomically constructs and sends a FIX message while holding the engine lock.
         
-        try:
-            self.socket.sendall(msg.encode("utf-8") if isinstance(msg, str) else msg)
-            _log.debug("FIXEngine: Sent message: %s", msg[:100])
-        except Exception as e:
-            _log.error("FIXEngine: Failed to send message - %s", e)
-            raise
+        This method ensures that sequence number allocation, message construction,
+        and socket transmission occur atomically, preventing out-of-order message
+        transmission when multiple threads are sending messages concurrently.
+        
+        SECURITY: This method prevents FIX protocol violations where messages could
+        be transmitted out of MsgSeqNum order due to race conditions between
+        construct_fix_message() and send_message().
+        
+        Returns: The constructed FIX message string
+        """
+        with self.lock:
+            # Allocate sequence number
+            seq = self.seq_num
+            self.seq_num += 1
+            
+            # Construct message
+            sending_time = datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d-%H:%M:%S.%f"
+            )[:-3]
+            header = f"35={msg_type}\x0149={self.sender_comp_id}\x0156={self.target_comp_id}\x0134={seq}\x0152={sending_time}\x01"
+            body = "".join(f"{k}={v}\x01" for k, v in body_tags.items())
+
+            content = header + body
+            body_length = len(content)
+            full_msg_no_check = f"8=FIX.4.4\x019={body_length}\x01" + content
+
+            # Checksum calculation (sum of ascii chars mod 256)
+            checksum_val = sum(ord(c) for c in full_msg_no_check) % 256
+            checksum_str = f"{checksum_val:03d}"
+
+            msg = full_msg_no_check + f"10={checksum_str}\x01"
+            
+            # Send message while still holding lock
+            if not self.socket:
+                raise RuntimeError("FIXEngine: Cannot send message - no active connection")
+            
+            try:
+                self.socket.sendall(msg.encode("utf-8") if isinstance(msg, str) else msg)
+                _log.debug("FIXEngine: Sent message: %s", msg[:100])
+            except Exception as e:
+                _log.error("FIXEngine: Failed to send message - %s", e)
+                raise
+            
+            return msg
 
     def send_logon(self, heartbeat_int=30):
         """Sends Logon (35=A) message and marks session as active upon successful transmission."""
@@ -94,8 +144,7 @@ class FIXEngine:
             raise RuntimeError("FIXEngine: Cannot send logon - no active connection")
         
         tags = {"98": 0, "108": heartbeat_int}
-        msg = self.construct_fix_message("A", tags)
-        self.send_message(msg)
+        msg = self.construct_and_send_message("A", tags)
         
         # Only mark session active after successful transmission
         with self.lock:
@@ -166,10 +215,9 @@ class FIXEngine:
             "44": price,
             "59": 0,  # Day
         }
-        msg = self.construct_fix_message("D", tags)
         
-        # SECURITY FIX: Actually send the message to the venue
-        self.send_message(msg)
+        # SECURITY FIX: Use atomic construct_and_send to prevent out-of-order transmission
+        msg = self.construct_and_send_message("D", tags)
         
         # SECURITY FIX: Return PENDING status instead of fabricated FILLED report
         # Callers must wait for actual ExecutionReport from venue via receive_execution_report()
@@ -219,6 +267,10 @@ class FIXEngine:
         """
         Creates a NewOrderSingle (35=D) FIX message.
         This method is called by UniversalBrokerGateway.
+        
+        DEPRECATED: This method only constructs the message without sending it,
+        which can lead to out-of-order transmission. Use send_new_order_single()
+        instead for atomic construct-and-send behavior.
         """
         tags = {
             "11": cl_ord_id,
@@ -234,10 +286,37 @@ class FIXEngine:
         }
         return self.construct_fix_message("D", tags)
 
+    def send_new_order_single(self, cl_ord_id, symbol, side, quantity, ord_type, price):
+        """
+        Atomically constructs and sends a NewOrderSingle (35=D) FIX message.
+        
+        SECURITY: This method ensures sequence number allocation and transmission
+        occur atomically, preventing out-of-order message delivery.
+        
+        Returns: The constructed FIX message string
+        """
+        tags = {
+            "11": cl_ord_id,
+            "55": symbol,
+            "54": side,
+            "60": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d-%H:%M:%S.%f"
+            )[:-3],
+            "38": quantity,
+            "40": ord_type,
+            "44": price,
+            "59": 0,  # Day
+        }
+        return self.construct_and_send_message("D", tags)
+
     def create_order_cancel_request(self, cl_ord_id, orig_cl_ord_id):
         """
         Creates an OrderCancelRequest (35=F) FIX message.
         This method is called by UniversalBrokerGateway.
+        
+        DEPRECATED: This method only constructs the message without sending it,
+        which can lead to out-of-order transmission. Use send_order_cancel_request()
+        instead for atomic construct-and-send behavior.
         """
         tags = {
             "11": cl_ord_id,
@@ -248,10 +327,32 @@ class FIXEngine:
         }
         return self.construct_fix_message("F", tags)
 
+    def send_order_cancel_request(self, cl_ord_id, orig_cl_ord_id):
+        """
+        Atomically constructs and sends an OrderCancelRequest (35=F) FIX message.
+        
+        SECURITY: This method ensures sequence number allocation and transmission
+        occur atomically, preventing out-of-order message delivery.
+        
+        Returns: The constructed FIX message string
+        """
+        tags = {
+            "11": cl_ord_id,
+            "41": orig_cl_ord_id,
+            "60": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d-%H:%M:%S.%f"
+            )[:-3],
+        }
+        return self.construct_and_send_message("F", tags)
+
     def create_order_cancel_replace_request(self, cl_ord_id, orig_cl_ord_id, stop_px=None, price=None):
         """
         Creates an OrderCancelReplaceRequest (35=G) FIX message.
         This method is called by UniversalBrokerGateway for modify_order.
+        
+        DEPRECATED: This method only constructs the message without sending it,
+        which can lead to out-of-order transmission. Use send_order_cancel_replace_request()
+        instead for atomic construct-and-send behavior.
         """
         tags = {
             "11": cl_ord_id,
@@ -265,6 +366,28 @@ class FIXEngine:
         if price is not None:
             tags["44"] = price  # Price
         return self.construct_fix_message("G", tags)
+
+    def send_order_cancel_replace_request(self, cl_ord_id, orig_cl_ord_id, stop_px=None, price=None):
+        """
+        Atomically constructs and sends an OrderCancelReplaceRequest (35=G) FIX message.
+        
+        SECURITY: This method ensures sequence number allocation and transmission
+        occur atomically, preventing out-of-order message delivery.
+        
+        Returns: The constructed FIX message string
+        """
+        tags = {
+            "11": cl_ord_id,
+            "41": orig_cl_ord_id,
+            "60": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d-%H:%M:%S.%f"
+            )[:-3],
+        }
+        if stop_px is not None:
+            tags["99"] = stop_px  # StopPx
+        if price is not None:
+            tags["44"] = price  # Price
+        return self.construct_and_send_message("G", tags)
 
     def receive_execution_report(self, timeout=5.0):
         """
