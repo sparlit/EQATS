@@ -1,6 +1,6 @@
 """
-EQATS Version 9.3 Institutional Upgrade Verification Suite
-Verifies version assertions, ScalperBrain v9.3 attributes, and high-density multi-timeframe bar data string gathering.
+EQATS Version 9.4 Institutional Upgrade Verification Suite
+Verifies version assertions, ScalperBrain v9.4 attributes, and space padding distance validation.
 """
 
 import pytest
@@ -8,12 +8,12 @@ import brain
 from brain import ScalperBrain
 
 
-def test_v9_3_version_assertions():
+def test_v9_4_version_assertions():
     scalper = ScalperBrain()
-    assert int(scalper.version.split(".")[0]) >= 8
+    assert scalper.version == "9.4.0"
 
 
-def test_v9_3_brain_evaluation_and_slippage_control():
+def test_v9_4_brain_evaluation_and_slippage_control():
     scalper = ScalperBrain()
     bars = [
         {"open": 1.1000 + i*0.0001, "high": 1.1005 + i*0.0001, "low": 1.0995 + i*0.0001, "close": 1.1002 + i*0.0001, "tick_volume": 1000}
@@ -21,5 +21,5 @@ def test_v9_3_brain_evaluation_and_slippage_control():
     ]
     res = scalper.evaluate("EURUSD", bars, current_equity=10000.0)
     assert "decision" in res
-    assert "v9_3_slippage_pips" in res
-    assert res["v9_3_slippage_pips"] >= 0.5
+    assert "v9_4_slippage_pips" in res
+    assert res["v9_4_slippage_pips"] >= 0.5
