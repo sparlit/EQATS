@@ -11,24 +11,21 @@ Provides a protocol-agnostic, multi-broker gateway connecting EQATS / EQATS to:
  - High-Fidelity Paper Trading Simulator
 """
 
+import hashlib
+import hmac
 import json
 import logging
 import socket
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
-
-_log = logging.getLogger(__name__)
-
-_log = logging.getLogger(__name__)
-
-_log = logging.getLogger(__name__)
 
 _log = logging.getLogger(__name__)
 
@@ -83,6 +80,82 @@ class UniversalBrokerGateway:
             self.api_secret = self.broker_config.get("api_secret", "")
             self.rest_url = self.broker_config.get("rest_url", "")
             self.ws_url = self.broker_config.get("ws_url", "")
+            
+            # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure
+            if self.rest_url and not self.rest_url.startswith("https://"):
+                _log.error(
+                    "UniversalBrokerGateway: REST endpoint must use HTTPS. Rejecting insecure URL: %s",
+                    self.rest_url
+                )
+                raise ValueError(
+                    f"REST endpoint must use HTTPS for secure transmission. "
+                    f"Insecure URL rejected: {self.rest_url}"
+                )
+            
+            if self.ws_url and not self.ws_url.startswith("wss://"):
+                _log.warning(
+                    "UniversalBrokerGateway: WebSocket endpoint should use WSS (secure). "
+                    "Insecure WS URL detected: %s",
+                    self.ws_url
+                )
+
+    def _generate_auth_headers(self, method="POST", endpoint="/v1/order", body_data=None):
+        """
+        Generates authenticated request headers including API key and HMAC signature.
+        
+        This implements a standard broker authentication pattern using:
+        - API Key in X-API-Key header
+        - HMAC-SHA256 signature in X-Signature header
+        - Timestamp nonce in X-Timestamp header
+        
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint path
+            body_data: Request body bytes for signature calculation
+            
+        Returns:
+            dict: Headers including Content-Type, API key, timestamp, and signature
+        """
+        headers = {"Content-Type": "application/json"}
+        
+        # Only add authentication if credentials are configured
+        if not self.api_key or not self.api_secret:
+            _log.warning(
+                "UniversalBrokerGateway: API credentials not configured. "
+                "Request will be sent without authentication headers."
+            )
+            return headers
+        
+        # Add API key header
+        headers["X-API-Key"] = self.api_key
+        
+        # Generate timestamp nonce (milliseconds since epoch)
+        timestamp = str(int(time.time() * 1000))
+        headers["X-Timestamp"] = timestamp
+        
+        # Construct signature payload: METHOD + ENDPOINT + TIMESTAMP + BODY
+        # This is a common pattern used by institutional broker APIs
+        signature_payload = f"{method}{endpoint}{timestamp}"
+        if body_data:
+            signature_payload += body_data.decode("utf-8") if isinstance(body_data, bytes) else str(body_data)
+        
+        # Generate HMAC-SHA256 signature
+        signature = hmac.new(
+            self.api_secret.encode("utf-8"),
+            signature_payload.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+        
+        headers["X-Signature"] = signature
+        
+        _log.debug(
+            "Generated authenticated headers for %s %s with timestamp %s",
+            method,
+            endpoint,
+            timestamp
+        )
+        
+        return headers
 
     def connect(self):
         """Establishes connection using the configured protocol adapter."""
@@ -202,8 +275,17 @@ class UniversalBrokerGateway:
         
         try:
             # Query broker order status endpoint with client_order_id
-            query_url = f"{self.rest_url}/v1/order/status?client_order_id={client_order_id}"
-            req = urllib.request.Request(query_url, headers={"Content-Type": "application/json"})
+            query_endpoint = f"/v1/order/status?client_order_id={client_order_id}"
+            query_url = f"{self.rest_url}{query_endpoint}"
+            
+            # Generate authenticated headers for GET request
+            headers = self._generate_auth_headers(
+                method="GET",
+                endpoint=query_endpoint,
+                body_data=None
+            )
+            
+            req = urllib.request.Request(query_url, headers=headers)
             
             with urllib.request.urlopen(req, timeout=3.0) as resp:
                 status_data = json.loads(resp.read().decode("utf-8"))
@@ -268,10 +350,19 @@ class UniversalBrokerGateway:
                     "tp": tp,
                 }
             ).encode("utf-8")
+            
+            # Generate authenticated headers with API key and HMAC signature
+            endpoint = "/v1/order"
+            headers = self._generate_auth_headers(
+                method="POST",
+                endpoint=endpoint,
+                body_data=payload
+            )
+            
             req = urllib.request.Request(
-                f"{self.rest_url}/v1/order",
+                f"{self.rest_url}{endpoint}",
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
 
             max_attempts = 2
@@ -540,10 +631,19 @@ class UniversalBrokerGateway:
             and self.rest_url
         ):
             payload = json.dumps({"ticket": str(ticket), "reason": reason}).encode("utf-8")
+            
+            # Generate authenticated headers with API key and HMAC signature
+            endpoint = "/v1/order/close"
+            headers = self._generate_auth_headers(
+                method="POST",
+                endpoint=endpoint,
+                body_data=payload
+            )
+            
             req = urllib.request.Request(
-                f"{self.rest_url}/v1/order/close",
+                f"{self.rest_url}{endpoint}",
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
 
             max_attempts = 2
@@ -692,10 +792,19 @@ class UniversalBrokerGateway:
             payload = json.dumps(
                 {"ticket": str(ticket), "sl": sl, "tp": tp}
             ).encode("utf-8")
+            
+            # Generate authenticated headers with API key and HMAC signature
+            endpoint = "/v1/order/modify"
+            headers = self._generate_auth_headers(
+                method="POST",
+                endpoint=endpoint,
+                body_data=payload
+            )
+            
             req = urllib.request.Request(
-                f"{self.rest_url}/v1/order/modify",
+                f"{self.rest_url}{endpoint}",
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
 
             max_attempts = 2
@@ -799,9 +908,17 @@ class UniversalBrokerGateway:
             and hasattr(self, "rest_url")
             and self.rest_url
         ):
+            # Generate authenticated headers for GET request
+            endpoint = "/v1/orders"
+            headers = self._generate_auth_headers(
+                method="GET",
+                endpoint=endpoint,
+                body_data=None
+            )
+            
             req = urllib.request.Request(
-                f"{self.rest_url}/v1/orders",
-                headers={"Content-Type": "application/json"},
+                f"{self.rest_url}{endpoint}",
+                headers=headers,
             )
 
             try:
