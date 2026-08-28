@@ -2,25 +2,30 @@ name: EQATS Quantum Architectural Evolution Loop
 on:
   push:
     branches:
-      - '**'                # 🌍 UNIVERSAL: Triggers automatically on pushes to ANY branch, including main
+      - 'main'              # SECURITY: Restricted to protected main branch only
+      - 'ai-quantum-/*'     # SECURITY: Restricted to designated quantum evolution branches
   workflow_dispatch:        # Allows manual invocation from the GitHub Actions UI
 jobs:
   quantum-evolution:
     runs-on: ubuntu-latest
+    # SECURITY: Use GitHub Environment with required reviewers for secret access control
+    # Configure this environment in repository Settings > Environments > quantum-evolution
+    # Recommended: Require manual approval from CODEOWNERS before workflow can access secrets
+    environment: quantum-evolution
     permissions:
       contents: write       # Grants Jules permission to push code updates
       pull-requests: write  # Grants permissions to open and merge Pull Requests
 
     steps:
       # 1. Checkout the repository with full commit history to track the loop count
-      # SECURITY NOTE: persist-credentials defaults to true, which stores the GitHub token
-      # in the local git config. This is required for the Jules action to push commits.
-      # All subsequent steps that execute external code (especially third-party actions)
-      # inherit access to this credential. Ensure all actions are pinned to reviewed SHAs.
+      # SECURITY: persist-credentials set to false to prevent credential leakage to
+      # pip-installed packages or third-party actions. The Jules action receives the
+      # GITHUB_TOKEN directly via environment variable and does not require git credentials.
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v5.2.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # 2. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
       - name: Enforce Circuit Breaker Limit
