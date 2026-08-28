@@ -546,9 +546,19 @@ class ScalperBrain:
                         ):
                             continue
 
+                        # Kronos Probabilistic Foundation Veto Filter
+                        if kronos_upside_prob < 0.25 and raw_sig == "BUY":
+                            continue
+                        elif kronos_upside_prob > 0.75 and raw_sig == "SELL":
+                            continue
+
+                        # AI Probability Threshold Check
+                        prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
+                        if prob < 0.60:
+                            continue
+
                         lot_val, sl_val, tp_val = compute_sl_tp_lot(m_style, raw_sig)
                         exp = f"[{m_style}] [{strat_name}] Authentic Signal: {raw_sig}{agent_notes}"
-                        prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
                         concurrent_decisions.append({
                             "symbol": symbol,
                             "decision": raw_sig,
@@ -569,9 +579,19 @@ class ScalperBrain:
                     ):
                         continue
 
+                    # Kronos Probabilistic Foundation Veto Filter
+                    if kronos_upside_prob < 0.25 and raw_sig == "BUY":
+                        continue
+                    elif kronos_upside_prob > 0.75 and raw_sig == "SELL":
+                        continue
+
+                    # AI Probability Threshold Check
+                    prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
+                    if prob < 0.60:
+                        continue
+
                     lot_val, sl_val, tp_val = compute_sl_tp_lot(style_mode, raw_sig)
                     exp = f"[{style_mode}] [{strat_name}] Authentic Signal: {raw_sig}{agent_notes}"
-                    prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
                     concurrent_decisions.append({
                         "symbol": symbol,
                         "decision": raw_sig,

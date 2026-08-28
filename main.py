@@ -947,7 +947,7 @@ class AutonomousScalper:
                     ),
                     "rate_throttled": (self.engine.execution.rate_state != "NORMAL"),
                     "strategy_valid": (decision in ["BUY", "SELL"]),
-                    "ai_probability": 85.0,
+                    "ai_probability": dec_item.get("probability", 0.85) * 100.0,
                 }
                 const_res = self.engine.constitution.evaluate_constitution_compliance(
                     constitution_payload
