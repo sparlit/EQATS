@@ -140,6 +140,13 @@ from .quantdinger_engine import (  # noqa: F401
     GridState,
     FactorScoreResult,
 )
+from .superalgos_trading_engine import (  # noqa: F401
+    SuperalgosTradingStagesEngine,
+    StageType,
+    TriggerStatus,
+    SuperalgosPosition,
+    EpisodeMetrics,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -367,4 +374,9 @@ __all__ = [
     "GridLevel",
     "GridState",
     "FactorScoreResult",
+    "SuperalgosTradingStagesEngine",
+    "StageType",
+    "TriggerStatus",
+    "SuperalgosPosition",
+    "EpisodeMetrics",
 ]
