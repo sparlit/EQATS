@@ -8,25 +8,43 @@ on:
     types: [opened, edited, closed] # Triggers when roadmap issues change
   workflow_dispatch: # Allows you to run it manually
 
+# Default to read-only permissions. Write permissions are granted explicitly
+# to the update-readme job only for the final push operation after third-party
+# code execution has completed.
+permissions:
+  contents: read
+
 jobs:
   update-readme:
     runs-on: ubuntu-latest
+    # Grant write permission only to this job for committing README updates.
+    # Third-party actions execute with read-only access before the push.
+    permissions:
+      contents: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Disable credential persistence to prevent third-party actions or
+          # the update script from accessing the GitHub token via .git/config
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Run Update Script
+        # The update script runs without access to repository-write credentials.
+        # If compromised, it cannot push unauthorized changes.
         run: node update-readme.js
 
       - name: Commit and Push Changes
+        # Provide write-capable token explicitly only for this final operation,
+        # after all third-party code has completed execution.
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
           git add README.md
           git diff-index --quiet HEAD || git commit -m "chore: auto-update roadmap and timeline in README"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
