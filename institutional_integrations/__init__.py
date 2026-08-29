@@ -126,6 +126,12 @@ from .solana_dex_risk_guard import (  # noqa: F401
     DEXPoolMetrics,
     DEXRiskCheckResult,
 )
+from .freqtrade_protection_engine import (  # noqa: F401
+    FreqtradeProtectionEngine,
+    PairLock,
+    LockSide,
+    ProtectionCheckResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -343,4 +349,8 @@ __all__ = [
     "SolanaDEXRiskGuard",
     "DEXPoolMetrics",
     "DEXRiskCheckResult",
+    "FreqtradeProtectionEngine",
+    "PairLock",
+    "LockSide",
+    "ProtectionCheckResult",
 ]
