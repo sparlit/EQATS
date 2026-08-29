@@ -22,9 +22,21 @@ from institutional_integrations.ftmo_tradingbot_core import ScaleOnProfitEngine,
 from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarFeedManager
 from institutional_integrations.qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy
 from institutional_integrations.mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator
+from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatcher
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_ftmo_temporal_matcher(self):
+        matcher = FewShotTemporalMatcher()
+        query = [1.1000, 1.1010, 1.1020, 1.1015, 1.1030]
+        supp = [
+            [1.0900, 1.0910, 1.0920, 1.0915, 1.0930],
+            [1.1500, 1.1510, 1.1520, 1.1515, 1.1530]
+        ]
+        sim = matcher.compute_similarity(query, supp)
+        self.assertGreaterEqual(sim, 0.0)
+        self.assertLessEqual(sim, 1.0)
 
     def test_mt5bot_engine(self):
         norm = MT5BotVolumeNormalizer()
