@@ -79,7 +79,7 @@ def calculate_vpin(buy_volume: Sequence[float], sell_volume: Sequence[float], bu
     vpin_val = sum(window) / (len(window) * bucket_size)
     return min(1.0, max(0.0, float(vpin_val)))
 
-def calculate_copula_dependence(u: Sequence[float], v: Sequence[float], family: str = "clayton") -> Dict[str, float]:
+def calculate_copula_dependence(u: Sequence[float], v: Sequence[float], family: str = "clayton") -> Dict[str, Any]:
     """Fits bivariate copula and computes lower/upper tail dependence coefficients."""
     u_arr = np.clip(np.asarray(u, dtype=float), 0.001, 0.999)
     v_arr = np.clip(np.asarray(v, dtype=float), 0.001, 0.999)
