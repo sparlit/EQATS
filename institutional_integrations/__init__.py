@@ -59,8 +59,30 @@ from .quant_portfolio_analytics import (  # noqa: F401
 from .quantum_quantum_engine import QuantumAutoEngine  # noqa: F401
 from .rust_bridge import execute_high_speed_rust_order_send  # noqa: F401
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue  # noqa: F401
+from .bayesian_consensus import BayesianConsensusEngine, global_bayesian_consensus  # noqa: F401
+from . import aat_strategies  # noqa: F401
+from .aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst  # noqa: F401
+from . import itip_signal_store  # noqa: F401
+from .mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage  # noqa: F401
+from .sovereign_intelligence import SovereignIntelligencePlugin  # noqa: F401
+from . import vibe_quantlib  # noqa: F401
+from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager  # noqa: F401
 
 __all__ = [
+    "BayesianConsensusEngine",
+    "global_bayesian_consensus",
+    "aat_strategies",
+    "MacroAnalyst",
+    "SMCAnalyst",
+    "VolatilityAnalyst",
+    "itip_signal_store",
+    "SLTPEngine",
+    "CandlestickAIClassifier",
+    "LatencyArbitrage",
+    "SovereignIntelligencePlugin",
+    "vibe_quantlib",
+    "OpenAlgoSmartOrderSplitter",
+    "OpenAlgoSessionSquareOffManager",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
