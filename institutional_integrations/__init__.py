@@ -85,6 +85,7 @@ from .ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, Mar
 from .prop_guard_equity_armor import PropGuardEquityArmorEngine  # noqa: F401
 from .prop_firm_elite_tracker import SignalPulseLogSyncParser, PropFirmEliteMultiAccountAggregator  # noqa: F401
 from .prop_guardian_safety import PropGuardianMasterFilters, PROP_FIRMS_DATABASE  # noqa: F401
+from .calculus_quant_engine import calculate_hma, MarketEntropyMonitor, GeometricExitEngine  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -139,6 +140,9 @@ __all__ = [
     "PropFirmEliteMultiAccountAggregator",
     "PropGuardianMasterFilters",
     "PROP_FIRMS_DATABASE",
+    "calculate_hma",
+    "MarketEntropyMonitor",
+    "GeometricExitEngine",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",

@@ -29,9 +29,24 @@ from institutional_integrations.ea_scalper_xauusd_engine import AMDCycleTracker,
 from institutional_integrations.prop_guard_equity_armor import PropGuardEquityArmorEngine
 from institutional_integrations.prop_firm_elite_tracker import SignalPulseLogSyncParser, PropFirmEliteMultiAccountAggregator
 from institutional_integrations.prop_guardian_safety import PropGuardianMasterFilters, PROP_FIRMS_DATABASE
+from institutional_integrations.calculus_quant_engine import calculate_hma, MarketEntropyMonitor, GeometricExitEngine
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_calculus_quant_engine(self):
+        prices = [1.1000 + i*0.0002 for i in range(30)]
+        hma_val = calculate_hma(prices, period=14)
+        self.assertGreater(hma_val, 1.1000)
+
+        entropy = MarketEntropyMonitor()
+        noise = entropy.compute_noise_level(prices)
+        self.assertEqual(noise, 0.0) # Smooth linear trend = 0 noise
+
+        geo = GeometricExitEngine()
+        exits = geo.compute_geometric_exit(1.1000, 1.0950, geometric_ratio=1.618)
+        self.assertGreater(exits["tp1_geometric"], 1.1000)
+        self.assertGreater(exits["tp2_geometric"], exits["tp1_geometric"])
 
     def test_prop_guardian_safety(self):
         filters = PropGuardianMasterFilters(max_spread_pips=3.0)
