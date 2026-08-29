@@ -121,6 +121,11 @@ from .trading_agents_cn_suite import (  # noqa: F401
     FilteredNewsArticle,
     DataCompletenessReport,
 )
+from .solana_dex_risk_guard import (  # noqa: F401
+    SolanaDEXRiskGuard,
+    DEXPoolMetrics,
+    DEXRiskCheckResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -335,4 +340,7 @@ __all__ = [
     "ChinaMarketReport",
     "FilteredNewsArticle",
     "DataCompletenessReport",
+    "SolanaDEXRiskGuard",
+    "DEXPoolMetrics",
+    "DEXRiskCheckResult",
 ]
