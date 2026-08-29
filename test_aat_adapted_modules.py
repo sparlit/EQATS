@@ -27,9 +27,27 @@ from institutional_integrations.awesome_llm_finance_team import MultiAgentFinanc
 from institutional_integrations.awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent
 from institutional_integrations.ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard
 from institutional_integrations.prop_guard_equity_armor import PropGuardEquityArmorEngine
+from institutional_integrations.prop_firm_elite_tracker import SignalPulseLogSyncParser, PropFirmEliteMultiAccountAggregator
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_prop_firm_elite_tracker(self):
+        parser = SignalPulseLogSyncParser()
+        res = parser.parse_log_line("2026.08.29 12:00:00 order #1001 buy 0.1 EURUSD at 1.1000 profit: +150.0")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["direction"], "BUY")
+        self.assertEqual(res["profit"], 150.0)
+
+        agg = PropFirmEliteMultiAccountAggregator()
+        accs = [
+            {"account_id": "1", "passed": True, "failed": False, "current_profit": 10500.0},
+            {"account_id": "2", "passed": False, "failed": False, "current_profit": 3200.0},
+        ]
+        res_a = agg.aggregate_accounts(accs)
+        self.assertEqual(res_a["total_accounts"], 2)
+        self.assertEqual(res_a["accounts_passed"], 1)
+        self.assertEqual(res_a["total_combined_profit"], 13700.0)
 
     def test_prop_guard_equity_armor(self):
         armor = PropGuardEquityArmorEngine(daily_loss_limit_pct=5.0, max_drawdown_pct=10.0, kill_switch_cooldown_min=1)
