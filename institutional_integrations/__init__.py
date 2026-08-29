@@ -153,6 +153,12 @@ from .backtrader_engine import (  # noqa: F401
     BacktraderPerformanceMetrics,
     BacktraderSizerResult,
 )
+from .ml4t_trading_engine import (  # noqa: F401
+    PurgedWalkForwardCV,
+    EigenportfolioDecomposition,
+    WalkForwardSplit,
+    EigenportfolioResult,
+)
 from .zipline_finance_engine import (  # noqa: F401
     ZiplineSlippageModel,
     ZiplineCommissionModel,
