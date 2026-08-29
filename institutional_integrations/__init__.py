@@ -201,6 +201,15 @@ from .jesse_metrics_and_quant_suite import (  # noqa: F401
     JessePerformanceReport,
     QuantStrategySignal,
 )
+from .backtesting_py_suite import (  # noqa: F401
+    SignalStrategy,
+    TrailingStrategy,
+    resample_apply,
+    crossover,
+    cross,
+    barssince,
+    BacktestTradeSignal,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -465,4 +474,11 @@ __all__ = [
     "JesseQuantStrategyLibrary",
     "JessePerformanceReport",
     "QuantStrategySignal",
+    "SignalStrategy",
+    "TrailingStrategy",
+    "resample_apply",
+    "crossover",
+    "cross",
+    "barssince",
+    "BacktestTradeSignal",
 ]
