@@ -23,9 +23,18 @@ from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarF
 from institutional_integrations.qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy
 from institutional_integrations.mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator
 from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatcher
+from institutional_integrations.awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_awesome_llm_finance_team(self):
+        team = MultiAgentFinanceTeamOrchestrator()
+        allocs = {"EURUSD": 2000.0, "BTCUSD": 3000.0}
+        res = team.generate_team_consensus("EURUSD", spot_price=1.1000, equity=10000.0, current_allocations=allocs)
+        self.assertEqual(res["symbol"], "EURUSD")
+        self.assertIn("consensus_action", res)
+        self.assertIn("advisor_summary", res)
 
     def test_ftmo_temporal_matcher(self):
         matcher = FewShotTemporalMatcher()

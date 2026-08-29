@@ -79,6 +79,7 @@ from .prop_firm_calendar_feed import PropFirmTradingEvent, PropFirmCalendarFeedM
 from .qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy  # noqa: F401
 from .mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator  # noqa: F401
 from .ftmo_temporal_matcher import FewShotTemporalMatcher  # noqa: F401
+from .awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -121,6 +122,7 @@ __all__ = [
     "MT5BotVolumeNormalizer",
     "RelativePricePredictionEvaluator",
     "FewShotTemporalMatcher",
+    "MultiAgentFinanceTeamOrchestrator",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
