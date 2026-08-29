@@ -103,6 +103,7 @@ class PropGuardianMasterFilters:
         historical_atr: float,
         utc_hour: int,
         utc_weekday: int,
+        utc_minute: int = 0,
         current_dd_pct: float = 0.0,
         dd_scale_threshold_pct: float = 3.5
     ) -> Dict[str, Any]:
@@ -119,9 +120,8 @@ class PropGuardianMasterFilters:
             return {"passed": False, "reason": f"Same trade idea cooldown active for {symbol} ({rem_s}s remaining)"}
 
         # 3. Rollover Window Check (21:55 - 22:15 UTC daily swap window)
-        if (utc_hour == 21 and 55 <= 55) or (utc_hour == 22 and 0 <= 15):
-            pass # Check hour 21:55 - 22:15
-        if utc_hour == 21 or utc_hour == 22:
+        is_rollover = (utc_hour == 21 and utc_minute >= 55) or (utc_hour == 22 and utc_minute <= 15)
+        if is_rollover:
             return {"passed": False, "reason": "Rollover swap window active (21:55-22:15 UTC)"}
 
         # 4. Friday Close Protection (Friday after 20:00 UTC)

@@ -56,6 +56,12 @@ from .batch3_quant_strategies import (  # noqa: F401
     PivotReactionZoneStrategy,
     QuantSignal,
 )
+from .neoethos_autoresearch import (  # noqa: F401
+    NeoethosAutoResearchEngine,
+    ResearchObjectiveConfig,
+    ResearchHypothesisResult,
+    NeoethosReplayStats,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -221,4 +227,8 @@ __all__ = [
     "EngulfingAtExtremeStrategy",
     "PivotReactionZoneStrategy",
     "QuantSignal",
+    "NeoethosAutoResearchEngine",
+    "ResearchObjectiveConfig",
+    "ResearchHypothesisResult",
+    "NeoethosReplayStats",
 ]
