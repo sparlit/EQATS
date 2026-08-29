@@ -10,8 +10,21 @@ from institutional_integrations import itip_signal_store
 from institutional_integrations.mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage
 from institutional_integrations.sovereign_intelligence import SovereignIntelligencePlugin
 from institutional_integrations import vibe_quantlib
+from institutional_integrations.openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_openalgo_engine(self):
+        splitter = OpenAlgoSmartOrderSplitter(max_slice_lot=2.0)
+        slices = splitter.slice_order("EURUSD", "BUY", 5.5)
+        self.assertEqual(len(slices), 3)
+        self.assertEqual(slices[0]["volume"], 2.0)
+        self.assertEqual(slices[1]["volume"], 2.0)
+        self.assertEqual(slices[2]["volume"], 1.5)
+
+        sq = OpenAlgoSessionSquareOffManager()
+        self.assertFalse(sq.check_squareoff_required(12, 0))
+        self.assertTrue(sq.check_squareoff_required(16, 55))
 
     def test_vibe_quantlib(self):
         # Test VPIN

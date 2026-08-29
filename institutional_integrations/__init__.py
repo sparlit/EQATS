@@ -66,6 +66,7 @@ from . import itip_signal_store  # noqa: F401
 from .mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage  # noqa: F401
 from .sovereign_intelligence import SovereignIntelligencePlugin  # noqa: F401
 from . import vibe_quantlib  # noqa: F401
+from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -80,6 +81,8 @@ __all__ = [
     "LatencyArbitrage",
     "SovereignIntelligencePlugin",
     "vibe_quantlib",
+    "OpenAlgoSmartOrderSplitter",
+    "OpenAlgoSessionSquareOffManager",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
