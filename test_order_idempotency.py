@@ -17,7 +17,7 @@ from institutional_integrations.universal_broker_adapter import UniversalBrokerG
 def test_rest_order_includes_client_order_id():
     """Verify that REST order payload includes client_order_id for idempotency."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
         "retry_backoff_delay": 0.01,
     }
@@ -55,7 +55,7 @@ def test_rest_order_includes_client_order_id():
 def test_timeout_triggers_reconciliation():
     """Verify that timeout exception triggers order reconciliation."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
         "retry_backoff_delay": 0.01,
     }
@@ -100,7 +100,7 @@ def test_timeout_triggers_reconciliation():
 def test_reconciliation_prevents_duplicate_on_timeout():
     """Verify that when reconciliation finds the order, no retry is attempted."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
         "retry_backoff_delay": 0.01,
     }
@@ -136,7 +136,7 @@ def test_reconciliation_prevents_duplicate_on_timeout():
 def test_reconciliation_allows_retry_when_order_not_found():
     """Verify that when reconciliation doesn't find the order, retry proceeds."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
         "retry_backoff_delay": 0.01,
     }
@@ -179,7 +179,7 @@ def test_reconciliation_allows_retry_when_order_not_found():
 def test_same_client_order_id_used_across_retries():
     """Verify that the same client_order_id is used for both retry attempts."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
         "retry_backoff_delay": 0.01,
     }
@@ -211,7 +211,7 @@ def test_same_client_order_id_used_across_retries():
 def test_generic_exception_also_triggers_reconciliation():
     """Verify that generic exceptions also trigger reconciliation."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
         "retry_backoff_delay": 0.01,
     }
@@ -247,7 +247,7 @@ def test_generic_exception_also_triggers_reconciliation():
 def test_reconcile_order_status_method():
     """Test the _reconcile_order_status method directly."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
     }
     gw = UniversalBrokerGateway(protocol="REST_WS", broker_config=config)
@@ -279,7 +279,7 @@ def test_reconcile_order_status_method():
 def test_reconcile_order_status_not_found():
     """Test reconciliation when order is not found at broker."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
     }
     gw = UniversalBrokerGateway(protocol="REST_WS", broker_config=config)
@@ -300,7 +300,7 @@ def test_reconcile_order_status_not_found():
 def test_reconcile_handles_query_failure():
     """Test that reconciliation gracefully handles query failures."""
     config = {
-        "rest_url": "http://test-broker.example.com",
+        "rest_url": "https://test-broker.example.com",
         "failure_threshold": 5,
     }
     gw = UniversalBrokerGateway(protocol="REST_WS", broker_config=config)
