@@ -17,8 +17,21 @@ from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracke
 from institutional_integrations.ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor
 from institutional_integrations.meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker
 from institutional_integrations.nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer
+from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_ftmo_journal_analyzer(self):
+        analyzer = FTMOJournalAnalyzer()
+        trades = [
+            {"ticket": "1", "profit": 200.0, "volume": 0.1},
+            {"ticket": "2", "profit": -100.0, "volume": 0.1},
+            {"ticket": "3", "profit": 300.0, "volume": 0.1},
+        ]
+        stats = analyzer.compute_journal_stats(trades)
+        self.assertEqual(stats["total_trades"], 3)
+        self.assertEqual(stats["profit_factor"], 5.0)
+        self.assertEqual(stats["net_profit"], 400.0)
 
     def test_nexquant_engine(self):
         model = NexQuantFactorModel(learning_rate=0.05)
