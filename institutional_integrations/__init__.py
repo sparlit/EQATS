@@ -67,6 +67,7 @@ from .mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitr
 from .sovereign_intelligence import SovereignIntelligencePlugin  # noqa: F401
 from . import vibe_quantlib  # noqa: F401
 from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager  # noqa: F401
+from .openbull_analytics import calculate_max_pain, calculate_synthetic_future_price  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -83,6 +84,8 @@ __all__ = [
     "vibe_quantlib",
     "OpenAlgoSmartOrderSplitter",
     "OpenAlgoSessionSquareOffManager",
+    "calculate_max_pain",
+    "calculate_synthetic_future_price",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",

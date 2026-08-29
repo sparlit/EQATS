@@ -11,8 +11,22 @@ from institutional_integrations.mql_colab_engine import SLTPEngine, CandlestickA
 from institutional_integrations.sovereign_intelligence import SovereignIntelligencePlugin
 from institutional_integrations import vibe_quantlib
 from institutional_integrations.openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager
+from institutional_integrations.openbull_analytics import calculate_max_pain, calculate_synthetic_future_price
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_openbull_analytics(self):
+        chain = [
+            {"strike": 100.0, "ce_oi": 500, "pe_oi": 100},
+            {"strike": 105.0, "ce_oi": 1000, "pe_oi": 800},
+            {"strike": 110.0, "ce_oi": 200, "pe_oi": 1200},
+        ]
+        mp = calculate_max_pain(chain)
+        self.assertEqual(mp["max_pain_strike"], 105.0)
+
+        sf = calculate_synthetic_future_price(105.0, 3.5, 2.0, 106.0)
+        self.assertEqual(sf["synthetic_future_price"], 106.5)
+        self.assertEqual(sf["basis"], 0.5)
 
     def test_openalgo_engine(self):
         splitter = OpenAlgoSmartOrderSplitter(max_slice_lot=2.0)
