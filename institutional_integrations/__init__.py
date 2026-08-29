@@ -59,8 +59,86 @@ from .quant_portfolio_analytics import (  # noqa: F401
 from .quantum_quantum_engine import QuantumAutoEngine  # noqa: F401
 from .rust_bridge import execute_high_speed_rust_order_send  # noqa: F401
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue  # noqa: F401
+from .bayesian_consensus import BayesianConsensusEngine, global_bayesian_consensus  # noqa: F401
+from . import aat_strategies  # noqa: F401
+from .aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst  # noqa: F401
+from . import itip_signal_store  # noqa: F401
+from .mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage  # noqa: F401
+from .sovereign_intelligence import SovereignIntelligencePlugin  # noqa: F401
+from . import vibe_quantlib  # noqa: F401
+from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager  # noqa: F401
+from .openbull_analytics import calculate_max_pain, calculate_synthetic_future_price  # noqa: F401
+from .nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard  # noqa: F401
+from .prop_firm_tracker import PropFirmChallengeTracker  # noqa: F401
+from .ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor  # noqa: F401
+from .meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker  # noqa: F401
+from .nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer  # noqa: F401
+from .ftmo_journal_analyzer import FTMOJournalAnalyzer  # noqa: F401
+from .ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard  # noqa: F401
+from .prop_firm_calendar_feed import PropFirmTradingEvent, PropFirmCalendarFeedManager  # noqa: F401
+from .qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy  # noqa: F401
+from .mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator  # noqa: F401
+from .ftmo_temporal_matcher import FewShotTemporalMatcher  # noqa: F401
+from .awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator  # noqa: F401
+from .awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent  # noqa: F401
+from .ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard  # noqa: F401
+from .prop_guard_equity_armor import PropGuardEquityArmorEngine  # noqa: F401
+from .prop_firm_elite_tracker import SignalPulseLogSyncParser, PropFirmEliteMultiAccountAggregator  # noqa: F401
+from .prop_guardian_safety import PropGuardianMasterFilters, PROP_FIRMS_DATABASE  # noqa: F401
 
 __all__ = [
+    "BayesianConsensusEngine",
+    "global_bayesian_consensus",
+    "aat_strategies",
+    "MacroAnalyst",
+    "SMCAnalyst",
+    "VolatilityAnalyst",
+    "itip_signal_store",
+    "SLTPEngine",
+    "CandlestickAIClassifier",
+    "LatencyArbitrage",
+    "SovereignIntelligencePlugin",
+    "vibe_quantlib",
+    "OpenAlgoSmartOrderSplitter",
+    "OpenAlgoSessionSquareOffManager",
+    "calculate_max_pain",
+    "calculate_synthetic_future_price",
+    "NautilusFixedRiskSizer",
+    "NautilusOrderRoutingGuard",
+    "PropFirmChallengeTracker",
+    "FTMORiskGuardEngine",
+    "FTMOQualificationAuditor",
+    "calculate_probabilistic_sharpe_ratio",
+    "calculate_kelly_fraction",
+    "calculate_edge_score",
+    "EmpiricalSlippageTracker",
+    "NexQuantFactorModel",
+    "NexQuantPortfolioOptimizer",
+    "FTMOJournalAnalyzer",
+    "ScaleOnProfitEngine",
+    "FTMODynamicStopEngine",
+    "ConsensusSizingModulator",
+    "CombinedExposureCapGuard",
+    "PropFirmTradingEvent",
+    "PropFirmCalendarFeedManager",
+    "detect_rsi_failure_swing",
+    "calculate_ttm_squeeze",
+    "QMAQuantStrategy",
+    "MT5BotVolumeNormalizer",
+    "RelativePricePredictionEvaluator",
+    "FewShotTemporalMatcher",
+    "MultiAgentFinanceTeamOrchestrator",
+    "DeepResearchAgent",
+    "InvestmentAgent",
+    "DataAnalystAgent",
+    "AMDCycleTracker",
+    "FootprintPocAnalyzer",
+    "MarketGapCooldownGuard",
+    "PropGuardEquityArmorEngine",
+    "SignalPulseLogSyncParser",
+    "PropFirmEliteMultiAccountAggregator",
+    "PropGuardianMasterFilters",
+    "PROP_FIRMS_DATABASE",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
