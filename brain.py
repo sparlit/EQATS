@@ -6,6 +6,8 @@ import config
 import database
 import indicators
 import predictive_brain
+from institutional_integrations import aat_strategies
+from institutional_integrations.bayesian_consensus import global_bayesian_consensus
 
 _log = logging.getLogger(__name__)
 
@@ -135,7 +137,12 @@ class ScalperBrain:
         # --- Spread-to-ATR Admission Gate (Eliminates Spread Friction Losses) ---
         pip_specs = _get_symbol_pip_specs(symbol, current_price)
         pip_size = pip_specs["pip_size"]
-        spread_pips = (current_price * 0.0001 / pip_size) if pip_size > 0 else 1.0
+        spread_dist = 0.0001
+        if hasattr(self, "connector") and self.connector and hasattr(self.connector, "get_current_price"):
+            price_info = self.connector.get_current_price(symbol)
+            if price_info and "bid" in price_info and "ask" in price_info and price_info["ask"] > price_info["bid"]:
+                spread_dist = price_info["ask"] - price_info["bid"]
+        spread_pips = (spread_dist / pip_size) if pip_size > 0 else 1.0
         atr_pips = (atr_val / pip_size) if pip_size > 0 else 10.0
 
         if atr_pips > 0 and (spread_pips / atr_pips) > 0.35:
@@ -258,11 +265,17 @@ class ScalperBrain:
         macd_ratio = macd["histogram"] / current_price if current_price > 0 else 0.0
         returns_prev = (closes[-1] - closes[-2]) / closes[-2] if len(closes) >= 2 else 0.0
 
+        # Historical Warmup Training Loop for Neural Predictor
+        for i in range(max(20, len(closes) - 40), len(closes) - 1):
+            c_ret = (closes[i] - closes[i-1]) / closes[i-1] if closes[i-1] > 0 else 0.0
+            p_in = [rsi_norm, ema_ratio, macd_ratio, c_ret, reg_state_val, vol_ratio]
+            predictor.predict(p_in)
+            predictor.learn_and_adjust(1.0 if c_ret > 0 else 0.0)
+
         inputs = [rsi_norm, ema_ratio, macd_ratio, returns_prev, reg_state_val, vol_ratio]
+        ai_bullish_prob = predictor.predict(inputs)
         actual_bullish_close = 1.0 if closes[-1] > closes[-2] else 0.0
         predictor.learn_and_adjust(actual_bullish_close)
-
-        ai_bullish_prob = predictor.predict(inputs)
 
         # --- Kronos Financial Foundation Model Forecast Integration ---
         kronos_model = predictive_brain.get_kronos_predictor(symbol)
@@ -438,6 +451,14 @@ class ScalperBrain:
             elif of_metrics["dominant_side"] == "SELL_DOMINANT" or of_metrics["expected_direction"] == "DOWNWARD_PRESSURE":
                 sig_of = "SELL"
 
+        # AAT Subsystem Strategy Adaptations
+        sig_wyckoff = aat_strategies.evaluate_wyckoff_master(history_bars)
+        sig_supertrend = aat_strategies.evaluate_supertrend(history_bars)
+        sig_donchian = aat_strategies.evaluate_donchian_breakout(history_bars)
+        sig_turtle = aat_strategies.evaluate_turtle_breakout(history_bars)
+        sig_rsi_mom = aat_strategies.evaluate_rsi_momentum(history_bars)
+        sig_ict_kz = aat_strategies.evaluate_ict_killzone(history_bars)
+
         # Strategy evaluation map
         all_strategies = {
             "TREND_FOLLOWING": sig_tf,
@@ -452,7 +473,20 @@ class ScalperBrain:
             "MTF_CONFLUENCE": sig_mtf,
             "SMC_ICT": sig_smc,
             "ORDER_FLOW": sig_of,
+            "WYCKOFF_ACCUMULATION": sig_wyckoff,
+            "SUPERTREND_TREND": sig_supertrend,
+            "DONCHIAN_BREAKOUT": sig_donchian,
+            "TURTLE_BREAKOUT": sig_turtle,
+            "RSI_MOMENTUM": sig_rsi_mom,
+            "ICT_KILLZONE": sig_ict_kz,
         }
+
+        # Update Bayesian Consensus Engine evidence and compute consensus signal
+        for strat_k, strat_v in list(all_strategies.items()):
+            global_bayesian_consensus.update_evidence(symbol, strat_k, strat_v)
+
+        bayes_decision = global_bayesian_consensus.get_consensus_decision(symbol)
+        all_strategies["BAYESIAN_CONSENSUS"] = bayes_decision["decision"]
 
         # Resolve TRADING_STYLE (Mode: SCALPING, DAY_TRADING, SWING_TRADING, POSITION_TRADING, AUTO)
         style_mode = getattr(config, "TRADING_STYLE", "SCALPING")
@@ -552,7 +586,7 @@ class ScalperBrain:
                         elif kronos_upside_prob > 0.75 and raw_sig == "SELL":
                             continue
 
-                        # AI Probability Threshold Check
+                        # AI Probability Threshold Check (Strict 60% Safety Gate)
                         prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
                         if prob < 0.60:
                             continue
@@ -585,7 +619,7 @@ class ScalperBrain:
                     elif kronos_upside_prob > 0.75 and raw_sig == "SELL":
                         continue
 
-                    # AI Probability Threshold Check
+                    # AI Probability Threshold Check (Strict 60% Safety Gate)
                     prob = ai_bullish_prob if raw_sig == "BUY" else (1.0 - ai_bullish_prob)
                     if prob < 0.60:
                         continue
