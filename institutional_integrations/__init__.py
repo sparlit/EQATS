@@ -104,6 +104,15 @@ from .rc_news_feeder import (  # noqa: F401
     NewsImpact,
     NewsBlackoutCheck,
 )
+from .trading_agents_suite import (  # noqa: F401
+    TradingAgentsOrchestrator,
+    BullResearcherAgent,
+    BearResearcherAgent,
+    RiskDebaterAgent,
+    DebateRound,
+    TradingAgentsDecision,
+    AgentRole,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -305,4 +314,11 @@ __all__ = [
     "NewsEvent",
     "NewsImpact",
     "NewsBlackoutCheck",
+    "TradingAgentsOrchestrator",
+    "BullResearcherAgent",
+    "BearResearcherAgent",
+    "RiskDebaterAgent",
+    "DebateRound",
+    "TradingAgentsDecision",
+    "AgentRole",
 ]
