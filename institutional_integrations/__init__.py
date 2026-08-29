@@ -178,6 +178,12 @@ from .lean_framework_engine import (  # noqa: F401
     PairCorrelationResult,
     LeanPortfolioTarget,
 )
+from .ai_trader_scoring_engine import (  # noqa: F401
+    AITraderSignalQualityEvaluator,
+    AITraderChallengeScoringEngine,
+    SignalQualityMetrics,
+    AgentScoreResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -431,4 +437,8 @@ __all__ = [
     "LeanMaximumDrawdownPercentPortfolio",
     "PairCorrelationResult",
     "LeanPortfolioTarget",
+    "AITraderSignalQualityEvaluator",
+    "AITraderChallengeScoringEngine",
+    "SignalQualityMetrics",
+    "AgentScoreResult",
 ]
