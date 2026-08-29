@@ -113,6 +113,14 @@ from .trading_agents_suite import (  # noqa: F401
     TradingAgentsDecision,
     AgentRole,
 )
+from .trading_agents_cn_suite import (  # noqa: F401
+    ChinaMarketAnalystAgent,
+    EnhancedNewsFilterEngine,
+    DataCompletenessChecker,
+    ChinaMarketReport,
+    FilteredNewsArticle,
+    DataCompletenessReport,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -321,4 +329,10 @@ __all__ = [
     "DebateRound",
     "TradingAgentsDecision",
     "AgentRole",
+    "ChinaMarketAnalystAgent",
+    "EnhancedNewsFilterEngine",
+    "DataCompletenessChecker",
+    "ChinaMarketReport",
+    "FilteredNewsArticle",
+    "DataCompletenessReport",
 ]
