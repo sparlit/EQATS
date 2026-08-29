@@ -7,8 +7,19 @@ from institutional_integrations.aat_analyst import MacroAnalyst, SMCAnalyst, Vol
 from institutional_integrations.web_api import MCPServerCore
 from institutional_integrations import itip_signal_store
 from institutional_integrations.mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage
+from institutional_integrations.sovereign_intelligence import SovereignIntelligencePlugin
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_sovereign_intelligence(self):
+        sov = SovereignIntelligencePlugin(max_equity_risk=0.01)
+        df = pd.DataFrame([
+            {"open": 1.1000 + i*0.0005, "high": 1.1010 + i*0.0005, "low": 1.0990 + i*0.0005, "close": 1.1005 + i*0.0005}
+            for i in range(25)
+        ])
+        res = sov.analyze_market_signal("EURUSD", df, equity=10000.0)
+        self.assertEqual(res["symbol"], "EURUSD")
+        self.assertIn("recommended_lot", res)
 
     def test_mql_colab_engine(self):
         sltp = SLTPEngine()
