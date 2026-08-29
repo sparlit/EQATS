@@ -190,6 +190,11 @@ from .ai_trader_scoring_engine import (  # noqa: F401
     SignalQualityMetrics,
     AgentScoreResult,
 )
+from .systematic_trading_carver import (  # noqa: F401
+    PySystemTradeEngine,
+    CarverForecastScalarResult,
+    CarverDiversificationResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -447,4 +452,7 @@ __all__ = [
     "AITraderChallengeScoringEngine",
     "SignalQualityMetrics",
     "AgentScoreResult",
+    "PySystemTradeEngine",
+    "CarverForecastScalarResult",
+    "CarverDiversificationResult",
 ]
