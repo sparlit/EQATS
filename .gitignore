@@ -1,9 +1,11 @@
 __pycache__/
 *.pyc
 *.db
+*.db.salt
 *.db-journal
 *.db-shm
 *.db-wal
+logs/
 
 # Build artifacts
 nuitka-crash-report.xml

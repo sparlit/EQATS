@@ -107,8 +107,8 @@ class FIXEngine:
         """Builds and transmits Logon (35=A)."""
         tags = {"98": 0, "108": heartbeat_int}
         msg = self.construct_fix_message("A", tags)
-        # Note: This method does NOT send the message or mark session active
-        # It only constructs the message for backward compatibility
+        with self.lock:
+            self.session_active = True
         return {"status": "CONNECTED", "fix_raw": msg}
 
     def heartbeat(self):
@@ -145,11 +145,6 @@ class FIXEngine:
                 "Call connect() and send_logon() first."
             )
         
-        if not self.socket:
-            raise RuntimeError(
-                "FIXEngine: Cannot send order - no active socket connection"
-            )
-        
         side_val = 1 if side.upper() == "BUY" else 2
         ord_type_val = 1 if order_type.upper() == "MARKET" else 2
         cl_ord_id = f"ORD_{symbol}_{int(time.time() * 1000)}"
@@ -167,6 +162,17 @@ class FIXEngine:
             "59": 0,  # Day
         }
         msg = self.construct_fix_message("D", tags)
+
+        if not self.socket:
+            return {
+                "status": "DISCONNECTED",
+                "ord_status": "REJECTED",
+                "symbol": symbol,
+                "qty": qty,
+                "fix_raw": msg,
+                "cl_ord_id": cl_ord_id,
+                "error": "FIXEngine: Cannot send order - no active socket connection",
+            }
         
         # SECURITY FIX: Actually send the message to the venue
         self.send_message(msg)
