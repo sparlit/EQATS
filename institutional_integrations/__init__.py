@@ -195,6 +195,12 @@ from .systematic_trading_carver import (  # noqa: F401
     CarverForecastScalarResult,
     CarverDiversificationResult,
 )
+from .jesse_metrics_and_quant_suite import (  # noqa: F401
+    JesseMetricsEngine,
+    JesseQuantStrategyLibrary,
+    JessePerformanceReport,
+    QuantStrategySignal,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -455,4 +461,8 @@ __all__ = [
     "PySystemTradeEngine",
     "CarverForecastScalarResult",
     "CarverDiversificationResult",
+    "JesseMetricsEngine",
+    "JesseQuantStrategyLibrary",
+    "JessePerformanceReport",
+    "QuantStrategySignal",
 ]
