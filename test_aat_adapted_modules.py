@@ -6,8 +6,29 @@ from institutional_integrations import aat_strategies
 from institutional_integrations.aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst
 from institutional_integrations.web_api import MCPServerCore
 from institutional_integrations import itip_signal_store
+from institutional_integrations.mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_mql_colab_engine(self):
+        sltp = SLTPEngine()
+        res = sltp.calculate_sl_tp("EURUSD", "BUY", 1.1000, 0.0015)
+        self.assertLess(res["sl"], 1.1000)
+        self.assertGreater(res["tp"], 1.1000)
+
+        classifier = CandlestickAIClassifier()
+        bars = [
+            {"open": 1.1000, "high": 1.1010, "low": 1.0990, "close": 1.0995},
+            {"open": 1.0990, "high": 1.1025, "low": 1.0985, "close": 1.1020},
+        ]
+        patterns = classifier.classify_bars(bars)
+        self.assertIsInstance(patterns, list)
+
+        lat = LatencyArbitrage()
+        lat.record_tick("EURUSD", "LP1", 1.1005, 1000.0)
+        lat.record_tick("EURUSD", "LP2", 1.1001, 1000.0)
+        lead = lat.detect_lead_lag("EURUSD", "LP1", "LP2")
+        self.assertIn("lead_lag", lead)
 
     def test_itip_signal_store(self):
         itip_signal_store.init_store()
