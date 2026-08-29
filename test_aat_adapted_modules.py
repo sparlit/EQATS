@@ -1,5 +1,6 @@
 import ctypes
 import unittest
+import numpy as np
 import pandas as pd
 from institutional_integrations.bayesian_consensus import BayesianConsensusEngine, global_bayesian_consensus
 from institutional_integrations import aat_strategies
@@ -8,8 +9,41 @@ from institutional_integrations.web_api import MCPServerCore
 from institutional_integrations import itip_signal_store
 from institutional_integrations.mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage
 from institutional_integrations.sovereign_intelligence import SovereignIntelligencePlugin
+from institutional_integrations import vibe_quantlib
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_vibe_quantlib(self):
+        # Test VPIN
+        buy_v = [10.0, 15.0, 8.0, 20.0, 12.0]
+        sell_v = [5.0, 8.0, 12.0, 5.0, 15.0]
+        vpin_val = vibe_quantlib.calculate_vpin(buy_v, sell_v, bucket_size=10.0, n_buckets=5)
+        self.assertGreaterEqual(vpin_val, 0.0)
+        self.assertLessEqual(vpin_val, 1.0)
+
+        # Test Roll spread & Kyle lambda & Amihud
+        prices = [1.1000, 1.1005, 1.0998, 1.1012, 1.1008]
+        roll = vibe_quantlib.calculate_roll_spread(prices)
+        self.assertGreaterEqual(roll, 0.0)
+
+        kyle = vibe_quantlib.calculate_kyle_lambda([0.0005, -0.0007, 0.0014, -0.0004], [5.0, -8.0, 12.0, -3.0])
+        self.assertIsInstance(kyle, float)
+
+        amihud = vibe_quantlib.calculate_amihud_illiquidity([0.001, 0.002, 0.0015], [10000.0, 15000.0, 12000.0])
+        self.assertGreaterEqual(amihud, 0.0)
+
+        # Test Copula
+        u = [0.1, 0.3, 0.5, 0.7, 0.9]
+        v = [0.2, 0.4, 0.6, 0.8, 0.95]
+        cop = vibe_quantlib.calculate_copula_dependence(u, v, "clayton")
+        self.assertEqual(cop["family"], "clayton")
+        self.assertIn("lambda_lower", cop)
+
+        # Test HRP
+        cov = np.array([[0.04, 0.01], [0.01, 0.09]])
+        hrp = vibe_quantlib.calculate_hrp_weights(cov)
+        self.assertEqual(len(hrp), 2)
+        self.assertAlmostEqual(float(np.sum(hrp)), 1.0)
 
     def test_sovereign_intelligence(self):
         sov = SovereignIntelligencePlugin(max_equity_risk=0.01)

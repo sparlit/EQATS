@@ -65,6 +65,7 @@ from .aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst  # noqa: F4
 from . import itip_signal_store  # noqa: F401
 from .mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage  # noqa: F401
 from .sovereign_intelligence import SovereignIntelligencePlugin  # noqa: F401
+from . import vibe_quantlib  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -78,6 +79,7 @@ __all__ = [
     "CandlestickAIClassifier",
     "LatencyArbitrage",
     "SovereignIntelligencePlugin",
+    "vibe_quantlib",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
