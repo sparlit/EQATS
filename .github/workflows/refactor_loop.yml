@@ -32,7 +32,16 @@ jobs:
 
     - name: Parse Plan, Execute, and Update Markdown
       id: process_task
+      env:
+        # Security: Disable Git hooks globally to prevent token exfiltration
+        # This prevents repository-controlled hooks from executing during git operations
+        GIT_CONFIG_GLOBAL: /dev/null
+        GIT_CONFIG_NOSYSTEM: 1
       run: |
+        # Security: Disable Git hooks before any repository-controlled code executes
+        # This prevents hooks from being invoked during credentialed git operations
+        git config --global core.hooksPath /dev/null
+        
         python - << 'EOF'
         import re
         import os
@@ -49,7 +58,7 @@ jobs:
             'prettier', 'eslint', 'rustfmt', 'gofmt', 'clang-format',
             'sed', 'awk', 'grep', 'find', 'xargs', 'cat', 'echo',
             'python', 'python3', 'node', 'npm', 'pip', 'poetry',
-            'cargo', 'go', 'make', 'cmake', 'git'
+            'cargo', 'go', 'make', 'cmake'
         }
 
         # Security: Paths that must never be modified
@@ -106,6 +115,19 @@ jobs:
                 if pattern in cmd_str:
                     return False, f"Dangerous pattern detected: {pattern}"
             
+            # Security: Block interpreter commands with inline code execution flags
+            # Prevents creating executable files or running arbitrary code
+            if base_cmd in ('python', 'python3', 'node', 'npm'):
+                # Block -c flag for python/node (inline code execution)
+                if '-c' in args:
+                    return False, "Inline code execution (-c flag) is not allowed"
+                # Block -e flag for node (eval)
+                if base_cmd == 'node' and '-e' in args:
+                    return False, "Inline code execution (-e flag) is not allowed"
+                # Block npm scripts that could execute arbitrary code
+                if base_cmd == 'npm' and 'run' in args:
+                    return False, "npm run scripts are not allowed"
+            
             return True, args
 
         def validate_file_changes():
@@ -114,7 +136,7 @@ jobs:
             Returns True if changes are safe, False otherwise.
             """
             try:
-                # Get list of modified files
+                # Get list of modified files in worktree
                 result = subprocess.run(
                     ['git', 'diff', '--name-only', 'HEAD'],
                     capture_output=True,
@@ -124,7 +146,7 @@ jobs:
                 
                 modified_files = result.stdout.strip().split('\n')
                 if not modified_files or modified_files == ['']:
-                    return True  # No changes
+                    modified_files = []
                 
                 for filepath in modified_files:
                     # Check protected paths
@@ -139,6 +161,57 @@ jobs:
                         print(f"❌ Security: Attempt to modify disallowed file type: {filepath}")
                         return False
                 
+                # Security: Check for any modifications to .git directory
+                # This catches attempts to create hooks or modify git config
+                result = subprocess.run(
+                    ['find', '.git', '-type', 'f', '-newer', '/tmp/refactor_start_marker'],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                
+                if result.returncode == 0 and result.stdout.strip():
+                    modified_git_files = result.stdout.strip().split('\n')
+                    # Filter out expected git files (index, logs, etc.)
+                    suspicious_files = [f for f in modified_git_files 
+                                       if not any(x in f for x in ['/logs/', '/index', '/COMMIT_EDITMSG', '/FETCH_HEAD', '/HEAD'])]
+                    if suspicious_files:
+                        print(f"❌ Security: Unauthorized modifications to .git directory detected:")
+                        for f in suspicious_files:
+                            print(f"   {f}")
+                        return False
+                
+                # Security: Verify Git hooks configuration hasn't been tampered with
+                result = subprocess.run(
+                    ['git', 'config', '--get', 'core.hooksPath'],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                
+                hooks_path = result.stdout.strip()
+                if hooks_path and hooks_path != '/dev/null':
+                    print(f"❌ Security: Git hooks path has been modified to: {hooks_path}")
+                    return False
+                
+                # Security: Check for executable files in .git/hooks/
+                result = subprocess.run(
+                    ['find', '.git/hooks', '-type', 'f', '-executable'],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                
+                if result.returncode == 0 and result.stdout.strip():
+                    executable_hooks = result.stdout.strip().split('\n')
+                    # Filter out sample hooks (non-executable by default)
+                    active_hooks = [h for h in executable_hooks if not h.endswith('.sample')]
+                    if active_hooks:
+                        print(f"❌ Security: Executable Git hooks detected:")
+                        for h in active_hooks:
+                            print(f"   {h}")
+                        return False
+                
                 return True
                 
             except subprocess.CalledProcessError as e:
@@ -148,6 +221,9 @@ jobs:
         if not os.path.exists(PLAN_FILE):
             print(f"Error: {PLAN_FILE} not found.")
             exit(1)
+        
+        # Security: Create timestamp marker for detecting .git modifications
+        subprocess.run(['touch', '/tmp/refactor_start_marker'], check=True)
 
         with open(PLAN_FILE, "r") as f:
             lines = f.readlines()
@@ -241,9 +317,14 @@ jobs:
       if: steps.process_task.outputs.more_tasks == 'true'
       env:
         BRANCH_NAME: ${{ github.ref_name }}
+        # Security: Disable Git hooks globally to prevent token exfiltration
+        GIT_CONFIG_GLOBAL: /dev/null
+        GIT_CONFIG_NOSYSTEM: 1
       run: |
         # Security: Re-authenticate only for the commit step, after package installation
         # This ensures packages cannot access credentials during installation
+        # Disable hooks before setting credentials to prevent hook-based token exfiltration
+        git config --global core.hooksPath /dev/null
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@://github.com"
         git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
@@ -258,9 +339,11 @@ jobs:
           exit 1
         fi
         
+        # Security: Use --no-verify to bypass any hooks that might have been created
+        # This is defense-in-depth; hooks should already be disabled via core.hooksPath
         # Only commit if changes actually occurred
-        git diff-index --quiet HEAD || git commit -m "🤖 Auto-refactor: completed next task in plan"
-        git push origin "HEAD:$BRANCH_NAME"
+        git diff-index --quiet HEAD || git commit --no-verify -m "🤖 Auto-refactor: completed next task in plan"
+        git push --no-verify origin "HEAD:$BRANCH_NAME"
 
     - name: Trigger Next Refactor Loop Task
       if: steps.process_task.outputs.more_tasks == 'true'
