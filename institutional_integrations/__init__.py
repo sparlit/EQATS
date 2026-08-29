@@ -210,6 +210,14 @@ from .backtesting_py_suite import (  # noqa: F401
     barssince,
     BacktestTradeSignal,
 )
+from .hummingbot_suite import (  # noqa: F401
+    AvellanedaStoikovMarketMakingEngine,
+    PureMarketMakingInventorySkewEngine,
+    CrossExchangeArbitrageEngine,
+    AvellanedaQuote,
+    SkewedSpreads,
+    ArbitrageOpportunity,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -481,4 +489,10 @@ __all__ = [
     "cross",
     "barssince",
     "BacktestTradeSignal",
+    "AvellanedaStoikovMarketMakingEngine",
+    "PureMarketMakingInventorySkewEngine",
+    "CrossExchangeArbitrageEngine",
+    "AvellanedaQuote",
+    "SkewedSpreads",
+    "ArbitrageOpportunity",
 ]
