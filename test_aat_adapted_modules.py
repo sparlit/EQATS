@@ -20,9 +20,27 @@ from institutional_integrations.nexquant_engine import NexQuantFactorModel, NexQ
 from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
 from institutional_integrations.ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard
 from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarFeedManager
+from institutional_integrations.qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_qma_quant_strategy(self):
+        rsi_series = [30.0, 42.0, 32.0, 45.0, 40.0, 48.0]
+        fs = detect_rsi_failure_swing(rsi_series)
+        self.assertEqual(fs, "BUY")
+
+        closes = [1.1000 + i*0.0001 for i in range(25)]
+        highs = [c + 0.0003 for c in closes]
+        lows = [c - 0.0003 for c in closes]
+        sq = calculate_ttm_squeeze(closes, highs, lows)
+        self.assertIn("squeeze_on", sq)
+        self.assertIn("momentum", sq)
+
+        qma = QMAQuantStrategy()
+        res = qma.evaluate_qma_setup("EURUSD", closes, highs, lows, rsi_val=48.0, utc_hour=10)
+        self.assertEqual(res["symbol"], "EURUSD")
+        self.assertIn("decision", res)
 
     def test_prop_firm_calendar_feed(self):
         cal = PropFirmCalendarFeedManager()
