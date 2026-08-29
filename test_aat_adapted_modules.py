@@ -14,8 +14,24 @@ from institutional_integrations.openalgo_engine import OpenAlgoSmartOrderSplitte
 from institutional_integrations.openbull_analytics import calculate_max_pain, calculate_synthetic_future_price
 from institutional_integrations.nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard
 from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracker
+from institutional_integrations.ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_ftmo_risk_guard(self):
+        engine = FTMORiskGuardEngine(initial_balance=100000.0)
+        res = engine.evaluate_order_risk("EURUSD", "BUY", 0.1, 1.1000, 1.0950, current_equity=101000.0, day_start_equity=100000.0)
+        self.assertEqual(res["decision"], "ALLOW")
+
+        auditor = FTMOQualificationAuditor()
+        closed_trades = [
+            {"ftmo_day": "DAY1", "net_profit": 2000.0},
+            {"ftmo_day": "DAY2", "net_profit": 3000.0},
+            {"ftmo_day": "DAY3", "net_profit": 2500.0},
+            {"ftmo_day": "DAY4", "net_profit": 2500.0},
+        ]
+        qual = auditor.evaluate_qualification(starting_balance=100000.0, current_equity=110000.0, target_profit_pct=10.0, closed_trades=closed_trades)
+        self.assertTrue(qual["fully_qualified"])
 
     def test_prop_firm_tracker(self):
         tracker = PropFirmChallengeTracker(firm="FTMO", starting_balance=100000.0, phase=1)

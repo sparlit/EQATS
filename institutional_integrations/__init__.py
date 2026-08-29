@@ -70,6 +70,7 @@ from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOf
 from .openbull_analytics import calculate_max_pain, calculate_synthetic_future_price  # noqa: F401
 from .nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard  # noqa: F401
 from .prop_firm_tracker import PropFirmChallengeTracker  # noqa: F401
+from .ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -91,6 +92,8 @@ __all__ = [
     "NautilusFixedRiskSizer",
     "NautilusOrderRoutingGuard",
     "PropFirmChallengeTracker",
+    "FTMORiskGuardEngine",
+    "FTMOQualificationAuditor",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
