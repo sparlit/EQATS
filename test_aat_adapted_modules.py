@@ -15,8 +15,27 @@ from institutional_integrations.openbull_analytics import calculate_max_pain, ca
 from institutional_integrations.nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard
 from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracker
 from institutional_integrations.ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor
+from institutional_integrations.meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_meta_edge_quant(self):
+        returns = [0.01, 0.02, -0.005, 0.015, 0.008, 0.012, -0.002, 0.025]
+        psr = calculate_probabilistic_sharpe_ratio(returns)
+        self.assertGreaterEqual(psr, 0.50)
+
+        kelly = calculate_kelly_fraction(win_rate=0.60, reward_risk_ratio=1.5)
+        self.assertGreater(kelly, 0.0)
+
+        edge = calculate_edge_score(5.0, 0.60, 1.5, returns)
+        self.assertIn("edge_score", edge)
+        self.assertIn("is_deploy_safe", edge)
+
+        tracker = EmpiricalSlippageTracker()
+        tracker.record_fill("EURUSD", 1.1000, 1.1002, atr=0.0010)
+        stats = tracker.get_symbol_stats("EURUSD")
+        self.assertEqual(stats["count"], 1)
+        self.assertEqual(stats["mean_slippage"], 0.0002)
 
     def test_ftmo_risk_guard(self):
         engine = FTMORiskGuardEngine(initial_balance=100000.0)

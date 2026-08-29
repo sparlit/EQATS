@@ -71,6 +71,7 @@ from .openbull_analytics import calculate_max_pain, calculate_synthetic_future_p
 from .nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard  # noqa: F401
 from .prop_firm_tracker import PropFirmChallengeTracker  # noqa: F401
 from .ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor  # noqa: F401
+from .meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -94,6 +95,10 @@ __all__ = [
     "PropFirmChallengeTracker",
     "FTMORiskGuardEngine",
     "FTMOQualificationAuditor",
+    "calculate_probabilistic_sharpe_ratio",
+    "calculate_kelly_fraction",
+    "calculate_edge_score",
+    "EmpiricalSlippageTracker",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
