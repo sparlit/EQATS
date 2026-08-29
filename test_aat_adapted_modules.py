@@ -16,8 +16,26 @@ from institutional_integrations.nautilus_trader_engine import NautilusFixedRiskS
 from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracker
 from institutional_integrations.ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor
 from institutional_integrations.meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker
+from institutional_integrations.nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_nexquant_engine(self):
+        model = NexQuantFactorModel(learning_rate=0.05)
+        model.fit_step(np.array([0.5, 1.01, 0.02, 0.001, 1.0, 1.0]), target=0.8)
+        sig = model.predict_alpha_signal([0.5, 1.01, 0.02, 0.001, 1.0, 1.0])
+        self.assertGreaterEqual(sig, -1.0)
+        self.assertLessEqual(sig, 1.0)
+
+        opt = NexQuantPortfolioOptimizer()
+        returns_data = {
+            "S1": [0.01, 0.02, -0.005, 0.015],
+            "S2": [0.005, 0.01, 0.002, 0.008],
+        }
+        weights = opt.optimize_weights(returns_data)
+        self.assertIn("S1", weights)
+        self.assertIn("S2", weights)
+        self.assertAlmostEqual(sum(weights.values()), 1.0, places=3)
 
     def test_meta_edge_quant(self):
         returns = [0.01, 0.02, -0.005, 0.015, 0.008, 0.012, -0.002, 0.025]

@@ -72,6 +72,7 @@ from .nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRouting
 from .prop_firm_tracker import PropFirmChallengeTracker  # noqa: F401
 from .ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor  # noqa: F401
 from .meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker  # noqa: F401
+from .nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -99,6 +100,8 @@ __all__ = [
     "calculate_kelly_fraction",
     "calculate_edge_score",
     "EmpiricalSlippageTracker",
+    "NexQuantFactorModel",
+    "NexQuantPortfolioOptimizer",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
