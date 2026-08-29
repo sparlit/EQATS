@@ -45,6 +45,17 @@ from .propfirm_risk_guard_engine import (  # noqa: F401
     NewsWindow,
 )
 from .arkorisk_guard import ArkoRiskGuard, RiskProfilePreset, PROP_FIRM_DATABASE, MarketType, DrawdownTaxonomy  # noqa: F401
+from .prop_firm_monte_carlo_ev import PropFirmMonteCarloEVEngine, PropChallengeConfig, SimulationResult  # noqa: F401
+from .trading_seatbelt_engine import TradingSeatbeltEngine, SeatbeltStatus, CooldownStatus  # noqa: F401
+from .dxtrade_broker_adapter import DXTradeBrokerAdapter, DXTradeAccountSummary, DXTradeOrderRequest, DXTradeOrderResponse  # noqa: F401
+from .batch3_quant_strategies import (  # noqa: F401
+    VWAPFadeStrategy,
+    OvernightDriftStrategy,
+    VolatilityExpansionStrategy,
+    EngulfingAtExtremeStrategy,
+    PivotReactionZoneStrategy,
+    QuantSignal,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -194,4 +205,20 @@ __all__ = [
     "PROP_FIRM_DATABASE",
     "MarketType",
     "DrawdownTaxonomy",
+    "PropFirmMonteCarloEVEngine",
+    "PropChallengeConfig",
+    "SimulationResult",
+    "TradingSeatbeltEngine",
+    "SeatbeltStatus",
+    "CooldownStatus",
+    "DXTradeBrokerAdapter",
+    "DXTradeAccountSummary",
+    "DXTradeOrderRequest",
+    "DXTradeOrderResponse",
+    "VWAPFadeStrategy",
+    "OvernightDriftStrategy",
+    "VolatilityExpansionStrategy",
+    "EngulfingAtExtremeStrategy",
+    "PivotReactionZoneStrategy",
+    "QuantSignal",
 ]
