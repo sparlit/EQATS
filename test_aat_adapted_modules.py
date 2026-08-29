@@ -19,8 +19,22 @@ from institutional_integrations.meta_edge_quant import calculate_probabilistic_s
 from institutional_integrations.nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer
 from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
 from institutional_integrations.ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard
+from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarFeedManager
+from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_prop_firm_calendar_feed(self):
+        cal = PropFirmCalendarFeedManager()
+        s_dt = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        e_dt = datetime(2026, 9, 1, 14, 0, tzinfo=timezone.utc)
+        key = cal.add_event("FTMO", "maintenance", "Scheduled Server Maintenance", s_dt, e_dt)
+        self.assertTrue(key)
+
+        ics = cal.generate_ics_feed(firm_filter="FTMO")
+        self.assertIn("BEGIN:VCALENDAR", ics)
+        self.assertIn("[FTMO] Scheduled Server Maintenance", ics)
+        self.assertIn("END:VCALENDAR", ics)
 
     def test_ftmo_tradingbot_core(self):
         sop = ScaleOnProfitEngine()

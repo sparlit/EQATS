@@ -75,6 +75,7 @@ from .meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kel
 from .nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer  # noqa: F401
 from .ftmo_journal_analyzer import FTMOJournalAnalyzer  # noqa: F401
 from .ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard  # noqa: F401
+from .prop_firm_calendar_feed import PropFirmTradingEvent, PropFirmCalendarFeedManager  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -109,6 +110,8 @@ __all__ = [
     "FTMODynamicStopEngine",
     "ConsensusSizingModulator",
     "CombinedExposureCapGuard",
+    "PropFirmTradingEvent",
+    "PropFirmCalendarFeedManager",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
