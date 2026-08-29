@@ -26,9 +26,22 @@ from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatc
 from institutional_integrations.awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator
 from institutional_integrations.awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent
 from institutional_integrations.ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard
+from institutional_integrations.prop_guard_equity_armor import PropGuardEquityArmorEngine
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_prop_guard_equity_armor(self):
+        armor = PropGuardEquityArmorEngine(daily_loss_limit_pct=5.0, max_drawdown_pct=10.0, kill_switch_cooldown_min=1)
+        res1 = armor.update_equity_sample(current_equity=100000.0, day_start_equity=100000.0)
+        self.assertEqual(res1["zone"], "GREEN")
+
+        res2 = armor.update_equity_sample(current_equity=96000.0, day_start_equity=100000.0) # 80% daily loss util (Yellow)
+        self.assertEqual(res2["zone"], "YELLOW")
+
+        res3 = armor.update_equity_sample(current_equity=94000.0, day_start_equity=100000.0) # 120% daily loss util (Red - Kill switch)
+        self.assertEqual(res3["zone"], "RED")
+        self.assertTrue(res3["is_locked_out"])
 
     def test_ea_scalper_xauusd_engine(self):
         amd = AMDCycleTracker()

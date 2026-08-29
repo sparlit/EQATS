@@ -82,6 +82,7 @@ from .ftmo_temporal_matcher import FewShotTemporalMatcher  # noqa: F401
 from .awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator  # noqa: F401
 from .awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent  # noqa: F401
 from .ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard  # noqa: F401
+from .prop_guard_equity_armor import PropGuardEquityArmorEngine  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -131,6 +132,7 @@ __all__ = [
     "AMDCycleTracker",
     "FootprintPocAnalyzer",
     "MarketGapCooldownGuard",
+    "PropGuardEquityArmorEngine",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
