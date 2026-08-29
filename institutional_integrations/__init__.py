@@ -172,6 +172,12 @@ from .binance_trade_bot_engine import (  # noqa: F401
     AltcoinRatio,
     BridgeJumpDecision,
 )
+from .lean_framework_engine import (  # noqa: F401
+    PearsonCorrelationPairsTradingAlphaModel,
+    LeanMaximumDrawdownPercentPortfolio,
+    PairCorrelationResult,
+    LeanPortfolioTarget,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -421,4 +427,8 @@ __all__ = [
     "BridgeCoinScoutEngine",
     "AltcoinRatio",
     "BridgeJumpDecision",
+    "PearsonCorrelationPairsTradingAlphaModel",
+    "LeanMaximumDrawdownPercentPortfolio",
+    "PairCorrelationResult",
+    "LeanPortfolioTarget",
 ]
