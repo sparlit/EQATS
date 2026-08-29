@@ -218,6 +218,12 @@ from .hummingbot_suite import (  # noqa: F401
     SkewedSpreads,
     ArbitrageOpportunity,
 )
+from .pytrader_gym_suite import (  # noqa: F401
+    TradingGymRLAdapter,
+    PyTraderDepthAnalyzer,
+    GymStepResult,
+    DepthAnalysisResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -495,4 +501,8 @@ __all__ = [
     "AvellanedaQuote",
     "SkewedSpreads",
     "ArbitrageOpportunity",
+    "TradingGymRLAdapter",
+    "PyTraderDepthAnalyzer",
+    "GymStepResult",
+    "DepthAnalysisResult",
 ]
