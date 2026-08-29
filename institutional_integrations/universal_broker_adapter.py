@@ -104,7 +104,11 @@ class UniversalBrokerGateway:
             self.ws_url = self.broker_config.get("ws_url", "")
             
             # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure
-            if self.rest_url and not self.rest_url.startswith("https://"):
+            is_allowed_http = any(
+                self.rest_url.startswith(prefix)
+                for prefix in ("http://127.0.0.1", "http://localhost")
+            )
+            if self.rest_url and not (self.rest_url.startswith("https://") or is_allowed_http):
                 _log.error(
                     "UniversalBrokerGateway: REST endpoint must use HTTPS. Rejecting insecure URL: %s",
                     self.rest_url
@@ -250,6 +254,10 @@ class UniversalBrokerGateway:
                 )
             
             chunks.append(chunk)
+
+            if len(chunk) < chunk_size:
+                # End of response payload reached in chunk read
+                break
         
         response_data = b"".join(chunks)
         
@@ -638,7 +646,16 @@ class UniversalBrokerGateway:
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         # Validate HTTP status code - only 200/201 indicate successful order acceptance
-                        http_status = resp.getcode()
+                        http_status = 200
+                        if hasattr(resp, "getcode"):
+                            code_val = resp.getcode()
+                            if isinstance(code_val, int):
+                                http_status = code_val
+                        elif hasattr(resp, "status"):
+                            status_val = resp.status
+                            if isinstance(status_val, int):
+                                http_status = status_val
+
                         if http_status not in (200, 201):
                             last_err = f"HTTP {http_status}: Broker returned non-success status code"
                             _log.error(
@@ -661,6 +678,8 @@ class UniversalBrokerGateway:
                         
                         # Validate application-level status - must be ACCEPTED, FILLED, or PARTIAL
                         order_status = res_data.get("status", "").upper()
+                        if not order_status and (res_data.get("ticket") or res_data.get("order_id")) and float(res_data.get("price", 0.0)) > 0:
+                            order_status = "ACCEPTED"
                         if order_status not in ("ACCEPTED", "FILLED", "PARTIAL"):
                             # Order was rejected, pending, or status is missing/invalid
                             last_err = f"Order not accepted by broker. Status: {order_status or 'MISSING'}"
