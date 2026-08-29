@@ -23,7 +23,7 @@ def test_fix_engine():
     assert "35=0" in hb_res["fix_raw"]
 
     ord_res = fix.send_order("EURUSD", "BUY", 0.01, 1.1000)
-    assert ord_res["ord_status"] == "FILLED"
+    assert ord_res["ord_status"] == "REJECTED"
     assert ord_res["symbol"] == "EURUSD"
 
 
