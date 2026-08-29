@@ -21,9 +21,20 @@ from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
 from institutional_integrations.ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard
 from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarFeedManager
 from institutional_integrations.qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy
+from institutional_integrations.mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_mt5bot_engine(self):
+        norm = MT5BotVolumeNormalizer()
+        v = norm.normalize_volume(0.123, min_volume=0.01, max_volume=10.0, step_volume=0.01)
+        self.assertEqual(v, 0.12)
+
+        evaluator = RelativePricePredictionEvaluator()
+        res_buy = evaluator.evaluate_prediction_gap(100.0, 102.0, min_gap_pct=1.0)
+        self.assertEqual(res_buy["action"], "BUY")
+        self.assertEqual(res_buy["gap_pct"], 2.0)
 
     def test_qma_quant_strategy(self):
         rsi_series = [30.0, 42.0, 32.0, 45.0, 40.0, 48.0]
