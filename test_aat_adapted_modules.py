@@ -13,8 +13,16 @@ from institutional_integrations import vibe_quantlib
 from institutional_integrations.openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager
 from institutional_integrations.openbull_analytics import calculate_max_pain, calculate_synthetic_future_price
 from institutional_integrations.nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard
+from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracker
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_prop_firm_tracker(self):
+        tracker = PropFirmChallengeTracker(firm="FTMO", starting_balance=100000.0, phase=1)
+        res = tracker.evaluate_account_status(current_equity=110500.0, current_balance=110500.0, day_start_equity=108000.0, days_traded=5)
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["status"], "PASSED")
+        self.assertEqual(res["firm"], "FTMO")
 
     def test_nautilus_trader_engine(self):
         sizer = NautilusFixedRiskSizer()

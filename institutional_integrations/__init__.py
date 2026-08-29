@@ -69,6 +69,7 @@ from . import vibe_quantlib  # noqa: F401
 from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager  # noqa: F401
 from .openbull_analytics import calculate_max_pain, calculate_synthetic_future_price  # noqa: F401
 from .nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard  # noqa: F401
+from .prop_firm_tracker import PropFirmChallengeTracker  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -89,6 +90,7 @@ __all__ = [
     "calculate_synthetic_future_price",
     "NautilusFixedRiskSizer",
     "NautilusOrderRoutingGuard",
+    "PropFirmChallengeTracker",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
