@@ -79,6 +79,14 @@ from .crypto_trader_v2_engine import (  # noqa: F401
     SentimentResult,
     OBIScalperState,
 )
+from .apex_trading_engine import (  # noqa: F401
+    ApexTradingRiskEngine,
+    ApexTradingAISignalEngine,
+    ApexVaRResult,
+    ApexGreeksResult,
+    ApexRiskLimitCheck,
+    ApexLSTMPricePrediction,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -261,4 +269,10 @@ __all__ = [
     "OrderBookDepthPayload",
     "SentimentResult",
     "OBIScalperState",
+    "ApexTradingRiskEngine",
+    "ApexTradingAISignalEngine",
+    "ApexVaRResult",
+    "ApexGreeksResult",
+    "ApexRiskLimitCheck",
+    "ApexLSTMPricePrediction",
 ]
