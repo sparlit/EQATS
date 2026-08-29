@@ -80,6 +80,7 @@ from .qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze,
 from .mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator  # noqa: F401
 from .ftmo_temporal_matcher import FewShotTemporalMatcher  # noqa: F401
 from .awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator  # noqa: F401
+from .awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -123,6 +124,9 @@ __all__ = [
     "RelativePricePredictionEvaluator",
     "FewShotTemporalMatcher",
     "MultiAgentFinanceTeamOrchestrator",
+    "DeepResearchAgent",
+    "InvestmentAgent",
+    "DataAnalystAgent",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",

@@ -24,9 +24,24 @@ from institutional_integrations.qma_quant_strategy import detect_rsi_failure_swi
 from institutional_integrations.mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator
 from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatcher
 from institutional_integrations.awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator
+from institutional_integrations.awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_awesome_llm_agents(self):
+        dra = DeepResearchAgent()
+        res_r = dra.research_topic("Quantitative Macro Liquidity")
+        self.assertIn("insights", res_r)
+
+        ia = InvestmentAgent()
+        res_i = ia.evaluate_investment("AAPL", spot_price=150.0, eps_growth=0.15)
+        self.assertEqual(res_i["recommendation"], "BUY")
+
+        daa = DataAnalystAgent()
+        df = pd.DataFrame([{"pnl": 100.0, "lots": 0.1}, {"pnl": -50.0, "lots": 0.1}])
+        res_d = daa.analyze_dataset(df)
+        self.assertEqual(res_d["rows"], 2)
 
     def test_awesome_llm_finance_team(self):
         team = MultiAgentFinanceTeamOrchestrator()
