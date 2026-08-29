@@ -28,9 +28,19 @@ from institutional_integrations.awesome_llm_agents import DeepResearchAgent, Inv
 from institutional_integrations.ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard
 from institutional_integrations.prop_guard_equity_armor import PropGuardEquityArmorEngine
 from institutional_integrations.prop_firm_elite_tracker import SignalPulseLogSyncParser, PropFirmEliteMultiAccountAggregator
+from institutional_integrations.prop_guardian_safety import PropGuardianMasterFilters, PROP_FIRMS_DATABASE
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_prop_guardian_safety(self):
+        filters = PropGuardianMasterFilters(max_spread_pips=3.0)
+        res = filters.passes_all_filters("EURUSD", current_spread_pips=1.2, current_atr=0.0015, historical_atr=0.0012, utc_hour=10, utc_weekday=2)
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["base_currency"], "EUR")
+
+        self.assertIn("FTMO", PROP_FIRMS_DATABASE)
+        self.assertEqual(PROP_FIRMS_DATABASE["FTMO"]["daily_dd_pct"], 5.0)
 
     def test_prop_firm_elite_tracker(self):
         parser = SignalPulseLogSyncParser()
