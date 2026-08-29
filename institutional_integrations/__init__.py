@@ -147,6 +147,12 @@ from .superalgos_trading_engine import (  # noqa: F401
     SuperalgosPosition,
     EpisodeMetrics,
 )
+from .backtrader_engine import (  # noqa: F401
+    BacktraderAnalyzerEngine,
+    BacktraderSizerEngine,
+    BacktraderPerformanceMetrics,
+    BacktraderSizerResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -379,4 +385,8 @@ __all__ = [
     "TriggerStatus",
     "SuperalgosPosition",
     "EpisodeMetrics",
+    "BacktraderAnalyzerEngine",
+    "BacktraderSizerEngine",
+    "BacktraderPerformanceMetrics",
+    "BacktraderSizerResult",
 ]
