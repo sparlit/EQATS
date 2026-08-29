@@ -627,28 +627,28 @@ class MT5Connector(TradingConnector):
                 "price": 0.0,
                 "error": "MT5 not connected.",
             }
-        import MetaTrader5 as mt5
+        mt5_mod = self.mt5
 
         # Query symbol info for order filling mode and stop level validation
         info = self.mt5.symbol_info(symbol)
-        type_filling = mt5.ORDER_FILLING_IOC
+        type_filling = getattr(mt5_mod, "ORDER_FILLING_IOC", 1)
         if info:
             # Dynamically determine supported order filling mode from symbol bitmask
             # SYMBOL_FILLING_FOK = 1, SYMBOL_FILLING_IOC = 2
             modes = getattr(info, "filling_mode", 0)
-            symbol_fok = getattr(mt5, "SYMBOL_FILLING_FOK", 1)
-            symbol_ioc = getattr(mt5, "SYMBOL_FILLING_IOC", 2)
+            symbol_fok = getattr(mt5_mod, "SYMBOL_FILLING_FOK", 1)
+            symbol_ioc = getattr(mt5_mod, "SYMBOL_FILLING_IOC", 2)
             if modes & symbol_fok:
-                type_filling = mt5.ORDER_FILLING_FOK
+                type_filling = getattr(mt5_mod, "ORDER_FILLING_FOK", 0)
             elif modes & symbol_ioc:
-                type_filling = mt5.ORDER_FILLING_IOC
+                type_filling = getattr(mt5_mod, "ORDER_FILLING_IOC", 1)
             else:
-                type_filling = mt5.ORDER_FILLING_RETURN
+                type_filling = getattr(mt5_mod, "ORDER_FILLING_RETURN", 0)
 
         price_info = self.get_current_price(symbol)
         price = price_info["ask"] if order_type == "BUY" else price_info["bid"]
-        action = mt5.TRADE_ACTION_DEAL
-        type_mt5 = mt5.ORDER_TYPE_BUY if order_type == "BUY" else mt5.ORDER_TYPE_SELL
+        action = getattr(mt5_mod, "TRADE_ACTION_DEAL", 1)
+        type_mt5 = getattr(mt5_mod, "ORDER_TYPE_BUY", 0) if order_type == "BUY" else getattr(mt5_mod, "ORDER_TYPE_SELL", 1)
 
         # SECURITY FIX: Use lot_size as-is without modification
         # Volume normalization must happen BEFORE risk validation in the main loop
@@ -685,7 +685,7 @@ class MT5Connector(TradingConnector):
             "deviation": 20,
             "magic": 998822,
             "comment": "Scalper Brain Bot",
-            "type_time": mt5.ORDER_TIME_GTC,
+            "type_time": getattr(mt5_mod, "ORDER_TIME_GTC", 0),
             "type_filling": type_filling,
         }
 
@@ -698,7 +698,8 @@ class MT5Connector(TradingConnector):
                 "error": "Unknown MT5 order_send error.",
             }
 
-        if result.retcode != mt5.TRADE_RETCODE_DONE:
+        retcode_done = getattr(mt5_mod, "TRADE_RETCODE_DONE", 10009)
+        if result.retcode != retcode_done:
             return {
                 "success": False,
                 "ticket": "",
