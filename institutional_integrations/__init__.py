@@ -167,6 +167,11 @@ from .stocksharp_risk_engine import (  # noqa: F401
     RiskAction,
     RiskRuleViolation,
 )
+from .binance_trade_bot_engine import (  # noqa: F401
+    BridgeCoinScoutEngine,
+    AltcoinRatio,
+    BridgeJumpDecision,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -413,4 +418,7 @@ __all__ = [
     "StockSharpRiskManager",
     "RiskAction",
     "RiskRuleViolation",
+    "BridgeCoinScoutEngine",
+    "AltcoinRatio",
+    "BridgeJumpDecision",
 ]
