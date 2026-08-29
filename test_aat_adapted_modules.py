@@ -5,8 +5,26 @@ from institutional_integrations.bayesian_consensus import BayesianConsensusEngin
 from institutional_integrations import aat_strategies
 from institutional_integrations.aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst
 from institutional_integrations.web_api import MCPServerCore
+from institutional_integrations import itip_signal_store
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_itip_signal_store(self):
+        itip_signal_store.init_store()
+        sig = {
+            "timestamp": "2026-08-29 00:00:00",
+            "symbol": "EURUSD",
+            "timeframe": "M15",
+            "direction": "BUY",
+            "confidence": 88.5,
+            "session": "LONDON",
+            "atr": 0.0012,
+            "rsi": 55.0,
+        }
+        rec = itip_signal_store.append_signal(sig)
+        self.assertEqual(rec["symbol"], "EURUSD")
+        signals = itip_signal_store.read_signals()
+        self.assertIsInstance(signals, list)
 
     def test_bayesian_consensus_engine(self):
         engine = BayesianConsensusEngine()

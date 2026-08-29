@@ -103,10 +103,10 @@ class UniversalBrokerGateway:
             self.rest_url = self.broker_config.get("rest_url", "")
             self.ws_url = self.broker_config.get("ws_url", "")
             
-            # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure (allowing local/test loopbacks)
+            # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure
             is_allowed_http = any(
                 self.rest_url.startswith(prefix)
-                for prefix in ("http://127.0.0.1", "http://localhost", "http://test-broker")
+                for prefix in ("http://127.0.0.1", "http://localhost")
             )
             if self.rest_url and not (self.rest_url.startswith("https://") or is_allowed_http):
                 _log.error(

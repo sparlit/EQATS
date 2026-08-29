@@ -62,6 +62,7 @@ from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queu
 from .bayesian_consensus import BayesianConsensusEngine, global_bayesian_consensus  # noqa: F401
 from . import aat_strategies  # noqa: F401
 from .aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst  # noqa: F401
+from . import itip_signal_store  # noqa: F401
 
 __all__ = [
     "BayesianConsensusEngine",
@@ -70,6 +71,7 @@ __all__ = [
     "MacroAnalyst",
     "SMCAnalyst",
     "VolatilityAnalyst",
+    "itip_signal_store",
     "calculate_markov_regime_switching_probability",
     "evaluate_black_scholes_option_pricing",
     "QuantumSelfHealer",
