@@ -865,7 +865,8 @@ class UniversalBrokerGateway:
                 # Safe to convert validated order_type to FIX side code
                 side = "1" if order_type.upper() == "BUY" else "2"
                 cl_ord_id = f"EQATS_{int(time.time() * 1000)}"
-                fix_msg = self.fix_engine.create_new_order_single(
+                # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
+                fix_msg = self.fix_engine.send_new_order_single(
                     cl_ord_id=cl_ord_id,
                     symbol=symbol,
                     side=side,
@@ -873,7 +874,6 @@ class UniversalBrokerGateway:
                     ord_type="2",  # Limit / Market
                     price=0.0,
                 )
-                self.fix_engine.send_message(fix_msg)
                 self._breaker.record_success()
                 return {
                     "success": True,
@@ -1093,11 +1093,10 @@ class UniversalBrokerGateway:
         if self.protocol == "FIX" and self.fix_engine:
             try:
                 cl_ord_id = f"EQATS_CLOSE_{int(time.time() * 1000)}"
-                # FIX Order Cancel Request
-                fix_msg = self.fix_engine.create_order_cancel_request(
+                # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
+                fix_msg = self.fix_engine.send_order_cancel_request(
                     cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket)
                 )
-                self.fix_engine.send_message(fix_msg)
                 self._breaker.record_success()
                 return {
                     "success": True,
@@ -1235,11 +1234,10 @@ class UniversalBrokerGateway:
         if self.protocol == "FIX" and self.fix_engine:
             try:
                 cl_ord_id = f"EQATS_MODIFY_{int(time.time() * 1000)}"
-                # FIX Order Cancel/Replace Request
-                fix_msg = self.fix_engine.create_order_cancel_replace_request(
+                # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
+                fix_msg = self.fix_engine.send_order_cancel_replace_request(
                     cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket), stop_px=sl, price=tp
                 )
-                self.fix_engine.send_message(fix_msg)
                 self._breaker.record_success()
                 return True
             except Exception as e:
