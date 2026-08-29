@@ -25,9 +25,26 @@ from institutional_integrations.mt5bot_engine import MT5BotVolumeNormalizer, Rel
 from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatcher
 from institutional_integrations.awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator
 from institutional_integrations.awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent
+from institutional_integrations.ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard
 from datetime import datetime, timezone
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_ea_scalper_xauusd_engine(self):
+        amd = AMDCycleTracker()
+        closes = [1.1000 + i*0.0001 for i in range(25)]
+        highs = [c + 0.0005 for c in closes]
+        lows = [c - 0.0005 for c in closes]
+        res = amd.detect_amd_phase(closes, highs, lows, utc_hour=14)
+        self.assertIn("phase", res)
+
+        fp = FootprintPocAnalyzer()
+        res_fp = fp.analyze_footprint(100.0, 40.0, 1.1000, 1.1005)
+        self.assertEqual(res_fp["bias"], "BULLISH_POC_SUPPORT")
+
+        gap = MarketGapCooldownGuard(cooldown_bars_after_gap=2)
+        has_gap = gap.check_gap(1.1000, 1.1030, atr_val=0.0010)
+        self.assertTrue(has_gap)
 
     def test_awesome_llm_agents(self):
         dra = DeepResearchAgent()
