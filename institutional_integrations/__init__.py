@@ -132,6 +132,14 @@ from .freqtrade_protection_engine import (  # noqa: F401
     LockSide,
     ProtectionCheckResult,
 )
+from .quantdinger_engine import (  # noqa: F401
+    QuantDingerGridEngine,
+    QuantDingerFactorResearchEngine,
+    GridMode,
+    GridLevel,
+    GridState,
+    FactorScoreResult,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -353,4 +361,10 @@ __all__ = [
     "PairLock",
     "LockSide",
     "ProtectionCheckResult",
+    "QuantDingerGridEngine",
+    "QuantDingerFactorResearchEngine",
+    "GridMode",
+    "GridLevel",
+    "GridState",
+    "FactorScoreResult",
 ]
