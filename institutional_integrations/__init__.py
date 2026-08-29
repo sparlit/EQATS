@@ -153,6 +153,15 @@ from .backtrader_engine import (  # noqa: F401
     BacktraderPerformanceMetrics,
     BacktraderSizerResult,
 )
+from .zipline_finance_engine import (  # noqa: F401
+    ZiplineSlippageModel,
+    ZiplineCommissionModel,
+    ZiplineRiskControlEngine,
+    OrderSide as ZiplineOrderSide,
+    SlippageResult,
+    CommissionResult,
+    RiskControlCheck,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -389,4 +398,11 @@ __all__ = [
     "BacktraderSizerEngine",
     "BacktraderPerformanceMetrics",
     "BacktraderSizerResult",
+    "ZiplineSlippageModel",
+    "ZiplineCommissionModel",
+    "ZiplineRiskControlEngine",
+    "ZiplineOrderSide",
+    "SlippageResult",
+    "CommissionResult",
+    "RiskControlCheck",
 ]
