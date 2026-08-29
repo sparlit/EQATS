@@ -98,6 +98,12 @@ from .quant_backtest_pro_engine import (  # noqa: F401
     PositionSide,
     PositionStatus,
 )
+from .rc_news_feeder import (  # noqa: F401
+    RCNewsFeederEngine,
+    NewsEvent,
+    NewsImpact,
+    NewsBlackoutCheck,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -295,4 +301,8 @@ __all__ = [
     "OrderType",
     "PositionSide",
     "PositionStatus",
+    "RCNewsFeederEngine",
+    "NewsEvent",
+    "NewsImpact",
+    "NewsBlackoutCheck",
 ]
