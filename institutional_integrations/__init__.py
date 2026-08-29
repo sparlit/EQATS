@@ -162,6 +162,11 @@ from .zipline_finance_engine import (  # noqa: F401
     CommissionResult,
     RiskControlCheck,
 )
+from .stocksharp_risk_engine import (  # noqa: F401
+    StockSharpRiskManager,
+    RiskAction,
+    RiskRuleViolation,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -405,4 +410,7 @@ __all__ = [
     "SlippageResult",
     "CommissionResult",
     "RiskControlCheck",
+    "StockSharpRiskManager",
+    "RiskAction",
+    "RiskRuleViolation",
 ]
