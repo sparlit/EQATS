@@ -12,8 +12,18 @@ from institutional_integrations.sovereign_intelligence import SovereignIntellige
 from institutional_integrations import vibe_quantlib
 from institutional_integrations.openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager
 from institutional_integrations.openbull_analytics import calculate_max_pain, calculate_synthetic_future_price
+from institutional_integrations.nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_nautilus_trader_engine(self):
+        sizer = NautilusFixedRiskSizer()
+        size = sizer.calculate_position_size(equity=10000.0, risk_pct=1.0, entry_price=1.1000, stop_loss_price=1.0950)
+        self.assertGreater(size, 0.0)
+
+        guard = NautilusOrderRoutingGuard(max_account_exposure=50000.0, max_open_orders=5)
+        res = guard.validate_order("EURUSD", "BUY", 1.0, 1.1000, current_open_orders=2)
+        self.assertTrue(res["allowed"])
 
     def test_openbull_analytics(self):
         chain = [
