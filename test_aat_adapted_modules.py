@@ -18,8 +18,30 @@ from institutional_integrations.ftmo_risk_guard import FTMORiskGuardEngine, FTMO
 from institutional_integrations.meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker
 from institutional_integrations.nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer
 from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
+from institutional_integrations.ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard
 
 class TestAATAdaptedModules(unittest.TestCase):
+
+    def test_ftmo_tradingbot_core(self):
+        sop = ScaleOnProfitEngine()
+        trig = sop.should_trigger_addon("BUY", 1.1000, 1.1020, atr_at_entry=0.0010)
+        self.assertTrue(trig)
+        params = sop.calculate_addon_params("BUY", 1.1000, main_lot_size=0.10)
+        self.assertEqual(params["addon_lot_size"], 0.05)
+        self.assertEqual(params["addon_stop_loss"], 1.1000)
+
+        dyn = FTMODynamicStopEngine()
+        trail = dyn.evaluate_trailing_stop("BUY", 1.1000, 1.1030, 1.0950, atr_val=0.0010)
+        self.assertTrue(trail["should_update"])
+        self.assertGreater(trail["new_stop_loss"], 1.0950)
+
+        csm = ConsensusSizingModulator()
+        mult = csm.compute_consensus_multiplier([1, 1], 1)
+        self.assertEqual(mult, 1.0)
+
+        cap = CombinedExposureCapGuard()
+        res = cap.check_exposure_cap([10000.0, 15000.0], 5000.0, current_equity=100000.0)
+        self.assertTrue(res["allowed"])
 
     def test_ftmo_journal_analyzer(self):
         analyzer = FTMOJournalAnalyzer()
