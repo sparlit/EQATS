@@ -51,6 +51,7 @@ class EventOrder:
     filled_quantity: float = 0.0
     avg_fill_price: float = 0.0
     status: str = "PENDING"
+    product: Optional[str] = None
 
 
 @dataclass
