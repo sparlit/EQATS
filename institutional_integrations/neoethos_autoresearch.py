@@ -33,7 +33,7 @@ class ResearchHypothesisResult:
     in_market_fitness: float
     combined_score: float
     passed: bool
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
