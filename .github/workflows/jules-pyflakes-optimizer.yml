@@ -1,0 +1,56 @@
+name: Jules Trading System Pyflakes Fixer
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pyflakes-analysis:
+    name: Pyflakes Check & Automated Refactoring Mesh
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      statuses: write
+
+    steps:
+      - name: Checkout Trading System Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-level: '3.11'
+
+      - name: Install Linting & Primitives
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyflakes
+
+      - name: Run Pyflakes & Capture Diagnostics
+        id: run_pyflakes
+        run: |
+          echo "=== Executing Pyflakes Static Analysis ==="
+          # Run pyflakes, output to log, but prevent hard failure here so Jules can ingest it
+          pyflakes . > pyflakes_errors.log 2>&1 || true
+          cat pyflakes_errors.log
+          
+      - name: Trigger Jules Codebase Correction Loop
+        uses: google-labs-code/jules-action@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          instruction: |
+            You are operating on our autonomous trading system codebase. Analyze the attached 'pyflakes_errors.log'.
+            Fix all detected Pyflakes static errors by implementing full-scale modules and live execution paths.
+            
+            CRITICAL DIRECTIVES:
+            1. DO NOT remove or comment out any 'imported but unused' modules or 'assigned to but never used' variables.
+            2. If an imported module or code file is missing or contains gaps, immediately generate the fully-functional implementation/module.
+            3. Integrate these unused imports and variables into the active trading system logic (e.g., streaming them into the analytical pipeline, logging, execution gateway verification, or data ensembling meshes).
+            4. Absolute prohibition on dummy code, mocks, stubs, passes, ellipses (...), or missing placeholders. Every single module must be a complete production-grade implementation.
+            
+            Log File Payload:
+            $(cat pyflakes_errors.log)
