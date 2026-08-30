@@ -2,9 +2,9 @@ name: AI Quality & Validation Loop
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [main, dev]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: write
@@ -25,14 +25,14 @@ jobs:
       - name: Set up Node.js (For Frontend/Tools)
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Set up Python (For Core Core Logic)
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
+          cache: "pip"
 
       # Standardizing FOSS validation layers
       - name: Install Linting Tools
@@ -46,13 +46,13 @@ jobs:
         run: |
           echo "=== RUNNING PYFLAKES AUTO-CHECK ==="
           pyflakes . || echo "PYFLAKES_ISSUES_FOUND" > validation_status.txt
-          
+
           echo "=== RUNNING MYPY STRICT CHECK ==="
           mypy . --check-untyped-defs || echo "MYPY_ISSUES_FOUND" >> validation_status.txt
-          
+
           echo "=== RUNNING FRONTEND VALIDATION ==="
           htmlhint "**/*.html" || true
-          
+
       - name: Evaluate Validation Results
         id: check-status
         run: |
@@ -68,14 +68,14 @@ jobs:
     needs: test-and-validate
     if: needs:test-and-validate.outputs.pipeline_failed == 'true'
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # This invokes your chosen agent wrapper (like Goose CLI or a custom script) 
+      # This invokes your chosen agent wrapper (like Goose CLI or a custom script)
       # using your saved secrets to ingest the errors and push structural code updates.
       - name: Run Autonomous Repair Engine
         env:
@@ -86,7 +86,7 @@ jobs:
           echo "Invoking autonomous workspace restructuring loop..."
           # Replace the placeholder execution below with your exact engine agent pipeline call
           # e.g., npx -y @claude-flow/cli@latest run --instructions "Fix all errors noted in validation logs"
-          
+
       - name: Commit and Push Flawless Code
         run: |
           git config --global user.name "AI-Librarian-Bot"

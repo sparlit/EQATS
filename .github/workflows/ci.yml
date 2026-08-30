@@ -2,9 +2,9 @@ name: CI/CD Build Pipeline
 
 on:
   push:
-    branches: [ main, master, "refactor/*", "feature/*" ]
+    branches: [main, master, "refactor/*", "feature/*"]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 concurrency:
@@ -42,7 +42,7 @@ jobs:
       - name: Run Mypy Type Checking
         run: |
           mypy --config-file mypy.ini .
-          
+
       - name: Super-Linter
         uses: super-linter/super-linter@v8.7.0
 
