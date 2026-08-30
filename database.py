@@ -4,6 +4,7 @@ import hashlib
 import logging
 import os
 import sqlite3
+from typing import Any, Dict, List, Optional
 
 import config
 
@@ -476,6 +477,26 @@ def init_db():
                 terminal_path TEXT DEFAULT '',
                 is_active INTEGER DEFAULT 1,
                 updated_at TEXT NOT NULL
+            )
+            """)
+
+            # Table for storing detailed broker profiles & operational configuration parameters
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS broker_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                broker_key TEXT UNIQUE NOT NULL,
+                display_name TEXT NOT NULL,
+                protocol_type TEXT NOT NULL DEFAULT 'REST_WS',
+                auth_type TEXT NOT NULL DEFAULT 'api_key_secret',
+                rest_url TEXT DEFAULT '',
+                ws_url TEXT DEFAULT '',
+                volume_min REAL DEFAULT 0.01,
+                volume_max REAL DEFAULT 100.0,
+                volume_step REAL DEFAULT 0.01,
+                rate_limit_per_sec INTEGER DEFAULT 10,
+                extra_params_json TEXT DEFAULT '{}',
+                is_active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
             )
             """)
 
@@ -962,6 +983,122 @@ def get_user_login_style(username="QUANT_OPERATOR"):
 def delete_user(username):
     """Deletes a user account from SQLite with lock retries."""
     _execute_with_retry("DELETE FROM users WHERE username = ?", (username,))
+
+
+def seed_default_broker_profiles():
+    """Populates default operational parameter configurations for 30+ major brokers if broker_profiles table is empty."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM broker_profiles")
+    count = cursor.fetchone()[0]
+    conn.close()
+
+    if count > 0:
+        return
+
+    import json
+    now_str = datetime.datetime.now().isoformat()
+
+    default_profiles = [
+        # FX / MetaTrader
+        ("mt5_demo", "MetaTrader 5 Demo", "MT5", "password", "", "", 0.01, 100.0, 0.01, 20, "{}"),
+        ("mt5_live", "MetaTrader 5 Live", "MT5", "password", "", "", 0.01, 100.0, 0.01, 20, "{}"),
+        ("ic_markets_fix", "IC Markets FIX", "FIX", "fix_comp_id", "https://fix.icmarkets.com", "wss://fix.icmarkets.com", 0.01, 100.0, 0.01, 50, json.dumps({"port": 9800})),
+        ("ctrader_openapi", "cTrader Open API", "CTRADER", "oauth2", "https://openapi.ctrader.com", "wss://live.ctrader.com", 0.01, 100.0, 0.01, 30, "{}"),
+        ("ibkr_tws", "Interactive Brokers TWS", "IBKR", "client_id", "https://127.0.0.1:5000", "wss://127.0.0.1:5000", 1.0, 10000.0, 1.0, 10, "{}"),
+
+        # Crypto / CCXT
+        ("binance_perps", "Binance Futures", "CCXT", "api_key_secret", "https://fapi.binance.com", "wss://fstream.binance.com", 0.001, 1000.0, 0.001, 20, "{}"),
+        ("bybit_linear", "Bybit Linear USDT", "CCXT", "api_key_secret", "https://api.bybit.com", "wss://stream.bybit.com", 0.001, 1000.0, 0.001, 20, "{}"),
+        ("okx_perps", "OKX Perpetuals", "CCXT", "api_key_secret", "https://www.okx.com", "wss://ws.okx.com:8443", 0.01, 1000.0, 0.01, 20, "{}"),
+        ("hyperliquid", "Hyperliquid L1 Perps", "REST_WS", "private_key", "https://api.hyperliquid.xyz", "wss://api.hyperliquid.xyz/ws", 0.001, 10000.0, 0.001, 50, "{}"),
+        ("coinbase_advanced", "Coinbase Advanced", "CCXT", "api_key_secret", "https://api.coinbase.com/api/v3", "wss://advanced-trade-ws.coinbase.com", 0.0001, 100.0, 0.0001, 10, "{}"),
+        ("kraken_futures", "Kraken Futures", "CCXT", "api_key_secret", "https://futures.kraken.com/derivatives", "wss://futures.kraken.com/ws/v1", 0.01, 1000.0, 0.01, 15, "{}"),
+
+        # Indian NSE F&O Brokers
+        ("dhan", "Dhan SDK", "REST_WS", "client_id_token", "https://api.dhan.co", "wss://api-feed.dhan.co", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("zerodha", "Zerodha Kite Connect", "REST_WS", "api_key_token", "https://api.kite.trade", "wss://ws.kite.trade", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("angelone", "AngelOne SmartAPI", "REST_WS", "totp", "https://apiconnect.angelone.in", "wss://smartapisocket.angelone.in", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("upstox", "Upstox REST API", "REST_WS", "client_id_token", "https://api.upstox.com/v2", "wss://api.upstox.com/v2/feed", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("fyers", "Fyers API v2", "REST_WS", "client_id_token", "https://api-v2.fyers.in/api/v2", "wss://api-v2.fyers.in/socket/v2", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("kotak_neo", "Kotak Neo API", "REST_WS", "consumer_key_token", "https://gw-napi.kotaksecurities.com", "wss://gw-napi.kotaksecurities.com", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("fivepaisa", "5paisa Markets", "REST_WS", "totp", "https://openapi.5paisa.com/VendorsAPI/V1", "wss://openfeed.5paisa.com", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("finvasia", "Finvasia (Shoonya)", "REST_WS", "totp", "https://api.shoonya.com/NorenWSTp", "wss://api.shoonya.com/NorenWSTp", 1.0, 10000.0, 1.0, 10, "{}"),
+        ("icici", "ICICI Direct Breeze", "REST_WS", "oauth2", "https://api.icicidirect.com/breezeapi/v1", "wss://breezews.icicidirect.com", 1.0, 10000.0, 1.0, 10, "{}"),
+    ]
+
+    for key, name, proto, auth, rest, ws, v_min, v_max, v_step, r_lim, extra in default_profiles:
+        _execute_with_retry(
+            """
+            INSERT OR IGNORE INTO broker_profiles
+            (broker_key, display_name, protocol_type, auth_type, rest_url, ws_url, volume_min, volume_max, volume_step, rate_limit_per_sec, extra_params_json, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+            """,
+            (key, name, proto, auth, rest, ws, v_min, v_max, v_step, r_lim, extra, now_str),
+        )
+
+
+def add_broker_profile(
+    broker_key: str,
+    display_name: str,
+    protocol_type: str = "REST_WS",
+    auth_type: str = "api_key_secret",
+    rest_url: str = "",
+    ws_url: str = "",
+    volume_min: float = 0.01,
+    volume_max: float = 100.0,
+    volume_step: float = 0.01,
+    rate_limit_per_sec: int = 10,
+    extra_params_json: str = "{}",
+    is_active: bool = True,
+):
+    """Adds or updates a broker profile entry in the database."""
+    now_str = datetime.datetime.now().isoformat()
+    _execute_with_retry(
+        """
+        INSERT OR REPLACE INTO broker_profiles
+        (broker_key, display_name, protocol_type, auth_type, rest_url, ws_url, volume_min, volume_max, volume_step, rate_limit_per_sec, extra_params_json, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            broker_key.lower(),
+            display_name,
+            protocol_type.upper(),
+            auth_type,
+            rest_url,
+            ws_url,
+            float(volume_min),
+            float(volume_max),
+            float(volume_step),
+            int(rate_limit_per_sec),
+            extra_params_json,
+            1 if is_active else 0,
+            now_str,
+        ),
+    )
+
+
+def get_broker_profile(broker_key: str) -> Optional[Dict[str, Any]]:
+    """Retrieves operational parameters for a specific broker key."""
+    seed_default_broker_profiles()
+    row = _fetch_with_retry(
+        "SELECT * FROM broker_profiles WHERE LOWER(broker_key) = LOWER(?)",
+        (broker_key,),
+        fetch_all=False,
+    )
+    if row:
+        return dict(row)
+    return None
+
+
+def get_all_broker_profiles() -> List[Dict[str, Any]]:
+    """Retrieves all registered broker profiles."""
+    seed_default_broker_profiles()
+    rows = _fetch_with_retry(
+        "SELECT * FROM broker_profiles ORDER BY display_name ASC",
+        fetch_all=True,
+    ) or []
+    return [dict(r) for r in rows]
 
 
 def get_all_brokers():

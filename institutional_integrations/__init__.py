@@ -259,6 +259,11 @@ from .nsefo_engine import (  # noqa: F401
     NSeFoGreeksResult,
     NSeFoParsedNlpCommand,
 )
+from .nsefo_broker_registry import (  # noqa: F401
+    NSEFO_BROKERS_REGISTRY,
+    NSeFoBrokerSpec,
+    NSeFoBrokerConfigManager,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -568,4 +573,7 @@ __all__ = [
     "NSeFoNlpCommandParser",
     "NSeFoGreeksResult",
     "NSeFoParsedNlpCommand",
+    "NSEFO_BROKERS_REGISTRY",
+    "NSeFoBrokerSpec",
+    "NSeFoBrokerConfigManager",
 ]
