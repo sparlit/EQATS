@@ -230,6 +230,11 @@ class MCPServerCore:
             "timestamp": time.time(),
         }
 
+    def get_broker_database_profiles(self) -> list:
+        """Retrieves all registered broker profiles from the database."""
+        import database
+        return database.get_all_broker_profiles()
+
     def query_market_intel(self, symbol: str) -> dict:
         """Queries macro sentiment, market structure, and Bayesian consensus for symbol."""
         from institutional_integrations.bayesian_consensus import global_bayesian_consensus
