@@ -252,6 +252,10 @@ from .kit_bot_engine import (  # noqa: F401
     KitParsedSignal,
     KitAutopilotDecision,
 )
+from .indian_instrument_scheduler import (  # noqa: F401
+    IndianInstrumentScheduler,
+    global_indian_scheduler,
+)
 from .sebi_broker_adapter import (  # noqa: F401
     SEBIBrokerAdapter,
     KiteConnectAdapter,
@@ -566,4 +570,6 @@ __all__ = [
     "KitAutopilotMode",
     "KitParsedSignal",
     "KitAutopilotDecision",
+    "IndianInstrumentScheduler",
+    "global_indian_scheduler",
 ]

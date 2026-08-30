@@ -211,3 +211,51 @@ def test_extended_connectors_and_openalgo_router():
     assert payload["product"] == "NRML"
     assert payload["symbol"] == "TCS"
     assert payload["exchange"] == "NSE"
+
+
+def test_indian_instrument_scheduler():
+    from institutional_integrations.indian_instrument_scheduler import IndianInstrumentScheduler, global_indian_scheduler
+
+    scheduler = IndianInstrumentScheduler(data_dir="data_test_temp")
+
+    # Check default seed tokens
+    token_sbin = scheduler.get_instrument_token("NSE:SBIN")
+    assert token_sbin == 779521
+    assert scheduler.get_symbol_from_token(token_sbin) == "NSE:SBIN"
+
+    token_rel = scheduler.get_instrument_token("RELIANCE")
+    assert token_rel == 738561
+
+    # Test Kite CSV parsing
+    sample_kite_csv = (
+        "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n"
+        "123456,123,TESTSTOCK,Test Stock,100.0,,,0.05,1,EQ,NSE-EQ,NSE\n"
+        "654321,456,TESTFUT,Test Future,500.0,2024-03-28,0,0.05,50,FUT,NFO-FUT,NFO\n"
+    )
+    parsed_map = scheduler.parse_kite_instruments_csv(sample_kite_csv)
+    assert parsed_map["NSE:TESTSTOCK"] == 123456
+    assert parsed_map["NFO:TESTFUT"] == 654321
+
+    # Test Dhan CSV parsing
+    sample_dhan_csv = (
+        "SEM_SMST_SECURITY_ID,SEM_EXCHANGE_ID,SEM_TRADING_SYMBOL\n"
+        "998877,NSE,DHANSTOCK\n"
+    )
+    parsed_dhan = scheduler.parse_dhan_instruments_csv(sample_dhan_csv)
+    assert parsed_dhan["NSE:DHANSTOCK"] == 998877
+
+    # Test IST delay calculation
+    delay = scheduler.calculate_seconds_until_target_time_ist(8, 45)
+    assert delay > 0 and delay <= 86400
+
+    # Test scheduler start and stop daemon lifecycle
+    scheduler.start_daily_scheduler(target_time_ist="08:45")
+    assert scheduler._running is True
+    scheduler.stop_daily_scheduler()
+    assert scheduler._running is False
+
+    # Clean up test temp dir
+    if os.path.exists("data_test_temp/indian_instruments.json"):
+        os.remove("data_test_temp/indian_instruments.json")
+    if os.path.exists("data_test_temp"):
+        os.rmdir("data_test_temp")

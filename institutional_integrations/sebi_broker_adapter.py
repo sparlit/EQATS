@@ -1,3 +1,4 @@
+from .indian_instrument_scheduler import global_indian_scheduler
 """
 SEBI-Registered Broker API Adapter Module (EQATS Institutional Adaptation).
 
@@ -54,6 +55,7 @@ class SEBIOrderRequest:
     exchange: str = "NSE"  # 'NSE', 'BSE', 'NFO', 'MCX'
     order_kind: str = "MARKET"  # 'MARKET', 'LIMIT', 'SL', 'SL-M'
     tag: str = "EQATS"
+    instrument_token: Optional[int] = None
 
 
 @dataclass
@@ -64,6 +66,7 @@ class SEBIOrderResponse:
     status: str
     product: str
     exchange: str
+    instrument_token: Optional[int] = None
     error: str = ""
     raw_response: Dict[str, Any] = field(default_factory=dict)
 
@@ -201,12 +204,14 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
         base_price = 2500.0 if "RELIANCE" in symbol else (1500.0 if "INFY" in symbol else 500.0)
-        return {"bid": base_price, "ask": round(base_price + 0.15, 2), "last": round(base_price + 0.05, 2)}
+        token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
+        return {"bid": base_price, "ask": round(base_price + 0.15, 2), "last": round(base_price + 0.05, 2), "instrument_token": token}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"KITE_{uuid.uuid4().hex[:12].upper()}"
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
 
         if self.access_token and not self.is_sandbox:
@@ -234,6 +239,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
                         status="COMPLETE",
                         product=product,
                         exchange=exchange,
+            instrument_token=token,
                         raw_response=res_data
                     )
             except Exception as e:
@@ -261,11 +267,13 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
+            instrument_token=token,
             raw_response={"status": "success", "order_id": ticket, "simulated": True}
         )
 
     def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
         product = validate_indian_product_tag(product, default="CNC")
+        token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         if ticket in self.simulated_orders:
             order = self.simulated_orders.pop(ticket)
             order["status"] = "CLOSED"
@@ -276,6 +284,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
                 status="CLOSED",
                 product=product,
                 exchange=exchange,
+            instrument_token=token,
             )
         return SEBIOrderResponse(
             success=True,
@@ -284,6 +293,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             status="CLOSED",
             product=product,
             exchange=exchange,
+            instrument_token=token,
         )
 
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
@@ -365,12 +375,14 @@ class DhanHQAdapter(SEBIBrokerAdapter):
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
         base_price = 2500.0 if "RELIANCE" in symbol else (1500.0 if "INFY" in symbol else 500.0)
-        return {"bid": base_price, "ask": round(base_price + 0.15, 2), "last": round(base_price + 0.05, 2)}
+        token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
+        return {"bid": base_price, "ask": round(base_price + 0.15, 2), "last": round(base_price + 0.05, 2), "instrument_token": token}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"DHAN_{uuid.uuid4().hex[:12].upper()}"
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
 
         if self.access_token and self.client_id and not self.is_sandbox:
@@ -398,6 +410,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
                         status="TRANSIT",
                         product=product,
                         exchange=exchange,
+            instrument_token=token,
                         raw_response=res_data
                     )
             except Exception as e:
@@ -425,11 +438,13 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
+            instrument_token=token,
             raw_response={"status": "success", "order_id": ticket, "simulated": True}
         )
 
     def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
         product = validate_indian_product_tag(product, default="CNC")
+        token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         if ticket in self.simulated_orders:
             order = self.simulated_orders.pop(ticket)
             order["status"] = "CLOSED"
@@ -440,6 +455,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
                 status="CLOSED",
                 product=product,
                 exchange=exchange,
+            instrument_token=token,
             )
         return SEBIOrderResponse(
             success=True,
@@ -448,6 +464,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             status="CLOSED",
             product=product,
             exchange=exchange,
+            instrument_token=token,
         )
 
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
