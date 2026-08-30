@@ -41,22 +41,7 @@ jobs:
           mypy . --check-untyped-defs --show-error-codes >> mypy_report.txt 2>&1 || true
           cat mypy_report.txt
 
-      - name: Invoke Jules Agent to Fix Codebase
-        uses: google-labs-code/jules-invoke@v1
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          prompt: |
-            You are tasked with refactoring and fixing type-checking bugs across our Python codebase. 
-            
-            We ran a strict static type inspection using the following command:
-            `mypy . --check-untyped-defs`
-            
-            The error reports and traces from that run are appended below. Review the errors, find the unannotated or incorrectly assigned definitions, and fix them.
-
-            CRITICAL CONSTRAINTS:
-            1. Ensure all function bodies and untyped definitions passing through your edits conform strictly to valid PEP 484 type hints.
-            2. Do not broadly swallow errors using `# type: ignore` unless it is a known third-party library stub limitation. Prefer explicit typing, Union declarations, or type casting (`typing.cast`).
-            3. Do not modify runtime logic, algorithmic behavior, or application features. Your sole mandate is codebase refactoring for strict type compliance.
-            
-            Diagnostic Report Logs:
-            $(cat mypy_report.txt)
+      - name: Verify Mypy Type Check Report
+        run: |
+          echo "=== Mypy Type Analysis Report ==="
+          cat mypy_report.txt

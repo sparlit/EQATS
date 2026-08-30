@@ -67,7 +67,7 @@ class TradingConnector(abc.ABC):
         raise NotImplementedError("Subclasses must implement get_symbol_volume_constraints()")
 
     @abc.abstractmethod
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None):
         """
         Places a trade order.
         order_type: 'BUY' or 'SELL'
@@ -240,10 +240,10 @@ class UniversalConnector(TradingConnector):
             # Return safe defaults if not connected
             return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None):
         # For SIMULATOR protocol, use simulator
         if self.protocol == "SIMULATOR":
-            return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp)
+            return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp, product=product)
         
         # For non-SIMULATOR protocols, require live gateway connection and successful execution
         if not self.gateway.is_connected():
@@ -259,7 +259,7 @@ class UniversalConnector(TradingConnector):
             }
         
         # Attempt live execution
-        gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp)
+        gw_res = self.gateway.execute_order(symbol, order_type, lot_size, sl, tp, product=product)
         
         # Only accept successful live execution results
         if gw_res.get("success"):
@@ -614,7 +614,7 @@ class MT5Connector(TradingConnector):
             # Return safe defaults if symbol info unavailable
             return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None):
         """
         SECURITY FIX: lot_size MUST be pre-normalized to broker constraints before calling.
         This method no longer modifies lot_size to prevent bypassing fat-finger checks.
@@ -968,7 +968,7 @@ class SimulatorConnector(TradingConnector):
         # Return standard constraints that match typical broker minimums
         return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None):
         with self.lock:
             prices = self.get_current_price(symbol)
             open_price = prices["ask"] if order_type == "BUY" else prices["bid"]
@@ -984,6 +984,7 @@ class SimulatorConnector(TradingConnector):
                 "sl": sl,
                 "tp": tp,
                 "lot_size": lot_size,
+                "product": product or "",
             }
 
             return {"success": True, "ticket": ticket, "price": open_price, "error": ""}
