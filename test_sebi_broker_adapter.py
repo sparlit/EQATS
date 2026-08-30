@@ -409,3 +409,58 @@ def test_database_instrument_token_caching_and_scheduler():
     # 3. Test global_indian_scheduler resolving token from DB
     sched_token = global_indian_scheduler.get_instrument_token("NSE:WIPRO")
     assert sched_token == 378753
+
+
+def test_intraday_mis_cutoff_and_auto_squareoff():
+    from institutional_integrations.indian_market_state_machine import (
+        IndianMarketStateMachine,
+        IST_TIMEZONE,
+    )
+    from datetime import datetime
+
+    dt_cutoff = datetime(2026, 8, 31, 15, 15, tzinfo=IST_TIMEZONE)  # Monday 03:15 PM IST
+    dt_normal = datetime(2026, 8, 31, 10, 30, tzinfo=IST_TIMEZONE)  # Monday 10:30 AM IST
+
+    open_orders = [
+        {"ticket": "ORD_1", "symbol": "NSE:SBIN", "product": "MIS", "status": "OPEN", "exchange": "NSE"},
+        {"ticket": "ORD_2", "symbol": "NSE:RELIANCE", "product": "MIS", "status": "PENDING", "exchange": "NSE"},
+        {"ticket": "ORD_3", "symbol": "NSE:INFY", "product": "CNC", "status": "OPEN", "exchange": "NSE"},
+    ]
+
+    cancelled_list = []
+    closed_list = []
+
+    def mock_close(ticket, symbol, exchange, product):
+        closed_list.append(ticket)
+        return {"success": True, "ticket": ticket, "status": "CLOSED"}
+
+    def mock_cancel(ticket):
+        cancelled_list.append(ticket)
+        return True
+
+    # During normal hours (10:30 AM IST) - square-off should not trigger
+    res_normal = IndianMarketStateMachine.enforce_intraday_mis_cutoff_and_squareoff(
+        open_orders=open_orders,
+        close_order_func=mock_close,
+        cancel_order_func=mock_cancel,
+        dt_ist=dt_normal,
+    )
+    assert res_normal["squareoff_triggered"] is False
+    assert res_normal["entries_frozen"] is False
+    assert len(cancelled_list) == 0
+    assert len(closed_list) == 0
+
+    # Past 03:00 PM IST cutoff (03:15 PM IST) - square-off MUST trigger
+    res_cutoff = IndianMarketStateMachine.enforce_intraday_mis_cutoff_and_squareoff(
+        open_orders=open_orders,
+        close_order_func=mock_close,
+        cancel_order_func=mock_cancel,
+        dt_ist=dt_cutoff,
+    )
+    assert res_cutoff["squareoff_triggered"] is True
+    assert res_cutoff["entries_frozen"] is True
+    assert res_cutoff["cancelled_orders_count"] == 1
+    assert res_cutoff["closed_positions_count"] == 1
+    assert "ORD_2" in cancelled_list
+    assert "ORD_1" in closed_list
+    assert "ORD_3" not in closed_list  # CNC delivery position must NOT be closed!

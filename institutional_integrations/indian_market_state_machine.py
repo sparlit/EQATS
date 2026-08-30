@@ -153,5 +153,82 @@ class IndianMarketStateMachine:
         return True, "Order validated for Indian market session.", rounded_price
 
 
+    @classmethod
+    def enforce_intraday_mis_cutoff_and_squareoff(
+        cls,
+        open_orders: list,
+        close_order_func,
+        cancel_order_func=None,
+        dt_ist: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Explicit Intraday Safeguard Routine:
+        If active past 03:00 PM IST, freezes all new incoming MIS entries, cancels pending limit/stop orders,
+        and systematically routes market exit orders to prevent broker auto-liquidation penalty tariffs.
+
+        Args:
+            open_orders: List of active order dicts
+            close_order_func: Callable (ticket, symbol, exchange, product) -> SEBIOrderResponse or dict
+            cancel_order_func: Callable (ticket) -> bool (optional)
+            dt_ist: Optional override datetime in IST
+
+        Returns:
+            Dict[str, Any]: Execution summary detailing frozen entries, cancelled orders, and market exits.
+        """
+        now = dt_ist or cls.get_current_ist_time()
+        if not cls.should_trigger_mis_squareoff(now):
+            return {
+                "squareoff_triggered": False,
+                "entries_frozen": False,
+                "cancelled_orders_count": 0,
+                "closed_positions_count": 0,
+                "details": {"cancelled": [], "closed": []},
+            }
+
+        _log.warning(
+            "INTRA_DAY MIS CUTOFF SAFEGUARD ACTIVE (%s IST). Freezing new entries and auto-squaring MIS positions...",
+            now.strftime("%H:%M:%S"),
+        )
+
+        cancelled_tickets = []
+        closed_tickets = []
+
+        for order in open_orders:
+            ticket = str(order.get("ticket", order.get("order_id", "")))
+            product = str(order.get("product", order.get("productType", "CNC"))).upper()
+            symbol = str(order.get("symbol", order.get("tradingSymbol", "SBIN")))
+            exchange = str(order.get("exchange", "NSE"))
+            status = str(order.get("status", "OPEN")).upper()
+
+            if product in ("MIS", "INTRADAY"):
+                # If pending limit/stop order, cancel it
+                if status in ("PENDING", "TRIGGER_PENDING") and cancel_order_func:
+                    try:
+                        cancel_order_func(ticket)
+                        cancelled_tickets.append(ticket)
+                        _log.info("Cancelled pending MIS limit order %s for %s ahead of cutoff.", ticket, symbol)
+                    except Exception as e:
+                        _log.error("Failed to cancel pending MIS order %s: %s", ticket, e)
+                else:
+                    # Active position: route market exit order
+                    try:
+                        res = close_order_func(ticket=ticket, symbol=symbol, exchange=exchange, product="MIS")
+                        closed_tickets.append(ticket)
+                        _log.info("Systematically routed market exit for active MIS position %s on %s.", ticket, symbol)
+                    except Exception as e:
+                        _log.error("Failed to close MIS position %s: %s", ticket, e)
+
+        return {
+            "squareoff_triggered": True,
+            "entries_frozen": True,
+            "cancelled_orders_count": len(cancelled_tickets),
+            "closed_positions_count": len(closed_tickets),
+            "details": {
+                "cancelled": cancelled_tickets,
+                "closed": closed_tickets,
+            },
+        }
+
+
 # Global singleton instance
 global_indian_state_machine = IndianMarketStateMachine()

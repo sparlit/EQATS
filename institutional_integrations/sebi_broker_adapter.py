@@ -213,6 +213,23 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"KITE_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
+
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol,
             order_type=req.order_type,
@@ -403,6 +420,23 @@ class DhanHQAdapter(SEBIBrokerAdapter):
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"DHAN_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
+
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol,
             order_type=req.order_type,
@@ -574,6 +608,23 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
         price = round_to_indian_tick_size(price)
 
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
+
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
         )
@@ -631,6 +682,23 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
 
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
+
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
         )
@@ -685,6 +753,23 @@ class UpstoxAdapter(SEBIBrokerAdapter):
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
 
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
+
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
         )
@@ -738,6 +823,23 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
         ticket = f"ICICI_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
+
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
 
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
@@ -796,6 +898,23 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
 
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
+
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
         )
@@ -849,6 +968,23 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
         ticket = f"IIFL_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
+
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
 
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
@@ -904,6 +1040,23 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
         ticket = f"MO_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
+
+        sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
+            open_orders=self.get_open_orders(),
+            close_order_func=self.close_order,
+        )
+        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+            _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error="MIS orders frozen past 03:00 PM IST cutoff. Active positions auto-squared.",
+            )
 
         allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
             symbol=req.symbol, order_type=req.order_type, product=product, price=price,
