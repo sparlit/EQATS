@@ -378,3 +378,34 @@ def test_universal_broker_gateway_all_indian_brokers():
         assert res["success"] is True
         assert res["protocol"] == proto
         assert res["product"] == "CNC"
+
+
+def test_database_instrument_token_caching_and_scheduler():
+    import database
+    from institutional_integrations.indian_instrument_scheduler import global_indian_scheduler
+    from institutional_integrations.extended_market_connectors import ExtendedDataConnectors
+
+    # 1. Test direct database token saving and retrieval
+    database.init_db()
+    saved_count = database.save_instrument_tokens_to_db({
+        "NSE:TATASTEEL": 895745,
+        "NSE:WIPRO": 378753,
+    })
+    assert saved_count == 2
+
+    token_tatasteel = database.get_instrument_token_from_db("NSE:TATASTEEL")
+    assert token_tatasteel == 895745
+
+    token_wipro = database.get_instrument_token_from_db("WIPRO")
+    assert token_wipro == 378753
+
+    sym_tatasteel = database.get_symbol_from_db_token(895745)
+    assert sym_tatasteel == "NSE:TATASTEEL"
+
+    # 2. Test ExtendedDataConnectors quote retrieving DB cached token
+    quote = ExtendedDataConnectors.fetch_indian_equity_quote("NSE:TATASTEEL")
+    assert quote["instrument_token"] == 895745
+
+    # 3. Test global_indian_scheduler resolving token from DB
+    sched_token = global_indian_scheduler.get_instrument_token("NSE:WIPRO")
+    assert sched_token == 378753

@@ -1,3 +1,4 @@
+import database
 """
 Indian Stock Exchange Instrument Token Daily Scheduler Module (EQATS Institutional Integration).
 
@@ -157,6 +158,13 @@ class IndianInstrumentScheduler:
             if key in self.symbol_to_token:
                 return self.symbol_to_token[key]
 
+        db_token = database.get_instrument_token_from_db(key)
+        if db_token:
+            with self._lock:
+                self.symbol_to_token[key] = db_token
+                self.token_to_symbol[db_token] = key
+            return db_token
+
         # Generate stable fallback hash token if unmapped
         fallback_token = (abs(hash(key)) % 9000000) + 100000
         with self._lock:
@@ -182,6 +190,7 @@ class IndianInstrumentScheduler:
                 }
             with open(target_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+            database.save_instrument_tokens_to_db(self.symbol_to_token)
             _log.info("Persisted instrument mappings to %s", target_path)
         except Exception as e:
             _log.error("Failed to persist instrument mappings: %s", e)

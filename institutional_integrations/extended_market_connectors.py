@@ -1,3 +1,4 @@
+from .indian_instrument_scheduler import global_indian_scheduler
 import time
 """
 Institutional Extended Market Data & Economic Connectors Engine.
@@ -131,9 +132,11 @@ class ExtendedDataConnectors:
             "SENSEX": 73800.0,
         }
         price = base_prices.get(sym, 1250.0)
+        token = global_indian_scheduler.get_instrument_token(f"{exch}:{sym}")
         return {
             "symbol": sym,
             "exchange": exch,
+            "instrument_token": token,
             "bid": round(price - 0.25, 2),
             "ask": round(price + 0.25, 2),
             "last": round(price, 2),
