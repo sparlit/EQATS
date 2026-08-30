@@ -117,7 +117,7 @@ class EmpiricalSlippageTracker:
             })
 
     def get_symbol_stats(self, symbol: str) -> Dict[str, float]:
-        with _store_lock if '_store_lock' in globals() else self._lock:
+        with self._lock:
             sym_events = [e for e in self.events if e["symbol"] == symbol]
             if not sym_events:
                 return {"mean_slippage": 0.0, "mean_atr_frac": 0.0, "count": 0}

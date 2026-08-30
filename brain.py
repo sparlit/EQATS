@@ -8,6 +8,13 @@ import indicators
 import predictive_brain
 from institutional_integrations import aat_strategies
 from institutional_integrations.bayesian_consensus import global_bayesian_consensus
+from institutional_integrations.nofx_ai_terminal_engine import (
+    global_nofx_disposer,
+    global_nofx_direction_board,
+    global_nofx_model_manager,
+    NoFxAction,
+    NoFxModelDecision,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -553,6 +560,33 @@ class ScalperBrain:
                 sl_val, tp_val, lot_val = 0.0, 0.0, 0.0
 
             return round(lot_val, 2), round(sl_val, 5), round(tp_val, 5)
+
+        # --- NoFx Runtime Risk Disposer Clamp Evaluation ---
+        top_proposed_action = NoFxAction.BUY if "BUY" in all_strategies.values() else (
+            NoFxAction.SELL if "SELL" in all_strategies.values() else NoFxAction.HOLD
+        )
+        nofx_decision = NoFxModelDecision(
+            model_name="ScalperBrain_v10.4",
+            symbol=symbol,
+            action=top_proposed_action,
+            confidence=float(ai_bullish_prob if top_proposed_action == NoFxAction.BUY else (1.0 - ai_bullish_prob)),
+            reasoning_summary=f"Regime: {reg_info['detailed_regime']} | Kronos upside: {kronos_upside_prob:.2f}",
+            proposed_volume=0.01,
+            proposed_sl=0.0,
+            proposed_tp=0.0,
+        )
+        global_nofx_model_manager.record_decision(nofx_decision)
+        global_nofx_direction_board.update_direction(symbol, (ai_bullish_prob - 0.5) * 2.0)
+
+        nofx_clamped = global_nofx_disposer.evaluate_proposal(
+            decision=nofx_decision,
+            account_equity=current_equity,
+            current_price=current_price,
+            open_positions=database.get_open_trades() if hasattr(database, "get_open_trades") else [],
+        )
+
+        if not nofx_clamped.approved and top_proposed_action in (NoFxAction.BUY, NoFxAction.SELL):
+            _log.info("NoFx Disposer clamped entry on %s: %s", symbol, nofx_clamped.veto_reason)
 
         # Multi-Agent Brain Directive Modifiers
         if brain_directive is None:
