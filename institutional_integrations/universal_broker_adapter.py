@@ -417,24 +417,36 @@ class UniversalBrokerGateway:
     def get_symbol_volume_constraints(self, symbol):
         """
         Returns broker volume constraints for the symbol.
-        SECURITY: This method provides the actual broker minimums that must be
-        applied BEFORE risk validation to prevent safety control bypass.
+        SECURITY: Queries the SQLite broker_profiles database for operational volume bounds,
+        falling back to protocol default constraints.
         """
+        server = self.broker_config.get("server", "")
+        broker_name = self.broker_config.get("broker_name", "")
+
+        profile = None
+        for key_candidate in [server, broker_name, self.protocol]:
+            if key_candidate:
+                profile = database.get_broker_profile(key_candidate)
+                if profile:
+                    break
+
+        vol_min = float(profile["volume_min"]) if profile and "volume_min" in profile else 0.01
+        vol_max = float(profile["volume_max"]) if profile and "volume_max" in profile else 100.0
+        vol_step = float(profile["volume_step"]) if profile and "volume_step" in profile else 0.01
+
         if self.protocol == "MT5":
             try:
                 import MetaTrader5 as mt5
                 
                 info = mt5.symbol_info(symbol)
                 if info:
-                    vol_min = getattr(info, "volume_min", 0.01) or 0.01
-                    vol_max = getattr(info, "volume_max", 100.0) or 100.0
-                    vol_step = getattr(info, "volume_step", 0.01) or 0.01
-                    return {"volume_min": vol_min, "volume_max": vol_max, "volume_step": vol_step}
+                    vol_min = getattr(info, "volume_min", vol_min) or vol_min
+                    vol_max = getattr(info, "volume_max", vol_max) or vol_max
+                    vol_step = getattr(info, "volume_step", vol_step) or vol_step
             except Exception as e:
                 _log.warning("Failed to get MT5 symbol info for %s: %s", symbol, e)
-        
-        # Return safe defaults for other protocols or on error
-        return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
+
+        return {"volume_min": vol_min, "volume_max": vol_max, "volume_step": vol_step}
 
     def _reconcile_order_status(self, client_order_id):
         """
