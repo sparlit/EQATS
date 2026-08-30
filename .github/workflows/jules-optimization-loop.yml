@@ -347,13 +347,13 @@ jobs:
               --title "🚀 AI Auto-Innovation & Feature Release [v${TARGET_VERSION}]" \
               --body "This Pull Request was generated autonomously by your Jules Innovation Loop. It adds new quantitative trading features, expands microservice code modules, refactors layout sheets, and advances the system architecture baseline version to release ${TARGET_VERSION}.
 
-**Post-Change Validation Results:**
-- ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
-- ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
-- ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
-- 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
+            **Post-Change Validation Results:**
+            - ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
+            - ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
+            - ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+            - 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
 
-**SECURITY NOTICE:** This PR has passed automated post-change validation gates. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
+            **SECURITY NOTICE:** This PR has passed automated post-change validation gates. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
               --base main \
               --head "$BRANCH_NAME")
             PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
@@ -377,15 +377,14 @@ jobs:
             
             # SECURITY: Add a comment documenting the validated SHA for audit trail
             gh pr comment "$PR_NUMBER" --body "🔒 **Security Validation Checkpoint**
-            
-This PR has been validated at commit: \`${POST_CHANGE_SHA}\`
+            This PR has been validated at commit: \`${POST_CHANGE_SHA}\`
 
-**Validation Results:**
-- ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
-- ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
-- ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+            **Validation Results:**
+            - ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
+            - ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
+            - ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
 
-**SECURITY NOTICE:** Any commits pushed after \`${POST_CHANGE_SHA}\` have NOT been validated by this workflow and MUST be reviewed manually before merge."
+            **SECURITY NOTICE:** Any commits pushed after \`${POST_CHANGE_SHA}\` have NOT been validated by this workflow and MUST be reviewed manually before merge."
             
             echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
             

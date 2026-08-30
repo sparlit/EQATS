@@ -605,33 +605,18 @@ jobs:
             echo "Using trusted pyproject.toml configuration"
             # Create a temporary pytest config that uses trusted pyproject.toml settings
             # Extract pytest config from trusted pyproject.toml
-            python3 << 'PYEOF'
-import tomllib
-with open('pyproject.toml.trusted', 'rb') as f:
-    config = tomllib.load(f)
-    if 'tool' in config and 'pytest' in config['tool'] and 'ini_options' in config['tool']['pytest']:
-        pytest_config = config['tool']['pytest']['ini_options']
-        with open('pytest.trusted.ini', 'w') as out:
-            out.write('[pytest]\n')
-            for key, value in pytest_config.items():
-                if isinstance(value, list):
-                    out.write(f'{key} = {" ".join(value)}\n')
-                else:
-                    out.write(f'{key} = {value}\n')
-PYEOF
+            python3 -c "import sys, textwrap; exec(textwrap.dedent(sys.stdin.read()))" << '            PYEOF'
             pytest -v -c pytest.trusted.ini
-          else
+            else
             echo "⚠️  No trusted pytest configuration found, using default pytest settings"
             # Use minimal safe defaults that can't be manipulated
             pytest -v --strict-markers
-          fi
-          
-          echo "status=PASSED" >> $GITHUB_OUTPUT
-
-      # SECURITY: Run Ruff with TRUSTED configuration, not agent-modified pyproject.toml or ruff.toml
-      - name: POST-CHANGE VALIDATION - Run Ruff Linter (FAIL-CLOSED with Trusted Config)
-        if: steps.loop-check.outputs.continue_loop == 'true'
-        id: post-change-ruff
+            fi
+                        echo "status=PASSED" >> $GITHUB_OUTPUT
+                        # SECURITY: Run Ruff with TRUSTED configuration, not agent-modified pyproject.toml or ruff.toml
+            - name: POST-CHANGE VALIDATION - Run Ruff Linter (FAIL-CLOSED with Trusted Config)
+            if: steps.loop-check.outputs.continue_loop == 'true'
+            PYEOF
         run: |
           echo "🔍 Running post-change Ruff validation"
           echo "🔒 Using TRUSTED baseline configuration to prevent rule weakening"
@@ -667,15 +652,7 @@ PYEOF
             echo "Using trusted pyproject.toml configuration"
             # Extract bandit config from trusted pyproject.toml if it exists
             if grep -q '\[tool.bandit\]' pyproject.toml.trusted; then
-              python3 << 'PYEOF'
-import tomllib
-with open('pyproject.toml.trusted', 'rb') as f:
-    config = tomllib.load(f)
-    if 'tool' in config and 'bandit' in config['tool']:
-        import yaml
-        with open('.bandit.trusted.yaml', 'w') as out:
-            yaml.dump(config['tool']['bandit'], out)
-PYEOF
+              python3 -c "import tomllib, yaml; config = tomllib.load(open('pyproject.toml.trusted', 'rb')); bandit_config = config.get('tool', {}).get('bandit'); yaml.dump(bandit_config, open('.bandit.trusted.yaml', 'w')) if bandit_config else None"
               bandit -r . -c .bandit.trusted.yaml -ll --format txt
             else
               echo "No bandit config in trusted pyproject.toml, using strict defaults"
@@ -688,15 +665,15 @@ PYEOF
           fi
           
           echo "status=PASSED" >> $GITHUB_OUTPUT
-
-      # 12. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
-      - name: Open and Automerge Pull Request
-        if: steps.loop-check.outputs.continue_loop == 'true'
-        id: validation-gate
-        run: |
-          echo "✅ All post-change validation gates passed"
-          echo "passed=true" >> $GITHUB_OUTPUT
-
+              python3 -c "import sys, textwrap; exec(textwrap.dedent(sys.stdin.read()))" << '              PYEOF'
+              # 12. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
+              - name: Open and Automerge Pull Request
+              if: steps.loop-check.outputs.continue_loop == 'true'
+              id: validation-gate
+              run: |
+              echo "✅ All post-change validation gates passed"
+              echo "passed=true" >> $GITHUB_OUTPUT
+              PYEOF
   # SECURITY: Isolated job for PR operations that never executes repository-controlled code
   # This job runs in a fresh runner with no repository code checkout, preventing PATH tampering
   create-pull-request:
@@ -746,12 +723,12 @@ PYEOF
                 --title "🚀 QUANTUM EVOLUTION RELEASE [v${TARGET_VERSION}]" \
                 --body "This Pull Request was generated autonomously by the EQATS Quantum Evolution Loop. It progresses the codebase towards a multi-processed hybrid microservices mesh architecture utilizing Rust (Tokio) and GIL-free Python 3.13t execution tracks.
 
-**Post-Change Validation Results:**
-- ✅ All validation gates passed in isolated job
-- 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
-- 🔒 Baseline SHA: ${PRE_AGENT_SHA}
+            **Post-Change Validation Results:**
+            - ✅ All validation gates passed in isolated job
+            - 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
+            - 🔒 Baseline SHA: ${PRE_AGENT_SHA}
 
-**SECURITY NOTICE:** This PR has passed automated post-change validation gates using TRUSTED baseline configurations. The validation tools (pytest, ruff, bandit) were executed with configuration files captured BEFORE agent modifications to prevent validation bypass through configuration weakening. Manual review is still recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
+            **SECURITY NOTICE:** This PR has passed automated post-change validation gates using TRUSTED baseline configurations. The validation tools (pytest, ruff, bandit) were executed with configuration files captured BEFORE agent modifications to prevent validation bypass through configuration weakening. Manual review is still recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
                 --base main \
                 --head "$BRANCH_NAME")
               PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
