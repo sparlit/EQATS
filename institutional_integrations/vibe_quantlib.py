@@ -6,7 +6,10 @@ and Hierarchical Risk Parity (HRP) portfolio optimization.
 
 import math
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from typing import Dict, Any, List, Optional, Tuple, Sequence
 
 def calculate_kyle_lambda(price_changes: Sequence[float], signed_order_flow: Sequence[float]) -> float:

@@ -12,11 +12,14 @@ Provides:
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
-def crossover(series1: Union[Sequence[float], pd.Series, np.ndarray],
-              series2: Union[Sequence[float], pd.Series, np.ndarray]) -> bool:
+def crossover(series1: Union[Sequence[float], Any],
+              series2: Union[Sequence[float], Any]) -> bool:
     """Return True if series1 just crossed above series2 at the last element."""
     s1 = np.asarray(series1)
     s2 = np.asarray(series2)
@@ -25,13 +28,13 @@ def crossover(series1: Union[Sequence[float], pd.Series, np.ndarray],
     return bool(s1[-2] <= s2[-2] and s1[-1] > s2[-1])
 
 
-def cross(series1: Union[Sequence[float], pd.Series, np.ndarray],
-          series2: Union[Sequence[float], pd.Series, np.ndarray]) -> bool:
+def cross(series1: Union[Sequence[float], Any],
+          series2: Union[Sequence[float], Any]) -> bool:
     """Return True if series1 and series2 crossed each other (above or below) at the last element."""
     return crossover(series1, series2) or crossover(series2, series1)
 
 
-def barssince(condition: Union[Sequence[bool], pd.Series, np.ndarray], default: int = 999999) -> int:
+def barssince(condition: Union[Sequence[bool], Any], default: int = 999999) -> int:
     """Return the number of bars since `condition` was last True."""
     cond = np.asarray(condition)
     if not np.any(cond):
@@ -42,9 +45,9 @@ def barssince(condition: Union[Sequence[bool], pd.Series, np.ndarray], default: 
 
 def resample_apply(rule: str,
                    func: Callable,
-                   series_or_df: Union[pd.Series, pd.DataFrame],
+                   series_or_df: Any,
                    *args: Any,
-                   **kwargs: Any) -> Union[pd.Series, pd.DataFrame]:
+                   **kwargs: Any) -> Any:
     """Resample OHLCV data to higher timeframe, apply function, and reindex back to original timeline without lookahead bias."""
     if not isinstance(series_or_df.index, (pd.DatetimeIndex, pd.PeriodIndex)):
         raise ValueError("Series/DataFrame must have a DatetimeIndex or PeriodIndex for resampling.")
