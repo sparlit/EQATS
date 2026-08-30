@@ -252,6 +252,12 @@ from .kit_bot_engine import (  # noqa: F401
     KitParsedSignal,
     KitAutopilotDecision,
 )
+from .indian_market_state_machine import (  # noqa: F401
+    IndianMarketStateMachine,
+    IndianMarketState,
+    round_to_indian_tick_size,
+    global_indian_state_machine,
+)
 from .indian_instrument_scheduler import (  # noqa: F401
     IndianInstrumentScheduler,
     global_indian_scheduler,
@@ -572,4 +578,8 @@ __all__ = [
     "KitAutopilotDecision",
     "IndianInstrumentScheduler",
     "global_indian_scheduler",
+    "IndianMarketStateMachine",
+    "IndianMarketState",
+    "round_to_indian_tick_size",
+    "global_indian_state_machine",
 ]

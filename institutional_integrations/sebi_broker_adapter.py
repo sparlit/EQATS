@@ -1,3 +1,4 @@
+from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
 from .indian_instrument_scheduler import global_indian_scheduler
 """
 SEBI-Registered Broker API Adapter Module (EQATS Institutional Adaptation).
@@ -212,7 +213,26 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"KITE_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
+            symbol=req.symbol,
+            order_type=req.order_type,
+            product=product,
+            price=req.price,
+        )
+        if not allowed and not getattr(self, "is_sandbox", False):
+            _log.error("SEBI order execution blocked by market state machine for %s: %s", req.symbol, reason)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error=reason,
+            )
         price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
+        price = round_to_indian_tick_size(price)
 
         if self.access_token and not self.is_sandbox:
             try:
@@ -383,7 +403,26 @@ class DhanHQAdapter(SEBIBrokerAdapter):
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"DHAN_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        allowed, reason, rounded_price = global_indian_state_machine.validate_order_execution(
+            symbol=req.symbol,
+            order_type=req.order_type,
+            product=product,
+            price=req.price,
+        )
+        if not allowed and not getattr(self, "is_sandbox", False):
+            _log.error("SEBI order execution blocked by market state machine for %s: %s", req.symbol, reason)
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=0.0,
+                status="REJECTED",
+                product=product,
+                exchange=exchange,
+                instrument_token=token,
+                error=reason,
+            )
         price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
+        price = round_to_indian_tick_size(price)
 
         if self.access_token and self.client_id and not self.is_sandbox:
             try:

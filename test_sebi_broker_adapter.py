@@ -259,3 +259,63 @@ def test_indian_instrument_scheduler():
         os.remove("data_test_temp/indian_instruments.json")
     if os.path.exists("data_test_temp"):
         os.rmdir("data_test_temp")
+
+
+def test_indian_market_state_machine_and_tick_size():
+    from institutional_integrations.indian_market_state_machine import (
+        IndianMarketStateMachine,
+        IndianMarketState,
+        round_to_indian_tick_size,
+        IST_TIMEZONE,
+    )
+    from datetime import datetime
+
+    # 1. Test 0.05 INR Tick Size Rounding
+    assert round_to_indian_tick_size(2850.12) == 2850.10
+    assert round_to_indian_tick_size(2850.13) == 2850.15
+    assert round_to_indian_tick_size(2850.18) == 2850.20
+    assert round_to_indian_tick_size(500.04) == 500.05
+
+    # 2. Test Market State Timings (Mock Datetimes)
+    # Sunday 11:00 AM IST (Closed)
+    dt_sunday = datetime(2026, 8, 30, 11, 0, tzinfo=IST_TIMEZONE)
+    assert IndianMarketStateMachine.get_market_state(dt_sunday) == IndianMarketState.CLOSED
+
+    # Monday 09:05 AM IST (Pre-Market)
+    dt_mon_pre = datetime(2026, 8, 31, 9, 5, tzinfo=IST_TIMEZONE)
+    assert IndianMarketStateMachine.get_market_state(dt_mon_pre) == IndianMarketState.PRE_MARKET
+
+    # Monday 10:30 AM IST (Open)
+    dt_mon_open = datetime(2026, 8, 31, 10, 30, tzinfo=IST_TIMEZONE)
+    assert IndianMarketStateMachine.get_market_state(dt_mon_open) == IndianMarketState.OPEN
+    assert IndianMarketStateMachine.is_mis_entry_allowed(dt_mon_open) is True
+
+    # Monday 03:15 PM IST (Intraday Cutoff - Past 03:00 PM IST)
+    dt_mon_cutoff = datetime(2026, 8, 31, 15, 15, tzinfo=IST_TIMEZONE)
+    assert IndianMarketStateMachine.get_market_state(dt_mon_cutoff) == IndianMarketState.INTRADAY_CUTOFF
+    assert IndianMarketStateMachine.is_mis_entry_allowed(dt_mon_cutoff) is False
+    assert IndianMarketStateMachine.should_trigger_mis_squareoff(dt_mon_cutoff) is True
+
+    # 3. Test Order Validation Safeguards
+    # MIS order past 03:00 PM IST should be blocked
+    allowed, reason, rounded_price = IndianMarketStateMachine.validate_order_execution(
+        symbol="NSE:SBIN",
+        order_type="BUY",
+        product="MIS",
+        price=520.13,
+        dt_ist=dt_mon_cutoff,
+    )
+    assert allowed is False
+    assert "MIS Intraday orders blocked" in reason
+    assert rounded_price == 520.15
+
+    # CNC delivery order during regular session should be allowed
+    allowed_cnc, reason_cnc, price_cnc = IndianMarketStateMachine.validate_order_execution(
+        symbol="NSE:SBIN",
+        order_type="BUY",
+        product="CNC",
+        price=520.13,
+        dt_ist=dt_mon_open,
+    )
+    assert allowed_cnc is True
+    assert price_cnc == 520.15
