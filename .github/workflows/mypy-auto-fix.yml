@@ -1,0 +1,62 @@
+name: Mypy Auto-Fix with Jules
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  mypy-jules-fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Adjust to your current project version
+          cache: 'pip'
+
+      - name: Install Dependencies & Mypy
+        run: |
+          python -m pip install --upgrade pip
+          pip install mypy
+          # If your repository requires local or third-party dependencies to resolve types:
+          if [ -f requirementstxt ]; then pip install -r requirements.txt; fi
+          # Or if using a setup file: if [ -f setuppy ]; then pip install -e .; fi
+
+      - name: Run Mypy Type Check
+        id: mypy-run
+        # We append '|| true' to guarantee the workflow doesn't crash on failure,
+        # allowing the subsequent Jules step to capture the log output file.
+        run: |
+          echo "### Mypy Diagnostics Run" > mypy_report.txt
+          mypy . --check-untyped-defs --show-error-codes >> mypy_report.txt 2>&1 || true
+          cat mypy_report.txt
+
+      - name: Invoke Jules Agent to Fix Codebase
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are tasked with refactoring and fixing type-checking bugs across our Python codebase. 
+            
+            We ran a strict static type inspection using the following command:
+            `mypy . --check-untyped-defs`
+            
+            The error reports and traces from that run are appended below. Review the errors, find the unannotated or incorrectly assigned definitions, and fix them.
+
+            CRITICAL CONSTRAINTS:
+            1. Ensure all function bodies and untyped definitions passing through your edits conform strictly to valid PEP 484 type hints.
+            2. Do not broadly swallow errors using `# type: ignore` unless it is a known third-party library stub limitation. Prefer explicit typing, Union declarations, or type casting (`typing.cast`).
+            3. Do not modify runtime logic, algorithmic behavior, or application features. Your sole mandate is codebase refactoring for strict type compliance.
+            
+            Diagnostic Report Logs:
+            $(cat mypy_report.txt)
