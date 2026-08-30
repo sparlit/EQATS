@@ -6,7 +6,10 @@ Provides LightGBM Quantitative Factor Model and Multi-Strategy Portfolio Optimiz
 import math
 import logging
 import numpy as np
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from typing import Dict, Any, List, Optional, Sequence
 
 logger = logging.getLogger("NexQuantEngine")

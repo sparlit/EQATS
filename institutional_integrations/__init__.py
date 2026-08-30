@@ -291,7 +291,7 @@ from . import itip_signal_store  # noqa: F401
 from .mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage  # noqa: F401
 from .sovereign_intelligence import SovereignIntelligencePlugin  # noqa: F401
 from . import vibe_quantlib  # noqa: F401
-from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager  # noqa: F401
+from .openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager, OpenAlgoIndianExchangeRouter  # noqa: F401
 from .openbull_analytics import calculate_max_pain, calculate_synthetic_future_price  # noqa: F401
 from .nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard  # noqa: F401
 from .prop_firm_tracker import PropFirmChallengeTracker  # noqa: F401
@@ -327,6 +327,7 @@ __all__ = [
     "vibe_quantlib",
     "OpenAlgoSmartOrderSplitter",
     "OpenAlgoSessionSquareOffManager",
+    "OpenAlgoIndianExchangeRouter",
     "calculate_max_pain",
     "calculate_synthetic_future_price",
     "NautilusFixedRiskSizer",
