@@ -252,6 +252,31 @@ from .kit_bot_engine import (  # noqa: F401
     KitParsedSignal,
     KitAutopilotDecision,
 )
+from .rqalpha_event_engine import (  # noqa: F401
+    RQAlphaEventEngine,
+    EventOrder,
+    Bar,
+    EventType,
+    OrderSide,
+    OrderType,
+)
+from .polymarket_kalshi_arb import (  # noqa: F401
+    PolymarketKalshiArbEngine,
+    MarketQuote,
+    ArbitrageOpportunity,
+)
+from .hft_matching_orderbook import (  # noqa: F401
+    HighFrequencyMatchingOrderBook,
+    LimitOrder,
+    BookSide,
+    QueueInfo,
+)
+from .option_strat_greeks_engine import (  # noqa: F401
+    OptionStratGreeksEngine,
+    OptionGreeks,
+    OptionLeg,
+    OptionType as StratOptionType,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -306,6 +331,23 @@ from .prop_guardian_safety import PropGuardianMasterFilters, PROP_FIRMS_DATABASE
 from .calculus_quant_engine import calculate_hma, MarketEntropyMonitor, GeometricExitEngine  # noqa: F401
 
 __all__ = [
+    "RQAlphaEventEngine",
+    "EventOrder",
+    "Bar",
+    "EventType",
+    "OrderSide",
+    "OrderType",
+    "PolymarketKalshiArbEngine",
+    "MarketQuote",
+    "ArbitrageOpportunity",
+    "HighFrequencyMatchingOrderBook",
+    "LimitOrder",
+    "BookSide",
+    "QueueInfo",
+    "OptionStratGreeksEngine",
+    "OptionGreeks",
+    "OptionLeg",
+    "StratOptionType",
     "BayesianConsensusEngine",
     "global_bayesian_consensus",
     "aat_strategies",
