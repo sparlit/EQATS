@@ -23,6 +23,16 @@ import urllib.parse
 import urllib.request
 import uuid
 
+from institutional_integrations.sebi_broker_adapter import (
+    round_to_indian_quantity,
+    UnifiedIndianBrokerClientAdapter,
+    SEBIBrokerAdapter,
+    KiteConnectAdapter,
+    DhanHQAdapter,
+    SEBIOrderRequest,
+    SEBIOrderResponse,
+    validate_indian_product_tag,
+)
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
@@ -30,6 +40,11 @@ from institutional_integrations.fix_engine import FIXEngine
 _log = logging.getLogger(__name__)
 
 class UniversalBrokerGateway:
+    INDIAN_BROKER_PROTOCOLS = {
+        "SEBI_BROKER", "KITE", "ZERODHA", "DHAN", "ANGELONE", "ANGEL",
+        "KOTAK", "NEO", "UPSTOX", "ICICI", "FIVEPAISA", "IIFL", "XTS", "MOTILAL", "MO"
+    }
+
     """
     Universal Multi-Protocol Broker Gateway.
     Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
@@ -43,6 +58,17 @@ class UniversalBrokerGateway:
         "CTRADER",
         "CCXT",
         "SIMULATOR",
+        "SEBI_BROKER",
+        "KITE",
+        "ZERODHA",
+        "DHAN",
+        "ANGELONE",
+        "KOTAK",
+        "UPSTOX",
+        "ICICI",
+        "FIVEPAISA",
+        "IIFL",
+        "MOTILAL",
     ]
 
     def __init__(self, protocol="MT5", broker_config=None):
@@ -85,6 +111,39 @@ class UniversalBrokerGateway:
         self._breaker = CircuitBreaker(
             failure_threshold=cb_threshold, cooldown_seconds=cb_cooldown
         )
+
+        self.sebi_adapter = None
+        self.indian_client = None
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            password = self.broker_config.get("password", "")
+            totp = self.broker_config.get("totp", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(
+                broker_name=self.protocol,
+                api_key=api_key,
+                api_secret=api_secret,
+                access_token=access_token,
+                client_id=client_id,
+                password=password,
+                totp=totp,
+                is_sandbox=is_sandbox,
+            )
+            self.sebi_adapter = self.indian_client.adapter
+
+        if False:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            if self.protocol == "DHAN":
+                self.sebi_adapter = DhanHQAdapter(api_key=api_key, client_id=client_id, access_token=access_token, is_sandbox=is_sandbox)
+            else:
+                self.sebi_adapter = KiteConnectAdapter(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
 
         self._init_protocol_handler()
 
@@ -276,6 +335,33 @@ class UniversalBrokerGateway:
                 self.is_connected_flag = True
                 return True
 
+            self.indian_client = None
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            password = self.broker_config.get("password", "")
+            totp = self.broker_config.get("totp", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(
+                broker_name=self.protocol,
+                api_key=api_key,
+                api_secret=api_secret,
+                access_token=access_token,
+                client_id=client_id,
+                password=password,
+                totp=totp,
+                is_sandbox=is_sandbox,
+            )
+            self.sebi_adapter = self.indian_client.adapter
+
+            if self.sebi_adapter:
+                self.is_connected_flag = self.sebi_adapter.connect()
+                return self.is_connected_flag
+            self.is_connected_flag = True
+            return True
+
             if self.protocol == "FIX":
                 try:
                     target_host = self.broker_config.get("rest_url", "127.0.0.1")
@@ -352,6 +438,31 @@ class UniversalBrokerGateway:
         """Returns active connection status."""
         if self.protocol == "SIMULATOR":
             return True
+        self.indian_client = None
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            password = self.broker_config.get("password", "")
+            totp = self.broker_config.get("totp", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(
+                broker_name=self.protocol,
+                api_key=api_key,
+                api_secret=api_secret,
+                access_token=access_token,
+                client_id=client_id,
+                password=password,
+                totp=totp,
+                is_sandbox=is_sandbox,
+            )
+            self.sebi_adapter = self.indian_client.adapter
+
+        if False:
+            if self.sebi_adapter:
+                return self.sebi_adapter.is_connected()
+            return self.is_connected_flag
         if self.protocol == "MT5":
             try:
                 import MetaTrader5 as mt5
@@ -500,7 +611,7 @@ class UniversalBrokerGateway:
             )
             return {"found": False}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None, exchange="NSE", order_kind="MARKET"):
         """Executes trade order using active protocol route with circuit breaker, configurable retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
         # SECURITY: Validate order_type to prevent fail-open direction encoding
         # Only accept case-insensitive "BUY" or "SELL" - reject all other values
@@ -606,6 +717,65 @@ class UniversalBrokerGateway:
                 "reason": "circuit_open",
                 "protocol": self.protocol,
             }
+
+        validated_product = None
+        if product or self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            validated_product = validate_indian_product_tag(product, default="CNC")
+
+        if self.protocol == "SIMULATOR":
+            ticket = f"SIM_{uuid.uuid4().hex[:12].upper()}"
+            self._breaker.record_success()
+            res = {
+                "success": True,
+                "ticket": ticket,
+                "price": 0.0,
+                "error": "",
+                "protocol": "SIMULATOR",
+            }
+            if validated_product:
+                res["product"] = validated_product
+            return res
+
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS and self.sebi_adapter:
+            sebi_req = SEBIOrderRequest(
+                symbol=symbol,
+                order_type=order_type.upper(),
+                quantity=round_to_indian_quantity(lot_size_float),
+                price=0.0,
+                sl=round_to_indian_tick_size(sl) if sl > 0 else 0.0,
+                tp=round_to_indian_tick_size(tp) if tp > 0 else 0.0,
+                product=validated_product or "CNC",
+                exchange=exchange.upper() if exchange else "NSE",
+                order_kind=order_kind.upper() if order_kind else "MARKET",
+            )
+            sebi_res = self.sebi_adapter.execute_order(sebi_req)
+            if sebi_res.success:
+                self._breaker.record_success()
+                res = {
+                    "success": True,
+                    "ticket": sebi_res.ticket,
+                    "price": sebi_res.price,
+                    "status": sebi_res.status,
+                    "error": "",
+                    "protocol": self.protocol,
+                }
+                if validated_product:
+                    res["product"] = validated_product
+                return res
+            else:
+                self._breaker.record_failure()
+                res = {
+                    "success": False,
+                    "ticket": "",
+                    "price": 0.0,
+                    "error": sebi_res.error or "SEBI order execution failed",
+                    "protocol": self.protocol,
+                }
+                if validated_product:
+                    res["product"] = validated_product
+                return res
+
+
 
         if (
             self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]

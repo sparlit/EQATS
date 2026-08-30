@@ -61,3 +61,43 @@ class OpenAlgoSessionSquareOffManager:
     def reset(self):
         with self._lock:
             self.squareoff_triggered = False
+
+
+class OpenAlgoIndianExchangeRouter:
+    """
+    OpenAlgo Indian Market Exchange & Product Tag Router.
+    Formats and validates order payloads for Indian brokers and OpenAlgo endpoints.
+    """
+    VALID_PRODUCTS = {"MIS", "CNC", "NRML"}
+    VALID_EXCHANGES = {"NSE", "BSE", "NFO", "MCX", "CDS"}
+
+    @classmethod
+    def format_order_payload(
+        cls,
+        symbol: str,
+        action: str,
+        quantity: float,
+        price: float = 0.0,
+        product: str = "CNC",
+        exchange: str = "NSE",
+        order_type: str = "MARKET"
+    ) -> Dict[str, Any]:
+        prod = str(product).strip().upper() if product else "CNC"
+        if prod not in cls.VALID_PRODUCTS:
+            logger.warning("Invalid Indian product tag '%s' in OpenAlgo router. Falling back to CNC.", product)
+            prod = "CNC"
+
+        exch = str(exchange).strip().upper() if exchange else "NSE"
+        if exch not in cls.VALID_EXCHANGES:
+            exch = "NSE"
+
+        return {
+            "symbol": symbol.strip().upper(),
+            "action": action.strip().upper(),
+            "quantity": float(quantity),
+            "price": float(price),
+            "product": prod,
+            "exchange": exch,
+            "order_type": order_type.strip().upper(),
+            "formatted_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }

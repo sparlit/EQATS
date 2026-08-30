@@ -1,3 +1,5 @@
+import time
+from typing import Optional, Dict, Any, List
 import base64
 import datetime
 import hashlib
@@ -410,7 +412,7 @@ def init_db():
             """)
 
             # Alter table if existing schema lacks strategy or method columns
-            for col_def in [("strategy TEXT DEFAULT ''", "strategy"), ("method TEXT DEFAULT ''", "method")]:
+            for col_def in [("strategy TEXT DEFAULT ''", "strategy"), ("method TEXT DEFAULT ''", "method"), ("product TEXT DEFAULT ''", "product")]:
                 try:
                     cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_def[0]}")
                 except sqlite3.OperationalError:
@@ -480,6 +482,16 @@ def init_db():
             """)
 
             # Table for persisting daily circuit breaker state across process restarts
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS indian_instruments (
+                symbol TEXT PRIMARY KEY,
+                instrument_token INTEGER NOT NULL,
+                exchange TEXT NOT NULL,
+                trading_symbol TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """)
+
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS circuit_breaker_state (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -1466,7 +1478,7 @@ def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanat
     )
 
 
-def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, strategy="", method=""):
+def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, strategy="", method="", product=""):
     """
     Logs the initiation of a trade with lock retries.
     
@@ -1487,8 +1499,8 @@ def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, stra
     
     result = _execute_with_retry(
         """
-    INSERT INTO trades (ticket, symbol, direction, open_price, open_time, sl, tp, lot_size, status, strategy, method)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO trades (ticket, symbol, direction, open_price, open_time, sl, tp, lot_size, status, strategy, method, product)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             str(ticket),
@@ -1502,6 +1514,7 @@ def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, stra
             "OPEN",
             strategy,
             method,
+            product,
         ),
     )
     
@@ -1844,3 +1857,81 @@ if __name__ == "__main__":
         print("================================================================================")
     else:
         parser.print_help()
+
+
+def save_instrument_tokens_to_db(token_map: dict) -> int:
+    """
+    Bulk saves symbol -> instrument_token mapping into SQLite database.
+    """
+    if not token_map:
+        return 0
+    now_str = datetime.datetime.now().isoformat()
+    records = []
+    for sym, token in token_map.items():
+        parts = sym.split(":", 1) if ":" in sym else ("NSE", sym)
+        exch = parts[0]
+        tsym = parts[1]
+        records.append((sym, int(token), exch, tsym, now_str))
+
+    max_retries = 5
+    query = """
+    INSERT INTO indian_instruments (symbol, instrument_token, exchange, trading_symbol, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(symbol) DO UPDATE SET
+        instrument_token=excluded.instrument_token,
+        exchange=excluded.exchange,
+        trading_symbol=excluded.trading_symbol,
+        updated_at=excluded.updated_at
+    """
+    for attempt in range(max_retries):
+        try:
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.executemany(query, records)
+                conn.commit()
+            return len(records)
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                init_db()
+            else:
+                time.sleep(0.1 * (2 ** attempt))
+        except Exception as e:
+            _log.error("Failed to save instrument tokens to database: %s", e)
+            return 0
+    return 0
+
+
+def get_instrument_token_from_db(symbol_key: str) -> Optional[int]:
+    """
+    Retrieves numerical instrument_token for a symbol from SQLite database.
+    """
+    sym = symbol_key.strip().upper()
+    if ":" not in sym:
+        sym = f"NSE:{sym}"
+
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT instrument_token FROM indian_instruments WHERE symbol = ?", (sym,))
+            row = cursor.fetchone()
+            if row:
+                return int(row[0])
+    except Exception as e:
+        _log.warning("Failed to query instrument token from database for %s: %s", sym, e)
+    return None
+
+
+def get_symbol_from_db_token(instrument_token: int) -> Optional[str]:
+    """
+    Retrieves human-readable symbol string from numerical instrument_token in SQLite database.
+    """
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT symbol FROM indian_instruments WHERE instrument_token = ?", (int(instrument_token),))
+            row = cursor.fetchone()
+            if row:
+                return str(row[0])
+    except Exception as e:
+        _log.warning("Failed to query symbol from database for token %s: %s", instrument_token, e)
+    return None
