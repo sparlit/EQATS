@@ -244,6 +244,14 @@ from .finterion_adapter import (  # noqa: F401
     FinterionOrderRequest,
     FinterionOrderResponse,
 )
+from .kit_bot_engine import (  # noqa: F401
+    KitPineScriptGenerator,
+    KitSocialSignalParser,
+    KitAutopilotManager,
+    KitAutopilotMode,
+    KitParsedSignal,
+    KitAutopilotDecision,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -541,4 +549,10 @@ __all__ = [
     "FinterionPortfolio",
     "FinterionOrderRequest",
     "FinterionOrderResponse",
+    "KitPineScriptGenerator",
+    "KitSocialSignalParser",
+    "KitAutopilotManager",
+    "KitAutopilotMode",
+    "KitParsedSignal",
+    "KitAutopilotDecision",
 ]
