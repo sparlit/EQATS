@@ -2,7 +2,7 @@ name: Jules Trading System Pyflakes Fixer
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Python Environment
         uses: actions/setup-python@v5
         with:
-          python-level: '3.11'
+          python-level: "3.11"
 
       - name: Install Linting & Primitives
         run: |
