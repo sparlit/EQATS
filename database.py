@@ -410,7 +410,7 @@ def init_db():
             """)
 
             # Alter table if existing schema lacks strategy or method columns
-            for col_def in [("strategy TEXT DEFAULT ''", "strategy"), ("method TEXT DEFAULT ''", "method")]:
+            for col_def in [("strategy TEXT DEFAULT ''", "strategy"), ("method TEXT DEFAULT ''", "method"), ("product TEXT DEFAULT ''", "product")]:
                 try:
                     cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_def[0]}")
                 except sqlite3.OperationalError:
@@ -1466,7 +1466,7 @@ def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanat
     )
 
 
-def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, strategy="", method=""):
+def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, strategy="", method="", product=""):
     """
     Logs the initiation of a trade with lock retries.
     
@@ -1487,8 +1487,8 @@ def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, stra
     
     result = _execute_with_retry(
         """
-    INSERT INTO trades (ticket, symbol, direction, open_price, open_time, sl, tp, lot_size, status, strategy, method)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO trades (ticket, symbol, direction, open_price, open_time, sl, tp, lot_size, status, strategy, method, product)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             str(ticket),
@@ -1502,6 +1502,7 @@ def log_trade_open(ticket, symbol, direction, open_price, sl, tp, lot_size, stra
             "OPEN",
             strategy,
             method,
+            product,
         ),
     )
     

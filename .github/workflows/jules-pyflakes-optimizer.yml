@@ -37,20 +37,12 @@ jobs:
           pyflakes . > pyflakes_errors.log 2>&1 || true
           cat pyflakes_errors.log
           
-      - name: Trigger Jules Codebase Correction Loop
-        uses: google-labs-code/jules-action@v1
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          instruction: |
-            You are operating on our autonomous trading system codebase. Analyze the attached 'pyflakes_errors.log'.
-            Fix all detected Pyflakes static errors by implementing full-scale modules and live execution paths.
-            
-            CRITICAL DIRECTIVES:
-            1. DO NOT remove or comment out any 'imported but unused' modules or 'assigned to but never used' variables.
-            2. If an imported module or code file is missing or contains gaps, immediately generate the fully-functional implementation/module.
-            3. Integrate these unused imports and variables into the active trading system logic (e.g., streaming them into the analytical pipeline, logging, execution gateway verification, or data ensembling meshes).
-            4. Absolute prohibition on dummy code, mocks, stubs, passes, ellipses (...), or missing placeholders. Every single module must be a complete production-grade implementation.
-            
-            Log File Payload:
-            $(cat pyflakes_errors.log)
+      - name: Verify Pyflakes Analysis Output
+        run: |
+          echo "=== Pyflakes Analysis Diagnostics ==="
+          if [ -s pyflakes_errors.log ]; then
+            echo "Pyflakes warnings/errors detected:"
+            cat pyflakes_errors.log
+          else
+            echo "Zero Pyflakes static analysis issues detected."
+          fi
