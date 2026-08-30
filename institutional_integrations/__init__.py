@@ -235,6 +235,15 @@ from .nofx_ai_terminal_engine import (  # noqa: F401
     global_nofx_direction_board,
     global_nofx_model_manager,
 )
+from .finterion_adapter import (  # noqa: F401
+    FinterionPortfolioProvider,
+    FinterionOrderExecutor,
+    FinterionPingHook,
+    FinterionPosition,
+    FinterionPortfolio,
+    FinterionOrderRequest,
+    FinterionOrderResponse,
+)
 from .databases import (  # noqa: F401
     insert_vector_embedding,  # noqa: F401
     propagate_graph_breakout_warnings,  # noqa: F401
@@ -525,4 +534,11 @@ __all__ = [
     "global_nofx_disposer",
     "global_nofx_direction_board",
     "global_nofx_model_manager",
+    "FinterionPortfolioProvider",
+    "FinterionOrderExecutor",
+    "FinterionPingHook",
+    "FinterionPosition",
+    "FinterionPortfolio",
+    "FinterionOrderRequest",
+    "FinterionOrderResponse",
 ]
