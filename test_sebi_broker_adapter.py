@@ -319,3 +319,62 @@ def test_indian_market_state_machine_and_tick_size():
     )
     assert allowed_cnc is True
     assert price_cnc == 520.15
+
+
+def test_unified_indian_broker_client_adapter_all_brokers():
+    from institutional_integrations.sebi_broker_adapter import UnifiedIndianBrokerClientAdapter
+
+    brokers = ["ZERODHA", "DHAN", "ANGELONE", "KOTAK", "UPSTOX", "ICICI", "5PAISA", "IIFL", "MOTILAL"]
+
+    for broker in brokers:
+        client = UnifiedIndianBrokerClientAdapter(
+            broker_name=broker,
+            api_key=f"test_key_{broker}",
+            client_id=f"client_{broker}",
+            is_sandbox=True,
+        )
+        assert client.login() is True
+        token = client.generate_session_token("REQ_TOKEN_123")
+        assert token == "REQ_TOKEN_123"
+
+        # Test place_order
+        res = client.place_order(
+            symbol="SBIN",
+            side="BUY",
+            quantity=10,
+            price=520.12,
+            product="MIS",
+            exchange="NSE",
+        )
+        assert res["success"] is True
+        assert res["product"] == "MIS"
+        assert res["price"] == 520.10  # 0.05 tick size rounded
+        assert res["ticket"] != ""
+
+        ticket = res["ticket"]
+
+        # Test modify_order
+        mod_res = client.modify_order(ticket=ticket, price=525.18, sl=515.0, tp=535.0)
+        assert mod_res["success"] is True
+        assert mod_res["price"] == 525.20
+
+        # Test cancel_order
+        cancel_res = client.cancel_order(ticket=ticket, symbol="SBIN", exchange="NSE")
+        assert cancel_res["success"] is True
+        assert cancel_res["status"] == "CANCELLED"
+
+
+def test_universal_broker_gateway_all_indian_brokers():
+    from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
+    indian_protocols = ["ANGELONE", "KOTAK", "UPSTOX", "ICICI", "FIVEPAISA", "IIFL", "MOTILAL"]
+
+    for proto in indian_protocols:
+        gw = UniversalBrokerGateway(protocol=proto, broker_config={"is_sandbox": True})
+        assert gw.connect() is True
+        assert gw.is_connected() is True
+
+        res = gw.execute_order("TCS", "BUY", 5.0, 0.0, 0.0, product="CNC", exchange="NSE")
+        assert res["success"] is True
+        assert res["protocol"] == proto
+        assert res["product"] == "CNC"

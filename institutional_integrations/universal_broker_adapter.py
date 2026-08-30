@@ -24,6 +24,7 @@ import urllib.request
 import uuid
 
 from institutional_integrations.sebi_broker_adapter import (
+    UnifiedIndianBrokerClientAdapter,
     SEBIBrokerAdapter,
     KiteConnectAdapter,
     DhanHQAdapter,
@@ -38,6 +39,11 @@ from institutional_integrations.fix_engine import FIXEngine
 _log = logging.getLogger(__name__)
 
 class UniversalBrokerGateway:
+    INDIAN_BROKER_PROTOCOLS = {
+        "SEBI_BROKER", "KITE", "ZERODHA", "DHAN", "ANGELONE", "ANGEL",
+        "KOTAK", "NEO", "UPSTOX", "ICICI", "FIVEPAISA", "IIFL", "XTS", "MOTILAL", "MO"
+    }
+
     """
     Universal Multi-Protocol Broker Gateway.
     Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
@@ -53,7 +59,15 @@ class UniversalBrokerGateway:
         "SIMULATOR",
         "SEBI_BROKER",
         "KITE",
+        "ZERODHA",
         "DHAN",
+        "ANGELONE",
+        "KOTAK",
+        "UPSTOX",
+        "ICICI",
+        "FIVEPAISA",
+        "IIFL",
+        "MOTILAL",
     ]
 
     def __init__(self, protocol="MT5", broker_config=None):
@@ -98,7 +112,28 @@ class UniversalBrokerGateway:
         )
 
         self.sebi_adapter = None
-        if self.protocol in ["SEBI_BROKER", "KITE", "DHAN"]:
+        self.indian_client = None
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            password = self.broker_config.get("password", "")
+            totp = self.broker_config.get("totp", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(
+                broker_name=self.protocol,
+                api_key=api_key,
+                api_secret=api_secret,
+                access_token=access_token,
+                client_id=client_id,
+                password=password,
+                totp=totp,
+                is_sandbox=is_sandbox,
+            )
+            self.sebi_adapter = self.indian_client.adapter
+
+        if False:
             api_key = self.broker_config.get("api_key", "")
             api_secret = self.broker_config.get("api_secret", "")
             access_token = self.broker_config.get("access_token", "")
@@ -299,12 +334,32 @@ class UniversalBrokerGateway:
                 self.is_connected_flag = True
                 return True
 
-            if self.protocol in ["SEBI_BROKER", "KITE", "DHAN"]:
-                if self.sebi_adapter:
-                    self.is_connected_flag = self.sebi_adapter.connect()
-                    return self.is_connected_flag
-                self.is_connected_flag = True
-                return True
+            self.indian_client = None
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            password = self.broker_config.get("password", "")
+            totp = self.broker_config.get("totp", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(
+                broker_name=self.protocol,
+                api_key=api_key,
+                api_secret=api_secret,
+                access_token=access_token,
+                client_id=client_id,
+                password=password,
+                totp=totp,
+                is_sandbox=is_sandbox,
+            )
+            self.sebi_adapter = self.indian_client.adapter
+
+            if self.sebi_adapter:
+                self.is_connected_flag = self.sebi_adapter.connect()
+                return self.is_connected_flag
+            self.is_connected_flag = True
+            return True
 
             if self.protocol == "FIX":
                 try:
@@ -382,7 +437,28 @@ class UniversalBrokerGateway:
         """Returns active connection status."""
         if self.protocol == "SIMULATOR":
             return True
-        if self.protocol in ["SEBI_BROKER", "KITE", "DHAN"]:
+        self.indian_client = None
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
+            api_key = self.broker_config.get("api_key", "")
+            api_secret = self.broker_config.get("api_secret", "")
+            access_token = self.broker_config.get("access_token", "")
+            client_id = self.broker_config.get("client_id", "")
+            password = self.broker_config.get("password", "")
+            totp = self.broker_config.get("totp", "")
+            is_sandbox = self.broker_config.get("is_sandbox", False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(
+                broker_name=self.protocol,
+                api_key=api_key,
+                api_secret=api_secret,
+                access_token=access_token,
+                client_id=client_id,
+                password=password,
+                totp=totp,
+                is_sandbox=is_sandbox,
+            )
+            self.sebi_adapter = self.indian_client.adapter
+
+        if False:
             if self.sebi_adapter:
                 return self.sebi_adapter.is_connected()
             return self.is_connected_flag
@@ -642,7 +718,7 @@ class UniversalBrokerGateway:
             }
 
         validated_product = None
-        if product or self.protocol in ["SEBI_BROKER", "KITE", "DHAN"]:
+        if product or self.protocol in self.INDIAN_BROKER_PROTOCOLS:
             validated_product = validate_indian_product_tag(product, default="CNC")
 
         if self.protocol == "SIMULATOR":
@@ -659,7 +735,7 @@ class UniversalBrokerGateway:
                 res["product"] = validated_product
             return res
 
-        if self.protocol in ["SEBI_BROKER", "KITE", "DHAN"] and self.sebi_adapter:
+        if self.protocol in self.INDIAN_BROKER_PROTOCOLS and self.sebi_adapter:
             sebi_req = SEBIOrderRequest(
                 symbol=symbol,
                 order_type=order_type.upper(),
