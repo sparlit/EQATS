@@ -28,10 +28,10 @@ jobs:
     timeout-minutes: 10
     permissions:
       # SECURITY: Permissions minimized to least-privilege principle
-      issues: write          # Required: respond to issue comments
-      pull-requests: write   # Required: comment on pull requests
-      contents: read         # Reduced from write: only read access needed
-      checks: read           # Reduced from write: only read access needed
+      issues: write # Required: respond to issue comments
+      pull-requests: write # Required: comment on pull requests
+      contents: read # Reduced from write: only read access needed
+      checks: read # Reduced from write: only read access needed
     name: Run pr agent on every pull request, respond to user comments
     steps:
       - name: PR Agent action step
