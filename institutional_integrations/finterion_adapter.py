@@ -43,6 +43,7 @@ class FinterionOrderRequest:
     price: float
     stop_loss: float = 0.0
     take_profit: float = 0.0
+    product: Optional[str] = None
 
 
 @dataclass
