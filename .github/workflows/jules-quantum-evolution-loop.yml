@@ -79,73 +79,73 @@ jobs:
         id: verify-provenance
         run: |
           echo "🔒 SECURITY: Verifying repository provenance before executing repository-controlled code..."
-          
+
           # Extract the expected repository owner and name from GitHub context
           EXPECTED_OWNER="${{ github.repository_owner }}"
           EXPECTED_REPO="${{ github.repository }}"
           EXPECTED_HOST="github.com"
-          
+
           # Get the current git remote URL
           CURRENT_REMOTE=$(git remote get-url origin)
-          
+
           echo "Expected repository: $EXPECTED_REPO"
           echo "Expected owner: $EXPECTED_OWNER"
           echo "Expected host: $EXPECTED_HOST"
           echo "Current remote URL: $CURRENT_REMOTE"
-          
+
           # Parse the remote URL to extract host, owner, and repository
           # Support both HTTPS and SSH formats:
           # - https://github.com/owner/repo.git
           # - git@github.com:owner/repo.git
-          
+
           if [[ "$CURRENT_REMOTE" =~ ^https://([^/]+)/([^/]+)/([^/]+)(\.git)?$ ]]; then
-            REMOTE_HOST="${BASH_REMATCH[1]}"
-            REMOTE_OWNER="${BASH_REMATCH[2]}"
-            REMOTE_REPO_NAME="${BASH_REMATCH[3]}"
-            REMOTE_FULL_REPO="${REMOTE_OWNER}/${REMOTE_REPO_NAME}"
+          REMOTE_HOST="${BASH_REMATCH[1]}"
+          REMOTE_OWNER="${BASH_REMATCH[2]}"
+          REMOTE_REPO_NAME="${BASH_REMATCH[3]}"
+          REMOTE_FULL_REPO="${REMOTE_OWNER}/${REMOTE_REPO_NAME}"
           elif [[ "$CURRENT_REMOTE" =~ ^git@([^:]+):([^/]+)/([^/]+)(\.git)?$ ]]; then
-            REMOTE_HOST="${BASH_REMATCH[1]}"
-            REMOTE_OWNER="${BASH_REMATCH[2]}"
-            REMOTE_REPO_NAME="${BASH_REMATCH[3]}"
-            REMOTE_FULL_REPO="${REMOTE_OWNER}/${REMOTE_REPO_NAME}"
+          REMOTE_HOST="${BASH_REMATCH[1]}"
+          REMOTE_OWNER="${BASH_REMATCH[2]}"
+          REMOTE_REPO_NAME="${BASH_REMATCH[3]}"
+          REMOTE_FULL_REPO="${REMOTE_OWNER}/${REMOTE_REPO_NAME}"
           else
-            echo "❌ SECURITY GATE FAILED: Unable to parse remote URL format"
-            echo "Remote URL: $CURRENT_REMOTE"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Unable to parse remote URL format"
+          echo "Remote URL: $CURRENT_REMOTE"
+          exit 1
           fi
-          
+
           echo "Parsed remote host: $REMOTE_HOST"
           echo "Parsed remote owner: $REMOTE_OWNER"
           echo "Parsed remote repository: $REMOTE_FULL_REPO"
-          
+
           # Perform exact string matching (not substring/regex matching)
           # This prevents look-alike repositories from passing the check
           if [ "$REMOTE_HOST" != "$EXPECTED_HOST" ]; then
-            echo "❌ SECURITY GATE FAILED: Host mismatch"
-            echo "Expected host: $EXPECTED_HOST"
-            echo "Actual host: $REMOTE_HOST"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Host mismatch"
+          echo "Expected host: $EXPECTED_HOST"
+          echo "Actual host: $REMOTE_HOST"
+          exit 1
           fi
-          
+
           if [ "$REMOTE_OWNER" != "$EXPECTED_OWNER" ]; then
-            echo "❌ SECURITY GATE FAILED: Owner mismatch"
-            echo "Expected owner: $EXPECTED_OWNER"
-            echo "Actual owner: $REMOTE_OWNER"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Owner mismatch"
+          echo "Expected owner: $EXPECTED_OWNER"
+          echo "Actual owner: $REMOTE_OWNER"
+          exit 1
           fi
-          
+
           if [ "$REMOTE_FULL_REPO" != "$EXPECTED_REPO" ]; then
-            echo "❌ SECURITY GATE FAILED: Repository mismatch"
-            echo "Expected repository: $EXPECTED_REPO"
-            echo "Actual repository: $REMOTE_FULL_REPO"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Repository mismatch"
+          echo "Expected repository: $EXPECTED_REPO"
+          echo "Actual repository: $REMOTE_FULL_REPO"
+          exit 1
           fi
-          
+
           echo "✅ SECURITY GATE PASSED: Repository provenance verified"
           echo "verified_repo=$EXPECTED_REPO" >> $GITHUB_OUTPUT
           echo "verified_host=$EXPECTED_HOST" >> $GITHUB_OUTPUT
 
-      # 3. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
+          # 3. Check the commit history to break infinite loops (Max 5 consecutive AI iterations)
       - name: Enforce Circuit Breaker Limit
         if: steps.verify-provenance.outputs.verified_repo != ''
         id: loop-check
@@ -153,40 +153,40 @@ jobs:
           echo "🔄 Checking automation iteration count..."
           AI_COMMIT_COUNT=$(git log -n 6 --pretty=format:"%s" | grep -c "chore(ai-enhance):" || true)
           echo "Recent AI execution commits found: $AI_COMMIT_COUNT"
-          
+
           if [ "$AI_COMMIT_COUNT" -ge 5 ]; then
-            echo "🛑 Circuit Breaker Triggered: The loop has reached its maximum cap of 5 iterations."
-            echo "continue_loop=false" >> $GITHUB_OUTPUT
+          echo "🛑 Circuit Breaker Triggered: The loop has reached its maximum cap of 5 iterations."
+          echo "continue_loop=false" >> $GITHUB_OUTPUT
           else
-            echo "continue_loop=true" >> $GITHUB_OUTPUT
+          echo "continue_loop=true" >> $GITHUB_OUTPUT
           fi
-      # 4. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
+          # 4. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
       - name: Calculate Incremental Version
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: calc-version
         run: |
           echo "🔢 Calculating subsequent system version mapping..."
           CURRENT_VERSION="8.4"
-          
+
           if [ -f README.md ]; then
-            FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
-            if [ -n "$FOUND_VER" ]; then
-              CURRENT_VERSION="8.3$FOUND_VER"
-            fi
+          FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
+          if [ -n "$FOUND_VER" ]; then
+          CURRENT_VERSION="8.3$FOUND_VER"
           fi
-          
+          fi
+
           CHAR_SUFFIX="${CURRENT_VERSION:3:1}"
           NEXT_CHAR=$(printf \\$(printf '%03o' "$(( $(printf '%d' "'$CHAR_SUFFIX") + 1 ))"))
           NEXT_VERSION="8.3$NEXT_CHAR"
-          
+
           echo "Current parsed baseline: EQATS v$CURRENT_VERSION"
           echo "Target incremental milestone: EQATS v$NEXT_VERSION"
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-      # 5. Native Rust toolchain installation (Node-less, completely clears deprecation warnings)
-      # SECURITY: Using dtolnay/rust-toolchain pinned to commit SHA instead of curl|sh
-      # This prevents arbitrary code execution from a potentially compromised rustup.rs endpoint
-      # To update: Visit https://github.com/dtolnay/rust-toolchain/releases
-      # Review the changes, then update the SHA below to the reviewed commit
+          # 5. Native Rust toolchain installation (Node-less, completely clears deprecation warnings)
+          # SECURITY: Using dtolnay/rust-toolchain pinned to commit SHA instead of curl|sh
+          # This prevents arbitrary code execution from a potentially compromised rustup.rs endpoint
+          # To update: Visit https://github.com/dtolnay/rust-toolchain/releases
+          # Review the changes, then update the SHA below to the reviewed commit
       - name: Install Rust Toolchain
         if: steps.loop-check.outputs.continue_loop == 'true'
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1ae401b6fa7b6f9402f0e5 # master as of 2024-01-19
@@ -207,129 +207,129 @@ jobs:
         run: |
           # Pin pip to a specific version with hash verification
           python -m pip install --no-deps \
-            pip==24.3.1 \
-            --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
-            --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
-          
+          pip==24.3.1 \
+          --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
+          --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
+
           # Install build tools with pinned versions
           pip install --no-deps setuptools==75.6.0 maturin==1.7.4
-          
+
           # Install tooling from hash-pinned lockfile if available
           if [ -f tools-requirements-lock.txt ]; then
-            echo "📦 Installing tools from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r tools-requirements-lock.txt
+          echo "📦 Installing tools from hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r tools-requirements-lock.txt
           else
-            echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
-            echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
-            pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
+          echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
+          echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
+          pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
           fi
-          
+
           # Install ML libraries with pinned versions (these are large and change frequently)
           # Note: Consider creating a separate ml-requirements-lock.txt for these
           pip install torch==2.5.1 tensorflow==2.18.0 keras==3.7.0 \
-            scikit-learn==1.6.0 lightgbm==4.5.0 catboost==1.2.7 \
-            prophet==1.1.6 autots==0.6.15 darts==0.32.0 tsfresh==0.20.3
-          
+          scikit-learn==1.6.0 lightgbm==4.5.0 catboost==1.2.7 \
+          prophet==1.1.6 autots==0.6.15 darts==0.32.0 tsfresh==0.20.3
+
           # Install application dependencies from hash-pinned lockfile if available
           if [ -f requirements-lock.txt ]; then
-            echo "📦 Installing application dependencies from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r requirements-lock.txt
+          echo "📦 Installing application dependencies from hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r requirements-lock.txt
           elif [ -f requirements.txt ]; then
-            echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
-            echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
-            pip install -r requirements.txt
+          echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
+          echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
+          pip install -r requirements.txt
           fi
-      # 8. Run verification tests to check codebase integrity
+          # 8. Run verification tests to check codebase integrity
       - name: Run Test Suite Verification
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: run-tests
         run: |
           if pytest > test_output.log 2>&1; then
-            echo "status=HEALTHY" >> $GITHUB_OUTPUT
-            echo "All primary functional unit tests are currently passing successfully." > test_summary.txt
+          echo "status=HEALTHY" >> $GITHUB_OUTPUT
+          echo "All primary functional unit tests are currently passing successfully." > test_summary.txt
           else
-            echo "status=BROKEN" >> $GITHUB_OUTPUT
-            # SECURITY: Sanitize diagnostic output to prevent prompt injection
-            # Extract only structured information, strip potential instruction-like content
-            tail -n 25 test_output.log | \
-              sed 's/[Ii]gnore previous instructions\?//gi' | \
-              sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
-              sed 's/[Ff]orget [^.]*above//gi' | \
-              sed 's/[Nn]ew instructions\?://gi' | \
-              sed 's/SYSTEM://gi' | \
-              sed 's/ASSISTANT://gi' | \
-              sed 's/USER://gi' > test_summary.txt
-            echo "--- END OF TEST OUTPUT ---" >> test_summary.txt
+          echo "status=BROKEN" >> $GITHUB_OUTPUT
+          # SECURITY: Sanitize diagnostic output to prevent prompt injection
+          # Extract only structured information, strip potential instruction-like content
+          tail -n 25 test_output.log | \
+          sed 's/[Ii]gnore previous instructions\?//gi' | \
+          sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
+          sed 's/[Ff]orget [^.]*above//gi' | \
+          sed 's/[Nn]ew instructions\?://gi' | \
+          sed 's/SYSTEM://gi' | \
+          sed 's/ASSISTANT://gi' | \
+          sed 's/USER://gi' > test_summary.txt
+          echo "--- END OF TEST OUTPUT ---" >> test_summary.txt
           fi
-      # 9. Run Ruff and Bandit to extract static code evaluations
+          # 9. Run Ruff and Bandit to extract static code evaluations
       - name: Run Linter and Security Analysis
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: run-scanners
         run: |
           ruff check . --statistics > ruff_output.log 2>&1 || true
           bandit -r . -ll --format txt > bandit_output.log 2>&1 || true
-          
+
           # SECURITY: Base64 encode diagnostic outputs to prevent prompt injection
           tail -n 20 ruff_output.log > ruff_summary_raw.txt
           tail -n 20 bandit_output.log > bandit_summary_raw.txt
           base64 -w 0 ruff_summary_raw.txt > ruff_summary.txt
           base64 -w 0 bandit_summary_raw.txt > bandit_summary.txt
-      # 9. Capture trusted baseline configurations before agent modifications
-      # SECURITY: Store trusted configuration files to prevent agent from weakening validation
+          # 9. Capture trusted baseline configurations before agent modifications
+          # SECURITY: Store trusted configuration files to prevent agent from weakening validation
       - name: Capture Trusted Baseline Configurations
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: capture-baseline
         run: |
           echo "📸 Capturing trusted baseline configurations before agent modifications..."
           mkdir -p .trusted-baseline
-          
+
           # Capture pyproject.toml for Ruff, Bandit, and pytest configuration
           if [ -f pyproject.toml ]; then
-            cp pyproject.toml .trusted-baseline/pyproject.toml
-            echo "✅ Captured pyproject.toml"
+          cp pyproject.toml .trusted-baseline/pyproject.toml
+          echo "✅ Captured pyproject.toml"
           else
-            echo "⚠️  No pyproject.toml found"
+          echo "⚠️  No pyproject.toml found"
           fi
-          
+
           # Capture requirements files to prevent dependency injection
           if [ -f requirements.txt ]; then
-            cp requirements.txt .trusted-baseline/requirements.txt
-            echo "✅ Captured requirements.txt"
+          cp requirements.txt .trusted-baseline/requirements.txt
+          echo "✅ Captured requirements.txt"
           fi
           if [ -f requirements-lock.txt ]; then
-            cp requirements-lock.txt .trusted-baseline/requirements-lock.txt
-            echo "✅ Captured requirements-lock.txt"
+          cp requirements-lock.txt .trusted-baseline/requirements-lock.txt
+          echo "✅ Captured requirements-lock.txt"
           fi
           if [ -f tools-requirements-lock.txt ]; then
-            cp tools-requirements-lock.txt .trusted-baseline/tools-requirements-lock.txt
-            echo "✅ Captured tools-requirements-lock.txt"
+          cp tools-requirements-lock.txt .trusted-baseline/tools-requirements-lock.txt
+          echo "✅ Captured tools-requirements-lock.txt"
           fi
-          
+
           # Capture any standalone configuration files
           if [ -f pytest.ini ]; then
-            cp pytest.ini .trusted-baseline/pytest.ini
-            echo "✅ Captured pytest.ini"
+          cp pytest.ini .trusted-baseline/pytest.ini
+          echo "✅ Captured pytest.ini"
           fi
           if [ -f .bandit ]; then
-            cp .bandit .trusted-baseline/.bandit
-            echo "✅ Captured .bandit"
+          cp .bandit .trusted-baseline/.bandit
+          echo "✅ Captured .bandit"
           fi
           if [ -f ruff.toml ]; then
-            cp ruff.toml .trusted-baseline/ruff.toml
-            echo "✅ Captured ruff.toml"
+          cp ruff.toml .trusted-baseline/ruff.toml
+          echo "✅ Captured ruff.toml"
           fi
-          
+
           # Store the pre-agent commit SHA for reference
           PRE_AGENT_SHA=$(git rev-parse HEAD)
           echo "pre_agent_sha=$PRE_AGENT_SHA" >> $GITHUB_OUTPUT
           echo "📌 Pre-agent baseline SHA: $PRE_AGENT_SHA"
-          
+
           # Create a manifest of captured files
           ls -la .trusted-baseline/ > .trusted-baseline/manifest.txt
           echo "📋 Baseline manifest:"
           cat .trusted-baseline/manifest.txt
 
-      # SECURITY: Upload trusted baseline as artifact to persist across checkout steps
+          # SECURITY: Upload trusted baseline as artifact to persist across checkout steps
       - name: Upload Trusted Baseline Artifact
         if: steps.loop-check.outputs.continue_loop == 'true'
         uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
@@ -478,61 +478,61 @@ jobs:
         if: steps.loop-check.outputs.continue_loop == 'true'
         run: |
           echo "🔒 Restoring trusted baseline configurations for validation..."
-          
+
           # Check if we have a trusted baseline from the pre-agent checkout
           if [ ! -d .trusted-baseline ]; then
-            echo "❌ SECURITY GATE FAILED: Trusted baseline directory not found"
-            echo "This indicates the baseline capture step failed or was bypassed"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Trusted baseline directory not found"
+          echo "This indicates the baseline capture step failed or was bypassed"
+          exit 1
           fi
-          
+
           # Verify the baseline manifest exists
           if [ ! -f .trusted-baseline/manifest.txt ]; then
-            echo "❌ SECURITY GATE FAILED: Baseline manifest not found"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Baseline manifest not found"
+          exit 1
           fi
-          
+
           echo "📋 Baseline manifest contents:"
           cat .trusted-baseline/manifest.txt
-          
+
           # Restore trusted configuration files for validation
           # These will be used by pytest, ruff, and bandit instead of agent-modified versions
           if [ -f .trusted-baseline/pyproject.toml ]; then
-            cp .trusted-baseline/pyproject.toml pyproject.toml.trusted
-            echo "✅ Restored trusted pyproject.toml"
+          cp .trusted-baseline/pyproject.toml pyproject.toml.trusted
+          echo "✅ Restored trusted pyproject.toml"
           fi
-          
+
           if [ -f .trusted-baseline/pytest.ini ]; then
-            cp .trusted-baseline/pytest.ini pytest.ini.trusted
-            echo "✅ Restored trusted pytest.ini"
+          cp .trusted-baseline/pytest.ini pytest.ini.trusted
+          echo "✅ Restored trusted pytest.ini"
           fi
-          
+
           if [ -f .trusted-baseline/.bandit ]; then
-            cp .trusted-baseline/.bandit .bandit.trusted
-            echo "✅ Restored trusted .bandit"
+          cp .trusted-baseline/.bandit .bandit.trusted
+          echo "✅ Restored trusted .bandit"
           fi
-          
+
           if [ -f .trusted-baseline/ruff.toml ]; then
-            cp .trusted-baseline/ruff.toml ruff.toml.trusted
-            echo "✅ Restored trusted ruff.toml"
+          cp .trusted-baseline/ruff.toml ruff.toml.trusted
+          echo "✅ Restored trusted ruff.toml"
           fi
-          
+
           # Restore trusted requirements files for dependency installation
           if [ -f .trusted-baseline/requirements-lock.txt ]; then
-            cp .trusted-baseline/requirements-lock.txt requirements-lock.txt.trusted
-            echo "✅ Restored trusted requirements-lock.txt"
+          cp .trusted-baseline/requirements-lock.txt requirements-lock.txt.trusted
+          echo "✅ Restored trusted requirements-lock.txt"
           fi
-          
+
           if [ -f .trusted-baseline/requirements.txt ]; then
-            cp .trusted-baseline/requirements.txt requirements.txt.trusted
-            echo "✅ Restored trusted requirements.txt"
+          cp .trusted-baseline/requirements.txt requirements.txt.trusted
+          echo "✅ Restored trusted requirements.txt"
           fi
-          
+
           if [ -f .trusted-baseline/tools-requirements-lock.txt ]; then
-            cp .trusted-baseline/tools-requirements-lock.txt tools-requirements-lock.txt.trusted
-            echo "✅ Restored trusted tools-requirements-lock.txt"
+          cp .trusted-baseline/tools-requirements-lock.txt tools-requirements-lock.txt.trusted
+          echo "✅ Restored trusted tools-requirements-lock.txt"
           fi
-          
+
           echo "🔐 Trusted baseline configurations restored successfully"
 
       - name: Re-install Rust Toolchain for Post-Change Validation
@@ -553,143 +553,143 @@ jobs:
         if: steps.loop-check.outputs.continue_loop == 'true'
         run: |
           echo "🔒 Installing dependencies using TRUSTED baseline requirements..."
-          
+
           # Pin pip to a specific version with hash verification
           python -m pip install --no-deps \
-            pip==24.3.1 \
-            --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
-            --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
-          
+          pip==24.3.1 \
+          --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
+          --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
+
           # Install build tools with pinned versions
           pip install --no-deps setuptools==75.6.0 maturin==1.7.4
-          
+
           # SECURITY: Install tooling from TRUSTED baseline lockfile, not agent-modified version
           if [ -f tools-requirements-lock.txt.trusted ]; then
-            echo "📦 Installing tools from TRUSTED hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r tools-requirements-lock.txt.trusted
+          echo "📦 Installing tools from TRUSTED hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r tools-requirements-lock.txt.trusted
           else
-            echo "⚠️  WARNING: Trusted tools lockfile not found, using hardcoded pinned versions"
-            pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
-          fi
-          
-          # Install ML libraries with pinned versions (these are workflow-controlled, not from repo)
-          pip install torch==2.5.1 tensorflow==2.18.0 keras==3.7.0 \
-            scikit-learn==1.6.0 lightgbm==4.5.0 catboost==1.2.7 \
-            prophet==1.1.6 autots==0.6.15 darts==0.32.0 tsfresh==0.20.3
-          
-          # SECURITY: Install application dependencies from TRUSTED baseline, not agent-modified version
-          if [ -f requirements-lock.txt.trusted ]; then
-            echo "📦 Installing application dependencies from TRUSTED hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r requirements-lock.txt.trusted
-          elif [ -f requirements.txt.trusted ]; then
-            echo "⚠️  WARNING: Trusted requirements-lock.txt not found, using trusted requirements.txt"
-            pip install -r requirements.txt.trusted
-          else
-            echo "❌ SECURITY WARNING: No trusted requirements file found"
-            echo "Proceeding with validation but dependency integrity cannot be guaranteed"
+          echo "⚠️  WARNING: Trusted tools lockfile not found, using hardcoded pinned versions"
+          pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
           fi
 
-      # SECURITY: Run pytest with TRUSTED configuration, not agent-modified pytest.ini or pyproject.toml
+          # Install ML libraries with pinned versions (these are workflow-controlled, not from repo)
+          pip install torch==2.5.1 tensorflow==2.18.0 keras==3.7.0 \
+          scikit-learn==1.6.0 lightgbm==4.5.0 catboost==1.2.7 \
+          prophet==1.1.6 autots==0.6.15 darts==0.32.0 tsfresh==0.20.3
+
+          # SECURITY: Install application dependencies from TRUSTED baseline, not agent-modified version
+          if [ -f requirements-lock.txt.trusted ]; then
+          echo "📦 Installing application dependencies from TRUSTED hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r requirements-lock.txt.trusted
+          elif [ -f requirements.txt.trusted ]; then
+          echo "⚠️  WARNING: Trusted requirements-lock.txt not found, using trusted requirements.txt"
+          pip install -r requirements.txt.trusted
+          else
+          echo "❌ SECURITY WARNING: No trusted requirements file found"
+          echo "Proceeding with validation but dependency integrity cannot be guaranteed"
+          fi
+
+          # SECURITY: Run pytest with TRUSTED configuration, not agent-modified pytest.ini or pyproject.toml
       - name: POST-CHANGE VALIDATION - Run Test Suite (FAIL-CLOSED with Trusted Config)
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-change-tests
         run: |
           echo "🧪 Running post-change test validation on SHA ${{ steps.post-agent-sha.outputs.sha }}"
           echo "🔒 Using TRUSTED baseline configuration to prevent test manipulation"
-          
+
           # Use trusted pytest configuration if available
           if [ -f pytest.ini.trusted ]; then
-            echo "Using trusted pytest.ini configuration"
-            pytest -v -c pytest.ini.trusted
+          echo "Using trusted pytest.ini configuration"
+          pytest -v -c pytest.ini.trusted
           elif [ -f pyproject.toml.trusted ]; then
-            echo "Using trusted pyproject.toml configuration"
-            # Create a temporary pytest config that uses trusted pyproject.toml settings
-            # Extract pytest config from trusted pyproject.toml
-            python3 << 'PYEOF'
-import tomllib
-with open('pyproject.toml.trusted', 'rb') as f:
-    config = tomllib.load(f)
-    if 'tool' in config and 'pytest' in config['tool'] and 'ini_options' in config['tool']['pytest']:
-        pytest_config = config['tool']['pytest']['ini_options']
-        with open('pytest.trusted.ini', 'w') as out:
-            out.write('[pytest]\n')
-            for key, value in pytest_config.items():
-                if isinstance(value, list):
-                    out.write(f'{key} = {" ".join(value)}\n')
-                else:
-                    out.write(f'{key} = {value}\n')
-PYEOF
-            pytest -v -c pytest.trusted.ini
+          echo "Using trusted pyproject.toml configuration"
+          # Create a temporary pytest config that uses trusted pyproject.toml settings
+          # Extract pytest config from trusted pyproject.toml
+          python3 << 'PYEOF'
+          import tomllib
+          with open('pyproject.toml.trusted', 'rb') as f:
+          config = tomllib.load(f)
+          if 'tool' in config and 'pytest' in config['tool'] and 'ini_options' in config['tool']['pytest']:
+          pytest_config = config['tool']['pytest']['ini_options']
+          with open('pytest.trusted.ini', 'w') as out:
+          out.write('[pytest]\n')
+          for key, value in pytest_config.items():
+          if isinstance(value, list):
+          out.write(f'{key} = {" ".join(value)}\n')
+          else:
+          out.write(f'{key} = {value}\n')
+          PYEOF
+          pytest -v -c pytest.trusted.ini
           else
-            echo "⚠️  No trusted pytest configuration found, using default pytest settings"
-            # Use minimal safe defaults that can't be manipulated
-            pytest -v --strict-markers
+          echo "⚠️  No trusted pytest configuration found, using default pytest settings"
+          # Use minimal safe defaults that can't be manipulated
+          pytest -v --strict-markers
           fi
 
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # SECURITY: Run Ruff with TRUSTED configuration, not agent-modified pyproject.toml or ruff.toml
+          # SECURITY: Run Ruff with TRUSTED configuration, not agent-modified pyproject.toml or ruff.toml
       - name: POST-CHANGE VALIDATION - Run Ruff Linter (FAIL-CLOSED with Trusted Config)
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-change-ruff
         run: |
           echo "🔍 Running post-change Ruff validation"
           echo "🔒 Using TRUSTED baseline configuration to prevent rule weakening"
-          
+
           # Use trusted Ruff configuration
           if [ -f ruff.toml.trusted ]; then
-            echo "Using trusted ruff.toml configuration"
-            ruff check . --config ruff.toml.trusted --statistics
+          echo "Using trusted ruff.toml configuration"
+          ruff check . --config ruff.toml.trusted --statistics
           elif [ -f pyproject.toml.trusted ]; then
-            echo "Using trusted pyproject.toml configuration"
-            ruff check . --config pyproject.toml.trusted --statistics
+          echo "Using trusted pyproject.toml configuration"
+          ruff check . --config pyproject.toml.trusted --statistics
           else
-            echo "⚠️  No trusted Ruff configuration found, using strict default rules"
-            # Use strict defaults that can't be weakened by agent
-            ruff check . --select ALL --ignore E501 --statistics
+          echo "⚠️  No trusted Ruff configuration found, using strict default rules"
+          # Use strict defaults that can't be weakened by agent
+          ruff check . --select ALL --ignore E501 --statistics
           fi
-          
+
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # SECURITY: Run Bandit with TRUSTED configuration, not agent-modified .bandit or pyproject.toml
+          # SECURITY: Run Bandit with TRUSTED configuration, not agent-modified .bandit or pyproject.toml
       - name: POST-CHANGE VALIDATION - Run Bandit Security Scanner (FAIL-CLOSED with Trusted Config)
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: post-change-bandit
         run: |
           echo "🔒 Running post-change Bandit security validation"
           echo "🔒 Using TRUSTED baseline configuration to prevent exclusion manipulation"
-          
+
           # Use trusted Bandit configuration
           if [ -f .bandit.trusted ]; then
-            echo "Using trusted .bandit configuration"
-            bandit -r . -c .bandit.trusted -ll --format txt
+          echo "Using trusted .bandit configuration"
+          bandit -r . -c .bandit.trusted -ll --format txt
           elif [ -f pyproject.toml.trusted ]; then
-            echo "Using trusted pyproject.toml configuration"
-            # Extract bandit config from trusted pyproject.toml if it exists
-            if grep -q '\[tool.bandit\]' pyproject.toml.trusted; then
-              python3 << 'PYEOF'
-import tomllib
-with open('pyproject.toml.trusted', 'rb') as f:
-    config = tomllib.load(f)
-    if 'tool' in config and 'bandit' in config['tool']:
-        import yaml
-        with open('.bandit.trusted.yaml', 'w') as out:
-            yaml.dump(config['tool']['bandit'], out)
-PYEOF
-              bandit -r . -c .bandit.trusted.yaml -ll --format txt
-            else
-              echo "No bandit config in trusted pyproject.toml, using strict defaults"
-              bandit -r . -ll --format txt
-            fi
+          echo "Using trusted pyproject.toml configuration"
+          # Extract bandit config from trusted pyproject.toml if it exists
+          if grep -q '\[tool.bandit\]' pyproject.toml.trusted; then
+          python3 << 'PYEOF'
+          import tomllib
+          with open('pyproject.toml.trusted', 'rb') as f:
+          config = tomllib.load(f)
+          if 'tool' in config and 'bandit' in config['tool']:
+          import yaml
+          with open('.bandit.trusted.yaml', 'w') as out:
+          yaml.dump(config['tool']['bandit'], out)
+          PYEOF
+          bandit -r . -c .bandit.trusted.yaml -ll --format txt
           else
-            echo "⚠️  No trusted Bandit configuration found, using strict default rules"
-            # Use strict defaults: -ll = only report medium and high severity
-            bandit -r . -ll --format txt
+          echo "No bandit config in trusted pyproject.toml, using strict defaults"
+          bandit -r . -ll --format txt
           fi
-          
+          else
+          echo "⚠️  No trusted Bandit configuration found, using strict default rules"
+          # Use strict defaults: -ll = only report medium and high severity
+          bandit -r . -ll --format txt
+          fi
+
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # 12. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
+          # 12. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
       - name: Open and Automerge Pull Request
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: validation-gate
@@ -697,20 +697,20 @@ PYEOF
           echo "✅ All post-change validation gates passed"
           echo "passed=true" >> $GITHUB_OUTPUT
 
-  # SECURITY: Isolated job for PR operations that never executes repository-controlled code
-  # This job runs in a fresh runner with no repository code checkout, preventing PATH tampering
-  create-pull-request:
-    needs: quantum-evolution
-    if: needs.quantum-evolution.outputs.continue_loop == 'true' && needs.quantum-evolution.outputs.validation_passed == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read        # Minimal read access for repository metadata
-      pull-requests: write  # Required for PR operations
-    steps:
-      # SECURITY: This job intentionally does NOT check out repository code
-      # This prevents any repository-controlled code from tampering with PATH or environment
-      # before the gh CLI is invoked with the GITHUB_TOKEN
-      
+          # SECURITY: Isolated job for PR operations that never executes repository-controlled code
+          # This job runs in a fresh runner with no repository code checkout, preventing PATH tampering
+          create-pull-request:
+          needs: quantum-evolution
+          if: needs.quantum-evolution.outputs.continue_loop == 'true' && needs.quantum-evolution.outputs.validation_passed == 'true'
+          runs-on: ubuntu-latest
+          permissions:
+          contents: read        # Minimal read access for repository metadata
+          pull-requests: write  # Required for PR operations
+          steps:
+          # SECURITY: This job intentionally does NOT check out repository code
+          # This prevents any repository-controlled code from tampering with PATH or environment
+          # before the gh CLI is invoked with the GITHUB_TOKEN
+
       - name: Open and Automerge Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -721,81 +721,81 @@ PYEOF
         run: |
           echo "🚀 Initiating hands-free deployment pipeline..."
           echo "📌 Operating on validated SHA: $POST_CHANGE_SHA"
-          
+
           # SECURITY: Verify gh CLI is from the runner's trusted system PATH
           GH_PATH=$(which gh)
           echo "🔍 Using gh CLI from: $GH_PATH"
           if [[ ! "$GH_PATH" =~ ^/usr/ ]] && [[ ! "$GH_PATH" =~ ^/opt/hostedtoolcache/ ]]; then
-            echo "❌ SECURITY GATE FAILED: gh CLI resolved to unexpected path: $GH_PATH"
-            echo "Expected gh to be in /usr/* or /opt/hostedtoolcache/*"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: gh CLI resolved to unexpected path: $GH_PATH"
+          echo "Expected gh to be in /usr/* or /opt/hostedtoolcache/*"
+          exit 1
           fi
-          
+
           # Check if the execution context is already running directly on main branch
           if [ "$BRANCH_NAME" = "main" ]; then
-            echo "⚠️ Workflow executed directly on the main branch. Skipping Pull Request generation."
+          echo "⚠️ Workflow executed directly on the main branch. Skipping Pull Request generation."
           else
-            # SECURITY: Use the verified repository from the pre-execution gate
-            # All gh commands explicitly specify --repo to prevent using a potentially modified git remote
-            echo "Using verified repository: $VERIFIED_REPO"
-            
-            PR_EXISTS=$(gh pr list --repo "$VERIFIED_REPO" --head "$BRANCH_NAME" --base main --json number --jq '..number' || true)
-            if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
-              echo "txt=No open PR found. Creating a new Pull Request..."
-              PR_URL=$(gh pr create --repo "$VERIFIED_REPO" \
-                --title "🚀 QUANTUM EVOLUTION RELEASE [v${TARGET_VERSION}]" \
-                --body "This Pull Request was generated autonomously by the EQATS Quantum Evolution Loop. It progresses the codebase towards a multi-processed hybrid microservices mesh architecture utilizing Rust (Tokio) and GIL-free Python 3.13t execution tracks.
+          # SECURITY: Use the verified repository from the pre-execution gate
+          # All gh commands explicitly specify --repo to prevent using a potentially modified git remote
+          echo "Using verified repository: $VERIFIED_REPO"
 
-**Post-Change Validation Results:**
-- ✅ All validation gates passed in isolated job
-- 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
-- 🔒 Baseline SHA: ${PRE_AGENT_SHA}
+          PR_EXISTS=$(gh pr list --repo "$VERIFIED_REPO" --head "$BRANCH_NAME" --base main --json number --jq '..number' || true)
+          if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
+          echo "txt=No open PR found. Creating a new Pull Request..."
+          PR_URL=$(gh pr create --repo "$VERIFIED_REPO" \
+          --title "🚀 QUANTUM EVOLUTION RELEASE [v${TARGET_VERSION}]" \
+          --body "This Pull Request was generated autonomously by the EQATS Quantum Evolution Loop. It progresses the codebase towards a multi-processed hybrid microservices mesh architecture utilizing Rust (Tokio) and GIL-free Python 3.13t execution tracks.
 
-**SECURITY NOTICE:** This PR has passed automated post-change validation gates using TRUSTED baseline configurations. The validation tools (pytest, ruff, bandit) were executed with configuration files captured BEFORE agent modifications to prevent validation bypass through configuration weakening. Manual review is still recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
-                --base main \
-                --head "$BRANCH_NAME")
-              PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
-            else
-              echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."
-              PR_NUMBER=$PR_EXISTS
-            fi
-            
-            if [ -n "$PR_NUMBER" ]; then
-              # SECURITY: Verify the PR head SHA matches our validated post-change SHA
-              PR_HEAD_SHA=$(gh pr view --repo "$VERIFIED_REPO" "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
-              
-              if [ "$PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
-                echo "❌ SECURITY GATE FAILED: PR head SHA mismatch"
-                echo "Expected (validated): $POST_CHANGE_SHA"
-                echo "PR head SHA: $PR_HEAD_SHA"
-                exit 1
-              fi
-              
-              echo "✅ PR head SHA verified: $PR_HEAD_SHA"
-              echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
-              
-              # SECURITY NOTE: Auto-merge will only complete if branch protection rules are satisfied
-              # Recommended: Configure branch protection on 'main' to require:
-              # - Status checks from CI workflow
-              # - Manual approval from CODEOWNERS
-              # - Up-to-date branches
-              if ! gh pr merge --repo "$VERIFIED_REPO" "$PR_NUMBER" --auto --squash 2> merge_err.log; then
-                cat merge_err.log
-                if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
-                  echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
-                  echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
-                  if gh pr merge --repo "$VERIFIED_REPO" "$PR_NUMBER" --squash; then
-                    echo "✅ Direct squash merge completed successfully."
-                  else
-                    echo "⚠️ Direct merge deferred to repository administrator. Please configure required status checks in Branch Protection settings (see .github/workflows/REQUIRED_STATUS_CHECKS.md)."
-                  fi
-                else
-                  echo "⚠️ Automerge command encountered an unexpected error. See log above."
-                fi
-              else
-                echo "✅ Automerge enabled successfully! Code will merge into main after branch protection requirements are met."
-              fi
-            else
-              echo "⚠️ Failed to resolve a valid Pull Request number. Skipping merge step."
-            fi
+          **Post-Change Validation Results:**
+          - ✅ All validation gates passed in isolated job
+          - 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
+          - 🔒 Baseline SHA: ${PRE_AGENT_SHA}
+
+          **SECURITY NOTICE:** This PR has passed automated post-change validation gates using TRUSTED baseline configurations. The validation tools (pytest, ruff, bandit) were executed with configuration files captured BEFORE agent modifications to prevent validation bypass through configuration weakening. Manual review is still recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
+          --base main \
+          --head "$BRANCH_NAME")
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
+          else
+          echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."
+          PR_NUMBER=$PR_EXISTS
+          fi
+
+          if [ -n "$PR_NUMBER" ]; then
+          # SECURITY: Verify the PR head SHA matches our validated post-change SHA
+          PR_HEAD_SHA=$(gh pr view --repo "$VERIFIED_REPO" "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+
+          if [ "$PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
+          echo "❌ SECURITY GATE FAILED: PR head SHA mismatch"
+          echo "Expected (validated): $POST_CHANGE_SHA"
+          echo "PR head SHA: $PR_HEAD_SHA"
+          exit 1
+          fi
+
+          echo "✅ PR head SHA verified: $PR_HEAD_SHA"
+          echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
+
+          # SECURITY NOTE: Auto-merge will only complete if branch protection rules are satisfied
+          # Recommended: Configure branch protection on 'main' to require:
+          # - Status checks from CI workflow
+          # - Manual approval from CODEOWNERS
+          # - Up-to-date branches
+          if ! gh pr merge --repo "$VERIFIED_REPO" "$PR_NUMBER" --auto --squash 2> merge_err.log; then
+          cat merge_err.log
+          if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
+          echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
+          echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
+          if gh pr merge --repo "$VERIFIED_REPO" "$PR_NUMBER" --squash; then
+          echo "✅ Direct squash merge completed successfully."
+          else
+          echo "⚠️ Direct merge deferred to repository administrator. Please configure required status checks in Branch Protection settings (see .github/workflows/REQUIRED_STATUS_CHECKS.md)."
+          fi
+          else
+          echo "⚠️ Automerge command encountered an unexpected error. See log above."
+          fi
+          else
+          echo "✅ Automerge enabled successfully! Code will merge into main after branch protection requirements are met."
+          fi
+          else
+          echo "⚠️ Failed to resolve a valid Pull Request number. Skipping merge step."
+          fi
           fi

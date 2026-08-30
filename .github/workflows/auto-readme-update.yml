@@ -3,13 +3,13 @@ name: Auto-Update README Documentation
 on:
   push:
     branches:
-      - main  # Runs whenever code is pushed to the main branch
+      - main # Runs whenever code is pushed to the main branch
   issues:
     types: [opened, edited, closed] # Runs whenever you update GitHub Issues
   workflow_dispatch: # Allows you to trigger it manually via the GitHub UI
 
 permissions:
-  contents: write  # Crucial: Gives the Action permission to modify files in your repo
+  contents: write # Crucial: Gives the Action permission to modify files in your repo
 
 jobs:
   refresh-readme:
@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Execute Update Script
         run: python generate-readme.py

@@ -8,10 +8,10 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch:     # Allows you to trigger this manually from GitHub UI
+  workflow_dispatch: # Allows you to trigger this manually from GitHub UI
     inputs:
       pr_number:
-        description: 'Pull Request number to analyze and fix'
+        description: "Pull Request number to analyze and fix"
         required: true
         type: number
 
@@ -20,7 +20,7 @@ jobs:
   authorize:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write  # Required to remove label on synchronize
+      pull-requests: write # Required to remove label on synchronize
     outputs:
       authorized: ${{ steps.check.outputs.authorized }}
     steps:
@@ -33,7 +33,7 @@ jobs:
           # 1. Manually dispatched, OR
           # 2. PR has 'ai-fix-approved' label AND action is 'labeled' (fresh approval), OR
           # 3. Reject on 'synchronize' to prevent stale approval bypass
-          
+
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "authorized=true" >> $GITHUB_OUTPUT
             echo "✅ Authorized via manual workflow dispatch"
@@ -85,7 +85,7 @@ jobs:
     if: needs.authorize.outputs.authorized == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read    # Read-only access
+      contents: read # Read-only access
     steps:
       # Checkout the PR branch (untrusted code)
       - name: Checkout PR Code
@@ -99,8 +99,8 @@ jobs:
       - name: Setup Python Environment
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          python-version: "3.10"
+          cache: "pip"
 
       # Install dependencies WITHOUT any secrets in environment
       - name: Install Project Dependencies
@@ -128,8 +128,8 @@ jobs:
     needs: test-untrusted-code
     runs-on: ubuntu-latest
     permissions:
-      contents: write         # Required to create commits
-      pull-requests: write    # Required to update PR
+      contents: write # Required to create commits
+      pull-requests: write # Required to update PR
     steps:
       # Checkout from DEFAULT branch (trusted workflow code)
       - name: Checkout Trusted Base
@@ -160,7 +160,7 @@ jobs:
       - name: Setup Python Environment
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       # Install AI Agent CLI in isolated environment
       # SECURITY: Use hash-pinned lockfile to prevent supply-chain attacks
@@ -168,7 +168,7 @@ jobs:
       - name: Install AI Agent CLI
         run: |
           sudo apt-get update && sudo apt-get install -y pipx
-          
+
           # Check if hash-pinned lockfile exists and has real hashes
           if [ -f .github/workflows/aider-requirements-lock.txt ]; then
             # Verify lockfile has actual hashes (not placeholders)
@@ -219,7 +219,7 @@ jobs:
             echo "⚠️  WARNING: Installing without hash verification (INSECURE)"
             pipx install aider-chat==0.42.1 --pip-args="--only-binary=:all:"
           fi
-          
+
           echo "/home/runner/.local/bin" >> $GITHUB_PATH
 
       # Configure Git
@@ -237,7 +237,7 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           attempt=1
-          
+
           # Read test output
           if [ ! -f test_output.log ]; then
             echo "❌ No test output found"
@@ -297,23 +297,23 @@ jobs:
             } catch (e) {
               console.log('Could not read test output');
             }
-            
+
             const comment = `## 🤖 AI Fix Loop Results
-            
+
             The AI automated fix loop has completed. 
-            
+
             <details>
             <summary>Test Output</summary>
-            
+
             \`\`\`
             ${testOutput.slice(0, 5000)}
             \`\`\`
-            
+
             </details>
-            
+
             Please review the changes and test results before merging.
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

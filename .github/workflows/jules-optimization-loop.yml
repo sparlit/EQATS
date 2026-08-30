@@ -50,38 +50,38 @@ jobs:
           echo "🔄 Checking automation iteration count..."
           AI_COMMIT_COUNT=$(git log -n 6 --pretty=format:"%s" | grep -c "chore(ai-enhance):" || true)
           echo "Recent AI execution commits found: $AI_COMMIT_COUNT"
-          
+
           if [ "$AI_COMMIT_COUNT" -ge 5 ]; then
-            echo "🛑 Circuit Breaker Triggered: The loop has reached its maximum cap of 5 iterations."
-            echo "continue_loop=false" >> $GITHUB_OUTPUT
+          echo "🛑 Circuit Breaker Triggered: The loop has reached its maximum cap of 5 iterations."
+          echo "continue_loop=false" >> $GITHUB_OUTPUT
           else
-            echo "continue_loop=true" >> $GITHUB_OUTPUT
+          echo "continue_loop=true" >> $GITHUB_OUTPUT
           fi
 
-      # 3. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
+          # 3. Dynamic Versioning Mechanism: Auto-increment alphabetical suffix
       - name: Calculate Incremental Version
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: calc-version
         run: |
           echo "🔢 Calculating subsequent system version mapping..."
           CURRENT_VERSION="8.4"
-          
+
           if [ -f README.md ]; then
-            FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
-            if [ -n "$FOUND_VER" ]; then
-              CURRENT_VERSION="8.3$FOUND_VER"
-            fi
+          FOUND_VER=$(grep -oP "(?<=ELITE QUANTUM AUTONOMOUS TRADING SYSTEM \(EQATS VERSION 8\.3)[a-z]" README.md | head -n1 || true)
+          if [ -n "$FOUND_VER" ]; then
+          CURRENT_VERSION="8.3$FOUND_VER"
           fi
-          
+          fi
+
           CHAR_SUFFIX="${CURRENT_VERSION:3:1}"
           NEXT_CHAR=$(printf \\$(printf '%03o' "$(( $(printf '%d' "'$CHAR_SUFFIX") + 1 ))"))
           NEXT_VERSION="8.3$NEXT_CHAR"
-          
+
           echo "Current parsed baseline: EQATS v$CURRENT_VERSION"
           echo "Target incremental milestone: EQATS v$NEXT_VERSION"
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
 
-      # 4. Setup the open-source environment
+          # 4. Setup the open-source environment
       - name: Setup Python Environment
         if: steps.loop-check.outputs.continue_loop == 'true'
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v6.3.0
@@ -96,84 +96,84 @@ jobs:
         run: |
           # Pin pip to a specific version with hash verification
           python -m pip install --no-deps \
-            pip==24.3.1 \
-            --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
-            --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
-          
+          pip==24.3.1 \
+          --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
+          --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
+
           # Install tooling from hash-pinned lockfile if available
           if [ -f tools-requirements-lock.txt ]; then
-            echo "📦 Installing tools from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r tools-requirements-lock.txt
+          echo "📦 Installing tools from hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r tools-requirements-lock.txt
           else
-            echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
-            echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
-            pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
-          fi
-          
-          # Install application dependencies from hash-pinned lockfile if available
-          if [ -f requirements-lock.txt ]; then
-            echo "📦 Installing application dependencies from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r requirements-lock.txt
-          elif [ -f requirements.txt ]; then
-            echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
-            echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
-            pip install -r requirements.txt
+          echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
+          echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
+          pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
           fi
 
-      # 6. Run verification tests to see if code is currently broken or functional
+          # Install application dependencies from hash-pinned lockfile if available
+          if [ -f requirements-lock.txt ]; then
+          echo "📦 Installing application dependencies from hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r requirements-lock.txt
+          elif [ -f requirements.txt ]; then
+          echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
+          echo "⚠️  This is less secure. Run .github/workflows/generate-lockfiles.sh to create lockfiles."
+          pip install -r requirements.txt
+          fi
+
+          # 6. Run verification tests to see if code is currently broken or functional
       - name: Run Test Suite Verification
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: run-tests
         run: |
           if pytest > test_output.log 2>&1; then
-            echo "status=HEALTHY" >> $GITHUB_OUTPUT
-            echo "All primary functional unit tests are currently passing successfully." > test_summary.txt
+          echo "status=HEALTHY" >> $GITHUB_OUTPUT
+          echo "All primary functional unit tests are currently passing successfully." > test_summary.txt
           else
-            echo "status=BROKEN" >> $GITHUB_OUTPUT
-            # SECURITY: Sanitize diagnostic output to prevent prompt injection
-            # Extract only structured information, strip potential instruction-like content
-            tail -n 25 test_output.log | \
-              sed 's/[Ii]gnore previous instructions\?//gi' | \
-              sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
-              sed 's/[Ff]orget [^.]*above//gi' | \
-              sed 's/[Nn]ew instructions\?://gi' | \
-              sed 's/SYSTEM://gi' | \
-              sed 's/ASSISTANT://gi' | \
-              sed 's/USER://gi' > test_summary.txt
-            echo "--- END OF TEST OUTPUT ---" >> test_summary.txt
+          echo "status=BROKEN" >> $GITHUB_OUTPUT
+          # SECURITY: Sanitize diagnostic output to prevent prompt injection
+          # Extract only structured information, strip potential instruction-like content
+          tail -n 25 test_output.log | \
+          sed 's/[Ii]gnore previous instructions\?//gi' | \
+          sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
+          sed 's/[Ff]orget [^.]*above//gi' | \
+          sed 's/[Nn]ew instructions\?://gi' | \
+          sed 's/SYSTEM://gi' | \
+          sed 's/ASSISTANT://gi' | \
+          sed 's/USER://gi' > test_summary.txt
+          echo "--- END OF TEST OUTPUT ---" >> test_summary.txt
           fi
 
-      # 7. Run Ruff and Bandit to extract static evaluation context data
+          # 7. Run Ruff and Bandit to extract static evaluation context data
       - name: Run Linter and Security Analysis
         if: steps.loop-check.outputs.continue_loop == 'true'
         id: run-scanners
         run: |
           ruff check . --statistics > ruff_output.log 2>&1 || true
           bandit -r . -ll --format txt > bandit_output.log 2>&1 || true
-          
+
           # SECURITY: Sanitize diagnostic outputs to prevent prompt injection
           # Extract only structured information, strip potential instruction-like content
           tail -n 20 ruff_output.log | \
-            sed 's/[Ii]gnore previous instructions\?//gi' | \
-            sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
-            sed 's/[Ff]orget [^.]*above//gi' | \
-            sed 's/[Nn]ew instructions\?://gi' | \
-            sed 's/SYSTEM://gi' | \
-            sed 's/ASSISTANT://gi' | \
-            sed 's/USER://gi' > ruff_summary.txt
+          sed 's/[Ii]gnore previous instructions\?//gi' | \
+          sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
+          sed 's/[Ff]orget [^.]*above//gi' | \
+          sed 's/[Nn]ew instructions\?://gi' | \
+          sed 's/SYSTEM://gi' | \
+          sed 's/ASSISTANT://gi' | \
+          sed 's/USER://gi' > ruff_summary.txt
           echo "--- END OF RUFF OUTPUT ---" >> ruff_summary.txt
-          
+
           tail -n 20 bandit_output.log | \
-            sed 's/[Ii]gnore previous instructions\?//gi' | \
-            sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
-            sed 's/[Ff]orget [^.]*above//gi' | \
-            sed 's/[Nn]ew instructions\?://gi' | \
-            sed 's/SYSTEM://gi' | \
-            sed 's/ASSISTANT://gi' | \
-            sed 's/USER://gi' > bandit_summary.txt
+          sed 's/[Ii]gnore previous instructions\?//gi' | \
+          sed 's/[Dd]isregard [^.]*instructions\?//gi' | \
+          sed 's/[Ff]orget [^.]*above//gi' | \
+          sed 's/[Nn]ew instructions\?://gi' | \
+          sed 's/SYSTEM://gi' | \
+          sed 's/ASSISTANT://gi' | \
+          sed 's/USER://gi' > bandit_summary.txt
           echo "--- END OF BANDIT OUTPUT ---" >> bandit_summary.txt
 
-      # 8. Invoke Jules to Expand Features, Innovate, Fix, Enhance, and Document
+          # 8. Invoke Jules to Expand Features, Innovate, Fix, Enhance, and Document
       - name: Invoke Jules Innovation Agent
         if: steps.loop-check.outputs.continue_loop == 'true'
         # SECURITY: Pinned to immutable commit SHA instead of mutable @v1 tag
@@ -270,26 +270,26 @@ jobs:
         run: |
           # Pin pip to a specific version with hash verification
           python -m pip install --no-deps \
-            pip==24.3.1 \
-            --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
-            --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
-          
+          pip==24.3.1 \
+          --hash=sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445c5a5b4f2c6e3720e711 \
+          --hash=sha256:f75f3fc6a49c6e6c9f82b0c7d0c7b3c8e9e8e8e8e8e8e8e8e8e8e8e8e8e8e8e8
+
           # Install tooling from hash-pinned lockfile if available
           if [ -f tools-requirements-lock.txt ]; then
-            echo "📦 Installing tools from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r tools-requirements-lock.txt
+          echo "📦 Installing tools from hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r tools-requirements-lock.txt
           else
-            echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
-            pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
+          echo "⚠️  WARNING: tools-requirements-lock.txt not found, falling back to unpinned installation"
+          pip install ruff==0.8.4 bandit[toml]==1.8.0 pytest==8.3.4
           fi
-          
+
           # Install application dependencies from hash-pinned lockfile if available
           if [ -f requirements-lock.txt ]; then
-            echo "📦 Installing application dependencies from hash-pinned lockfile..."
-            pip install --require-hashes --no-deps -r requirements-lock.txt
+          echo "📦 Installing application dependencies from hash-pinned lockfile..."
+          pip install --require-hashes --no-deps -r requirements-lock.txt
           elif [ -f requirements.txt ]; then
-            echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
-            pip install -r requirements.txt
+          echo "⚠️  WARNING: requirements-lock.txt not found, falling back to unpinned installation"
+          pip install -r requirements.txt
           fi
 
       - name: POST-CHANGE VALIDATION - Run Test Suite (FAIL-CLOSED)
@@ -316,7 +316,7 @@ jobs:
           bandit -r . -ll --format txt
           echo "status=PASSED" >> $GITHUB_OUTPUT
 
-      # 10. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
+          # 10. AUTOMERGE PIPELINE: Open a Pull Request and set it to Auto-Merge into Main
       - name: Open and Automerge Pull Request
         if: steps.loop-check.outputs.continue_loop == 'true'
         env:
@@ -326,115 +326,115 @@ jobs:
           POST_CHANGE_SHA: ${{ steps.post-agent-sha.outputs.sha }}
         run: |
           echo "🚀 Initiating hands-free deployment pipeline..."
-          
+
           # SECURITY: Verify we are operating on a trusted repository branch
           REPO_OWNER="${{ github.repository_owner }}"
           REPO_NAME="${{ github.repository }}"
           CURRENT_REPO=$(git remote get-url origin)
-          
+
           if [[ ! "$CURRENT_REPO" =~ "$REPO_NAME" ]]; then
-            echo "❌ SECURITY GATE FAILED: Repository provenance mismatch"
-            echo "Expected: $REPO_NAME"
-            echo "Got: $CURRENT_REPO"
-            exit 1
+          echo "❌ SECURITY GATE FAILED: Repository provenance mismatch"
+          echo "Expected: $REPO_NAME"
+          echo "Got: $CURRENT_REPO"
+          exit 1
           fi
-          
+
           PR_EXISTS=$(gh pr list --head "$BRANCH_NAME" --base main --json number --jq '..number' || true)
-          
+
           if [ -z "$PR_EXISTS" ] || [ "$PR_EXISTS" = "null" ]; then
-            echo "txt=No open PR found. Creating a new Pull Request..."
-            PR_URL=$(gh pr create \
-              --title "🚀 AI Auto-Innovation & Feature Release [v${TARGET_VERSION}]" \
-              --body "This Pull Request was generated autonomously by your Jules Innovation Loop. It adds new quantitative trading features, expands microservice code modules, refactors layout sheets, and advances the system architecture baseline version to release ${TARGET_VERSION}.
+          echo "txt=No open PR found. Creating a new Pull Request..."
+          PR_URL=$(gh pr create \
+          --title "🚀 AI Auto-Innovation & Feature Release [v${TARGET_VERSION}]" \
+          --body "This Pull Request was generated autonomously by your Jules Innovation Loop. It adds new quantitative trading features, expands microservice code modules, refactors layout sheets, and advances the system architecture baseline version to release ${TARGET_VERSION}.
 
-**Post-Change Validation Results:**
-- ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
-- ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
-- ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
-- 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
+          **Post-Change Validation Results:**
+          - ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
+          - ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
+          - ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+          - 📌 Validated HEAD SHA: ${POST_CHANGE_SHA}
 
-**SECURITY NOTICE:** This PR has passed automated post-change validation gates. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
-              --base main \
-              --head "$BRANCH_NAME")
-            PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
+          **SECURITY NOTICE:** This PR has passed automated post-change validation gates. However, manual review is recommended before merge, especially for changes affecting authentication, authorization, data handling, or external integrations." \
+          --base main \
+          --head "$BRANCH_NAME")
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$' | tail -n1)
           else
-            echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."
-            PR_NUMBER=$PR_EXISTS
+          echo "🔄 Active Pull Request #$PR_EXISTS already found for this branch."
+          PR_NUMBER=$PR_EXISTS
           fi
 
           if [ -n "$PR_NUMBER" ]; then
-            # SECURITY: Verify the PR head SHA matches our validated post-change SHA
-            PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
-            
-            if [ "$PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
-              echo "❌ SECURITY GATE FAILED: PR head SHA mismatch"
-              echo "Expected (validated): $POST_CHANGE_SHA"
-              echo "PR head SHA: $PR_HEAD_SHA"
-              exit 1
-            fi
-            
-            echo "✅ PR head SHA verified: $PR_HEAD_SHA"
-            
-            # SECURITY: Add a comment documenting the validated SHA for audit trail
-            gh pr comment "$PR_NUMBER" --body "🔒 **Security Validation Checkpoint**
+          # SECURITY: Verify the PR head SHA matches our validated post-change SHA
+          PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
 
-This PR has been validated at commit: \`${POST_CHANGE_SHA}\`
+          if [ "$PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
+          echo "❌ SECURITY GATE FAILED: PR head SHA mismatch"
+          echo "Expected (validated): $POST_CHANGE_SHA"
+          echo "PR head SHA: $PR_HEAD_SHA"
+          exit 1
+          fi
 
-**Validation Results:**
-- ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
-- ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
-- ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+          echo "✅ PR head SHA verified: $PR_HEAD_SHA"
 
-**SECURITY NOTICE:** Any commits pushed after \`${POST_CHANGE_SHA}\` have NOT been validated by this workflow and MUST be reviewed manually before merge."
-            
-            echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
-            
-            # SECURITY CRITICAL: Auto-merge will only complete if branch protection rules are satisfied
-            # REQUIRED (not optional): Configure branch protection on 'main' to require:
-            # - Status checks from CI workflow (MANDATORY for security)
-            # - Manual approval from CODEOWNERS (MANDATORY for security)
-            # - Up-to-date branches (MANDATORY for security)
-            # Without these protections, an attacker can push unvalidated code after this check.
-            if ! gh pr merge "$PR_NUMBER" --auto --squash 2> merge_err.log; then
-              cat merge_err.log
-              if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
-                echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
-                echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
-                
-                # SECURITY: Perform immediate final SHA check before direct merge to minimize TOCTOU window
-                FINAL_PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
-                if [ "$FINAL_PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
-                  echo "❌ SECURITY GATE FAILED: PR head changed between validation and merge"
-                  echo "Expected (validated): $POST_CHANGE_SHA"
-                  echo "Current PR head: $FINAL_PR_HEAD_SHA"
-                  echo "⚠️ A concurrent push occurred. This PR requires re-validation."
-                  exit 1
-                fi
-                
-                if gh pr merge "$PR_NUMBER" --squash; then
-                  echo "✅ Direct squash merge completed successfully."
-                else
-                  echo "⚠️ Direct merge deferred to repository administrator. Please configure required status checks in Branch Protection settings (see .github/workflows/REQUIRED_STATUS_CHECKS.md)."
-                fi
-              else
-                echo "⚠️ Automerge command encountered an unexpected error. See log above."
-              fi
-            else
-              # SECURITY: Perform immediate final SHA check after enabling auto-merge
-              # This minimizes (but does not eliminate) the TOCTOU window
-              sleep 1  # Brief delay to allow any concurrent operations to complete
-              FINAL_PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
-              if [ "$FINAL_PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
-                echo "❌ SECURITY ALERT: PR head changed after auto-merge was enabled"
-                echo "Expected (validated): $POST_CHANGE_SHA"
-                echo "Current PR head: $FINAL_PR_HEAD_SHA"
-                echo "🚨 Disabling auto-merge due to concurrent modification"
-                gh pr merge "$PR_NUMBER" --disable-auto
-                exit 1
-              fi
-              echo "✅ Automerge enabled successfully! Code will merge into main after branch protection requirements are met."
-              echo "⚠️ SECURITY REMINDER: Branch protection with required status checks and approvals is MANDATORY to prevent unvalidated commits from being merged."
-            fi
+          # SECURITY: Add a comment documenting the validated SHA for audit trail
+          gh pr comment "$PR_NUMBER" --body "🔒 **Security Validation Checkpoint**
+
+          This PR has been validated at commit: \`${POST_CHANGE_SHA}\`
+
+          **Validation Results:**
+          - ✅ Test Suite: ${{ steps.post-change-tests.outputs.status }}
+          - ✅ Ruff Linter: ${{ steps.post-change-ruff.outputs.status }}
+          - ✅ Bandit Security: ${{ steps.post-change-bandit.outputs.status }}
+
+          **SECURITY NOTICE:** Any commits pushed after \`${POST_CHANGE_SHA}\` have NOT been validated by this workflow and MUST be reviewed manually before merge."
+
+          echo "🔒 Arming Automerge Sequence for PR #$PR_NUMBER..."
+
+          # SECURITY CRITICAL: Auto-merge will only complete if branch protection rules are satisfied
+          # REQUIRED (not optional): Configure branch protection on 'main' to require:
+          # - Status checks from CI workflow (MANDATORY for security)
+          # - Manual approval from CODEOWNERS (MANDATORY for security)
+          # - Up-to-date branches (MANDATORY for security)
+          # Without these protections, an attacker can push unvalidated code after this check.
+          if ! gh pr merge "$PR_NUMBER" --auto --squash 2> merge_err.log; then
+          cat merge_err.log
+          if grep -qi "no required status checks configured" merge_err.log || grep -qi "Auto-merge is not allowed" merge_err.log; then
+          echo "⚠️ Auto-merge cannot be armed automatically because required status checks or auto-merge are not enabled in GitHub repository branch protection settings."
+          echo "🔄 Attempting direct squash merge for validated PR #$PR_NUMBER..."
+
+          # SECURITY: Perform immediate final SHA check before direct merge to minimize TOCTOU window
+          FINAL_PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+          if [ "$FINAL_PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
+          echo "❌ SECURITY GATE FAILED: PR head changed between validation and merge"
+          echo "Expected (validated): $POST_CHANGE_SHA"
+          echo "Current PR head: $FINAL_PR_HEAD_SHA"
+          echo "⚠️ A concurrent push occurred. This PR requires re-validation."
+          exit 1
+          fi
+
+          if gh pr merge "$PR_NUMBER" --squash; then
+          echo "✅ Direct squash merge completed successfully."
           else
-            echo "⚠️ Failed to resolve a valid Pull Request number. Skipping merge step."
+          echo "⚠️ Direct merge deferred to repository administrator. Please configure required status checks in Branch Protection settings (see .github/workflows/REQUIRED_STATUS_CHECKS.md)."
+          fi
+          else
+          echo "⚠️ Automerge command encountered an unexpected error. See log above."
+          fi
+          else
+          # SECURITY: Perform immediate final SHA check after enabling auto-merge
+          # This minimizes (but does not eliminate) the TOCTOU window
+          sleep 1  # Brief delay to allow any concurrent operations to complete
+          FINAL_PR_HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+          if [ "$FINAL_PR_HEAD_SHA" != "$POST_CHANGE_SHA" ]; then
+          echo "❌ SECURITY ALERT: PR head changed after auto-merge was enabled"
+          echo "Expected (validated): $POST_CHANGE_SHA"
+          echo "Current PR head: $FINAL_PR_HEAD_SHA"
+          echo "🚨 Disabling auto-merge due to concurrent modification"
+          gh pr merge "$PR_NUMBER" --disable-auto
+          exit 1
+          fi
+          echo "✅ Automerge enabled successfully! Code will merge into main after branch protection requirements are met."
+          echo "⚠️ SECURITY REMINDER: Branch protection with required status checks and approvals is MANDATORY to prevent unvalidated commits from being merged."
+          fi
+          else
+          echo "⚠️ Failed to resolve a valid Pull Request number. Skipping merge step."
           fi

@@ -49,13 +49,13 @@ jobs:
             echo "This is a security-critical failure - cannot proceed with PR-controlled configuration"
             exit 1
           fi
-          
+
           # Verify the trusted configuration was successfully copied
           if [ ! -f .ai-review.yaml ]; then
             echo "ERROR: Failed to copy trusted configuration to .ai-review.yaml"
             exit 1
           fi
-          
+
           echo "✓ Trusted configuration successfully applied"
 
       - name: Run AI Code Reviewer
