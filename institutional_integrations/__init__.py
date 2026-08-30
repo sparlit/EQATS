@@ -262,7 +262,8 @@ from .indian_instrument_scheduler import (  # noqa: F401
     IndianInstrumentScheduler,
     global_indian_scheduler,
 )
-from .sebi_broker_adapter import (  # noqa: F401
+from .sebi_broker_adapter import (
+    round_to_indian_quantity,  # noqa: F401
     SEBIBrokerAdapter,
     KiteConnectAdapter,
     DhanHQAdapter,
@@ -599,4 +600,5 @@ __all__ = [
     "IIFLXTSAdapter",
     "MotilalOswalAdapter",
     "UnifiedIndianBrokerClientAdapter",
+    "round_to_indian_quantity",
 ]

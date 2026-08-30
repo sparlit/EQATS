@@ -464,3 +464,41 @@ def test_intraday_mis_cutoff_and_auto_squareoff():
     assert "ORD_2" in cancelled_list
     assert "ORD_1" in closed_list
     assert "ORD_3" not in closed_list  # CNC delivery position must NOT be closed!
+
+
+def test_tick_size_and_integer_lot_position_sizing():
+    from institutional_integrations.sebi_broker_adapter import (
+        round_to_indian_quantity,
+        UnifiedIndianBrokerClientAdapter,
+    )
+    from institutional_integrations.indian_market_state_machine import round_to_indian_tick_size
+
+    # 1. Test Fixed Integer Lot (Share) Quantity Sizing
+    assert round_to_indian_quantity(10.75) == 11
+    assert round_to_indian_quantity(0.4) == 1
+    assert round_to_indian_quantity(100.0) == 100
+    assert round_to_indian_quantity(0) == 1
+
+    # 2. Test 0.05 INR Tick Size Rounding on Entry, SL, and TP
+    entry_price = round_to_indian_tick_size(2850.12)
+    sl_price = round_to_indian_tick_size(2800.18)
+    tp_price = round_to_indian_tick_size(2950.03)
+
+    assert entry_price == 2850.10
+    assert sl_price == 2800.20
+    assert tp_price == 2950.05
+
+    # 3. Test Unified Client Adapter Order Sizing and Tick Rounding
+    client = UnifiedIndianBrokerClientAdapter(broker_name="ZERODHA", is_sandbox=True)
+    res = client.place_order(
+        symbol="SBIN",
+        side="BUY",
+        quantity=25.8,
+        price=520.14,
+        sl=510.19,
+        tp=530.01,
+        product="MIS",
+    )
+
+    assert res["success"] is True
+    assert res["price"] == 520.15

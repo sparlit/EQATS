@@ -1,3 +1,4 @@
+import math
 from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
 from .indian_instrument_scheduler import global_indian_scheduler
 """
@@ -28,6 +29,20 @@ _log = logging.getLogger("SEBIBrokerAdapter")
 
 VALID_INDIAN_PRODUCT_TAGS: Set[str] = {"MIS", "CNC", "NRML"}
 VALID_INDIAN_EXCHANGES: Set[str] = {"NSE", "BSE", "NFO", "MCX", "CDS"}
+
+
+def round_to_indian_quantity(quantity: float) -> int:
+    """
+    Converts volume quantity to a fixed integer number of shares for Indian stock market.
+    Prevents submitting fractional crypto units (e.g., 10.75 shares -> 11 shares, min 1).
+    """
+    try:
+        q_float = float(quantity)
+        if not math.isfinite(q_float) or q_float <= 0:
+            return 1
+        return max(1, int(round(q_float)))
+    except (TypeError, ValueError):
+        return 1
 
 
 def validate_indian_product_tag(product: Optional[str], default: str = "CNC") -> str:
@@ -248,8 +263,10 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
                 instrument_token=token,
                 error=reason,
             )
-        price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
-        price = round_to_indian_tick_size(price)
+        price = round_to_indian_tick_size(req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"])
+        sl = round_to_indian_tick_size(req.sl) if req.sl > 0 else 0.0
+        tp = round_to_indian_tick_size(req.tp) if req.tp > 0 else 0.0
+        quantity = round_to_indian_quantity(req.quantity)
 
         if self.access_token and not self.is_sandbox:
             try:
@@ -455,8 +472,10 @@ class DhanHQAdapter(SEBIBrokerAdapter):
                 instrument_token=token,
                 error=reason,
             )
-        price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
-        price = round_to_indian_tick_size(price)
+        price = round_to_indian_tick_size(req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"])
+        sl = round_to_indian_tick_size(req.sl) if req.sl > 0 else 0.0
+        tp = round_to_indian_tick_size(req.tp) if req.tp > 0 else 0.0
+        quantity = round_to_indian_quantity(req.quantity)
 
         if self.access_token and self.client_id and not self.is_sandbox:
             try:
@@ -605,8 +624,10 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"ANGEL_{uuid.uuid4().hex[:12].upper()}"
         token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
-        price = req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
-        price = round_to_indian_tick_size(price)
+        price = round_to_indian_tick_size(req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"])
+        sl = round_to_indian_tick_size(req.sl) if req.sl > 0 else 0.0
+        tp = round_to_indian_tick_size(req.tp) if req.tp > 0 else 0.0
+        quantity = round_to_indian_quantity(req.quantity)
 
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(),

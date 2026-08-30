@@ -24,6 +24,7 @@ import urllib.request
 import uuid
 
 from institutional_integrations.sebi_broker_adapter import (
+    round_to_indian_quantity,
     UnifiedIndianBrokerClientAdapter,
     SEBIBrokerAdapter,
     KiteConnectAdapter,
@@ -751,10 +752,10 @@ class UniversalBrokerGateway:
             sebi_req = SEBIOrderRequest(
                 symbol=symbol,
                 order_type=order_type.upper(),
-                quantity=lot_size_float,
+                quantity=round_to_indian_quantity(lot_size_float),
                 price=0.0,
-                sl=sl,
-                tp=tp,
+                sl=round_to_indian_tick_size(sl) if sl > 0 else 0.0,
+                tp=round_to_indian_tick_size(tp) if tp > 0 else 0.0,
                 product=validated_product or "CNC",
                 exchange=exchange.upper() if exchange else "NSE",
                 order_kind=order_kind.upper() if order_kind else "MARKET",
