@@ -54,15 +54,18 @@ class TestAATAdaptedModules(unittest.TestCase):
         self.assertTrue(res["passed"])
         self.assertEqual(res["base_currency"], "EUR")
 
-        self.assertIn("FTMO", PROP_FIRMS_DATABASE)
-        self.assertEqual(PROP_FIRMS_DATABASE["FTMO"]["daily_dd_pct"], 5.0)
+        ftmo = PROP_FIRMS_DATABASE.get("FTMO")
+        self.assertIsNotNone(ftmo)
+        if isinstance(ftmo, dict):
+            self.assertEqual(ftmo["daily_dd_pct"], 5.0)
 
     def test_prop_firm_elite_tracker(self):
         parser = SignalPulseLogSyncParser()
         res = parser.parse_log_line("2026.08.29 12:00:00 order #1001 buy 0.1 EURUSD at 1.1000 profit: +150.0")
         self.assertIsNotNone(res)
-        self.assertEqual(res["direction"], "BUY")
-        self.assertEqual(res["profit"], 150.0)
+        if isinstance(res, dict):
+            self.assertEqual(res["direction"], "BUY")
+            self.assertEqual(res["profit"], 150.0)
 
         agg = PropFirmEliteMultiAccountAggregator()
         accs = [

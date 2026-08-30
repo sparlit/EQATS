@@ -16,7 +16,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 class RiskSeverity(str, Enum):
@@ -41,7 +41,7 @@ class GuardEvent:
     severity: RiskSeverity
     rule_name: str
     message: str
-    details: Dict[str, float] = field(default_factory=dict)
+    details: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
