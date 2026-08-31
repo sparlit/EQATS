@@ -54,8 +54,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: main
+          MULTI_STATUS: false
           SAVE_SUPER_LINTER_SUMMARY: false
           SUPPRESS_FILE_TYPE_SUMMARY: true
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
   rust-core:
     name: Rust Core Compilation & Unit Tests
