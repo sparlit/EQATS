@@ -14,12 +14,12 @@ on:
   #
   # To use: Navigate to Actions tab → Jules Deep Project Refactor → Run workflow
   # → Select the branch you want to refactor → Run workflow
-  workflow_dispatch:        # Allows you to click "Run workflow" manually from GitHub UI
+  workflow_dispatch: # Allows you to click "Run workflow" manually from GitHub UI
     inputs:
       branch:
-        description: 'Branch to refactor (e.g., ai-refactor-auth)'
+        description: "Branch to refactor (e.g., ai-refactor-auth)"
         required: false
-        default: ''
+        default: ""
         type: string
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
     # SECURITY: Permissions are granted at step level, not job level, to minimize
     # the attack surface. Only the final commit/push step receives write access.
     permissions:
-      contents: read        # Default read-only access for checkout and analysis steps
+      contents: read # Default read-only access for checkout and analysis steps
 
     steps:
       # 1. Checkout trusted workflow files from default branch
@@ -58,10 +58,10 @@ jobs:
       - name: Setup Python Environment
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v6.3.0
         with:
-          python-version: '3.11'
+          python-version: "3.11"
           # Disable pip cache to prevent cache poisoning attacks
-          cache: 'pip'
-          cache-dependency-path: '.trusted-workflow-files/.github/workflows/refactor-requirements.txt'
+          cache: "pip"
+          cache-dependency-path: ".trusted-workflow-files/.github/workflows/refactor-requirements.txt"
 
       # 3. Install Ruff (Linter) and Bandit (Security SAST) with pinned versions
       # SECURITY: Install from the trusted requirements file retrieved from the default
@@ -248,12 +248,12 @@ jobs:
         # 3. Implement validation logic to verify the safety of proposed changes
         # 4. Add rollback mechanisms and test execution
         # 5. Change 'if: false' to appropriate conditions
-        if: false  # Disabled for security - requires manual review process
+        if: false # Disabled for security - requires manual review process
         # SECURITY: Step-level permissions override job-level permissions.
         # This step would receive write access ONLY when enabled, and ONLY for this step.
         # All other steps (including the Jules API call) operate with read-only permissions.
         permissions:
-          contents: write  # Required only for git push; isolated to this step
+          contents: write # Required only for git push; isolated to this step
         env:
           # SECURITY: GITHUB_TOKEN is scoped to the step-level permissions above.
           # When this step is disabled, the token is never instantiated with write access.

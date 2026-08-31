@@ -36,7 +36,7 @@ jobs:
           # Run pyflakes, output to log, but prevent hard failure here so Jules can ingest it
           pyflakes . > pyflakes_errors.log 2>&1 || true
           cat pyflakes_errors.log
-          
+
       - name: Verify Pyflakes Analysis Output
         run: |
           echo "=== Pyflakes Analysis Diagnostics ==="

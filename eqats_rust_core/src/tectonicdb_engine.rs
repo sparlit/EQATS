@@ -130,7 +130,9 @@ pub extern "C" fn rust_tectonicdb_unpack_ticks(
     cursor += 4;
 
     if total_count == 0 {
-        unsafe { *out_count = 0; }
+        unsafe {
+            *out_count = 0;
+        }
         return 0;
     }
 
