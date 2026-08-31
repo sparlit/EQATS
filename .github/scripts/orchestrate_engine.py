@@ -2,7 +2,7 @@ import os
 import re
 import sys
 import subprocess
-import requests
+from openai import OpenAI
 
 def load_file(filepath):
     """Reads raw contents fresh off disk arrays without active memory layer tracking."""
@@ -41,8 +41,8 @@ def git_commit_and_push(repo_name):
     except Exception as e:
         print(f"Git execution encountered a sync error on repo {repo_name}: {e}")
 
-def run_conversion_cycle(current_repo, api_key, invoke_url, model_name):
-    """Dispatches quantitative architecture requirements directly to NVIDIA NIM API completions cluster."""
+def run_conversion_cycle(current_repo, api_key, nim_base_url, model_name):
+    """Dispatches quantitative architecture requirements directly to NVIDIA NIM API via OpenAI SDK."""
     blueprint = load_file("ingestion_blueprint.md")
     todo_list = load_file("todo_tasks.md")
 
@@ -72,47 +72,39 @@ EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
 Provide the comprehensive structural steelman deconstruction, optimized multi-threaded Rust codebase wrapped cleanly via PyO3, execution tracking Magic Number assignments, and corresponding pytest scripts. Update the files 'ingestion_blueprint.md' and 'todo_tasks.md' (marking this repository as complete) and output their full updated text inside file markers.
 """
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
+    # Target the base URL via the pre-installed OpenAI client wrapper
+    client = OpenAI(base_url=nim_base_url, api_key=api_key)
 
-    # 🔄 CRITICAL MULTI-MODAL RESTRUCTURE: Align payload layout to match Kimi-K3 object structures
-    payload = {
-        "model": model_name,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"{system_prompt}\n\n{user_prompt}"
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 16384,
-        "temperature": 1.0,
-        "seed": 0,
-        "reasoning_effort": "max" # Enforces Kimi Delta Attention long-horizon analysis loop cycles
-    }
+    # Clean multi-modal payload routing structures optimized for Moonshot Kimi-K3 parsing requirements
+    messages_payload = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"{system_prompt}\n\n{user_prompt}"
+                }
+            ]
+        }
+    ]
 
-    print(f"Dispatching optimization context to NVIDIA NIM endpoint [{invoke_url}] using model: {model_name}...")
-    response = requests.post(invoke_url, headers=headers, json=payload)
+    print(f"Dispatching optimization context via SDK to endpoint [{nim_base_url}] using model: {model_name}...")
     
-    if response.status_code != 200:
-        print(f"CRITICAL API ERROR: Gateway returned status code {response.status_code}.")
-        print(f"Server Response Content Logs:\n{response.text}")
-        return False
+    # Configure exact inference block properties natively
+    extra_params = {}
+    if "kimi-k3" in model_name:
+        extra_params["seed"] = 0
+        extra_params["reasoning_effort"] = "max"
 
-    try:
-        data = response.json()
-        llm_output = data["choices"][0]["message"]["content"]
-    except Exception as parse_error:
-        print(f"Failed to cleanly navigate response JSON layout structure: {parse_error}")
-        print(f"Raw context response data:\n{response.text}")
-        return False
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages_payload,
+        max_tokens=16384 if "kimi-k3" in model_name else 4096,
+        temperature=1.0 if "kimi-k3" in model_name else 0.1,
+        **extra_params
+    )
+
+    llm_output = response.choices.message.content
 
     # Safely unpack file boundaries formatted between our custom structural block tags
     file_blocks = re.findall(r'===\s*FILE:\s*([^\s]+)\s*===(.*?)===\s*END FILE\s*===', llm_output, re.DOTALL)
@@ -145,8 +137,8 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY variable bindings are missing from runtime scope.")
         sys.exit(1)
 
-    # 🔄 DIRECT PATH ROUTING: Connect to explicit chat/completions endpoint
-    invoke_url = "https://nvidia.com"
+    # Direct v1 path gateway routing via OpenAI SDK client wrapper
+    nim_base_url = "https://integrate.api.nvidia.com/v1"
     model_name = "moonshotai/kimi-k3"
 
     # In-memory tracking array queue layout configuration
@@ -171,7 +163,7 @@ def main():
         print(f"PROCESSING REPOSITORY ARTIFACT: {current_repo}")
         print(f"=======================================================")
         
-        success = run_conversion_cycle(current_repo, api_key, invoke_url, model_name)
+        success = run_conversion_cycle(current_repo, api_key, nim_base_url, model_name)
         
         # Push file mutations onto your code repository branch on every loop iteration
         git_commit_and_push(current_repo)
