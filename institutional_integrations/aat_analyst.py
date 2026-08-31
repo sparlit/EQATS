@@ -1,18 +1,21 @@
-import time
 import logging
-from typing import Dict, List, Any, Optional
+import time
+from typing import Any, Dict, List
 
 try:
     import numpy as np
     import pandas as pd
+
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
 
 logger = logging.getLogger("AAT_Analyst")
 
+
 class MacroAnalyst:
     """External Macro Economic & Sentiment Analyst."""
+
     def __init__(self):
         self.sentiment_score = 0.5
         self.last_update = 0.0
@@ -28,16 +31,18 @@ class MacroAnalyst:
             return 1.15 if self.sentiment_score > 0.6 else (0.85 if self.sentiment_score < 0.4 else 1.0)
         return 1.0
 
+
 class SMCAnalyst:
     """Smart Money Concepts & Price Action Structure Analyst."""
+
     def detect_market_structure(self, df_or_bars: Any) -> Dict[str, Any]:
         if PANDAS_AVAILABLE and isinstance(df_or_bars, pd.DataFrame):
             df = df_or_bars
             if len(df) < 15:
                 return {"trend": "NEUTRAL", "choch": False, "sweep": False, "swing_h": None, "swing_l": None}
-            h_col = 'high' if 'high' in df else ('h' if 'h' in df else 'c')
-            l_col = 'low' if 'low' in df else ('l' if 'l' in df else 'c')
-            c_col = 'close' if 'close' in df else ('c' if 'c' in df else 'h')
+            h_col = "high" if "high" in df else ("h" if "h" in df else "c")
+            l_col = "low" if "low" in df else ("l" if "l" in df else "c")
+            c_col = "close" if "close" in df else ("c" if "c" in df else "h")
 
             h = df[h_col].values
             l = df[l_col].values
@@ -52,7 +57,7 @@ class SMCAnalyst:
             highs = h[pivot_h_idx][-3:] if len(pivot_h_idx) > 0 else np.array([])
             lows = l[pivot_l_idx][-3:] if len(pivot_l_idx) > 0 else np.array([])
 
-            sweep = False
+            sweep: Any = False
             if len(highs) >= 2:
                 if h[-1] > highs[-2] and c[-1] < highs[-2]:
                     sweep = "BEARISH_SWEEP"
@@ -78,7 +83,7 @@ class SMCAnalyst:
                 "choch": choch,
                 "sweep": sweep,
                 "swing_h": float(highs[-1]) if len(highs) > 0 else None,
-                "swing_l": float(lows[-1]) if len(lows) > 0 else None
+                "swing_l": float(lows[-1]) if len(lows) > 0 else None,
             }
         return {"trend": "NEUTRAL", "choch": False, "sweep": False, "swing_h": None, "swing_l": None}
 
@@ -87,32 +92,34 @@ class SMCAnalyst:
             df = df_or_bars
             if len(df) < 3:
                 return []
-            h_col = 'high' if 'high' in df else ('h' if 'h' in df else 'c')
-            l_col = 'low' if 'low' in df else ('l' if 'l' in df else 'c')
+            h_col = "high" if "high" in df else ("h" if "h" in df else "c")
+            l_col = "low" if "low" in df else ("l" if "l" in df else "c")
 
             h = df[h_col].values
             l = df[l_col].values
             fvgs = []
 
             for i in range(2, len(df)):
-                if h[i-2] < l[i]:
-                    fvgs.append({"type": "BULLISH", "top": float(l[i]), "bottom": float(h[i-2]), "index": i-1})
-                elif l[i-2] > h[i]:
-                    fvgs.append({"type": "BEARISH", "top": float(l[i-2]), "bottom": float(h[i]), "index": i-1})
+                if h[i - 2] < l[i]:
+                    fvgs.append({"type": "BULLISH", "top": float(l[i]), "bottom": float(h[i - 2]), "index": i - 1})
+                elif l[i - 2] > h[i]:
+                    fvgs.append({"type": "BEARISH", "top": float(l[i - 2]), "bottom": float(h[i]), "index": i - 1})
 
             return fvgs[-5:]
         return []
 
+
 class VolatilityAnalyst:
     """Market Regime & Volatility Analysis."""
+
     def get_regime(self, df_or_bars: Any) -> str:
         if PANDAS_AVAILABLE and isinstance(df_or_bars, pd.DataFrame):
             df = df_or_bars
             if len(df) < 20:
                 return "NORMAL"
-            c_col = 'close' if 'close' in df else ('c' if 'c' in df else 'h')
-            h_col = 'high' if 'high' in df else ('h' if 'h' in df else 'c')
-            l_col = 'low' if 'low' in df else ('l' if 'l' in df else 'c')
+            c_col = "close" if "close" in df else ("c" if "c" in df else "h")
+            h_col = "high" if "high" in df else ("h" if "h" in df else "c")
+            l_col = "low" if "low" in df else ("l" if "l" in df else "c")
 
             c = df[c_col]
             h = df[h_col]

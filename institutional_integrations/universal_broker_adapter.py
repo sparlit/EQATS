@@ -23,26 +23,39 @@ import urllib.parse
 import urllib.request
 import uuid
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_quantity,
-    UnifiedIndianBrokerClientAdapter,
-    SEBIBrokerAdapter,
-    KiteConnectAdapter,
-    DhanHQAdapter,
-    SEBIOrderRequest,
-    SEBIOrderResponse,
-    validate_indian_product_tag,
-)
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
+from institutional_integrations.sebi_broker_adapter import (
+    DhanHQAdapter,
+    KiteConnectAdapter,
+    SEBIOrderRequest,
+    UnifiedIndianBrokerClientAdapter,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+    validate_indian_product_tag,
+)
 
 _log = logging.getLogger(__name__)
 
+
 class UniversalBrokerGateway:
     INDIAN_BROKER_PROTOCOLS = {
-        "SEBI_BROKER", "KITE", "ZERODHA", "DHAN", "ANGELONE", "ANGEL",
-        "KOTAK", "NEO", "UPSTOX", "ICICI", "FIVEPAISA", "IIFL", "XTS", "MOTILAL", "MO"
+        "SEBI_BROKER",
+        "KITE",
+        "ZERODHA",
+        "DHAN",
+        "ANGELONE",
+        "ANGEL",
+        "KOTAK",
+        "NEO",
+        "UPSTOX",
+        "ICICI",
+        "FIVEPAISA",
+        "IIFL",
+        "XTS",
+        "MOTILAL",
+        "MO",
     }
 
     """
@@ -81,10 +94,9 @@ class UniversalBrokerGateway:
         # Validate protocol is supported before initialization
         if self.protocol not in self.SUPPORTED_PROTOCOLS:
             _log.error(
-                "UniversalBrokerGateway: Unsupported protocol '%s' specified. "
-                "Supported protocols: %s",
+                "UniversalBrokerGateway: Unsupported protocol '%s' specified. " "Supported protocols: %s",
                 self.protocol,
-                ", ".join(self.SUPPORTED_PROTOCOLS)
+                ", ".join(self.SUPPORTED_PROTOCOLS),
             )
             raise ValueError(
                 f"Unsupported protocol '{self.protocol}'. "
@@ -92,25 +104,17 @@ class UniversalBrokerGateway:
             )
 
         # Configurable retry backoff delay (Round 3 FLAW-001)
-        self.retry_backoff_delay = float(
-            self.broker_config.get("retry_backoff_delay", 0.2)
-        )
+        self.retry_backoff_delay = float(self.broker_config.get("retry_backoff_delay", 0.2))
 
         # Response size and duration limits to prevent resource exhaustion
         # Default: 1MB max response size, 5 second total response deadline
-        self.max_response_bytes = int(
-            self.broker_config.get("max_response_bytes", 1048576)  # 1MB default
-        )
-        self.response_deadline_seconds = float(
-            self.broker_config.get("response_deadline_seconds", 5.0)
-        )
+        self.max_response_bytes = int(self.broker_config.get("max_response_bytes", 1048576))  # 1MB default
+        self.response_deadline_seconds = float(self.broker_config.get("response_deadline_seconds", 5.0))
 
         # Circuit Breaker initialization
         cb_threshold = int(self.broker_config.get("failure_threshold", 5))
         cb_cooldown = float(self.broker_config.get("cooldown_seconds", 30.0))
-        self._breaker = CircuitBreaker(
-            failure_threshold=cb_threshold, cooldown_seconds=cb_cooldown
-        )
+        self._breaker = CircuitBreaker(failure_threshold=cb_threshold, cooldown_seconds=cb_cooldown)
 
         self.sebi_adapter = None
         self.indian_client = None
@@ -141,9 +145,13 @@ class UniversalBrokerGateway:
             client_id = self.broker_config.get("client_id", "")
             is_sandbox = self.broker_config.get("is_sandbox", False)
             if self.protocol == "DHAN":
-                self.sebi_adapter = DhanHQAdapter(api_key=api_key, client_id=client_id, access_token=access_token, is_sandbox=is_sandbox)
+                self.sebi_adapter = DhanHQAdapter(
+                    api_key=api_key, client_id=client_id, access_token=access_token, is_sandbox=is_sandbox
+                )
             else:
-                self.sebi_adapter = KiteConnectAdapter(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
+                self.sebi_adapter = KiteConnectAdapter(
+                    api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox
+                )
 
         self._init_protocol_handler()
 
@@ -152,57 +160,52 @@ class UniversalBrokerGateway:
         if self.protocol == "FIX":
             sender_comp = self.broker_config.get("account_id", "EQATS_CLIENT")
             target_comp = self.broker_config.get("server", "LP_BROKER")
-            self.fix_engine = FIXEngine(
-                sender_comp_id=sender_comp, target_comp_id=target_comp
-            )
+            self.fix_engine = FIXEngine(sender_comp_id=sender_comp, target_comp_id=target_comp)
         elif self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
             # Institutional REST/WS API connection parameters
             self.api_key = self.broker_config.get("api_key", "")
             self.api_secret = self.broker_config.get("api_secret", "")
             self.rest_url = self.broker_config.get("rest_url", "")
             self.ws_url = self.broker_config.get("ws_url", "")
-            
+
             # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure
             is_allowed_http = any(
-                self.rest_url.startswith(prefix)
-                for prefix in ("http://127.0.0.1", "http://localhost")
+                self.rest_url.startswith(prefix) for prefix in ("http://127.0.0.1", "http://localhost")
             )
             if self.rest_url and not (self.rest_url.startswith("https://") or is_allowed_http):
                 _log.error(
-                    "UniversalBrokerGateway: REST endpoint must use HTTPS. Rejecting insecure URL: %s",
-                    self.rest_url
+                    "UniversalBrokerGateway: REST endpoint must use HTTPS. Rejecting insecure URL: %s", self.rest_url
                 )
                 raise ValueError(
-                    f"REST endpoint must use HTTPS for secure transmission. "
-                    f"Insecure URL rejected: {self.rest_url}"
+                    f"REST endpoint must use HTTPS for secure transmission. " f"Insecure URL rejected: {self.rest_url}"
                 )
-            
+
             if self.ws_url and not self.ws_url.startswith("wss://"):
                 _log.warning(
                     "UniversalBrokerGateway: WebSocket endpoint should use WSS (secure). "
                     "Insecure WS URL detected: %s",
-                    self.ws_url
+                    self.ws_url,
                 )
 
     def _generate_auth_headers(self, method="POST", endpoint="/v1/order", body_data=None):
         """
         Generates authenticated request headers including API key and HMAC signature.
-        
+
         This implements a standard broker authentication pattern using:
         - API Key in X-API-Key header
         - HMAC-SHA256 signature in X-Signature header
         - Timestamp nonce in X-Timestamp header
-        
+
         Args:
             method: HTTP method (GET, POST, etc.)
             endpoint: API endpoint path
             body_data: Request body bytes for signature calculation
-            
+
         Returns:
             dict: Headers including Content-Type, API key, timestamp, and signature
         """
         headers = {"Content-Type": "application/json"}
-        
+
         # Only add authentication if credentials are configured
         if not self.api_key or not self.api_secret:
             _log.warning(
@@ -210,52 +213,45 @@ class UniversalBrokerGateway:
                 "Request will be sent without authentication headers."
             )
             return headers
-        
+
         # Add API key header
         headers["X-API-Key"] = self.api_key
-        
+
         # Generate timestamp nonce (milliseconds since epoch)
         timestamp = str(int(time.time() * 1000))
         headers["X-Timestamp"] = timestamp
-        
+
         # Construct signature payload: METHOD + ENDPOINT + TIMESTAMP + BODY
         # This is a common pattern used by institutional broker APIs
         signature_payload = f"{method}{endpoint}{timestamp}"
         if body_data:
             signature_payload += body_data.decode("utf-8") if isinstance(body_data, bytes) else str(body_data)
-        
+
         # Generate HMAC-SHA256 signature
         signature = hmac.new(
-            self.api_secret.encode("utf-8"),
-            signature_payload.encode("utf-8"),
-            hashlib.sha256
+            self.api_secret.encode("utf-8"), signature_payload.encode("utf-8"), hashlib.sha256
         ).hexdigest()
-        
+
         headers["X-Signature"] = signature
-        
-        _log.debug(
-            "Generated authenticated headers for %s %s with timestamp %s",
-            method,
-            endpoint,
-            timestamp
-        )
-        
+
+        _log.debug("Generated authenticated headers for %s %s with timestamp %s", method, endpoint, timestamp)
+
         return headers
 
     def _read_response_safely(self, response):
         """
         Reads HTTP response with size and duration limits to prevent resource exhaustion.
-        
+
         This method mitigates the risk of a compromised or malicious broker endpoint
         causing excessive memory allocation or keeping synchronous order execution
         occupied through slow-drip responses.
-        
+
         Args:
             response: urllib response object with read() method
-            
+
         Returns:
             bytes: Response body data
-            
+
         Raises:
             ValueError: If response exceeds size limit or duration deadline
             TimeoutError: If total response duration exceeds deadline
@@ -264,7 +260,7 @@ class UniversalBrokerGateway:
         chunks = []
         total_bytes = 0
         chunk_size = 8192  # Read in 8KB chunks
-        
+
         while True:
             # Check total duration deadline
             elapsed = time.time() - start_time
@@ -273,59 +269,47 @@ class UniversalBrokerGateway:
                     "Response reading exceeded deadline of %.1fs (elapsed: %.1fs, bytes read: %d)",
                     self.response_deadline_seconds,
                     elapsed,
-                    total_bytes
+                    total_bytes,
                 )
                 raise TimeoutError(
                     f"Response reading exceeded deadline of {self.response_deadline_seconds}s "
                     f"(elapsed: {elapsed:.1f}s, bytes read: {total_bytes})"
                 )
-            
+
             # Read next chunk with remaining deadline as timeout
-            remaining_timeout = max(0.1, self.response_deadline_seconds - elapsed)
             try:
                 chunk = response.read(chunk_size)
             except socket.timeout:
                 # Socket timeout during chunk read - check if we have partial data
                 if chunks:
-                    _log.warning(
-                        "Socket timeout after reading %d bytes in %.1fs",
-                        total_bytes,
-                        elapsed
-                    )
+                    _log.warning("Socket timeout after reading %d bytes in %.1fs", total_bytes, elapsed)
                 raise
-            
+
             if not chunk:
                 # End of response
                 break
-            
+
             total_bytes += len(chunk)
-            
+
             # Check size limit
             if total_bytes > self.max_response_bytes:
                 _log.error(
-                    "Response size %d bytes exceeds maximum allowed %d bytes",
-                    total_bytes,
-                    self.max_response_bytes
+                    "Response size %d bytes exceeds maximum allowed %d bytes", total_bytes, self.max_response_bytes
                 )
                 raise ValueError(
-                    f"Response size {total_bytes} bytes exceeds maximum allowed "
-                    f"{self.max_response_bytes} bytes"
+                    f"Response size {total_bytes} bytes exceeds maximum allowed " f"{self.max_response_bytes} bytes"
                 )
-            
+
             chunks.append(chunk)
 
             if len(chunk) < chunk_size:
                 # End of response payload reached in chunk read
                 break
-        
+
         response_data = b"".join(chunks)
-        
-        _log.debug(
-            "Successfully read %d bytes in %.3fs",
-            total_bytes,
-            time.time() - start_time
-        )
-        
+
+        _log.debug("Successfully read %d bytes in %.3fs", total_bytes, time.time() - start_time)
+
         return response_data
 
     def connect(self):
@@ -365,9 +349,7 @@ class UniversalBrokerGateway:
         if self.protocol == "FIX":
             try:
                 target_host = self.broker_config.get("rest_url", "127.0.0.1")
-                target_port = int(
-                    self.broker_config.get("extra_params", {}).get("port", 9800)
-                )
+                target_port = int(self.broker_config.get("extra_params", {}).get("port", 9800))
                 self.fix_engine.connect(target_host, target_port)
                 self.fix_engine.send_logon()
                 self.is_connected_flag = True
@@ -387,9 +369,7 @@ class UniversalBrokerGateway:
                 self.is_connected_flag = True
                 return True
             except ImportError:
-                print(
-                    "Universal Broker Gateway [MT5]: MetaTrader5 package not available (requires Windows)."
-                )
+                print("Universal Broker Gateway [MT5]: MetaTrader5 package not available (requires Windows).")
                 self.is_connected_flag = False
                 return False
 
@@ -400,7 +380,7 @@ class UniversalBrokerGateway:
                 _log.error(
                     "UniversalBrokerGateway: Protocol %s requires 'rest_url' configuration. "
                     "Connection rejected to prevent fail-open execution.",
-                    self.protocol
+                    self.protocol,
                 )
                 print(
                     f"Universal Broker Gateway [{self.protocol}] Connection Error: "
@@ -409,7 +389,7 @@ class UniversalBrokerGateway:
                 )
                 self.is_connected_flag = False
                 return False
-            
+
             # Endpoint is configured, mark as connected
             self.is_connected_flag = True
             print(
@@ -421,10 +401,9 @@ class UniversalBrokerGateway:
 
         # Reject unsupported protocols to prevent fail-open fallback
         _log.error(
-            "UniversalBrokerGateway: Unsupported protocol '%s'. "
-            "Supported protocols: %s. Connection rejected.",
+            "UniversalBrokerGateway: Unsupported protocol '%s'. " "Supported protocols: %s. Connection rejected.",
             self.protocol,
-            ", ".join(self.SUPPORTED_PROTOCOLS)
+            ", ".join(self.SUPPORTED_PROTOCOLS),
         )
         print(
             f"Universal Broker Gateway Connection Error: "
@@ -514,7 +493,7 @@ class UniversalBrokerGateway:
         creds = database.get_broker_credentials()
         if creds is None:
             creds = {"leverage": "1:100", "environment": "Demo"}
-        
+
         leverage_str = creds.get("leverage", "1:100")
         return {
             "balance": 10000.0,
@@ -548,7 +527,7 @@ class UniversalBrokerGateway:
         if self.protocol == "MT5":
             try:
                 import MetaTrader5 as mt5
-                
+
                 info = mt5.symbol_info(symbol)
                 if info:
                     vol_min = getattr(info, "volume_min", vol_min) or vol_min
@@ -567,25 +546,21 @@ class UniversalBrokerGateway:
         """
         if not hasattr(self, "rest_url") or not self.rest_url:
             return {"found": False}
-        
+
         try:
             # Query broker order status endpoint with client_order_id
             query_endpoint = f"/v1/order/status?client_order_id={client_order_id}"
             query_url = f"{self.rest_url}{query_endpoint}"
-            
+
             # Generate authenticated headers for GET request
-            headers = self._generate_auth_headers(
-                method="GET",
-                endpoint=query_endpoint,
-                body_data=None
-            )
-            
+            headers = self._generate_auth_headers(method="GET", endpoint=query_endpoint, body_data=None)
+
             req = urllib.request.Request(query_url, headers=headers)
-            
+
             with urllib.request.urlopen(req, timeout=3.0) as resp:
                 response_data = self._read_response_safely(resp)
                 status_data = json.loads(response_data.decode("utf-8"))
-                
+
                 # If broker confirms the order exists, return its details
                 if status_data.get("found") or status_data.get("status") in ["ACCEPTED", "FILLED", "PARTIAL"]:
                     # Validate that broker returned a valid ticket/order_id
@@ -595,32 +570,28 @@ class UniversalBrokerGateway:
                             "Order reconciliation: client_order_id %s found at broker but missing valid ticket. "
                             "Response: %s",
                             client_order_id,
-                            status_data
+                            status_data,
                         )
                         return {"found": False}
-                    
+
                     _log.info(
                         "Order reconciliation: client_order_id %s found at broker with status %s, ticket %s",
                         client_order_id,
                         status_data.get("status", "UNKNOWN"),
-                        broker_ticket
+                        broker_ticket,
                     )
                     return {
                         "found": True,
                         "ticket": str(broker_ticket),
                         "price": float(status_data.get("price", 0.0)),
-                        "status": status_data.get("status", "ACCEPTED")
+                        "status": status_data.get("status", "ACCEPTED"),
                     }
                 else:
                     return {"found": False}
-                    
+
         except Exception as e:
             # If reconciliation query fails, we cannot confirm order status
-            _log.warning(
-                "Order reconciliation query failed for client_order_id %s: %s",
-                client_order_id,
-                e
-            )
+            _log.warning("Order reconciliation query failed for client_order_id %s: %s", client_order_id, e)
             return {"found": False}
 
     def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None, exchange="NSE", order_kind="MARKET"):
@@ -629,9 +600,7 @@ class UniversalBrokerGateway:
         # Only accept case-insensitive "BUY" or "SELL" - reject all other values
         if not isinstance(order_type, str) or order_type.upper() not in ("BUY", "SELL"):
             _log.error(
-                "UniversalBrokerGateway: Invalid order_type '%s' for %s. Must be 'BUY' or 'SELL'.",
-                order_type,
-                symbol
+                "UniversalBrokerGateway: Invalid order_type '%s' for %s. Must be 'BUY' or 'SELL'.", order_type, symbol
             )
             return {
                 "success": False,
@@ -641,17 +610,13 @@ class UniversalBrokerGateway:
                 "reason": "INVALID_DIRECTION",
                 "protocol": self.protocol,
             }
-        
+
         # SECURITY: Validate lot_size to prevent invalid quantity submission
         # Enforce finite, positive, and within reasonable bounds (0.01 to 100.0)
         try:
             lot_size_float = float(lot_size)
         except (TypeError, ValueError):
-            _log.error(
-                "UniversalBrokerGateway: Invalid lot_size '%s' for %s. Must be numeric.",
-                lot_size,
-                symbol
-            )
+            _log.error("UniversalBrokerGateway: Invalid lot_size '%s' for %s. Must be numeric.", lot_size, symbol)
             return {
                 "success": False,
                 "ticket": "",
@@ -660,15 +625,12 @@ class UniversalBrokerGateway:
                 "reason": "INVALID_QUANTITY",
                 "protocol": self.protocol,
             }
-        
+
         # Check for finite, positive value
         import math
+
         if not math.isfinite(lot_size_float) or lot_size_float <= 0.0:
-            _log.error(
-                "UniversalBrokerGateway: lot_size %s for %s is not finite and positive.",
-                lot_size_float,
-                symbol
-            )
+            _log.error("UniversalBrokerGateway: lot_size %s for %s is not finite and positive.", lot_size_float, symbol)
             return {
                 "success": False,
                 "ticket": "",
@@ -677,18 +639,15 @@ class UniversalBrokerGateway:
                 "reason": "INVALID_QUANTITY",
                 "protocol": self.protocol,
             }
-        
+
         # Enforce minimum and maximum bounds to prevent fat-finger and venue constraint violations
         # These bounds align with standard broker constraints and fat-finger limits
         MIN_LOT_SIZE = 0.01
         MAX_LOT_SIZE = 100.0
-        
+
         if lot_size_float < MIN_LOT_SIZE:
             _log.error(
-                "UniversalBrokerGateway: lot_size %s for %s below minimum %s.",
-                lot_size_float,
-                symbol,
-                MIN_LOT_SIZE
+                "UniversalBrokerGateway: lot_size %s for %s below minimum %s.", lot_size_float, symbol, MIN_LOT_SIZE
             )
             return {
                 "success": False,
@@ -698,13 +657,10 @@ class UniversalBrokerGateway:
                 "reason": "QUANTITY_TOO_SMALL",
                 "protocol": self.protocol,
             }
-        
+
         if lot_size_float > MAX_LOT_SIZE:
             _log.error(
-                "UniversalBrokerGateway: lot_size %s for %s exceeds maximum %s.",
-                lot_size_float,
-                symbol,
-                MAX_LOT_SIZE
+                "UniversalBrokerGateway: lot_size %s for %s exceeds maximum %s.", lot_size_float, symbol, MAX_LOT_SIZE
             )
             return {
                 "success": False,
@@ -714,7 +670,7 @@ class UniversalBrokerGateway:
                 "reason": "QUANTITY_TOO_LARGE",
                 "protocol": self.protocol,
             }
-        
+
         # Circuit Breaker check before attempting order execution
         if not self._breaker.allow():
             _log.warning(
@@ -787,16 +743,10 @@ class UniversalBrokerGateway:
                     res["product"] = validated_product
                 return res
 
-
-
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             # Generate stable client_order_id for idempotent retry
             client_order_id = f"EQATS_{uuid.uuid4().hex[:16]}_{int(time.time() * 1000)}"
-            
+
             payload = json.dumps(
                 {
                     "client_order_id": client_order_id,
@@ -807,15 +757,11 @@ class UniversalBrokerGateway:
                     "tp": tp,
                 }
             ).encode("utf-8")
-            
+
             # Generate authenticated headers with API key and HMAC signature
             endpoint = "/v1/order"
-            headers = self._generate_auth_headers(
-                method="POST",
-                endpoint=endpoint,
-                body_data=payload
-            )
-            
+            headers = self._generate_auth_headers(method="POST", endpoint=endpoint, body_data=payload)
+
             req = urllib.request.Request(
                 f"{self.rest_url}{endpoint}",
                 data=payload,
@@ -841,9 +787,7 @@ class UniversalBrokerGateway:
                         if http_status not in (200, 201):
                             last_err = f"HTTP {http_status}: Broker returned non-success status code"
                             _log.error(
-                                "Universal Broker REST Gateway order rejected with HTTP %d for %s",
-                                http_status,
-                                symbol
+                                "Universal Broker REST Gateway order rejected with HTTP %d for %s", http_status, symbol
                             )
                             self._breaker.record_failure()
                             return {
@@ -854,13 +798,17 @@ class UniversalBrokerGateway:
                                 "reason": "HTTP_ERROR",
                                 "protocol": self.protocol,
                             }
-                        
+
                         response_data = self._read_response_safely(resp)
                         res_data = json.loads(response_data.decode("utf-8"))
-                        
+
                         # Validate application-level status - must be ACCEPTED, FILLED, or PARTIAL
                         order_status = res_data.get("status", "").upper()
-                        if not order_status and (res_data.get("ticket") or res_data.get("order_id")) and float(res_data.get("price", 0.0)) > 0:
+                        if (
+                            not order_status
+                            and (res_data.get("ticket") or res_data.get("order_id"))
+                            and float(res_data.get("price", 0.0)) > 0
+                        ):
                             order_status = "ACCEPTED"
                         if order_status not in ("ACCEPTED", "FILLED", "PARTIAL"):
                             # Order was rejected, pending, or status is missing/invalid
@@ -869,7 +817,7 @@ class UniversalBrokerGateway:
                                 "Universal Broker REST Gateway order rejected for %s. Status: %s, Response: %s",
                                 symbol,
                                 order_status or "MISSING",
-                                res_data
+                                res_data,
                             )
                             self._breaker.record_failure()
                             return {
@@ -880,7 +828,7 @@ class UniversalBrokerGateway:
                                 "reason": order_status or "INVALID_STATUS",
                                 "protocol": self.protocol,
                             }
-                        
+
                         # Validate broker-issued ticket - must be present and non-empty
                         broker_ticket = res_data.get("ticket") or res_data.get("order_id")
                         if not broker_ticket or str(broker_ticket).strip() == "":
@@ -888,7 +836,7 @@ class UniversalBrokerGateway:
                             _log.error(
                                 "Universal Broker REST Gateway order for %s missing broker ticket. Response: %s",
                                 symbol,
-                                res_data
+                                res_data,
                             )
                             self._breaker.record_failure()
                             return {
@@ -899,7 +847,7 @@ class UniversalBrokerGateway:
                                 "reason": "MISSING_TICKET",
                                 "protocol": self.protocol,
                             }
-                        
+
                         # Validate execution price - must be present and positive
                         execution_price = res_data.get("price")
                         if execution_price is None or float(execution_price) <= 0.0:
@@ -907,7 +855,7 @@ class UniversalBrokerGateway:
                             _log.error(
                                 "Universal Broker REST Gateway order for %s has invalid price. Response: %s",
                                 symbol,
-                                res_data
+                                res_data,
                             )
                             self._breaker.record_failure()
                             return {
@@ -918,14 +866,14 @@ class UniversalBrokerGateway:
                                 "reason": "INVALID_PRICE",
                                 "protocol": self.protocol,
                             }
-                        
+
                         # All validations passed - order was successfully accepted/filled
                         _log.info(
                             "Universal Broker REST Gateway order accepted for %s: ticket=%s, price=%s, status=%s",
                             symbol,
                             broker_ticket,
                             execution_price,
-                            order_status
+                            order_status,
                         )
                         self._breaker.record_success()
                         return {
@@ -945,19 +893,16 @@ class UniversalBrokerGateway:
                         symbol,
                         e,
                     )
-                    
+
                     # After timeout, reconcile to check if order was actually accepted
-                    _log.info(
-                        "Attempting order reconciliation for client_order_id %s after timeout",
-                        client_order_id
-                    )
+                    _log.info("Attempting order reconciliation for client_order_id %s after timeout", client_order_id)
                     reconcile_result = self._reconcile_order_status(client_order_id)
-                    
+
                     if reconcile_result.get("found"):
                         # Order was accepted despite timeout - return success
                         _log.info(
                             "Order reconciliation successful: order %s was accepted at broker",
-                            reconcile_result.get("ticket")
+                            reconcile_result.get("ticket"),
                         )
                         self._breaker.record_success()
                         return {
@@ -968,7 +913,7 @@ class UniversalBrokerGateway:
                             "protocol": self.protocol,
                             "reconciled": True,
                         }
-                    
+
                     # Order not found at broker - safe to retry with same client_order_id
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
@@ -1003,19 +948,16 @@ class UniversalBrokerGateway:
                         symbol,
                         e,
                     )
-                    
+
                     # Attempt reconciliation for ambiguous errors that might hide accepted orders
-                    _log.info(
-                        "Attempting order reconciliation for client_order_id %s after exception",
-                        client_order_id
-                    )
+                    _log.info("Attempting order reconciliation for client_order_id %s after exception", client_order_id)
                     reconcile_result = self._reconcile_order_status(client_order_id)
-                    
+
                     if reconcile_result.get("found"):
                         # Order was accepted despite exception - return success
                         _log.info(
                             "Order reconciliation successful: order %s was accepted at broker",
-                            reconcile_result.get("ticket")
+                            reconcile_result.get("ticket"),
                         )
                         self._breaker.record_success()
                         return {
@@ -1026,7 +968,7 @@ class UniversalBrokerGateway:
                             "protocol": self.protocol,
                             "reconciled": True,
                         }
-                    
+
                     # Order not found - safe to retry with same client_order_id
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
@@ -1048,7 +990,7 @@ class UniversalBrokerGateway:
                 side = "1" if order_type.upper() == "BUY" else "2"
                 cl_ord_id = f"EQATS_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
-                fix_msg = self.fix_engine.send_new_order_single(
+                self.fix_engine.send_new_order_single(
                     cl_ord_id=cl_ord_id,
                     symbol=symbol,
                     side=side,
@@ -1090,7 +1032,7 @@ class UniversalBrokerGateway:
         _log.error(
             "UniversalBrokerGateway: Order execution failed - no valid execution path for protocol %s. "
             "This indicates a configuration error (missing rest_url) or unsupported protocol.",
-            self.protocol
+            self.protocol,
         )
         self._breaker.record_failure()
         return {
@@ -1190,21 +1132,13 @@ class UniversalBrokerGateway:
                     "error": str(e),
                 }
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             payload = json.dumps({"ticket": str(ticket), "reason": reason}).encode("utf-8")
-            
+
             # Generate authenticated headers with API key and HMAC signature
             endpoint = "/v1/order/close"
-            headers = self._generate_auth_headers(
-                method="POST",
-                endpoint=endpoint,
-                body_data=payload
-            )
-            
+            headers = self._generate_auth_headers(method="POST", endpoint=endpoint, body_data=payload)
+
             req = urllib.request.Request(
                 f"{self.rest_url}{endpoint}",
                 data=payload,
@@ -1243,9 +1177,7 @@ class UniversalBrokerGateway:
                     urllib.error.URLError,
                 ) as e:
                     last_err = f"Network Unreachable: {e}"
-                    _log.error(
-                        "Universal Broker REST Gateway close_order network unreachable: %s", e
-                    )
+                    _log.error("Universal Broker REST Gateway close_order network unreachable: %s", e)
                     self._breaker.record_failure(e)
                     return {
                         "success": False,
@@ -1276,9 +1208,7 @@ class UniversalBrokerGateway:
             try:
                 cl_ord_id = f"EQATS_CLOSE_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
-                fix_msg = self.fix_engine.send_order_cancel_request(
-                    cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket)
-                )
+                self.fix_engine.send_order_cancel_request(cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket))
                 self._breaker.record_success()
                 return {
                     "success": True,
@@ -1329,7 +1259,6 @@ class UniversalBrokerGateway:
                 if not positions or len(positions) == 0:
                     return False
 
-                pos = positions[0]
                 request = {
                     "action": mt5.TRADE_ACTION_SLTP,
                     "position": int(ticket),
@@ -1349,23 +1278,13 @@ class UniversalBrokerGateway:
                 self._breaker.record_failure(e)
                 return False
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
-            payload = json.dumps(
-                {"ticket": str(ticket), "sl": sl, "tp": tp}
-            ).encode("utf-8")
-            
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
+            payload = json.dumps({"ticket": str(ticket), "sl": sl, "tp": tp}).encode("utf-8")
+
             # Generate authenticated headers with API key and HMAC signature
             endpoint = "/v1/order/modify"
-            headers = self._generate_auth_headers(
-                method="POST",
-                endpoint=endpoint,
-                body_data=payload
-            )
-            
+            headers = self._generate_auth_headers(method="POST", endpoint=endpoint, body_data=payload)
+
             req = urllib.request.Request(
                 f"{self.rest_url}{endpoint}",
                 data=payload,
@@ -1395,9 +1314,7 @@ class UniversalBrokerGateway:
                     ConnectionResetError,
                     urllib.error.URLError,
                 ) as e:
-                    _log.error(
-                        "Universal Broker REST Gateway modify_order network unreachable: %s", e
-                    )
+                    _log.error("Universal Broker REST Gateway modify_order network unreachable: %s", e)
                     self._breaker.record_failure(e)
                     return False
                 except Exception as e:
@@ -1417,7 +1334,7 @@ class UniversalBrokerGateway:
             try:
                 cl_ord_id = f"EQATS_MODIFY_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
-                fix_msg = self.fix_engine.send_order_cancel_replace_request(
+                self.fix_engine.send_order_cancel_replace_request(
                     cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket), stop_px=sl, price=tp
                 )
                 self._breaker.record_success()
@@ -1468,19 +1385,11 @@ class UniversalBrokerGateway:
                 _log.error("UniversalBrokerGateway MT5 get_open_orders exception: %s", e)
                 return []
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             # Generate authenticated headers for GET request
             endpoint = "/v1/orders"
-            headers = self._generate_auth_headers(
-                method="GET",
-                endpoint=endpoint,
-                body_data=None
-            )
-            
+            headers = self._generate_auth_headers(method="GET", endpoint=endpoint, body_data=None)
+
             req = urllib.request.Request(
                 f"{self.rest_url}{endpoint}",
                 headers=headers,
@@ -1492,16 +1401,12 @@ class UniversalBrokerGateway:
                     res_data = json.loads(response_data.decode("utf-8"))
                     return res_data.get("orders", [])
             except Exception as e:
-                _log.warning(
-                    "Universal Broker REST Gateway get_open_orders exception: %s", e
-                )
+                _log.warning("Universal Broker REST Gateway get_open_orders exception: %s", e)
                 return []
 
         if self.protocol == "FIX" and self.fix_engine:
             # FIX protocol would require maintaining state or querying via Order Mass Status Request
-            _log.warning(
-                "UniversalBrokerGateway: get_open_orders for FIX requires state tracking"
-            )
+            _log.warning("UniversalBrokerGateway: get_open_orders for FIX requires state tracking")
             return []
 
         # Fallback for unsupported protocols
