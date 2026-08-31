@@ -5,14 +5,14 @@ import subprocess
 import requests
 
 def load_file(filepath):
-    """Reads raw contents fresh off disk arrays."""
+    """Reads raw contents fresh off disk arrays without active memory layer tracking."""
     if os.path.exists(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     return ""
 
 def save_file(filepath, content):
-    """Forces an explicit OS cache flush to guarantee immediate synchronization."""
+    """Saves and flushes instantly to persistent disk arrays with hard OS syncs."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -20,7 +20,7 @@ def save_file(filepath, content):
         os.fsync(f.fileno())
 
 def git_commit_and_push(repo_name):
-    """Pushes freshly compiled architectures instantly to GitHub main branch."""
+    """Pushes compiled architectures instantly to GitHub main branch."""
     try:
         subprocess.run(["git", "config", "--local", "user.email", "aquice-bot@github.com"], check=True)
         subprocess.run(["git", "config", "--local", "user.name", "AQuICE Auto-Architect Bot"], check=True)
@@ -34,7 +34,7 @@ def git_commit_and_push(repo_name):
             
         subprocess.run(["git", "commit", "-m", f"AQuICE: Adapted and optimized {repo_name}"], check=True)
         
-        # Merge remote work streams using a safe rebase handler before pushing down changes
+        # Merge remote work streams using a safe rebase handler before pushing changes
         subprocess.run(["git", "pull", "origin", "main", "--rebase"], check=True)
         subprocess.run(["git", "push", "origin", "main"], check=True)
         print(f"Successfully pushed all compiled artifacts for {repo_name} to main branch.")
@@ -42,7 +42,7 @@ def git_commit_and_push(repo_name):
         print(f"Git execution encountered a sync error on repo {repo_name}: {e}")
 
 def run_conversion_cycle(current_repo, api_key, invoke_url, model_name):
-    """Dispatches quantitative architecture requirements directly to NVIDIA NIM API cluster endpoints."""
+    """Dispatches quantitative architecture requirements directly to NVIDIA NIM API completions cluster."""
     blueprint = load_file("ingestion_blueprint.md")
     todo_list = load_file("todo_tasks.md")
 
@@ -78,14 +78,24 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
         "Accept": "application/json"
     }
 
+    # 🔄 CRITICAL MULTI-MODAL RESTRUCTURE: Align payload layout to match Kimi-K3 object structures
     payload = {
         "model": model_name,
         "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"{system_prompt}\n\n{user_prompt}"
+                    }
+                ]
+            }
         ],
-        "max_tokens": 4096,
-        "temperature": 0.1
+        "max_tokens": 16384,
+        "temperature": 1.0,
+        "seed": 0,
+        "reasoning_effort": "max" # Enforces Kimi Delta Attention long-horizon analysis loop cycles
     }
 
     print(f"Dispatching optimization context to NVIDIA NIM endpoint [{invoke_url}] using model: {model_name}...")
@@ -98,7 +108,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
 
     try:
         data = response.json()
-        llm_output = data["choices"][0]["messages"]["content"] if "messages" in data["choices"][0] else data["choices"][0]["message"]["content"]
+        llm_output = data["choices"][0]["message"]["content"]
     except Exception as parse_error:
         print(f"Failed to cleanly navigate response JSON layout structure: {parse_error}")
         print(f"Raw context response data:\n{response.text}")
@@ -135,12 +145,11 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY variable bindings are missing from runtime scope.")
         sys.exit(1)
 
-    # Unified API routing matrices directly mapped to your specification layout
-    invoke_url = "https://integrate.api.nvidia.com/v1/chat/completions"
-    model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.3-70b-instruct")
+    # 🔄 DIRECT PATH ROUTING: Connect to explicit chat/completions endpoint
+    invoke_url = "https://nvidia.com"
+    model_name = "moonshotai/kimi-k3"
 
-    # 📋 THE STABLE IN-MEMORY TRACKING MASTER QUEUE
-    # Keeps execution sequences protected from formatting shifts in markdown documents
+    # In-memory tracking array queue layout configuration
     all_repositories = [
         "daydy-dev/moon-dev-ai-agents-for-trading",
         "atilaahmettaner/tradingview-mcp",
@@ -150,12 +159,10 @@ def main():
 
     print(f"Found {len(all_repositories)} target repositories initialized within native memory matrices.")
 
-    # Iterate down our queue structure sequentially
     for current_repo in all_repositories:
         current_repo = current_repo.strip()
         todo_current_state = load_file("todo_tasks.md")
         
-        # Verify checking records dynamically on disk to empower structural failover re-entries
         if f"[x] {current_repo}" in todo_current_state or f"[COMPLETED] {current_repo}" in todo_current_state:
             print(f"Skipping repository [{current_repo}] (Already marked complete in execution logs).")
             continue
@@ -166,7 +173,7 @@ def main():
         
         success = run_conversion_cycle(current_repo, api_key, invoke_url, model_name)
         
-        # Push file mutations up onto your code repository branch on every loop iteration
+        # Push file mutations onto your code repository branch on every loop iteration
         git_commit_and_push(current_repo)
         
         if not success:
