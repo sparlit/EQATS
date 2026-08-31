@@ -12,7 +12,7 @@
 ## 🟨 PENDING TASKS
 
 ### 🛠️ Next Target Ingestion Pipelines
-* daydy-dev/moon-dev-ai-agents-for-trading
+* [FAILED] daydy-dev/moon-dev-ai-agents-for-trading
 * atilaahmettaner/tradingview-mcp
 * white-trade-loan/algo-trading-platform
 * Superalgos/Algorithmic-Trading-Plugins
