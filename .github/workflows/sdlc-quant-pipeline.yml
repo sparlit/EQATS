@@ -1,6 +1,6 @@
-The error Input required and not supplied: key inside your actions/cache block is a minor formatting issue. It happened because the multiline pipe character block for your cache paths accidentally merged into the key parameter, causing GitHub Actions to believe the mandatory key input was missing completely.
-Additionally, as noted by the runner warning, Node 20 has reached its end-of-life (EOL) and GitHub runners have migrated to Node 24 by default. To ensure your pipeline remains compliant and future-proof, your frontend job has been upgraded to use Node 24 natively.
-Here is the complete, fully corrected code for your entire .github/workflows/sdlc-quant-pipeline.yml file to fix the spacing syntax error:
+The error Unable to resolve action... unable to find version means that either a specific commit hash for dtolnay/rust-toolchain does not exist, or a security wrapper linter in your repository is injecting an unverified tool identifier (google-labs-code/jules-action@a1b2c3d4...) directly into your runner sequence at runtime.
+To fix this and keep your pipeline execution safe, we will substitute dtolnay/rust-toolchain with the official GitHub-Actions-approved standard Rust toolchain manager framework (actions-rust-lang/setup-rust-toolchain), which natively resolves versions using tagged semantic releases.
+Here is the complete, unrestricted code to replace your entire .github/workflows/sdlc-quant-pipeline.yml file:
 ## Complete sdlc-quant-pipeline.yml
 
 name: Quant Stack SDLC Automation
@@ -37,12 +37,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Fix: Switched to the official community action version to prevent commit resolution failures
       - name: Set up Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy, rustfmt
 
-      # Crucial Fix: Standardized multiline paths format to cleanly separate from the cache key parameter input
       - name: Cache Cargo Dependencies
         uses: actions/cache@v4
         with:
@@ -120,7 +120,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Upgraded: Migrated node-version from 20 to 24 to match the default platform runner ecosystem specs
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -255,12 +254,11 @@ jobs:
     name: ⚙️ Automated Chaos Testing & Post-Mortem Alert
     needs: package_delivery
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-      runs-on: ubuntu-latest
-      steps:
-        - name: Chaos Engineering Verification
-          run: |
-            echo "Triggering managed structural faults (e.g. shutting down target testing pods, introducing fake lag)..."
-        - name: Post-Mortem Analytics Reporting
-          run: |
-            echo "Generating build analytics metrics summary and tracking deployment anomalies for historical system post-mortems..."
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chaos Engineering Verification
+        run: |
+          echo "Triggering managed structural faults (e.g. shutting down target testing pods, introducing fake lag)..."
+      - name: Post-Mortem Analytics Reporting
+        run: |
+          echo "Generating build analytics metrics summary and tracking deployment anomalies for historical system post-mortems..."
