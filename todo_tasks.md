@@ -15,4 +15,4 @@
 * [FAILED] daydy-dev/moon-dev-ai-agents-for-trading
 * [FAILED] atilaahmettaner/tradingview-mcp
 * [FAILED] white-trade-loan/algo-trading-platform
-* Superalgos/Algorithmic-Trading-Plugins
+* [FAILED] Superalgos/Algorithmic-Trading-Plugins
