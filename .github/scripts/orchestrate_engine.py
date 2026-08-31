@@ -102,9 +102,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
 
     # 🔄 Refined state transition updates: handles both checklist formats and asterisks dynamically
     todo_list = load_file("todo_tasks.md")
-    # Case 1: Replace checklist box pattern if present
     todo_list = re.sub(rf'-\s*\[\s*\]\s*{re.escape(current_repo)}', f"- [x] {current_repo}", todo_list)
-    # Case 2: Replace asterisk bullet pattern if present by prefixing with a completed tracker mark
     todo_list = re.sub(rf'\*\s*{re.escape(current_repo)}', f"* [COMPLETED] {current_repo}", todo_list)
     save_file("todo_tasks.md", todo_list)
 
@@ -125,15 +123,14 @@ def main():
 
     todo_raw = load_file("todo_tasks.md")
     
-    # Isolate everything after the pending section to prevent false positive parsing of completed headers
+    # Corrected split boundary mapping to guarantee plain string delivery
     pending_block = todo_raw
     if "## 🟨 PENDING TASKS" in todo_raw:
         pending_block = todo_raw.split("## 🟨 PENDING TASKS")[1]
 
-    # Extract all lines that look like repository pathways (containing a forward slash for owner/repo structure)
+    # Extract lines matching standard repo formats containing a forward slash
     raw_lines = re.findall(r'(?:-\s*\[\s*\]|\*)\s*([a-zA-Z0-9_\-/.\+]+)', pending_block)
     
-    # Filter lines out to exclude random markdown items or headers lacking full repository mappings
     all_repositories = []
     for line in raw_lines:
         line = line.strip()
@@ -151,7 +148,7 @@ def main():
         todo_current_state = load_file("todo_tasks.md")
         
         # Guardrail skipping check to handle safe re-entry loops
-        if f"[x] {current_repo}" in todo_current_state or "[COMPLETED]" in todo_current_state and current_repo in todo_current_state:
+        if f"[x] {current_repo}" in todo_current_state or f"[COMPLETED] {current_repo}" in todo_current_state:
             print(f"Skipping repository [{current_repo}] (Already completed in previous execution history).")
             continue
 
