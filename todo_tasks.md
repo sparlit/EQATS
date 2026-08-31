@@ -13,6 +13,6 @@
 
 ### 🛠️ Next Target Ingestion Pipelines
 * [FAILED] daydy-dev/moon-dev-ai-agents-for-trading
-* atilaahmettaner/tradingview-mcp
+* [FAILED] atilaahmettaner/tradingview-mcp
 * white-trade-loan/algo-trading-platform
 * Superalgos/Algorithmic-Trading-Plugins
