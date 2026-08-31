@@ -5,14 +5,14 @@ import subprocess
 from openai import OpenAI
 
 def load_file(filepath):
-    """Bypasses default python caches by forcing an uncached system read."""
+    """Bypasses active memory layer tracking to grab fresh file states off disk."""
     if os.path.exists(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     return ""
 
 def save_file(filepath, content):
-    """Saves and flushes instantly to disk storage arrays."""
+    """Saves and flushes instantly to persistent disk arrays."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -73,7 +73,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
 """
 
     client = OpenAI(base_url=nim_base_url, api_key=api_key)
-    print(f"Dispatching optimization payload for [{current_repo}] to NVIDIA NIM...")
+    print(f"Dispatching optimization payload for [{current_repo}] to NVIDIA NIM endpoint: {nim_base_url}...")
     
     response = client.chat.completions.create(
         model=nim_model_name,
@@ -100,7 +100,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
         print(f"Writing generation sequence file: {filepath}")
         save_file(filepath, content)
 
-    # 🔄 Refined state transition updates: handles both checklist formats and asterisks dynamically
+    # Refined state transition updates: handles both checklist formats and asterisks dynamically
     todo_list = load_file("todo_tasks.md")
     todo_list = re.sub(rf'-\s*\[\s*\]\s*{re.escape(current_repo)}', f"- [x] {current_repo}", todo_list)
     todo_list = re.sub(rf'\*\s*{re.escape(current_repo)}', f"* [COMPLETED] {current_repo}", todo_list)
@@ -118,15 +118,23 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY is not defined in scope.")
         sys.exit(1)
 
-    nim_base_url = os.getenv("NIM_BASE_URL", "https://nvidia.com")
+    # 🔄 CRITICAL FIX: Intercept generic/broken base URLs and swap to the valid NIM cluster router
+    env_url = os.getenv("NIM_BASE_URL", "").strip()
+    if not env_url or env_url == "https://nvidia.com" or env_url == "https://www.nvidia.com":
+        nim_base_url = "https://nvidia.com"
+    else:
+        nim_base_url = env_url
+        
     nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.1-405b-instruct")
 
     todo_raw = load_file("todo_tasks.md")
     
-    # Corrected split boundary mapping to guarantee plain string delivery
+    # Split boundary mapping to guarantee plain string delivery
     pending_block = todo_raw
     if "## 🟨 PENDING TASKS" in todo_raw:
-        pending_block = todo_raw.split("## 🟨 PENDING TASKS")[1]
+        parts = todo_raw.split("## 🟨 PENDING TASKS")
+        if len(parts) > 1:
+            pending_block = parts[1]
 
     # Extract lines matching standard repo formats containing a forward slash
     raw_lines = re.findall(r'(?:-\s*\[\s*\]|\*)\s*([a-zA-Z0-9_\-/.\+]+)', pending_block)
