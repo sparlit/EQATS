@@ -15,6 +15,9 @@ jobs:
   lint-and-typecheck:
     name: Code Quality & Static Analysis
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -47,6 +50,12 @@ jobs:
 
       - name: Super-Linter
         uses: super-linter/super-linter@v8.7.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: main
+          SAVE_SUPER_LINTER_SUMMARY: false
+          SUPPRESS_FILE_TYPE_SUMMARY: true
 
   rust-core:
     name: Rust Core Compilation & Unit Tests
