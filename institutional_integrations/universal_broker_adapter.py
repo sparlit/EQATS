@@ -23,21 +23,21 @@ import urllib.parse
 import urllib.request
 import uuid
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_quantity,
-    UnifiedIndianBrokerClientAdapter,
-    SEBIBrokerAdapter,
-    KiteConnectAdapter,
-    DhanHQAdapter,
-    SEBIOrderRequest,
-    SEBIOrderResponse,
-    validate_indian_product_tag,
-)
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
+from institutional_integrations.sebi_broker_adapter import (
+    DhanHQAdapter,
+    KiteConnectAdapter,
+    SEBIOrderRequest,
+    UnifiedIndianBrokerClientAdapter,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+    validate_indian_product_tag,
+)
 
 _log = logging.getLogger(__name__)
+
 
 class UniversalBrokerGateway:
     INDIAN_BROKER_PROTOCOLS = {
@@ -281,7 +281,6 @@ class UniversalBrokerGateway:
                 )
             
             # Read next chunk with remaining deadline as timeout
-            remaining_timeout = max(0.1, self.response_deadline_seconds - elapsed)
             try:
                 chunk = response.read(chunk_size)
             except socket.timeout:
@@ -1048,7 +1047,7 @@ class UniversalBrokerGateway:
                 side = "1" if order_type.upper() == "BUY" else "2"
                 cl_ord_id = f"EQATS_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
-                fix_msg = self.fix_engine.send_new_order_single(
+                self.fix_engine.send_new_order_single(
                     cl_ord_id=cl_ord_id,
                     symbol=symbol,
                     side=side,
@@ -1276,7 +1275,7 @@ class UniversalBrokerGateway:
             try:
                 cl_ord_id = f"EQATS_CLOSE_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
-                fix_msg = self.fix_engine.send_order_cancel_request(
+                self.fix_engine.send_order_cancel_request(
                     cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket)
                 )
                 self._breaker.record_success()
@@ -1329,7 +1328,6 @@ class UniversalBrokerGateway:
                 if not positions or len(positions) == 0:
                     return False
 
-                pos = positions[0]
                 request = {
                     "action": mt5.TRADE_ACTION_SLTP,
                     "position": int(ticket),
@@ -1417,7 +1415,7 @@ class UniversalBrokerGateway:
             try:
                 cl_ord_id = f"EQATS_MODIFY_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
-                fix_msg = self.fix_engine.send_order_cancel_replace_request(
+                self.fix_engine.send_order_cancel_replace_request(
                     cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket), stop_px=sl, price=tp
                 )
                 self._breaker.record_success()
