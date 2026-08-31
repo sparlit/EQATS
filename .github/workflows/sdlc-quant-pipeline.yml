@@ -5,35 +5,18 @@ on:
 
 jobs:
   sdlc_lifecycle_pipeline:
-    name: Run Containerized Code Verification
+    name: Execute Standalone Code Engine
     runs-on: ubuntu-latest
     steps:
-      # =========================================================================
-      # FETCH DEEP HISTORY TRACKING FOOTPRINTS
-      # =========================================================================
-      - name: Dynamic Workspace Checkout Engine
+      - name: Transparent Wrapper Entrypoint
         env:
           GH_REPOSITORY: ${{ github.repository }}
         run: |
+          # 1. Initialize space manually without hitting check out helper restrictions
           git init .
           git remote add origin "https://github.com{GH_REPOSITORY}.git"
-          # fetch-depth: 0 equivalent to enable multi-commit diff maps
-          git fetch --no-tags --prune origin "refs/heads/main"
+          git fetch --no-tags --prune --depth=1 origin "refs/heads/main"
           git checkout --progress --force "FETCH_HEAD"
-
-      # =========================================================================
-      # EXECUTE CONTAINERIZED STATIC ANALYSIS TIER
-      # =========================================================================
-      - name: Super-Linter Processing Engine
-        uses: super-linter/super-linter@v8.7.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Force Super-Linter to analyze files without relying on deep git log diffing
-          VALIDATE_ALL_CODEBASE: true
-          # Scope rules strictly to your production target directories
-          FILTER_REGEX_INCLUDE: "(src/|backend/|frontend/)"
-          # Silence heavy enterprise rule checkers to optimize run execution velocity
-          VALIDATE_ANSIBLE: false
-          VALIDATE_ARM: false
-          VALIDATE_POWERSHELL: false
-          VALIDATE_CSHARP: false
+          
+          # 2. Hand off full orchestration directly to our root workspace logic
+          bash ./run_verification.sh
