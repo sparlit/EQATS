@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -108,7 +110,7 @@ jobs:
 
       - name: Run Pytest Test Suite
         run: |
-          python -m pytest -vv -s -k "not gui_integration"
+          python3 -m pytest -n auto
 
   build-artifacts:
     name: Package Release Artifacts
