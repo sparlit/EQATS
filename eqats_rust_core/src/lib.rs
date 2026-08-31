@@ -1,3 +1,4 @@
+pub mod tectonicdb_engine;
 use rayon::prelude::*;
 use std::os::raw::{c_char, c_double, c_int};
 
