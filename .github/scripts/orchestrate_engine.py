@@ -73,7 +73,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
 """
 
     client = OpenAI(base_url=nim_base_url, api_key=api_key)
-    print(f"Dispatching optimization payload for [{current_repo}] to NVIDIA NIM endpoint: {nim_base_url}...")
+    print(f"Dispatching optimization payload for [{current_repo}] to NVIDIA NIM endpoint: {nim_base_url} using model {nim_model_name}...")
     
     response = client.chat.completions.create(
         model=nim_model_name,
@@ -118,18 +118,18 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY is not defined in scope.")
         sys.exit(1)
 
-    # Force strict path routing assignment
+    # Force strict production path gateways and update model identifier strings
     nim_base_url = "https://integrate.api.nvidia.com/v1"
-    nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.1-405b-instruct")
+    nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.3-70b-instruct")
 
     todo_raw = load_file("todo_tasks.md")
     
-    # 🔄 CRITICAL STR FIX: Safely parse text segment as a pure string object rather than a list
+    # 🔄 FIXED STR OBJECT ASSIGNMENT: Force part extraction string index slice
     pending_block = todo_raw
     if "## 🟨 PENDING TASKS" in todo_raw:
         parts = todo_raw.split("## 🟨 PENDING TASKS")
         if len(parts) > 1:
-            pending_block = parts[1] # Extract text block after headers correctly
+            pending_block = parts[1] # <--- FIX: Isolate string segment safely
 
     # Extract lines matching standard repo formats containing a forward slash
     raw_lines = re.findall(r'(?:-\s*\[\s*\]|\*)\s*([a-zA-Z0-9_\-/.\+]+)', pending_block)
