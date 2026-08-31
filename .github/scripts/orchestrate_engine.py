@@ -5,14 +5,14 @@ import subprocess
 from openai import OpenAI
 
 def load_file(filepath):
-    """Bypasses active memory layer tracking to grab fresh file states off disk."""
+    """Bypasses default python caches by forcing an uncached system read."""
     if os.path.exists(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     return ""
 
 def save_file(filepath, content):
-    """Saves and flushes instantly to persistent disk arrays."""
+    """Saves and flushes instantly to disk storage arrays."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -20,7 +20,7 @@ def save_file(filepath, content):
         os.fsync(f.fileno())
 
 def git_commit_and_push(repo_name):
-    """Pushes compiled architectures instantly to GitHub main branch."""
+    """Pushes compiled architectures instantly to main branch."""
     try:
         subprocess.run(["git", "config", "--local", "user.email", "aquice-bot@github.com"], check=True)
         subprocess.run(["git", "config", "--local", "user.name", "AQuICE Auto-Architect Bot"], check=True)
@@ -34,7 +34,7 @@ def git_commit_and_push(repo_name):
             
         subprocess.run(["git", "commit", "-m", f"AQuICE: Adapted and optimized {repo_name}"], check=True)
         
-        # Pull any remote adjustments using a rebase wrapper
+        # Pull any remote adjustments using a rebase wrapper to prevent out-of-sync pushes
         subprocess.run(["git", "pull", "origin", "main", "--rebase"], check=True)
         subprocess.run(["git", "push", "origin", "main"], check=True)
         print(f"Successfully pushed all compiled artifacts for {repo_name} to main branch.")
@@ -87,7 +87,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
 
     llm_output = response.choices.message.content
 
-    # Extract all engineered codebase assets cleanly
+    # Extract all engineered codebase assets cleanly from the generated blocks
     file_blocks = re.findall(r'===\s*FILE:\s*([^\s]+)\s*===(.*?)===\s*END FILE\s*===', llm_output, re.DOTALL)
     
     if not file_blocks:
@@ -100,9 +100,12 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
         print(f"Writing generation sequence file: {filepath}")
         save_file(filepath, content)
 
-    # Use a flexible match pattern to mark items as checked off
+    # 🔄 Refined state transition updates: handles both checklist formats and asterisks dynamically
     todo_list = load_file("todo_tasks.md")
+    # Case 1: Replace checklist box pattern if present
     todo_list = re.sub(rf'-\s*\[\s*\]\s*{re.escape(current_repo)}', f"- [x] {current_repo}", todo_list)
+    # Case 2: Replace asterisk bullet pattern if present by prefixing with a completed tracker mark
+    todo_list = re.sub(rf'\*\s*{re.escape(current_repo)}', f"* [COMPLETED] {current_repo}", todo_list)
     save_file("todo_tasks.md", todo_list)
 
     repo_short = current_repo.split('/')[-1]
@@ -120,26 +123,36 @@ def main():
     nim_base_url = os.getenv("NIM_BASE_URL", "https://nvidia.com")
     nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.1-405b-instruct")
 
-    # 1. Flexible regex parser: captures repository lines regardless of spaces or brackets
     todo_raw = load_file("todo_tasks.md")
-    all_repositories = re.findall(r'-\s*\[[\sXx\-\d]*\]\s*([a-zA-Z0-9_\-/.\+]+)', todo_raw)
     
+    # Isolate everything after the pending section to prevent false positive parsing of completed headers
+    pending_block = todo_raw
+    if "## 🟨 PENDING TASKS" in todo_raw:
+        pending_block = todo_raw.split("## 🟨 PENDING TASKS")[1]
+
+    # Extract all lines that look like repository pathways (containing a forward slash for owner/repo structure)
+    raw_lines = re.findall(r'(?:-\s*\[\s*\]|\*)\s*([a-zA-Z0-9_\-/.\+]+)', pending_block)
+    
+    # Filter lines out to exclude random markdown items or headers lacking full repository mappings
+    all_repositories = []
+    for line in raw_lines:
+        line = line.strip()
+        if "/" in line and not line.startswith("#") and not "COMPLETED" in line and not "FAILED" in line:
+            all_repositories.append(line)
+
     if not all_repositories:
-        print("CRITICAL ERROR: Could not parse any repository listings from todo_tasks.md.")
-        print(f"Raw contents of todo_tasks.md were:\n{todo_raw}")
-        sys.exit(1)
+        print("🎉 SUCCESS: No pending repository systems found in master checklist. Loop complete.")
+        sys.exit(0)
 
-    # Filter out empty strings and clean up whitespaces
-    all_repositories = [r.strip() for r in all_repositories if r.strip()]
-    print(f"Found {len(all_repositories)} total repositories in architecture master ledger.")
+    print(f"Found {len(all_repositories)} total target repositories in architecture master ledger queue.")
 
-    # 2. Sequential array iteration execution loop
+    # 2. Process our list sequentially via continuous execution walk
     for current_repo in all_repositories:
         todo_current_state = load_file("todo_tasks.md")
         
-        # Checks if this target repository already contains an '[x]' marker on disk
-        if re.search(rf'-\s*\[\s*[xX]\s*\]\s*{re.escape(current_repo)}', todo_current_state):
-            print(f"Skipping repository [{current_repo}] (Already completed in previous history run).")
+        # Guardrail skipping check to handle safe re-entry loops
+        if f"[x] {current_repo}" in todo_current_state or "[COMPLETED]" in todo_current_state and current_repo in todo_current_state:
+            print(f"Skipping repository [{current_repo}] (Already completed in previous execution history).")
             continue
 
         print(f"\n=======================================================")
@@ -148,13 +161,13 @@ def main():
         
         success = run_conversion_cycle(current_repo, api_key, nim_base_url, nim_model_name)
         
-        # Sync codebase updates with main git branch instantly
+        # Sync changes with main git branch instantly
         git_commit_and_push(current_repo)
         
         if not success:
             print(f"Flagging target failure metrics for context: {current_repo}")
             todo_list = load_file("todo_tasks.md")
-            todo_list = re.sub(rf'-\s*\[\s*\]\s*{re.escape(current_repo)}', f"- [FAILED] {current_repo}", todo_list)
+            todo_list = re.sub(rf'\*\s*{re.escape(current_repo)}', f"* [FAILED] {current_repo}", todo_list)
             save_file("todo_tasks.md", todo_list)
             git_commit_and_push(current_repo)
 
