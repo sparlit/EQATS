@@ -5,14 +5,14 @@ import subprocess
 from openai import OpenAI
 
 def load_file(filepath):
-    """Forbids memory reference leaks by reading raw contents fresh off disk."""
+    """Bypasses active memory layer tracking to grab fresh file states off disk."""
     if os.path.exists(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     return ""
 
 def save_file(filepath, content):
-    """Forces an explicit OS cache sync to ensure persistent writes."""
+    """Saves and flushes instantly to persistent disk arrays."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -20,12 +20,11 @@ def save_file(filepath, content):
         os.fsync(f.fileno())
 
 def git_commit_and_push(repo_name):
-    """Pushes freshly compiled architectures instantly to GitHub."""
+    """Pushes compiled architectures instantly to GitHub main branch."""
     try:
         subprocess.run(["git", "config", "--local", "user.email", "aquice-bot@github.com"], check=True)
         subprocess.run(["git", "config", "--local", "user.name", "AQuICE Auto-Architect Bot"], check=True)
         
-        # Consolidate staging maps
         subprocess.run(["git", "add", "."], check=True)
         
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
@@ -35,7 +34,7 @@ def git_commit_and_push(repo_name):
             
         subprocess.run(["git", "commit", "-m", f"AQuICE: Adapted and optimized {repo_name}"], check=True)
         
-        # Use rebase flag on push sequence to gracefully handle workflow run sync overhead
+        # Pull any remote adjustments using a rebase wrapper
         subprocess.run(["git", "pull", "origin", "main", "--rebase"], check=True)
         subprocess.run(["git", "push", "origin", "main"], check=True)
         print(f"Successfully pushed all compiled artifacts for {repo_name} to main branch.")
@@ -101,7 +100,7 @@ Provide the comprehensive structural steelman deconstruction, optimized multi-th
         print(f"Writing generation sequence file: {filepath}")
         save_file(filepath, content)
 
-    # Apply precise state transition updates to local files
+    # Use a flexible match pattern to mark items as checked off
     todo_list = load_file("todo_tasks.md")
     todo_list = re.sub(rf'-\s*\[\s*\]\s*{re.escape(current_repo)}', f"- [x] {current_repo}", todo_list)
     save_file("todo_tasks.md", todo_list)
@@ -121,24 +120,26 @@ def main():
     nim_base_url = os.getenv("NIM_BASE_URL", "https://nvidia.com")
     nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.1-405b-instruct")
 
-    # 1. Parse entire checklist into memory on boot to protect sequence tracking
+    # 1. Flexible regex parser: captures repository lines regardless of spaces or brackets
     todo_raw = load_file("todo_tasks.md")
-    all_repositories = re.findall(r'-\s*\[[\sXx]\]\s*([a-zA-Z0-9_\-/]+)', todo_raw)
+    all_repositories = re.findall(r'-\s*\[[\sXx\-\d]*\]\s*([a-zA-Z0-9_\-/.\+]+)', todo_raw)
     
     if not all_repositories:
         print("CRITICAL ERROR: Could not parse any repository listings from todo_tasks.md.")
+        print(f"Raw contents of todo_tasks.md were:\n{todo_raw}")
         sys.exit(1)
 
+    # Filter out empty strings and clean up whitespaces
+    all_repositories = [r.strip() for r in all_repositories if r.strip()]
     print(f"Found {len(all_repositories)} total repositories in architecture master ledger.")
 
-    # 2. Sequential execution walk down the in-memory array
+    # 2. Sequential array iteration execution loop
     for current_repo in all_repositories:
-        current_repo = current_repo.strip()
-        
-        # Verify the current state dynamically on disk to enable recovery modes
         todo_current_state = load_file("todo_tasks.md")
-        if f"- [x] {current_repo}" in todo_current_state or f"- [X] {current_repo}" in todo_current_state:
-            print(f"Skipping repository [{current_repo}] (Already processed in previous history run).")
+        
+        # Checks if this target repository already contains an '[x]' marker on disk
+        if re.search(rf'-\s*\[\s*[xX]\s*\]\s*{re.escape(current_repo)}', todo_current_state):
+            print(f"Skipping repository [{current_repo}] (Already completed in previous history run).")
             continue
 
         print(f"\n=======================================================")
@@ -147,7 +148,7 @@ def main():
         
         success = run_conversion_cycle(current_repo, api_key, nim_base_url, nim_model_name)
         
-        # Sync changes with main git branch instantly
+        # Sync codebase updates with main git branch instantly
         git_commit_and_push(current_repo)
         
         if not success:
