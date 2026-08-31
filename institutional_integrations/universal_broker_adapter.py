@@ -362,77 +362,77 @@ class UniversalBrokerGateway:
             self.is_connected_flag = True
             return True
 
-            if self.protocol == "FIX":
-                try:
-                    target_host = self.broker_config.get("rest_url", "127.0.0.1")
-                    target_port = int(
-                        self.broker_config.get("extra_params", {}).get("port", 9800)
-                    )
-                    self.fix_engine.connect(target_host, target_port)
-                    self.fix_engine.send_logon()
-                    self.is_connected_flag = True
-                    return True
-                except Exception as e:
-                    print(f"Universal Broker Gateway [FIX] Connection Error: {e}")
-                    self.is_connected_flag = False
-                    return False
-
-            if self.protocol == "MT5":
-                try:
-                    import MetaTrader5 as mt5
-
-                    if not mt5.initialize():
-                        self.is_connected_flag = False
-                        return False
-                    self.is_connected_flag = True
-                    return True
-                except ImportError:
-                    print(
-                        "Universal Broker Gateway [MT5]: MetaTrader5 package not available (requires Windows)."
-                    )
-                    self.is_connected_flag = False
-                    return False
-
-            # REST_WS, IBKR, CTRADER, CCXT protocol interfaces require rest_url
-            if self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
-                # Validate that rest_url is configured for REST-like protocols
-                if not hasattr(self, "rest_url") or not self.rest_url:
-                    _log.error(
-                        "UniversalBrokerGateway: Protocol %s requires 'rest_url' configuration. "
-                        "Connection rejected to prevent fail-open execution.",
-                        self.protocol
-                    )
-                    print(
-                        f"Universal Broker Gateway [{self.protocol}] Connection Error: "
-                        f"'rest_url' must be configured for protocol {self.protocol}. "
-                        f"Cannot establish connection without valid endpoint."
-                    )
-                    self.is_connected_flag = False
-                    return False
-                
-                # Endpoint is configured, mark as connected
-                self.is_connected_flag = True
-                print(
-                    f"Universal Broker Gateway: Connected via protocol [{self.protocol}] "
-                    f"for Broker [{self.broker_config.get('broker_name', 'Default')}] "
-                    f"at endpoint {self.rest_url}"
+        if self.protocol == "FIX":
+            try:
+                target_host = self.broker_config.get("rest_url", "127.0.0.1")
+                target_port = int(
+                    self.broker_config.get("extra_params", {}).get("port", 9800)
                 )
+                self.fix_engine.connect(target_host, target_port)
+                self.fix_engine.send_logon()
+                self.is_connected_flag = True
                 return True
+            except Exception as e:
+                print(f"Universal Broker Gateway [FIX] Connection Error: {e}")
+                self.is_connected_flag = False
+                return False
+
+        if self.protocol == "MT5":
+            try:
+                import MetaTrader5 as mt5
+
+                if not mt5.initialize():
+                    self.is_connected_flag = False
+                    return False
+                self.is_connected_flag = True
+                return True
+            except ImportError:
+                print(
+                    "Universal Broker Gateway [MT5]: MetaTrader5 package not available (requires Windows)."
+                )
+                self.is_connected_flag = False
+                return False
+
+        # REST_WS, IBKR, CTRADER, CCXT protocol interfaces require rest_url
+        if self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
+            # Validate that rest_url is configured for REST-like protocols
+            if not hasattr(self, "rest_url") or not self.rest_url:
+                _log.error(
+                    "UniversalBrokerGateway: Protocol %s requires 'rest_url' configuration. "
+                    "Connection rejected to prevent fail-open execution.",
+                    self.protocol
+                )
+                print(
+                    f"Universal Broker Gateway [{self.protocol}] Connection Error: "
+                    f"'rest_url' must be configured for protocol {self.protocol}. "
+                    f"Cannot establish connection without valid endpoint."
+                )
+                self.is_connected_flag = False
+                return False
             
-            # Reject unsupported protocols to prevent fail-open fallback
-            _log.error(
-                "UniversalBrokerGateway: Unsupported protocol '%s'. "
-                "Supported protocols: %s. Connection rejected.",
-                self.protocol,
-                ", ".join(self.SUPPORTED_PROTOCOLS)
-            )
+            # Endpoint is configured, mark as connected
+            self.is_connected_flag = True
             print(
-                f"Universal Broker Gateway Connection Error: "
-                f"Protocol '{self.protocol}' is not supported. "
-                f"Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}"
+                f"Universal Broker Gateway: Connected via protocol [{self.protocol}] "
+                f"for Broker [{self.broker_config.get('broker_name', 'Default')}] "
+                f"at endpoint {self.rest_url}"
             )
-            self.is_connected_flag = False
-            return False
+            return True
+
+        # Reject unsupported protocols to prevent fail-open fallback
+        _log.error(
+            "UniversalBrokerGateway: Unsupported protocol '%s'. "
+            "Supported protocols: %s. Connection rejected.",
+            self.protocol,
+            ", ".join(self.SUPPORTED_PROTOCOLS)
+        )
+        print(
+            f"Universal Broker Gateway Connection Error: "
+            f"Protocol '{self.protocol}' is not supported. "
+            f"Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}"
+        )
+        self.is_connected_flag = False
+        return False
 
     def is_connected(self):
         """Returns active connection status."""

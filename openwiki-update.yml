@@ -38,7 +38,7 @@ jobs:
         run: |
           # Copy the package.json to use for installation
           cp openwiki-package.json package.json
-          
+
           # If package-lock.json doesn't exist, generate it (first run only)
           # On subsequent runs, the committed lockfile ensures reproducible builds
           if [ ! -f openwiki-package-lock.json ]; then
@@ -48,7 +48,7 @@ jobs:
           else
             cp openwiki-package-lock.json package-lock.json
           fi
-          
+
           # Install using the lockfile for integrity-checked, reproducible installation
           npm ci
 
@@ -65,23 +65,23 @@ jobs:
           **/*credentials*.py
           **/*secrets*.py
           migrate_credentials.py
-          
+
           # Exclude database files that may contain sensitive data
           *.db
           *.db-journal
           *.db-shm
           *.db-wal
-          
+
           # Exclude environment and configuration files
           .env
           .env.*
           **/*.env
           config.py
-          
+
           # Exclude test files that may contain mock credentials
           test_credential*.py
           test_*_security.py
-          
+
           # Exclude build artifacts and dependencies
           __pycache__/
           *.pyc
@@ -90,23 +90,23 @@ jobs:
           target/
           *.exe
           *.pyd
-          
+
           # Exclude logs that may contain sensitive runtime data
           *.log
           council_logs/
-          
+
           # Exclude proprietary trading strategies and algorithms
           institutional_integrations/
           brain*.py
           predictive_brain.py
           eqats_planes.py
           indicators.py
-          
+
           # Exclude compiled binaries and Rust code
           *.ex5
           *.mq5
           eqats_rust_core/
-          
+
           # Exclude API integration files that may contain keys
           ft.txt
           EOF

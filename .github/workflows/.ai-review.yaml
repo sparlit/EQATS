@@ -14,9 +14,9 @@ llm:
   # LLM metadata configuration (depends on provider).
   meta:
     # --- OpenAI ---
-    model: gpt-4o-mini  # e.g., gpt-4o, gpt-4o-mini, gpt-3.5-turbo, gpt-4.1, gpt-4.1-mini, gpt-5
-    max_tokens: 1200    # (optional) Maximum tokens for completion
-    temperature: 0.3    # (optional) Creativity of responses (0 = deterministic)
+    model: gpt-4o-mini # e.g., gpt-4o, gpt-4o-mini, gpt-3.5-turbo, gpt-4.1, gpt-4.1-mini, gpt-5
+    max_tokens: 1200 # (optional) Maximum tokens for completion
+    temperature: 0.3 # (optional) Creativity of responses (0 = deterministic)
     # reasoning:                  # (optional) OpenAI Responses API options for reasoning models
     #   effort: medium            # none | minimal | low | medium | high | xhigh | max
     #   summary: concise          # auto | concise | detailed
@@ -70,9 +70,9 @@ llm:
     #  - false → disable SSL verification (use ONLY for test / on-prem environments)
     #  - path  → path to a custom CA bundle, e.g. /etc/ssl/certs/internal_ca.pem
     verify: true
-    timeout: 120                        # Request timeout in seconds
-    api_url: https://api.openai.com/v1  # Base URL of the provider API
-    api_token: ${OPENAI_API_KEY}        # API token (set in env/CI variables)
+    timeout: 120 # Request timeout in seconds
+    api_url: https://api.openai.com/v1 # Base URL of the provider API
+    api_token: ${OPENAI_API_KEY} # API token (set in env/CI variables)
 
     # --- Proxy ---
     # Optional HTTP/HTTPS proxy URL for connecting to the LLM provider.
@@ -127,8 +127,8 @@ vcs:
   # Pipeline/MR/PR context.
   pipeline:
     # --- GitLab ---
-    project_id: ${CI_PROJECT_ID}               # GitLab project ID (auto-populated in CI)
-    merge_request_id: ${CI_MERGE_REQUEST_IID}  # Merge Request IID (auto-populated in CI)
+    project_id: ${CI_PROJECT_ID} # GitLab project ID (auto-populated in CI)
+    merge_request_id: ${CI_MERGE_REQUEST_IID} # Merge Request IID (auto-populated in CI)
 
     # --- GitHub ---
     # owner: ${GITHUB_REPOSITORY_OWNER}  # Repo owner (e.g. "my-org")
@@ -157,7 +157,6 @@ vcs:
     # repo: ${GITEA_REPOSITORY_NAME}    # Repo name  (e.g. "my-service")
     # pull_number: ${PR_NUMBER}         # Pull Request number
 
-
   # HTTP client configuration for VCS.
   http_client:
     # SSL verification:
@@ -166,7 +165,7 @@ vcs:
     #  - path  → path to a custom CA bundle, e.g. /etc/ssl/certs/internal_ca.pem
     verify: true
 
-    timeout: 120  # Request timeout in seconds
+    timeout: 120 # Request timeout in seconds
 
     # --- Proxy ---
     # Optional HTTP/HTTPS proxy URL for connecting to the VCS provider.
@@ -174,8 +173,8 @@ vcs:
     # proxy_url: http://proxy.example.com:8080
 
     # --- GitLab ---
-    api_url: ${CI_SERVER_URL}       # Base GitLab server URL
-    api_token: ${CI_JOB_TOKEN}      # Job token or personal access token
+    api_url: ${CI_SERVER_URL} # Base GitLab server URL
+    api_token: ${CI_JOB_TOKEN} # Job token or personal access token
 
     # --- GitHub ---
     # api_url: https://api.github.com
@@ -203,8 +202,8 @@ vcs:
 
   # Pagination settings for API calls.
   pagination:
-    per_page: 100  # Number of items per API page (default: 100)
-    max_pages: 5   # Maximum number of pages to fetch before stopping (default: 5)
+    per_page: 100 # Number of items per API page (default: 100)
+    max_pages: 5 # Maximum number of pages to fetch before stopping (default: 5)
 
 core:
   # ==============================
@@ -337,7 +336,7 @@ prompt:
   #   - default_agent.md
   #
   agent_prompt_files:
-    - ./prompts/default_agent.md  # Agent behavior prompt
+    - ./prompts/default_agent.md # Agent behavior prompt
 
   # system_agent_prompt_files (joined in order).
   # These define the strict system contract for agent mode:
@@ -349,7 +348,7 @@ prompt:
   #   - default_system_agent.md
   #
   system_agent_prompt_files:
-    - ./prompts/default_system_agent.md  # System agent prompt
+    - ./prompts/default_system_agent.md # System agent prompt
 
   # Whether to include built-in default system agent prompts.
   # true  (default) → always prepend default_system_agent.md
@@ -367,7 +366,7 @@ prompt:
   #   - default_inline.md
   #
   inline_prompt_files:
-    - ./prompts/default_inline.md  # MR-specific inline prompt
+    - ./prompts/default_inline.md # MR-specific inline prompt
 
   # system_inline_prompt_files (joined in order).
   # These define the *contract* with the model for inline review:
@@ -379,7 +378,7 @@ prompt:
   #   - default_system_inline.md
   #
   system_inline_prompt_files:
-    - ./prompts/default_system_inline.md  # System inline prompt
+    - ./prompts/default_system_inline.md # System inline prompt
 
   # Whether to include built-in default system inline prompts.
   # true  (default) → always prepend default_system_inline.md
@@ -398,7 +397,7 @@ prompt:
   #   - default_context.md
   #
   context_prompt_files:
-    - ./prompts/default_context.md  # MR-specific context prompt
+    - ./prompts/default_context.md # MR-specific context prompt
 
   # system_context_prompt_files (joined in order).
   # These define the *contract* with the model for context review:
@@ -410,7 +409,7 @@ prompt:
   #   - default_system_context.md
   #
   system_context_prompt_files:
-    - ./prompts/default_system_context.md  # System context prompt
+    - ./prompts/default_system_context.md # System context prompt
 
   # Whether to include built-in default system context prompts.
   # true  (default) → always prepend default_system_context.md
@@ -428,7 +427,7 @@ prompt:
   #   - default_summary.md
   #
   summary_prompt_files:
-    - ./prompts/default_summary.md  # MR-specific summary prompt
+    - ./prompts/default_summary.md # MR-specific summary prompt
 
   # system_summary_prompt_files (joined in order).
   # These define the *contract* with the model for summary review:
@@ -440,7 +439,7 @@ prompt:
   #   - default_system_summary.md
   #
   system_summary_prompt_files:
-    - ./prompts/default_system_summary.md  # System summary prompt
+    - ./prompts/default_system_summary.md # System summary prompt
 
   # Whether to include built-in default system summary prompts.
   # true  (default) → always prepend default_system_summary.md
@@ -460,7 +459,7 @@ prompt:
   #   - default_inline_reply.md
   #
   inline_reply_prompt_files:
-    - ./prompts/default_inline_reply.md  # MR-specific inline reply prompt
+    - ./prompts/default_inline_reply.md # MR-specific inline reply prompt
 
   # system_inline_reply_prompt_files (joined in order).
   # These define the *contract* with the model for inline reply generation:
@@ -472,7 +471,7 @@ prompt:
   #   - default_system_inline_reply.md
   #
   system_inline_reply_prompt_files:
-    - ./prompts/default_system_inline_reply.md  # System inline reply prompt
+    - ./prompts/default_system_inline_reply.md # System inline reply prompt
 
   # Whether to include built-in default system inline reply prompts.
   # true  (default) → always prepend default_system_inline_reply.md
@@ -492,7 +491,7 @@ prompt:
   #   - default_summary_reply.md
   #
   summary_reply_prompt_files:
-    - ./prompts/default_summary_reply.md  # MR-specific summary reply prompt
+    - ./prompts/default_summary_reply.md # MR-specific summary reply prompt
 
   # system_summary_reply_prompt_files (joined in order).
   # These define the *contract* with the model for summary reply generation:
@@ -504,7 +503,7 @@ prompt:
   #   - default_system_summary_reply.md
   #
   system_summary_reply_prompt_files:
-    - ./prompts/default_system_summary_reply.md  # System summary reply prompt
+    - ./prompts/default_system_summary_reply.md # System summary reply prompt
 
   # Whether to include built-in default system summary reply prompts.
   # true  (default) → always prepend default_system_summary_reply.md
@@ -545,8 +544,8 @@ review:
   context_lines: 10
 
   # File filters.
-  allow_changes: [ ]   # List of glob patterns to explicitly allow review (empty = all allowed)
-  ignore_changes: [ ]  # List of glob patterns to ignore, e.g. ["docs/*", "README.md"]
+  allow_changes: [] # List of glob patterns to explicitly allow review (empty = all allowed)
+  ignore_changes: [] # List of glob patterns to ignore, e.g. ["docs/*", "README.md"]
 
   # Skip files that were only renamed/moved without content changes.
   # Rename + content changes are still reviewed.
@@ -558,8 +557,8 @@ review:
 
   # Limit number of AI-generated comments to avoid noise.
   # If None → no limit is applied.
-  max_inline_comments: null   # Maximum comments for inline review (per file)
-  max_context_comments: null  # Maximum comments for context review (per MR)
+  max_inline_comments: null # Maximum comments for inline review (per file)
+  max_context_comments: null # Maximum comments for context review (per MR)
 
   # --- Inline comment fallback ---
   # Controls whether a failed inline comment should fall back

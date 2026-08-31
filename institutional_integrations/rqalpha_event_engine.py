@@ -1,13 +1,15 @@
 """
 RQAlpha & PyBroker Event-Driven Portfolio & Order Matching Engine.
 Provides event-driven backtesting execution, slice-based simulation, portfolio tracking,
-bar execution context, and dynamic ATR slippage models.
+bar execution context, dynamic ATR slippage models, and Indian stock market (NSE/BSE) session/tick rules.
 """
 
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Any, Optional
 import math
+from .indian_market_state_machine import IndianMarketStateMachine, round_to_indian_tick_size
+from .rust_bridge import rust_accelerated_rqalpha_process_bar_orders
 
 
 class EventType(Enum):
@@ -51,7 +53,7 @@ class EventOrder:
     filled_quantity: float = 0.0
     avg_fill_price: float = 0.0
     status: str = "PENDING"
-    product: Optional[str] = None
+    product: Optional[str] = "CNC"
 
 
 @dataclass
@@ -65,13 +67,16 @@ class PositionRecord:
 
 class RQAlphaEventEngine:
     """
-    Event-driven portfolio accounting and execution simulator adapted from RQAlpha & PyBroker.
+    Event-driven portfolio accounting and execution simulator adapted from RQAlpha & PyBroker,
+    fully integrated with Indian Market constraints (0.05 INR tick rounding, session validation)
+    and high-performance Rust execution acceleration.
     """
 
-    def __init__(self, initial_capital: float = 100000.0, commission_rate: float = 0.0001):
+    def __init__(self, initial_capital: float = 100000.0, commission_rate: float = 0.0001, enforce_indian_rules: bool = False):
         self.initial_capital: float = initial_capital
         self.cash: float = initial_capital
         self.commission_rate: float = commission_rate
+        self.enforce_indian_rules: bool = enforce_indian_rules
         self.positions: Dict[str, PositionRecord] = {}
         self.pending_orders: List[EventOrder] = []
         self.completed_orders: List[EventOrder] = []
@@ -80,6 +85,11 @@ class RQAlphaEventEngine:
     def submit_order(self, order: EventOrder) -> bool:
         if order.quantity <= 0:
             return False
+
+        # Enforce Indian tick rounding on order target price if limit and enforce_indian_rules enabled
+        if self.enforce_indian_rules and order.price > 0:
+            order.price = round_to_indian_tick_size(order.price)
+
         self.pending_orders.append(order)
         return True
 
@@ -88,6 +98,8 @@ class RQAlphaEventEngine:
         if bar.symbol not in self.positions:
             self.positions[bar.symbol] = PositionRecord(symbol=bar.symbol)
 
+        is_indian = self.enforce_indian_rules or bar.symbol.endswith((".NS", ".BO", "NSE", "BSE")) or bar.symbol in ("SBIN", "RELIANCE", "TCS", "INFY", "HDFCBANK")
+
         remaining_orders: List[EventOrder] = []
         for order in self.pending_orders:
             if order.symbol != bar.symbol:
@@ -95,21 +107,31 @@ class RQAlphaEventEngine:
                 continue
 
             fill_price = 0.0
+            fill_info = None
+
             if order.order_type == OrderType.MARKET:
-                # Add ATR slippage
-                if order.side == OrderSide.BUY:
-                    fill_price = bar.close + atr_slippage_pips
-                else:
-                    fill_price = bar.close - atr_slippage_pips
+                # Use Rust-accelerated C-ABI process bar function with fallback
+                fill_info = rust_accelerated_rqalpha_process_bar_orders(
+                    bar_close=bar.close,
+                    atr_slippage=atr_slippage_pips,
+                    tick_size=0.05 if is_indian else 0.0001,
+                    is_buy=(order.side == OrderSide.BUY),
+                    quantity=order.quantity,
+                    price=order.price,
+                    commission_rate=self.commission_rate,
+                )
+                fill_price = fill_info.get("fill_price", bar.close)
             elif order.order_type == OrderType.LIMIT:
                 if order.side == OrderSide.BUY and bar.low <= order.price:
-                    fill_price = min(order.price, bar.high)
+                    raw_p = min(order.price, bar.high)
+                    fill_price = round_to_indian_tick_size(raw_p) if is_indian else raw_p
                 elif order.side == OrderSide.SELL and bar.high >= order.price:
-                    fill_price = max(order.price, bar.low)
+                    raw_p = max(order.price, bar.low)
+                    fill_price = round_to_indian_tick_size(raw_p) if is_indian else raw_p
 
             if fill_price > 0.0:
                 cost = fill_price * order.quantity
-                commission = cost * self.commission_rate
+                commission = fill_info.get("commission", cost * self.commission_rate) if fill_info else cost * self.commission_rate
                 pos = self.positions[bar.symbol]
 
                 if order.side == OrderSide.BUY:
@@ -176,4 +198,5 @@ class RQAlphaEventEngine:
             "open_positions_count": sum(1 for p in self.positions.values() if p.quantity != 0),
             "pending_orders_count": len(self.pending_orders),
             "completed_orders_count": len(self.completed_orders),
+            "magic_number": 9100001,
         }
