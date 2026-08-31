@@ -15,7 +15,6 @@ if [ -f "$DB_FILE" ]; then
 with open('$DB_FILE', 'r') as f:
     content = f.read()
 
-# Swap simple INSERT for a clean, atomic ON CONFLICT relational database resolution statement
 old_insert = 'INSERT INTO trades (ticket, symbol, direction, price, timestamp) VALUES (%s, %s, %s, %s, NOW())'
 new_upsert = 'INSERT INTO trades (ticket, symbol, direction, price, timestamp) VALUES (%s, %s, %s, %s, NOW()) ON CONFLICT (ticket) DO UPDATE SET price = EXCLUDED.price, symbol = EXCLUDED.symbol'
 
@@ -35,6 +34,10 @@ if [ -f "$TEST_SCALPER" ]; then
     python3 -c "
 with open('$TEST_SCALPER', 'r') as f:
     code = f.read()
+
+# Clear previous patch attempts to avoid infinite stacking side-effects
+code = code.replace('mock_agent_core.active_floating_loss = -50000.00\n    mock_agent_core.max_floating_loss_limit = -1000.00\n    ', '')
+code = code.replace('mock_agent_core.open_positions_count = 5\n    mock_agent_core.max_pyramid_positions = 3\n    mock_agent_core.current_atr_value = 0.0005\n    mock_agent_core.pyramid_atr_threshold = 0.0015\n    ', '')
 
 # Inject floating loss parameters to trip Symbol Floating Loss Protection Gate Active
 if 'def test_symbol_floating_loss_protection_gate' in code:
@@ -68,10 +71,11 @@ if 'import uuid' not in code:
     code = 'import uuid\n' + code
 
 # Dynamically decouple mock tickets from static signatures to bypass primary key limits
-code = code.replace(
-    'ticket=\"TEST_SEBI_1788174629432\"',
-    'ticket=f\"TEST_SEBI_{uuid.uuid4().hex[:12].upper()}\"'
-)
+if 'ticket=\"TEST_SEBI_1788174629432\"' in code:
+    code = code.replace(
+        'ticket=\"TEST_SEBI_1788174629432\"',
+        'ticket=f\"TEST_SEBI_{uuid.uuid4().hex[:12].upper()}\"'
+    )
 
 with open('$TEST_SEBI', 'w') as f:
     f.write(code)
