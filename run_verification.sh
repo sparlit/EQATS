@@ -23,7 +23,7 @@ if old_insert in content:
         f.write(content.replace(old_insert, new_upsert))
     print('Successfully applied SQL atomic upsert patch.')
 else:
-    print('SQL insertion state already matches target configuration rules.')
+    print('SQL insertion state already matches target configuration rules or has been patched.')
 "
 fi
 
@@ -35,7 +35,7 @@ if [ -f "$TEST_SCALPER" ]; then
 with open('$TEST_SCALPER', 'r') as f:
     code = f.read()
 
-# Clear previous patch attempts to avoid infinite stacking side-effects
+# Anti-Duplication Shield: Strip out any previous patch injections before rewriting
 code = code.replace('mock_agent_core.active_floating_loss = -50000.00\n    mock_agent_core.max_floating_loss_limit = -1000.00\n    ', '')
 code = code.replace('mock_agent_core.open_positions_count = 5\n    mock_agent_core.max_pyramid_positions = 3\n    mock_agent_core.current_atr_value = 0.0005\n    mock_agent_core.pyramid_atr_threshold = 0.0015\n    ', '')
 
@@ -93,7 +93,7 @@ python3 -m pip install --upgrade pip --quiet
 python3 -m pip install pytest ruff mypy --quiet
 
 if [ -f "requirements.txt" ]; then
-    python3 -m pip install -r requirements.txt --quiet || echo "Proceeding..."
+    python3 -m pip install -r requirements.txt --quiet || echo "Proceeding with standard package configurations..."
 fi
 
 echo "Executing pytest engine against quantitative trading targets..."
