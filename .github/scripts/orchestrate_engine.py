@@ -73,7 +73,7 @@ def git_commit_and_push(repo_name):
     except Exception as e:
         print(f"Git execution encountered a sync error on repo {repo_name}: {e}")
 
-def run_conversion_cycle(current_repo, api_key, nim_base_url, model_name):
+def run_conversion_cycle(current_repo, api_key, model_name):
     blueprint = load_file("ingestion_blueprint.md")
     todo_list = load_file("todo_tasks.md")
     repo_short = current_repo.split('/')[-1]
@@ -101,20 +101,32 @@ CURRENT ACTIVE TARGET REPOSITORY: {current_repo}
 EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
 """
 
-    client = OpenAI(base_url=nim_base_url, api_key=api_key)
+    # HARDCODED INSTANT REPAIR: Force structural connection to the precise gateway route
+    fixed_base_url = "https://integrate.api.nvidia.com/v1"
+    client = OpenAI(base_url=fixed_base_url, api_key=api_key)
     max_retries = 3
     retry_delay = 5
     llm_output = ""
 
+    # Setup the explicit dict format payload array requested by Kimi-K3 models
+    messages_payload = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"{system_prompt}\n\n{user_prompt}"
+                }
+            ]
+        }
+    ]
+
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"[{current_repo}] Connecting to NIM endpoint [{nim_base_url}] (Attempt {attempt}/{max_retries})...")
+            print(f"[{current_repo}] Connecting to NIM endpoint [{fixed_base_url}] (Attempt {attempt}/{max_retries})...")
             completion = client.chat.completions.create(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+                messages=messages_payload,
                 max_tokens=4096,
                 temperature=0.2
             )
@@ -161,11 +173,7 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY environment token missing.")
         sys.exit(1)
 
-    nim_base_url = "https://nvidia.com"
-    
-    # Defaults to highly compatible stable production model to stop 404 drops
-    env_model = os.getenv("NIM_MODEL_NAME", "").strip()
-    model_name = "meta/llama-3.3-70b-instruct" if not env_model or "llama-3.1-405b" in env_model else env_model
+    model_name = "moonshotai/kimi-k3"
 
     all_repositories = [
         "daydy-dev/moon-dev-ai-agents-for-trading",
@@ -186,7 +194,7 @@ def main():
         print(f"PROCESSING TARGET: {repo}")
         print(f"=======================================================")
         
-        success = run_conversion_cycle(repo, api_key, nim_base_url, model_name)
+        success = run_conversion_cycle(repo, api_key, model_name)
         
         if success:
             git_commit_and_push(repo)
