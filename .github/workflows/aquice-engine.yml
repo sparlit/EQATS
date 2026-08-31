@@ -29,6 +29,6 @@ jobs:
       env:
         LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         # Default configuration for hosted NVIDIA NIM API Catalog
-        NIM_BASE_URL: "https://nvidia.com"
+        NIM_BASE_URL: "https://integrate.api.nvidia.com/v1/"
         NIM_MODEL_NAME: "meta/llama-3.1-405b-instruct"
       run: python .github/scripts/orchestrate_engine.py
