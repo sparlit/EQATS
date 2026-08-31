@@ -176,3 +176,8 @@ jobs:
           name: stable-production-build
           path: quant_trading_system_${{ github.sha }}.zip
           retention-days: 7
+
+      - name: Compile MQL5 Dashboard and EAs
+        run: |
+          & "C:\Program Files\MetaTrader 5\metaeditor64.exe" /compile:D:\forexscalpper\MQL5 /log:mql_compile.log
+          Get-Content mql_compile.log
