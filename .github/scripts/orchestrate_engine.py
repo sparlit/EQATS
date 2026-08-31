@@ -5,14 +5,14 @@ import subprocess
 from openai import OpenAI
 
 def load_file(filepath):
-    """Bypasses default python caches by forcing an uncached system read."""
+    """Reads file contents directly from disk without invalid buffering setups."""
     if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8', buffering=0) as f:
+        with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     return ""
 
 def save_file(filepath, content):
-    """Saves and flushes instantly to disk storage arrays."""
+    """Saves and flushes instantly to persistent disk arrays."""
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -114,7 +114,7 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY is not defined in scope.")
         sys.exit(1)
 
-    nim_base_url = os.getenv("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    nim_base_url = os.getenv("NIM_BASE_URL", "https://nvidia.com")
     nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.1-405b-instruct")
 
     # High-throughput sequential iteration pipeline execution engine
