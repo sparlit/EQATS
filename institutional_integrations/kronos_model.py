@@ -11,8 +11,9 @@ an embedded zero-dependency numerical fallback engine.
 """
 
 import math
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
-from typing import Dict, List, Any, Tuple
 
 
 class KronosTokenizer:
@@ -24,7 +25,9 @@ class KronosTokenizer:
     def __init__(self, num_bins: int = 64):
         self.num_bins = num_bins
 
-    def tokenize_bar(self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float) -> Tuple[int, int, int, int]:
+    def tokenize_bar(
+        self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float
+    ) -> Tuple[int, int, int, int]:
         """
         Quantizes a single bar (relative return, high offset, low offset, volume shift) relative to ref_price into subtoken integer IDs.
         """
@@ -48,7 +51,7 @@ class KronosTokenizer:
         """
         Tokenizes an N x 5 matrix of [Open, High, Low, Close, Volume] into a list of subtoken tuples.
         """
-        tokens = []
+        tokens: List[Tuple[int, int, int, int]] = []
         if len(ohlcv_matrix) == 0:
             return tokens
 
@@ -76,7 +79,8 @@ class KronosFoundationModel:
 
         # Attempt optional PyTorch / Transformers model loading if available
         try:
-            import importlib
+            import importlib.util
+
             has_t = importlib.util.find_spec("torch") is not None
             has_tf = importlib.util.find_spec("transformers") is not None
             self.has_torch_model = has_t and has_tf
@@ -84,10 +88,7 @@ class KronosFoundationModel:
             self.has_torch_model = False
 
     def forecast_probabilistic(
-        self,
-        ohlcv_history: np.ndarray,
-        forecast_horizon: int = 24,
-        num_simulations: int = 30
+        self, ohlcv_history: np.ndarray, forecast_horizon: int = 24, num_simulations: int = 30
     ) -> Dict[str, Any]:
         """
         Generates probabilistic forward forecasts given historical OHLCV bars.

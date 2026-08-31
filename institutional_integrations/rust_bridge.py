@@ -6,9 +6,9 @@ with self-healing dynamic fallback to Python when Rust binary is unavailable or 
 """
 
 import ctypes
+import logging
 import os
 import time
-import logging
 
 _log = logging.getLogger(__name__)
 
@@ -211,7 +211,10 @@ def _mark_rust_failure():
     global _RUST_AVAILABLE, _LAST_FAILURE_TIME
     _RUST_AVAILABLE = False
     _LAST_FAILURE_TIME = time.time()
-    _log.warning("Rust engine execution failure detected. Entering dynamic Python fallback mode for %s seconds.", _COOLDOWN_SECONDS)
+    _log.warning(
+        "Rust engine execution failure detected. Entering dynamic Python fallback mode for %s seconds.",
+        _COOLDOWN_SECONDS,
+    )
 
 
 def execute_high_speed_rust_order_send(symbol: str, order_type: str, price: float, size: float) -> dict:
@@ -313,7 +316,9 @@ def rust_accelerated_vpin(buy_volumes: list, sell_volumes: list, bucket_size: fl
     return total_imbalance / total_volume if total_volume > 1e-8 else 0.0
 
 
-def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_count: int, simulations: int = 1000) -> dict:
+def rust_accelerated_mcts_risk_simulation(
+    initial_equity: float, open_positions_count: int, simulations: int = 1000
+) -> dict:
     """Computes MCTS tail risk simulation with Rust multi-threading acceleration and Python fallback."""
     if is_rust_available() and _RUST_LIB:
         try:
@@ -340,15 +345,16 @@ def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_
 
     # Python Fallback
     import numpy as np
+
     rng = np.random.RandomState(42)
     drawdowns = []
-    for _ in range(min(simulations, 200)): # capped for python fallback speed
+    for _ in range(min(simulations, 200)):  # capped for python fallback speed
         eq = initial_equity
         peak = initial_equity
         max_dd = 0.0
-        rets = rng.uniform(-0.015, 0.015, 100) * (open_positions_count ** 0.5)
+        rets = rng.uniform(-0.015, 0.015, 100) * (open_positions_count**0.5)
         for ret in rets:
-            eq *= (1.0 + ret)
+            eq *= 1.0 + ret
             if eq > peak:
                 peak = eq
             dd = (peak - eq) / peak
@@ -472,9 +478,7 @@ def rust_accelerated_gex_profile(spot: float, strikes: list, gammas: list, open_
             c_g = (ctypes.c_double * n)(*gammas)
             c_oi = (ctypes.c_double * n)(*open_interest)
             c_gex = ctypes.c_double(0.0)
-            res = _RUST_LIB.rust_calculate_gex_profile(
-                float(spot), c_k, c_g, c_oi, n, ctypes.byref(c_gex)
-            )
+            res = _RUST_LIB.rust_calculate_gex_profile(float(spot), c_k, c_g, c_oi, n, ctypes.byref(c_gex))
             if res == 0:
                 return c_gex.value
             else:
@@ -502,9 +506,7 @@ def rust_accelerated_spread_zscore(p1: list, p2: list, hedge_ratio: float = 1.0)
             c_p1 = (ctypes.c_double * n)(*p1)
             c_p2 = (ctypes.c_double * n)(*p2)
             c_z = ctypes.c_double(0.0)
-            res = _RUST_LIB.rust_calculate_spread_zscore(
-                c_p1, c_p2, float(hedge_ratio), n, ctypes.byref(c_z)
-            )
+            res = _RUST_LIB.rust_calculate_spread_zscore(c_p1, c_p2, float(hedge_ratio), n, ctypes.byref(c_z))
             if res == 0:
                 return c_z.value
             else:
@@ -517,73 +519,8 @@ def rust_accelerated_spread_zscore(p1: list, p2: list, hedge_ratio: float = 1.0)
     spreads = [a - hedge_ratio * b for a, b in zip(p1, p2)]
     mean = sum(spreads) / len(spreads)
     var = sum((s - mean) ** 2 for s in spreads) / len(spreads)
-    std = var ** 0.5
+    std = var**0.5
     return (spreads[-1] - mean) / std if std > 1e-8 else 0.0
-
-
-class _RustOrderFill(ctypes.Structure):
-    _fields_ = [
-        ("fill_price", ctypes.c_double),
-        ("filled_qty", ctypes.c_double),
-        ("commission", ctypes.c_double),
-        ("is_filled", ctypes.c_int),
-    ]
-
-
-def rust_accelerated_rqalpha_process_bar_orders(
-    bar_close: float,
-    atr_slippage: float = 0.0001,
-    tick_size: float = 0.05,
-    is_buy: bool = True,
-    quantity: float = 1.0,
-    price: float = 0.0,
-    commission_rate: float = 0.0001,
-) -> dict:
-    """Processes bar order execution using high-throughput Rust kernel when available, or Python fallback."""
-    if is_rust_available() and _RUST_LIB and hasattr(_RUST_LIB, "rust_rqalpha_process_bar_orders"):
-        try:
-            fill_struct = _RustOrderFill()
-            res = _RUST_LIB.rust_rqalpha_process_bar_orders(
-                ctypes.c_double(bar_close),
-                ctypes.c_double(bar_close),
-                ctypes.c_double(bar_close),
-                ctypes.c_double(bar_close),
-                ctypes.c_double(atr_slippage),
-                ctypes.c_double(tick_size),
-                ctypes.c_int(1 if is_buy else 0),
-                ctypes.c_double(quantity),
-                ctypes.c_double(price),
-                ctypes.c_double(commission_rate),
-                ctypes.byref(fill_struct),
-            )
-            if res == 0 and fill_struct.is_filled != 0:
-                return {
-                    "fill_price": fill_struct.fill_price,
-                    "filled_qty": fill_struct.filled_qty,
-                    "commission": fill_struct.commission,
-                    "is_filled": True,
-                    "engine_type": "RUST_C_ABI",
-                }
-            else:
-                _mark_rust_failure()
-        except Exception as e:
-            _log.exception("Rust RQAlpha order processing error: %s", e)
-            _mark_rust_failure()
-
-    # Python Fallback
-    raw_fill = (bar_close + atr_slippage) if is_buy else (bar_close - atr_slippage)
-    active_tick = tick_size if tick_size > 0 else 0.05
-    rounded_fill = round(round(raw_fill / active_tick) * active_tick, 2)
-    cost = rounded_fill * quantity
-    comm = cost * commission_rate
-    return {
-        "fill_price": rounded_fill,
-        "filled_qty": quantity,
-        "commission": comm,
-        "is_filled": True,
-        "engine_type": "PYTHON_FALLBACK",
-    }
-# Fixing python fallback precision in rust_bridge.py
 
 
 class _RustOrderFill(ctypes.Structure):
