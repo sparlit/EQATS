@@ -52,3 +52,22 @@ jobs:
         else
           echo "All targeted repositories successfully adapted. Loop complete!"
         fi
+
+    - name: Trigger Next Repository Loop
+      if: success()
+      env:
+        # Crucial Change: Switch from GITHUB_TOKEN to your custom PAT secret
+        GH_TOKEN: ${{ secrets.LOOP_TRIGGER_PAT }} 
+      run: |
+        # Check if there are still unchecked repository items left in the task list
+        if grep -q "\[ \]" todo_tasks.md; then
+          echo "Pending repositories found. Dispatching self-trigger event..."
+          
+          # Send a explicit POST request to trigger the next execution cycle
+          gh api repos/${{ github.repository }}/dispatches \
+            -F event_type='trigger_next_repo'
+            
+          echo "Dispatched event successfully. The next loop will boot momentarily."
+        else
+          echo "All targeted repositories successfully adapted. Loop complete!"
+        fi
