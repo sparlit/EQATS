@@ -34,7 +34,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Enforce Rust Formatting
-        run: cargo fmt --check
+        run: cargo fmt --manifest-path native_core/Cargo.toml -- --check
 
       - name: Lint Native Kernel (Clippy)
         run: cargo clippy --all-targets --all-features -- -D warnings
