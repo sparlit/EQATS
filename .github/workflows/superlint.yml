@@ -5,7 +5,9 @@ on: # yamllint disable-line rule:truthy
   push: null
   pull_request: null
 
-permissions: {}
+permissions:
+  contents: read
+  statuses: write # Crucial fix for the 403 error
 
 jobs:
   build:
