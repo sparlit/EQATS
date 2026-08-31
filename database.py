@@ -1,5 +1,4 @@
 import time
-from typing import Optional, Dict, Any, List
 import base64
 import datetime
 import hashlib
@@ -772,8 +771,6 @@ def get_all_users():
     conn.close()
     return [dict(r) for r in rows]
 
-
-import time
 
 
 def _execute_with_retry(query, params=(), commit=True):
