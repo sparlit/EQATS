@@ -38,7 +38,7 @@ jobs:
         # allowing the subsequent Jules step to capture the log output file.
         run: |
           echo "### Mypy Diagnostics Run" > mypy_report.txt
-          mypy . --check-untyped-defs --show-error-codes >> mypy_report.txt 2>&1 || true
+          mypy . --check-untyped-defs --strict -n 10 --no-incremental --show-error-codes >> mypy_report.txt 2>&1 || true
           cat mypy_report.txt
 
       - name: Verify Mypy Type Check Report
