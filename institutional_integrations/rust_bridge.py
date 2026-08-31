@@ -519,3 +519,133 @@ def rust_accelerated_spread_zscore(p1: list, p2: list, hedge_ratio: float = 1.0)
     var = sum((s - mean) ** 2 for s in spreads) / len(spreads)
     std = var ** 0.5
     return (spreads[-1] - mean) / std if std > 1e-8 else 0.0
+
+
+class _RustOrderFill(ctypes.Structure):
+    _fields_ = [
+        ("fill_price", ctypes.c_double),
+        ("filled_qty", ctypes.c_double),
+        ("commission", ctypes.c_double),
+        ("is_filled", ctypes.c_int),
+    ]
+
+
+def rust_accelerated_rqalpha_process_bar_orders(
+    bar_close: float,
+    atr_slippage: float = 0.0001,
+    tick_size: float = 0.05,
+    is_buy: bool = True,
+    quantity: float = 1.0,
+    price: float = 0.0,
+    commission_rate: float = 0.0001,
+) -> dict:
+    """Processes bar order execution using high-throughput Rust kernel when available, or Python fallback."""
+    if is_rust_available() and _RUST_LIB and hasattr(_RUST_LIB, "rust_rqalpha_process_bar_orders"):
+        try:
+            fill_struct = _RustOrderFill()
+            res = _RUST_LIB.rust_rqalpha_process_bar_orders(
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(atr_slippage),
+                ctypes.c_double(tick_size),
+                ctypes.c_int(1 if is_buy else 0),
+                ctypes.c_double(quantity),
+                ctypes.c_double(price),
+                ctypes.c_double(commission_rate),
+                ctypes.byref(fill_struct),
+            )
+            if res == 0 and fill_struct.is_filled != 0:
+                return {
+                    "fill_price": fill_struct.fill_price,
+                    "filled_qty": fill_struct.filled_qty,
+                    "commission": fill_struct.commission,
+                    "is_filled": True,
+                    "engine_type": "RUST_C_ABI",
+                }
+            else:
+                _mark_rust_failure()
+        except Exception as e:
+            _log.exception("Rust RQAlpha order processing error: %s", e)
+            _mark_rust_failure()
+
+    # Python Fallback
+    raw_fill = (bar_close + atr_slippage) if is_buy else (bar_close - atr_slippage)
+    active_tick = tick_size if tick_size > 0 else 0.05
+    rounded_fill = round(round(raw_fill / active_tick) * active_tick, 2)
+    cost = rounded_fill * quantity
+    comm = cost * commission_rate
+    return {
+        "fill_price": rounded_fill,
+        "filled_qty": quantity,
+        "commission": comm,
+        "is_filled": True,
+        "engine_type": "PYTHON_FALLBACK",
+    }
+# Fixing python fallback precision in rust_bridge.py
+
+
+class _RustOrderFill(ctypes.Structure):
+    _fields_ = [
+        ("fill_price", ctypes.c_double),
+        ("filled_qty", ctypes.c_double),
+        ("commission", ctypes.c_double),
+        ("is_filled", ctypes.c_int),
+    ]
+
+
+def rust_accelerated_rqalpha_process_bar_orders(
+    bar_close: float,
+    atr_slippage: float = 0.0001,
+    tick_size: float = 0.05,
+    is_buy: bool = True,
+    quantity: float = 1.0,
+    price: float = 0.0,
+    commission_rate: float = 0.0001,
+) -> dict:
+    """Processes bar order execution using high-throughput Rust kernel when available, or Python fallback."""
+    if is_rust_available() and _RUST_LIB and hasattr(_RUST_LIB, "rust_rqalpha_process_bar_orders"):
+        try:
+            fill_struct = _RustOrderFill()
+            res = _RUST_LIB.rust_rqalpha_process_bar_orders(
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(atr_slippage),
+                ctypes.c_double(tick_size),
+                ctypes.c_int(1 if is_buy else 0),
+                ctypes.c_double(quantity),
+                ctypes.c_double(price),
+                ctypes.c_double(commission_rate),
+                ctypes.byref(fill_struct),
+            )
+            if res == 0 and fill_struct.is_filled != 0:
+                return {
+                    "fill_price": fill_struct.fill_price,
+                    "filled_qty": fill_struct.filled_qty,
+                    "commission": fill_struct.commission,
+                    "is_filled": True,
+                    "engine_type": "RUST_C_ABI",
+                }
+            else:
+                _mark_rust_failure()
+        except Exception as e:
+            _log.exception("Rust RQAlpha order processing error: %s", e)
+            _mark_rust_failure()
+
+    # Python Fallback
+    raw_fill = (bar_close + atr_slippage) if is_buy else (bar_close - atr_slippage)
+    active_tick = tick_size if tick_size > 0 else 0.0001
+    num_ticks = round(raw_fill / active_tick)
+    rounded_fill = round(num_ticks * active_tick, 6)
+    cost = rounded_fill * quantity
+    comm = cost * commission_rate
+    return {
+        "fill_price": rounded_fill,
+        "filled_qty": quantity,
+        "commission": comm,
+        "is_filled": True,
+        "engine_type": "PYTHON_FALLBACK",
+    }

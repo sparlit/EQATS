@@ -8,6 +8,7 @@ pub mod features;
 pub mod fix_parser;
 pub mod options;
 pub mod portfolio;
+pub mod rqalpha_engine;
 pub mod slicing;
 pub mod smc;
 
