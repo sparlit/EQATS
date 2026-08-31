@@ -77,7 +77,12 @@ pub extern "C" fn rust_rqalpha_vectorized_portfolio_update(
     out_final_equity: *mut c_double,
     out_max_drawdown: *mut c_double,
 ) -> c_int {
-    if closes.is_null() || len <= 0 || initial_cash <= 0.0 || out_final_equity.is_null() || out_max_drawdown.is_null() {
+    if closes.is_null()
+        || len <= 0
+        || initial_cash <= 0.0
+        || out_final_equity.is_null()
+        || out_max_drawdown.is_null()
+    {
         return -1;
     }
 
