@@ -12,7 +12,10 @@ def load_file(filepath):
     return ""
 
 def save_file(filepath, content):
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    # CRITICAL ROOT FILE REPAIR: Verify path exists before running os.makedirs
+    dirname = os.path.dirname(filepath)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
         f.flush()
@@ -101,24 +104,16 @@ CURRENT ACTIVE TARGET REPOSITORY: {current_repo}
 EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
 """
 
-    # HARDCODED INSTANT REPAIR: Force structural connection to the precise gateway route
     fixed_base_url = "https://integrate.api.nvidia.com/v1"
     client = OpenAI(base_url=fixed_base_url, api_key=api_key)
     max_retries = 3
     retry_delay = 5
     llm_output = ""
 
-    # Setup the explicit dict format payload array requested by Kimi-K3 models
+    # 🔄 PAYLOAD FIX: Enforce standard flat compliant dict array layout format maps
     messages_payload = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": f"{system_prompt}\n\n{user_prompt}"
-                }
-            ]
-        }
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
     ]
 
     for attempt in range(1, max_retries + 1):
@@ -130,8 +125,21 @@ EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
                 max_tokens=4096,
                 temperature=0.2
             )
-            llm_output = completion.choices.message.content
-            break
+            # Safe object checking parser handler fallback logic
+            if hasattr(completion, 'choices') and len(completion.choices) > 0:
+                choice = completion.choices[0]
+                if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                    llm_output = choice.message.content
+                elif isinstance(choice, dict) and 'message' in choice:
+                    llm_output = choice['message'].get('content', '')
+            elif isinstance(completion, dict) and 'choices' in completion:
+                llm_output = completion['choices'][0]['message']['content']
+            
+            if llm_output:
+                break
+            else:
+                raise ValueError("Inference engine returned an empty output layout context window.")
+                
         except Exception as conn_err:
             print(f"⚠️ [{current_repo}] Attempt {attempt} failed: {conn_err}")
             if attempt < max_retries:
@@ -173,7 +181,7 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY environment token missing.")
         sys.exit(1)
 
-    model_name = "moonshotai/kimi-k3"
+    model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.3-70b-instruct")
 
     all_repositories = [
         "daydy-dev/moon-dev-ai-agents-for-trading",
