@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Trigger the automated patcher and validation sweeps
+bash ./run_verification.sh
