@@ -1,0 +1,178 @@
+name: Quant Stack SDLC Automation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # =========================================================================
+  # STAGE 1: RUST & C++ NATIVE ENGINE VALIDATION
+  # =========================================================================
+  native_core:
+    name: Rust & C++ Matrix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Enforce Rust Formatting
+        run: cargo fmt --check
+
+      - name: Lint Native Kernel (Clippy)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build Low-Latency Binary & PyO3 Bindings
+        run: cargo build --release
+
+      - name: Run Core Memory & Execution Tests
+        run: cargo test --release
+
+  # =========================================================================
+  # STAGE 2: PYTHON ML & BACKEND (FASTAPI / STREAMLIT) VALIDATION
+  # =========================================================================
+  python_analytics:
+    name: Python ML & API Engine
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python Runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv & Synchronize Environment
+        run: |
+          curl -LsSf https://astral.sh | sh
+          uv venv
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache Python Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+
+      - name: Fast Linting & Formatting Check (Ruff)
+        run: uv run ruff check . && uv run ruff format --check .
+
+      - name: Strict Type Checking (MyPy)
+        run: uv run mypy . --check-untyped-defs
+
+  # =========================================================================
+  # STAGE 3: FRONTEND (REACT / VITE / ZUSTAND / TV LIGHTWEIGHT CHARTS)
+  # =========================================================================
+  frontend_dashboard:
+    name: React Web Dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Verify TypeScript & Build Assets
+        run: |
+          npm run type-check
+          npm run build
+
+  # =========================================================================
+  # STAGE 4: UNIFIED INTEGRATION & RISK protective METRICS
+  # =========================================================================
+  integration_gate:
+    name: End-to-End System Integration
+    needs: [native_core, python_analytics, frontend_dashboard]
+    runs-on: ubuntu-latest
+    
+    # Spin up ephemeral FOSS storage instances to test integration state machines
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+      questdb:
+        image: questdb/questdb:latest
+        ports:
+          - 9000:9000
+          - 8812:8812
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Integration Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Execute Pytest Suite (Async & State Testing)
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          QUESTDB_HOST: localhost
+        run: |
+          curl -LsSf https://astral.sh | sh
+          uv run pytest tests/integration/ --durations=10 -vv
+
+  # =========================================================================
+  # STAGE 5: COMPILING ARTIFACTS FOR LOCAL LOCAL MACHINE RUNNING
+  # =========================================================================
+  package_delivery:
+    name: Freeze Binary & Asset Distribution
+    needs: integration_gate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Compile and bundle binaries to prepare for native local synchronization
+      - name: Setup Compilation Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip
+
+      - name: Build Production Artifact Bundle
+        run: |
+          mkdir -p release-bundle/config
+          cp -r frontend/dist release-bundle/web-ui
+          echo "Packaging stable local execution frame..."
+          zip -r quant_trading_system_${{ github.sha }}.zip release-bundle/
+
+      - name: Archive Production Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-production-build
+          path: quant_trading_system_${{ github.sha }}.zip
+          retention-days: 7
