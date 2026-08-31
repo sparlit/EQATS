@@ -1,15 +1,13 @@
 name: AQuICE Continuous Conversion Engine
 
 on:
-  workflow_dispatch: # Allows you to manually click "Start" in GitHub
-  repository_dispatch:
-    types: [trigger_next_repo]
+  workflow_dispatch: # Allows you to manually click "Start Loop" on GitHub
 
 jobs:
-  process_repository:
+  process_all_repositories:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Allows pushing code to your repository
 
     steps:
     - name: Checkout Code
@@ -27,47 +25,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install openai gitpython
 
-    - name: Run Orchestration Loop Script
+    - name: Run High-Throughput Engine Loop
       env:
         LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        # Default configuration for hosted NVIDIA NIM API Catalog
+        NIM_BASE_URL: "https://nvidia.com"
+        NIM_MODEL_NAME: "meta/llama-3.1-405b-instruct"
       run: python .github/scripts/orchestrate_engine.py
-
-    - name: Commit and Push Generated Code & Ledgers
-      run: |
-        git config --local user.email "aquice-bot@github.com"
-        git config --local user.name "AQuICE Auto-Architect Bot"
-        git add .
-        git diff-index --quiet HEAD || git commit -m "AQuICE: Completed processing phase. Updated ledgers and modules."
-        git push origin main
-
-    - name: Trigger Next Repository Loop
-      if: success()
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        if grep -q "\[ \]" todo_tasks.md; then
-          echo "Pending repositories found. Triggering next iteration..."
-          gh api repos/${{ github.repository }}/dispatches \
-            -F event_type='trigger_next_repo'
-        else
-          echo "All targeted repositories successfully adapted. Loop complete!"
-        fi
-
-    - name: Trigger Next Repository Loop
-      if: success()
-      env:
-        # Crucial Change: Switch from GITHUB_TOKEN to your custom PAT secret
-        GH_TOKEN: ${{ secrets.LOOP_TRIGGER_PAT }} 
-      run: |
-        # Check if there are still unchecked repository items left in the task list
-        if grep -q "\[ \]" todo_tasks.md; then
-          echo "Pending repositories found. Dispatching self-trigger event..."
-          
-          # Send a explicit POST request to trigger the next execution cycle
-          gh api repos/${{ github.repository }}/dispatches \
-            -F event_type='trigger_next_repo'
-            
-          echo "Dispatched event successfully. The next loop will boot momentarily."
-        else
-          echo "All targeted repositories successfully adapted. Loop complete!"
-        fi
