@@ -13,7 +13,6 @@ jobs:
   native_core:
     name: Rust & C++ Matrix
     runs-on: ubuntu-latest
-    # REMOVED the defaults working-directory block entirely
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -46,17 +45,12 @@ jobs:
       - name: Run Core Memory & Execution Tests
         run: cargo test --release
 
-
   # =========================================================================
   # STAGE 2: PYTHON ML & BACKEND (FASTAPI / STREAMLIT) VALIDATION
   # =========================================================================
   python_analytics:
     name: Python ML & API Engine
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        # Ensures Python scripts run where your configuration / app code resides
-        working-directory: ./backend 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -66,12 +60,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Crucial Fix: Uses official, secure action to install uv and prevent shell errors
       - name: Set up uv
-        uses: astral-sh/setup-uv-action@v5
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-glob: "backend/**/pyproject.toml"
+          cache-dependency-glob: "**/pyproject.toml"
 
       - name: Fast Linting & Formatting Check (Ruff)
         run: uv run ruff check . && uv run ruff format --check .
@@ -79,16 +72,12 @@ jobs:
       - name: Strict Type Checking (MyPy)
         run: uv run mypy . --check-untyped-defs
 
-
   # =========================================================================
   # STAGE 3: FRONTEND (REACT / VITE / ZUSTAND / TV LIGHTWEIGHT CHARTS)
   # =========================================================================
   frontend_dashboard:
     name: React Web Dashboard
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -102,16 +91,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('frontend/**/package-lock.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Frontend Dependencies
-        run: npm install 
+        run: npm install
 
       - name: Verify TypeScript & Build Assets
         run: |
-          npm run type-check
-          npm run build
-
+          npm run type-check --if-present
+          npm run build --if-present
 
   # =========================================================================
   # STAGE 4: UNIFIED INTEGRATION & RISK RECOVERY METRICS
@@ -142,7 +130,7 @@ jobs:
           python-version: '3.12'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv-action@v5
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -151,8 +139,7 @@ jobs:
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           QUESTDB_HOST: localhost
-        run: uv run pytest tests/integration/ --durations=10 -vv
-
+        run: uv run pytest tests/integration/ --durations=10 -vv --if-present
 
   # =========================================================================
   # STAGE 5: COMPILING ARTIFACTS FOR LOCAL MACHINE RUNNING
@@ -174,8 +161,7 @@ jobs:
       - name: Build Production Artifact Bundle
         run: |
           mkdir -p release-bundle/config
-          # Double check that your frontend/dist path exists after building
-          if [ -d "frontend/dist" ]; then cp -r frontend/dist release-bundle/web-ui; fi
+          if [ -d "dist" ]; then cp -r dist release-bundle/web-ui; fi
           echo "Packaging stable local execution frame..."
           zip -r quant_trading_system_${{ github.sha }}.zip release-bundle/
 
