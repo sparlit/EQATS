@@ -2,9 +2,9 @@ name: Quant Stack SDLC Automation
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   # =========================================================================
@@ -41,7 +41,6 @@ jobs:
             echo "Found Rust project inside directory: $RUST_DIR"
             cd "$RUST_DIR"
             cargo fmt --check
-            # Fix: Added specific ignore tags for style/structural configurations to bypass build gates safely
             cargo clippy --all-targets --all-features -- -D warnings \
               -A clippy::not_unsafe_ptr_arg_deref \
               -A clippy::new_without_default \
@@ -66,7 +65,7 @@ jobs:
       - name: Set up Python Runtime
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
@@ -102,7 +101,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Cache Node Modules
         uses: actions/cache@v4
@@ -131,7 +130,7 @@ jobs:
     name: End-to-End System Integration
     needs: [native_core, python_analytics, frontend_dashboard]
     runs-on: ubuntu-latest
-    
+
     services:
       redis:
         image: redis:alpine
@@ -150,7 +149,7 @@ jobs:
       - name: Set up Python Runtime
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
