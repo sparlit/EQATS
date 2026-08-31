@@ -25,6 +25,7 @@ import uuid
 
 from institutional_integrations.sebi_broker_adapter import (
     round_to_indian_quantity,
+    round_to_indian_tick_size,
     UnifiedIndianBrokerClientAdapter,
     SEBIBrokerAdapter,
     KiteConnectAdapter,
