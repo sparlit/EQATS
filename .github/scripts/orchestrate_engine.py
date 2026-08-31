@@ -118,23 +118,18 @@ def main():
         print("CRITICAL ERROR: LLM_API_KEY is not defined in scope.")
         sys.exit(1)
 
-    # 🔄 CRITICAL FIX: Intercept generic/broken base URLs and swap to the valid NIM cluster router
-    env_url = os.getenv("NIM_BASE_URL", "").strip()
-    if not env_url or env_url == "https://nvidia.com" or env_url == "https://www.nvidia.com":
-        nim_base_url = "https://nvidia.com"
-    else:
-        nim_base_url = env_url
-        
+    # Force strict path routing assignment
+    nim_base_url = "https://integrate.api.nvidia.com/v1"
     nim_model_name = os.getenv("NIM_MODEL_NAME", "meta/llama-3.1-405b-instruct")
 
     todo_raw = load_file("todo_tasks.md")
     
-    # Split boundary mapping to guarantee plain string delivery
+    # 🔄 CRITICAL STR FIX: Safely parse text segment as a pure string object rather than a list
     pending_block = todo_raw
     if "## 🟨 PENDING TASKS" in todo_raw:
         parts = todo_raw.split("## 🟨 PENDING TASKS")
         if len(parts) > 1:
-            pending_block = parts[1]
+            pending_block = parts[1] # Extract text block after headers correctly
 
     # Extract lines matching standard repo formats containing a forward slash
     raw_lines = re.findall(r'(?:-\s*\[\s*\]|\*)\s*([a-zA-Z0-9_\-/.\+]+)', pending_block)
