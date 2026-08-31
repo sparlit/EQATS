@@ -9,9 +9,8 @@ validation.
 """
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
-import config
 import connector
 import database
 import release_gates
