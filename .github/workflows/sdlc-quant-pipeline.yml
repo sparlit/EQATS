@@ -1,6 +1,3 @@
-The error Unable to resolve action... unable to find version means that either a specific commit hash for dtolnay/rust-toolchain does not exist, or a security wrapper linter in your repository is injecting an unverified tool identifier (google-labs-code/jules-action@a1b2c3d4...) directly into your runner sequence at runtime.
-To fix this and keep your pipeline execution safe, we will substitute dtolnay/rust-toolchain with the official GitHub-Actions-approved standard Rust toolchain manager framework (actions-rust-lang/setup-rust-toolchain), which natively resolves versions using tagged semantic releases.
-Here is the complete, unrestricted code to replace your entire .github/workflows/sdlc-quant-pipeline.yml file:
 ## Complete sdlc-quant-pipeline.yml
 
 name: Quant Stack SDLC Automation
@@ -23,6 +20,7 @@ jobs:
       - name: Compliance Mapping Audit
         run: |
           echo "Verifying codebase alignment against Regulatory frameworks (GDPR, HIPAA, PCI-DSS)..."
+
       - name: Architecture Threat Modeling Verification
         run: |
           echo "Analyzing active architectural models and validating data-flow inputs against known threat parameters..."
@@ -37,12 +35,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Fix: Switched to the official community action version to prevent commit resolution failures
-      - name: Set up Rust Toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: clippy, rustfmt
-
+      # Removed third-party toolchain setups. Native pre-installed Cargo/Rust tools are used directly.
       - name: Cache Cargo Dependencies
         uses: actions/cache@v4
         with:
@@ -163,6 +156,7 @@ jobs:
       - name: Software Composition Analysis (SCA Dependency Check)
         run: |
           echo "Scanning dependencies for public CVE vulnerabilities and software license compliance conflicts..."
+
       - name: Verify Workspace Documentation Updates
         run: |
           echo "Ensuring API schemas, architecture blueprints, or repository wikis are kept updated with changes..."
@@ -209,6 +203,7 @@ jobs:
       - name: Performance & Scale Load Testing
         run: |
           echo "Simulating intensive network streams and high-throughput concurrent trading data queries..."
+
       - name: Accessibility Auditing (UI Automation)
         run: |
           echo "Evaluating UI dashboard and Lightweight Charts component structures against accessibility standards (WCAG)..."
@@ -228,9 +223,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zip
+
       - name: Execute Production Database Migrations
         run: |
           echo "Isolating and applying secure schema changes to QuestDB/relational environments..."
+
       - name: Build Production Artifact Bundle
         run: |
           mkdir -p release-bundle/config
@@ -240,6 +237,7 @@ jobs:
           fi
           echo "Packaging stable local execution frame..."
           zip -r quant_trading_system_${{ github.sha }}.zip release-bundle/
+
       - name: Archive Production Build
         uses: actions/upload-artifact@v4
         with:
@@ -259,6 +257,7 @@ jobs:
       - name: Chaos Engineering Verification
         run: |
           echo "Triggering managed structural faults (e.g. shutting down target testing pods, introducing fake lag)..."
+
       - name: Post-Mortem Analytics Reporting
         run: |
           echo "Generating build analytics metrics summary and tracking deployment anomalies for historical system post-mortems..."
