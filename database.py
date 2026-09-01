@@ -1261,7 +1261,7 @@ def validate_terminal_path(terminal_path: str) -> str:
 
 
 def add_broker_account(
-    broker_name,
+    broker_name: Any,
     server,
     account_id,
     password,
