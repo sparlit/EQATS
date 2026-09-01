@@ -1,0 +1,83 @@
+#     Copyright 2026, Kay Hayen, mailto:kay.hayen@gmail.com find license text at end of file
+
+
+"""Utils module to provide helper for our common json operations."""
+
+from __future__ import absolute_import
+
+import json
+
+from nuitka.__past__ import unicode
+
+from .FileOperations import getFileContents, openTextFile, stripFileContentsBOM
+
+
+def _convertJsonLoadedValues(value):
+    # return driven, pylint: disable=too-many-return-statements
+
+    if str is not bytes:
+        return value
+
+    if type(value) is unicode:
+        try:
+            return str(value)
+        except UnicodeEncodeError:
+            return value
+
+    if type(value) is list:
+        return [_convertJsonLoadedValues(element) for element in value]
+
+    if type(value) is tuple:
+        return tuple(_convertJsonLoadedValues(element) for element in value)
+
+    if type(value) is dict:
+        result = {}
+
+        for key, element in value.items():
+            result[_convertJsonLoadedValues(key)] = _convertJsonLoadedValues(element)
+
+        return result
+
+    return value
+
+
+def loadJsonFromFilename(filename):
+    try:
+        contents = getFileContents(filename, mode="rb")
+        contents, _bom = stripFileContentsBOM(contents)
+
+        if type(contents) is bytes:
+            contents = contents.decode("utf8")
+
+        return _convertJsonLoadedValues(json.loads(contents))
+    except ValueError:
+        return None
+
+
+def writeJsonToFile(file_handle, contents, indent=2):
+    json.dump(contents, file_handle, indent=indent, sort_keys=True)
+    file_handle.write("\n")
+
+
+def writeJsonToFilename(filename, contents, indent=2):
+    with openTextFile(filename, "w") as output:
+        writeJsonToFile(output, contents, indent=indent)
+
+
+#     Part of "Nuitka", an optimizing Python compiler that is compatible and
+#     integrates with CPython, but also works on its own.
+#
+#     Licensed under the GNU Affero General Public License, Version 3 (the "License");
+#     you may not use this file except in compliance with the License.
+#     You may obtain a copy of the License at
+#
+#        https://www.gnu.org/licenses/agpl-3.0.txt
+#
+#     See also: "Nuitka Runtime Library Exception, Version 1.0" in file
+#     "LICENSE-RUNTIME.txt" for additional permissions granted under Section 7.
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
