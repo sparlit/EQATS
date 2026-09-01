@@ -44,7 +44,7 @@ def barssince(condition: Union[Sequence[bool], Any], default: int = 999999) -> i
 
 
 def resample_apply(rule: str,
-                   func: Callable,
+                   func: Callable[..., Any],
                    series_or_df: Any,
                    *args: Any,
                    **kwargs: Any) -> Any:

@@ -156,9 +156,9 @@ class IndianMarketStateMachine:
     @classmethod
     def enforce_intraday_mis_cutoff_and_squareoff(
         cls,
-        open_orders: list,
-        close_order_func,
-        cancel_order_func=None,
+        open_orders: Any,
+        close_order_func: Any,
+        cancel_order_func: Any = None,
         dt_ist: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """

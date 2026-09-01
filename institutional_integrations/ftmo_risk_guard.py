@@ -4,19 +4,18 @@ Enforces FTMO CE(S)T daily loss limits, maximum total loss limits, news window e
 weekend/closure prohibitions, trade frequency caps, and Best Day Rule qualification metrics.
 """
 
-import time
-import math
 import logging
-from decimal import Decimal
-from typing import Dict, Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 logger = logging.getLogger("FTMORiskGuard")
+
 
 class FTMORiskGuardEngine:
     """
     FTMO Risk Guard Engine.
     Evaluates order execution requests against strict FTMO challenge and funded account rules.
     """
+
     def __init__(
         self,
         initial_balance: float = 100000.0,
@@ -57,13 +56,19 @@ class FTMORiskGuardEngine:
         daily_loss = day_start_equity - current_equity
         max_daily_allowed = day_start_equity * (self.inner_daily_stop_pct / 100.0)
         if daily_loss >= max_daily_allowed:
-            return {"decision": "REJECT", "reason": f"Daily loss {daily_loss:.2f} reached inner stop threshold ({self.inner_daily_stop_pct}%)"}
+            return {
+                "decision": "REJECT",
+                "reason": f"Daily loss {daily_loss:.2f} reached inner stop threshold ({self.inner_daily_stop_pct}%)",
+            }
 
         # Total Loss Check against inner stop
         total_loss = self.initial_balance - current_equity
         max_total_allowed = self.initial_balance * (self.inner_total_stop_pct / 100.0)
         if total_loss >= max_total_allowed:
-            return {"decision": "REJECT", "reason": f"Total loss {total_loss:.2f} reached inner stop threshold ({self.inner_total_stop_pct}%)"}
+            return {
+                "decision": "REJECT",
+                "reason": f"Total loss {total_loss:.2f} reached inner stop threshold ({self.inner_total_stop_pct}%)",
+            }
 
         # Calculate proposed order risk
         pip_size = 0.01 if "JPY" in symbol.upper() else 0.0001
@@ -71,14 +76,19 @@ class FTMORiskGuardEngine:
         order_risk = volume * 100000.0 * sl_dist
 
         if (daily_loss + order_risk) > max_daily_allowed:
-            return {"decision": "REJECT", "reason": f"Proposed order risk {order_risk:.2f} exceeds remaining daily buffer"}
+            return {
+                "decision": "REJECT",
+                "reason": f"Proposed order risk {order_risk:.2f} exceeds remaining daily buffer",
+            }
 
         return {"decision": "ALLOW", "reason": "FTMO pre-trade risk checks passed", "order_risk": round(order_risk, 2)}
+
 
 class FTMOQualificationAuditor:
     """
     Calculates FTMO Challenge Qualification, Minimum Trading Days, and Best Day Rule metrics.
     """
+
     def evaluate_qualification(
         self,
         starting_balance: float,
@@ -86,13 +96,13 @@ class FTMOQualificationAuditor:
         target_profit_pct: float,
         closed_trades: List[Dict[str, Any]],
         min_trading_days: int = 4,
-        best_day_rule_pct: Optional[float] = 0.50
+        best_day_rule_pct: Optional[float] = 0.50,
     ) -> Dict[str, Any]:
         target_amount = starting_balance * (target_profit_pct / 100.0)
         current_profit = current_equity - starting_balance
 
         # Group profit per day
-        daily_pnl = {}
+        daily_pnl: Dict[str, float] = {}
         for trade in closed_trades:
             day_key = str(trade.get("ftmo_day", "DAY1"))
             daily_pnl[day_key] = daily_pnl.get(day_key, 0.0) + float(trade.get("net_profit", 0.0))
@@ -122,5 +132,5 @@ class FTMOQualificationAuditor:
             "best_day_profit": round(best_day_profit, 2),
             "best_day_ratio": round(best_day_ratio, 4),
             "best_day_compliant": best_day_compliant,
-            "fully_qualified": fully_qualified
+            "fully_qualified": fully_qualified,
         }

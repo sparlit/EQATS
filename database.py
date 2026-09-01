@@ -1317,7 +1317,7 @@ def validate_terminal_path(terminal_path: str) -> str:
 
 
 def add_broker_account(
-    broker_name,
+    broker_name: Any,
     server,
     account_id,
     password,
@@ -1900,7 +1900,7 @@ def save_circuit_breaker_state(trading_date, daily_start_balance, is_halted=Fals
     )
 
 
-def load_circuit_breaker_state():
+def load_circuit_breaker_state() -> Optional[Dict[str, Any]]:
     """
     Loads the persisted circuit breaker state from SQLite.
     

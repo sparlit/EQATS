@@ -1,3 +1,4 @@
+from typing import Any
 import logging
 import math
 import numpy as np
@@ -68,7 +69,7 @@ class ScalperBrain:
     def evaluate(self, symbol, history_bars, current_equity, brain_directive=None):
         """
         Analyzes historical bars and gives a decision: 'BUY', 'SELL', or 'HOLD'.
-        history_bars: list of dicts/objects with keys: 'open', 'high', 'low', 'close'
+        history_bars: list[Any] of dicts/objects with keys: 'open', 'high', 'low', 'close'
         current_equity: float, current account balance/equity to calculate lot size.
         """
         min_bars_needed = max(

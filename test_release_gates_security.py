@@ -9,9 +9,9 @@ validation.
 """
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from typing import Any
+from unittest.mock import Mock, patch
 
-import config
 import connector
 import database
 import release_gates
@@ -47,7 +47,7 @@ class MockLiveConnector(connector.TradingConnector):
     def get_current_price(self, symbol):
         return {"bid": 1.0850, "ask": 1.0852}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None) -> Any:
         # This should NEVER be called during release validation
         return {"success": True, "ticket": "LIVE-12345", "price": 1.0851, "error": None}
 
@@ -97,7 +97,7 @@ class MockDemoConnector(connector.TradingConnector):
     def get_current_price(self, symbol):
         return {"bid": 1.0850, "ask": 1.0852}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp):
+    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None) -> Any:
         return {"success": True, "ticket": "DEMO-12345", "price": 1.0851, "error": None}
 
     def close_order(self, ticket, reason="MANUAL"):

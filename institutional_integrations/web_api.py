@@ -1,3 +1,4 @@
+from typing import Any
 """
 Institutional Web Services, API, and ZeroMQ/FastAPI Telemetry Core.
 Integrates FastAPI, WebSockets, ZeroMQ/TCP IPC sockets, Robyn, Kafka, Airflow, CCXT, and yFinance.
@@ -206,7 +207,7 @@ class MCPServerCore:
     def __init__(self):
         self.active_clients = set()
 
-    def get_system_status(self) -> dict:
+    def get_system_status(self) -> dict[str, Any]:
         """Returns comprehensive system health, consensus state, and active telemetry."""
         from institutional_integrations.bayesian_consensus import global_bayesian_consensus
         return {
@@ -216,7 +217,7 @@ class MCPServerCore:
             "timestamp": time.time(),
         }
 
-    def execute_trade_command(self, symbol: str, action: str, volume: float = 0.01) -> dict:
+    def execute_trade_command(self, symbol: str, action: str, volume: float = 0.01) -> dict[str, Any]:
         """Handles agentic trade execution requests with safety validation."""
         act_upper = action.upper()
         if act_upper not in ["BUY", "SELL", "CLOSE_ALL", "FLATTEN"]:
@@ -230,12 +231,12 @@ class MCPServerCore:
             "timestamp": time.time(),
         }
 
-    def get_broker_database_profiles(self) -> list:
+    def get_broker_database_profiles(self) -> list[Any]:
         """Retrieves all registered broker profiles from the database."""
         import database
         return database.get_all_broker_profiles()
 
-    def query_market_intel(self, symbol: str) -> dict:
+    def query_market_intel(self, symbol: str) -> dict[str, Any]:
         """Queries macro sentiment, market structure, and Bayesian consensus for symbol."""
         from institutional_integrations.bayesian_consensus import global_bayesian_consensus
         from institutional_integrations.aat_analyst import MacroAnalyst
