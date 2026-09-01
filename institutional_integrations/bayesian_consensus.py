@@ -10,7 +10,7 @@ class BayesianConsensusEngine:
     Aggregates multi-strategy evidence with strategy reliability weights to produce
     statistically calibrated posterior directional probabilities.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.symbol_state: Dict[str, Dict[str, Any]] = {}
         self.reliability: Dict[str, float] = {
             "TREND_FOLLOWING": 0.80,
@@ -75,7 +75,8 @@ class BayesianConsensusEngine:
             "posterior": posterior,
             "ts": time.time()
         })
-        return posterior
+        ret_val: float = float(posterior)
+        return ret_val
 
     def get_consensus_decision(self, symbol: str, buy_threshold: float = 0.75, sell_threshold: float = 0.25) -> Dict[str, Any]:
         """
