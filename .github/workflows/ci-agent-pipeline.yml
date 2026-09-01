@@ -20,7 +20,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Configures the complete stable environment and remaps execution links to the No-GIL core safely
+      # Installs the stable runtime packages and hooks the free-threaded execution kernel natively
       - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
@@ -30,9 +30,9 @@ jobs:
           # Step 1: Initialize standard environment to build reliable pip infrastructure maps
           python3.13 -m venv venv
           
-          # Step 2: Safely decouple and redirect the internal links directly to the free-threaded kernel
-          ln -sf --remove-destination /usr/bin/python3.13t venv/bin/python
-          ln -sf --remove-destination /usr/bin/python3.13t venv/bin/python3
+          # Step 2: Corrected POSIX link overwrite syntax to point directly to the free-threaded kernel
+          ln -sf /usr/bin/python3.13t venv/bin/python
+          ln -sf /usr/bin/python3.13t venv/bin/python3
           
           # Step 3: Align configuration manifest metadata to match the target environment
           sed -i 's|executable = .*|executable = /usr/bin/python3.13t|g' venv/pyvenv.cfg
