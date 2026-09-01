@@ -1,0 +1,23 @@
+version: "1"
+agent:
+  name: jules-eqats-core
+  engine: gemini-2.5-pro # Jules utilizes Google's premier coding models
+  
+workspace:
+  language: python
+  python_version: "3.11"
+  setup_commands:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+
+verification:
+  # Jules will continuously run this exact loop until it passes within its VM environment
+  test_command: python -m pytest -n auto -vv -s --count=100 --full-trace --cache-clear -k "not gui_integration"
+  
+constraints:
+  allowed_directories:
+    - "./"
+  ignored_files:
+    - "EqatsAutonomousScalperEA.ex5" # Ignore binary execution artifacts
+    - "EqatsAutonomousScalperEA.mq5"
+  max_iterations_per_fix: 5
