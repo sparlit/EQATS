@@ -3,15 +3,13 @@ from typing import Any
 Institutional Web Services, API, and ZeroMQ/FastAPI Telemetry Core.
 Integrates FastAPI, WebSockets, ZeroMQ/TCP IPC sockets, Robyn, Kafka, Airflow, CCXT, and yFinance.
 """
-
+from typing import Any
 import json
 import logging
 import socket
 import threading
 import time
-
 _log = logging.getLogger(__name__)
-
 
 class SocketIPCBridge:
     """
@@ -19,14 +17,14 @@ class SocketIPCBridge:
     Replaces disk file polling (scalper_state.txt) with zero-latency (<1ms) push-based JSON socket streaming.
     """
 
-    def __init__(self, host="127.0.0.1", port=9001):
+    def __init__(self, host: Any='127.0.0.1', port: Any=9001) -> None:
         self.host = host
         self.port = port
         self.server_socket = None
         self.running = False
         self.latest_state = {}
 
-    def start_server(self):
+    def start_server(self) -> None:
         """Spawns non-blocking TCP socket server thread for EA client IPC connections."""
         if self.running:
             return
@@ -34,7 +32,7 @@ class SocketIPCBridge:
         t = threading.Thread(target=self._server_loop, daemon=True)
         t.start()
 
-    def _server_loop(self):
+    def _server_loop(self) -> None:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -42,94 +40,79 @@ class SocketIPCBridge:
             sock.listen(5)
             sock.settimeout(1.0)
             self.server_socket = sock
-
             while self.running:
                 try:
                     conn, addr = self.server_socket.accept()
                     if isinstance(self.latest_state, str):
                         payload = self.latest_state
-                    elif isinstance(self.latest_state, dict) and "pipe_text" in self.latest_state:
-                        payload = self.latest_state["pipe_text"]
+                    elif isinstance(self.latest_state, dict) and 'pipe_text' in self.latest_state:
+                        payload = self.latest_state['pipe_text']
                     else:
-                        payload = json.dumps(self.latest_state) + "\n"
-                    conn.sendall(payload.encode("utf-8"))
+                        payload = json.dumps(self.latest_state) + '\n'
+                    conn.sendall(payload.encode('utf-8'))
                     conn.close()
                 except socket.timeout:
                     continue
                 except Exception as e:
                     if not self.running:
                         break
-                    print(f"Diagnostics: Socket IPC server accept exception: {e}")
+                    print(f'Diagnostics: Socket IPC server accept exception: {e}')
         except Exception as e:
             if self.running:
-                print(f"Diagnostics: Socket IPC server failed to bind: {e}")
+                print(f'Diagnostics: Socket IPC server failed to bind: {e}')
 
-    def format_pipe_state(self, equity, balance, active_positions, scans, session_info):
+    def format_pipe_state(self, equity: Any, balance: Any, active_positions: Any, scans: Any, session_info: Any) -> Any:
         """Formats account and scan telemetry as pipe-delimited string for MT5 EA parser."""
         if isinstance(session_info, dict):
-            active_session = session_info.get("active", "Active Session")
-            overlaps = session_info.get("overlaps", "None")
-            next_session = session_info.get("next", "Tokyo")
-            countdown = session_info.get("countdown", "00:00:00")
+            active_session = session_info.get('active', 'Active Session')
+            overlaps = session_info.get('overlaps', 'None')
+            next_session = session_info.get('next', 'Tokyo')
+            countdown = session_info.get('countdown', '00:00:00')
         else:
             active_session = str(session_info)
-            overlaps = "None"
-            next_session = "Tokyo"
-            countdown = "00:00:00"
-
-        header_line = f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{overlaps}|{next_session}|{countdown}"
+            overlaps = 'None'
+            next_session = 'Tokyo'
+            countdown = '00:00:00'
+        header_line = f'{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{overlaps}|{next_session}|{countdown}'
         lines = [header_line]
-
         for pos in active_positions:
             if isinstance(pos, dict):
-                t = pos.get("ticket", "0")
-                sym = pos.get("symbol", "UNKNOWN")
-                direction = pos.get("direction", "BUY")
-                open_p = pos.get("open_price", "0.0")
-                sl = pos.get("sl", "0.0")
-                tp = pos.get("tp", "0.0")
-                profit = pos.get("profit", "0.0")
-                lines.append(f"TRADE|{t}|{sym}|{direction}|{open_p}|{sl}|{tp}|{profit}")
-
-        lines.append("SCANS_HEADER")
+                t = pos.get('ticket', '0')
+                sym = pos.get('symbol', 'UNKNOWN')
+                direction = pos.get('direction', 'BUY')
+                open_p = pos.get('open_price', '0.0')
+                sl = pos.get('sl', '0.0')
+                tp = pos.get('tp', '0.0')
+                profit = pos.get('profit', '0.0')
+                lines.append(f'TRADE|{t}|{sym}|{direction}|{open_p}|{sl}|{tp}|{profit}')
+        lines.append('SCANS_HEADER')
         for s in scans:
             if isinstance(s, dict):
-                sym = s.get("symbol", "")
-                price = s.get("price", "0.0")
-                ema = s.get("ema200", "0.0")
-                trend = s.get("trend", "NEUTRAL")
-                rsi = s.get("rsi", "50.0")
-                atr = s.get("atr", "0.0")
-                status = s.get("status", "Hold")
-                w_ih = s.get("avg_w_ih", "0.0")
-                w_ho = s.get("avg_w_ho", "0.0")
-                bias = s.get("bias_out", "0.0")
-                act = s.get("hidden_act", "0,0,0,0,0")
-                lines.append(f"{sym}|{price}|{ema}|{trend}|{rsi}|{atr}|{status}|{w_ih}|{w_ho}|{bias}|{act}")
+                sym = s.get('symbol', '')
+                price = s.get('price', '0.0')
+                ema = s.get('ema200', '0.0')
+                trend = s.get('trend', 'NEUTRAL')
+                rsi = s.get('rsi', '50.0')
+                atr = s.get('atr', '0.0')
+                status = s.get('status', 'Hold')
+                w_ih = s.get('avg_w_ih', '0.0')
+                w_ho = s.get('avg_w_ho', '0.0')
+                bias = s.get('bias_out', '0.0')
+                act = s.get('hidden_act', '0,0,0,0,0')
+                lines.append(f'{sym}|{price}|{ema}|{trend}|{rsi}|{atr}|{status}|{w_ih}|{w_ho}|{bias}|{act}')
+        return '\n'.join(lines) + '\n'
 
-        return "\n".join(lines) + "\n"
-
-    def push_state(self, equity, balance, active_positions, scans, session_info, raw_text=None, kronos_telemetry=None):
+    def push_state(self, equity: Any, balance: Any, active_positions: Any, scans: Any, session_info: Any, raw_text: Any=None, kronos_telemetry: Any=None) -> Any:
         """Pushes current state payload in real-time to connected IPC listeners."""
         if raw_text is not None:
             self.latest_state = raw_text
         else:
             pipe_text = self.format_pipe_state(equity, balance, active_positions, scans, session_info)
-            self.latest_state = {
-                "timestamp": time.time(),
-                "equity": round(equity, 2),
-                "balance": round(balance, 2),
-                "active_positions_count": len(active_positions),
-                "active_positions": active_positions,
-                "session": session_info,
-                "scans": scans,
-                "kronos": kronos_telemetry or {},
-                "pipe_text": pipe_text,
-            }
+            self.latest_state = {'timestamp': time.time(), 'equity': round(equity, 2), 'balance': round(balance, 2), 'active_positions_count': len(active_positions), 'active_positions': active_positions, 'session': session_info, 'scans': scans, 'kronos': kronos_telemetry or {}, 'pipe_text': pipe_text}
         payload_size = len(self.latest_state) if isinstance(self.latest_state, str) else len(json.dumps(self.latest_state))
-        return {"status": "PUSHED", "payload_size": payload_size}
+        return {'status': 'PUSHED', 'payload_size': payload_size}
 
-    def stop_server(self):
+    def stop_server(self) -> None:
         self.running = False
         sock = self.server_socket
         self.server_socket = None
@@ -139,20 +122,17 @@ class SocketIPCBridge:
             except Exception:
                 pass
 
-
 class TelemetryStreamServer:
     """
     FastAPI & WebSockets Real-Time Telemetry Streamer.
     Streams 50Hz JSON telemetry and live trade events directly to web clients.
     """
 
-    def __init__(self, host="127.0.0.1", port=8000):
+    def __init__(self, host: Any='127.0.0.1', port: Any=8000) -> None:
         self.host = host
         self.port = port
 
-    def build_telemetry_payload(
-        self, current_time, equity, balance, active_positions, scans, perf
-    ):
+    def build_telemetry_payload(self, current_time: Any, equity: Any, balance: Any, active_positions: Any, scans: Any, perf: Any) -> Any:
         """
         Constructs structured JSON telemetry stream payload.
 
@@ -160,43 +140,22 @@ class TelemetryStreamServer:
         - Current schema version: 1
         - Any future breaking field removals or structural modifications must bump schema_version to 2+.
         """
-        return {
-            "schema_version": 1,
-            "time": current_time,
-            "account": {
-                "balance": round(balance, 2),
-                "equity": round(equity, 2),
-                "open_positions": len(active_positions),
-                "win_rate": perf.get("win_rate", 0.0),
-                "net_profit": round(perf.get("net_profit", 0.0), 2),
-            },
-            "positions": active_positions,
-            "scans": scans,
-        }
+        return {'schema_version': 1, 'time': current_time, 'account': {'balance': round(balance, 2), 'equity': round(equity, 2), 'open_positions': len(active_positions), 'win_rate': perf.get('win_rate', 0.0), 'net_profit': round(perf.get('net_profit', 0.0), 2)}, 'positions': active_positions, 'scans': scans}
 
-
-def fetch_yfinance_external_rates(symbol, period="1mo", interval="1d"):
+def fetch_yfinance_external_rates(symbol: Any, period: Any='1mo', interval: Any='1d') -> Any:
     """
     Pulls historical spot prices directly from Yahoo Finance API (yFinance).
     """
     try:
         import yfinance as yf
-
-        ticker_map = {
-            "EURUSD": "EURUSD=X",
-            "GBPUSD": "GBPUSD=X",
-            "USDJPY": "JPY=X",
-            "BTCUSD": "BTC-USD",
-            "ETHUSD": "ETH-USD",
-        }
+        ticker_map = {'EURUSD': 'EURUSD=X', 'GBPUSD': 'GBPUSD=X', 'USDJPY': 'JPY=X', 'BTCUSD': 'BTC-USD', 'ETHUSD': 'ETH-USD'}
         yf_symbol = ticker_map.get(symbol.upper(), symbol)
         data = yf.download(yf_symbol, period=period, interval=interval, progress=False)
-        closes = data["Close"].tolist()
+        closes = data['Close'].tolist()
         return [float(c) for c in closes]
     except Exception as e:
-        _log.debug("fetch_market_data_yfinance error for %s: %s", symbol, e)
+        _log.debug('fetch_market_data_yfinance error for %s: %s', symbol, e)
         return []
-
 
 class MCPServerCore:
     """
@@ -204,32 +163,20 @@ class MCPServerCore:
     Exposes system state, market intelligence, and secure execution capabilities to LLM Agents.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.active_clients = set()
 
     def get_system_status(self) -> dict[str, Any]:
         """Returns comprehensive system health, consensus state, and active telemetry."""
         from institutional_integrations.bayesian_consensus import global_bayesian_consensus
-        return {
-            "status": "ONLINE",
-            "mcp_version": "1.0",
-            "consensus": global_bayesian_consensus.get_consensus_decision("EURUSD"),
-            "timestamp": time.time(),
-        }
+        return {'status': 'ONLINE', 'mcp_version': '1.0', 'consensus': global_bayesian_consensus.get_consensus_decision('EURUSD'), 'timestamp': time.time()}
 
     def execute_trade_command(self, symbol: str, action: str, volume: float = 0.01) -> dict[str, Any]:
         """Handles agentic trade execution requests with safety validation."""
         act_upper = action.upper()
-        if act_upper not in ["BUY", "SELL", "CLOSE_ALL", "FLATTEN"]:
-            return {"success": False, "error": f"Invalid trade action: {action}"}
-        return {
-            "success": True,
-            "symbol": symbol,
-            "action": act_upper,
-            "volume": volume,
-            "status": "QUEUED_FOR_EXECUTION",
-            "timestamp": time.time(),
-        }
+        if act_upper not in ['BUY', 'SELL', 'CLOSE_ALL', 'FLATTEN']:
+            return {'success': False, 'error': f'Invalid trade action: {action}'}
+        return {'success': True, 'symbol': symbol, 'action': act_upper, 'volume': volume, 'status': 'QUEUED_FOR_EXECUTION', 'timestamp': time.time()}
 
     def get_broker_database_profiles(self) -> list[Any]:
         """Retrieves all registered broker profiles from the database."""
@@ -242,25 +189,15 @@ class MCPServerCore:
         from institutional_integrations.aat_analyst import MacroAnalyst
         macro = MacroAnalyst()
         consensus = global_bayesian_consensus.get_consensus_decision(symbol)
-        return {
-            "symbol": symbol,
-            "macro_weight": macro.get_impact_weight(symbol),
-            "consensus": consensus,
-            "timestamp": time.time(),
-        }
+        return {'symbol': symbol, 'macro_weight': macro.get_impact_weight(symbol), 'consensus': consensus, 'timestamp': time.time()}
 
-
-def push_telemetry_to_kafka_queue(topic, payload_dict):
+def push_telemetry_to_kafka_queue(topic: Any, payload_dict: Any) -> Any:
     """
     Pipes real-time trade execution details onto Apache Kafka messaging queues.
     """
     try:
         from kafka import KafkaProducer
-
-        producer = KafkaProducer(
-            bootstrap_servers=["localhost:9092"],
-            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-        )
+        producer = KafkaProducer(bootstrap_servers=['localhost:9092'], value_serializer=lambda v: json.dumps(v).encode('utf-8'))
         producer.send(topic, payload_dict)
         return True
     except ImportError:

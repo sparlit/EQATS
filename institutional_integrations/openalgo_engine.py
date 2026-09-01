@@ -9,9 +9,6 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger("OpenAlgoEngine")
-
-
 class OpenAlgoSmartOrderSplitter:
     """
     Smart Order Slicing & Iceberg Order Execution Engine.
@@ -31,7 +28,6 @@ class OpenAlgoSmartOrderSplitter:
 
         slices: List[Dict[str, Any]] = []
         remaining = vol
-
         while remaining > 0:
             current_slice = round(min(remaining, limit_lot), 2)
             slices.append(
@@ -44,7 +40,6 @@ class OpenAlgoSmartOrderSplitter:
                 }
             )
             remaining = round(remaining - current_slice, 2)
-
         return slices
 
 
@@ -71,7 +66,6 @@ class OpenAlgoSessionSquareOffManager:
         with self._lock:
             self.squareoff_triggered = False
 
-
 class OpenAlgoIndianExchangeRouter:
     """
     OpenAlgo Indian Market Exchange & Product Tag Router.
@@ -95,19 +89,8 @@ class OpenAlgoIndianExchangeRouter:
         prod = str(product).strip().upper() if product else "CNC"
         if prod not in cls.VALID_PRODUCTS:
             logger.warning("Invalid Indian product tag '%s' in OpenAlgo router. Falling back to CNC.", product)
-            prod = "CNC"
-
-        exch = str(exchange).strip().upper() if exchange else "NSE"
+            prod = 'CNC'
+        exch = str(exchange).strip().upper() if exchange else 'NSE'
         if exch not in cls.VALID_EXCHANGES:
-            exch = "NSE"
-
-        return {
-            "symbol": symbol.strip().upper(),
-            "action": action.strip().upper(),
-            "quantity": float(quantity),
-            "price": float(price),
-            "product": prod,
-            "exchange": exch,
-            "order_type": order_type.strip().upper(),
-            "formatted_time": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }
+            exch = 'NSE'
+        return {'symbol': symbol.strip().upper(), 'action': action.strip().upper(), 'quantity': float(quantity), 'price': float(price), 'product': prod, 'exchange': exch, 'order_type': order_type.strip().upper(), 'formatted_time': time.strftime('%Y-%m-%d %H:%M:%S')}
