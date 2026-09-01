@@ -1,0 +1,46 @@
+name: Autonomous Testing & Self-Healing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  autonomous-agent:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write # Grants write permissions to save self-healed code
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # Targets the active HEAD branch allowing direct mutation pushes
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Project Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-xdist pytest-repeat pytest-json-report openai
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Self-Healing Agent
+        env:
+          # Your secure AI API Key stored inside your GitHub Repository Secrets
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }} 
+        run: |
+          python autonomous_fix.py
+
+      - name: Commit and Push Self-Healed Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 chore(autonomous): self-healed codebase via test agent pipeline"
+          commit_options: '--no-verify' # Avoids local pre-commit hook triggers

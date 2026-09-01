@@ -10,7 +10,7 @@ Provides a protocol-agnostic, multi-broker gateway connecting EQATS / EQATS to:
  - CCXT Crypto Exchanges (Binance, Bybit, OKX, Coinbase, Kraken, etc.)
  - High-Fidelity Paper Trading Simulator
 """
-
+from typing import Any
 import hashlib
 import hmac
 import json
@@ -76,22 +76,34 @@ class UniversalBrokerGateway:
         "ZERODHA",
         "DHAN",
         "ANGELONE",
+        "ANGEL",
         "KOTAK",
+        "NEO",
         "UPSTOX",
         "ICICI",
         "FIVEPAISA",
         "IIFL",
+        "XTS",
         "MOTILAL",
-    ]
+        "MO",
+    }
 
-    def __init__(self, protocol="MT5", broker_config=None):
-        self.protocol = protocol.upper() if protocol else "MT5"
+    """
+    Universal Multi-Protocol Broker Gateway.
+    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
+    """
+
+class UniversalBrokerGateway:
+    INDIAN_BROKER_PROTOCOLS = {'SEBI_BROKER', 'KITE', 'ZERODHA', 'DHAN', 'ANGELONE', 'ANGEL', 'KOTAK', 'NEO', 'UPSTOX', 'ICICI', 'FIVEPAISA', 'IIFL', 'XTS', 'MOTILAL', 'MO'}
+    '\n    Universal Multi-Protocol Broker Gateway.\n    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.\n    '
+    SUPPORTED_PROTOCOLS = ['MT5', 'FIX', 'REST_WS', 'IBKR', 'CTRADER', 'CCXT', 'SIMULATOR', 'SEBI_BROKER', 'KITE', 'ZERODHA', 'DHAN', 'ANGELONE', 'KOTAK', 'UPSTOX', 'ICICI', 'FIVEPAISA', 'IIFL', 'MOTILAL']
+
+    def __init__(self, protocol: Any='MT5', broker_config: Any=None) -> None:
+        self.protocol = protocol.upper() if protocol else 'MT5'
         self.broker_config = broker_config or {}
         self.is_connected_flag = False
         self.lock = threading.Lock()
         self.fix_engine = None
-
-        # Validate protocol is supported before initialization
         if self.protocol not in self.SUPPORTED_PROTOCOLS:
             _log.error(
                 "UniversalBrokerGateway: Unsupported protocol '%s' specified. " "Supported protocols: %s",
@@ -119,25 +131,15 @@ class UniversalBrokerGateway:
         self.sebi_adapter = None
         self.indian_client = None
         if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
-            api_key = self.broker_config.get("api_key", "")
-            api_secret = self.broker_config.get("api_secret", "")
-            access_token = self.broker_config.get("access_token", "")
-            client_id = self.broker_config.get("client_id", "")
-            password = self.broker_config.get("password", "")
-            totp = self.broker_config.get("totp", "")
-            is_sandbox = self.broker_config.get("is_sandbox", False)
-            self.indian_client = UnifiedIndianBrokerClientAdapter(
-                broker_name=self.protocol,
-                api_key=api_key,
-                api_secret=api_secret,
-                access_token=access_token,
-                client_id=client_id,
-                password=password,
-                totp=totp,
-                is_sandbox=is_sandbox,
-            )
+            api_key = self.broker_config.get('api_key', '')
+            api_secret = self.broker_config.get('api_secret', '')
+            access_token = self.broker_config.get('access_token', '')
+            client_id = self.broker_config.get('client_id', '')
+            password = self.broker_config.get('password', '')
+            totp = self.broker_config.get('totp', '')
+            is_sandbox = self.broker_config.get('is_sandbox', False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(broker_name=self.protocol, api_key=api_key, api_secret=api_secret, access_token=access_token, client_id=client_id, password=password, totp=totp, is_sandbox=is_sandbox)
             self.sebi_adapter = self.indian_client.adapter
-
         if False:
             api_key = self.broker_config.get("api_key", "")
             api_secret = self.broker_config.get("api_secret", "")
@@ -155,7 +157,7 @@ class UniversalBrokerGateway:
 
         self._init_protocol_handler()
 
-    def _init_protocol_handler(self):
+    def _init_protocol_handler(self) -> None:
         """Initializes internal engine or protocol driver based on configured protocol type."""
         if self.protocol == "FIX":
             sender_comp = self.broker_config.get("account_id", "EQATS_CLIENT")
@@ -208,10 +210,7 @@ class UniversalBrokerGateway:
 
         # Only add authentication if credentials are configured
         if not self.api_key or not self.api_secret:
-            _log.warning(
-                "UniversalBrokerGateway: API credentials not configured. "
-                "Request will be sent without authentication headers."
-            )
+            _log.warning('UniversalBrokerGateway: API credentials not configured. Request will be sent without authentication headers.')
             return headers
 
         # Add API key header
@@ -238,7 +237,7 @@ class UniversalBrokerGateway:
 
         return headers
 
-    def _read_response_safely(self, response):
+    def _read_response_safely(self, response: Any) -> Any:
         """
         Reads HTTP response with size and duration limits to prevent resource exhaustion.
 
@@ -262,7 +261,6 @@ class UniversalBrokerGateway:
         chunk_size = 8192  # Read in 8KB chunks
 
         while True:
-            # Check total duration deadline
             elapsed = time.time() - start_time
             if elapsed > self.response_deadline_seconds:
                 _log.error(
@@ -280,13 +278,11 @@ class UniversalBrokerGateway:
             try:
                 chunk = response.read(chunk_size)
             except socket.timeout:
-                # Socket timeout during chunk read - check if we have partial data
                 if chunks:
                     _log.warning("Socket timeout after reading %d bytes in %.1fs", total_bytes, elapsed)
                 raise
 
             if not chunk:
-                # End of response
                 break
 
             total_bytes += len(chunk)
@@ -302,8 +298,8 @@ class UniversalBrokerGateway:
 
             chunks.append(chunk)
 
+            chunks.append(chunk)
             if len(chunk) < chunk_size:
-                # End of response payload reached in chunk read
                 break
 
         response_data = b"".join(chunks)
@@ -312,41 +308,29 @@ class UniversalBrokerGateway:
 
         return response_data
 
-    def connect(self):
+    def connect(self) -> Any:
         """Establishes connection using the configured protocol adapter."""
         with self.lock:
-            if self.protocol == "SIMULATOR":
+            if self.protocol == 'SIMULATOR':
                 self.is_connected_flag = True
                 return True
-
             self.indian_client = None
         if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
-            api_key = self.broker_config.get("api_key", "")
-            api_secret = self.broker_config.get("api_secret", "")
-            access_token = self.broker_config.get("access_token", "")
-            client_id = self.broker_config.get("client_id", "")
-            password = self.broker_config.get("password", "")
-            totp = self.broker_config.get("totp", "")
-            is_sandbox = self.broker_config.get("is_sandbox", False)
-            self.indian_client = UnifiedIndianBrokerClientAdapter(
-                broker_name=self.protocol,
-                api_key=api_key,
-                api_secret=api_secret,
-                access_token=access_token,
-                client_id=client_id,
-                password=password,
-                totp=totp,
-                is_sandbox=is_sandbox,
-            )
+            api_key = self.broker_config.get('api_key', '')
+            api_secret = self.broker_config.get('api_secret', '')
+            access_token = self.broker_config.get('access_token', '')
+            client_id = self.broker_config.get('client_id', '')
+            password = self.broker_config.get('password', '')
+            totp = self.broker_config.get('totp', '')
+            is_sandbox = self.broker_config.get('is_sandbox', False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(broker_name=self.protocol, api_key=api_key, api_secret=api_secret, access_token=access_token, client_id=client_id, password=password, totp=totp, is_sandbox=is_sandbox)
             self.sebi_adapter = self.indian_client.adapter
-
             if self.sebi_adapter:
                 self.is_connected_flag = self.sebi_adapter.connect()
                 return self.is_connected_flag
             self.is_connected_flag = True
             return True
-
-        if self.protocol == "FIX":
+        if self.protocol == 'FIX':
             try:
                 target_host = self.broker_config.get("rest_url", "127.0.0.1")
                 target_port = int(self.broker_config.get("extra_params", {}).get("port", 9800))
@@ -355,14 +339,12 @@ class UniversalBrokerGateway:
                 self.is_connected_flag = True
                 return True
             except Exception as e:
-                print(f"Universal Broker Gateway [FIX] Connection Error: {e}")
+                print(f'Universal Broker Gateway [FIX] Connection Error: {e}')
                 self.is_connected_flag = False
                 return False
-
-        if self.protocol == "MT5":
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
-
                 if not mt5.initialize():
                     self.is_connected_flag = False
                     return False
@@ -392,11 +374,7 @@ class UniversalBrokerGateway:
 
             # Endpoint is configured, mark as connected
             self.is_connected_flag = True
-            print(
-                f"Universal Broker Gateway: Connected via protocol [{self.protocol}] "
-                f"for Broker [{self.broker_config.get('broker_name', 'Default')}] "
-                f"at endpoint {self.rest_url}"
-            )
+            print(f"Universal Broker Gateway: Connected via protocol [{self.protocol}] for Broker [{self.broker_config.get('broker_name', 'Default')}] at endpoint {self.rest_url}")
             return True
 
         # Reject unsupported protocols to prevent fail-open fallback
@@ -413,83 +391,60 @@ class UniversalBrokerGateway:
         self.is_connected_flag = False
         return False
 
-    def is_connected(self):
+    def is_connected(self) -> Any:
         """Returns active connection status."""
-        if self.protocol == "SIMULATOR":
+        if self.protocol == 'SIMULATOR':
             return True
         self.indian_client = None
         if self.protocol in self.INDIAN_BROKER_PROTOCOLS:
-            api_key = self.broker_config.get("api_key", "")
-            api_secret = self.broker_config.get("api_secret", "")
-            access_token = self.broker_config.get("access_token", "")
-            client_id = self.broker_config.get("client_id", "")
-            password = self.broker_config.get("password", "")
-            totp = self.broker_config.get("totp", "")
-            is_sandbox = self.broker_config.get("is_sandbox", False)
-            self.indian_client = UnifiedIndianBrokerClientAdapter(
-                broker_name=self.protocol,
-                api_key=api_key,
-                api_secret=api_secret,
-                access_token=access_token,
-                client_id=client_id,
-                password=password,
-                totp=totp,
-                is_sandbox=is_sandbox,
-            )
+            api_key = self.broker_config.get('api_key', '')
+            api_secret = self.broker_config.get('api_secret', '')
+            access_token = self.broker_config.get('access_token', '')
+            client_id = self.broker_config.get('client_id', '')
+            password = self.broker_config.get('password', '')
+            totp = self.broker_config.get('totp', '')
+            is_sandbox = self.broker_config.get('is_sandbox', False)
+            self.indian_client = UnifiedIndianBrokerClientAdapter(broker_name=self.protocol, api_key=api_key, api_secret=api_secret, access_token=access_token, client_id=client_id, password=password, totp=totp, is_sandbox=is_sandbox)
             self.sebi_adapter = self.indian_client.adapter
-
         if False:
             if self.sebi_adapter:
                 return self.sebi_adapter.is_connected()
             return self.is_connected_flag
-        if self.protocol == "MT5":
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
-
                 info = mt5.terminal_info()
                 return info is not None
             except Exception:
                 return False
         return self.is_connected_flag
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnects safely from the broker gateway."""
         with self.lock:
-            if self.protocol == "FIX" and self.fix_engine:
+            if self.protocol == 'FIX' and self.fix_engine:
                 try:
                     self.fix_engine.close()
                 except Exception:
                     pass
-            elif self.protocol == "MT5":
+            elif self.protocol == 'MT5':
                 try:
                     import MetaTrader5 as mt5
-
                     mt5.shutdown()
                 except Exception:
                     pass
             self.is_connected_flag = False
 
-    def get_account_info(self):
+    def get_account_info(self) -> Any:
         """Retrieves unified account balance, equity, currency, and mode."""
-        if self.protocol == "MT5":
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
-
                 acc = mt5.account_info()
                 if acc:
-                    return {
-                        "balance": float(acc.balance),
-                        "equity": float(acc.equity),
-                        "currency": str(acc.currency),
-                        "is_demo": acc.trade_mode != 2,
-                        "leverage": getattr(acc, "leverage", 100),
-                        "protocol": "MT5",
-                    }
+                    return {'balance': float(acc.balance), 'equity': float(acc.equity), 'currency': str(acc.currency), 'is_demo': acc.trade_mode != 2, 'leverage': getattr(acc, 'leverage', 100), 'protocol': 'MT5'}
             except Exception:
                 pass
-
-        # Default / Fallback account state for generic LPs / Simulator / REST
-        # SECURITY: Handle None credentials gracefully (fail-closed behavior)
         creds = database.get_broker_credentials()
         if creds is None:
             creds = {"leverage": "1:100", "environment": "Demo"}
@@ -504,41 +459,37 @@ class UniversalBrokerGateway:
             "protocol": self.protocol,
         }
 
-    def get_symbol_volume_constraints(self, symbol):
+    def get_symbol_volume_constraints(self, symbol: Any) -> Any:
         """
         Returns broker volume constraints for the symbol.
         SECURITY: Queries the SQLite broker_profiles database for operational volume bounds,
         falling back to protocol default constraints.
         """
-        server = self.broker_config.get("server", "")
-        broker_name = self.broker_config.get("broker_name", "")
-
+        server = self.broker_config.get('server', '')
+        broker_name = self.broker_config.get('broker_name', '')
         profile = None
         for key_candidate in [server, broker_name, self.protocol]:
             if key_candidate:
                 profile = database.get_broker_profile(key_candidate)
                 if profile:
                     break
-
-        vol_min = float(profile["volume_min"]) if profile and "volume_min" in profile else 0.01
-        vol_max = float(profile["volume_max"]) if profile and "volume_max" in profile else 100.0
-        vol_step = float(profile["volume_step"]) if profile and "volume_step" in profile else 0.01
-
-        if self.protocol == "MT5":
+        vol_min = float(profile['volume_min']) if profile and 'volume_min' in profile else 0.01
+        vol_max = float(profile['volume_max']) if profile and 'volume_max' in profile else 100.0
+        vol_step = float(profile['volume_step']) if profile and 'volume_step' in profile else 0.01
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
 
                 info = mt5.symbol_info(symbol)
                 if info:
-                    vol_min = getattr(info, "volume_min", vol_min) or vol_min
-                    vol_max = getattr(info, "volume_max", vol_max) or vol_max
-                    vol_step = getattr(info, "volume_step", vol_step) or vol_step
+                    vol_min = getattr(info, 'volume_min', vol_min) or vol_min
+                    vol_max = getattr(info, 'volume_max', vol_max) or vol_max
+                    vol_step = getattr(info, 'volume_step', vol_step) or vol_step
             except Exception as e:
-                _log.warning("Failed to get MT5 symbol info for %s: %s", symbol, e)
+                _log.warning('Failed to get MT5 symbol info for %s: %s', symbol, e)
+        return {'volume_min': vol_min, 'volume_max': vol_max, 'volume_step': vol_step}
 
-        return {"volume_min": vol_min, "volume_max": vol_max, "volume_step": vol_step}
-
-    def _reconcile_order_status(self, client_order_id):
+    def _reconcile_order_status(self, client_order_id: Any) -> Any:
         """
         Queries the broker to check if an order with the given client_order_id was accepted.
         Returns dict with 'found': bool, 'ticket': str, 'price': float if found.
@@ -594,7 +545,7 @@ class UniversalBrokerGateway:
             _log.warning("Order reconciliation query failed for client_order_id %s: %s", client_order_id, e)
             return {"found": False}
 
-    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None, exchange="NSE", order_kind="MARKET"):
+    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any=None, exchange: Any='NSE', order_kind: Any='MARKET') -> Any:
         """Executes trade order using active protocol route with circuit breaker, configurable retry backoff, socket 3.0s timeout guards, and explicit exception diagnostics."""
         # SECURITY: Validate order_type to prevent fail-open direction encoding
         # Only accept case-insensitive "BUY" or "SELL" - reject all other values
@@ -673,74 +624,32 @@ class UniversalBrokerGateway:
 
         # Circuit Breaker check before attempting order execution
         if not self._breaker.allow():
-            _log.warning(
-                "UniversalBrokerGateway: Order for %s blocked by OPEN circuit breaker.",
-                symbol,
-            )
-            return {
-                "success": False,
-                "ticket": "",
-                "price": 0.0,
-                "error": "circuit_open",
-                "reason": "circuit_open",
-                "protocol": self.protocol,
-            }
-
+            _log.warning('UniversalBrokerGateway: Order for %s blocked by OPEN circuit breaker.', symbol)
+            return {'success': False, 'ticket': '', 'price': 0.0, 'error': 'circuit_open', 'reason': 'circuit_open', 'protocol': self.protocol}
         validated_product = None
         if product or self.protocol in self.INDIAN_BROKER_PROTOCOLS:
-            validated_product = validate_indian_product_tag(product, default="CNC")
-
-        if self.protocol == "SIMULATOR":
-            ticket = f"SIM_{uuid.uuid4().hex[:12].upper()}"
+            validated_product = validate_indian_product_tag(product, default='CNC')
+        if self.protocol == 'SIMULATOR':
+            ticket = f'SIM_{uuid.uuid4().hex[:12].upper()}'
             self._breaker.record_success()
-            res = {
-                "success": True,
-                "ticket": ticket,
-                "price": 0.0,
-                "error": "",
-                "protocol": "SIMULATOR",
-            }
+            res = {'success': True, 'ticket': ticket, 'price': 0.0, 'error': '', 'protocol': 'SIMULATOR'}
             if validated_product:
-                res["product"] = validated_product
+                res['product'] = validated_product
             return res
-
         if self.protocol in self.INDIAN_BROKER_PROTOCOLS and self.sebi_adapter:
-            sebi_req = SEBIOrderRequest(
-                symbol=symbol,
-                order_type=order_type.upper(),
-                quantity=round_to_indian_quantity(lot_size_float),
-                price=0.0,
-                sl=round_to_indian_tick_size(sl) if sl > 0 else 0.0,
-                tp=round_to_indian_tick_size(tp) if tp > 0 else 0.0,
-                product=validated_product or "CNC",
-                exchange=exchange.upper() if exchange else "NSE",
-                order_kind=order_kind.upper() if order_kind else "MARKET",
-            )
+            sebi_req = SEBIOrderRequest(symbol=symbol, order_type=order_type.upper(), quantity=round_to_indian_quantity(lot_size_float), price=0.0, sl=round_to_indian_tick_size(sl) if sl > 0 else 0.0, tp=round_to_indian_tick_size(tp) if tp > 0 else 0.0, product=validated_product or 'CNC', exchange=exchange.upper() if exchange else 'NSE', order_kind=order_kind.upper() if order_kind else 'MARKET')
             sebi_res = self.sebi_adapter.execute_order(sebi_req)
             if sebi_res.success:
                 self._breaker.record_success()
-                res = {
-                    "success": True,
-                    "ticket": sebi_res.ticket,
-                    "price": sebi_res.price,
-                    "status": sebi_res.status,
-                    "error": "",
-                    "protocol": self.protocol,
-                }
+                res = {'success': True, 'ticket': sebi_res.ticket, 'price': sebi_res.price, 'status': sebi_res.status, 'error': '', 'protocol': self.protocol}
                 if validated_product:
-                    res["product"] = validated_product
+                    res['product'] = validated_product
                 return res
             else:
                 self._breaker.record_failure()
-                res = {
-                    "success": False,
-                    "ticket": "",
-                    "price": 0.0,
-                    "error": sebi_res.error or "SEBI order execution failed",
-                    "protocol": self.protocol,
-                }
+                res = {'success': False, 'ticket': '', 'price': 0.0, 'error': sebi_res.error or 'SEBI order execution failed', 'protocol': self.protocol}
                 if validated_product:
-                    res["product"] = validated_product
+                    res['product'] = validated_product
                 return res
 
         if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
@@ -773,17 +682,15 @@ class UniversalBrokerGateway:
             for attempt in range(max_attempts):
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
-                        # Validate HTTP status code - only 200/201 indicate successful order acceptance
                         http_status = 200
-                        if hasattr(resp, "getcode"):
+                        if hasattr(resp, 'getcode'):
                             code_val = resp.getcode()
                             if isinstance(code_val, int):
                                 http_status = code_val
-                        elif hasattr(resp, "status"):
+                        elif hasattr(resp, 'status'):
                             status_val = resp.status
                             if isinstance(status_val, int):
                                 http_status = status_val
-
                         if http_status not in (200, 201):
                             last_err = f"HTTP {http_status}: Broker returned non-success status code"
                             _log.error(
@@ -876,14 +783,7 @@ class UniversalBrokerGateway:
                             order_status,
                         )
                         self._breaker.record_success()
-                        return {
-                            "success": True,
-                            "ticket": str(broker_ticket),
-                            "price": float(execution_price),
-                            "error": "",
-                            "protocol": self.protocol,
-                            "status": order_status,
-                        }
+                        return {'success': True, 'ticket': str(broker_ticket), 'price': float(execution_price), 'error': '', 'protocol': self.protocol, 'status': order_status}
                 except (socket.timeout, TimeoutError) as e:
                     last_err = f"Socket Timeout 3.0s: {e}"
                     _log.warning(
@@ -917,28 +817,11 @@ class UniversalBrokerGateway:
                     # Order not found at broker - safe to retry with same client_order_id
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
-                except (
-                    socket.gaierror,
-                    ConnectionRefusedError,
-                    ConnectionResetError,
-                    urllib.error.URLError,
-                ) as e:
-                    # Explicit network unreachable handling (Round 3 critic FLAW-003)
-                    last_err = f"Network Unreachable: {e}"
-                    _log.error(
-                        "Universal Broker REST Gateway network unreachable exception on %s: %s",
-                        symbol,
-                        e,
-                    )
+                except (socket.gaierror, ConnectionRefusedError, ConnectionResetError, urllib.error.URLError) as e:
+                    last_err = f'Network Unreachable: {e}'
+                    _log.error('Universal Broker REST Gateway network unreachable exception on %s: %s', symbol, e)
                     self._breaker.record_failure(e)
-                    return {
-                        "success": False,
-                        "ticket": "",
-                        "price": 0.0,
-                        "error": last_err,
-                        "reason": "NETWORK_UNREACHABLE",
-                        "protocol": self.protocol,
-                    }
+                    return {'success': False, 'ticket': '', 'price': 0.0, 'error': last_err, 'reason': 'NETWORK_UNREACHABLE', 'protocol': self.protocol}
                 except Exception as e:
                     last_err = str(e)
                     _log.warning(
@@ -972,18 +855,9 @@ class UniversalBrokerGateway:
                     # Order not found - safe to retry with same client_order_id
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
-
-            # All retry attempts failed
             self._breaker.record_failure()
-            return {
-                "success": False,
-                "ticket": "",
-                "price": 0.0,
-                "error": last_err or "Execution failed after retries",
-                "protocol": self.protocol,
-            }
-
-        if self.protocol == "FIX" and self.fix_engine:
+            return {'success': False, 'ticket': '', 'price': 0.0, 'error': last_err or 'Execution failed after retries', 'protocol': self.protocol}
+        if self.protocol == 'FIX' and self.fix_engine:
             try:
                 # SECURITY: order_type and lot_size are already validated at function entry
                 # Safe to convert validated order_type to FIX side code
@@ -999,26 +873,13 @@ class UniversalBrokerGateway:
                     price=0.0,
                 )
                 self._breaker.record_success()
-                return {
-                    "success": True,
-                    "ticket": cl_ord_id,
-                    "price": 0.0,
-                    "error": "",
-                    "protocol": "FIX",
-                }
+                return {'success': True, 'ticket': cl_ord_id, 'price': 0.0, 'error': '', 'protocol': 'FIX'}
             except (socket.gaierror, ConnectionRefusedError, ConnectionResetError) as e:
-                _log.error("Universal Broker FIX network unreachable: %s", e)
+                _log.error('Universal Broker FIX network unreachable: %s', e)
                 self._breaker.record_failure(e)
-                return {
-                    "success": False,
-                    "ticket": "",
-                    "price": 0.0,
-                    "error": f"Network Unreachable: {e}",
-                    "reason": "NETWORK_UNREACHABLE",
-                    "protocol": "FIX",
-                }
+                return {'success': False, 'ticket': '', 'price': 0.0, 'error': f'Network Unreachable: {e}', 'reason': 'NETWORK_UNREACHABLE', 'protocol': 'FIX'}
             except Exception as e:
-                _log.warning("Universal Broker FIX order execution exception: %s", e)
+                _log.warning('Universal Broker FIX order execution exception: %s', e)
                 self._breaker.record_failure(e)
                 return {
                     "success": False,
@@ -1035,95 +896,40 @@ class UniversalBrokerGateway:
             self.protocol,
         )
         self._breaker.record_failure()
-        return {
-            "success": False,
-            "ticket": "",
-            "price": 0.0,
-            "error": f"No valid execution path for protocol {self.protocol}. Check configuration.",
-            "reason": "CONFIGURATION_ERROR",
-            "protocol": self.protocol,
-        }
+        return {'success': False, 'ticket': '', 'price': 0.0, 'error': f'No valid execution path for protocol {self.protocol}. Check configuration.', 'reason': 'CONFIGURATION_ERROR', 'protocol': self.protocol}
 
-    def close_order(self, ticket, reason="MANUAL"):
+    def close_order(self, ticket: Any, reason: Any='MANUAL') -> Any:
         """Closes an active order on the live broker gateway."""
         if not self.is_connected():
-            return {
-                "success": False,
-                "price": 0.0,
-                "profit": 0.0,
-                "error": "Gateway not connected.",
-            }
-
-        # Circuit Breaker check
+            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': 'Gateway not connected.'}
         if not self._breaker.allow():
-            _log.warning(
-                "UniversalBrokerGateway: Close order for ticket %s blocked by OPEN circuit breaker.",
-                ticket,
-            )
-            return {
-                "success": False,
-                "price": 0.0,
-                "profit": 0.0,
-                "error": "circuit_open",
-            }
-
-        if self.protocol == "MT5":
+            _log.warning('UniversalBrokerGateway: Close order for ticket %s blocked by OPEN circuit breaker.', ticket)
+            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': 'circuit_open'}
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
-
                 positions = mt5.positions_get(ticket=int(ticket))
                 if not positions or len(positions) == 0:
-                    return {
-                        "success": False,
-                        "price": 0.0,
-                        "profit": 0.0,
-                        "error": f"Ticket {ticket} not found in MT5.",
-                    }
-
+                    return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f'Ticket {ticket} not found in MT5.'}
                 pos = positions[0]
                 symbol = pos.symbol
                 lot_size = pos.volume
-                direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
-                close_type = mt5.ORDER_TYPE_SELL if direction == "BUY" else mt5.ORDER_TYPE_BUY
-
+                direction = 'BUY' if pos.type == mt5.POSITION_TYPE_BUY else 'SELL'
+                close_type = mt5.ORDER_TYPE_SELL if direction == 'BUY' else mt5.ORDER_TYPE_BUY
                 price_info = mt5.symbol_info_tick(symbol)
-                close_price = price_info.bid if direction == "BUY" else price_info.ask
-
-                request = {
-                    "action": mt5.TRADE_ACTION_DEAL,
-                    "position": int(ticket),
-                    "symbol": symbol,
-                    "volume": lot_size,
-                    "type": close_type,
-                    "price": close_price,
-                    "deviation": 20,
-                    "magic": 998822,
-                    "comment": f"Close_{reason}",
-                    "type_time": mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                }
-
+                close_price = price_info.bid if direction == 'BUY' else price_info.ask
+                request = {'action': mt5.TRADE_ACTION_DEAL, 'position': int(ticket), 'symbol': symbol, 'volume': lot_size, 'type': close_type, 'price': close_price, 'deviation': 20, 'magic': 998822, 'comment': f'Close_{reason}', 'type_time': mt5.ORDER_TIME_GTC, 'type_filling': mt5.ORDER_FILLING_IOC}
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    profit_est = float(getattr(pos, "profit", 0.0))
+                    profit_est = float(getattr(pos, 'profit', 0.0))
                     self._breaker.record_success()
-                    return {
-                        "success": True,
-                        "price": float(result.price),
-                        "profit": profit_est,
-                        "error": "",
-                    }
+                    return {'success': True, 'price': float(result.price), 'profit': profit_est, 'error': ''}
                 else:
-                    error_msg = f"MT5 close failed: {result.comment if result else 'Unknown error'}"
+                    error_msg = f"MT5 close failed: {(result.comment if result else 'Unknown error')}"
                     self._breaker.record_failure()
-                    return {
-                        "success": False,
-                        "price": 0.0,
-                        "profit": 0.0,
-                        "error": error_msg,
-                    }
+                    return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': error_msg}
             except Exception as e:
-                _log.error("UniversalBrokerGateway MT5 close_order exception: %s", e)
+                _log.error('UniversalBrokerGateway MT5 close_order exception: %s', e)
                 self._breaker.record_failure(e)
                 return {
                     "success": False,
@@ -1151,23 +957,12 @@ class UniversalBrokerGateway:
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         response_data = self._read_response_safely(resp)
-                        res_data = json.loads(response_data.decode("utf-8"))
+                        res_data = json.loads(response_data.decode('utf-8'))
                         self._breaker.record_success()
-                        return {
-                            "success": res_data.get("success", True),
-                            "price": float(res_data.get("price", 0.0)),
-                            "profit": float(res_data.get("profit", 0.0)),
-                            "error": res_data.get("error", ""),
-                        }
+                        return {'success': res_data.get('success', True), 'price': float(res_data.get('price', 0.0)), 'profit': float(res_data.get('profit', 0.0)), 'error': res_data.get('error', '')}
                 except (socket.timeout, TimeoutError) as e:
-                    last_err = f"Socket Timeout 3.0s: {e}"
-                    _log.warning(
-                        "Universal Broker REST Gateway close_order timeout (attempt %d/%d) for ticket %s: %s",
-                        attempt + 1,
-                        max_attempts,
-                        ticket,
-                        e,
-                    )
+                    last_err = f'Socket Timeout 3.0s: {e}'
+                    _log.warning('Universal Broker REST Gateway close_order timeout (attempt %d/%d) for ticket %s: %s', attempt + 1, max_attempts, ticket, e)
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
                 except (
@@ -1179,82 +974,38 @@ class UniversalBrokerGateway:
                     last_err = f"Network Unreachable: {e}"
                     _log.error("Universal Broker REST Gateway close_order network unreachable: %s", e)
                     self._breaker.record_failure(e)
-                    return {
-                        "success": False,
-                        "price": 0.0,
-                        "profit": 0.0,
-                        "error": last_err,
-                    }
+                    return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': last_err}
                 except Exception as e:
                     last_err = str(e)
-                    _log.warning(
-                        "Universal Broker REST Gateway close_order exception (attempt %d/%d): %s",
-                        attempt + 1,
-                        max_attempts,
-                        e,
-                    )
+                    _log.warning('Universal Broker REST Gateway close_order exception (attempt %d/%d): %s', attempt + 1, max_attempts, e)
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
-
             self._breaker.record_failure()
-            return {
-                "success": False,
-                "price": 0.0,
-                "profit": 0.0,
-                "error": last_err or "Close order failed after retries",
-            }
-
-        if self.protocol == "FIX" and self.fix_engine:
+            return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': last_err or 'Close order failed after retries'}
+        if self.protocol == 'FIX' and self.fix_engine:
             try:
                 cl_ord_id = f"EQATS_CLOSE_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
                 self.fix_engine.send_order_cancel_request(cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket))
                 self._breaker.record_success()
-                return {
-                    "success": True,
-                    "price": 0.0,
-                    "profit": 0.0,
-                    "error": "",
-                }
+                return {'success': True, 'price': 0.0, 'profit': 0.0, 'error': ''}
             except Exception as e:
-                _log.error("UniversalBrokerGateway FIX close_order exception: %s", e)
+                _log.error('UniversalBrokerGateway FIX close_order exception: %s', e)
                 self._breaker.record_failure(e)
-                return {
-                    "success": False,
-                    "price": 0.0,
-                    "profit": 0.0,
-                    "error": str(e),
-                }
+                return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': str(e)}
+        _log.warning('UniversalBrokerGateway: close_order not fully implemented for protocol %s', self.protocol)
+        return {'success': False, 'price': 0.0, 'profit': 0.0, 'error': f'close_order not implemented for protocol {self.protocol}'}
 
-        # Fallback for unsupported protocols
-        _log.warning(
-            "UniversalBrokerGateway: close_order not fully implemented for protocol %s",
-            self.protocol,
-        )
-        return {
-            "success": False,
-            "price": 0.0,
-            "profit": 0.0,
-            "error": f"close_order not implemented for protocol {self.protocol}",
-        }
-
-    def modify_order(self, ticket, sl, tp):
+    def modify_order(self, ticket: Any, sl: Any, tp: Any) -> Any:
         """Modifies Stop Loss and Take Profit levels of an active trade on the live broker gateway."""
         if not self.is_connected():
             return False
-
-        # Circuit Breaker check
         if not self._breaker.allow():
-            _log.warning(
-                "UniversalBrokerGateway: Modify order for ticket %s blocked by OPEN circuit breaker.",
-                ticket,
-            )
+            _log.warning('UniversalBrokerGateway: Modify order for ticket %s blocked by OPEN circuit breaker.', ticket)
             return False
-
-        if self.protocol == "MT5":
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
-
                 positions = mt5.positions_get(ticket=int(ticket))
                 if not positions or len(positions) == 0:
                     return False
@@ -1274,7 +1025,7 @@ class UniversalBrokerGateway:
                     self._breaker.record_failure()
                     return False
             except Exception as e:
-                _log.error("UniversalBrokerGateway MT5 modify_order exception: %s", e)
+                _log.error('UniversalBrokerGateway MT5 modify_order exception: %s', e)
                 self._breaker.record_failure(e)
                 return False
 
@@ -1296,16 +1047,11 @@ class UniversalBrokerGateway:
                 try:
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         response_data = self._read_response_safely(resp)
-                        res_data = json.loads(response_data.decode("utf-8"))
+                        res_data = json.loads(response_data.decode('utf-8'))
                         self._breaker.record_success()
-                        return res_data.get("success", True)
+                        return res_data.get('success', True)
                 except (socket.timeout, TimeoutError) as e:
-                    _log.warning(
-                        "Universal Broker REST Gateway modify_order timeout (attempt %d/%d): %s",
-                        attempt + 1,
-                        max_attempts,
-                        e,
-                    )
+                    _log.warning('Universal Broker REST Gateway modify_order timeout (attempt %d/%d): %s', attempt + 1, max_attempts, e)
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
                 except (
@@ -1318,19 +1064,12 @@ class UniversalBrokerGateway:
                     self._breaker.record_failure(e)
                     return False
                 except Exception as e:
-                    _log.warning(
-                        "Universal Broker REST Gateway modify_order exception (attempt %d/%d): %s",
-                        attempt + 1,
-                        max_attempts,
-                        e,
-                    )
+                    _log.warning('Universal Broker REST Gateway modify_order exception (attempt %d/%d): %s', attempt + 1, max_attempts, e)
                     if attempt < max_attempts - 1:
                         time.sleep(self.retry_backoff_delay)
-
             self._breaker.record_failure()
             return False
-
-        if self.protocol == "FIX" and self.fix_engine:
+        if self.protocol == 'FIX' and self.fix_engine:
             try:
                 cl_ord_id = f"EQATS_MODIFY_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
@@ -1340,49 +1079,30 @@ class UniversalBrokerGateway:
                 self._breaker.record_success()
                 return True
             except Exception as e:
-                _log.error("UniversalBrokerGateway FIX modify_order exception: %s", e)
+                _log.error('UniversalBrokerGateway FIX modify_order exception: %s', e)
                 self._breaker.record_failure(e)
                 return False
-
-        # Fallback for unsupported protocols
-        _log.warning(
-            "UniversalBrokerGateway: modify_order not fully implemented for protocol %s",
-            self.protocol,
-        )
+        _log.warning('UniversalBrokerGateway: modify_order not fully implemented for protocol %s', self.protocol)
         return False
 
-    def get_open_orders(self):
+    def get_open_orders(self) -> Any:
         """Returns currently active open orders on the live broker gateway."""
         if not self.is_connected():
             return []
-
-        if self.protocol == "MT5":
+        if self.protocol == 'MT5':
             try:
                 import MetaTrader5 as mt5
-
                 positions = mt5.positions_get()
                 if positions is None or len(positions) == 0:
                     return []
-
                 orders_list = []
                 for pos in positions:
-                    if getattr(pos, "magic", 0) == 998822:
-                        direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
-                        orders_list.append(
-                            {
-                                "ticket": str(pos.ticket),
-                                "symbol": pos.symbol,
-                                "direction": direction,
-                                "open_price": pos.price_open,
-                                "sl": pos.sl,
-                                "tp": pos.tp,
-                                "lot_size": pos.volume,
-                                "profit": float(getattr(pos, "profit", 0.0)),
-                            }
-                        )
+                    if getattr(pos, 'magic', 0) == 998822:
+                        direction = 'BUY' if pos.type == mt5.POSITION_TYPE_BUY else 'SELL'
+                        orders_list.append({'ticket': str(pos.ticket), 'symbol': pos.symbol, 'direction': direction, 'open_price': pos.price_open, 'sl': pos.sl, 'tp': pos.tp, 'lot_size': pos.volume, 'profit': float(getattr(pos, 'profit', 0.0))})
                 return orders_list
             except Exception as e:
-                _log.error("UniversalBrokerGateway MT5 get_open_orders exception: %s", e)
+                _log.error('UniversalBrokerGateway MT5 get_open_orders exception: %s', e)
                 return []
 
         if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
@@ -1398,8 +1118,8 @@ class UniversalBrokerGateway:
             try:
                 with urllib.request.urlopen(req, timeout=3.0) as resp:
                     response_data = self._read_response_safely(resp)
-                    res_data = json.loads(response_data.decode("utf-8"))
-                    return res_data.get("orders", [])
+                    res_data = json.loads(response_data.decode('utf-8'))
+                    return res_data.get('orders', [])
             except Exception as e:
                 _log.warning("Universal Broker REST Gateway get_open_orders exception: %s", e)
                 return []
@@ -1408,6 +1128,4 @@ class UniversalBrokerGateway:
             # FIX protocol would require maintaining state or querying via Order Mass Status Request
             _log.warning("UniversalBrokerGateway: get_open_orders for FIX requires state tracking")
             return []
-
-        # Fallback for unsupported protocols
         return []

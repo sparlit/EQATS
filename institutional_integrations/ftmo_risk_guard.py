@@ -7,7 +7,6 @@ weekend/closure prohibitions, trade frequency caps, and Best Day Rule qualificat
 import logging
 from typing import Any, Dict, List, Optional, Sequence
 
-logger = logging.getLogger("FTMORiskGuard")
 
 
 class FTMORiskGuardEngine:
@@ -30,29 +29,14 @@ class FTMORiskGuardEngine:
         self.inner_daily_stop_pct = inner_daily_stop_pct
         self.inner_total_stop_pct = inner_total_stop_pct
 
-    def evaluate_order_risk(
-        self,
-        symbol: str,
-        action: str,
-        volume: float,
-        price: float,
-        sl: float,
-        current_equity: float,
-        day_start_equity: float,
-        is_news_window: bool = False,
-        is_weekend_embargo: bool = False,
-    ) -> Dict[str, Any]:
+    def evaluate_order_risk(self, symbol: str, action: str, volume: float, price: float, sl: float, current_equity: float, day_start_equity: float, is_news_window: bool=False, is_weekend_embargo: bool=False) -> Dict[str, Any]:
         act_upper = action.upper()
-        if act_upper in ["CLOSE", "CANCEL"]:
-            return {"decision": "ALLOW", "reason": "Risk reduction request approved"}
-
+        if act_upper in ['CLOSE', 'CANCEL']:
+            return {'decision': 'ALLOW', 'reason': 'Risk reduction request approved'}
         if is_weekend_embargo:
-            return {"decision": "REJECT", "reason": "Weekend / market closure embargo active (no new risk)"}
-
+            return {'decision': 'REJECT', 'reason': 'Weekend / market closure embargo active (no new risk)'}
         if is_news_window:
-            return {"decision": "REJECT", "reason": "High-impact news embargo window active"}
-
-        # Daily Loss Check against inner stop
+            return {'decision': 'REJECT', 'reason': 'High-impact news embargo window active'}
         daily_loss = day_start_equity - current_equity
         max_daily_allowed = day_start_equity * (self.inner_daily_stop_pct / 100.0)
         if daily_loss >= max_daily_allowed:
@@ -74,6 +58,9 @@ class FTMORiskGuardEngine:
         pip_size = 0.01 if "JPY" in symbol.upper() else 0.0001
         sl_dist = abs(price - sl) if sl > 0 else (pip_size * 30.0)
         order_risk = volume * 100000.0 * sl_dist
+        if daily_loss + order_risk > max_daily_allowed:
+            return {'decision': 'REJECT', 'reason': f'Proposed order risk {order_risk:.2f} exceeds remaining daily buffer'}
+        return {'decision': 'ALLOW', 'reason': 'FTMO pre-trade risk checks passed', 'order_risk': round(order_risk, 2)}
 
         if (daily_loss + order_risk) > max_daily_allowed:
             return {
@@ -104,18 +91,15 @@ class FTMOQualificationAuditor:
         # Group profit per day
         daily_pnl: Dict[str, float] = {}
         for trade in closed_trades:
-            day_key = str(trade.get("ftmo_day", "DAY1"))
-            daily_pnl[day_key] = daily_pnl.get(day_key, 0.0) + float(trade.get("net_profit", 0.0))
-
+            day_key = str(trade.get('ftmo_day', 'DAY1'))
+            daily_pnl[day_key] = daily_pnl.get(day_key, 0.0) + float(trade.get('net_profit', 0.0))
         trading_days = len(daily_pnl)
-        positive_days_profit = sum(p for p in daily_pnl.values() if p > 0)
+        positive_days_profit = sum((p for p in daily_pnl.values() if p > 0))
         best_day_profit = max([p for p in daily_pnl.values() if p > 0] + [0.0])
-
-        best_day_ratio = (best_day_profit / positive_days_profit) if positive_days_profit > 0 else 0.0
+        best_day_ratio = best_day_profit / positive_days_profit if positive_days_profit > 0 else 0.0
         best_day_compliant = True
         if best_day_rule_pct is not None and positive_days_profit > 0:
             best_day_compliant = best_day_ratio <= best_day_rule_pct
-
         profit_target_met = current_profit >= target_amount
         min_days_met = trading_days >= min_trading_days
         fully_qualified = profit_target_met and min_days_met and best_day_compliant
