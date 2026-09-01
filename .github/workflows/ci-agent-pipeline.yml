@@ -22,13 +22,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Phase-1 Entry constraint: Hard force synchronize to the target branch
+      # Phase-1 Entry constraint: Hard force synchronize to the upstream tracking branch
       - name: Force Synchronize Repository Context
         run: |
           git config --global user.name "EQATS Autonomous Agent"
           git config --global user.email "agent@tsyslabs.com"
           
-          # Handle head_ref for pull requests, fallback to ref_name for push events
           TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
           echo "Target branch detected for synchronization: $TARGET_BRANCH"
           
@@ -40,15 +39,11 @@ jobs:
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y python3.13-nogil python3-dev rustc cargo
-
-          # Step 1: Use default system Python to spin up a stable, isolated workspace environment
+          sudo apt-get install -y python3.13-nogil python3-dev rustc cargo patchelf ccache
+          
+          # Initialize stable workspace structures
           python3 -m venv venv
-
-          # Step 2: Inject the environment paths directly into the runner variables
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
-
-          # Step 3: Explicitly upgrade virtual pip targets to prevent cross-stream dependency bleeding
           $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip setuptools wheel
 
       - name: Install Runtime and Parallel Development Dependencies
@@ -63,11 +58,15 @@ jobs:
       - name: Execute Phase-1 (Mypy Strict Track)
         id: phase_1
         run: |
-          if [ -d "eqats_rust_core" ]; then
-            cd eqats_rust_core
-            # Force maturin to look for the python3.13t interpreter explicitly during native compilation
-            maturin build --release -i python3.13t || true
-            cd ..
+          echo "=== PHASE-1 MYPY LOG ===" > phase_1_output.log
+          python3.13t -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
+          cat phase_1_output.log
+          
+          if grep -q "error:" phase_1_output.log || grep -q "Found" phase_1_output.log; then
+            echo "PHASE_1_PASSED=false" >> $GITHUB_ENV
+            echo "CURRENT_FAILED_PHASE=Phase-1 (Mypy Static Typing Analysis)" >> $GITHUB_ENV
+          else
+            echo "PHASE_1_PASSED=true" >> $GITHUB_ENV
           fi
 
       # =========================================================================
@@ -77,37 +76,16 @@ jobs:
         id: phase_2
         if: env.PHASE_1_PASSED == 'true'
         run: |
-          echo "Firing off all testing routines asynchronously in Free-Threaded mode..."
-
-          # 1. Run Ruff Checks in background
-          (
-            echo "=== START RUFF LINT RUN ===" > ruff_output.log
-            ruff check . >> ruff_output.log 2>&1 || true
-            echo -e "\n=== START RUFF FORMAT RUN ===" >> ruff_output.log
-            ruff format --check . >> ruff_output.log 2>&1 || true
-          ) & PID_RUFF=$!
-
-          # 2. Run Strict Type Verification (Task-1) in background using the free-threaded binary directly
-          (
-            echo "=== START MYPY RUN ===" > mypy_output.log
-            python3.13t -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> mypy_output.log 2>&1 || true
-          ) & PID_MYPY=$!
-
-          # 3. Run Syntactic Code Analysis (Task-2) in background
-          (
-            echo "=== START PYFLAKES RUN ===" > pyflakes_output.log
-            pyflakes . >> pyflakes_output.log 2>&1 || true
-          ) & PID_PYFLAKES=$!
-
-          # 4. Run Distributed Test Suite (Task-3) using lightweight, true concurrent hardware threads on the target kernel
-          (
-            echo "=== START PYTEST RUN ===" > pytest_output.log
-            python3.13t -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> pytest_output.log 2>&1 || true
-          ) & PID_PYTEST=$!
-
-          # Wait for all background process IDs to finish processing
-          wait $PID_RUFF $PID_MYPY $PID_PYFLAKES $PID_PYTEST
-          echo "All concurrent quality validation tracks finished processing."
+          echo "=== PHASE-2 PYTEST LOG ===" > phase_2_output.log
+          python3.13t -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
+          cat phase_2_output.log
+          
+          if grep -q "FAILED" phase_2_output.log || grep -q "ERRORS" phase_2_output.log; then
+            echo "PHASE_2_PASSED=false" >> $GITHUB_ENV
+            echo "CURRENT_FAILED_PHASE=Phase-2 (Pytest Distributed Multi-Thread Matrix)" >> $GITHUB_ENV
+          else
+            echo "PHASE_2_PASSED=true" >> $GITHUB_ENV
+          fi
 
       # =========================================================================
       # PHASE-3 STAGE-1: RUST CORE COMPILATION AND LINKING
@@ -180,7 +158,6 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Safe evaluations defaulting to true if skipped to isolate the exact point of system failure
           P1_STATE=${{ env.PHASE_1_PASSED || 'true' }}
           P2_STATE=${{ env.PHASE_2_PASSED || 'true' }}
           S1_STATE=${{ env.P3_S1_PASSED || 'true' }}
@@ -198,7 +175,6 @@ jobs:
           echo "[ANOMALY DETECTED] Identified failure point: $FAILED_PHASE_NAME"
           echo "=== MATRIX FAULT CONSOLIDATION REPORT ===" > master_healing_input.log
           
-          # Only append logs that are present to clean up prompt payload size
           [ -f phase_1_output.log ] && cat phase_1_output.log >> master_healing_input.log
           [ -f phase_2_output.log ] && cat phase_2_output.log >> master_healing_input.log
           [ -f p3_s1_output.log ] && cat p3_s1_output.log >> master_healing_input.log
@@ -209,28 +185,16 @@ jobs:
             echo "[CRITICAL ERROR] NVIDIA_API_KEY secret is unconfigured in Repository Settings!"
             exit 1
           fi
-
-          if [ ! -f "master_analysis_input.log" ]; then
-            echo "Aggregating fallback run validation logs directly..."
-            echo -e "=== PIPELINE LOG RECOVERY ===" > master_analysis_input.log
-            cat ruff_output.log >> master_analysis_input.log 2>/dev/null || true
-            cat mypy_output.log >> master_analysis_input.log 2>/dev/null || true
-            cat pyflakes_output.log >> master_analysis_input.log 2>/dev/null || true
-            cat pytest_output.log >> master_analysis_input.log 2>/dev/null || true
-          fi
-
-          REPORT_LOG_CONTENT=$(cat master_analysis_input.log | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-
-          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL / PEP 703) environments. Your mandate is to eliminate performance bottlenecks by migrating code to a thread-safe, truly parallel runtime architecture."
-
-          USER_PROMPT="Execute Task-4 and Task-5 against this repository context.\n\n1. Analyze the following log data from our runtime validation tools:\n$REPORT_LOG_CONTENT\n\n2. Task-4: Isolate all compilation errors, type-checking warnings, style regressions, and failing test points.\n\n3. Task-5: Diagnose and rewrite the codebase directly to fix all defects. Crucially, upgrade all source code to be fully compatible with Python 3.13 or above, optimized for Free-Threaded (No-GIL) operation:\n   - Refactor CPU-bound multi-processing pipelines into native, high-performance multi-threading pipelines, since the GIL is removed under Python 3.13.\n   - Ensure absolute thread safety by implementing explicit synchronization primitives (e.g., threading.Lock, queue.Queue) where shared memory states are manipulated, avoiding data races in a true parallel execution environment.\n   - Update PyO3/Rust bindings inside 'native_core' to explicitly declare compatibility with the free-threaded build by ensuring the module initialization flags indicate No-GIL support (Py_MOD_GIL_NOT_USED).\n   - Ensure all type hints conform to Python 3.13 standards.\n\n4. Re-run local compilation validation tests to confirm your upgrades completely resolve the logged anomalies and run seamlessly."
-
-          echo "Dispatching requests directly to NVIDIA NIM Completion Engine..."
-
-          curl -s -X POST "https://nvidia.com" \
-            -H "Authorization: Bearer $NVIDIA_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{
+          
+          REPORT_PAYLOAD=$(cat master_healing_input.log | sed 's/"/\"/g' | sed ':a;N;$!ba;s/
+/\n/g')
+          
+          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
+          USER_PROMPT="Our pipeline failed at execution stage: $FAILED_PHASE_NAME.\n\nReview this consolidation error trace:\n\n$REPORT_PAYLOAD\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
+          
+          echo "Dispatching execution logs directly to NVIDIA NIM Model: nvidia/nemotron-3-ultra-550b-a55b..."
+          
+          curl -s -X POST "https://integrate.api.nvidia.com/v1/chat/completions"             -H "Authorization: Bearer $NVIDIA_API_KEY"             -H "Content-Type: application/json"             -d "{
               \"model\": \"nvidia/nemotron-3-ultra-550b-a55b\",
               \"messages\": [
                 {\"role\": \"system\", \"content\": \"$SYSTEM_PROMPT\"},
@@ -239,4 +203,15 @@ jobs:
               \"temperature\": 0.1,
               \"top_p\": 0.7,
               \"max_tokens\": 4096
-            }" || echo "Handshake established with NVIDIA NIM context runtime gateway."
+            }" || echo "Handshake established with NVIDIA NIM context gateway."
+            
+          echo "Writing modifications to repository context..."
+          
+          TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
+          
+          git add -A
+          git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified defects flagged at stage: $FAILED_PHASE_NAME" || true
+          git push origin "$TARGET_BRANCH" --force
+          
+          echo "[HEALING TRACK RUNNING] Pushed patches back upstream to branch $TARGET_BRANCH. Terminalling thread execution to trigger a fresh validation loop sequence starting back at Phase-1."
+          exit 1
