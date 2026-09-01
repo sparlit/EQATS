@@ -1,14 +1,15 @@
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List
 
 try:
     import pandas as pd
-    import numpy as np
+
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
 
 logger = logging.getLogger("SovereignIntelligence")
+
 
 class SovereignIntelligencePlugin:
     """
@@ -16,25 +17,26 @@ class SovereignIntelligencePlugin:
     Combines institutional SMC Order Block detection, Liquidity Grab (Stop Hunt) analysis,
     and ATR-based position sizing into a unified signal processor.
     """
+
     def __init__(self, max_equity_risk: float = 0.01):
         self.max_equity_risk = max_equity_risk
 
     def detect_order_blocks(self, df_or_bars: Any) -> List[Dict[str, Any]]:
-        blocks = []
+        blocks: List[Dict[str, Any]] = []
         if PANDAS_AVAILABLE and isinstance(df_or_bars, pd.DataFrame):
             df = df_or_bars
             if len(df) < 5:
                 return blocks
-            o = df['open'] if 'open' in df else df['o']
-            h = df['high'] if 'high' in df else df['h']
-            l = df['low'] if 'low' in df else df['l']
-            c = df['close'] if 'close' in df else df['c']
+            o = df["open"] if "open" in df else df["o"]
+            h = df["high"] if "high" in df else df["h"]
+            l = df["low"] if "low" in df else df["l"]
+            c = df["close"] if "close" in df else df["c"]
 
             for i in range(2, len(df) - 1):
-                if c.iloc[i-1] < o.iloc[i-1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > h.iloc[i-1]:
-                    blocks.append({"type": "BULLISH_OB", "price": float(l.iloc[i-1]), "index": i})
-                elif c.iloc[i-1] > o.iloc[i-1] and c.iloc[i] < o.iloc[i] and c.iloc[i] < l.iloc[i-1]:
-                    blocks.append({"type": "BEARISH_OB", "price": float(h.iloc[i-1]), "index": i})
+                if c.iloc[i - 1] < o.iloc[i - 1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > h.iloc[i - 1]:
+                    blocks.append({"type": "BULLISH_OB", "price": float(l.iloc[i - 1]), "index": i})
+                elif c.iloc[i - 1] > o.iloc[i - 1] and c.iloc[i] < o.iloc[i] and c.iloc[i] < l.iloc[i - 1]:
+                    blocks.append({"type": "BEARISH_OB", "price": float(h.iloc[i - 1]), "index": i})
         return blocks
 
     def detect_liquidity_grab(self, df_or_bars: Any) -> str:
@@ -42,9 +44,9 @@ class SovereignIntelligencePlugin:
             df = df_or_bars
             if len(df) < 20:
                 return "NONE"
-            h = df['high'] if 'high' in df else df['h']
-            l = df['low'] if 'low' in df else df['l']
-            c = df['close'] if 'close' in df else df['c']
+            h = df["high"] if "high" in df else df["h"]
+            l = df["low"] if "low" in df else df["l"]
+            c = df["close"] if "close" in df else df["c"]
 
             recent_high = h.iloc[-20:-2].max()
             recent_low = l.iloc[-20:-2].min()
@@ -91,5 +93,5 @@ class SovereignIntelligencePlugin:
             "order_blocks": len(obs),
             "liquidity_grab": grab,
             "recommended_lot": recommended_lot,
-            "status": "APPROVED" if signal != "NEUTRAL" else "NEUTRAL"
+            "status": "APPROVED" if signal != "NEUTRAL" else "NEUTRAL",
         }

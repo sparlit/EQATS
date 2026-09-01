@@ -8105,7 +8105,7 @@ SECURITY DOMAINS ENFORCED:
     def _on_mkt_tab_changed(self):
         if hasattr(self, "mkt_notebook") and hasattr(self, "mkt_subtab_buttons"):
             try:
-                curr_idx = self.mkt_notebook.index(self.mkt_notebook.select())
+                curr_idx = self.mkt_notebook.index(self.mkt_notebook.select())  # type: ignore[no-untyped-call]
                 for idx, btn in enumerate(self.mkt_subtab_buttons):
                     if idx == curr_idx:
                         btn.config(bg="#15803d", fg="#ffffff")
