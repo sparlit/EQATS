@@ -351,7 +351,8 @@ class ScalperBrain:
         nofx_decision = NoFxModelDecision(model_name='ScalperBrain_v10.4', symbol=symbol, action=top_proposed_action, confidence=float(ai_bullish_prob if top_proposed_action == NoFxAction.BUY else 1.0 - ai_bullish_prob), reasoning_summary=f"Regime: {reg_info['detailed_regime']} | Kronos upside: {kronos_upside_prob:.2f}", proposed_volume=0.01, proposed_sl=0.0, proposed_tp=0.0)
         global_nofx_model_manager.record_decision(nofx_decision)
         global_nofx_direction_board.update_direction(symbol, (ai_bullish_prob - 0.5) * 2.0)
-        nofx_clamped = global_nofx_disposer.evaluate_proposal(decision=nofx_decision, account_equity=current_equity, current_price=current_price, open_positions=database.get_open_trades() if hasattr(database, 'get_open_trades') else [])
+        open_pos_list = database.get_open_trades() if hasattr(database, "get_open_trades") else []
+        nofx_clamped = global_nofx_disposer.evaluate_proposal(decision=nofx_decision, account_equity=current_equity, current_price=current_price, open_positions=open_pos_list)
         if not nofx_clamped.approved and top_proposed_action in (NoFxAction.BUY, NoFxAction.SELL):
             _log.info('NoFx Disposer clamped entry on %s: %s', symbol, nofx_clamped.veto_reason)
         if brain_directive is None:
@@ -403,7 +404,9 @@ class ScalperBrain:
                 single_dec = all_strategies[strategy_mode]
                 single_exp = f'[{style_mode}] [{strategy_mode}] Setup: {single_dec}{agent_notes}'
             else:
-                sig_to_val = lambda s: 1.0 if s == 'BUY' else -1.0 if s == 'SELL' else 0.0
+                def sig_to_val(s: Any) -> float:
+                    return 1.0 if s == "BUY" else -1.0 if s == "SELL" else 0.0
+
                 vals = [sig_to_val(s) for s in all_strategies.values()]
                 avg_val = sum(vals) / len(vals) if vals else 0.0
                 if avg_val >= 0.22 and ai_bullish_prob >= 0.35:

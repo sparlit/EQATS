@@ -201,9 +201,10 @@ def integrate_fastapi() -> Any:
         from fastapi import FastAPI
         app = FastAPI()
 
-        @app.get('/')
         def status() -> Any:
             return {'status': 'ONLINE'}
+
+        app.add_api_route('/', status)
         return {'status': 'ACTIVE', 'app': str(app), 'engine': 'FASTAPI'}
     except Exception:
         return {'status': 'UNAVAILABLE', 'fallback': True, 'app': 'MockFastAPIApp', 'engine': 'FASTAPI'}
