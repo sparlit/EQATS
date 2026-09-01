@@ -187,7 +187,7 @@ class RNNLSTMModel:
 class TransformerModel:
     """Spatial-Temporal Self-Attention Transformer Network (MTA-Net)."""
 
-    def compute_attention_weights(self, multi_timeframe_features: np.ndarray) -> np.ndarray[Any, Any]:
+    def compute_attention_weights(self, multi_timeframe_features: np.ndarray) -> Any:
         try:
             import torch
             import torch.nn as nn
@@ -305,7 +305,7 @@ class SHAPExplainer:
 class PCAModel:
     """Principal Component Analysis for asset correlation dimensionality reduction."""
 
-    def reduce_dimensions(self, matrix: np.ndarray, n_components: int=2) -> np.ndarray[Any, Any]:
+    def reduce_dimensions(self, matrix: np.ndarray, n_components: int=2) -> Any:
         try:
             from sklearn.decomposition import PCA
             pca = PCA(n_components=n_components)
