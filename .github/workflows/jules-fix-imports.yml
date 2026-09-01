@@ -1,0 +1,51 @@
+name: Jules Auto-Fix Unused Imports
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-and-invoke-jules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Linting Tools
+        run: pip install pyflakes
+
+      - name: Run Pyflakes Check
+        id: run-pyflakes
+        run: |
+          # Run pyflakes and save output
+          result=$(pyflakes . 2>&1 || true)
+          echo "PYFLAKES_OUTPUT<<EOF" >> $GITHUB_ENV
+          echo "$result" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+          # Check if there are unused imports flagged
+          if echo "$result" | grep -q "imported but unused"; then
+            echo "found_errors=true" >> $GITHUB_OUTPUT
+          else
+            echo "found_errors=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Google Jules Agent
+        if: steps.run-pyflakes.outputs.found_errors == 'true'
+        uses: google-labs-code/jules-action@v1
+        with:
+          jules-api-key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            I ran `pyflakes .` on my codebase and it flagged several 'imported but unused' errors. 
+            Here is the pyflakes error log:
+            
+            ${{ env.PYFLAKES_OUTPUT }}
+            
+            Please look at the affected files. Instead of deleting these imports, write clean, necessary, and production-ready functions/modules that logically utilize these imported tools within the architecture of the project. Do not use dummy prints or placeholders. Ensure the repository passes linting when you are finished.

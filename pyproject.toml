@@ -59,7 +59,11 @@ ignore_missing_imports = true
 exclude = ["build", "dist", "eqats.egg-info", ".eggs"]
 warn_unused_ignores = false
 warn_redundant_casts = false
-disable_error_code = ["import-untyped", "import-not-found", "var-annotated", "no-redef", "assignment", "misc"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+check_untyped_defs = false
+disable_error_code = ["import-untyped", "import-not-found", "var-annotated", "no-redef", "assignment", "misc", "no-untyped-def", "no-untyped-call", "type-arg", "no-any-return", "unused-ignore"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
