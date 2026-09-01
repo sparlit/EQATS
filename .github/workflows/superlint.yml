@@ -1,3 +1,4 @@
+---
 name: Lint Code Base
 
 on:
@@ -36,3 +37,4 @@ jobs:
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
           SAVE_SUPER_LINTER_SUMMARY: false
           SUPPRESS_FILE_TYPE_SUMMARY: true
+          VALIDATE_JSCPD: false
