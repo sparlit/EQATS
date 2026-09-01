@@ -10,8 +10,8 @@ authors = [
     { name = "Simon Peter", email = "author@tsyslabs.com" }
 ]
 readme = "README.md"
-# Upgraded to force Free-Threaded (No-GIL) PEP 703 compliance natively
-requires-python = ">=3.13"
+# Compatible with Python 3.12+ and Free-Threaded (No-GIL) PEP 703
+requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.24.0",
     "pillow>=10.0.0",
@@ -21,7 +21,10 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["institutional_integrations"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools-rust]
 ext_modules = [
@@ -80,9 +83,9 @@ disable_error_code = ["import-untyped", "import-not-found"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-# Improved: Integrated hardware multi-threading flags (-n auto) directly into global config
 addopts = "-n auto -vv -s --strict-markers -k 'not gui_integration' --cache-clear"
-testpaths = ["."]
+testpaths = ["tests"]
+pythonpath = ["src"]
 filterwarnings = [
     "ignore::SyntaxWarning:.*cerebro.*",
     "ignore::SyntaxWarning:.*backtrader.*",
