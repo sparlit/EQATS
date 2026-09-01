@@ -15,6 +15,7 @@ logger = logging.getLogger('AAT_Analyst')
 
 
 
+
 class MacroAnalyst:
     """External Macro Economic & Sentiment Analyst."""
 
