@@ -20,15 +20,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Natively configures the runner for experimental free-threaded Python 3.13 execution
+      # Uses standard deadsnakes packages and extracts the true free-threaded kernel (python3.13t)
       - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y python3.13-nogil python3.13-nogil-dev python3.13-nogil-venv rustc cargo
+          sudo apt-get install -y python3.13 python3.13-dev python3.13-venv rustc cargo
           
-          # Initialize dedicated Free-Threaded Virtual Environment
-          python3.13-nogil -m venv venv
+          # Initialize dedicated Free-Threaded Virtual Environment using the 't' suffix binary
+          python3.13t -m venv venv
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
 
       - name: Install Runtime and Parallel Development Dependencies
@@ -124,7 +124,6 @@ jobs:
             exit 1
           fi
           
-          # Fallback generation of unified report if previous execution tracks are independent
           if [ ! -f "master_analysis_input.log" ]; then
             echo "Aggregating fallback run validation logs directly..."
             echo -e "=== PIPELINE LOG RECOVERY ===" > master_analysis_input.log
@@ -134,7 +133,6 @@ jobs:
             cat pytest_output.log >> master_analysis_input.log 2>/dev/null || true
           fi
           
-          # Clean and escape the file content log for safe inclusion in standard JSON formatting
           REPORT_LOG_CONTENT=$(cat master_analysis_input.log | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
           
           SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL / PEP 703) environments. Your mandate is to eliminate performance bottlenecks by migrating code to a thread-safe, truly parallel runtime architecture."
