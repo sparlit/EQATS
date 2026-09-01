@@ -126,7 +126,8 @@ class UniversalBrokerGateway:
         cb_threshold = int(self.broker_config.get("failure_threshold", 5))
         cb_cooldown = float(self.broker_config.get("cooldown_seconds", 30.0))
         self._breaker = CircuitBreaker(
-            failure_threshold=cb_threshold, cooldown_seconds=cb_cooldown,
+            failure_threshold=cb_threshold,
+            cooldown_seconds=cb_cooldown,
         )
 
         self.sebi_adapter = None
@@ -159,7 +160,8 @@ class UniversalBrokerGateway:
             sender_comp = self.broker_config.get("account_id", "EQATS_CLIENT")
             target_comp = self.broker_config.get("server", "LP_BROKER")
             self.fix_engine = FIXEngine(
-                sender_comp_id=sender_comp, target_comp_id=target_comp,
+                sender_comp_id=sender_comp,
+                target_comp_id=target_comp,
             )
         elif self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
             # Institutional REST/WS API connection parameters
@@ -193,7 +195,10 @@ class UniversalBrokerGateway:
                 )
 
     def _generate_auth_headers(
-        self, method: str = "POST", endpoint: str = "/v1/order", body_data: Any = None,
+        self,
+        method: str = "POST",
+        endpoint: str = "/v1/order",
+        body_data: Any = None,
     ) -> dict[str, str]:
         """
         Generates authenticated request headers including API key and HMAC signature.
@@ -328,7 +333,9 @@ class UniversalBrokerGateway:
         response_data = b"".join(chunks)
 
         _log.debug(
-            "Successfully read %d bytes in %.3fs", total_bytes, time.time() - start_time,
+            "Successfully read %d bytes in %.3fs",
+            total_bytes,
+            time.time() - start_time,
         )
 
         return response_data
@@ -558,7 +565,9 @@ class UniversalBrokerGateway:
 
             # Generate authenticated headers for GET request
             headers = self._generate_auth_headers(
-                method="GET", endpoint=query_endpoint, body_data=None,
+                method="GET",
+                endpoint=query_endpoint,
+                body_data=None,
             )
 
             req = urllib.request.Request(query_url, headers=headers)
@@ -802,7 +811,9 @@ class UniversalBrokerGateway:
             # Generate authenticated headers with API key and HMAC signature
             endpoint = "/v1/order"
             headers = self._generate_auth_headers(
-                method="POST", endpoint=endpoint, body_data=payload,
+                method="POST",
+                endpoint=endpoint,
+                body_data=payload,
             )
 
             req = urllib.request.Request(
@@ -1185,7 +1196,9 @@ class UniversalBrokerGateway:
             # Generate authenticated headers with API key and HMAC signature
             endpoint = "/v1/order/close"
             headers = self._generate_auth_headers(
-                method="POST", endpoint=endpoint, body_data=payload,
+                method="POST",
+                endpoint=endpoint,
+                body_data=payload,
             )
 
             req = urllib.request.Request(
@@ -1259,7 +1272,8 @@ class UniversalBrokerGateway:
                 cl_ord_id = f"EQATS_CLOSE_{int(time.time() * 1000)}"
                 # SECURITY FIX: Use atomic send method to prevent out-of-order transmission
                 self.fix_engine.send_order_cancel_request(
-                    cl_ord_id=cl_ord_id, orig_cl_ord_id=str(ticket),
+                    cl_ord_id=cl_ord_id,
+                    orig_cl_ord_id=str(ticket),
                 )
                 self._breaker.record_success()
                 return {"success": True, "price": 0.0, "profit": 0.0, "error": ""}
@@ -1326,7 +1340,9 @@ class UniversalBrokerGateway:
             # Generate authenticated headers with API key and HMAC signature
             endpoint = "/v1/order/modify"
             headers = self._generate_auth_headers(
-                method="POST", endpoint=endpoint, body_data=payload,
+                method="POST",
+                endpoint=endpoint,
+                body_data=payload,
             )
 
             req = urllib.request.Request(
@@ -1429,7 +1445,8 @@ class UniversalBrokerGateway:
                 return orders_list
             except Exception as e:
                 _log.error(
-                    "UniversalBrokerGateway MT5 get_open_orders exception: %s", e,
+                    "UniversalBrokerGateway MT5 get_open_orders exception: %s",
+                    e,
                 )
                 return []
 
@@ -1441,7 +1458,9 @@ class UniversalBrokerGateway:
             # Generate authenticated headers for GET request
             endpoint = "/v1/orders"
             headers = self._generate_auth_headers(
-                method="GET", endpoint=endpoint, body_data=None,
+                method="GET",
+                endpoint=endpoint,
+                body_data=None,
             )
 
             req = urllib.request.Request(
@@ -1456,7 +1475,8 @@ class UniversalBrokerGateway:
                     return res_data.get("orders", [])
             except Exception as e:
                 _log.warning(
-                    "Universal Broker REST Gateway get_open_orders exception: %s", e,
+                    "Universal Broker REST Gateway get_open_orders exception: %s",
+                    e,
                 )
                 return []
 

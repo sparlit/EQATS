@@ -7,7 +7,8 @@ and Intra-day Session Auto Square-Off Execution.
 import logging
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 
 class OpenAlgoSmartOrderSplitter:
