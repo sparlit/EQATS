@@ -20,23 +20,23 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Installs the stable runtime packages and hooks the free-threaded execution kernel natively
+      # Configures the complete stable environment and remaps execution links to the No-GIL core safely
       - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
           sudo apt-get install -y python3.13-nogil python3.13 python3.13-dev python3.13-venv rustc cargo
           
-          # Step 1: Create a standard Python 3.13 environment to guarantee pip and ensurepip wheels are fully present
+          # Step 1: Initialize standard environment to build reliable pip infrastructure maps
           python3.13 -m venv venv
           
-          # Step 2: Use sed to rewrite the configuration path inside pyvenv.cfg to map to the free-threaded system bin
+          # Step 2: Safely decouple and redirect the internal links directly to the free-threaded kernel
+          ln -sf --remove-destination /usr/bin/python3.13t venv/bin/python
+          ln -sf --remove-destination /usr/bin/python3.13t venv/bin/python3
+          
+          # Step 3: Align configuration manifest metadata to match the target environment
           sed -i 's|executable = .*|executable = /usr/bin/python3.13t|g' venv/pyvenv.cfg
           sed -i 's|command = .*|command = /usr/bin/python3.13t -m venv venv|g' venv/pyvenv.cfg
-          
-          # Step 3: Overwrite python / python3 binary scripts inside venv to map explicitly to python3.13t
-          cp /usr/bin/python3.13t venv/bin/python
-          cp /usr/bin/python3.13t venv/bin/python3
           
           # Step 4: Inject the virtual environment binaries to the GitHub PATH variable
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
