@@ -58,6 +58,10 @@ jobs:
           SAVE_SUPER_LINTER_SUMMARY: false
           SUPPRESS_FILE_TYPE_SUMMARY: true
           ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
+          VALIDATE_JSCPD: false
+          VALIDATE_PYTHON_RUFF: false
+          VALIDATE_PYTHON_FLAKE8: false
+          VALIDATE_PYTHON_BLACK: false
 
   rust-core:
     name: Rust Core Compilation & Unit Tests

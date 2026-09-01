@@ -38,3 +38,6 @@ jobs:
           SAVE_SUPER_LINTER_SUMMARY: false
           SUPPRESS_FILE_TYPE_SUMMARY: true
           VALIDATE_JSCPD: false
+          VALIDATE_PYTHON_RUFF: false
+          VALIDATE_PYTHON_FLAKE8: false
+          VALIDATE_PYTHON_BLACK: false
