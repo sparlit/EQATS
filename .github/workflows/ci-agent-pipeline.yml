@@ -1,0 +1,137 @@
+name: Python Quality Verification and Auto-Correction Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run-validation-tasks:
+    name: Parallel Codebase Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # Enforce compilation for multi-process performance modules (Rust PyO3 binds / C++ bridges)
+      - name: Set up Rust Toolchain (For GIL-less Parallel Processing Core)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Runtime and Parallel Development Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin
+          if [ -f requirementstxt ]; then pip install -r requirements.txt; fi
+
+      # Compile performance native extensions before starting validation tools
+      - name: Compile Native Core Processing Modules
+        run: |
+          if [ -d "native_core" ]; then
+            cd native_core
+            maturin develop --release
+            cd ..
+          fi
+
+      # Task 1, 2, and 3: Executed with step-level hardware parallelism
+      - name: Execute Quality Verification Matrix
+        parallel:
+          # Sub-Task A: Fast Linting and Code Style Checks via Ruff
+          - name: Run Ruff Checks
+            run: |
+              echo "=== START RUFF LINT RUN ===" > ruff_output.log
+              ruff check . >> ruff_output.log 2>&1 || true
+              echo -e "\n=== START RUFF FORMAT RUN ===" >> ruff_output.log
+              ruff format --check . >> ruff_output.log 2>&1 || true
+
+          # Sub-Task B: Strict Type Verification (Task-1)
+          - name: Run Task-1 (Mypy Strict Check)
+            run: |
+              echo "=== START MYPY RUN ===" > mypy_output.log
+              mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> mypy_output.log 2>&1 || true
+
+          # Sub-Task C: Syntactic Code Analysis (Task-2)
+          - name: Run Task-2 (Pyflakes Linter Check)
+            run: |
+              echo "=== START PYFLAKES RUN ===" > pyflakes_output.log
+              pyflakes . >> pyflakes_output.log 2>&1 || true
+
+          # Sub-Task D: Distributed Multi-Thread Test Suite (Task-3)
+          - name: Run Task-3 (Pytest Suite Execution)
+            run: |
+              echo "=== START PYTEST RUN ===" > pytest_output.log
+              python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> pytest_output.log 2>&1 || true
+
+      # Synchronize and output all log results directly into the runner shell output
+      - name: Output Consolidated Logs
+        if: always()
+        run: |
+          cat ruff_output.log || true
+          cat mypy_output.log || true
+          cat pyflakes_output.log || true
+          cat pytest_output.log || true
+
+      - name: Consolidate Validation Logs for AI Remediation
+        if: always()
+        run: |
+          echo -e "==================================================\n   CONSOLIDATED PIPELINE RUN VALIDATION REPORT\n==================================================" > master_analysis_input.log
+          cat ruff_output.log >> master_analysis_input.log 2>/dev/null || true
+          echo -e "\n\n" >> master_analysis_input.log
+          cat mypy_output.log >> master_analysis_input.log 2>/dev/null || true
+          echo -e "\n\n" >> master_analysis_input.log
+          cat pyflakes_output.log >> master_analysis_input.log 2>/dev/null || true
+          echo -e "\n\n" >> master_analysis_input.log
+          cat pytest_output.log >> master_analysis_input.log 2>/dev/null || true
+
+      - name: Upload Validation Reports as Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-suite-logs
+          path: |
+            ruff_output.log
+            mypy_output.log
+            pyflakes_output.log
+            pytest_output.log
+            master_analysis_input.log
+
+  agent-remediation-loop:
+    name: AI Remediation Loop (Tasks 4 & 5)
+    needs: run-validation-tasks
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Download Validation Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: validation-suite-logs
+          path: logs
+
+      # Task-4 & Task-5 handled natively via Cloud-Hosted Remote Coding Infrastructure
+      - name: Initialize Remediation Agent via Jules Action
+        uses: google-labs-code/jules-action@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are tasked with executing Task-4 and Task-5 against this repository context.
+            
+            1. Read the provided log file located at: logs/master_analysis_input.log.
+            2. Task-4: Analyze the consolidated engine outputs and test logs. Explicitly find and isolate all compilation bugs, type-checking warnings, style regressions flagged by Ruff, Pyflakes anomalies, or failing execution constraints in Pytest.
+            3. Task-5: Analyze the root cause of every single defect found. Modify the codebase directly to rectify and fix them completely. Ensure your remedies maintain thread-safe, multi-process operations across our asynchronous background worker routines and compiled native core boundaries.
+            4. Re-verify the modifications internally to ensure the codebase successfully compiles and satisfies our strict verification requirements.

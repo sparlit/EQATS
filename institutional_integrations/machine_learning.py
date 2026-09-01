@@ -194,7 +194,8 @@ class TransformerModel:
             m = nn.MultiheadAttention(embed_dim=4, num_heads=1)
             x = torch.FloatTensor(multi_timeframe_features).unsqueeze(1)
             attn_output, attn_weights = m(x, x, x)
-            return attn_weights.detach().numpy().squeeze()
+            res: np.ndarray[Any, Any] = attn_weights.detach().numpy().squeeze()
+            return res
         except Exception:
             norm_f = multi_timeframe_features / (np.linalg.norm(multi_timeframe_features) + 1e-08)
             scores = np.dot(norm_f, norm_f.T)
@@ -308,7 +309,8 @@ class PCAModel:
         try:
             from sklearn.decomposition import PCA
             pca = PCA(n_components=n_components)
-            return pca.fit_transform(matrix)
+            res: np.ndarray[Any, Any] = pca.fit_transform(matrix)
+            return res
         except Exception:
             U, S, Vt = np.linalg.svd(matrix, full_matrices=False)
             return U[:, :n_components] * S[:n_components]
