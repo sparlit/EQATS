@@ -10,7 +10,7 @@ Provides a protocol-agnostic, multi-broker gateway connecting EQATS / EQATS to:
  - CCXT Crypto Exchanges (Binance, Bybit, OKX, Coinbase, Kraken, etc.)
  - High-Fidelity Paper Trading Simulator
 """
-from typing import Any
+from typing import Any, Dict
 import hashlib
 import hmac
 import json
@@ -33,11 +33,7 @@ from institutional_integrations.sebi_broker_adapter import (
     SEBIBrokerAdapter,
     KiteConnectAdapter,
     DhanHQAdapter,
-    KiteConnectAdapter,
     SEBIOrderRequest,
-    UnifiedIndianBrokerClientAdapter,
-    round_to_indian_quantity,
-    round_to_indian_tick_size,
     validate_indian_product_tag,
 )
 
@@ -45,6 +41,11 @@ _log = logging.getLogger(__name__)
 
 
 class UniversalBrokerGateway:
+    """
+    Universal Multi-Protocol Broker Gateway.
+    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
+    """
+
     INDIAN_BROKER_PROTOCOLS = {
         "SEBI_BROKER",
         "KITE",
@@ -62,11 +63,6 @@ class UniversalBrokerGateway:
         "MOTILAL",
         "MO",
     }
-
-    """
-    Universal Multi-Protocol Broker Gateway.
-    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
-    """
 
     SUPPORTED_PROTOCOLS = [
         "MT5",
@@ -91,17 +87,7 @@ class UniversalBrokerGateway:
         "XTS",
         "MOTILAL",
         "MO",
-    }
-
-    """
-    Universal Multi-Protocol Broker Gateway.
-    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
-    """
-
-class UniversalBrokerGateway:
-    INDIAN_BROKER_PROTOCOLS = {'SEBI_BROKER', 'KITE', 'ZERODHA', 'DHAN', 'ANGELONE', 'ANGEL', 'KOTAK', 'NEO', 'UPSTOX', 'ICICI', 'FIVEPAISA', 'IIFL', 'XTS', 'MOTILAL', 'MO'}
-    '\n    Universal Multi-Protocol Broker Gateway.\n    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.\n    '
-    SUPPORTED_PROTOCOLS = ['MT5', 'FIX', 'REST_WS', 'IBKR', 'CTRADER', 'CCXT', 'SIMULATOR', 'SEBI_BROKER', 'KITE', 'ZERODHA', 'DHAN', 'ANGELONE', 'KOTAK', 'UPSTOX', 'ICICI', 'FIVEPAISA', 'IIFL', 'MOTILAL']
+    ]
 
     def __init__(self, protocol: Any='MT5', broker_config: Any=None) -> None:
         self.protocol = protocol.upper() if protocol else 'MT5'
@@ -194,7 +180,9 @@ class UniversalBrokerGateway:
                     self.ws_url,
                 )
 
-    def _generate_auth_headers(self, method="POST", endpoint="/v1/order", body_data=None):
+    def _generate_auth_headers(
+        self, method: str = "POST", endpoint: str = "/v1/order", body_data: Any = None
+    ) -> Dict[str, str]:
         """
         Generates authenticated request headers including API key and HMAC signature.
 
@@ -300,8 +288,6 @@ class UniversalBrokerGateway:
                 raise ValueError(
                     f"Response size {total_bytes} bytes exceeds maximum allowed " f"{self.max_response_bytes} bytes"
                 )
-
-            chunks.append(chunk)
 
             chunks.append(chunk)
             if len(chunk) < chunk_size:

@@ -88,7 +88,7 @@ class OpenAlgoIndianExchangeRouter:
     ) -> Dict[str, Any]:
         prod = str(product).strip().upper() if product else "CNC"
         if prod not in cls.VALID_PRODUCTS:
-            logger.warning("Invalid Indian product tag '%s' in OpenAlgo router. Falling back to CNC.", product)
+            logging.getLogger(__name__).warning("Invalid Indian product tag '%s' in OpenAlgo router. Falling back to CNC.", product)
             prod = 'CNC'
         exch = str(exchange).strip().upper() if exchange else 'NSE'
         if exch not in cls.VALID_EXCHANGES:

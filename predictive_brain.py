@@ -4,6 +4,7 @@ Autonomously predicts the direction of multi-bar forward price outcomes, continu
 calculates rolling accuracy, and adjusts its weights via backpropagation.
 """
 import math
+from typing import Any, Dict
 import numpy as np
 
 class NeuralNetworkPredictor:
@@ -119,7 +120,6 @@ class NeuralNetworkPredictor:
         avg_w_ho = sum(self.w_hidden_output) / max(1.0, n_ho)
         hidden_str = ','.join((f'{h:.2f}' for h in getattr(self, 'hidden_activated', [0.0] * 5)))
         return {'avg_w_ih': round(avg_w_ih, 4), 'avg_w_ho': round(avg_w_ho, 4), 'bias_output': round(self.bias_output, 4), 'hidden_activations': hidden_str, 'training_cycles': self.total_predictions}
-from typing import Dict, Any
 _predictor_registry: Dict[str, Any] = {}
 _kronos_registry: Dict[str, Any] = {}
 
