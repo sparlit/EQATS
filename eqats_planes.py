@@ -22,7 +22,7 @@ def calculate_stop_loss_exposure(
     Returns:
         Stop-loss exposure as percentage of equity
     """
-    if equity <= 0 or lot_size <= 0 or entry_price <= 0 or stop_loss <= 0:
+    if equity <= 0 or lot_size <= 0 or entry_price <= 0 or (stop_loss <= 0):
         return 0.0
 
     # Calculate stop-loss distance in price units
@@ -30,13 +30,13 @@ def calculate_stop_loss_exposure(
 
     # Get symbol-specific pip specifications
     sym_upper = symbol.upper()
-    if "XAU" in sym_upper or "GOLD" in sym_upper:
+    if 'XAU' in sym_upper or 'GOLD' in sym_upper:
         pip_size = 0.1
         pip_value_per_lot = 10.0
-    elif "XAG" in sym_upper or "SILVER" in sym_upper:
+    elif 'XAG' in sym_upper or 'SILVER' in sym_upper:
         pip_size = 0.01
         pip_value_per_lot = 50.0
-    elif any(c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]):
+    elif any((c in sym_upper for c in ['BTC', 'ETH', 'LTC', 'SOL', 'XRP', 'DOGE', 'ADA', 'BNB', 'DOT', 'CRYPTO'])):
         pip_size = 1.0
         pip_value_per_lot = 1.0
     elif any(
@@ -44,11 +44,10 @@ def calculate_stop_loss_exposure(
     ):
         pip_size = 1.0
         pip_value_per_lot = 1.0
-    elif "JPY" in sym_upper:
+    elif 'JPY' in sym_upper:
         pip_size = 0.01
         pip_value_per_lot = 6.5
     else:
-        # Standard FX Major / Minor
         pip_size = 0.0001
         pip_value_per_lot = 10.0
 
@@ -73,13 +72,8 @@ class ControlGovernancePlane:
     audit logs, and rolling back configurations upon validation failure.
     """
 
-    def __init__(self):
-        self._current_config = {
-            "MAX_CONCURRENT_TRADES": config.MAX_CONCURRENT_TRADES,
-            "RISK_PER_TRADE_PERCENT": config.RISK_PER_TRADE_PERCENT,
-            "MAX_DAILY_DRAWDOWN_PERCENT": config.MAX_DAILY_DRAWDOWN_PERCENT,
-            "MAX_SPREAD_PIPS": config.MAX_SPREAD_PIPS,
-        }
+    def __init__(self) -> None:
+        self._current_config = {'MAX_CONCURRENT_TRADES': config.MAX_CONCURRENT_TRADES, 'RISK_PER_TRADE_PERCENT': config.RISK_PER_TRADE_PERCENT, 'MAX_DAILY_DRAWDOWN_PERCENT': config.MAX_DAILY_DRAWDOWN_PERCENT, 'MAX_SPREAD_PIPS': config.MAX_SPREAD_PIPS}
         self._history = []
 
     def propose_config_change(self, author_id, proposed_updates: dict[str, Any], signature: str) -> bool:
@@ -89,44 +83,21 @@ class ControlGovernancePlane:
         """
         old_config = dict(self._current_config)
         proposal_id = str(uuid.uuid4())
-
-        global_event_bus.publish(
-            Event(
-                family="ChangeProposalCreated",
-                source="ControlPlane",
-                payload={
-                    "proposal_id": proposal_id,
-                    "author": author_id,
-                    "updates": proposed_updates,
-                },
-            )
-        )
-
-        # Snapshot / Apply Transactionally
+        global_event_bus.publish(Event(family='ChangeProposalCreated', source='ControlPlane', payload={'proposal_id': proposal_id, 'author': author_id, 'updates': proposed_updates}))
         temp_config = dict(self._current_config)
         temp_config.update(proposed_updates)
-
-        # Validation checks
         is_valid = True
-        reason = "Validation Succeeded"
-        if temp_config.get("MAX_CONCURRENT_TRADES", 0) <= 0:
+        reason = 'Validation Succeeded'
+        if temp_config.get('MAX_CONCURRENT_TRADES', 0) <= 0:
             is_valid = False
-            reason = "MAX_CONCURRENT_TRADES must be positive"
-        if (
-            temp_config.get("RISK_PER_TRADE_PERCENT", 0.0) <= 0.0
-            or temp_config.get("RISK_PER_TRADE_PERCENT", 0.0) > 10.0
-        ):
+            reason = 'MAX_CONCURRENT_TRADES must be positive'
+        if temp_config.get('RISK_PER_TRADE_PERCENT', 0.0) <= 0.0 or temp_config.get('RISK_PER_TRADE_PERCENT', 0.0) > 10.0:
             is_valid = False
-            reason = "RISK_PER_TRADE_PERCENT must be between 0% and 10%"
-        if (
-            temp_config.get("MAX_DAILY_DRAWDOWN_PERCENT", 0.0) <= 0.0
-            or temp_config.get("MAX_DAILY_DRAWDOWN_PERCENT", 0.0) > 15.0
-        ):
+            reason = 'RISK_PER_TRADE_PERCENT must be between 0% and 10%'
+        if temp_config.get('MAX_DAILY_DRAWDOWN_PERCENT', 0.0) <= 0.0 or temp_config.get('MAX_DAILY_DRAWDOWN_PERCENT', 0.0) > 15.0:
             is_valid = False
-            reason = "MAX_DAILY_DRAWDOWN_PERCENT must be between 0% and 15%"
-
+            reason = 'MAX_DAILY_DRAWDOWN_PERCENT must be between 0% and 15%'
         if is_valid:
-            # Commit Config
             self._current_config = temp_config
             self._history.append(
                 {
@@ -156,27 +127,10 @@ class ControlGovernancePlane:
             )
             return True
         else:
-            # Rollback
-            global_event_bus.publish(
-                Event(
-                    family="RollbackStarted",
-                    source="ControlPlane",
-                    payload={"proposal_id": proposal_id, "reason": reason},
-                )
-            )
-            global_event_bus.publish(
-                Event(
-                    family="RollbackCompleted",
-                    source="ControlPlane",
-                    payload={"proposal_id": proposal_id, "config_restored": old_config},
-                )
-            )
+            global_event_bus.publish(Event(family='RollbackStarted', source='ControlPlane', payload={'proposal_id': proposal_id, 'reason': reason}))
+            global_event_bus.publish(Event(family='RollbackCompleted', source='ControlPlane', payload={'proposal_id': proposal_id, 'config_restored': old_config}))
             return False
 
-
-# ==============================================================================
-# 2. DATA PLANE
-# ==============================================================================
 class DataPlane:
     """
     Ingests and normalizes real-time/historical data, performs point-in-time
@@ -189,47 +143,31 @@ class DataPlane:
         self.providers = ["PRIMARY", "SECONDARY", "TERTIARY", "SAFE_MODE"]
         self.active_provider_idx = 0
 
-    def store_price(self, symbol: str, bid: float, ask: float):
+    def store_price(self, symbol: str, bid: float, ask: float) -> None:
         """Stores point-in-time price record with strictly monotonic times to prevent timestamp collisions."""
         now = datetime.datetime.now(datetime.timezone.utc)
-
-        # Enforce strict timestamp monotonicity (to resolve rapid microsecond test collisions)
         records = self._pit_database.get(symbol, [])
         if records:
-            last_record_time_str = records[-1]["availability_time"]
+            last_record_time_str = records[-1]['availability_time']
             try:
                 last_time = datetime.datetime.fromisoformat(last_record_time_str)
                 if now <= last_time:
                     now = last_time + datetime.timedelta(microseconds=1)
             except Exception:
                 pass
-
         now_str = now.isoformat()
-        record = {
-            "event_time": now_str,
-            "publication_time": now_str,
-            "availability_time": now_str,
-            "bid": bid,
-            "ask": ask,
-        }
+        record = {'event_time': now_str, 'publication_time': now_str, 'availability_time': now_str, 'bid': bid, 'ask': ask}
         if symbol not in self._pit_database:
             self._pit_database[symbol] = []
         self._pit_database[symbol].append(record)
-
-        global_event_bus.publish(
-            Event(
-                family="MarketTickReceived",
-                source="DataPlane",
-                payload={"symbol": symbol, "bid": bid, "ask": ask},
-            )
-        )
+        global_event_bus.publish(Event(family='MarketTickReceived', source='DataPlane', payload={'symbol': symbol, 'bid': bid, 'ask': ask}))
 
     def query_pit_price(self, symbol: str, target_time_str: str) -> Optional[dict]:
         """Returns the available price record exactly at or before target_time_str (No Look-Ahead bias!)."""
         records = self._pit_database.get(symbol, [])
         valid_record = None
         for r in records:
-            if r["availability_time"] <= target_time_str:
+            if r['availability_time'] <= target_time_str:
                 valid_record = r
             else:
                 break
@@ -241,17 +179,15 @@ class DataPlane:
         Returns state: 'VALID', 'SUSPECT', 'INVALID', or 'QUARANTINED'.
         """
         if bid <= 0 or ask <= 0:
-            return "INVALID"
+            return 'INVALID'
         if bid >= ask:
-            return "QUARANTINED"  # Crossed/inverted market
-
+            return 'QUARANTINED'
         spread = ask - bid
-        pip_size = 0.0001 if "JPY" not in symbol else 0.01
+        pip_size = 0.0001 if 'JPY' not in symbol else 0.01
         spread_pips = spread / pip_size if pip_size > 0 else 0.0
         if spread_pips > config.MAX_SPREAD_PIPS * 3:
-            return "SUSPECT"
-
-        return "VALID"
+            return 'SUSPECT'
+        return 'VALID'
 
     def check_price_deviation(self, symbol: str, feed_price: float, reference_price: float) -> bool:
         """
@@ -261,20 +197,8 @@ class DataPlane:
         if reference_price <= 0 or feed_price <= 0:
             return False
         deviation = abs(feed_price - reference_price) / reference_price
-        if deviation > 0.01:  # 1% Max allowed price deviation
-            global_event_bus.publish(
-                Event(
-                    family="SystemFault",
-                    source="DataPlane",
-                    payload={
-                        "symbol": symbol,
-                        "feed_price": feed_price,
-                        "ref_price": reference_price,
-                        "deviation": deviation,
-                        "reason": "Extreme price deviation from reference price",
-                    },
-                )
-            )
+        if deviation > 0.01:
+            global_event_bus.publish(Event(family='SystemFault', source='DataPlane', payload={'symbol': symbol, 'feed_price': feed_price, 'ref_price': reference_price, 'deviation': deviation, 'reason': 'Extreme price deviation from reference price'}))
             return False
         return True
 
@@ -286,96 +210,61 @@ class DataPlane:
         if self.providers:
             self.active_provider_idx = (self.active_provider_idx + 1) % len(self.providers)
         new_provider = self.providers[self.active_provider_idx]
-        global_event_bus.publish(
-            Event(
-                family="SystemFault",
-                source="DataPlane",
-                payload={
-                    "old_provider": old_provider,
-                    "new_provider": new_provider,
-                    "reason": "Primary feed provider timeout or anomaly detected",
-                },
-            )
-        )
+        global_event_bus.publish(Event(family='SystemFault', source='DataPlane', payload={'old_provider': old_provider, 'new_provider': new_provider, 'reason': 'Primary feed provider timeout or anomaly detected'}))
         return new_provider
 
-
-# ==============================================================================
-# 3. INTELLIGENCE PLANE
-# ==============================================================================
 class IntelligencePlane:
     """
     Constructs normalized Market State Vectors, tracks market regimes,
     coordinates Analyst/Prediction brains, and checks for model drift or disagreement.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.state_cache = {}
 
     def build_market_state_vector(self, symbol: str, history_bars: list[Any]) -> dict[str, Any]:
         """Creates a normalized Market State Vector representation."""
         if not history_bars:
             return {}
-        current_close = history_bars[-1]["close"]
-        return {
-            "symbol": symbol,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "close": current_close,
-            "indicators": {"rsi": config.RSI_PERIOD, "ema200": config.EMA_LONG_PERIOD},
-        }
+        current_close = history_bars[-1]['close']
+        return {'symbol': symbol, 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'close': current_close, 'indicators': {'rsi': config.RSI_PERIOD, 'ema200': config.EMA_LONG_PERIOD}}
 
     def detect_regime(self, highs: list[Any], lows: list[Any], closes: list[Any]) -> dict[str, Any]:
         """Determines if the market is TRENDING, RANGING, or under VOLATILITY_SHOCK."""
         import indicators
-
         return indicators.classify_market_regime(highs, lows, closes)
 
-
-# ==============================================================================
-# 4. STRATEGY PLANE
-# ==============================================================================
 class StrategyPlane:
     """
     Manages strategy registrations, licenses, lifecycle transitions,
     and checks trend confluences across multi-timeframe structures.
     """
 
-    def __init__(self):
-        self._strategy_registry = {
-            "TREND_FOLLOWING": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
-            "MEAN_REVERSION": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
-            "MACD_MOMENTUM": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
-            "VOTING_ENSEMBLE": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
-        }
+    def __init__(self) -> None:
+        self._strategy_registry = {'TREND_FOLLOWING': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}, 'MEAN_REVERSION': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}, 'MACD_MOMENTUM': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}, 'VOTING_ENSEMBLE': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}}
 
     def get_license_state(self, strategy_name: str) -> str:
-        return self._strategy_registry.get(strategy_name, {}).get("license", "INACTIVE")
+        return self._strategy_registry.get(strategy_name, {}).get('license', 'INACTIVE')
 
     def resolve_mtf_confluence(self, is_bullish_m1: bool, is_bullish_h1: bool) -> str:
         """Determines consensus bias: BULLISH, BEARISH, or NEUTRAL."""
         if is_bullish_m1 and is_bullish_h1:
-            return "BULLISH"
-        elif not is_bullish_m1 and not is_bullish_h1:
-            return "BEARISH"
-        return "NEUTRAL"
+            return 'BULLISH'
+        elif not is_bullish_m1 and (not is_bullish_h1):
+            return 'BEARISH'
+        return 'NEUTRAL'
 
-
-# ==============================================================================
-# 5. OPPORTUNITY, PORTFOLIO, CAPITAL & RISK PLANE
-# ==============================================================================
 class OpportunityRiskPlane:
     """
     Calculates expected net values, allocates capital budgets and reservations,
     and enforces hard portfolio risk boundaries and daily loss limits.
     """
 
-    def __init__(self):
-        self._reservations = {}  # Maps symbol -> reserved capital amount
-        self._loss_tracker = {}  # Maps day -> accumulated loss
+    def __init__(self) -> None:
+        self._reservations = {}
+        self._loss_tracker = {}
 
-    def calculate_expected_net_value(
-        self, gross_edge: float, spread: float, commission: float, slippage: float
-    ) -> float:
+    def calculate_expected_net_value(self, gross_edge: float, spread: float, commission: float, slippage: float) -> float:
         """Expected Net Value = Gross Edge - Spread - Commission - Slippage."""
         return gross_edge - spread - commission - slippage
 
@@ -384,36 +273,18 @@ class OpportunityRiskPlane:
         if amount <= 0:
             return False
         self._reservations[symbol] = amount
-        global_event_bus.publish(
-            Event(
-                family="RiskBudgetReserved",
-                source="RiskPlane",
-                payload={"symbol": symbol, "amount": amount},
-            )
-        )
+        global_event_bus.publish(Event(family='RiskBudgetReserved', source='RiskPlane', payload={'symbol': symbol, 'amount': amount}))
         return True
 
-    def commit_reservation(self, symbol: str):
+    def commit_reservation(self, symbol: str) -> None:
         if symbol in self._reservations:
             amount = self._reservations.pop(symbol)
-            global_event_bus.publish(
-                Event(
-                    family="RiskApproved",
-                    source="RiskPlane",
-                    payload={"symbol": symbol, "amount": amount},
-                )
-            )
+            global_event_bus.publish(Event(family='RiskApproved', source='RiskPlane', payload={'symbol': symbol, 'amount': amount}))
 
-    def release_reservation(self, symbol: str):
+    def release_reservation(self, symbol: str) -> None:
         if symbol in self._reservations:
             amount = self._reservations.pop(symbol)
-            global_event_bus.publish(
-                Event(
-                    family="RiskBudgetReleased",
-                    source="RiskPlane",
-                    payload={"symbol": symbol, "amount": amount},
-                )
-            )
+            global_event_bus.publish(Event(family='RiskBudgetReleased', source='RiskPlane', payload={'symbol': symbol, 'amount': amount}))
 
     def check_hard_limits(self, proposed_risk: float, active_positions: list[Any]) -> bool:
         """Enforces maximum simultaneous trade limits and portfolio ceilings."""
@@ -421,17 +292,13 @@ class OpportunityRiskPlane:
             return False
         return True
 
-
-# ==============================================================================
-# 6. SAFETY & VERIFICATION PLANE
-# ==============================================================================
 class SafetyVerificationPlane:
     """
     An independent, minimal safety Kernel operating without LLM dependencies.
     Enforces Safety Invariants (INV-001 to INV-014) and acts as the Trade Admission Controller.
     """
 
-    def __init__(self, resilience_plane=None):
+    def __init__(self, resilience_plane: Any=None) -> None:
         self.hard_risk_limit = config.MAX_DAILY_DRAWDOWN_PERCENT
         self.resilience_plane = resilience_plane
 
@@ -463,8 +330,7 @@ class SafetyVerificationPlane:
         # INV-001: Portfolio risk <= GLOBAL_RISK_LIMIT_CAP_PERCENT
         # SECURITY FIX: Use actual stop-loss exposure, not position count proxy
         if actual_aggregate_exposure_pct is not None:
-            # Use the configured global risk cap limit
-            global_risk_cap = getattr(config, "GLOBAL_RISK_LIMIT_CAP_PERCENT", 100.0)
+            global_risk_cap = getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)
             if actual_aggregate_exposure_pct > global_risk_cap:
                 violations.append("INV-001")
                 global_event_bus.publish(
@@ -480,8 +346,6 @@ class SafetyVerificationPlane:
                     )
                 )
         else:
-            # DEPRECATED: Legacy count-based check (backward compatibility only)
-            # This fallback should only occur when stop-loss data is unavailable
             max_allowed_exposure = config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES
             if current_risk > max_allowed_exposure:
                 violations.append("INV-001")
@@ -500,13 +364,11 @@ class SafetyVerificationPlane:
 
         # INV-002: Concurrent trades limit
         if active_count > config.MAX_CONCURRENT_TRADES:
-            violations.append("INV-002")
-        # INV-013: Broker positions can be reconciled (No mismatches!)
+            violations.append('INV-002')
         if has_reconciliation_mismatch:
-            violations.append("INV-013")
-        # INV-015: Safety Kernel: No component disagreement on critical boundaries
+            violations.append('INV-013')
         if has_disagreement:
-            violations.append("INV-015")
+            violations.append('INV-015')
         return violations
 
     def verify_component_agreement(self, component_decisions: dict[str, Any]) -> bool:
@@ -538,33 +400,14 @@ class SafetyVerificationPlane:
         stop-loss/take-profit distances, and real trading costs. A fabricated or
         dimensionally inconsistent value will fail this check.
         """
-        # Check resilience state first (defense in depth at admission boundary)
         if self.resilience_plane:
             current_state = self.resilience_plane.get_state()
-            if current_state in ["HALTED", "DEFENSIVE"]:
-                global_event_bus.publish(
-                    Event(
-                        family="TradeAdmissionRejected",
-                        source="SafetyPlane",
-                        payload={
-                            "symbol": symbol,
-                            "reason": f"Resilience state is {current_state}. Trade admissions blocked.",
-                        },
-                    )
-                )
+            if current_state in ['HALTED', 'DEFENSIVE']:
+                global_event_bus.publish(Event(family='TradeAdmissionRejected', source='SafetyPlane', payload={'symbol': symbol, 'reason': f'Resilience state is {current_state}. Trade admissions blocked.'}))
                 return False
 
         if len(safety_violations) > 0:
-            global_event_bus.publish(
-                Event(
-                    family="TradeAdmissionRejected",
-                    source="SafetyPlane",
-                    payload={
-                        "symbol": symbol,
-                        "reason": f"Safety Invariants violated: {safety_violations}",
-                    },
-                )
-            )
+            global_event_bus.publish(Event(family='TradeAdmissionRejected', source='SafetyPlane', payload={'symbol': symbol, 'reason': f'Safety Invariants violated: {safety_violations}'}))
             return False
 
         # SECURITY FIX: Require meaningfully positive expected value
@@ -573,69 +416,35 @@ class SafetyVerificationPlane:
         min_positive_edge = getattr(config, "MIN_EXPECTED_NET_VALUE_THRESHOLD", 0.00001)
 
         if expected_net_value <= min_positive_edge:
-            global_event_bus.publish(
-                Event(
-                    family="TradeAdmissionRejected",
-                    source="SafetyPlane",
-                    payload={
-                        "symbol": symbol,
-                        "reason": f"Expected Net Value ({expected_net_value:.8f}) does not meet minimum positive edge threshold ({min_positive_edge:.8f})",
-                        "expected_net_value": expected_net_value,
-                        "threshold": min_positive_edge,
-                    },
-                )
-            )
+            global_event_bus.publish(Event(family='TradeAdmissionRejected', source='SafetyPlane', payload={'symbol': symbol, 'reason': f'Expected Net Value ({expected_net_value:.8f}) does not meet minimum positive edge threshold ({min_positive_edge:.8f})', 'expected_net_value': expected_net_value, 'threshold': min_positive_edge}))
             return False
-
-        global_event_bus.publish(
-            Event(
-                family="TradeAdmissionApproved",
-                source="SafetyPlane",
-                payload={
-                    "symbol": symbol,
-                    "expected_net_value": expected_net_value,
-                },
-            )
-        )
+        global_event_bus.publish(Event(family='TradeAdmissionApproved', source='SafetyPlane', payload={'symbol': symbol, 'expected_net_value': expected_net_value}))
         return True
 
-
-# ==============================================================================
-# 7. EXECUTION PLANE
-# ==============================================================================
 class ExecutionPlane:
     """
     Governs order placement, message rate limits, fat-finger validations,
     self-trade prevention, cancel-on-disconnect, and position lifecycle verification.
     """
 
-    def __init__(self, connector_obj, resilience_plane=None):
+    def __init__(self, connector_obj: Any, resilience_plane: Any=None) -> None:
         self.conn = connector_obj
-        self._message_history = []  # Timestamps of sent orders
-        self.rate_state = "NORMAL"  # NORMAL -> THROTTLED -> HALTED
+        self._message_history = []
+        self.rate_state = 'NORMAL'
         self.resilience_plane = resilience_plane
 
     def validate_fat_finger(self, symbol: str, lot_size: float, current_price: float) -> bool:
         """Blocks orders with extreme lot size or abnormal notional value."""
-        if lot_size <= 0 or lot_size > 5.0:  # 5 Lots maximum fat-finger safe-limit
+        if lot_size <= 0 or lot_size > 5.0:
             return False
         notional = lot_size * current_price * 100000.0
-        return notional <= 1000000.0  # $1M limit per single trade
+        return notional <= 1000000.0
 
     def prevent_self_trade(self, symbol: str, direction: str, open_positions: list[Any]) -> bool:
         """Blocks sending conflicting BUY and SELL orders for the same asset."""
         for p in open_positions:
-            if p["symbol"].upper() == symbol.upper() and p["direction"] != direction:
-                global_event_bus.publish(
-                    Event(
-                        family="SafetyInvariantViolation",
-                        source="ExecutionPlane",
-                        payload={
-                            "symbol": symbol,
-                            "violation": "Self-trade prevention triggered",
-                        },
-                    )
-                )
+            if p['symbol'].upper() == symbol.upper() and p['direction'] != direction:
+                global_event_bus.publish(Event(family='SafetyInvariantViolation', source='ExecutionPlane', payload={'symbol': symbol, 'violation': 'Self-trade prevention triggered'}))
                 return True
         return False
 
@@ -651,31 +460,18 @@ class ExecutionPlane:
 
         # Include this checking message in rate evaluation
         self._message_history.append(now)
-
-        # Update Throttling State
         if len(self._message_history) >= 5:
-            self.rate_state = "HALTED"
-            global_event_bus.publish(
-                Event(
-                    family="SystemFault",
-                    source="ExecutionPlane",
-                    payload={
-                        "state": "HALTED",
-                        "reason": "Message limit exceeded. Throttled limit hit.",
-                    },
-                )
-            )
+            self.rate_state = 'HALTED'
+            global_event_bus.publish(Event(family='SystemFault', source='ExecutionPlane', payload={'state': 'HALTED', 'reason': 'Message limit exceeded. Throttled limit hit.'}))
             return False
         elif len(self._message_history) >= 3:
-            self.rate_state = "THROTTLED"
+            self.rate_state = 'THROTTLED'
         else:
-            self.rate_state = "NORMAL"
-
+            self.rate_state = 'NORMAL'
         return True
 
     def execute_admitted_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> dict[str, Any]:
         """Routes approved intent to live connection."""
-        # CANONICAL ENFORCEMENT: Check resilience state at broker-facing execution boundary
         if self.resilience_plane:
             current_state = self.resilience_plane.get_state()
             if current_state in ["HALTED", "DEFENSIVE"]:
@@ -703,77 +499,26 @@ class ExecutionPlane:
             )
         )
         res = self.conn.execute_order(symbol, direction, lot, sl, tp)
-        if res["success"]:
-            global_event_bus.publish(
-                Event(
-                    family="OrderAccepted",
-                    source="ExecutionPlane",
-                    payload={
-                        "ticket": res["ticket"],
-                        "symbol": symbol,
-                        "direction": direction,
-                    },
-                )
-            )
-            global_event_bus.publish(
-                Event(
-                    family="PositionOpened",
-                    source="ExecutionPlane",
-                    payload={
-                        "ticket": res["ticket"],
-                        "symbol": symbol,
-                        "direction": direction,
-                        "price": res["price"],
-                    },
-                )
-            )
+        if res['success']:
+            global_event_bus.publish(Event(family='OrderAccepted', source='ExecutionPlane', payload={'ticket': res['ticket'], 'symbol': symbol, 'direction': direction}))
+            global_event_bus.publish(Event(family='PositionOpened', source='ExecutionPlane', payload={'ticket': res['ticket'], 'symbol': symbol, 'direction': direction, 'price': res['price']}))
         else:
-            global_event_bus.publish(
-                Event(
-                    family="OrderRejected",
-                    source="ExecutionPlane",
-                    payload={
-                        "symbol": symbol,
-                        "direction": direction,
-                        "error": res.get("error", "Unknown error"),
-                    },
-                )
-            )
+            global_event_bus.publish(Event(family='OrderRejected', source='ExecutionPlane', payload={'symbol': symbol, 'direction': direction, 'error': res.get('error', 'Unknown error')}))
         return res
 
-
-# ==============================================================================
-# 8. LEARNING & GOVERNANCE PLANE
-# ==============================================================================
 class LearningGovernancePlane:
     """
     Maintains Case Library archives of executed/rejected decisions, evaluates
     counterfactuals, attributes luck vs. skill, and monitors drift.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._case_library = []
 
-    def record_case(
-        self,
-        symbol: str,
-        direction: str,
-        entry_price: float,
-        exit_price: float,
-        profit: float,
-    ):
+    def record_case(self, symbol: str, direction: str, entry_price: float, exit_price: float, profit: float) -> None:
         """Archives trading outcome as a structured Case object."""
         case_id = str(uuid.uuid4())
-        case = {
-            "case_id": case_id,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "symbol": symbol,
-            "direction": direction,
-            "entry_price": entry_price,
-            "exit_price": exit_price,
-            "profit": profit,
-            "quality_score": 1.0 if profit > 0 else 0.0,
-        }
+        case = {'case_id': case_id, 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'symbol': symbol, 'direction': direction, 'entry_price': entry_price, 'exit_price': exit_price, 'profit': profit, 'quality_score': 1.0 if profit > 0 else 0.0}
         self._case_library.append(case)
 
     def evaluate_decision_quality(self, case: dict[str, Any]) -> dict[str, Any]:
@@ -781,35 +526,29 @@ class LearningGovernancePlane:
         Section 34.4: Computes decision quality score from 0.0 to 10.0 based on costs, timing, and direction.
         """
         base_score = 5.0
-        if case.get("profit", 0.0) > 0:
-            base_score += 3.0  # profitable trade bias
+        if case.get('profit', 0.0) > 0:
+            base_score += 3.0
         else:
             base_score -= 2.0
-
-        # Account for trading costs or slippage simulations
         base_score = max(0.0, min(10.0, base_score))
-        return {"decision_quality_score": base_score}
+        return {'decision_quality_score': base_score}
 
     def attribute_luck_vs_skill(self, case: dict[str, Any]) -> str:
         """
         Section 34.5: Returns classification of 'SKILL' if technical indicators aligned with profits, otherwise 'LUCK'.
         """
-        profit = case.get("profit", 0.0)
-        direction = case.get("direction")
-        if profit > 0 and direction in ["BUY", "SELL"]:
-            return "SKILL"
-        return "LUCK"
+        profit = case.get('profit', 0.0)
+        direction = case.get('direction')
+        if profit > 0 and direction in ['BUY', 'SELL']:
+            return 'SKILL'
+        return 'LUCK'
 
     def run_counterfactual(self, symbol: str, actual_dir: str, alternate_dir: str, profit_actual: float) -> str:
         """Simulates alternate decisions for historical modeling."""
         if actual_dir != alternate_dir:
-            return f"Counterfactual: Choosing {alternate_dir} would have reversed profit outcome."
-        return "Counterfactual: Alternative matched actual decision."
+            return f'Counterfactual: Choosing {alternate_dir} would have reversed profit outcome.'
+        return 'Counterfactual: Alternative matched actual decision.'
 
-
-# ==============================================================================
-# 9. OPERATIONS & RESILIENCE PLANE
-# ==============================================================================
 class OperationsResiliencePlane:
     """
     Manages active/standby state machines, split-brain protection leases, and Flight Recorders.
@@ -820,29 +559,14 @@ class OperationsResiliencePlane:
         self._state = "NORMAL"  # NORMAL, CAUTION, RESTRICTED, DEFENSIVE, HALTED, RECOVERY
         self._flight_log = []
 
-    def log_heartbeat(self, latency: float):
-        self._flight_log.append(
-            {
-                "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "latency": latency,
-            }
-        )
+    def log_heartbeat(self, latency: float) -> None:
+        self._flight_log.append({'time': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'latency': latency})
 
-    def transition_state(self, new_state: str):
+    def transition_state(self, new_state: str) -> None:
         """Transitions Safety State Machine and updates authority permissions."""
         old_state = self._state
         self._state = new_state
-        global_event_bus.publish(
-            Event(
-                family="SystemFault",
-                source="ResiliencePlane",
-                payload={
-                    "old_state": old_state,
-                    "new_state": new_state,
-                    "reason": f"Safety state transition triggered to {new_state}",
-                },
-            )
-        )
+        global_event_bus.publish(Event(family='SystemFault', source='ResiliencePlane', payload={'old_state': old_state, 'new_state': new_state, 'reason': f'Safety state transition triggered to {new_state}'}))
 
     def get_state(self) -> str:
         return self._state
@@ -854,7 +578,7 @@ class OperationsResiliencePlane:
 
     def verify_split_brain(self) -> bool:
         """Verifies only a single master instance has execution authorization."""
-        return True  # Lease active and healthy
+        return True
 
     def reconcile_positions(self, db_positions: list[Any], connector_positions: list[Any]) -> bool:
         """
@@ -862,29 +586,13 @@ class OperationsResiliencePlane:
         Compiles active orders and local DB state to find phantom positions or orphans.
         Returns True if perfectly synchronized, False on state divergence.
         """
-        db_tickets = {str(p["ticket"]) for p in db_positions}
-        conn_tickets = {str(p["ticket"]) for p in connector_positions}
-
+        db_tickets = {str(p['ticket']) for p in db_positions}
+        conn_tickets = {str(p['ticket']) for p in connector_positions}
         if db_tickets != conn_tickets:
-            # Replay mismatch on Event Bus
-            global_event_bus.publish(
-                Event(
-                    family="ReconciliationMismatch",
-                    source="ResiliencePlane",
-                    payload={
-                        "db_tickets": list(db_tickets),
-                        "connector_tickets": list(conn_tickets),
-                        "reason": "Divergence found during active position reconciliation",
-                    },
-                )
-            )
+            global_event_bus.publish(Event(family='ReconciliationMismatch', source='ResiliencePlane', payload={'db_tickets': list(db_tickets), 'connector_tickets': list(conn_tickets), 'reason': 'Divergence found during active position reconciliation'}))
             return False
         return True
 
-
-# ==============================================================================
-# SYSTEM CONSTITUTION HIERARCHY (EQATS VERSION 3.0)
-# ==============================================================================
 class SystemConstitution:
     """
     Enforces the immutable EQATS Version 3.0 System Constitution Hierarchy (LEVEL 0 to LEVEL 6).
@@ -892,32 +600,21 @@ class SystemConstitution:
     (broker constraints, safety kernel, hard risk limits).
     """
 
-    def __init__(self):
-        self.constitution_version = "3.0.0"
+    def __init__(self) -> None:
+        self.constitution_version = '3.0.0'
 
     def evaluate_constitution_compliance(self, intent_payload: dict[str, Any]) -> dict[str, Any]:
         """
         Evaluates a proposed TradingIntent or system action against Level 0 through Level 6.
         Returns: { 'compliant': bool, 'blocking_level': str, 'reason': str }
         """
-        # LEVEL 0: Legal / Exchange / Broker Constraints
-        broker_open = intent_payload.get("market_open", True)
-        symbol_tradable = intent_payload.get("symbol_tradable", True)
+        broker_open = intent_payload.get('market_open', True)
+        symbol_tradable = intent_payload.get('symbol_tradable', True)
         if not broker_open:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_0",
-                "reason": "LEVEL 0 BLOCK: Market is closed by broker schedule.",
-            }
+            return {'compliant': False, 'blocking_level': 'LEVEL_0', 'reason': 'LEVEL 0 BLOCK: Market is closed by broker schedule.'}
         if not symbol_tradable:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_0",
-                "reason": "LEVEL 0 BLOCK: Symbol is untradable under broker constraints.",
-            }
-
-        # LEVEL 1: Safety Kernel (Invariants)
-        safety_violations = intent_payload.get("safety_violations", [])
+            return {'compliant': False, 'blocking_level': 'LEVEL_0', 'reason': 'LEVEL 0 BLOCK: Symbol is untradable under broker constraints.'}
+        safety_violations = intent_payload.get('safety_violations', [])
         if safety_violations:
             return {
                 "compliant": False,
@@ -935,63 +632,28 @@ class SystemConstitution:
                 "reason": "LEVEL 2 BLOCK: Hard Portfolio Risk Limit exceeded.",
             }
         if max_daily_drawdown >= config.MAX_DAILY_DRAWDOWN_PERCENT:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_2",
-                "reason": "LEVEL 2 BLOCK: Hard Daily Drawdown Ceiling breached.",
-            }
-
-        # LEVEL 3: Execution Constraints
-        spread_pips = intent_payload.get("spread_pips", 0.0)
-        rate_throttled = intent_payload.get("rate_throttled", False)
+            return {'compliant': False, 'blocking_level': 'LEVEL_2', 'reason': 'LEVEL 2 BLOCK: Hard Daily Drawdown Ceiling breached.'}
+        spread_pips = intent_payload.get('spread_pips', 0.0)
+        rate_throttled = intent_payload.get('rate_throttled', False)
         if spread_pips > config.MAX_SPREAD_PIPS * 2.0:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_3",
-                "reason": f"LEVEL 3 BLOCK: Execution Constraint - Extreme spread ({spread_pips:.2f} pips).",
-            }
+            return {'compliant': False, 'blocking_level': 'LEVEL_3', 'reason': f'LEVEL 3 BLOCK: Execution Constraint - Extreme spread ({spread_pips:.2f} pips).'}
         if rate_throttled:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_3",
-                "reason": "LEVEL 3 BLOCK: Execution Constraint - Message rate throttled.",
-            }
-
-        # LEVEL 4: Strategy Constraints
-        strategy_valid = intent_payload.get("strategy_valid", True)
+            return {'compliant': False, 'blocking_level': 'LEVEL_3', 'reason': 'LEVEL 3 BLOCK: Execution Constraint - Message rate throttled.'}
+        strategy_valid = intent_payload.get('strategy_valid', True)
         if not strategy_valid:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_4",
-                "reason": "LEVEL 4 BLOCK: Strategy conditions invalid for current regime.",
-            }
-
-        # LEVEL 5 & LEVEL 6: AI / Optimization Recommendations
-        ai_probability = intent_payload.get("ai_probability", 100.0)
+            return {'compliant': False, 'blocking_level': 'LEVEL_4', 'reason': 'LEVEL 4 BLOCK: Strategy conditions invalid for current regime.'}
+        ai_probability = intent_payload.get('ai_probability', 100.0)
         if ai_probability < 60.0:
-            return {
-                "compliant": False,
-                "blocking_level": "LEVEL_5",
-                "reason": f"LEVEL 5 BLOCK: AI Model Probability ({ai_probability:.1f}%) below minimum gate (60.0%).",
-            }
+            return {'compliant': False, 'blocking_level': 'LEVEL_5', 'reason': f'LEVEL 5 BLOCK: AI Model Probability ({ai_probability:.1f}%) below minimum gate (60.0%).'}
+        return {'compliant': True, 'blocking_level': 'NONE', 'reason': 'All Level 0-6 System Constitution levels compliant.'}
 
-        return {
-            "compliant": True,
-            "blocking_level": "NONE",
-            "reason": "All Level 0-6 System Constitution levels compliant.",
-        }
-
-
-# ==============================================================================
-# UNIFIED CENTRAL ASSEMBLY (EQATS Core Engine)
-# ==============================================================================
 class EQATSCoreEngine:
     """
     Authoritative coordinator bridging all 9 specialized Planes
     and enforcing the Version 3.0 System Constitution Hierarchy.
     """
 
-    def __init__(self, connector_obj):
+    def __init__(self, connector_obj: Any) -> None:
         self.constitution = SystemConstitution()
         self.control = ControlGovernancePlane()
         self.data = DataPlane()
@@ -999,17 +661,12 @@ class EQATSCoreEngine:
         self.strategy = StrategyPlane()
         self.risk = OpportunityRiskPlane()
         self.resilience = OperationsResiliencePlane()
-        # Pass resilience_plane to safety and execution for state enforcement
         self.safety = SafetyVerificationPlane(resilience_plane=self.resilience)
         self.execution = ExecutionPlane(connector_obj, resilience_plane=self.resilience)
         self.learning = LearningGovernancePlane()
-
-
-# Global engine container initialized dynamically at startup
 core_engine = None
 
-
-def init_core_engine(connector_obj):
+def init_core_engine(connector_obj: Any) -> Any:
     global core_engine
     core_engine = EQATSCoreEngine(connector_obj)
     return core_engine
