@@ -1,0 +1,66 @@
+name: EQATS Build and Test Verification Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  build-and-test:
+    name: Multi-Phase Build and Test Verification Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install System and Rust Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rustc cargo patchelf ccache
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install mypy pyflakes ruff pytest pytest-xdist pytest-count nuitka maturin
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: "Phase-1: Strict Type Analysis (mypy)"
+        run: |
+          echo "=== Executing Phase-1: Strict Type Checking ==="
+          python -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks
+
+      - name: "Phase-2: Pytest Verification Matrix"
+        run: |
+          echo "=== Executing Phase-2: Pytest Execution ==="
+          python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration"
+
+      - name: "Phase-3 / Stage-1: Compile Rust Core Modules"
+        run: |
+          echo "=== Executing Phase-3 Stage-1: Rust Build ==="
+          cd eqats_rust_core
+          cargo build --release
+          cargo test
+          cd ..
+
+      - name: "Phase-3 / Stage-2: Compile Python Bytecode"
+        run: |
+          echo "=== Executing Phase-3 Stage-2: Python Compileall ==="
+          python -m compileall -b .
+
+      - name: "Phase-3 / Stage-3: Nuitka Build Dry-Run / Compilation Check"
+        run: |
+          echo "=== Executing Phase-3 Stage-3: Nuitka Build Verification ==="
+          python -m nuitka --version

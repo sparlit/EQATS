@@ -42,7 +42,7 @@ jobs:
 
       - name: Run Pyflakes Analysis
         run: |
-          pyflakes indicators.py main.py brain.py connector.py database.py gui.py predictive_brain.py eqats_planes.py institutional_integrations/comprehensive_suite.py institutional_integrations/web_api.py institutional_integrations/databases.py
+          pyflakes src/indicators.py src/main.py src/brain.py src/connector.py src/database.py src/gui.py src/predictive_brain.py src/eqats_planes.py src/institutional_integrations/comprehensive_suite.py src/institutional_integrations/web_api.py src/institutional_integrations/databases.py
 
       - name: Run Mypy Type Checking
         run: |
@@ -124,8 +124,10 @@ jobs:
           pip install -e .
 
       - name: Run Pytest Test Suite
+        env:
+          PYTHONPATH: src
         run: |
-          python3 -m pytest -n auto
+          python3 -m pytest -n auto tests/
 
   build-artifacts:
     name: Package Release Artifacts

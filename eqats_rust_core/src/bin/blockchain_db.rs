@@ -1,7 +1,9 @@
 //! Ultra-Low Latency Mission-Critical Custom Blockchain Database Engine
 //! Multi-threaded Benchmark Loop Runner - Optimized for Python 3.13 Free-Threaded (No-GIL) Interoperability
 
-use eqats_rust_core::blockchain_db::{format_symbol, format_uuid, BlockchainEngine, Transaction, StateLedger};
+use eqats_rust_core::blockchain_db::{
+    format_symbol, format_uuid, BlockchainEngine, StateLedger, Transaction,
+};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -20,7 +22,8 @@ fn main() {
     }
 
     // Corrected: Initialize engine context directly within an Arc pointer boundary to guarantee multi-threaded Send/Sync capabilities
-    let engine = Arc::new(BlockchainEngine::open(&db_path).expect("Failed to initialize Blockchain Engine"));
+    let engine =
+        Arc::new(BlockchainEngine::open(&db_path).expect("Failed to initialize Blockchain Engine"));
 
     // Initialize User Accounts with Cash & Asset Balances
     let num_users = 100;
@@ -44,11 +47,19 @@ fn main() {
         engine.state_ledger.deposit_cash(&buyer, 1_000_000_000);
 
         // Seed 100,000 asset units per seller for symbol 'EURUSD'
-        engine.state_ledger.deposit_asset(&seller, &target_asset, 100_000);
+        engine
+            .state_ledger
+            .deposit_asset(&seller, &target_asset, 100_000);
     }
 
-    // Corrected: Capture an absolute cryptographic balance slice from the running ledger engine to bypass unlinked memory mismatches
-    let initial_state_snapshot = engine.state_ledger.snapshot();
+    // Seed initial state ledger snapshot
+    let initial_state_snapshot = StateLedger::new();
+    for i in 0..num_users {
+        let buyer = buyer_ids[i];
+        let seller = seller_ids[i];
+        initial_state_snapshot.deposit_cash(&buyer, 1_000_000_000);
+        initial_state_snapshot.deposit_asset(&seller, &target_asset, 100_000);
+    }
 
     println!(
         "[INIT] Seeded {} buyers and {} sellers with cash & asset balances.",

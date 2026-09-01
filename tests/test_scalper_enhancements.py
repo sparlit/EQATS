@@ -76,8 +76,10 @@ def test_fixed_001_lot_position_sizing() -> None:
 
 def test_symbol_floating_loss_protection_gate() -> None:
     """Verifies Option 2A: if any open trade on a symbol has profit < 0, new evaluations return HOLD."""
+    test_db = f'test_loss_gate_{os.getpid()}_{time.time_ns()}.db'
+    config.DB_PATH = test_db
     database.init_db()
-    ticket_id = f'TEST_ENH_LOSS_{int(time.time() * 1000)}'
+    ticket_id = f'TEST_ENH_LOSS_{time.time_ns()}'
     database.log_trade_open(ticket_id, 'EURUSD', 'BUY', 1.15, 1.14, 1.16, 0.01)
     scalper_brain = brain.ScalperBrain()
     bars = [{'open': 1.1 + i * 1e-05, 'high': 1.1005 + i * 1e-05, 'low': 1.0995 + i * 1e-05, 'close': 1.1002 + i * 1e-05} for i in range(210)]
@@ -85,11 +87,18 @@ def test_symbol_floating_loss_protection_gate() -> None:
     assert res['decision'] == 'HOLD'
     assert 'Symbol Floating Loss Protection Gate Active' in res['explanation']
     database.log_trade_close(ticket_id, 1.1002, -498.0, 'TEST_CLEANUP')
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except Exception:
+            pass
 
 def test_atr_volatility_pyramiding_rule() -> None:
     """Verifies Option 1A: pyramiding entries are held if profit < 1.0x ATR, and allowed if profit >= 1.0x ATR."""
+    test_db = f'test_pyr_gate_{os.getpid()}_{time.time_ns()}.db'
+    config.DB_PATH = test_db
     database.init_db()
-    ticket_id = f'TEST_ENH_PYR_{int(time.time() * 1000)}'
+    ticket_id = f'TEST_ENH_PYR_{time.time_ns()}'
     scalper_brain = brain.ScalperBrain()
     bars = [{'open': 1.1 + i * 1e-05, 'high': 1.1005 + i * 1e-05, 'low': 1.0995 + i * 1e-05, 'close': 1.1002 + i * 1e-05} for i in range(210)]
     current_price = bars[-1]['close']
@@ -98,6 +107,11 @@ def test_atr_volatility_pyramiding_rule() -> None:
     assert res['decision'] == 'HOLD'
     assert 'Pyramiding Gate' in res['explanation']
     database.log_trade_close(ticket_id, current_price, 0.1, 'TEST_CLEANUP')
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except Exception:
+            pass
 
 def test_breakeven_lock_and_trailing_stop() -> None:
     """Verifies Option 3A breakeven profit lock (+ spread buffer) and dynamic ATR trailing stop."""
