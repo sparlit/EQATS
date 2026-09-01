@@ -1,3 +1,4 @@
+from typing import Any
 """
 Institutional Machine Learning & Deep Learning Engine (EQATS v8.0).
 Provides a unified, parallelized ML execution suite across 20+ algorithms:
@@ -288,8 +289,7 @@ class KMeansClusteringModel:
 
 class SHAPExplainer:
     """SHAP model interpretability and feature attribution calculator."""
-
-    def compute_feature_attributions(self, model: Any, X_sample: np.ndarray) -> dict:
+    def compute_feature_attributions(self, model, X_sample: np.ndarray) -> dict[str, Any]:
         try:
             import shap
             explainer = shap.Explainer(model)

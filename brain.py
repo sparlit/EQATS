@@ -57,7 +57,7 @@ class ScalperBrain:
     def evaluate(self, symbol: Any, history_bars: Any, current_equity: Any, brain_directive: Any=None) -> Any:
         """
         Analyzes historical bars and gives a decision: 'BUY', 'SELL', or 'HOLD'.
-        history_bars: list of dicts/objects with keys: 'open', 'high', 'low', 'close'
+        history_bars: list[Any] of dicts/objects with keys: 'open', 'high', 'low', 'close'
         current_equity: float, current account balance/equity to calculate lot size.
         """
         min_bars_needed = max(getattr(config, 'EMA_LONG_PERIOD', 200) + 10, getattr(config, 'RSI_PERIOD', 14) + 10, getattr(config, 'ATR_PERIOD', 14) + 10, getattr(config, 'MACD_SLOW', 26) + 15)

@@ -1,3 +1,4 @@
+from typing import Any
 """
 EQATS v8.0 Enterprise Database, Speed Layer & Message Streaming Gateway Module
 Implements adapters for PostgreSQL, ClickHouse, Valkey, Pulsar, and embedded fallback adapters.
@@ -43,7 +44,7 @@ class PostgresLedgerAdapter:
     def is_connected(self) -> bool:
         return self._connected
 
-    def record_trade(self, trade_data: dict) -> bool:
+    def record_trade(self, trade_data: dict[str, Any]) -> bool:
         if self._connected:
             try:
                 import psycopg2
@@ -89,7 +90,7 @@ class ClickHouseDataStreamAdapter:
     def is_connected(self) -> bool:
         return self._connected
 
-    def insert_tick_batch(self, ticks: list) -> bool:
+    def insert_tick_batch(self, ticks: list[Any]) -> bool:
         if not self._connected or not ticks:
             return False
         try:
@@ -179,7 +180,7 @@ class PulsarEventStreamAdapter:
     def is_connected(self) -> bool:
         return self._connected
 
-    def publish_event(self, topic: str, payload: dict) -> bool:
+    def publish_event(self, topic: str, payload: dict[str, Any]) -> bool:
         if self._connected:
             try:
                 import pulsar
@@ -216,7 +217,7 @@ class PreTradeMicroserviceEngine:
         self.gateway = gateway
         self.running = True
 
-    def process_pre_trade_pipeline(self, symbol: str, history_bars: list) -> dict:
+    def process_pre_trade_pipeline(self, symbol: str, history_bars: list[Any]) -> dict[str, Any]:
         """Runs pre-trade feature extraction and ML inferencing out-of-band."""
         if not history_bars:
             return {'symbol': symbol, 'status': 'EMPTY_FEED', 'score': 0.0}
@@ -239,7 +240,7 @@ class PostTradeMicroserviceEngine:
     def __init__(self, gateway: 'EnterpriseServicesGateway') -> None:
         self.gateway = gateway
 
-    def record_post_trade_completion(self, trade_data: dict) -> bool:
+    def record_post_trade_completion(self, trade_data: dict[str, Any]) -> bool:
         """Processes post-trade auditing and persistence asynchronously."""
         ticket = str(trade_data.get('ticket', ''))
         if not ticket:
@@ -262,5 +263,13 @@ class EnterpriseServicesGateway:
         self.pre_trade_service = PreTradeMicroserviceEngine(self)
         self.post_trade_service = PostTradeMicroserviceEngine(self)
 
-    def get_vitals_health(self) -> dict:
-        return {'postgres': self.postgres.is_connected(), 'clickhouse': self.clickhouse.is_connected(), 'valkey': self.valkey.is_connected(), 'pulsar': self.pulsar.is_connected(), 'grpc': True, 'pre_trade_service': True, 'post_trade_service': True}
+    def get_vitals_health(self) -> dict[str, Any]:
+        return {
+            "postgres": self.postgres.is_connected(),
+            "clickhouse": self.clickhouse.is_connected(),
+            "valkey": self.valkey.is_connected(),
+            "pulsar": self.pulsar.is_connected(),
+            "grpc": True, # Active in-process / gRPC connection
+            "pre_trade_service": True,
+            "post_trade_service": True
+        }

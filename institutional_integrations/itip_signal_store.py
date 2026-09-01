@@ -26,8 +26,9 @@ def read_signals() -> List[Dict[str, Any]]:
         return []
     with _store_lock:
         try:
-            with open(JSON_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            with open(JSON_PATH, "r", encoding="utf-8") as f:
+                data: List[Dict[str, Any]] = json.load(f)
+                return data
         except Exception:
             return []
 

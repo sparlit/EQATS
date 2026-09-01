@@ -9,7 +9,6 @@ class BayesianConsensusEngine:
     Aggregates multi-strategy evidence with strategy reliability weights to produce
     statistically calibrated posterior directional probabilities.
     """
-
     def __init__(self) -> None:
         self.symbol_state: Dict[str, Dict[str, Any]] = {}
         self.reliability: Dict[str, float] = {'TREND_FOLLOWING': 0.8, 'MEAN_REVERSION': 0.75, 'MACD_MOMENTUM': 0.7, 'BREAKOUT': 0.75, 'WYCKOFF_ACCUMULATION': 0.85, 'SUPERTREND_TREND': 0.8, 'DONCHIAN_BREAKOUT': 0.75, 'TURTLE_BREAKOUT': 0.8, 'RSI_MOMENTUM': 0.7, 'ICT_KILLZONE': 0.85, 'CARRY_TRADE': 0.85, 'SMC_ICT': 0.85, 'QUANT_MACHINE_LEARNING': 0.88}
@@ -44,10 +43,16 @@ class BayesianConsensusEngine:
         else:
             posterior = weighted_p_e_h * prior / denominator
         posterior = max(0.01, min(0.99, posterior))
-        state['prior'] = posterior
-        state['last_update'] = time.time()
-        state['evidence_history'].append({'source': source_strategy, 'signal': signal, 'posterior': posterior, 'ts': time.time()})
-        return posterior
+        state["prior"] = posterior
+        state["last_update"] = time.time()
+        state["evidence_history"].append({
+            "source": source_strategy,
+            "signal": signal,
+            "posterior": posterior,
+            "ts": time.time()
+        })
+        ret_val: float = float(posterior)
+        return ret_val
 
     def get_consensus_decision(self, symbol: str, buy_threshold: float=0.75, sell_threshold: float=0.25) -> Dict[str, Any]:
         """

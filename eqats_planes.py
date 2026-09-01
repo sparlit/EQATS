@@ -1,10 +1,14 @@
 import datetime
 import uuid
-from typing import Optional, Any
+from typing import Any, Optional
+
 import config
 from event_bus import Event, global_event_bus
 
-def calculate_stop_loss_exposure(symbol: str, lot_size: float, entry_price: float, stop_loss: float, equity: float) -> float:
+
+def calculate_stop_loss_exposure(
+    symbol: str, lot_size: float, entry_price: float, stop_loss: float, equity: float
+) -> float:
     """
     Calculates the actual monetary stop-loss exposure as a percentage of equity.
 
@@ -20,7 +24,11 @@ def calculate_stop_loss_exposure(symbol: str, lot_size: float, entry_price: floa
     """
     if equity <= 0 or lot_size <= 0 or entry_price <= 0 or (stop_loss <= 0):
         return 0.0
+
+    # Calculate stop-loss distance in price units
     sl_distance = abs(entry_price - stop_loss)
+
+    # Get symbol-specific pip specifications
     sym_upper = symbol.upper()
     if 'XAU' in sym_upper or 'GOLD' in sym_upper:
         pip_size = 0.1
@@ -31,7 +39,9 @@ def calculate_stop_loss_exposure(symbol: str, lot_size: float, entry_price: floa
     elif any((c in sym_upper for c in ['BTC', 'ETH', 'LTC', 'SOL', 'XRP', 'DOGE', 'ADA', 'BNB', 'DOT', 'CRYPTO'])):
         pip_size = 1.0
         pip_value_per_lot = 1.0
-    elif any((idx in sym_upper for idx in ['US30', 'NAS100', 'GER40', 'DE40', 'SPX500', 'UK100', 'JP225', 'US500', 'US100'])):
+    elif any(
+        idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]
+    ):
         pip_size = 1.0
         pip_value_per_lot = 1.0
     elif 'JPY' in sym_upper:
@@ -40,11 +50,22 @@ def calculate_stop_loss_exposure(symbol: str, lot_size: float, entry_price: floa
     else:
         pip_size = 0.0001
         pip_value_per_lot = 10.0
+
+    # Calculate stop-loss in pips
     sl_pips = sl_distance / pip_size if pip_size > 0 else 0.0
+
+    # Calculate monetary exposure
     monetary_exposure = lot_size * sl_pips * pip_value_per_lot
-    exposure_percent = monetary_exposure / equity * 100.0 if equity > 0 else 0.0
+
+    # Convert to percentage of equity
+    exposure_percent = (monetary_exposure / equity) * 100.0 if equity > 0 else 0.0
+
     return exposure_percent
 
+
+# ==============================================================================
+# 1. CONTROL & GOVERNANCE PLANE
+# ==============================================================================
 class ControlGovernancePlane:
     """
     Manages transactional configuration state updates, validation, signing,
@@ -55,7 +76,7 @@ class ControlGovernancePlane:
         self._current_config = {'MAX_CONCURRENT_TRADES': config.MAX_CONCURRENT_TRADES, 'RISK_PER_TRADE_PERCENT': config.RISK_PER_TRADE_PERCENT, 'MAX_DAILY_DRAWDOWN_PERCENT': config.MAX_DAILY_DRAWDOWN_PERCENT, 'MAX_SPREAD_PIPS': config.MAX_SPREAD_PIPS}
         self._history = []
 
-    def propose_config_change(self, author_id: Any, proposed_updates: dict, signature: str) -> bool:
+    def propose_config_change(self, author_id, proposed_updates: dict[str, Any], signature: str) -> bool:
         """
         Atomically proposes, validates, snapshots, applies, and commits config updates.
         If validation fails, rolls back the transaction.
@@ -78,12 +99,32 @@ class ControlGovernancePlane:
             reason = 'MAX_DAILY_DRAWDOWN_PERCENT must be between 0% and 15%'
         if is_valid:
             self._current_config = temp_config
-            self._history.append({'proposal_id': proposal_id, 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'author': author_id, 'signature': signature, 'old': old_config, 'new': temp_config})
-            config.MAX_CONCURRENT_TRADES = self._current_config['MAX_CONCURRENT_TRADES']
-            config.RISK_PER_TRADE_PERCENT = self._current_config['RISK_PER_TRADE_PERCENT']
-            config.MAX_DAILY_DRAWDOWN_PERCENT = self._current_config['MAX_DAILY_DRAWDOWN_PERCENT']
-            config.MAX_SPREAD_PIPS = self._current_config['MAX_SPREAD_PIPS']
-            global_event_bus.publish(Event(family='DeploymentCompleted', source='ControlPlane', payload={'proposal_id': proposal_id, 'config': self._current_config}))
+            self._history.append(
+                {
+                    "proposal_id": proposal_id,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "author": author_id,
+                    "signature": signature,
+                    "old": old_config,
+                    "new": temp_config,
+                }
+            )
+            # Apply back to the active module config
+            config.MAX_CONCURRENT_TRADES = self._current_config["MAX_CONCURRENT_TRADES"]
+            config.RISK_PER_TRADE_PERCENT = self._current_config["RISK_PER_TRADE_PERCENT"]
+            config.MAX_DAILY_DRAWDOWN_PERCENT = self._current_config["MAX_DAILY_DRAWDOWN_PERCENT"]
+            config.MAX_SPREAD_PIPS = self._current_config["MAX_SPREAD_PIPS"]
+
+            global_event_bus.publish(
+                Event(
+                    family="DeploymentCompleted",
+                    source="ControlPlane",
+                    payload={
+                        "proposal_id": proposal_id,
+                        "config": self._current_config,
+                    },
+                )
+            )
             return True
         else:
             global_event_bus.publish(Event(family='RollbackStarted', source='ControlPlane', payload={'proposal_id': proposal_id, 'reason': reason}))
@@ -97,9 +138,9 @@ class DataPlane:
     and supports reference price verification and provider failover.
     """
 
-    def __init__(self) -> None:
-        self._pit_database = {}
-        self.providers = ['PRIMARY', 'SECONDARY', 'TERTIARY', 'SAFE_MODE']
+    def __init__(self):
+        self._pit_database = {}  # Maps symbol -> list[Any] of PIT price records
+        self.providers = ["PRIMARY", "SECONDARY", "TERTIARY", "SAFE_MODE"]
         self.active_provider_idx = 0
 
     def store_price(self, symbol: str, bid: float, ask: float) -> None:
@@ -181,14 +222,14 @@ class IntelligencePlane:
     def __init__(self) -> None:
         self.state_cache = {}
 
-    def build_market_state_vector(self, symbol: str, history_bars: list) -> dict:
+    def build_market_state_vector(self, symbol: str, history_bars: list[Any]) -> dict[str, Any]:
         """Creates a normalized Market State Vector representation."""
         if not history_bars:
             return {}
         current_close = history_bars[-1]['close']
         return {'symbol': symbol, 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'close': current_close, 'indicators': {'rsi': config.RSI_PERIOD, 'ema200': config.EMA_LONG_PERIOD}}
 
-    def detect_regime(self, highs: list, lows: list, closes: list) -> dict:
+    def detect_regime(self, highs: list[Any], lows: list[Any], closes: list[Any]) -> dict[str, Any]:
         """Determines if the market is TRENDING, RANGING, or under VOLATILITY_SHOCK."""
         import indicators
         return indicators.classify_market_regime(highs, lows, closes)
@@ -245,7 +286,7 @@ class OpportunityRiskPlane:
             amount = self._reservations.pop(symbol)
             global_event_bus.publish(Event(family='RiskBudgetReleased', source='RiskPlane', payload={'symbol': symbol, 'amount': amount}))
 
-    def check_hard_limits(self, proposed_risk: float, active_positions: list) -> bool:
+    def check_hard_limits(self, proposed_risk: float, active_positions: list[Any]) -> bool:
         """Enforces maximum simultaneous trade limits and portfolio ceilings."""
         if len(active_positions) >= config.MAX_CONCURRENT_TRADES:
             return False
@@ -261,7 +302,14 @@ class SafetyVerificationPlane:
         self.hard_risk_limit = config.MAX_DAILY_DRAWDOWN_PERCENT
         self.resilience_plane = resilience_plane
 
-    def evaluate_invariants(self, current_risk: float, active_count: int, has_reconciliation_mismatch: bool=False, has_disagreement: bool=False, actual_aggregate_exposure_pct: Optional[float]=None) -> list:
+    def evaluate_invariants(
+        self,
+        current_risk: float,
+        active_count: int,
+        has_reconciliation_mismatch: bool = False,
+        has_disagreement: bool = False,
+        actual_aggregate_exposure_pct: Optional[float] = None,
+    ) -> list[Any]:
         """
         Evaluates deterministically core system safety truths.
         Returns a list of violation codes.
@@ -278,16 +326,43 @@ class SafetyVerificationPlane:
         fallback is deprecated and should only be used when stop-loss data is unavailable.
         """
         violations = []
+
+        # INV-001: Portfolio risk <= GLOBAL_RISK_LIMIT_CAP_PERCENT
+        # SECURITY FIX: Use actual stop-loss exposure, not position count proxy
         if actual_aggregate_exposure_pct is not None:
             global_risk_cap = getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)
             if actual_aggregate_exposure_pct > global_risk_cap:
-                violations.append('INV-001')
-                global_event_bus.publish(Event(family='SafetyViolation', source='SafetyPlane', payload={'invariant': 'INV-001', 'actual_exposure_pct': actual_aggregate_exposure_pct, 'limit_pct': global_risk_cap, 'reason': f'Aggregate stop-loss exposure {actual_aggregate_exposure_pct:.2f}% exceeds global cap {global_risk_cap:.2f}%'}))
+                violations.append("INV-001")
+                global_event_bus.publish(
+                    Event(
+                        family="SafetyViolation",
+                        source="SafetyPlane",
+                        payload={
+                            "invariant": "INV-001",
+                            "actual_exposure_pct": actual_aggregate_exposure_pct,
+                            "limit_pct": global_risk_cap,
+                            "reason": f"Aggregate stop-loss exposure {actual_aggregate_exposure_pct:.2f}% exceeds global cap {global_risk_cap:.2f}%",
+                        },
+                    )
+                )
         else:
             max_allowed_exposure = config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES
             if current_risk > max_allowed_exposure:
-                violations.append('INV-001')
-                global_event_bus.publish(Event(family='SafetyViolation', source='SafetyPlane', payload={'invariant': 'INV-001', 'count_based_risk': current_risk, 'limit_pct': max_allowed_exposure, 'reason': f'FALLBACK: Count-based risk {current_risk:.2f}% exceeds limit {max_allowed_exposure:.2f}% (actual exposure unavailable)'}))
+                violations.append("INV-001")
+                global_event_bus.publish(
+                    Event(
+                        family="SafetyViolation",
+                        source="SafetyPlane",
+                        payload={
+                            "invariant": "INV-001",
+                            "count_based_risk": current_risk,
+                            "limit_pct": max_allowed_exposure,
+                            "reason": f"FALLBACK: Count-based risk {current_risk:.2f}% exceeds limit {max_allowed_exposure:.2f}% (actual exposure unavailable)",
+                        },
+                    )
+                )
+
+        # INV-002: Concurrent trades limit
         if active_count > config.MAX_CONCURRENT_TRADES:
             violations.append('INV-002')
         if has_reconciliation_mismatch:
@@ -296,20 +371,27 @@ class SafetyVerificationPlane:
             violations.append('INV-015')
         return violations
 
-    def verify_component_agreement(self, component_decisions: dict) -> bool:
+    def verify_component_agreement(self, component_decisions: dict[str, Any]) -> bool:
         """
         Section 22: Formal state verification / safe-by-disagreement.
         If critical systems (such as technical indicator direction vs neural trend prediction)
         strongly conflict or are in a state of unresolvable disagreement, return False (Risk Freeze).
         """
-        tech = component_decisions.get('technical_trend')
-        ai = component_decisions.get('ai_trend')
-        if tech and ai and (tech != ai):
-            global_event_bus.publish(Event(family='SystemFault', source='SafetyPlane', payload={'reason': f'Disagreement detected: Technical ({tech}) vs. AI Model ({ai})'}))
+        # Decisions dictionary should map {"technical_trend": "UP"/"DOWN", "ai_trend": "UP"/"DOWN"}
+        tech = component_decisions.get("technical_trend")
+        ai = component_decisions.get("ai_trend")
+        if tech and ai and tech != ai:
+            global_event_bus.publish(
+                Event(
+                    family="SystemFault",
+                    source="SafetyPlane",
+                    payload={"reason": f"Disagreement detected: Technical ({tech}) vs. AI Model ({ai})"},
+                )
+            )
             return False
         return True
 
-    def authorize_trade(self, symbol: str, expected_net_value: float, safety_violations: list) -> bool:
+    def authorize_trade(self, symbol: str, expected_net_value: float, safety_violations: list[Any]) -> bool:
         """
         The only final authorization boundary permitted to trigger order routing.
         No Trade Admission means NO trade can ever occur.
@@ -323,10 +405,16 @@ class SafetyVerificationPlane:
             if current_state in ['HALTED', 'DEFENSIVE']:
                 global_event_bus.publish(Event(family='TradeAdmissionRejected', source='SafetyPlane', payload={'symbol': symbol, 'reason': f'Resilience state is {current_state}. Trade admissions blocked.'}))
                 return False
+
         if len(safety_violations) > 0:
             global_event_bus.publish(Event(family='TradeAdmissionRejected', source='SafetyPlane', payload={'symbol': symbol, 'reason': f'Safety Invariants violated: {safety_violations}'}))
             return False
-        min_positive_edge = getattr(config, 'MIN_EXPECTED_NET_VALUE_THRESHOLD', 1e-05)
+
+        # SECURITY FIX: Require meaningfully positive expected value
+        # The minimum threshold accounts for estimation errors and provides safety margin
+        # Expected net value should be in price units (e.g., 0.0001 for 1 pip on EURUSD)
+        min_positive_edge = getattr(config, "MIN_EXPECTED_NET_VALUE_THRESHOLD", 0.00001)
+
         if expected_net_value <= min_positive_edge:
             global_event_bus.publish(Event(family='TradeAdmissionRejected', source='SafetyPlane', payload={'symbol': symbol, 'reason': f'Expected Net Value ({expected_net_value:.8f}) does not meet minimum positive edge threshold ({min_positive_edge:.8f})', 'expected_net_value': expected_net_value, 'threshold': min_positive_edge}))
             return False
@@ -352,7 +440,7 @@ class ExecutionPlane:
         notional = lot_size * current_price * 100000.0
         return notional <= 1000000.0
 
-    def prevent_self_trade(self, symbol: str, direction: str, open_positions: list) -> bool:
+    def prevent_self_trade(self, symbol: str, direction: str, open_positions: list[Any]) -> bool:
         """Blocks sending conflicting BUY and SELL orders for the same asset."""
         for p in open_positions:
             if p['symbol'].upper() == symbol.upper() and p['direction'] != direction:
@@ -369,6 +457,8 @@ class ExecutionPlane:
         now = datetime.datetime.now()
         ten_seconds_ago = now - datetime.timedelta(seconds=10)
         self._message_history = [t for t in self._message_history if t > ten_seconds_ago]
+
+        # Include this checking message in rate evaluation
         self._message_history.append(now)
         if len(self._message_history) >= 5:
             self.rate_state = 'HALTED'
@@ -380,14 +470,34 @@ class ExecutionPlane:
             self.rate_state = 'NORMAL'
         return True
 
-    def execute_admitted_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> dict:
+    def execute_admitted_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> dict[str, Any]:
         """Routes approved intent to live connection."""
         if self.resilience_plane:
             current_state = self.resilience_plane.get_state()
-            if current_state in ['HALTED', 'DEFENSIVE']:
-                global_event_bus.publish(Event(family='OrderRejected', source='ExecutionPlane', payload={'symbol': symbol, 'direction': direction, 'error': f'Execution blocked: Resilience state is {current_state}'}))
-                return {'success': False, 'error': f'Execution blocked: Resilience state is {current_state}'}
-        global_event_bus.publish(Event(family='OrderSubmitted', source='ExecutionPlane', payload={'symbol': symbol, 'direction': direction, 'lots': lot}))
+            if current_state in ["HALTED", "DEFENSIVE"]:
+                global_event_bus.publish(
+                    Event(
+                        family="OrderRejected",
+                        source="ExecutionPlane",
+                        payload={
+                            "symbol": symbol,
+                            "direction": direction,
+                            "error": f"Execution blocked: Resilience state is {current_state}",
+                        },
+                    )
+                )
+                return {
+                    "success": False,
+                    "error": f"Execution blocked: Resilience state is {current_state}",
+                }
+
+        global_event_bus.publish(
+            Event(
+                family="OrderSubmitted",
+                source="ExecutionPlane",
+                payload={"symbol": symbol, "direction": direction, "lots": lot},
+            )
+        )
         res = self.conn.execute_order(symbol, direction, lot, sl, tp)
         if res['success']:
             global_event_bus.publish(Event(family='OrderAccepted', source='ExecutionPlane', payload={'ticket': res['ticket'], 'symbol': symbol, 'direction': direction}))
@@ -411,7 +521,7 @@ class LearningGovernancePlane:
         case = {'case_id': case_id, 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'symbol': symbol, 'direction': direction, 'entry_price': entry_price, 'exit_price': exit_price, 'profit': profit, 'quality_score': 1.0 if profit > 0 else 0.0}
         self._case_library.append(case)
 
-    def evaluate_decision_quality(self, case: dict) -> dict:
+    def evaluate_decision_quality(self, case: dict[str, Any]) -> dict[str, Any]:
         """
         Section 34.4: Computes decision quality score from 0.0 to 10.0 based on costs, timing, and direction.
         """
@@ -423,7 +533,7 @@ class LearningGovernancePlane:
         base_score = max(0.0, min(10.0, base_score))
         return {'decision_quality_score': base_score}
 
-    def attribute_luck_vs_skill(self, case: dict) -> str:
+    def attribute_luck_vs_skill(self, case: dict[str, Any]) -> str:
         """
         Section 34.5: Returns classification of 'SKILL' if technical indicators aligned with profits, otherwise 'LUCK'.
         """
@@ -445,8 +555,8 @@ class OperationsResiliencePlane:
     Supports Section 41: Safety State transitions and Section 33: Position Reconciliation checks.
     """
 
-    def __init__(self) -> None:
-        self._state = 'NORMAL'
+    def __init__(self):
+        self._state = "NORMAL"  # NORMAL, CAUTION, RESTRICTED, DEFENSIVE, HALTED, RECOVERY
         self._flight_log = []
 
     def log_heartbeat(self, latency: float) -> None:
@@ -470,7 +580,7 @@ class OperationsResiliencePlane:
         """Verifies only a single master instance has execution authorization."""
         return True
 
-    def reconcile_positions(self, db_positions: list, connector_positions: list) -> bool:
+    def reconcile_positions(self, db_positions: list[Any], connector_positions: list[Any]) -> bool:
         """
         Section 33: Multi-layer continuous reconciliation.
         Compiles active orders and local DB state to find phantom positions or orphans.
@@ -493,7 +603,7 @@ class SystemConstitution:
     def __init__(self) -> None:
         self.constitution_version = '3.0.0'
 
-    def evaluate_constitution_compliance(self, intent_payload: dict) -> dict:
+    def evaluate_constitution_compliance(self, intent_payload: dict[str, Any]) -> dict[str, Any]:
         """
         Evaluates a proposed TradingIntent or system action against Level 0 through Level 6.
         Returns: { 'compliant': bool, 'blocking_level': str, 'reason': str }
@@ -506,11 +616,21 @@ class SystemConstitution:
             return {'compliant': False, 'blocking_level': 'LEVEL_0', 'reason': 'LEVEL 0 BLOCK: Symbol is untradable under broker constraints.'}
         safety_violations = intent_payload.get('safety_violations', [])
         if safety_violations:
-            return {'compliant': False, 'blocking_level': 'LEVEL_1', 'reason': f'LEVEL 1 BLOCK: Safety Kernel Invariant Violations: {safety_violations}'}
-        portfolio_risk = intent_payload.get('portfolio_risk_pct', 0.0)
-        max_daily_drawdown = intent_payload.get('drawdown_pct', 0.0)
+            return {
+                "compliant": False,
+                "blocking_level": "LEVEL_1",
+                "reason": f"LEVEL 1 BLOCK: Safety Kernel Invariant Violations: {safety_violations}",
+            }
+
+        # LEVEL 2: Hard Portfolio Risk Limits
+        portfolio_risk = intent_payload.get("portfolio_risk_pct", 0.0)
+        max_daily_drawdown = intent_payload.get("drawdown_pct", 0.0)
         if portfolio_risk > config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES:
-            return {'compliant': False, 'blocking_level': 'LEVEL_2', 'reason': 'LEVEL 2 BLOCK: Hard Portfolio Risk Limit exceeded.'}
+            return {
+                "compliant": False,
+                "blocking_level": "LEVEL_2",
+                "reason": "LEVEL 2 BLOCK: Hard Portfolio Risk Limit exceeded.",
+            }
         if max_daily_drawdown >= config.MAX_DAILY_DRAWDOWN_PERCENT:
             return {'compliant': False, 'blocking_level': 'LEVEL_2', 'reason': 'LEVEL 2 BLOCK: Hard Daily Drawdown Ceiling breached.'}
         spread_pips = intent_payload.get('spread_pips', 0.0)

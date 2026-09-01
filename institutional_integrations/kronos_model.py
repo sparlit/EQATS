@@ -11,7 +11,9 @@ an embedded zero-dependency numerical fallback engine.
 """
 import math
 from typing import Any, Dict, List, Tuple
+
 import numpy as np
+
 
 class KronosTokenizer:
     """
@@ -68,13 +70,16 @@ class KronosFoundationModel:
         self.torch_model = None
         try:
             import importlib.util
-            has_t = importlib.util.find_spec('torch') is not None
-            has_tf = importlib.util.find_spec('transformers') is not None
+
+            has_t = importlib.util.find_spec("torch") is not None
+            has_tf = importlib.util.find_spec("transformers") is not None
             self.has_torch_model = has_t and has_tf
         except Exception:
             self.has_torch_model = False
 
-    def forecast_probabilistic(self, ohlcv_history: np.ndarray, forecast_horizon: int=24, num_simulations: int=30) -> Dict[str, Any]:
+    def forecast_probabilistic(
+        self, ohlcv_history: np.ndarray, forecast_horizon: int = 24, num_simulations: int = 30
+    ) -> Dict[str, Any]:
         """
         Generates probabilistic forward forecasts given historical OHLCV bars.
         ohlcv_history: N x 5 matrix of [Open, High, Low, Close, Volume] (context window, e.g. 360 bars).

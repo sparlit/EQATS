@@ -36,7 +36,12 @@ def barssince(condition: Union[Sequence[bool], Any], default: int=999999) -> int
     true_indices = np.where(cond)[0]
     return int(len(cond) - 1 - true_indices[-1])
 
-def resample_apply(rule: str, func: Callable, series_or_df: Any, *args: Any, **kwargs: Any) -> Any:
+
+def resample_apply(rule: str,
+                   func: Callable[..., Any],
+                   series_or_df: Any,
+                   *args: Any,
+                   **kwargs: Any) -> Any:
     """Resample OHLCV data to higher timeframe, apply function, and reindex back to original timeline without lookahead bias."""
     if not isinstance(series_or_df.index, (pd.DatetimeIndex, pd.PeriodIndex)):
         raise ValueError('Series/DataFrame must have a DatetimeIndex or PeriodIndex for resampling.')

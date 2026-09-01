@@ -10,6 +10,7 @@ validation.
 from typing import Any
 import unittest
 from unittest.mock import Mock, patch
+
 import connector
 import database
 import release_gates
@@ -39,8 +40,9 @@ class MockLiveConnector(connector.TradingConnector):
     def get_current_price(self, symbol: Any) -> Any:
         return {'bid': 1.085, 'ask': 1.0852}
 
-    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any=None) -> Any:
-        return {'success': True, 'ticket': 'LIVE-12345', 'price': 1.0851, 'error': None}
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None):
+        # This should NEVER be called during release validation
+        return {"success": True, "ticket": "LIVE-12345", "price": 1.0851, "error": None}
 
     def close_order(self, ticket: Any, reason: Any='MANUAL') -> Any:
         return {'success': True, 'price': 1.0851, 'profit': 0.0, 'error': None}
@@ -82,8 +84,8 @@ class MockDemoConnector(connector.TradingConnector):
     def get_current_price(self, symbol: Any) -> Any:
         return {'bid': 1.085, 'ask': 1.0852}
 
-    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any=None) -> Any:
-        return {'success': True, 'ticket': 'DEMO-12345', 'price': 1.0851, 'error': None}
+    def execute_order(self, symbol, order_type, lot_size, sl, tp, product=None):
+        return {"success": True, "ticket": "DEMO-12345", "price": 1.0851, "error": None}
 
     def close_order(self, ticket: Any, reason: Any='MANUAL') -> Any:
         return {'success': True, 'price': 1.0851, 'profit': 0.0, 'error': None}

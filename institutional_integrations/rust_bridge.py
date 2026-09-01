@@ -1,3 +1,4 @@
+from typing import Any
 """
 Institutional Rust Wrapper High-Capacity Order Routing Bridge & CFFI Acceleration Core.
 Establishes a compiled high-speed Rust interface for sub-millisecond execution,
@@ -9,6 +10,7 @@ import ctypes
 import logging
 import os
 import time
+
 _log = logging.getLogger(__name__)
 _RUST_AVAILABLE = False
 _RUST_LIB = None
@@ -93,9 +95,13 @@ def _mark_rust_failure() -> None:
     global _RUST_AVAILABLE, _LAST_FAILURE_TIME
     _RUST_AVAILABLE = False
     _LAST_FAILURE_TIME = time.time()
-    _log.warning('Rust engine execution failure detected. Entering dynamic Python fallback mode for %s seconds.', _COOLDOWN_SECONDS)
+    _log.warning(
+        "Rust engine execution failure detected. Entering dynamic Python fallback mode for %s seconds.",
+        _COOLDOWN_SECONDS,
+    )
 
-def execute_high_speed_rust_order_send(symbol: str, order_type: str, price: float, size: float) -> dict:
+
+def execute_high_speed_rust_order_send(symbol: str, order_type: str, price: float, size: float) -> dict[str, Any]:
     """
     Executes high-speed order matching via compiled Rust bridge if available,
     or falls back dynamically to Python execution.
@@ -116,7 +122,16 @@ def execute_high_speed_rust_order_send(symbol: str, order_type: str, price: floa
     elapsed_ns = time.perf_counter_ns() - start_ns
     return {'status': 'FILLED', 'matching_engine': 'PYTHON_EMULATED_MATCHING', 'execution_latency_ns': elapsed_ns, 'slippage_pips': 0.02, 'engine_type': 'PYTHON_FALLBACK'}
 
-def rust_accelerated_ema(prices: list, period: int=20) -> list:
+    return {
+        "status": "FILLED",
+        "matching_engine": "PYTHON_EMULATED_MATCHING",
+        "execution_latency_ns": elapsed_ns,
+        "slippage_pips": 0.02,
+        "engine_type": "PYTHON_FALLBACK",
+    }
+
+
+def rust_accelerated_ema(prices: list[Any], period: int = 20) -> list[Any]:
     """Computes EMA with Rust acceleration and Python fallback."""
     if not prices or len(prices) < period:
         return [prices[-1] if prices else 0.0] * len(prices)
@@ -141,7 +156,8 @@ def rust_accelerated_ema(prices: list, period: int=20) -> list:
         ema[i] = alpha * prices[i] + (1.0 - alpha) * ema[i - 1]
     return ema
 
-def rust_accelerated_vpin(buy_volumes: list, sell_volumes: list, bucket_size: float=100.0) -> float:
+
+def rust_accelerated_vpin(buy_volumes: list[Any], sell_volumes: list[Any], bucket_size: float = 100.0) -> float:
     """Computes VPIN with Rust acceleration and Python fallback."""
     if not buy_volumes or not sell_volumes or len(buy_volumes) != len(sell_volumes):
         return 0.0
@@ -163,7 +179,15 @@ def rust_accelerated_vpin(buy_volumes: list, sell_volumes: list, bucket_size: fl
     total_volume = sum((b + s for b, s in zip(buy_volumes, sell_volumes)))
     return total_imbalance / total_volume if total_volume > 1e-08 else 0.0
 
-def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_count: int, simulations: int=1000) -> dict:
+    # Python Fallback
+    total_imbalance = sum(abs(b - s) for b, s in zip(buy_volumes, sell_volumes))
+    total_volume = sum(b + s for b, s in zip(buy_volumes, sell_volumes))
+    return total_imbalance / total_volume if total_volume > 1e-8 else 0.0
+
+
+def rust_accelerated_mcts_risk_simulation(
+    initial_equity: float, open_positions_count: int, simulations: int = 1000
+) -> dict[str, Any]:
     """Computes MCTS tail risk simulation with Rust multi-threading acceleration and Python fallback."""
     if is_rust_available() and _RUST_LIB:
         try:
@@ -181,11 +205,11 @@ def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_
 
     rng = np.random.RandomState(42)
     drawdowns = []
-    for _ in range(min(simulations, 200)):
+    for _ in range(min(simulations, 200)):  # capped for python fallback speed
         eq = initial_equity
         peak = initial_equity
         max_dd = 0.0
-        rets = rng.uniform(-0.015, 0.015, 100) * open_positions_count ** 0.5
+        rets = rng.uniform(-0.015, 0.015, 100) * (open_positions_count**0.5)
         for ret in rets:
             eq *= 1.0 + ret
             if eq > peak:
@@ -199,7 +223,7 @@ def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_
     var_99 = drawdowns[int(len(drawdowns) * 0.99)] if drawdowns else 0.0
     return {'max_drawdown': avg_dd, 'var_99': var_99, 'engine_type': 'PYTHON_FALLBACK'}
 
-def rust_accelerated_backtest(prices: list, initial_balance: float=10000.0) -> dict:
+def rust_accelerated_backtest(prices: list[Any], initial_balance: float = 10000.0) -> dict[str, Any]:
     """Runs high-speed event-driven backtest simulation with Rust acceleration and Python fallback."""
     if not prices or len(prices) < 2:
         return {'total_profit': 0.0, 'win_rate': 0.0, 'engine_type': 'EMPTY'}
@@ -229,7 +253,7 @@ def rust_accelerated_backtest(prices: list, initial_balance: float=10000.0) -> d
     win_rate = wins / trades * 100.0 if trades > 0 else 0.0
     return {'total_profit': balance - initial_balance, 'win_rate': win_rate, 'engine_type': 'PYTHON_FALLBACK'}
 
-def rust_accelerated_smc_fvg(highs: list, lows: list) -> int:
+def rust_accelerated_smc_fvg(highs: list[Any], lows: list[Any]) -> int:
     """Detects SMC Fair Value Gaps (FVG) with Rust acceleration and Python fallback."""
     if not highs or not lows or len(highs) < 3 or (len(highs) != len(lows)):
         return 0
@@ -270,7 +294,7 @@ def rust_accelerated_fix_parse(raw_msg: str) -> int:
             _mark_rust_failure()
     return len([s for s in raw_msg.split('\x01') if '=' in s])
 
-def rust_accelerated_gex_profile(spot: float, strikes: list, gammas: list, open_interest: list) -> float:
+def rust_accelerated_gex_profile(spot: float, strikes: list[Any], gammas: list[Any], open_interest: list[Any]) -> float:
     """Computes Options Gamma Exposure (GEX) with Rust acceleration and Python fallback."""
     if not strikes or not gammas or (not open_interest) or (spot <= 0):
         return 0.0
@@ -295,7 +319,8 @@ def rust_accelerated_gex_profile(spot: float, strikes: list, gammas: list, open_
         gex += dg if k >= spot else -dg
     return gex
 
-def rust_accelerated_spread_zscore(p1: list, p2: list, hedge_ratio: float=1.0) -> float:
+
+def rust_accelerated_spread_zscore(p1: list[Any], p2: list[Any], hedge_ratio: float = 1.0) -> float:
     """Computes cointegration spread z-score with Rust acceleration and Python fallback."""
     if not p1 or not p2 or len(p1) < 2 or (len(p1) != len(p2)):
         return 0.0
@@ -315,27 +340,56 @@ def rust_accelerated_spread_zscore(p1: list, p2: list, hedge_ratio: float=1.0) -
             _mark_rust_failure()
     spreads = [a - hedge_ratio * b for a, b in zip(p1, p2)]
     mean = sum(spreads) / len(spreads)
-    var = sum(((s - mean) ** 2 for s in spreads)) / len(spreads)
-    std = var ** 0.5
-    return (spreads[-1] - mean) / std if std > 1e-08 else 0.0
+    var = sum((s - mean) ** 2 for s in spreads) / len(spreads)
+    std = var**0.5
+    return (spreads[-1] - mean) / std if std > 1e-8 else 0.0
+
 
 class _RustOrderFill(ctypes.Structure):
     _fields_ = [('fill_price', ctypes.c_double), ('filled_qty', ctypes.c_double), ('commission', ctypes.c_double), ('is_filled', ctypes.c_int)]
 
-def rust_accelerated_rqalpha_process_bar_orders(bar_close: float, atr_slippage: float=0.0001, tick_size: float=0.05, is_buy: bool=True, quantity: float=1.0, price: float=0.0, commission_rate: float=0.0001) -> dict:
+def rust_accelerated_rqalpha_process_bar_orders(
+    bar_close: float,
+    atr_slippage: float = 0.0001,
+    tick_size: float = 0.05,
+    is_buy: bool = True,
+    quantity: float = 1.0,
+    price: float = 0.0,
+    commission_rate: float = 0.0001,
+) -> dict[str, Any]:
     """Processes bar order execution using high-throughput Rust kernel when available, or Python fallback."""
-    if is_rust_available() and _RUST_LIB and hasattr(_RUST_LIB, 'rust_rqalpha_process_bar_orders'):
+    if is_rust_available() and _RUST_LIB and hasattr(_RUST_LIB, "rust_rqalpha_process_bar_orders"):
         try:
             fill_struct = _RustOrderFill()
-            res = _RUST_LIB.rust_rqalpha_process_bar_orders(ctypes.c_double(bar_close), ctypes.c_double(bar_close), ctypes.c_double(bar_close), ctypes.c_double(bar_close), ctypes.c_double(atr_slippage), ctypes.c_double(tick_size), ctypes.c_int(1 if is_buy else 0), ctypes.c_double(quantity), ctypes.c_double(price), ctypes.c_double(commission_rate), ctypes.byref(fill_struct))
+            res = _RUST_LIB.rust_rqalpha_process_bar_orders(
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(bar_close),
+                ctypes.c_double(atr_slippage),
+                ctypes.c_double(tick_size),
+                ctypes.c_int(1 if is_buy else 0),
+                ctypes.c_double(quantity),
+                ctypes.c_double(price),
+                ctypes.c_double(commission_rate),
+                ctypes.byref(fill_struct),
+            )
             if res == 0 and fill_struct.is_filled != 0:
-                return {'fill_price': fill_struct.fill_price, 'filled_qty': fill_struct.filled_qty, 'commission': fill_struct.commission, 'is_filled': True, 'engine_type': 'RUST_C_ABI'}
+                return {
+                    "fill_price": fill_struct.fill_price,
+                    "filled_qty": fill_struct.filled_qty,
+                    "commission": fill_struct.commission,
+                    "is_filled": True,
+                    "engine_type": "RUST_C_ABI",
+                }
             else:
                 _mark_rust_failure()
         except Exception as e:
-            _log.exception('Rust RQAlpha order processing error: %s', e)
+            _log.exception("Rust RQAlpha order processing error: %s", e)
             _mark_rust_failure()
-    raw_fill = bar_close + atr_slippage if is_buy else bar_close - atr_slippage
+
+    # Python Fallback
+    raw_fill = (bar_close + atr_slippage) if is_buy else (bar_close - atr_slippage)
     active_tick = tick_size if tick_size > 0 else 0.0001
     num_ticks = round(raw_fill / active_tick)
     rounded_fill = round(num_ticks * active_tick, 6)

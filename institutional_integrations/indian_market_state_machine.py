@@ -123,7 +123,13 @@ class IndianMarketStateMachine:
         return (True, 'Order validated for Indian market session.', rounded_price)
 
     @classmethod
-    def enforce_intraday_mis_cutoff_and_squareoff(cls, open_orders: list, close_order_func: Any, cancel_order_func: Any=None, dt_ist: Optional[datetime]=None) -> Dict[str, Any]:
+    def enforce_intraday_mis_cutoff_and_squareoff(
+        cls,
+        open_orders: Any,
+        close_order_func: Any,
+        cancel_order_func: Any = None,
+        dt_ist: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
         """
         Explicit Intraday Safeguard Routine:
         If active past 03:00 PM IST, freezes all new incoming MIS entries, cancels pending limit/stop orders,

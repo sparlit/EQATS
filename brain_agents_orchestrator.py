@@ -1,3 +1,4 @@
+from typing import Any
 """
 Collaborative Multi-Agent Brain Supervisory & Learning Orchestrator.
 Operates as a distinct, multi-threaded & multi-processed parallel intelligence unit
@@ -214,8 +215,7 @@ class DeterministicNeuralStrategyAgent:
 
 class MethodGovernorBrain:
     """Collectively governs, monitors, and synthesizes all Trading Method Agents."""
-
-    def govern(self, method_scores: dict) -> dict:
+    def govern(self, method_scores: dict[str, Any]) -> dict[str, Any]:
         if not method_scores:
             return {'top_method': 'SCALPING', 'governor_confidence': 50.0}
         top_method = max(method_scores, key=method_scores.get)
@@ -224,8 +224,7 @@ class MethodGovernorBrain:
 
 class StrategyGovernorBrain:
     """Collectively governs, monitors, and synthesizes all 13 Trading Strategy Agents."""
-
-    def govern(self, strategy_scores: dict) -> dict:
+    def govern(self, strategy_scores: dict[str, Any]) -> dict[str, Any]:
         if not strategy_scores:
             return {'top_strategy': 'SMC_ICT', 'governor_confidence': 50.0}
         sorted_strats = sorted(strategy_scores.items(), key=lambda x: x[1], reverse=True)
