@@ -9,7 +9,6 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger("OpenAlgoEngine")
 
 
 class OpenAlgoSmartOrderSplitter:
@@ -31,7 +30,6 @@ class OpenAlgoSmartOrderSplitter:
 
         slices: List[Dict[str, Any]] = []
         remaining = vol
-
         while remaining > 0:
             current_slice = round(min(remaining, limit_lot), 2)
             slices.append(
@@ -44,7 +42,6 @@ class OpenAlgoSmartOrderSplitter:
                 }
             )
             remaining = round(remaining - current_slice, 2)
-
         return slices
 
 
@@ -62,7 +59,9 @@ class OpenAlgoSessionSquareOffManager:
         self, current_hour: int, current_minute: int, close_hour: int = 16, close_minute: int = 55
     ) -> bool:
         with self._lock:
-            if current_hour > close_hour or (current_hour == close_hour and current_minute >= close_minute):
+            if current_hour > close_hour or (
+                current_hour == close_hour and current_minute >= close_minute
+            ):
                 self.squareoff_triggered = True
                 return True
             return False
@@ -94,13 +93,14 @@ class OpenAlgoIndianExchangeRouter:
     ) -> Dict[str, Any]:
         prod = str(product).strip().upper() if product else "CNC"
         if prod not in cls.VALID_PRODUCTS:
-            logger.warning("Invalid Indian product tag '%s' in OpenAlgo router. Falling back to CNC.", product)
+            logging.getLogger(__name__).warning(
+                "Invalid Indian product tag '%s' in OpenAlgo router. Falling back to CNC.",
+                product,
+            )
             prod = "CNC"
-
         exch = str(exchange).strip().upper() if exchange else "NSE"
         if exch not in cls.VALID_EXCHANGES:
             exch = "NSE"
-
         return {
             "symbol": symbol.strip().upper(),
             "action": action.strip().upper(),
