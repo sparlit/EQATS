@@ -610,7 +610,7 @@ def get_all_users() -> Any:
     return [dict(r) for r in rows]
 
 
-def _execute_with_retry(query, params=(), commit=True):
+def _execute_with_retry(query: str, params: Any = (), commit: bool = True) -> bool:
     """Executes a database write query using connection context manager with automatic retries and exponential backoff."""
     max_retries = 5
     for attempt in range(max_retries):
@@ -648,6 +648,7 @@ def _execute_with_retry(query, params=(), commit=True):
             else:
                 _log.debug('Database write retry exhausted: %s', e)
                 return False
+    return False
 
 def _fetch_with_retry(query: Any, params: Any=(), fetch_all: Any=True) -> Any:
     """Executes a database read query using connection context manager with automatic retries and exponential backoff."""
@@ -779,7 +780,7 @@ def get_credential_migration_status() -> Any:
     }
 
 
-def get_user_login_style(username="QUANT_OPERATOR"):
+def get_user_login_style(username: str = "QUANT_OPERATOR") -> str:
     """Retrieves the preferred login screen style for a user."""
     conn = None
     try:
@@ -789,7 +790,8 @@ def get_user_login_style(username="QUANT_OPERATOR"):
         row = cursor.fetchone()
         conn.close()
         if row and row['login_style']:
-            return row['login_style']
+            res: str = str(row['login_style'])
+            return res
     except Exception:
         pass
     return 'MATRIX_NEON'
@@ -1261,20 +1263,20 @@ def validate_terminal_path(terminal_path: str) -> str:
 
 
 def add_broker_account(
-    broker_name,
-    server,
-    account_id,
-    password,
-    leverage="1:100",
-    environment="Demo",
-    protocol_type="MT5",
-    api_key="",
-    api_secret="",
-    rest_url="",
-    ws_url="",
-    terminal_path="",
-    is_active=0,
-):
+    broker_name: str,
+    server: str,
+    account_id: str,
+    password: str,
+    leverage: str = "1:100",
+    environment: str = "Demo",
+    protocol_type: str = "MT5",
+    api_key: str = "",
+    api_secret: str = "",
+    rest_url: str = "",
+    ws_url: str = "",
+    terminal_path: str = "",
+    is_active: int = 0,
+) -> None:
     """
     Adds a new broker gateway configuration into SQLite with lock retries.
 
@@ -1325,11 +1327,6 @@ def add_broker_account(
         ),
     )
 
-
-def set_active_broker(broker_id):
-    """Sets a specific broker account as the active primary gateway with lock retries."""
-    _execute_with_retry("UPDATE broker_credentials SET is_active = 0")
-    _execute_with_retry("UPDATE broker_credentials SET is_active = 1 WHERE id = ?", (broker_id,))
 
 def set_active_broker(broker_id: Any) -> None:
     """Sets a specific broker account as the active primary gateway with lock retries."""
@@ -1465,7 +1462,14 @@ def get_broker_credentials() -> Any:
     }
 
 
-def log_assessment(symbol, trend_direction, rsi_val, atr_val, decision, explanation):
+def log_assessment(
+    symbol: str,
+    trend_direction: str,
+    rsi_val: float,
+    atr_val: float,
+    decision: str,
+    explanation: str,
+) -> None:
     """Logs an analysis assessment made by the brain with lock retries."""
     _execute_with_retry('\n    INSERT INTO assessments (timestamp, symbol, trend_direction, rsi_val, atr_val, decision, explanation)\n    VALUES (?, ?, ?, ?, ?, ?, ?)\n    ', (datetime.datetime.now().isoformat(), symbol, trend_direction, rsi_val, atr_val, decision, explanation))
 

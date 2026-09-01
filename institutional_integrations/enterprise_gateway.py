@@ -109,7 +109,7 @@ class ValkeySpeedLayerAdapter:
         self.host = host
         self.port = port
         self._connected = False
-        self._memory_cache = {}
+        self._memory_cache: dict[str, str] = {}
         self._lock = threading.Lock()
         self._init_connection()
 
@@ -150,11 +150,13 @@ class ValkeySpeedLayerAdapter:
                 client = redis.Redis(host=self.host, port=self.port)
                 res = client.get(key)
                 if res:
-                    return res.decode('utf-8')
+                    val: str = res.decode('utf-8') if isinstance(res, bytes) else str(res)
+                    return val
             except Exception as e:
                 logger.error(f'Valkey get_key error: {e}')
         with self._lock:
-            return self._memory_cache.get(key, None)
+            val_cached = self._memory_cache.get(key, None)
+            return str(val_cached) if val_cached is not None else None
 
 class PulsarEventStreamAdapter:
     """Distributed Messaging & Event Streaming Glue Adapter."""

@@ -2978,7 +2978,8 @@ class ScalperGui:
     def _select_mkt_subtab(self, tab_idx: Any) -> None:
         if hasattr(self, 'mkt_notebook') and self.mkt_notebook:
             try:
-                self.mkt_notebook.select(tab_idx)
+                mkt_nb: Any = self.mkt_notebook
+                mkt_nb.select(tab_idx)
             except Exception:
                 pass
         if hasattr(self, 'mkt_subtab_buttons'):

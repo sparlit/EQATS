@@ -201,7 +201,7 @@ def integrate_fastapi() -> Any:
         from fastapi import FastAPI
         app = FastAPI()
 
-        @app.get('/')
+        @app.get('/')  # type: ignore[untyped-decorator]
         def status() -> Any:
             return {'status': 'ONLINE'}
         return {'status': 'ACTIVE', 'app': str(app), 'engine': 'FASTAPI'}

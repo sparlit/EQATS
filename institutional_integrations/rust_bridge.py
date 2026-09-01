@@ -87,7 +87,7 @@ def is_rust_available() -> bool:
     if _RUST_AVAILABLE:
         return True
     if time.time() - _LAST_FAILURE_TIME > _COOLDOWN_SECONDS:
-        return _load_rust_library()
+        return bool(_load_rust_library())
     return False
 
 def _mark_rust_failure() -> None:
