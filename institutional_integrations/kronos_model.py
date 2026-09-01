@@ -22,7 +22,9 @@ class KronosTokenizer:
     def __init__(self, num_bins: int=64) -> None:
         self.num_bins = num_bins
 
-    def tokenize_bar(self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float) -> Tuple[int, int, int, int]:
+    def tokenize_bar(
+        self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float
+    ) -> Tuple[int, int, int, int]:
         """
         Quantizes a single bar (relative return, high offset, low offset, volume shift) relative to ref_price into subtoken integer IDs.
         """

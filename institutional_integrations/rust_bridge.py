@@ -178,6 +178,7 @@ def rust_accelerated_mcts_risk_simulation(initial_equity: float, open_positions_
             _log.exception('Rust MCTS simulation error: %s', e)
             _mark_rust_failure()
     import numpy as np
+
     rng = np.random.RandomState(42)
     drawdowns = []
     for _ in range(min(simulations, 200)):

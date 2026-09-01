@@ -10,6 +10,7 @@ import config
 _log = logging.getLogger('database')
 try:
     import bcrypt
+
     _BCRYPT_AVAILABLE = True
     _BCRYPT_ROUNDS = 12
 except ImportError:
@@ -37,6 +38,7 @@ def _get_encryption_key() -> Any:
     if not master_password:
         try:
             import platform
+
             machine_id = platform.node() + platform.machine()
         except Exception:
             machine_id = 'EQATS_DEFAULT_MACHINE'
@@ -59,7 +61,7 @@ def _get_or_create_salt() -> Any:
     salt_file = config.DB_PATH + '.salt'
     try:
         if os.path.exists(salt_file):
-            with open(salt_file, 'rb') as f:
+            with open(salt_file, "rb") as f:
                 salt = f.read()
                 if len(salt) == 32:
                     return salt
@@ -67,7 +69,7 @@ def _get_or_create_salt() -> Any:
         _log.debug('Could not read salt file: %s', e)
     salt = os.urandom(32)
     try:
-        with open(salt_file, 'wb') as f:
+        with open(salt_file, "wb") as f:
             f.write(salt)
         if hasattr(os, 'chmod'):
             os.chmod(salt_file, 384)
@@ -111,7 +113,7 @@ def hash_credential_secure(secret_text: Any) -> Any:
     if _BCRYPT_AVAILABLE:
         password_bytes = secret_text.encode('utf-8')
         hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
-        return hashed.decode('utf-8')
+        return hashed.decode("utf-8")
     else:
         _log.warning('Using legacy SHA-256 hashing due to missing bcrypt. Install bcrypt for proper password security: pip install bcrypt')
         return hash_credential(secret_text)
@@ -139,8 +141,8 @@ def verify_credential(secret_text: Any, stored_hash: Any) -> Any:
     if stored_hash.startswith(('$2a$', '$2b$', '$2y$')):
         if _BCRYPT_AVAILABLE:
             try:
-                password_bytes = secret_text.encode('utf-8')
-                hash_bytes = stored_hash.encode('utf-8')
+                password_bytes = secret_text.encode("utf-8")
+                hash_bytes = stored_hash.encode("utf-8")
                 is_valid = bcrypt.checkpw(password_bytes, hash_bytes)
                 return (is_valid, False)
             except Exception as e:
@@ -622,6 +624,7 @@ def seed_default_broker_profiles() -> None:
     if count > 0:
         return
     import json
+
     now_str = datetime.datetime.now().isoformat()
     default_profiles = [('mt5_demo', 'MetaTrader 5 Demo', 'MT5', 'password', '', '', 0.01, 100.0, 0.01, 20, '{}'), ('mt5_live', 'MetaTrader 5 Live', 'MT5', 'password', '', '', 0.01, 100.0, 0.01, 20, '{}'), ('ic_markets_fix', 'IC Markets FIX', 'FIX', 'fix_comp_id', 'https://fix.icmarkets.com', 'wss://fix.icmarkets.com', 0.01, 100.0, 0.01, 50, json.dumps({'port': 9800})), ('ctrader_openapi', 'cTrader Open API', 'CTRADER', 'oauth2', 'https://openapi.ctrader.com', 'wss://live.ctrader.com', 0.01, 100.0, 0.01, 30, '{}'), ('ibkr_tws', 'Interactive Brokers TWS', 'IBKR', 'client_id', 'https://127.0.0.1:5000', 'wss://127.0.0.1:5000', 1.0, 10000.0, 1.0, 10, '{}'), ('binance_perps', 'Binance Futures', 'CCXT', 'api_key_secret', 'https://fapi.binance.com', 'wss://fstream.binance.com', 0.001, 1000.0, 0.001, 20, '{}'), ('bybit_linear', 'Bybit Linear USDT', 'CCXT', 'api_key_secret', 'https://api.bybit.com', 'wss://stream.bybit.com', 0.001, 1000.0, 0.001, 20, '{}'), ('okx_perps', 'OKX Perpetuals', 'CCXT', 'api_key_secret', 'https://www.okx.com', 'wss://ws.okx.com:8443', 0.01, 1000.0, 0.01, 20, '{}'), ('hyperliquid', 'Hyperliquid L1 Perps', 'REST_WS', 'private_key', 'https://api.hyperliquid.xyz', 'wss://api.hyperliquid.xyz/ws', 0.001, 10000.0, 0.001, 50, '{}'), ('coinbase_advanced', 'Coinbase Advanced', 'CCXT', 'api_key_secret', 'https://api.coinbase.com/api/v3', 'wss://advanced-trade-ws.coinbase.com', 0.0001, 100.0, 0.0001, 10, '{}'), ('kraken_futures', 'Kraken Futures', 'CCXT', 'api_key_secret', 'https://futures.kraken.com/derivatives', 'wss://futures.kraken.com/ws/v1', 0.01, 1000.0, 0.01, 15, '{}'), ('dhan', 'Dhan SDK', 'REST_WS', 'client_id_token', 'https://api.dhan.co', 'wss://api-feed.dhan.co', 1.0, 10000.0, 1.0, 10, '{}'), ('zerodha', 'Zerodha Kite Connect', 'REST_WS', 'api_key_token', 'https://api.kite.trade', 'wss://ws.kite.trade', 1.0, 10000.0, 1.0, 10, '{}'), ('angelone', 'AngelOne SmartAPI', 'REST_WS', 'totp', 'https://apiconnect.angelone.in', 'wss://smartapisocket.angelone.in', 1.0, 10000.0, 1.0, 10, '{}'), ('upstox', 'Upstox REST API', 'REST_WS', 'client_id_token', 'https://api.upstox.com/v2', 'wss://api.upstox.com/v2/feed', 1.0, 10000.0, 1.0, 10, '{}'), ('fyers', 'Fyers API v2', 'REST_WS', 'client_id_token', 'https://api-v2.fyers.in/api/v2', 'wss://api-v2.fyers.in/socket/v2', 1.0, 10000.0, 1.0, 10, '{}'), ('kotak_neo', 'Kotak Neo API', 'REST_WS', 'consumer_key_token', 'https://gw-napi.kotaksecurities.com', 'wss://gw-napi.kotaksecurities.com', 1.0, 10000.0, 1.0, 10, '{}'), ('fivepaisa', '5paisa Markets', 'REST_WS', 'totp', 'https://openapi.5paisa.com/VendorsAPI/V1', 'wss://openfeed.5paisa.com', 1.0, 10000.0, 1.0, 10, '{}'), ('finvasia', 'Finvasia (Shoonya)', 'REST_WS', 'totp', 'https://api.shoonya.com/NorenWSTp', 'wss://api.shoonya.com/NorenWSTp', 1.0, 10000.0, 1.0, 10, '{}'), ('icici', 'ICICI Direct Breeze', 'REST_WS', 'oauth2', 'https://api.icicidirect.com/breezeapi/v1', 'wss://breezews.icicidirect.com', 1.0, 10000.0, 1.0, 10, '{}')]
     for key, name, proto, auth, rest, ws, v_min, v_max, v_step, r_lim, extra in default_profiles:

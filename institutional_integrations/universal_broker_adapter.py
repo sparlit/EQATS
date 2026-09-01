@@ -28,6 +28,7 @@ from institutional_integrations.fix_engine import FIXEngine
 from institutional_integrations.sebi_broker_adapter import DhanHQAdapter, KiteConnectAdapter, SEBIOrderRequest, UnifiedIndianBrokerClientAdapter, round_to_indian_quantity, round_to_indian_tick_size, validate_indian_product_tag
 _log = logging.getLogger(__name__)
 
+
 class UniversalBrokerGateway:
     INDIAN_BROKER_PROTOCOLS = {'SEBI_BROKER', 'KITE', 'ZERODHA', 'DHAN', 'ANGELONE', 'ANGEL', 'KOTAK', 'NEO', 'UPSTOX', 'ICICI', 'FIVEPAISA', 'IIFL', 'XTS', 'MOTILAL', 'MO'}
     '\n    Universal Multi-Protocol Broker Gateway.\n    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.\n    '
@@ -357,6 +358,7 @@ class UniversalBrokerGateway:
             _log.error("UniversalBrokerGateway: Invalid lot_size '%s' for %s. Must be numeric.", lot_size, symbol)
             return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Invalid lot_size '{lot_size}'. Must be a numeric value.", 'reason': 'INVALID_QUANTITY', 'protocol': self.protocol}
         import math
+
         if not math.isfinite(lot_size_float) or lot_size_float <= 0.0:
             _log.error('UniversalBrokerGateway: lot_size %s for %s is not finite and positive.', lot_size_float, symbol)
             return {'success': False, 'ticket': '', 'price': 0.0, 'error': f"Invalid lot_size '{lot_size_float}': must be finite and positive.", 'reason': 'INVALID_QUANTITY', 'protocol': self.protocol}

@@ -9,6 +9,7 @@ import time
 from typing import Any, Dict, List, Optional
 logger = logging.getLogger('OpenAlgoEngine')
 
+
 class OpenAlgoSmartOrderSplitter:
     """
     Smart Order Slicing & Iceberg Order Execution Engine.
@@ -30,6 +31,7 @@ class OpenAlgoSmartOrderSplitter:
             slices.append({'symbol': symbol, 'action': action.upper(), 'volume': current_slice, 'slice_index': len(slices) + 1, 'status': 'READY'})
             remaining = round(remaining - current_slice, 2)
         return slices
+
 
 class OpenAlgoSessionSquareOffManager:
     """

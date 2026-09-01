@@ -4,10 +4,12 @@ from typing import Any, Dict, List
 try:
     import numpy as np
     import pandas as pd
+
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
 logger = logging.getLogger('AAT_Analyst')
+
 
 class MacroAnalyst:
     """External Macro Economic & Sentiment Analyst."""
@@ -26,6 +28,7 @@ class MacroAnalyst:
         if 'USD' in sym_upper:
             return 1.15 if self.sentiment_score > 0.6 else 0.85 if self.sentiment_score < 0.4 else 1.0
         return 1.0
+
 
 class SMCAnalyst:
     """Smart Money Concepts & Price Action Structure Analyst."""
@@ -85,6 +88,7 @@ class SMCAnalyst:
                     fvgs.append({'type': 'BEARISH', 'top': float(l[i - 2]), 'bottom': float(h[i]), 'index': i - 1})
             return fvgs[-5:]
         return []
+
 
 class VolatilityAnalyst:
     """Market Regime & Volatility Analysis."""

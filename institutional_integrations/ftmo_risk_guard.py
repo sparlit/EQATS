@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict, List, Optional, Sequence
 logger = logging.getLogger('FTMORiskGuard')
 
+
 class FTMORiskGuardEngine:
     """
     FTMO Risk Guard Engine.
@@ -42,6 +43,7 @@ class FTMORiskGuardEngine:
         if daily_loss + order_risk > max_daily_allowed:
             return {'decision': 'REJECT', 'reason': f'Proposed order risk {order_risk:.2f} exceeds remaining daily buffer'}
         return {'decision': 'ALLOW', 'reason': 'FTMO pre-trade risk checks passed', 'order_risk': round(order_risk, 2)}
+
 
 class FTMOQualificationAuditor:
     """
