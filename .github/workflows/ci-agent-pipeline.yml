@@ -49,7 +49,7 @@ jobs:
           if [ -d "native_core" ]; then
             cd native_core
             # Force maturin to look for the python3.13t interpreter explicitly during native compilation
-            maturin build --release -i python3.13t
+            maturin develop --release -i python3.13t
             cd ..
           fi
 
