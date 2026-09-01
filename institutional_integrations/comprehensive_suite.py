@@ -103,9 +103,10 @@ def integrate_click() -> Any:
     """Enables quick CLI configurations using Click."""
     try:
         import click
+        from typing import cast, Callable
 
-        @click.command()
-        @click.option('--mode', default='SIMULATION')
+        @cast(Callable[..., Any], click.command())
+        @cast(Callable[..., Any], click.option('--mode', default='SIMULATION'))
         def hello(mode: Any) -> Any:
             return f'Mode set to {mode}'
         return {'status': 'ACTIVE', 'command': str(hello), 'engine': 'CLICK'}
