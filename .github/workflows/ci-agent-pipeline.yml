@@ -20,34 +20,36 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Installs the complete free-threaded framework including foundational build dependencies
+      # Installs the standalone free-threaded package alongside core components
       - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
+          sudo apt-get install -y python3.13-nogil python3-dev rustc cargo
           
-          # Crucial fix: Added python3.13-distutils so the free-threaded kernel has access to pip bootstrap maps
-          sudo apt-get install -y python3.13-nogil python3.13-distutils rustc cargo
+          # Step 1: Use default system Python to spin up a stable, isolated workspace environment
+          python3 -m venv venv
           
-          # Create the virtual environment natively using the target free-threaded binary directly
-          python3.13t -m venv venv
-          
-          # Inject the virtual environment binaries directly into the GitHub execution PATH
+          # Step 2: Inject the environment paths directly into the runner variables
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
+          
+          # Step 3: Explicitly upgrade virtual pip targets to prevent cross-stream dependency bleeding
+          $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip setuptools wheel
 
-      # All package dependencies will now dynamically bind into the No-GIL runtime environment
+      # Packages will install smoothly using the standard workspace layer
       - name: Install Runtime and Parallel Development Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # Compiles the Rust module with explicit flags targeting the Python 3.13 Free-Threaded ABI
+      # Instructs maturin to compile and link your Rust code specifically to the Python 3.13 Free-Threaded ABI
       - name: Compile Native Core Processing Modules (No-GIL ABI)
         run: |
           if [ -d "native_core" ]; then
             cd native_core
-            maturin develop --release
+            # Force maturin to look for the python3.13t interpreter explicitly during native compilation
+            maturin develop --release -i python3.13t
             cd ..
           fi
 
@@ -66,10 +68,10 @@ jobs:
             ruff format --check . >> ruff_output.log 2>&1 || true
           ) & PID_RUFF=$!
 
-          # 2. Run Strict Type Verification (Task-1) in background
+          # 2. Run Strict Type Verification (Task-1) in background using the free-threaded binary directly
           (
             echo "=== START MYPY RUN ===" > mypy_output.log
-            mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> mypy_output.log 2>&1 || true
+            python3.13t -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> mypy_output.log 2>&1 || true
           ) & PID_MYPY=$!
 
           # 3. Run Syntactic Code Analysis (Task-2) in background
@@ -78,10 +80,10 @@ jobs:
             pyflakes . >> pyflakes_output.log 2>&1 || true
           ) & PID_PYFLAKES=$!
 
-          # 4. Run Distributed Test Suite (Task-3) using lightweight, true concurrent hardware threads
+          # 4. Run Distributed Test Suite (Task-3) using lightweight, true concurrent hardware threads on the target kernel
           (
             echo "=== START PYTEST RUN ===" > pytest_output.log
-            python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> pytest_output.log 2>&1 || true
+            python3.13t -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> pytest_output.log 2>&1 || true
           ) & PID_PYTEST=$!
 
           # Wait for all background process IDs to finish processing
