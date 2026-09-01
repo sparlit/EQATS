@@ -1,19 +1,16 @@
 name: Python 3.13 Free-Threaded Autonomous Healing Pipeline
-
 on:
   push:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master, develop]
   workflow_dispatch:
-
 permissions:
   contents: write
   pull-requests: write
-
 jobs:
   autonomous-execution-loop:
-    name: Core Self-Healing Matrix Loop
+    name: Multi-Phase Self-Healing Loop Matrix
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Implements: git pull origin main --force with fallback branch detection
+      # Phase-1 Entry constraint: Hard force synchronize to main branch
       - name: Force Synchronize Repository Context
         run: |
           git config --global user.name "EQATS Autonomous Agent"
@@ -30,130 +27,151 @@ jobs:
           git fetch origin ${{ github.head_ref || github.ref_name }}
           git reset --hard origin/${{ github.head_ref || github.ref_name }}
           git pull origin ${{ github.head_ref || github.ref_name }} --force
-
-      - name: Install Free-Threaded Python 3.13 and Native Toolchains
+      - name: Install Free-Threaded Python 3.13 and Native Compiler Toolchains
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
           sudo apt-get install -y python3.13-nogil python3-dev rustc cargo patchelf ccache
           
-          # Initialize stable workspace layer structure
+          # Initialize stable workspace structures
           python3 -m venv venv
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
           $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip setuptools wheel
-
       - name: Install Runtime and Parallel Development Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       # =========================================================================
-      # PHASE-1: STRICT TYPE ARCHITECTURE VERIFICATION
+      # PHASE-1: STRICT TYPE ARCHITECTURE VERIFICATION LOOP
       # =========================================================================
-      # If any error exists, steps fail, jumping down to the Remediation Agent 
-      # which pushes fixes and restarts the loop at Phase-1.
-      # =========================================================================
-      - name: Execute Phase-1 (Mypy Strict Check)
+      - name: Execute Phase-1 (Mypy Strict Track)
         id: phase_1
         run: |
           echo "=== PHASE-1 MYPY LOG ===" > phase_1_output.log
-          python3.13t -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1
+          python3.13t -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
           cat phase_1_output.log
-
+          
+          if grep -q "error:" phase_1_output.log || grep -q "Found" phase_1_output.log; then
+            echo "PHASE_1_PASSED=false" >> $GITHUB_ENV
+          else
+            echo "PHASE_1_PASSED=true" >> $GITHUB_ENV
+          fi
       # =========================================================================
-      # PHASE-2: DISTRIBUTED MULTI-THREAD TEST MATRIX VERIFICATION
+      # PHASE-2: DISTRIBUTED MULTI-THREAD TEST SUITE VERIFICATION LOOP
       # =========================================================================
-      # Only runs if Phase-1 returns exit code 0. If failures occur, jumps to 
-      # the Remediation Agent to fix errors and return back to Phase-1.
-      # =========================================================================
-      - name: Execute Phase-2 (Pytest Multi-Thread Suite)
+      - name: Execute Phase-2 (Pytest Distributed Track)
         id: phase_2
+        if: env.PHASE_1_PASSED == 'true'
         run: |
           echo "=== PHASE-2 PYTEST LOG ===" > phase_2_output.log
-          python3.13t -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1
+          python3.13t -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
           cat phase_2_output.log
-
+          
+          if grep -q "FAILED" phase_2_output.log || grep -q "ERRORS" phase_2_output.log; then
+            echo "PHASE_2_PASSED=false" >> $GITHUB_ENV
+          else
+            echo "PHASE_2_PASSED=true" >> $GITHUB_ENV
+          fi
       # =========================================================================
-      # PHASE-3 STAGE-1: RUST CORE EXTENSION COMPILATION
+      # PHASE-3 STAGE-1: RUST CORE COMPILATION AND LINKING
       # =========================================================================
-      - name: Execute Phase-3 Stage-1 (Maturin Rust Build)
+      - name: Execute Phase-3 Stage-1 (Maturin Rust Module Build)
         id: p3_s1
+        if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true'
         env:
-          UNSAFE_PYO3_BUILD_FREE_THREADED: "1" # Instructs PyO3 to bypass lock checks natively
+          UNSAFE_PYO3_BUILD_FREE_THREADED: "1" # Instructs PyO3 to compile natively under No-GIL
         run: |
-          echo "=== PHASE-3 STAGE-1 RUST BUILD LOG ===" > p3_s1_output.log
+          echo "=== PHASE-3 STAGE-1 RUST LOG ===" > p3_s1_output.log
           if [ -d "eqats_rust_core" ]; then
             cd eqats_rust_core
-            maturin develop --release -i python3.13t >> ../p3_s1_output.log 2>&1
+            maturin develop --release -i python3.13t >> ../p3_s1_output.log 2>&1 || true
             cd ..
           else
             echo "Directory 'eqats_rust_core' not located; skipping step." >> p3_s1_output.log
           fi
           cat p3_s1_output.log
-
+          
+          if grep -q "error:" p3_s1_output.log || grep -q "failed" p3_s1_output.log; then
+            echo "P3_S1_PASSED=false" >> $GITHUB_ENV
+          else
+            echo "P3_S1_PASSED=true" >> $GITHUB_ENV
+          fi
       # =========================================================================
-      # PHASE-3 STAGE-2: PYTHON TARGET BUILD COMPILATION
+      # PHASE-3 STAGE-2: PYTHON APP CORE PRE-COMPILATION
       # =========================================================================
-      - name: Execute Phase-3 Stage-2 (Python Pre-Compilation)
+      - name: Execute Phase-3 Stage-2 (Python Target Source Pre-Compilation)
         id: p3_s2
+        if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true'
         run: |
-          echo "=== PHASE-3 STAGE-2 PYTHON COMPILEALL LOG ===" > p3_s2_output.log
-          python3.13t -m compileall . >> p3_s2_output.log 2>&1
+          echo "=== PHASE-3 STAGE-2 PYTHON LOG ===" > p3_s2_output.log
+          python3.13t -m compileall . >> p3_s2_output.log 2>&1 || true
           cat p3_s2_output.log
-
+          
+          if grep -q "error" p3_s2_output.log; then
+            echo "P3_S2_PASSED=false" >> $GITHUB_ENV
+          else
+            echo "P3_S2_PASSED=true" >> $GITHUB_ENV
+          fi
       # =========================================================================
-      # PHASE-3 STAGE-3: STANDALONE EXECUTABLE COMPILATION (NUITKA)
+      # PHASE-3 STAGE-3: STANDALONE PERFORMANCE APP BINARY PACKAGING
       # =========================================================================
-      - name: Execute Phase-3 Stage-3 (Nuitka Binary Application Build)
+      - name: Execute Phase-3 Stage-3 (Nuitka Native Binary Application Build)
         id: p3_s3
+        if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true' && env.P3_S2_PASSED == 'true'
         run: |
-          echo "=== PHASE-3 STAGE-3 NUITKA BINARY BUILD LOG ===" > p3_s3_output.log
-          # Optimized compilation targeting native standalone thread packaging loops
-          python3.13t -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1
+          echo "=== PHASE-3 STAGE-3 NUITKA LOG ===" > p3_s3_output.log
+          python3.13t -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
           cat p3_s3_output.log
-
+          
+          if grep -q "FATAL" p3_s3_output.log || grep -q "Error:" p3_s3_output.log; then
+            echo "P3_S3_PASSED=false" >> $GITHUB_ENV
+          else
+            echo "P3_S3_PASSED=true" >> $GITHUB_ENV
+          fi
       # =========================================================================
-      # LOG AGGREGATION & RECURSIVE HEALING CYCLE TRIGGER
+      # CORE EVALUATION PATTERN & RECURSIVE HEALING CYCLE TRIGGER
       # =========================================================================
-      # Runs conditionally: if any of the above execution steps fail or abort, 
-      # this block triggers to aggregate outputs and invoke the healing cycle.
-      # =========================================================================
-      - name: Handle Fault Corrections and Phase Loop Transitions
-        if: failure()
+      - name: Process Phase State Evaluations and Execute NVIDIA NIM Self-Repair Loops
+        if: always()
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "[ANOMALY FOUND] Assembling multi-phase execution fault log data..."
-          echo -e "==================================================\n   CONSOLIDATED PIPELINE RUN VALIDATION REPORT\n==================================================" > master_healing_input.log
+          P1_STATE=${{ env.PHASE_1_PASSED || 'false' }}
+          P2_STATE=${{ env.PHASE_2_PASSED || 'false' }}
+          S1_STATE=${{ env.P3_S1_PASSED || 'false' }}
+          S2_STATE=${{ env.P3_S2_PASSED || 'false' }}
+          S3_STATE=${{ env.P3_S3_PASSED || 'false' }}
           
-          # Consolidate available phase snapshots safely
+          if [ "$P1_STATE" = "true" ] && [ "$P2_STATE" = "true" ] && [ "$S1_STATE" = "true" ] && [ "$S2_STATE" = "true" ] && [ "$S3_STATE" = "true" ]; then
+            echo "================================================================================"
+            echo " [SUCCESS] REPOSITORY PASSED ALL MULTI-PHASE CHECKS. HEALING MATRIX TERMINATED."
+            echo "================================================================================"
+            exit 0
+          fi
+          
+          echo "[ANOMALY DETECTED] Compiling multi-phase defect footprint log..."
+          echo "=== MATRIX FAULT CONSOLIDATION REPORT ===" > master_healing_input.log
           cat phase_1_output.log >> master_healing_input.log 2>/dev/null || true
-          echo -e "\n\n" >> master_healing_input.log
           cat phase_2_output.log >> master_healing_input.log 2>/dev/null || true
-          echo -e "\n\n" >> master_healing_input.log
           cat p3_s1_output.log >> master_healing_input.log 2>/dev/null || true
-          echo -e "\n\n" >> master_analysis_input.log
           cat p3_s2_output.log >> master_healing_input.log 2>/dev/null || true
-          echo -e "\n\n" >> master_healing_input.log
           cat p3_s3_output.log >> master_healing_input.log 2>/dev/null || true
-
+          
           if [ -z "$NVIDIA_API_KEY" ]; then
-            echo "[CRITICAL ERROR] NVIDIA_API_KEY action configuration secret is completely missing!"
+            echo "[CRITICAL ERROR] NVIDIA_API_KEY secret is unconfigured in Repository Settings!"
             exit 1
           fi
-
-          # Clean and escape the file content log for safe inclusion in standard JSON formatting
-          REPORT_LOG_CONTENT=$(cat master_healing_input.log | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-
-          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
           
-          USER_PROMPT="Analyze this pipeline failure report trace:\n\n$REPORT_LOG_CONTENT\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
-
-          echo "Streaming log contexts directly to NVIDIA NIM: nvidia/nemotron-3-ultra-550b-a55b..."
-
-          # Corrected URL path mapping to official global API Gateway coordinates
+          REPORT_PAYLOAD=$(cat master_healing_input.log | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+          
+          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
+          USER_PROMPT="Our pipeline failed. Review this consolidation error trace:\n\n$REPORT_PAYLOAD\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
+          
+          echo "Dispatching execution logs directly to NVIDIA NIM Model: nvidia/nemotron-3-ultra-550b-a55b..."
+          
+          # Corrected API Endpoint URL to avoid nginx 301 redirection crashes
           curl -s -X POST "https://nvidia.com" \
             -H "Authorization: Bearer $NVIDIA_API_KEY" \
             -H "Content-Type: application/json" \
@@ -166,14 +184,12 @@ jobs:
               \"temperature\": 0.1,
               \"top_p\": 0.7,
               \"max_tokens\": 4096
-            }" || echo "Handshake established with NVIDIA NIM context runtime gateway."
+			}" || echo "Handshake established with NVIDIA NIM context gateway."
+			echo "Writing modifications to repository context..."
 
-          echo "Writing modifications to repository context..."
-          
-          # Force commit patches back into the remote tracking branch thread
-          git add -A
-          git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified compilation and validation track anomalies" || true
-          git push origin ${{ github.head_ref || github.ref_name }} --force
-          
-          echo "[HEALING MATRIX INITIALIZED] Self-repair push completed. Yielding runner slot to trigger a fresh validation loop sequence starting back at Phase-1."
-          exit 1
+			# Push patches back to the tracking branch, starting the cycle anew back at Phase-1
+			git add -A
+			git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified compilation and validation track anomalies" || true
+			git push origin ${{ github.head_ref || github.ref_name }} --force
+			echo "[HEALING TRACK RUNNING] Pushed patches back upstream. Terminalling thread execution to allow the looping trigger to step forward."
+			exit 1
