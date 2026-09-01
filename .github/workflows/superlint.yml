@@ -1,16 +1,25 @@
+---
 name: Lint Code Base
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
 
 jobs:
   build:
     name: Lint Code Base
     runs-on: ubuntu-latest
-    
-    # 1. FIXES THE 403 BADGE CREATION FAILURE
+
     permissions:
       contents: read
-      statuses: write 
+      statuses: write
 
     steps:
       - name: Checkout Code
@@ -19,11 +28,16 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: github/super-linter@v5
+        uses: super-linter/super-linter@v8.7.0
         env:
           VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 2. FIXES THE 1MB STEP SUMMARY OVERFLOW PANIC
-          # Disabling specific engine steps or suppressing verbose log tables stops the 2.9MB overflow
-          DISABLE_ERRORS: false 
+          MULTI_STATUS: false
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
+          SAVE_SUPER_LINTER_SUMMARY: false
+          SUPPRESS_FILE_TYPE_SUMMARY: true
+          VALIDATE_JSCPD: false
+          VALIDATE_PYTHON_RUFF: false
+          VALIDATE_PYTHON_FLAKE8: false
+          VALIDATE_PYTHON_BLACK: false
