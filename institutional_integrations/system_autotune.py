@@ -1,3 +1,4 @@
+from typing import Any
 """
 Institutional System Capacity Auto-Detection & Dynamic Auto-Tuning Engine (EQATS v8.4).
 Auto-detects CPU physical/logical cores, SIMD instruction sets, RAM total/free memory,
@@ -17,7 +18,7 @@ import logging
 _log = logging.getLogger(__name__)
 
 
-def detect_system_capabilities() -> dict:
+def detect_system_capabilities() -> dict[str, Any]:
     """
     Scans physical host hardware and detects CPU, RAM, Disk, GPU, Network ping latency, and SIMD capabilities.
     Returns a comprehensive hardware capabilities dictionary.
@@ -121,7 +122,7 @@ def detect_system_capabilities() -> dict:
     return caps
 
 
-def auto_tune_system_parameters(caps: dict = None) -> dict:
+def auto_tune_system_parameters(caps: dict[str, Any] = None) -> dict[str, Any]:
     """
     Computes optimal performance configuration parameters based on detected system capabilities.
     Adjusts worker counts, batch sizes, cache thresholds, and polling frequencies.
