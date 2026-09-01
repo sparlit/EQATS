@@ -9,8 +9,6 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-
-
 class OpenAlgoSmartOrderSplitter:
     """
     Smart Order Slicing & Iceberg Order Execution Engine.
