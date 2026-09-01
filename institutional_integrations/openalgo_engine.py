@@ -51,7 +51,7 @@ class OpenAlgoSessionSquareOffManager:
     Closes intra-day positions ahead of market session close.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.Lock()
         self.squareoff_triggered = False
 

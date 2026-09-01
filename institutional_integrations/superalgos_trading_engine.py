@@ -55,7 +55,7 @@ class SuperalgosTradingStagesEngine:
 
     def __init__(self, initial_balance: float=100000.0) -> None:
         self.initial_balance = initial_balance
-        self.current_stage = StageType.TRIGGER_STAGE
+        self.current_stage: StageType = StageType.TRIGGER_STAGE
         self.trigger_status = TriggerStatus.OFF
         self.active_position: Optional[SuperalgosPosition] = None
         self.closed_positions: List[SuperalgosPosition] = []
@@ -67,7 +67,7 @@ class SuperalgosTradingStagesEngine:
             self.current_stage = StageType.OPEN_STAGE
         else:
             self.trigger_status = TriggerStatus.OFF
-            self.current_stage = StageType.TRIGGER_STAGE
+            self.current_stage: StageType = StageType.TRIGGER_STAGE
         return self.trigger_status
 
     def execute_open_stage(self, symbol: str, side: str, entry_price: float, size: float, stop_loss: float, take_profit: float, open_time: datetime) -> SuperalgosPosition:
@@ -83,7 +83,7 @@ class SuperalgosTradingStagesEngine:
     def evaluate_manage_stage(self, current_price: float, new_stop_loss: Optional[float]=None, new_take_profit: Optional[float]=None) -> StageType:
         """Stage 3: Manages Stop Loss and Take Profit levels during position lifetime."""
         if not self.active_position:
-            self.current_stage = StageType.TRIGGER_STAGE
+            self.current_stage: StageType = StageType.TRIGGER_STAGE
             return self.current_stage
         if new_stop_loss is not None:
             self.active_position.stop_loss = new_stop_loss
@@ -112,7 +112,7 @@ class SuperalgosTradingStagesEngine:
         self.closed_positions.append(pos)
         self.active_position = None
         self.trigger_status = TriggerStatus.OFF
-        self.current_stage = StageType.TRIGGER_STAGE
+        self.current_stage: StageType = StageType.TRIGGER_STAGE
         return pos
 
     def get_episode_metrics(self) -> EpisodeMetrics:

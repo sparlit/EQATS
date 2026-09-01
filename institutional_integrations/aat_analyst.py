@@ -14,10 +14,11 @@ logger = logging.getLogger('AAT_Analyst')
 
 
 
+
 class MacroAnalyst:
     """External Macro Economic & Sentiment Analyst."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sentiment_score = 0.5
         self.last_update = 0.0
 

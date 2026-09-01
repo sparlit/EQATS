@@ -73,10 +73,15 @@ class ControlGovernancePlane:
     """
 
     def __init__(self) -> None:
-        self._current_config = {'MAX_CONCURRENT_TRADES': config.MAX_CONCURRENT_TRADES, 'RISK_PER_TRADE_PERCENT': config.RISK_PER_TRADE_PERCENT, 'MAX_DAILY_DRAWDOWN_PERCENT': config.MAX_DAILY_DRAWDOWN_PERCENT, 'MAX_SPREAD_PIPS': config.MAX_SPREAD_PIPS}
+        self._current_config = {
+            "MAX_CONCURRENT_TRADES": config.MAX_CONCURRENT_TRADES,
+            "RISK_PER_TRADE_PERCENT": config.RISK_PER_TRADE_PERCENT,
+            "MAX_DAILY_DRAWDOWN_PERCENT": config.MAX_DAILY_DRAWDOWN_PERCENT,
+            "MAX_SPREAD_PIPS": config.MAX_SPREAD_PIPS,
+        }
         self._history = []
 
-    def propose_config_change(self, author_id, proposed_updates: dict[str, Any], signature: str) -> bool:
+    def propose_config_change(self, author_id: Any, proposed_updates: dict[str, Any], signature: str) -> bool:
         """
         Atomically proposes, validates, snapshots, applies, and commits config updates.
         If validation fails, rolls back the transaction.
@@ -138,7 +143,7 @@ class DataPlane:
     and supports reference price verification and provider failover.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._pit_database = {}  # Maps symbol -> list[Any] of PIT price records
         self.providers = ["PRIMARY", "SECONDARY", "TERTIARY", "SAFE_MODE"]
         self.active_provider_idx = 0
@@ -248,7 +253,12 @@ class StrategyPlane:
     """
 
     def __init__(self) -> None:
-        self._strategy_registry = {'TREND_FOLLOWING': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}, 'MEAN_REVERSION': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}, 'MACD_MOMENTUM': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}, 'VOTING_ENSEMBLE': {'license': 'ACTIVE', 'lifecycle': 'PRODUCTION'}}
+        self._strategy_registry = {
+            "TREND_FOLLOWING": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
+            "MEAN_REVERSION": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
+            "MACD_MOMENTUM": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
+            "VOTING_ENSEMBLE": {"license": "ACTIVE", "lifecycle": "PRODUCTION"},
+        }
 
     def get_license_state(self, strategy_name: str) -> str:
         return self._strategy_registry.get(strategy_name, {}).get('license', 'INACTIVE')
@@ -268,8 +278,8 @@ class OpportunityRiskPlane:
     """
 
     def __init__(self) -> None:
-        self._reservations = {}
-        self._loss_tracker = {}
+        self._reservations = {}  # Maps symbol -> reserved capital amount
+        self._loss_tracker = {}  # Maps day -> accumulated loss
 
     def calculate_expected_net_value(self, gross_edge: float, spread: float, commission: float, slippage: float) -> float:
         """Expected Net Value = Gross Edge - Spread - Commission - Slippage."""
@@ -562,7 +572,7 @@ class OperationsResiliencePlane:
     Supports Section 41: Safety State transitions and Section 33: Position Reconciliation checks.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._state = "NORMAL"  # NORMAL, CAUTION, RESTRICTED, DEFENSIVE, HALTED, RECOVERY
         self._flight_log = []
 
@@ -608,7 +618,7 @@ class SystemConstitution:
     """
 
     def __init__(self) -> None:
-        self.constitution_version = '3.0.0'
+        self.constitution_version = "3.0.0"
 
     def evaluate_constitution_compliance(self, intent_payload: dict[str, Any]) -> dict[str, Any]:
         """

@@ -1685,7 +1685,7 @@ def save_circuit_breaker_state(trading_date: Any, daily_start_balance: Any, is_h
     )
 
 
-def load_circuit_breaker_state():
+def load_circuit_breaker_state() -> Optional[Dict[str, Any]]:
     """
     Loads the persisted circuit breaker state from SQLite.
 
