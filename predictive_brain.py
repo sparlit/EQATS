@@ -3,9 +3,12 @@ Self-Learning AI Prediction Brain - Neural Network MLP written in pure Python (E
 Autonomously predicts the direction of multi-bar forward price outcomes, continuously trains on live data,
 calculates rolling accuracy, and adjusts its weights via backpropagation.
 """
+
 import math
 from typing import Any, Dict
+
 import numpy as np
+
 
 class NeuralNetworkPredictor:
     """
@@ -16,7 +19,7 @@ class NeuralNetworkPredictor:
       - Output Layer: 1 Neuron (Sigmoid activation, > 0.5 is Bullish, <= 0.5 is Bearish)
     """
 
-    def __init__(self, learning_rate: Any=0.1) -> None:
+    def __init__(self, learning_rate: Any = 0.1) -> None:
         self.learning_rate = learning_rate
         rng = np.random.RandomState(42)
         self.w_input_hidden = rng.uniform(-0.5, 0.5, (6, 5)).tolist()
@@ -80,22 +83,30 @@ class NeuralNetworkPredictor:
         epochs = 1 if is_correct else 12
         for epoch in range(epochs):
             self.predict(self.last_inputs)
-            output_delta = (target - self.last_prediction) * self._sigmoid_derivative(self.last_prediction)
+            output_delta = (target - self.last_prediction) * self._sigmoid_derivative(
+                self.last_prediction,
+            )
             hidden_deltas = []
             for h in range(5):
                 err_h = output_delta * self.w_hidden_output[h]
-                hidden_deltas.append(err_h * self._sigmoid_derivative(self.hidden_activated[h]))
+                hidden_deltas.append(
+                    err_h * self._sigmoid_derivative(self.hidden_activated[h]),
+                )
             adjusted_lr = self.learning_rate
             if not is_correct:
                 adjusted_lr *= 1.5
             else:
                 adjusted_lr *= 0.95
             for h in range(5):
-                self.w_hidden_output[h] += adjusted_lr * output_delta * self.hidden_activated[h]
+                self.w_hidden_output[h] += (
+                    adjusted_lr * output_delta * self.hidden_activated[h]
+                )
             self.bias_output += adjusted_lr * output_delta
             for i in range(6):
                 for h in range(5):
-                    self.w_input_hidden[i][h] += adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
+                    self.w_input_hidden[i][h] += (
+                        adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
+                    )
             for h in range(5):
                 self.bias_hidden[h] += adjusted_lr * hidden_deltas[h]
         acc = self.get_accuracy()
@@ -113,15 +124,30 @@ class NeuralNetworkPredictor:
         Exposes internal neural network parameters (weights, activations, biases)
         to visualize the training and convergence process happening inside the brain.
         """
-        n_ih = float(len(self.w_input_hidden) * len(self.w_input_hidden[0])) if self.w_input_hidden and self.w_input_hidden[0] else 30.0
-        total_w_ih = sum((sum(w_row) for w_row in self.w_input_hidden))
+        n_ih = (
+            float(len(self.w_input_hidden) * len(self.w_input_hidden[0]))
+            if self.w_input_hidden and self.w_input_hidden[0]
+            else 30.0
+        )
+        total_w_ih = sum(sum(w_row) for w_row in self.w_input_hidden)
         avg_w_ih = total_w_ih / max(1.0, n_ih)
         n_ho = float(len(self.w_hidden_output)) if self.w_hidden_output else 5.0
         avg_w_ho = sum(self.w_hidden_output) / max(1.0, n_ho)
-        hidden_str = ','.join((f'{h:.2f}' for h in getattr(self, 'hidden_activated', [0.0] * 5)))
-        return {'avg_w_ih': round(avg_w_ih, 4), 'avg_w_ho': round(avg_w_ho, 4), 'bias_output': round(self.bias_output, 4), 'hidden_activations': hidden_str, 'training_cycles': self.total_predictions}
-_predictor_registry: Dict[str, Any] = {}
-_kronos_registry: Dict[str, Any] = {}
+        hidden_str = ",".join(
+            f"{h:.2f}" for h in getattr(self, "hidden_activated", [0.0] * 5)
+        )
+        return {
+            "avg_w_ih": round(avg_w_ih, 4),
+            "avg_w_ho": round(avg_w_ho, 4),
+            "bias_output": round(self.bias_output, 4),
+            "hidden_activations": hidden_str,
+            "training_cycles": self.total_predictions,
+        }
+
+
+_predictor_registry: dict[str, Any] = {}
+_kronos_registry: dict[str, Any] = {}
+
 
 def get_symbol_predictor(symbol: Any) -> Any:
     """Factory to fetch or create the dedicated predictor instance for a symbol."""
@@ -130,13 +156,16 @@ def get_symbol_predictor(symbol: Any) -> Any:
         _predictor_registry[sym_upper] = NeuralNetworkPredictor()
     return _predictor_registry[sym_upper]
 
+
 def get_kronos_predictor(symbol: str) -> Any:
     """Factory to fetch or create the dedicated Kronos foundation model predictor for a symbol."""
     from institutional_integrations.kronos_model import KronosFoundationModel
+
     sym_upper = symbol.upper()
     if sym_upper not in _kronos_registry:
         _kronos_registry[sym_upper] = KronosFoundationModel()
     return _kronos_registry[sym_upper]
+
 
 def batch_predict_symbols_parallel(symbol_inputs_map: Any) -> Any:
     """
@@ -151,16 +180,19 @@ def batch_predict_symbols_parallel(symbol_inputs_map: Any) -> Any:
         predictor = get_symbol_predictor(sym)
         prob = predictor.predict(inputs)
         return (sym, prob)
+
     results = {}
     if not symbol_inputs_map:
         return results
     max_workers = min(8, max(1, len(symbol_inputs_map)))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_predict_single, item) for item in symbol_inputs_map.items()]
+        futures = [
+            executor.submit(_predict_single, item) for item in symbol_inputs_map.items()
+        ]
         for fut in concurrent.futures.as_completed(futures):
             try:
                 sym, prob = fut.result()
                 results[sym] = prob
             except Exception as e:
-                print(f'Diagnostics: Parallel batch predict worker exception: {e}')
+                print(f"Diagnostics: Parallel batch predict worker exception: {e}")
     return results
