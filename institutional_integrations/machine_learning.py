@@ -187,14 +187,15 @@ class RNNLSTMModel:
 class TransformerModel:
     """Spatial-Temporal Self-Attention Transformer Network (MTA-Net)."""
 
-    def compute_attention_weights(self, multi_timeframe_features: np.ndarray) -> np.ndarray:
+    def compute_attention_weights(self, multi_timeframe_features: np.ndarray) -> np.ndarray[Any, Any]:
         try:
             import torch
             import torch.nn as nn
             m = nn.MultiheadAttention(embed_dim=4, num_heads=1)
             x = torch.FloatTensor(multi_timeframe_features).unsqueeze(1)
             attn_output, attn_weights = m(x, x, x)
-            return attn_weights.detach().numpy().squeeze()
+            res: np.ndarray[Any, Any] = attn_weights.detach().numpy().squeeze()
+            return res
         except Exception:
             norm_f = multi_timeframe_features / (np.linalg.norm(multi_timeframe_features) + 1e-08)
             scores = np.dot(norm_f, norm_f.T)
@@ -255,11 +256,12 @@ class DiffusionModel:
 class DBSCANClusteringModel:
     """Density-Based Spatial Clustering of Applications with Noise for L2 liquidity pools."""
 
-    def cluster_order_book(self, prices_volumes: np.ndarray) -> np.ndarray:
+    def cluster_order_book(self, prices_volumes: np.ndarray) -> np.ndarray[Any, Any]:
         try:
             from sklearn.cluster import DBSCAN
             db = DBSCAN(eps=0.001, min_samples=2)
-            return db.fit_predict(prices_volumes)
+            res: np.ndarray[Any, Any] = db.fit_predict(prices_volumes)
+            return res
         except Exception:
             return np.zeros(len(prices_volumes), dtype=int)
 
@@ -289,7 +291,7 @@ class KMeansClusteringModel:
 
 class SHAPExplainer:
     """SHAP model interpretability and feature attribution calculator."""
-    def compute_feature_attributions(self, model, X_sample: np.ndarray) -> dict[str, Any]:
+    def compute_feature_attributions(self, model: Any, X_sample: np.ndarray) -> dict[str, Any]:
         try:
             import shap
             explainer = shap.Explainer(model)
@@ -303,11 +305,12 @@ class SHAPExplainer:
 class PCAModel:
     """Principal Component Analysis for asset correlation dimensionality reduction."""
 
-    def reduce_dimensions(self, matrix: np.ndarray, n_components: int=2) -> np.ndarray:
+    def reduce_dimensions(self, matrix: np.ndarray, n_components: int=2) -> np.ndarray[Any, Any]:
         try:
             from sklearn.decomposition import PCA
             pca = PCA(n_components=n_components)
-            return pca.fit_transform(matrix)
+            res: np.ndarray[Any, Any] = pca.fit_transform(matrix)
+            return res
         except Exception:
             U, S, Vt = np.linalg.svd(matrix, full_matrices=False)
             return U[:, :n_components] * S[:n_components]
