@@ -20,23 +20,24 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # Installs the deadsnakes free-threaded architecture alongside standard environment tools
+      # Installs the dual-track environment to resolve the missing pip module layout
       - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
           sudo apt-get install -y python3.13-nogil python3.13 python3.13-dev python3.13-venv rustc cargo
           
-          # Initialize the virtual environment using the core distribution engine to guarantee standard library availability
+          # Step 1: Use the default package interpreter to guarantee a reliable pip-ready venv build
           python3.13 -m venv venv
           
-          # Modify the local configuration inside the virtual environment to point to the No-GIL executable binary
+          # Step 2: Force override the internal symlinks to map explicitly to the No-GIL (python3.13t) binary
           ln -sf /usr/bin/python3.13t venv/bin/python
           ln -sf /usr/bin/python3.13t venv/bin/python3
           
-          # Inject the virtual environment directly into the GitHub environment path
+          # Step 3: Append the virtual environment binaries to the GitHub PATH variable
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
 
+      # All package dependencies will now dynamically bind into the No-GIL runtime environment
       - name: Install Runtime and Parallel Development Dependencies
         run: |
           python -m pip install --upgrade pip
