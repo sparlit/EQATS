@@ -1,3 +1,4 @@
+from typing import Any
 """
 Unit and Integration Tests for Superalgos Trading Stages Engine.
 """
@@ -12,7 +13,7 @@ from institutional_integrations.superalgos_trading_engine import (
 )
 
 
-def test_superalgos_trading_stages_lifecycle():
+def test_superalgos_trading_stages_lifecycle() -> None:
     engine = SuperalgosTradingStagesEngine(initial_balance=100000.0)
     now = datetime(2026, 7, 16, 12, 0, 0)
 

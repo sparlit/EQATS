@@ -24,7 +24,7 @@ class FTMOJournalAnalyzer:
     Parses and analyzes FTMO CSV/Excel trade journal export files.
     """
     def parse_journal_file(self, content_bytes: bytes, filename: str = "export.csv") -> List[Dict[str, Any]]:
-        trades = []
+        trades: List[Dict[str, Any]] = []
         if not PANDAS_AVAILABLE or not content_bytes:
             return trades
 
