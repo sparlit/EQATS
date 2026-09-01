@@ -20,18 +20,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Installs the deadsnakes free-threaded architecture alongside standard environment tools
       - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y python3.13-nogil rustc cargo
+          sudo apt-get install -y python3.13-nogil python3.13 python3.13-dev python3.13-venv rustc cargo
           
-          # Create virtual env without standard pip wheels to bypass bootstrap failure
-          python3.13t -m venv venv --without-pip
+          # Initialize the virtual environment using the core distribution engine to guarantee standard library availability
+          python3.13 -m venv venv
+          
+          # Modify the local configuration inside the virtual environment to point to the No-GIL executable binary
+          ln -sf /usr/bin/python3.13t venv/bin/python
+          ln -sf /usr/bin/python3.13t venv/bin/python3
+          
+          # Inject the virtual environment directly into the GitHub environment path
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
-          
-          # Force bootstrap injection of pip directly inside the free-threaded container layer
-          curl -sS https://pypa.io | $GITHUB_WORKSPACE/venv/bin/python3.13t
 
       - name: Install Runtime and Parallel Development Dependencies
         run: |
