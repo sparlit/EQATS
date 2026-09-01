@@ -21,10 +21,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
+packages = ["institutional_integrations"]
 
 [tool.setuptools-rust]
 ext_modules = [
@@ -83,9 +80,9 @@ disable_error_code = ["import-untyped", "import-not-found"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
+# Improved: Integrated hardware multi-threading flags (-n auto) directly into global config
 addopts = "-n auto -vv -s --strict-markers -k 'not gui_integration' --cache-clear"
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["."]
 filterwarnings = [
     "ignore::SyntaxWarning:.*cerebro.*",
     "ignore::SyntaxWarning:.*backtrader.*",
