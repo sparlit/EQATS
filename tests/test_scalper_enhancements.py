@@ -41,6 +41,8 @@ def test_add_broker_account_leverage_normalization() -> None:
             os.remove(test_db)
         except Exception:
             pass
+    config.DB_PATH = 'test_scalper_enhancements.db'
+    database.init_db()
 
 def test_leverage_persistence_and_custom_options() -> None:
     """Verifies leverage selection persistence (1:1 to 1:3000 / 1:10000) in SQLite database."""
@@ -61,9 +63,13 @@ def test_leverage_persistence_and_custom_options() -> None:
             os.remove(test_db)
         except Exception:
             pass
+    config.DB_PATH = 'test_scalper_enhancements.db'
+    database.init_db()
 
 def test_fixed_001_lot_position_sizing() -> None:
     """Verifies that position sizing is strictly enforced to 0.01 lots across all symbols and equity levels."""
+    config.DB_PATH = 'test_scalper_enhancements.db'
+    database.init_db()
     scalper_brain = brain.ScalperBrain()
     bars = [{'open': 1.1 + i * 0.0001, 'high': 1.1005 + i * 0.0001, 'low': 1.0995 + i * 0.0001, 'close': 1.1002 + i * 0.0001} for i in range(210)]
     res1 = scalper_brain.evaluate('EURUSD', bars, 10000.0)
@@ -76,6 +82,7 @@ def test_fixed_001_lot_position_sizing() -> None:
 
 def test_symbol_floating_loss_protection_gate() -> None:
     """Verifies Option 2A: if any open trade on a symbol has profit < 0, new evaluations return HOLD."""
+    config.DB_PATH = 'test_scalper_enhancements.db'
     database.init_db()
     ticket_id = f'TEST_ENH_LOSS_{int(time.time() * 1000)}'
     database.log_trade_open(ticket_id, 'EURUSD', 'BUY', 1.15, 1.14, 1.16, 0.01)
@@ -88,6 +95,7 @@ def test_symbol_floating_loss_protection_gate() -> None:
 
 def test_atr_volatility_pyramiding_rule() -> None:
     """Verifies Option 1A: pyramiding entries are held if profit < 1.0x ATR, and allowed if profit >= 1.0x ATR."""
+    config.DB_PATH = 'test_scalper_enhancements.db'
     database.init_db()
     ticket_id = f'TEST_ENH_PYR_{int(time.time() * 1000)}'
     scalper_brain = brain.ScalperBrain()
@@ -101,6 +109,8 @@ def test_atr_volatility_pyramiding_rule() -> None:
 
 def test_breakeven_lock_and_trailing_stop() -> None:
     """Verifies Option 3A breakeven profit lock (+ spread buffer) and dynamic ATR trailing stop."""
+    config.DB_PATH = 'test_scalper_enhancements.db'
+    database.init_db()
     scalper = main.AutonomousScalper()
     ticket_id = 'TEST_BE_LOCK_01'
     pos = {'ticket': ticket_id, 'symbol': 'EURUSD', 'direction': 'BUY', 'open_price': 1.1, 'sl': 1.09, 'tp': 1.12, 'lot_size': 0.01}

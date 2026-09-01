@@ -315,23 +315,25 @@ class AgenticBrainsOrchestrator:
         accuracy = context.prediction_data.get('accuracy', 50.0)
         method_scores = {}
         strategy_scores = {}
-        from institutional_integrations.system_autotune import global_tuned_config
-        optimal_workers = global_tuned_config.get('thread_pool_workers', max(4, min((os.cpu_count() or 8) * 2, 32)))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
-            method_futures = {executor.submit(_eval_method_worker, agent, spread_pips, 'MEDIUM'): agent for agent in self.method_agents}
-            strategy_futures = {executor.submit(_eval_strategy_worker, agent, sentiment, accuracy): agent for agent in self.strategy_agents}
-            for fut in concurrent.futures.as_completed(method_futures):
-                try:
-                    res = fut.result()
-                    method_scores[res['method']] = res['score']
-                except (ValueError, KeyError, TypeError, RuntimeError) as e:
-                    print(f'⚠️ Method Agent evaluation error: {e}')
-            for fut in concurrent.futures.as_completed(strategy_futures):
-                try:
-                    res = fut.result()
-                    strategy_scores[res['strategy']] = res['score']
-                except (ValueError, KeyError, TypeError, RuntimeError) as e:
-                    print(f'⚠️ Strategy Agent evaluation error: {e}')
+        from institutional_integrations.parallel_pool import get_parallel_pool
+        pool = get_parallel_pool()
+
+        def _run_m(agent: Any) -> Any:
+            return _eval_method_worker(agent, spread_pips, 'MEDIUM')
+
+        def _run_s(agent: Any) -> Any:
+            return _eval_strategy_worker(agent, sentiment, accuracy)
+
+        m_results = pool.execute_batch_parallel(_run_m, self.method_agents, use_processes=False)
+        s_results = pool.execute_batch_parallel(_run_s, self.strategy_agents, use_processes=False)
+
+        for res in m_results:
+            if res and isinstance(res, dict) and 'method' in res and 'score' in res:
+                method_scores[res['method']] = res['score']
+
+        for res in s_results:
+            if res and isinstance(res, dict) and 'strategy' in res and 'score' in res:
+                strategy_scores[res['strategy']] = res['score']
         method_gov_res = self.method_governor.govern(method_scores)
         strat_gov_res = self.strategy_governor.govern(strategy_scores)
         risk_res = self.risk_assessment_agent.evaluate(scalper_instance)

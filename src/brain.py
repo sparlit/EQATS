@@ -52,7 +52,24 @@ class ScalperBrain:
     """
 
     def __init__(self) -> None:
-        self.version = '10.4.0'
+        self.version = '11.0.0'
+
+    def evaluate_symbols_parallel(self, symbols_bars_dict: Any, current_equity: float) -> Any:
+        """
+        Executes parallel multi-symbol strategy evaluations across worker threads/processes
+        using the global ParallelPoolOrchestrator without GIL bottlenecks.
+        """
+        from institutional_integrations.parallel_pool import get_parallel_pool
+        pool = get_parallel_pool()
+
+        def _eval_item(item: Any) -> Any:
+            sym, history = item
+            res = self.evaluate(sym, history, current_equity)
+            return (sym, res)
+
+        items = list(symbols_bars_dict.items())
+        results_list = pool.execute_batch_parallel(_eval_item, items, use_processes=False)
+        return {sym: res for sym, res in results_list if sym and res}
 
     def evaluate(self, symbol: Any, history_bars: Any, current_equity: Any, brain_directive: Any=None) -> Any:
         """
@@ -454,7 +471,8 @@ class ScalperBrain:
         top_sl = concurrent_decisions[0]['sl'] if concurrent_decisions else 0.0
         top_tp = concurrent_decisions[0]['tp'] if concurrent_decisions else 0.0
         v10_4_slippage_pips = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
-        return {'decision': top_decision, 'lot_size': top_lot, 'sl': top_sl, 'tp': top_tp, 'explanation': top_exp, 'decisions': concurrent_decisions, 'v8_4_slippage_pips': v10_4_slippage_pips, 'v8_5_slippage_pips': v10_4_slippage_pips, 'v8_6_slippage_pips': v10_4_slippage_pips, 'v8_7_slippage_pips': v10_4_slippage_pips, 'v8_8_slippage_pips': v10_4_slippage_pips, 'v8_9_slippage_pips': v10_4_slippage_pips, 'v9_1_slippage_pips': v10_4_slippage_pips, 'v9_2_slippage_pips': v10_4_slippage_pips, 'v9_3_slippage_pips': v10_4_slippage_pips, 'v9_4_slippage_pips': v10_4_slippage_pips, 'v9_5_slippage_pips': v10_4_slippage_pips, 'v9_6_slippage_pips': v10_4_slippage_pips, 'v9_7_slippage_pips': v10_4_slippage_pips, 'v10_0_slippage_pips': v10_4_slippage_pips, 'v10_1_slippage_pips': v10_4_slippage_pips, 'v10_2_slippage_pips': v10_4_slippage_pips, 'v10_3_slippage_pips': v10_4_slippage_pips, 'v10_4_slippage_pips': v10_4_slippage_pips, 'indicators': {'ema_long': round(ema_long, 5), 'rsi': round(rsi_val, 2), 'atr': round(atr_val, 5)}}
+        v11_0_slippage_pips = v10_4_slippage_pips
+        return {'decision': top_decision, 'lot_size': top_lot, 'sl': top_sl, 'tp': top_tp, 'explanation': top_exp, 'decisions': concurrent_decisions, 'v8_4_slippage_pips': v10_4_slippage_pips, 'v8_5_slippage_pips': v10_4_slippage_pips, 'v8_6_slippage_pips': v10_4_slippage_pips, 'v8_7_slippage_pips': v10_4_slippage_pips, 'v8_8_slippage_pips': v10_4_slippage_pips, 'v8_9_slippage_pips': v10_4_slippage_pips, 'v9_1_slippage_pips': v10_4_slippage_pips, 'v9_2_slippage_pips': v10_4_slippage_pips, 'v9_3_slippage_pips': v10_4_slippage_pips, 'v9_4_slippage_pips': v10_4_slippage_pips, 'v9_5_slippage_pips': v10_4_slippage_pips, 'v9_6_slippage_pips': v10_4_slippage_pips, 'v9_7_slippage_pips': v10_4_slippage_pips, 'v10_0_slippage_pips': v10_4_slippage_pips, 'v10_1_slippage_pips': v10_4_slippage_pips, 'v10_2_slippage_pips': v10_4_slippage_pips, 'v10_3_slippage_pips': v10_4_slippage_pips, 'v10_4_slippage_pips': v10_4_slippage_pips, 'v11_0_slippage_pips': v11_0_slippage_pips, 'indicators': {'ema_long': round(ema_long, 5), 'rsi': round(rsi_val, 2), 'atr': round(atr_val, 5)}}
 
     def normalize_volume(self, symbol: Any, volume: Any, min_vol: Any=0.01, max_vol: Any=100.0, step_vol: Any=0.01) -> Any:
         """Normalizes lot size according to minimum volume, maximum volume, and volume step."""
