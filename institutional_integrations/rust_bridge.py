@@ -253,6 +253,14 @@ def rust_accelerated_backtest(prices: list[Any], initial_balance: float = 10000.
     win_rate = wins / trades * 100.0 if trades > 0 else 0.0
     return {'total_profit': balance - initial_balance, 'win_rate': win_rate, 'engine_type': 'PYTHON_FALLBACK'}
 
+    win_rate = (wins / trades * 100.0) if trades > 0 else 0.0
+    return {
+        "total_profit": balance - initial_balance,
+        "win_rate": win_rate,
+        "engine_type": "PYTHON_FALLBACK",
+    }
+
+
 def rust_accelerated_smc_fvg(highs: list[Any], lows: list[Any]) -> int:
     """Detects SMC Fair Value Gaps (FVG) with Rust acceleration and Python fallback."""
     if not highs or not lows or len(highs) < 3 or (len(highs) != len(lows)):
@@ -293,6 +301,10 @@ def rust_accelerated_fix_parse(raw_msg: str) -> int:
             _log.exception('Rust FIX parsing error: %s', e)
             _mark_rust_failure()
     return len([s for s in raw_msg.split('\x01') if '=' in s])
+
+    # Python Fallback
+    return len([s for s in raw_msg.split("\x01") if "=" in s])
+
 
 def rust_accelerated_gex_profile(spot: float, strikes: list[Any], gammas: list[Any], open_interest: list[Any]) -> float:
     """Computes Options Gamma Exposure (GEX) with Rust acceleration and Python fallback."""
@@ -346,7 +358,13 @@ def rust_accelerated_spread_zscore(p1: list[Any], p2: list[Any], hedge_ratio: fl
 
 
 class _RustOrderFill(ctypes.Structure):
-    _fields_ = [('fill_price', ctypes.c_double), ('filled_qty', ctypes.c_double), ('commission', ctypes.c_double), ('is_filled', ctypes.c_int)]
+    _fields_ = [
+        ("fill_price", ctypes.c_double),
+        ("filled_qty", ctypes.c_double),
+        ("commission", ctypes.c_double),
+        ("is_filled", ctypes.c_int),
+    ]
+
 
 def rust_accelerated_rqalpha_process_bar_orders(
     bar_close: float,

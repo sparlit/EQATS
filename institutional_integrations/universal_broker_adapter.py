@@ -63,6 +63,36 @@ class UniversalBrokerGateway:
     Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
     """
 
+    SUPPORTED_PROTOCOLS = [
+        "MT5",
+        "FIX",
+        "REST_WS",
+        "IBKR",
+        "CTRADER",
+        "CCXT",
+        "SIMULATOR",
+        "SEBI_BROKER",
+        "KITE",
+        "ZERODHA",
+        "DHAN",
+        "ANGELONE",
+        "ANGEL",
+        "KOTAK",
+        "NEO",
+        "UPSTOX",
+        "ICICI",
+        "FIVEPAISA",
+        "IIFL",
+        "XTS",
+        "MOTILAL",
+        "MO",
+    }
+
+    """
+    Universal Multi-Protocol Broker Gateway.
+    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.
+    """
+
 class UniversalBrokerGateway:
     INDIAN_BROKER_PROTOCOLS = {'SEBI_BROKER', 'KITE', 'ZERODHA', 'DHAN', 'ANGELONE', 'ANGEL', 'KOTAK', 'NEO', 'UPSTOX', 'ICICI', 'FIVEPAISA', 'IIFL', 'XTS', 'MOTILAL', 'MO'}
     '\n    Universal Multi-Protocol Broker Gateway.\n    Abstracts connectivity across MT5, FIX 4.4/5.0, REST/WS, IBKR, cTrader, CCXT, and Simulator.\n    '
@@ -265,6 +295,8 @@ class UniversalBrokerGateway:
                 raise ValueError(
                     f"Response size {total_bytes} bytes exceeds maximum allowed " f"{self.max_response_bytes} bytes"
                 )
+
+            chunks.append(chunk)
 
             chunks.append(chunk)
             if len(chunk) < chunk_size:

@@ -189,6 +189,8 @@ class DataPlane:
             return 'SUSPECT'
         return 'VALID'
 
+        return "VALID"
+
     def check_price_deviation(self, symbol: str, feed_price: float, reference_price: float) -> bool:
         """
         Section 10.5: Compares incoming price against a reference source.
@@ -226,8 +228,13 @@ class IntelligencePlane:
         """Creates a normalized Market State Vector representation."""
         if not history_bars:
             return {}
-        current_close = history_bars[-1]['close']
-        return {'symbol': symbol, 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'close': current_close, 'indicators': {'rsi': config.RSI_PERIOD, 'ema200': config.EMA_LONG_PERIOD}}
+        current_close = history_bars[-1]["close"]
+        return {
+            "symbol": symbol,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "close": current_close,
+            "indicators": {"rsi": config.RSI_PERIOD, "ema200": config.EMA_LONG_PERIOD},
+        }
 
     def detect_regime(self, highs: list[Any], lows: list[Any], closes: list[Any]) -> dict[str, Any]:
         """Determines if the market is TRENDING, RANGING, or under VOLATILITY_SHOCK."""
@@ -537,11 +544,11 @@ class LearningGovernancePlane:
         """
         Section 34.5: Returns classification of 'SKILL' if technical indicators aligned with profits, otherwise 'LUCK'.
         """
-        profit = case.get('profit', 0.0)
-        direction = case.get('direction')
-        if profit > 0 and direction in ['BUY', 'SELL']:
-            return 'SKILL'
-        return 'LUCK'
+        profit = case.get("profit", 0.0)
+        direction = case.get("direction")
+        if profit > 0 and direction in ["BUY", "SELL"]:
+            return "SKILL"
+        return "LUCK"
 
     def run_counterfactual(self, symbol: str, actual_dir: str, alternate_dir: str, profit_actual: float) -> str:
         """Simulates alternate decisions for historical modeling."""
