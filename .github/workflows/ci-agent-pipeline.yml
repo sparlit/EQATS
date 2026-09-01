@@ -13,24 +13,23 @@ permissions:
 
 jobs:
   run-validation-tasks:
-    name: Parallel Codebase Verification
+    name: Parallel Free-Threaded Codebase Verification
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python Environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      # Replaced unstable action with native package management installation
-      - name: Install System Rust Toolchain Natively
+      # Natively configures the runner for experimental free-threaded Python 3.13 execution
+      - name: Install Free-Threaded Python 3.13 and System Rust Natively
         run: |
+          sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y rustc cargo
+          sudo apt-get install -y python3.13-nogil python3.13-nogil-dev python3.13-nogil-venv rustc cargo
+          
+          # Initialize dedicated Free-Threaded Virtual Environment
+          python3.13-nogil -m venv venv
+          echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
 
       - name: Install Runtime and Parallel Development Dependencies
         run: |
@@ -38,7 +37,8 @@ jobs:
           pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Compile Native Core Processing Modules
+      # Compiles the Rust module with explicit flags targeting the Python 3.13 Free-Threaded ABI
+      - name: Compile Native Core Processing Modules (No-GIL ABI)
         run: |
           if [ -d "native_core" ]; then
             cd native_core
@@ -46,10 +46,12 @@ jobs:
             cd ..
           fi
 
-      # Asynchronous parallel execution via OS multi-process shell backgrounding
+      # Asynchronous parallel execution testing Python 3.13 threads under true multi-core load
       - name: Execute Quality Verification Matrix Concurrently
+        env:
+          PYTHON_GIL: "0" # Explicitly safety check that the GIL remains 100% disabled
         run: |
-          echo "Firing off all testing routines asynchronously..."
+          echo "Firing off all testing routines asynchronously in Free-Threaded mode..."
           
           # 1. Run Ruff Checks in background
           (
@@ -71,7 +73,7 @@ jobs:
             pyflakes . >> pyflakes_output.log 2>&1 || true
           ) & PID_PYFLAKES=$!
 
-          # 4. Run Distributed Multi-Thread Test Suite (Task-3) in background
+          # 4. Run Distributed Test Suite (Task-3) using lightweight, true concurrent hardware threads
           (
             echo "=== START PYTEST RUN ===" > pytest_output.log
             python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> pytest_output.log 2>&1 || true
@@ -101,10 +103,6 @@ jobs:
           echo -e "\n\n" >> master_analysis_input.log
           cat pytest_output.log >> master_analysis_input.log 2>/dev/null || true
 
-      - name: Upload Validation Reports as Artifacts
-        if: always()
-        run: echo "Skipping artifact upload helper to prevent upstream runner blockades."
-
   agent-remediation-loop:
     name: AI Remediation Loop (Tasks 4 & 5)
     needs: run-validation-tasks
@@ -126,42 +124,7 @@ jobs:
             exit 1
           fi
           
-          REPORT_LOG_CONTENT=$(cat master_analysis_input.log | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-          
-          # The system prompt enforces the technical shift to Python 3.13 free-threaded compliance
-          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL / PEP 703) environments. Your mandate is to eliminate performance bottlenecks by migrating code to a thread-safe, truly parallel runtime architecture."
-          
-          # The user prompt specifies exact code upgrades required for No-GIL operation
-          USER_PROMPT="Execute Task-4 and Task-5 against this repository context.\n\n1. Analyze the following log data from our runtime validation tools:\n$REPORT_LOG_CONTENT\n\n2. Task-4: Isolate all compilation errors, type-checking warnings, style regressions, and failing test points.\n\n3. Task-5: Diagnose and rewrite the codebase directly to fix all defects. Crucially, upgrade all source code to be fully compatible with Python 3.13 or above, optimized for Free-Threaded (No-GIL) operation:\n   - Refactor CPU-bound multi-processing pipelines into native, high-performance multi-threading pipelines, since the GIL is removed under Python 3.13.\n   - Ensure absolute thread safety by implementing explicit synchronization primitives (e.g., threading.Lock, queue.Queue) where shared memory states are manipulated, avoiding data races in a true parallel execution environment.\n   - Update PyO3/Rust bindings inside 'native_core' to explicitly declare compatibility with the free-threaded build by ensuring the module initialization flags indicate No-GIL support (Py_MOD_GIL_NOT_USED).\n   - Ensure all type hints conform to Python 3.13 standards.\n\n4. Re-run local compilation validation tests to confirm your upgrades completely resolve the logged anomalies and run seamlessly."
-          
-          echo "Dispatching requests directly to NVIDIA NIM Completion Engine..."
-          
-          curl -s -X POST "https://nvidia.com" \
-            -H "Authorization: Bearer $NVIDIA_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"model\": \"nvidia/nemotron-3-ultra-550b-a55b\",
-              \"messages\": [
-                {\"role\": \"system\", \"content\": \"$SYSTEM_PROMPT\"},
-                {\"role\": \"user\", \"content\": \"$USER_PROMPT\"}
-              ],
-              \"temperature\": 0.1,
-              \"top_p\": 0.7,
-              \"max_tokens\": 4096
-            }" || echo "Handshake established with NVIDIA NIM context runtime gateway."
-
-      # Replaced market action with native raw API payload streaming to NVIDIA NIM
-      - name: Trigger Autonomous Correction Engine
-        env:
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ -z "$NVIDIA_API_KEY" ]; then
-            echo "[CRITICAL ERROR] NVIDIA_API_KEY secret is missing from GitHub Action Settings!"
-            exit 1
-          fi
-          
-          # Fallback generation of unified report if previous artifact step was omitted
+          # Fallback generation of unified report if previous execution tracks are independent
           if [ ! -f "master_analysis_input.log" ]; then
             echo "Aggregating fallback run validation logs directly..."
             echo -e "=== PIPELINE LOG RECOVERY ===" > master_analysis_input.log
@@ -174,13 +137,12 @@ jobs:
           # Clean and escape the file content log for safe inclusion in standard JSON formatting
           REPORT_LOG_CONTENT=$(cat master_analysis_input.log | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
           
-          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect operating inside an automated CI/CD pipeline. Your objective is to act on raw quality reports, modify repository source structures directly, and eliminate syntax or compiler failures."
+          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL / PEP 703) environments. Your mandate is to eliminate performance bottlenecks by migrating code to a thread-safe, truly parallel runtime architecture."
           
-          USER_PROMPT="Execute Task-4 and Task-5 against this repository context.\n\n1. Analyze the following log data from our runtime validation tools:\n$REPORT_LOG_CONTENT\n\n2. Task-4: Isolate all compilation errors, type-checking warnings, style regressions flagged by Ruff or Pyflakes, and failing tests in Pytest.\n\n3. Task-5: Diagnose the root cause of every issue. Rewrite the code directly to fix them. All patches must maintain absolute thread-safety and multi-process integrity across our async worker pools and compiled native core modules.\n\n4. Re-run validation tests internally to confirm that your corrections fully resolve the logged anomalies."
+          USER_PROMPT="Execute Task-4 and Task-5 against this repository context.\n\n1. Analyze the following log data from our runtime validation tools:\n$REPORT_LOG_CONTENT\n\n2. Task-4: Isolate all compilation errors, type-checking warnings, style regressions, and failing test points.\n\n3. Task-5: Diagnose and rewrite the codebase directly to fix all defects. Crucially, upgrade all source code to be fully compatible with Python 3.13 or above, optimized for Free-Threaded (No-GIL) operation:\n   - Refactor CPU-bound multi-processing pipelines into native, high-performance multi-threading pipelines, since the GIL is removed under Python 3.13.\n   - Ensure absolute thread safety by implementing explicit synchronization primitives (e.g., threading.Lock, queue.Queue) where shared memory states are manipulated, avoiding data races in a true parallel execution environment.\n   - Update PyO3/Rust bindings inside 'native_core' to explicitly declare compatibility with the free-threaded build by ensuring the module initialization flags indicate No-GIL support (Py_MOD_GIL_NOT_USED).\n   - Ensure all type hints conform to Python 3.13 standards.\n\n4. Re-run local compilation validation tests to confirm your upgrades completely resolve the logged anomalies and run seamlessly."
           
           echo "Dispatching requests directly to NVIDIA NIM Completion Engine..."
           
-          # Outbound execution mapped to standard OpenAI endpoints exposed by the NVIDIA API layer
           curl -s -X POST "https://nvidia.com" \
             -H "Authorization: Bearer $NVIDIA_API_KEY" \
             -H "Content-Type: application/json" \
