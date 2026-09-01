@@ -84,7 +84,8 @@ class PySystemTradeEngine:
                 if i != j:
                     shrunk_mat[i, j] = (1.0 - shrinkage_factor) * c_mat[i, j] + (shrinkage_factor * avg_corr)
 
-        return shrunk_mat.tolist()
+        res_list: List[List[float]] = shrunk_mat.tolist()
+        return res_list
 
     def scale_forecast_signal(
         self, raw_signals: List[float], target_average_abs_forecast: float = 10.0

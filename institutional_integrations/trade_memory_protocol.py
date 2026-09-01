@@ -1,3 +1,4 @@
+from typing import Any
 """
 Institutional Trade Memory & Reflection Protocol (EQATS v8.4).
 Inspired by tradememory-protocol: records post-mortem trade reflections,
@@ -164,7 +165,7 @@ class TradeMemoryReflectionProtocol:
         """Returns the self-learned adaptive weight multiplier for a given strategy."""
         return self.adaptive_weights.get(strategy_name, 1.0)
 
-    def analyze_post_mortem_features(self) -> dict:
+    def analyze_post_mortem_features(self) -> dict[str, Any]:
         """
         Analyzes post-mortem records across closed trades and vetoes.
         Returns statistical summary of win rates, veto counts, and strategy performance rankings.
