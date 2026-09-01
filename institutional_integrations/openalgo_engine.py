@@ -7,7 +7,8 @@ and Intra-day Session Auto Square-Off Execution.
 import logging
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 
 
 
@@ -21,14 +22,18 @@ class OpenAlgoSmartOrderSplitter:
         self.max_slice_lot = max_slice_lot
 
     def slice_order(
-        self, symbol: str, action: str, total_volume: float, max_lot: Optional[float] = None
-    ) -> List[Dict[str, Any]]:
+        self,
+        symbol: str,
+        action: str,
+        total_volume: float,
+        max_lot: float | None = None,
+    ) -> list[dict[str, Any]]:
         limit_lot = max_lot if max_lot and max_lot > 0 else self.max_slice_lot
         vol = round(float(total_volume), 2)
         if vol <= 0:
             return []
 
-        slices: List[Dict[str, Any]] = []
+        slices: list[dict[str, Any]] = []
         remaining = vol
         while remaining > 0:
             current_slice = round(min(remaining, limit_lot), 2)
@@ -39,7 +44,7 @@ class OpenAlgoSmartOrderSplitter:
                     "volume": current_slice,
                     "slice_index": len(slices) + 1,
                     "status": "READY",
-                }
+                },
             )
             remaining = round(remaining - current_slice, 2)
         return slices
@@ -56,7 +61,11 @@ class OpenAlgoSessionSquareOffManager:
         self.squareoff_triggered = False
 
     def check_squareoff_required(
-        self, current_hour: int, current_minute: int, close_hour: int = 16, close_minute: int = 55
+        self,
+        current_hour: int,
+        current_minute: int,
+        close_hour: int = 16,
+        close_minute: int = 55,
     ) -> bool:
         with self._lock:
             if current_hour > close_hour or (
@@ -90,7 +99,7 @@ class OpenAlgoIndianExchangeRouter:
         product: str = "CNC",
         exchange: str = "NSE",
         order_type: str = "MARKET",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         prod = str(product).strip().upper() if product else "CNC"
         if prod not in cls.VALID_PRODUCTS:
             logging.getLogger(__name__).warning(

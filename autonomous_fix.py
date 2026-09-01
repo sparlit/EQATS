@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import json
+from typing import Any
 from openai import OpenAI  # Or anthropic, google-genai, etc.
 
 # Configuration
@@ -10,13 +11,13 @@ TEST_COMMAND = "python -m pytest -n auto -vv -s --count=100 --full-trace --cache
 
 client = OpenAI(api_key=os.getenv("LLM_API_KEY"))
 
-def run_tests():
+def run_tests() -> bool:
     """Runs the test suite and returns True if successful, False otherwise."""
     print(f"Executing: {TEST_COMMAND}")
     result = subprocess.run(TEST_COMMAND, shell=True)
     return result.returncode == 0
 
-def get_failed_test_details():
+def get_failed_test_details() -> str:
     """Parses the pytest-json-report file to find exactly what failed."""
     if not os.path.exists(".pytest_report.json"):
         return "No report found. Pytest crashed early."
@@ -34,7 +35,7 @@ def get_failed_test_details():
     
     return "\n---\n".join(failures)
 
-def find_target_file_contents():
+def find_target_file_contents() -> dict[str, str]:
     """
     Helper to locate and read relevant codebase files. 
     For a fully advanced setup, you could pass the traceback to let the LLM map the file path.
@@ -50,7 +51,7 @@ def find_target_file_contents():
                     target_files[path] = f.read()
     return target_files
 
-def ask_ai_to_fix(errors, codebase):
+def ask_ai_to_fix(errors: str, codebase: dict[str, str]) -> dict[str, Any]:
     """Sends code and errors to the LLM to get an updated code layout."""
     prompt = f"""
     You are an autonomous engineering agent. A test suite just failed. 
@@ -78,9 +79,11 @@ def ask_ai_to_fix(errors, codebase):
         response_format={"type": "json_object"}
     )
     
-    return json.loads(response.choices[0].message.content)
+    content = response.choices[0].message.content
+    res: dict[str, Any] = json.loads(content) if content else {}
+    return res
 
-def apply_fixes(fixes):
+def apply_fixes(fixes: dict[str, Any]) -> None:
     """Overwrites code files with the AI's generated corrections."""
     print(f"AI Plan: {fixes.get('explanation')}")
     for filepath, file_content in fixes.get("modifications", {}).items():
@@ -89,7 +92,7 @@ def apply_fixes(fixes):
         with open(filepath, "w") as f:
             f.write(file_content)
 
-def main():
+def main() -> None:
     # Install dependency required to parse errors dynamically if missing
     subprocess.run("pip install pytest-json-report", shell=True)
 

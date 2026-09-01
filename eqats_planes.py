@@ -167,7 +167,7 @@ class DataPlane:
         self._pit_database[symbol].append(record)
         global_event_bus.publish(Event(family='MarketTickReceived', source='DataPlane', payload={'symbol': symbol, 'bid': bid, 'ask': ask}))
 
-    def query_pit_price(self, symbol: str, target_time_str: str) -> Optional[dict]:
+    def query_pit_price(self, symbol: str, target_time_str: str) -> Optional[dict[str, Any]]:
         """Returns the available price record exactly at or before target_time_str (No Look-Ahead bias!)."""
         records = self._pit_database.get(symbol, [])
         valid_record = None
@@ -244,7 +244,8 @@ class IntelligencePlane:
     def detect_regime(self, highs: list[Any], lows: list[Any], closes: list[Any]) -> dict[str, Any]:
         """Determines if the market is TRENDING, RANGING, or under VOLATILITY_SHOCK."""
         import indicators
-        return indicators.classify_market_regime(highs, lows, closes)
+        res: dict[str, Any] = indicators.classify_market_regime(highs, lows, closes)
+        return res
 
 class StrategyPlane:
     """
@@ -515,7 +516,7 @@ class ExecutionPlane:
                 payload={"symbol": symbol, "direction": direction, "lots": lot},
             )
         )
-        res = self.conn.execute_order(symbol, direction, lot, sl, tp)
+        res: dict[str, Any] = self.conn.execute_order(symbol, direction, lot, sl, tp)
         if res['success']:
             global_event_bus.publish(Event(family='OrderAccepted', source='ExecutionPlane', payload={'ticket': res['ticket'], 'symbol': symbol, 'direction': direction}))
             global_event_bus.publish(Event(family='PositionOpened', source='ExecutionPlane', payload={'ticket': res['ticket'], 'symbol': symbol, 'direction': direction, 'price': res['price']}))
