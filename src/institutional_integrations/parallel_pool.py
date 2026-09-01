@@ -53,11 +53,11 @@ class ParallelPoolOrchestrator:
         executor = self.get_process_executor()
         return list(executor.map(fn, *iterables))
 
-    def submit_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
+    def submit_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future:
         executor = self.get_thread_executor()
         return executor.submit(fn, *args, **kwargs)
 
-    def submit_process(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
+    def submit_process(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future:
         executor = self.get_process_executor()
         return executor.submit(fn, *args, **kwargs)
 

@@ -70,7 +70,6 @@ def test_legacy_migration() -> None:
     legacy_pin_hash = database.hash_credential('123456')
     conn = database.get_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM users WHERE username = 'legacy_user'")
     cursor.execute("INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))", ('legacy_user', legacy_pwd_hash, legacy_pin_hash, 'QUANT_TRADER', 1))
     conn.commit()
     conn.close()
@@ -104,7 +103,8 @@ def test_migration_status() -> None:
     print(f"  Legacy PINs: {status['legacy_pins']}")
     print(f"  Migration complete: {status['migration_complete']}")
     if database._BCRYPT_AVAILABLE:
-        assert status['bcrypt_passwords'] >= 1, 'Should have at least 1 bcrypt password'
+        assert status['bcrypt_passwords'] >= 2, 'Should have at least 2 bcrypt passwords'
+        assert status['legacy_pins'] >= 1, 'Should have at least 1 legacy PIN (not yet logged in with PIN)'
     print()
 
 def test_unique_salts() -> None:
