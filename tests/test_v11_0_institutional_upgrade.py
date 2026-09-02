@@ -14,65 +14,81 @@ Verifies:
 
 import os
 import time
-import pytest
+
 import brain
 import config
 import database
+import pytest
 
 try:
     from institutional_integrations.parallel_pool import (
         get_parallel_pool,
-        parallel_process_map,
+        parallel_process_map as _parallel_process_map,
         parallel_thread_map,
     )
     from institutional_integrations.v11_autonomous_executive_agent import (
-        AutonomousExecutiveAgent,
-        global_v11_executive_agent,
+        AutonomousExecutiveAgent as _AutonomousExecutiveAgent,
+        global_v11_executive_agent as _global_v11_executive_agent,
     )
     from institutional_integrations.v11_macro_regime_brain import (
-        MacroRegimeClassifierBrain,
-        RegimeType,
-        global_v11_macro_regime_brain,
+        MacroRegimeClassifierBrain as _MacroRegimeClassifierBrain,
+        RegimeType as _RegimeType,
+        global_v11_macro_regime_brain as _global_v11_macro_regime_brain,
     )
     from institutional_integrations.v11_multi_asset_validation_engine import (
-        MultiAsset33GateValidationEngine,
-        StrategyHealthState,
-        global_v11_validation_engine,
+        MultiAsset33GateValidationEngine as _MultiAsset33GateValidationEngine,
+        StrategyHealthState as _StrategyHealthState,
+        global_v11_validation_engine as _global_v11_validation_engine,
     )
     from institutional_integrations.v11_quantum_strategy_brain import (
-        AssetClass,
-        QuantumStrategyGenomeBrain,
-        StrategyFamily,
-        TradingHorizon,
-        global_v11_quantum_strategy_brain,
+        AssetClass as _AssetClass,
+        QuantumStrategyGenomeBrain as _QuantumStrategyGenomeBrain,
+        StrategyFamily as _StrategyFamily,
+        TradingHorizon as _TradingHorizon,
+        global_v11_quantum_strategy_brain as _global_v11_quantum_strategy_brain,
     )
 except ImportError:
     from parallel_pool import (
         get_parallel_pool,
-        parallel_process_map,
+        parallel_process_map as _parallel_process_map,
         parallel_thread_map,
     )
     from v11_autonomous_executive_agent import (
-        AutonomousExecutiveAgent,
-        global_v11_executive_agent,
+        AutonomousExecutiveAgent as _AutonomousExecutiveAgent,
+        global_v11_executive_agent as _global_v11_executive_agent,
     )
     from v11_macro_regime_brain import (
-        MacroRegimeClassifierBrain,
-        RegimeType,
-        global_v11_macro_regime_brain,
+        MacroRegimeClassifierBrain as _MacroRegimeClassifierBrain,
+        RegimeType as _RegimeType,
+        global_v11_macro_regime_brain as _global_v11_macro_regime_brain,
     )
     from v11_multi_asset_validation_engine import (
-        MultiAsset33GateValidationEngine,
-        StrategyHealthState,
-        global_v11_validation_engine,
+        MultiAsset33GateValidationEngine as _MultiAsset33GateValidationEngine,
+        StrategyHealthState as _StrategyHealthState,
+        global_v11_validation_engine as _global_v11_validation_engine,
     )
     from v11_quantum_strategy_brain import (
-        AssetClass,
-        QuantumStrategyGenomeBrain,
-        StrategyFamily,
-        TradingHorizon,
-        global_v11_quantum_strategy_brain,
+        AssetClass as _AssetClass,
+        QuantumStrategyGenomeBrain as _QuantumStrategyGenomeBrain,
+        StrategyFamily as _StrategyFamily,
+        TradingHorizon as _TradingHorizon,
+        global_v11_quantum_strategy_brain as _global_v11_quantum_strategy_brain,
     )
+
+parallel_process_map = _parallel_process_map
+AutonomousExecutiveAgent = _AutonomousExecutiveAgent
+global_v11_executive_agent = _global_v11_executive_agent
+MacroRegimeClassifierBrain = _MacroRegimeClassifierBrain
+RegimeType = _RegimeType
+global_v11_macro_regime_brain = _global_v11_macro_regime_brain
+MultiAsset33GateValidationEngine = _MultiAsset33GateValidationEngine
+StrategyHealthState = _StrategyHealthState
+global_v11_validation_engine = _global_v11_validation_engine
+AssetClass = _AssetClass
+QuantumStrategyGenomeBrain = _QuantumStrategyGenomeBrain
+StrategyFamily = _StrategyFamily
+TradingHorizon = _TradingHorizon
+global_v11_quantum_strategy_brain = _global_v11_quantum_strategy_brain
 
 from v11_autonomous_self_healing_engine import (
     V11HyperAutonomousSelfFixingGovernor,
