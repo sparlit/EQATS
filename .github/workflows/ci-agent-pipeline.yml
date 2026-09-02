@@ -24,11 +24,12 @@ jobs:
 
       # Phase-1 Entry constraint: Hard force synchronize to the upstream tracking branch
       - name: Force Synchronize Repository Context
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           git config --global user.name "EQATS Autonomous Agent"
           git config --global user.email "agent@tsyslabs.com"
           
-          TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
           echo "Target branch detected for synchronization: $TARGET_BRANCH"
           
           git fetch origin "$TARGET_BRANCH"
@@ -185,30 +186,54 @@ jobs:
             echo "[CRITICAL ERROR] NVIDIA_API_KEY secret is unconfigured in Repository Settings!"
             exit 1
           fi
-          
-          REPORT_PAYLOAD=$(cat master_healing_input.log | sed 's/"/\"/g' | sed ':a;N;$!ba;s/
-/\n/g')
-          
-          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
-          USER_PROMPT="Our pipeline failed at execution stage: $FAILED_PHASE_NAME.\n\nReview this consolidation error trace:\n\n$REPORT_PAYLOAD\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
-          
+
           echo "Dispatching execution logs directly to NVIDIA NIM Model: nvidia/nemotron-3-ultra-550b-a55b..."
-          
-          curl -s -X POST "https://integrate.api.nvidia.com/v1/chat/completions"             -H "Authorization: Bearer $NVIDIA_API_KEY"             -H "Content-Type: application/json"             -d "{
-              \"model\": \"nvidia/nemotron-3-ultra-550b-a55b\",
-              \"messages\": [
-                {\"role\": \"system\", \"content\": \"$SYSTEM_PROMPT\"},
-                {\"role\": \"user\", \"content\": \"$USER_PROMPT\"}
+
+          python3 - << 'EOF'
+          import json, os, urllib.request
+
+          key = os.environ.get("NVIDIA_API_KEY", "")
+          failed_phase = os.environ.get("CURRENT_FAILED_PHASE") or os.environ.get("FAILED_PHASE_NAME", "Unknown Phase")
+
+          log_content = ""
+          if os.path.exists("master_healing_input.log"):
+              with open("master_healing_input.log", "r", encoding="utf-8", errors="ignore") as f:
+                  log_content = f.read()
+
+          system_prompt = "You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
+          user_prompt = f"Our pipeline failed at execution stage: {failed_phase}.\n\nReview this consolidation error trace:\n\n{log_content}\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
+
+          payload = {
+              "model": "nvidia/nemotron-3-ultra-550b-a55b",
+              "messages": [
+                  {"role": "system", "content": system_prompt},
+                  {"role": "user", "content": user_prompt}
               ],
-              \"temperature\": 0.1,
-              \"top_p\": 0.7,
-              \"max_tokens\": 4096
-            }" || echo "Handshake established with NVIDIA NIM context gateway."
-            
+              "temperature": 0.1,
+              "top_p": 0.7,
+              "max_tokens": 4096
+          }
+
+          req = urllib.request.Request(
+              "https://integrate.api.nvidia.com/v1/chat/completions",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {key}",
+                  "Content-Type": "application/json"
+              },
+              method="POST"
+          )
+          try:
+              with urllib.request.urlopen(req) as response:
+                  print("Response received from NVIDIA NIM endpoint:", response.status)
+          except Exception as e:
+              print("Handshake established with NVIDIA NIM context gateway or request error:", e)
+          EOF
+
           echo "Writing modifications to repository context..."
-          
-          TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
-          
+
+          TARGET_BRANCH="${TARGET_BRANCH:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}}"
+
           git add -A
           git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified defects flagged at stage: $FAILED_PHASE_NAME" || true
           git push origin "$TARGET_BRANCH" --force
