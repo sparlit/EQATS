@@ -62,4 +62,4 @@ jobs:
         uses: Nikita-Filonov/ai-review@e3e19d6d06c4ee6951c7a132d2a1090f8b04a947 # main # Or another marketplace alternative
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.YOUR_OPENAI_OR_CLAUDE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_KEY || secrets.YOUR_OPENAI_OR_CLAUDE_KEY }}
