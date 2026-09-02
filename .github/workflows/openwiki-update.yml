@@ -20,7 +20,7 @@ jobs:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Disable credential persistence to prevent installed packages from
           # accessing the GitHub token via .git/config
@@ -134,66 +134,12 @@ jobs:
           EOF
 
       - name: Run OpenWiki
-        # ============================================================================
-        # SECURITY WARNING: THIRD-PARTY DATA BOUNDARY
-        # ============================================================================
-        # This step sends repository-derived content to external inference services.
-        # Despite path exclusions, non-excluded source code, comments, and documentation
-        # will be transmitted to third-party providers for LLM processing.
-        #
-        # CURRENT CONFIGURATION:
-        # - Provider: NVIDIA inference API (external third-party service)
-        # - Data sent: Repository source code, comments, documentation (excluding .openwikiignore patterns)
-        # - Data retention: Subject to provider's terms (see NVIDIA API Terms of Use)
-        # - LangSmith tracing: DISABLED (would send prompts/outputs to additional third party)
-        #
-        # IMPLEMENTED CONTROLS:
-        # - Path exclusions via .openwikiignore (credentials, databases, proprietary algorithms)
-        # - LangSmith tracing disabled by default
-        # - No repository-write token available to this job
-        # - GitHub token not persisted in .git/config
-        #
-        # RESIDUAL RISK:
-        # - Non-excluded repository content is transmitted to external provider
-        # - No secret redaction or pattern-based filtering applied
-        # - Provider's data retention policy applies to transmitted content
-        # - No technical enforcement of approved-provider policy
-        #
-        # RECOMMENDED FOR PRIVATE REPOSITORIES:
-        # 1. Self-hosted inference: Deploy Ollama/vLLM/LocalAI and set OPENWIKI_PROVIDER
-        #    to a local endpoint (e.g., http://localhost:11434) to eliminate external data transfer
-        # 2. Secret redaction: Implement pre-processing with git-secrets or truffleHog
-        # 3. Data classification: Establish formal policy for external service usage
-        # 4. Provider approval: Document approved providers and retention requirements
-        # 5. Audit file access: Monitor which files OpenWiki actually processes
-        # 6. Network controls: Implement egress filtering to approved endpoints only
-        #
-        # TO USE SELF-HOSTED PROVIDER (eliminates external data transfer):
-        # - Set OPENWIKI_PROVIDER to your self-hosted endpoint
-        # - Remove or comment out external provider API keys
-        # - Verify .openwikiignore patterns are still appropriate
-        #
-        # Use npx to run from the local node_modules with locked dependencies.
-        # API secrets are exposed to this step, but no repository-write token is available.
-        # The GitHub token is not persisted in .git/config due to persist-credentials: false,
-        # and this job has only read permissions, preventing unauthorized repository modification.
         run: npx --prefix .github/workflows openwiki code --update --print
         env:
-          # EXTERNAL PROVIDER CONFIGURATION (sends data to third party)
-          # For private repositories, consider using a self-hosted provider instead
           OPENWIKI_PROVIDER: nvidia
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           OPENWIKI_MODEL_ID: "nvidia/nemotron-3-ultra-550b-a55b"
-          # Required for the LangSmith connector's code-mode pull to authenticate.
-          # For extra workspaces, add OPENWIKI_LANGSMITH_API_KEY_2, _3, ... as repo
-          # secrets and env entries here.
           OPENWIKI_LANGSMITH_API_KEY: ${{ secrets.OPENWIKI_LANGSMITH_API_KEY }}
-          # SECURITY: LangSmith tracing is DISABLED to prevent repository content
-          # from being sent to LangSmith's external tracing service. Uncomment only
-          # if you have reviewed and accepted LangSmith's data retention policy.
-          # LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          # LANGCHAIN_PROJECT: openwiki
-          # LANGCHAIN_TRACING_V2: "true"
 
       - name: Upload generated changes
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -218,7 +164,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Credential persistence is acceptable here since no third-party code runs,
           # but we disable it for defense in depth.

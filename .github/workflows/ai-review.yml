@@ -11,24 +11,26 @@ jobs:
       contents: read
     steps:
       - name: Checkout base branch configuration
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Pin configuration to base branch to prevent credential exfiltration
           # This ensures .ai-review.yaml comes from the trusted base, not the PR
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
             .ai-review.yaml
-            .github/workflows/.ai-review.yaml
+            .github/.ai-review.yaml
           sparse-checkout-cone-mode: false
           path: base-config
+          persist-credentials: false
 
       - name: Checkout PR code for review
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Checkout PR code for the action to review
           ref: ${{ github.event.pull_request.head.sha }}
           # Disable cleanup to preserve the base-config directory from the previous checkout
           clean: false
+          persist-credentials: false
 
       - name: Overwrite PR configuration with trusted base configuration
         run: |
@@ -38,9 +40,9 @@ jobs:
           if [ -f base-config/.ai-review.yaml ]; then
             cp base-config/.ai-review.yaml .ai-review.yaml
             echo "✓ Using .ai-review.yaml from base branch"
-          elif [ -f base-config/.github/workflows/.ai-review.yaml ]; then
-            cp base-config/.github/workflows/.ai-review.yaml .ai-review.yaml
-            echo "✓ Using .github/workflows/.ai-review.yaml from base branch"
+          elif [ -f base-config/.github/.ai-review.yaml ]; then
+            cp base-config/.github/.ai-review.yaml .ai-review.yaml
+            echo "✓ Using .github/.ai-review.yaml from base branch"
           elif [ -f .ai-review.yaml ]; then
             echo "✓ Using existing root .ai-review.yaml"
           else
