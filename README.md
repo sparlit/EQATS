@@ -208,7 +208,7 @@ The EQATS Quantum Terminal features 33 interactive sheets accessible via the glo
 13. **CFG <GO>:** Configuration & Permissions Control featuring sub-tabs for User Management (CRUD), Multi-Broker Gateway Database, and Granular RBAC Permissions/Engine Toggles.
 14. **ING <GO>:** Data Ingestion Monitor displaying provider connection states, tick rates, latency, and feed quality scores.
 15. **FEAT <GO>:** Feature Store displaying feature distributions and importance scores.
-16. **STRAT <GO>:** Strategy Engine Dashboard showing active strategy scores, strategy genome states, and ensemble weights.
+16. **STRATEGY <GO>:** Strategy Engine Dashboard showing active strategy scores, strategy genome states, and ensemble weights.
 17. **RISK <GO>:** Risk Management Monitor tracking VaR, Expected Shortfall (CVaR), total leverage, and daily drawdown limits.
 18. **ORD <GO>:** Order Manager featuring nested sub-tabs for Order Book, Trade Book, Multi-Leg Spread Orders, and Trigger Orders.
 19. **LOG <GO>:** Real-Time Operations Console displaying filtered system telemetry and diagnostics.
