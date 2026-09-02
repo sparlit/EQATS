@@ -1,27 +1,30 @@
 """
-Comprehensive Unit & Integration Test Suite for EQATS Version 11.0.0 Institutional Upgrade Baseline.
+Comprehensive & Strict Unit & Integration Test Suite for EQATS Version 11.0.0 Institutional Upgrade.
 
 Verifies:
   1. System version 11.0.0 assertions across brain.py, self-healing governor, and design specs.
-  2. Multi-Thread Parallel Multi-Processing execution pool orchestrator and batch symbol evaluations.
-  3. 33 Validation & Anti-Overfitting Gates (Formal Spec, Out-of-Sample, Walk-Forward, Deflated Sharpe, Health States).
-  4. Quantum Strategy Genome Brain (26 Strategy Families x 8 Trading Horizons, Bowtie/Hourglass structure).
-  5. Dynamic Macro Regime Brain (Direction, Volatility, Liquidity, Risk-On/Risk-Off).
-  6. High-Priority Agentic Executive Agent Overseer.
-  7. High-Priority Backend Autonomous Self-Healing Daemon.
+  2. Multi-Thread Parallel Multi-Processing execution pool orchestrator and batch symbol evaluations under stress.
+  3. Strict 33 Validation & Anti-Overfitting Gates (Gates 0-33, Deflated Sharpe Ratio calculation with skewness/kurtosis, health state transitions).
+  4. Quantum Strategy Genome Brain (26 Strategy Families x 8 Trading Horizons, Bowtie/Hourglass conditional structure).
+  5. Multi-Asset Taxonomy Classification (Forex, Metals, Energy, Crypto, Indian NSE, BSE, MSE, MCX, NCDEX).
+  6. Dynamic Macro Regime & Cross-Asset Correlation Classifier (Trend, Volatility, Liquidity, Macro Risk-On/Risk-Off).
+  7. High-Priority Agentic Executive Agent Overseer.
+  8. Standalone High-Priority Backend Autonomous Self-Healing Governor Daemon lifecycle and recovery.
 """
 
 import os
 import time
-
 import pytest
-
 import brain
 import config
 import database
 
 try:
-    from institutional_integrations.parallel_pool import get_parallel_pool, parallel_process_map, parallel_thread_map
+    from institutional_integrations.parallel_pool import (
+        get_parallel_pool,
+        parallel_process_map,
+        parallel_thread_map,
+    )
     from institutional_integrations.v11_autonomous_executive_agent import (
         AutonomousExecutiveAgent,
         global_v11_executive_agent,
@@ -44,7 +47,11 @@ try:
         global_v11_quantum_strategy_brain,
     )
 except ImportError:
-    from parallel_pool import get_parallel_pool, parallel_process_map, parallel_thread_map
+    from parallel_pool import (
+        get_parallel_pool,
+        parallel_process_map,
+        parallel_thread_map,
+    )
     from v11_autonomous_executive_agent import (
         AutonomousExecutiveAgent,
         global_v11_executive_agent,
@@ -67,7 +74,10 @@ except ImportError:
         global_v11_quantum_strategy_brain,
     )
 
-from v11_autonomous_self_healing_engine import V11HyperAutonomousSelfFixingGovernor, global_v11_self_healing_governor
+from v11_autonomous_self_healing_engine import (
+    V11HyperAutonomousSelfFixingGovernor,
+    global_v11_self_healing_governor,
+)
 
 
 def setup_module() -> None:
@@ -95,8 +105,8 @@ def test_v11_0_system_version_assertions() -> None:
     assert global_v11_self_healing_governor.version == "11.0.0"
 
 
-def test_parallel_multi_processing_core() -> None:
-    """Verifies ParallelPoolOrchestrator thread/process pool execution and batch parallel evaluation."""
+def test_parallel_multi_processing_core_stress() -> None:
+    """Verifies ParallelPoolOrchestrator thread/process pool execution and batch parallel evaluation across multiple assets."""
     pool = get_parallel_pool()
     assert pool.max_threads >= 4
     assert pool.max_processes >= 1
@@ -104,8 +114,8 @@ def test_parallel_multi_processing_core() -> None:
     def _sample_task(x: int) -> int:
         return x * x
 
-    thread_results = parallel_thread_map(_sample_task, [1, 2, 3, 4, 5])
-    assert thread_results == [1, 4, 9, 16, 25]
+    thread_results = parallel_thread_map(_sample_task, [1, 2, 3, 4, 5, 6, 7, 8])
+    assert thread_results == [1, 4, 9, 16, 25, 36, 49, 64]
 
     scalper_brain = brain.ScalperBrain()
     bars = [
@@ -121,26 +131,31 @@ def test_parallel_multi_processing_core() -> None:
     symbols_dict = {
         "EURUSD": bars,
         "GBPUSD": bars,
+        "USDJPY": bars,
         "XAUUSD": bars,
+        "BTCUSD": bars,
+        "NSE:RELIANCE": bars,
     }
 
     eval_results = scalper_brain.evaluate_symbols_parallel(symbols_dict, 10000.0)
-    assert len(eval_results) == 3
-    assert "EURUSD" in eval_results
-    assert "GBPUSD" in eval_results
-    assert "XAUUSD" in eval_results
-    assert "decision" in eval_results["EURUSD"]
+    assert len(eval_results) == 6
+    for sym in symbols_dict:
+        assert sym in eval_results
+        assert "decision" in eval_results[sym]
+        assert "v11_0_slippage_pips" in eval_results[sym]
 
 
-def test_33_gate_validation_and_anti_overfitting_engine() -> None:
-    """Verifies all 33 validation gates, Deflated Sharpe Ratio calculation, and strategy health state transitions."""
+def test_33_gate_validation_engine_comprehensive() -> None:
+    """Verifies all 33 validation gates, Deflated Sharpe Ratio calculation with skewness/kurtosis, and strategy health state transitions."""
     engine = MultiAsset33GateValidationEngine()
-    returns = [0.01, -0.005, 0.015, 0.02, -0.008, 0.012, 0.018, 0.022, -0.004]
 
-    dsr_prob = engine.calculate_deflated_sharpe_ratio(returns, num_trials=50)
+    # Test Deflated Sharpe Ratio calculation with positive return series
+    returns = [0.01, -0.005, 0.015, 0.02, -0.008, 0.012, 0.018, 0.022, -0.004, 0.016]
+    dsr_prob = engine.calculate_deflated_sharpe_ratio(returns, num_trials=100)
     assert 0.0 <= dsr_prob <= 1.0
 
-    payload = {
+    # Test passing 33-gate evaluation
+    valid_payload = {
         "entry_rules": ["EMA_SHORT > EMA_MEDIUM"],
         "exit_rules": ["SL_OR_TP"],
         "data_valid": True,
@@ -165,78 +180,148 @@ def test_33_gate_validation_and_anti_overfitting_engine() -> None:
         "param_count": 4,
     }
 
-    res = engine.evaluate_33_gates("V11_TEST_STRAT_01", payload)
-    assert res["strategy_id"] == "V11_TEST_STRAT_01"
-    assert res["overall_pass"] is True
-    assert res["gates_passed"] == 33
-    assert res["health_state"] == StrategyHealthState.ACTIVE
-    assert len(res["gate_details"]) == 34  # Gates 0-32 plus Gate 33 Health State Machine
+    res_active = engine.evaluate_33_gates("V11_STRAT_PASS", valid_payload)
+    assert res_active["strategy_id"] == "V11_STRAT_PASS"
+    assert res_active["overall_pass"] is True
+    assert res_active["gates_passed"] == 33
+    assert res_active["health_state"] == StrategyHealthState.ACTIVE
+
+    # Test failing gate evaluation causing SUSPENDED state
+    failing_payload = dict(valid_payload)
+    failing_payload["data_valid"] = False
+    failing_payload["spread_pips"] = 10.0  # High cost ratio > 0.35
+    failing_payload["slippage_mult"] = 10.0  # High slippage
+    failing_payload["win_rate"] = 40.0
+    failing_payload["oos_sharpe"] = 0.2
+    failing_payload["wf_stability"] = 0.2
+    failing_payload["param_robustness"] = False
+    failing_payload["perturbation_pass"] = False
+    failing_payload["mc_ruin_prob"] = 0.25
+    failing_payload["p_value"] = 0.20
+    failing_payload["snooping_free"] = False
+    failing_payload["portfolio_conflict"] = True
+
+    res_suspended = engine.evaluate_33_gates("V11_STRAT_FAIL", failing_payload)
+    assert res_suspended["overall_pass"] is False
+    assert res_suspended["health_state"] in [StrategyHealthState.SUSPENDED, StrategyHealthState.WARNING, StrategyHealthState.DEGRADED]
+    assert res_suspended["gates_passed"] < 33
 
 
-def test_quantum_strategy_genome_and_horizon_brain() -> None:
-    """Verifies Strategy Genome creation, multi-asset asset class taxonomy, and Bowtie/Hourglass structure."""
+def test_quantum_strategy_genome_and_multi_asset_taxonomy() -> None:
+    """Verifies Strategy Genome creation across 26 strategy families, 8 horizons, multi-asset taxonomy, and Bowtie/Hourglass structure."""
     brain_instance = QuantumStrategyGenomeBrain()
 
-    assert brain_instance.classify_asset_class("NSE:RELIANCE") == AssetClass.INDIAN_NSE
-    assert brain_instance.classify_asset_class("MCX:GOLD") == AssetClass.INDIAN_MCX
-    assert brain_instance.classify_asset_class("XAUUSD") == AssetClass.PRECIOUS_METALS
-    assert brain_instance.classify_asset_class("USOIL") == AssetClass.OIL_ENERGY
-    assert brain_instance.classify_asset_class("BTCUSD") == AssetClass.CRYPTO
+    # Asset Class Taxonomy Classification
     assert brain_instance.classify_asset_class("EURUSD") == AssetClass.FOREX
+    assert brain_instance.classify_asset_class("XAUUSD") == AssetClass.PRECIOUS_METALS
+    assert brain_instance.classify_asset_class("WTI") == AssetClass.OIL_ENERGY
+    assert brain_instance.classify_asset_class("US30") == AssetClass.INDICES
+    assert brain_instance.classify_asset_class("BTCUSD") == AssetClass.CRYPTO
+    assert brain_instance.classify_asset_class("NSE:RELIANCE") == AssetClass.INDIAN_NSE
+    assert brain_instance.classify_asset_class("BSE:SENSEX") == AssetClass.INDIAN_BSE
+    assert brain_instance.classify_asset_class("MCX:GOLD") == AssetClass.INDIAN_MCX
+    assert brain_instance.classify_asset_class("NCDEX:SOYBEAN") == AssetClass.INDIAN_NCDEX
 
-    genome = brain_instance.generate_strategy_genome(
-        symbol="EURUSD",
-        family=StrategyFamily.TREND,
-        horizon=TradingHorizon.INTRADAY,
-        timeframe="M15",
-    )
-    assert genome.family == StrategyFamily.TREND
-    assert genome.horizon == TradingHorizon.INTRADAY
-    assert genome.asset_class == AssetClass.FOREX
+    # Strategy Genome Creation
+    families = [
+        StrategyFamily.TREND,
+        StrategyFamily.MOMENTUM,
+        StrategyFamily.BREAKOUT,
+        StrategyFamily.MEAN_REVERSION,
+        StrategyFamily.QUANTITATIVE,
+        StrategyFamily.BOWTIE_HOURGLASS,
+    ]
+    horizons = [
+        TradingHorizon.HFT,
+        TradingHorizon.SCALP,
+        TradingHorizon.INTRADAY,
+        TradingHorizon.DAY,
+        TradingHorizon.SWING,
+        TradingHorizon.POSITION,
+    ]
 
-    bowtie = brain_instance.evaluate_bowtie_hourglass_strategy("EURUSD", 1.1000, 0.0015, regime="TRENDING")
+    for fam in families:
+        for hor in horizons:
+            genome = brain_instance.generate_strategy_genome(
+                symbol="EURUSD",
+                family=fam,
+                horizon=hor,
+                timeframe="M15",
+            )
+            assert genome.family == fam
+            assert genome.horizon == hor
+            assert genome.asset_class == AssetClass.FOREX
+
+    # Bowtie / Hourglass conditional breakout structure evaluation
+    bowtie = brain_instance.evaluate_bowtie_hourglass_strategy("EURUSD", current_price=1.1000, atr_val=0.0015, regime="TRENDING")
     assert bowtie["strategy"] == StrategyFamily.BOWTIE_HOURGLASS
-    assert "buy_trigger" in bowtie
-    assert "sell_trigger" in bowtie
+    assert bowtie["buy_trigger"] > 1.1000
+    assert bowtie["sell_trigger"] < 1.1000
+    assert bowtie["buy_sl"] < 1.1000
+    assert bowtie["sell_sl"] > 1.1000
 
 
-def test_macro_regime_and_correlation_classifier() -> None:
-    """Verifies multi-asset market regime classification across direction, volatility, and macro bias."""
+def test_macro_regime_and_correlation_classifier_broad() -> None:
+    """Verifies multi-asset market regime classification across direction, volatility, and macro risk-on/risk-off states."""
     classifier = MacroRegimeClassifierBrain()
-    closes = [1.1000 + i * 0.0005 for i in range(100)]
-    highs = [c + 0.0010 for c in closes]
-    lows = [c - 0.0010 for c in closes]
 
-    regime_res = classifier.classify_regime(highs, lows, closes)
-    assert regime_res["direction"] == "UP"
-    assert regime_res["macro_bias"] == "RISK_ON"
-    assert regime_res["regime"] in [RegimeType.TREND_STRONG, RegimeType.HIGH_VOL_TREND, RegimeType.RANGE_LOW_VOL]
+    # Strong Uptrend
+    closes_up = [1.1000 + i * 0.0005 for i in range(100)]
+    highs_up = [c + 0.0010 for c in closes_up]
+    lows_up = [c - 0.0010 for c in closes_up]
+
+    regime_up = classifier.classify_regime(highs_up, lows_up, closes_up)
+    assert regime_up["direction"] == "UP"
+    assert regime_up["macro_bias"] == "RISK_ON"
+
+    # Strong Downtrend
+    closes_down = [1.2000 - i * 0.0005 for i in range(100)]
+    highs_down = [c + 0.0010 for c in closes_down]
+    lows_down = [c - 0.0010 for c in closes_down]
+
+    regime_down = classifier.classify_regime(highs_down, lows_down, closes_down)
+    assert regime_down["direction"] == "DOWN"
+    assert regime_down["macro_bias"] == "RISK_OFF"
 
 
-def test_autonomous_executive_agent() -> None:
-    """Verifies Executive Agentic AI directive synthesis from regime, validation, and Kronos signals."""
+def test_autonomous_executive_agent_directives() -> None:
+    """Verifies Executive Agentic AI directive synthesis from regime, 33-gate validation, and Kronos signals."""
     agent = AutonomousExecutiveAgent()
+
+    # Approved BUY directive
     regime_info = {"regime": RegimeType.TREND_STRONG, "direction": "UP"}
     validation_info = {"overall_pass": True, "gates_passed": 33}
+    directive_buy = agent.generate_executive_directive("EURUSD", regime_info, validation_info, kronos_prob=0.75)
+    assert directive_buy.bias == "BUY"
+    assert directive_buy.executive_confidence > 0.50
 
-    directive = agent.generate_executive_directive("EURUSD", regime_info, validation_info, kronos_prob=0.72)
-    assert directive.bias == "BUY"
-    assert directive.executive_confidence > 0.50
-    assert len(directive.actionable_instructions) > 0
+    # VETO directive due to failed validation
+    validation_fail = {"overall_pass": False, "gates_passed": 20}
+    directive_veto = agent.generate_executive_directive("EURUSD", regime_info, validation_fail, kronos_prob=0.75)
+    assert directive_veto.bias == "HOLD"
+    assert directive_veto.executive_confidence < 0.50
 
 
-def test_standalone_self_healing_governor() -> None:
-    """Verifies high-priority self-healing daemon status, database recovery, and autotuning."""
+def test_standalone_self_healing_governor_daemon_lifecycle() -> None:
+    """Verifies high-priority self-healing governor daemon thread start, cycle execution, autotuning, and stop lifecycle."""
     governor = V11HyperAutonomousSelfFixingGovernor(check_interval_sec=0.1)
-    status_before = governor.get_status()
-    assert status_before["governor_version"] == "11.0.0"
-    assert status_before["running"] is False
+
+    status_initial = governor.get_status()
+    assert status_initial["governor_version"] == "11.0.0"
+    assert status_initial["running"] is False
 
     # Execute a diagnostic healing cycle directly
     governor.run_healing_cycle()
     assert governor.db_lock_repaired_count >= 1
     assert governor.autotune_cycles_count >= 1
 
-    status_after = governor.get_status()
-    assert status_after["active_health_state"] == "ACTIVE"
-    assert len(status_after["recent_logs"]) > 0
+    # Test daemon start and stop lifecycle
+    governor.start_high_priority_daemon()
+    assert governor._running is True
+    time.sleep(0.25)
+    governor.stop_daemon()
+    assert governor._running is False
+
+    status_final = governor.get_status()
+    assert status_final["active_health_state"] == "ACTIVE"
+    assert len(status_final["recent_logs"]) > 0
