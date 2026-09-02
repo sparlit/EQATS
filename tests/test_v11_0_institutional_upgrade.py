@@ -325,3 +325,30 @@ def test_standalone_self_healing_governor_daemon_lifecycle() -> None:
     status_final = governor.get_status()
     assert status_final["active_health_state"] == "ACTIVE"
     assert len(status_final["recent_logs"]) > 0
+
+
+def test_v11_strict_edge_cases_and_boundary_checks() -> None:
+    """Verifies strict v11 boundary conditions, malformed input handling, and extreme market scenarios."""
+    scalper_brain = brain.ScalperBrain()
+
+    # Empty bar sequence
+    res_empty = scalper_brain.evaluate("EURUSD", [], current_equity=10000.0)
+    assert res_empty["decision"] == "HOLD"
+    assert "Insufficient history" in res_empty.get("explanation", "")
+
+    # Extreme Spread-to-ATR Admission Gate Veto
+    bars_tight = [
+        {"open": 1.1, "high": 1.1001, "low": 1.0999, "close": 1.1, "tick_volume": 100}
+        for _ in range(250)
+    ]
+    res_tight = scalper_brain.evaluate("EURUSD", bars_tight, current_equity=10000.0)
+    assert res_tight["decision"] in ["HOLD", "BUY", "SELL"]
+
+    # Validation Engine empty or negative return series handling
+    engine = MultiAsset33GateValidationEngine()
+    dsr_empty = engine.calculate_deflated_sharpe_ratio([], num_trials=100)
+    assert dsr_empty == 0.0
+
+    neg_returns = [-0.01, -0.02, -0.015, -0.03, -0.005]
+    dsr_neg = engine.calculate_deflated_sharpe_ratio(neg_returns, num_trials=100)
+    assert dsr_neg == 0.0

@@ -9,7 +9,7 @@ from brain import ScalperBrain
 
 def test_v10_4_version_assertions() -> None:
     scalper = ScalperBrain()
-    assert scalper.version in ["10.4.0", "11.0.0"]
+    assert scalper.version == "11.0.0"
 
 
 def test_v10_4_brain_evaluation_and_slippage_control() -> None:
@@ -26,5 +26,5 @@ def test_v10_4_brain_evaluation_and_slippage_control() -> None:
     ]
     res = scalper.evaluate("EURUSD", bars, current_equity=10000.0)
     assert "decision" in res
-    assert "v10_4_slippage_pips" in res
-    assert res["v10_4_slippage_pips"] >= 0.5
+    assert "v11_0_slippage_pips" in res
+    assert res["v11_0_slippage_pips"] >= 0.5
