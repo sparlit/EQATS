@@ -10,11 +10,16 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  workflows: write
 
 jobs:
   autonomous-execution-loop:
     name: Multi-Phase Self-Healing Loop Matrix
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      workflows: write
 
     steps:
       - name: Check out repository code
@@ -50,9 +55,9 @@ jobs:
 
       - name: Install Runtime and Parallel Development Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip
+          $GITHUB_WORKSPACE/venv/bin/pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
+          if [ -f requirements.txt ]; then $GITHUB_WORKSPACE/venv/bin/pip install -r requirements.txt; fi
 
       # =========================================================================
       # PHASE-1: STRICT TYPE ARCHITECTURE VERIFICATION LOOP
@@ -61,7 +66,7 @@ jobs:
         id: phase_1
         run: |
           echo "=== PHASE-1 MYPY LOG ===" > phase_1_output.log
-          python -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
+          $GITHUB_WORKSPACE/venv/bin/python -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
           cat phase_1_output.log
 
           if grep -q "error:" phase_1_output.log || grep -q "Found" phase_1_output.log; then
@@ -79,7 +84,7 @@ jobs:
         if: env.PHASE_1_PASSED == 'true'
         run: |
           echo "=== PHASE-2 PYTEST LOG ===" > phase_2_output.log
-          python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
+          $GITHUB_WORKSPACE/venv/bin/python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
           cat phase_2_output.log
 
           if grep -q "FAILED" phase_2_output.log || grep -q "ERRORS" phase_2_output.log; then
@@ -101,7 +106,7 @@ jobs:
           echo "=== PHASE-3 STAGE-1 RUST LOG ===" > p3_s1_output.log
           if [ -d "eqats_rust_core" ]; then
             cd eqats_rust_core
-            maturin develop --release >> ../p3_s1_output.log 2>&1 || true
+            $GITHUB_WORKSPACE/venv/bin/maturin develop --release >> ../p3_s1_output.log 2>&1 || true
             cd ..
           else
             echo "Directory 'eqats_rust_core' not located; bypassing tracking step." >> p3_s1_output.log
@@ -123,7 +128,7 @@ jobs:
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true'
         run: |
           echo "=== PHASE-3 STAGE-2 PYTHON LOG ===" > p3_s2_output.log
-          python -m compileall . >> p3_s2_output.log 2>&1 || true
+          $GITHUB_WORKSPACE/venv/bin/python -m compileall . >> p3_s2_output.log 2>&1 || true
           cat p3_s2_output.log
 
           if grep -q "error" p3_s2_output.log || grep -q "ERROR" p3_s2_output.log; then
@@ -141,7 +146,7 @@ jobs:
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true' && env.P3_S2_PASSED == 'true'
         run: |
           echo "=== PHASE-3 STAGE-3 NUITKA LOG ===" > p3_s3_output.log
-          python -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
+          $GITHUB_WORKSPACE/venv/bin/python -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
           cat p3_s3_output.log
 
           if grep -q "FATAL" p3_s3_output.log || grep -q "Error:" p3_s3_output.log; then
@@ -190,7 +195,7 @@ jobs:
 
           echo "Dispatching execution logs directly to NVIDIA NIM Model: nvidia/nemotron-3-ultra-550b-a55b..."
 
-          python - << 'EOF'
+          $GITHUB_WORKSPACE/venv/bin/python - << 'EOF'
           import json, os, urllib.request
 
           key = os.environ.get("NVIDIA_API_KEY", "")
@@ -237,7 +242,7 @@ jobs:
 
           git add -A
           git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified defects flagged at stage: $FAILED_PHASE_NAME" || true
-          git push origin "HEAD:$TARGET_BRANCH" --force
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${TARGET_BRANCH}" --force
 
           echo "[HEALING TRACK RUNNING] Pushed patches back upstream to branch $TARGET_BRANCH. Terminalling thread execution to trigger a fresh validation loop sequence starting back at Phase-1."
           exit 1

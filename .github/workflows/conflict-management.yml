@@ -59,13 +59,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          GH_REPO: ${{ github.repository }}
         run: |
           git checkout "$HEAD_BRANCH"
           if ! git merge "origin/$BASE_BRANCH" -X theirs -m "chore: auto-resolved conflicts favoring theirs"; then
             echo "Merge failed even with conflict strategy. Manual intervention required."
             exit 1
           fi
-          git push origin "$HEAD_BRANCH"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${HEAD_BRANCH}"
 
       - name: Remove Label
         if: success()
