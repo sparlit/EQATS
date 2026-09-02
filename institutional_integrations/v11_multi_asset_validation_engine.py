@@ -33,7 +33,7 @@ class ValidationGateResult:
         self.score = score
         self.message = message
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "gate_id": self.gate_id,
             "gate_name": self.gate_name,
@@ -52,11 +52,14 @@ class MultiAsset33GateValidationEngine:
 
     def __init__(self):
         self.version = "11.0.0"
-        self.strategy_states: Dict[str, str] = {}
-        self.test_counter: Dict[str, int] = {}
+        self.strategy_states: dict[str, str] = {}
+        self.test_counter: dict[str, int] = {}
 
     def calculate_deflated_sharpe_ratio(
-        self, returns: List[float], num_trials: int = 100, risk_free_rate: float = 0.02
+        self,
+        returns: list[float],
+        num_trials: int = 100,
+        risk_free_rate: float = 0.02,
     ) -> float:
         """
         Computes the Deflated Sharpe Ratio (DSR) to adjust for multiple testing / selection bias.
@@ -91,11 +94,11 @@ class MultiAsset33GateValidationEngine:
 
         return round(_norm_cdf(dsr_stat), 4)
 
-    def evaluate_33_gates(self, strategy_id: str, strategy_payload: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_33_gates(self, strategy_id: str, strategy_payload: dict[str, Any]) -> dict[str, Any]:
         """
         Runs the comprehensive 33-gate validation pipeline on a strategy candidate or trade signal.
         """
-        gates_results: List[ValidationGateResult] = []
+        gates_results: list[ValidationGateResult] = []
 
         # Track trial count for multiple-testing penalty
         self.test_counter[strategy_id] = self.test_counter.get(strategy_id, 0) + 1
@@ -111,16 +114,24 @@ class MultiAsset33GateValidationEngine:
         is_spec_valid = bool(strategy_payload.get("entry_rules") and strategy_payload.get("exit_rules"))
         gates_results.append(
             ValidationGateResult(
-                0, "Formal Specification", is_spec_valid, 1.0 if is_spec_valid else 0.0, "Deterministic rules specified"
-            )
+                0,
+                "Formal Specification",
+                is_spec_valid,
+                1.0 if is_spec_valid else 0.0,
+                "Deterministic rules specified",
+            ),
         )
 
         # Gate 1: Data Integrity
         data_clean = strategy_payload.get("data_valid", True)
         gates_results.append(
             ValidationGateResult(
-                1, "Data Integrity", data_clean, 1.0 if data_clean else 0.0, "Clean timestamps & bad tick filter passed"
-            )
+                1,
+                "Data Integrity",
+                data_clean,
+                1.0 if data_clean else 0.0,
+                "Clean timestamps & bad tick filter passed",
+            ),
         )
 
         # Gate 2: Economic Plausibility
@@ -128,24 +139,36 @@ class MultiAsset33GateValidationEngine:
         plausible = bool(edge_mechanism)
         gates_results.append(
             ValidationGateResult(
-                2, "Economic Plausibility", plausible, 0.9, f"Economic edge mechanism: {edge_mechanism}"
-            )
+                2,
+                "Economic Plausibility",
+                plausible,
+                0.9,
+                f"Economic edge mechanism: {edge_mechanism}",
+            ),
         )
 
         # Gate 3: Baseline Comparison
         benchmark_beat = win_rate > 50.0
         gates_results.append(
             ValidationGateResult(
-                3, "Baseline Comparison", benchmark_beat, win_rate / 100.0, "Beats random/buy-hold benchmark"
-            )
+                3,
+                "Baseline Comparison",
+                benchmark_beat,
+                win_rate / 100.0,
+                "Beats random/buy-hold benchmark",
+            ),
         )
 
         # Gate 4: In-Sample Validation
         in_sample_pass = len(returns) >= 5
         gates_results.append(
             ValidationGateResult(
-                4, "In-Sample Validation", in_sample_pass, 0.85, "In-sample returns statistically non-empty"
-            )
+                4,
+                "In-Sample Validation",
+                in_sample_pass,
+                0.85,
+                "In-sample returns statistically non-empty",
+            ),
         )
 
         # Gate 5: Out-of-Sample Testing
@@ -155,23 +178,31 @@ class MultiAsset33GateValidationEngine:
         # Gate 6: Walk-Forward Testing
         wf_stability = strategy_payload.get("wf_stability", 0.75) > 0.6
         gates_results.append(
-            ValidationGateResult(6, "Walk-Forward Testing", wf_stability, 0.82, "Walk-forward stability window passed")
+            ValidationGateResult(6, "Walk-Forward Testing", wf_stability, 0.82, "Walk-forward stability window passed"),
         )
 
         # Gate 7: Parameter Robustness
         param_robust = strategy_payload.get("param_robustness", True)
         gates_results.append(
             ValidationGateResult(
-                7, "Parameter Robustness", param_robust, 0.90, "Stable parameter neighborhood verified"
-            )
+                7,
+                "Parameter Robustness",
+                param_robust,
+                0.90,
+                "Stable parameter neighborhood verified",
+            ),
         )
 
         # Gate 8: Perturbation Testing
         perturb_pass = strategy_payload.get("perturbation_pass", True)
         gates_results.append(
             ValidationGateResult(
-                8, "Perturbation Testing", perturb_pass, 0.85, "Degrades gracefully under entry/exit noise"
-            )
+                8,
+                "Perturbation Testing",
+                perturb_pass,
+                0.85,
+                "Degrades gracefully under entry/exit noise",
+            ),
         )
 
         # Gate 9: Transaction Cost Testing
@@ -184,37 +215,49 @@ class MultiAsset33GateValidationEngine:
                 cost_pass,
                 max(0.0, 1.0 - cost_ratio),
                 f"Spread-to-ATR ratio: {cost_ratio:.2f} <= 0.35 limit",
-            )
+            ),
         )
 
         # Gate 10: Slippage Stress Testing
         slip_pass = slippage_mult <= 5.0
         gates_results.append(
             ValidationGateResult(
-                10, "Slippage Stress Testing", slip_pass, 1.0 / max(1.0, slippage_mult), "Survives slippage stress"
-            )
+                10,
+                "Slippage Stress Testing",
+                slip_pass,
+                1.0 / max(1.0, slippage_mult),
+                "Survives slippage stress",
+            ),
         )
 
         # Gate 11: Market Regime Testing
         regime_pass = strategy_payload.get("regime_encoded", True)
         gates_results.append(
             ValidationGateResult(
-                11, "Market Regime Testing", regime_pass, 0.85, "Explicit failure regime rules encoded"
-            )
+                11,
+                "Market Regime Testing",
+                regime_pass,
+                0.85,
+                "Explicit failure regime rules encoded",
+            ),
         )
 
         # Gate 12: Cross-Instrument Testing
         cross_asset = strategy_payload.get("cross_asset_valid", True)
         gates_results.append(
             ValidationGateResult(
-                12, "Cross-Instrument Testing", cross_asset, 0.80, "Cross-instrument generalization verified"
-            )
+                12,
+                "Cross-Instrument Testing",
+                cross_asset,
+                0.80,
+                "Cross-instrument generalization verified",
+            ),
         )
 
         # Gate 13: Cross-Timeframe Testing
         cross_tf = strategy_payload.get("cross_tf_valid", True)
         gates_results.append(
-            ValidationGateResult(13, "Cross-Timeframe Testing", cross_tf, 0.80, "Cross-timeframe confluence confirmed")
+            ValidationGateResult(13, "Cross-Timeframe Testing", cross_tf, 0.80, "Cross-timeframe confluence confirmed"),
         )
 
         # Gate 14: Monte Carlo Testing
@@ -227,15 +270,19 @@ class MultiAsset33GateValidationEngine:
                 mc_pass,
                 1.0 - mc_ruin_prob,
                 f"Monte Carlo ruin probability: {mc_ruin_prob:.2%} < 5%",
-            )
+            ),
         )
 
         # Gate 15: Bootstrap Confidence Testing
         bs_pass = True
         gates_results.append(
             ValidationGateResult(
-                15, "Bootstrap Confidence", bs_pass, 0.88, "95% bootstrap confidence interval positive"
-            )
+                15,
+                "Bootstrap Confidence",
+                bs_pass,
+                0.88,
+                "95% bootstrap confidence interval positive",
+            ),
         )
 
         # Gate 16: Statistical Significance
@@ -243,8 +290,12 @@ class MultiAsset33GateValidationEngine:
         stat_sig = p_value < 0.05
         gates_results.append(
             ValidationGateResult(
-                16, "Statistical Significance", stat_sig, 1.0 - p_value, f"Statistical p-value: {p_value:.3f} < 0.05"
-            )
+                16,
+                "Statistical Significance",
+                stat_sig,
+                1.0 - p_value,
+                f"Statistical p-value: {p_value:.3f} < 0.05",
+            ),
         )
 
         # Gate 17: Multiple-Testing Adjustment (Deflated Sharpe)
@@ -257,30 +308,42 @@ class MultiAsset33GateValidationEngine:
                 dsr_pass,
                 dsr_prob,
                 f"Deflated Sharpe probability: {dsr_prob:.2f} >= 0.50 (trials: {num_trials})",
-            )
+            ),
         )
 
         # Gate 18: Data-Snooping Detection
         snooping_free = strategy_payload.get("snooping_free", True)
         gates_results.append(
             ValidationGateResult(
-                18, "Data-Snooping Detection", snooping_free, 0.90, "No parameter mining or cherry-picking detected"
-            )
+                18,
+                "Data-Snooping Detection",
+                snooping_free,
+                0.90,
+                "No parameter mining or cherry-picking detected",
+            ),
         )
 
         # Gate 19: Research Lineage Audit
         lineage_pass = bool(strategy_id)
         gates_results.append(
             ValidationGateResult(
-                19, "Research Lineage Audit", lineage_pass, 1.0, f"Strategy research lineage recorded: {strategy_id}"
-            )
+                19,
+                "Research Lineage Audit",
+                lineage_pass,
+                1.0,
+                f"Strategy research lineage recorded: {strategy_id}",
+            ),
         )
 
         # Gate 20: Deflated Performance Adjustment
         gates_results.append(
             ValidationGateResult(
-                20, "Deflated Performance", True, dsr_prob, "Performance adjusted for skewness and tails"
-            )
+                20,
+                "Deflated Performance",
+                True,
+                dsr_prob,
+                "Performance adjusted for skewness and tails",
+            ),
         )
 
         # Gate 21: Capacity Testing
@@ -293,24 +356,28 @@ class MultiAsset33GateValidationEngine:
                 cap_pass,
                 min(1.0, capacity_usd / 1000000.0),
                 f"Capital absorption capacity: ${capacity_usd:,.0f}",
-            )
+            ),
         )
 
         # Gate 22: Liquidity Stress Simulation
         gates_results.append(
-            ValidationGateResult(22, "Liquidity Stress Simulation", True, 0.85, "Liquidity depletion boundary safe")
+            ValidationGateResult(22, "Liquidity Stress Simulation", True, 0.85, "Liquidity depletion boundary safe"),
         )
 
         # Gate 23: Extreme Event Stress Testing
         gates_results.append(
             ValidationGateResult(
-                23, "Extreme Event Stress Testing", True, 0.88, "Flash crash and gap risk checks passed"
-            )
+                23,
+                "Extreme Event Stress Testing",
+                True,
+                0.88,
+                "Flash crash and gap risk checks passed",
+            ),
         )
 
         # Gate 24: Reverse Stress Testing
         gates_results.append(
-            ValidationGateResult(24, "Reverse Stress Testing", True, 0.85, "Minimum failure boundary identified")
+            ValidationGateResult(24, "Reverse Stress Testing", True, 0.85, "Minimum failure boundary identified"),
         )
 
         # Gate 25: Portfolio Compatibility
@@ -323,12 +390,12 @@ class MultiAsset33GateValidationEngine:
                 port_pass,
                 0.90 if port_pass else 0.0,
                 "No hidden correlation concentration",
-            )
+            ),
         )
 
         # Gate 26: Regime Dependency Encoding
         gates_results.append(
-            ValidationGateResult(26, "Regime Dependency Encoding", True, 0.85, "Failure regimes explicitly mapped")
+            ValidationGateResult(26, "Regime Dependency Encoding", True, 0.85, "Failure regimes explicitly mapped"),
         )
 
         # Gate 27: Complexity Penalty
@@ -341,34 +408,38 @@ class MultiAsset33GateValidationEngine:
                 param_count <= 10,
                 max(0.0, 1.0 - complexity_penalty),
                 f"Parameter count: {param_count} (penalty: {complexity_penalty:.2f})",
-            )
+            ),
         )
 
         # Gate 28: Minimum Evidence Threshold
         gates_results.append(
             ValidationGateResult(
-                28, "Minimum Evidence Threshold", True, 0.88, "Multi-period out-of-sample evidence satisfied"
-            )
+                28,
+                "Minimum Evidence Threshold",
+                True,
+                0.88,
+                "Multi-period out-of-sample evidence satisfied",
+            ),
         )
 
         # Gate 29: Paper Trading Telemetry
         gates_results.append(
-            ValidationGateResult(29, "Paper Trading Telemetry", True, 0.90, "Paper execution telemetry verified")
+            ValidationGateResult(29, "Paper Trading Telemetry", True, 0.90, "Paper execution telemetry verified"),
         )
 
         # Gate 30: Shadow Trading Latency
         gates_results.append(
-            ValidationGateResult(30, "Shadow Trading Execution", True, 0.92, "Signal-to-execution latency < 50ms")
+            ValidationGateResult(30, "Shadow Trading Execution", True, 0.92, "Signal-to-execution latency < 50ms"),
         )
 
         # Gate 31: Limited Capital Deployment
         gates_results.append(
-            ValidationGateResult(31, "Limited Capital Deployment", True, 0.95, "Fractional risk allocation active")
+            ValidationGateResult(31, "Limited Capital Deployment", True, 0.95, "Fractional risk allocation active"),
         )
 
         # Gate 32: Production Monitoring
         gates_results.append(
-            ValidationGateResult(32, "Production Monitoring", True, 0.95, "Continuous PnL and decay monitoring active")
+            ValidationGateResult(32, "Production Monitoring", True, 0.95, "Continuous PnL and decay monitoring active"),
         )
 
         # Gate 33: Strategy Health State Machine
@@ -391,7 +462,7 @@ class MultiAsset33GateValidationEngine:
                 current_state in [StrategyHealthState.ACTIVE, StrategyHealthState.WARNING],
                 pass_ratio,
                 f"State: {current_state} ({passed_count}/33 gates passed)",
-            )
+            ),
         )
 
         overall_pass = current_state in [StrategyHealthState.ACTIVE, StrategyHealthState.WARNING]

@@ -21,45 +21,53 @@ import config
 import database
 
 try:
-    from institutional_integrations.parallel_pool import (get_parallel_pool,
-                                                          parallel_process_map,
-                                                          parallel_thread_map)
+    from institutional_integrations.parallel_pool import get_parallel_pool, parallel_process_map, parallel_thread_map
     from institutional_integrations.v11_autonomous_executive_agent import (
-        AutonomousExecutiveAgent, global_v11_executive_agent)
-    from institutional_integrations.v11_macro_regime_brain import (
-        MacroRegimeClassifierBrain, RegimeType, global_v11_macro_regime_brain)
-    from institutional_integrations.v11_multi_asset_validation_engine import (
-        MultiAsset33GateValidationEngine, StrategyHealthState,
-        global_v11_validation_engine)
-    from institutional_integrations.v11_quantum_strategy_brain import (
-        AssetClass, QuantumStrategyGenomeBrain, StrategyFamily, TradingHorizon,
-        global_v11_quantum_strategy_brain)
-except ImportError:
-    from parallel_pool import get_parallel_pool, parallel_thread_map, parallel_process_map
-    from v11_multi_asset_validation_engine import (
-        MultiAsset33GateValidationEngine,
-        global_v11_validation_engine,
-        StrategyHealthState,
+        AutonomousExecutiveAgent,
+        global_v11_executive_agent,
     )
-    from v11_quantum_strategy_brain import (
+    from institutional_integrations.v11_macro_regime_brain import (
+        MacroRegimeClassifierBrain,
+        RegimeType,
+        global_v11_macro_regime_brain,
+    )
+    from institutional_integrations.v11_multi_asset_validation_engine import (
+        MultiAsset33GateValidationEngine,
+        StrategyHealthState,
+        global_v11_validation_engine,
+    )
+    from institutional_integrations.v11_quantum_strategy_brain import (
+        AssetClass,
         QuantumStrategyGenomeBrain,
-        global_v11_quantum_strategy_brain,
         StrategyFamily,
         TradingHorizon,
-        AssetClass,
+        global_v11_quantum_strategy_brain,
     )
-    from v11_macro_regime_brain import (
-        MacroRegimeClassifierBrain,
-        global_v11_macro_regime_brain,
-        RegimeType,
-    )
+except ImportError:
+    from parallel_pool import get_parallel_pool, parallel_process_map, parallel_thread_map
     from v11_autonomous_executive_agent import (
         AutonomousExecutiveAgent,
         global_v11_executive_agent,
     )
+    from v11_macro_regime_brain import (
+        MacroRegimeClassifierBrain,
+        RegimeType,
+        global_v11_macro_regime_brain,
+    )
+    from v11_multi_asset_validation_engine import (
+        MultiAsset33GateValidationEngine,
+        StrategyHealthState,
+        global_v11_validation_engine,
+    )
+    from v11_quantum_strategy_brain import (
+        AssetClass,
+        QuantumStrategyGenomeBrain,
+        StrategyFamily,
+        TradingHorizon,
+        global_v11_quantum_strategy_brain,
+    )
 
-from v11_autonomous_self_healing_engine import (
-    V11HyperAutonomousSelfFixingGovernor, global_v11_self_healing_governor)
+from v11_autonomous_self_healing_engine import V11HyperAutonomousSelfFixingGovernor, global_v11_self_healing_governor
 
 
 def setup_module() -> None:
@@ -177,7 +185,10 @@ def test_quantum_strategy_genome_and_horizon_brain() -> None:
     assert brain_instance.classify_asset_class("EURUSD") == AssetClass.FOREX
 
     genome = brain_instance.generate_strategy_genome(
-        symbol="EURUSD", family=StrategyFamily.TREND, horizon=TradingHorizon.INTRADAY, timeframe="M15"
+        symbol="EURUSD",
+        family=StrategyFamily.TREND,
+        horizon=TradingHorizon.INTRADAY,
+        timeframe="M15",
     )
     assert genome.family == StrategyFamily.TREND
     assert genome.horizon == TradingHorizon.INTRADAY

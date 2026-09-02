@@ -9,11 +9,14 @@ import database
 import indicators
 import predictive_brain
 from institutional_integrations import aat_strategies
-from institutional_integrations.bayesian_consensus import \
-    global_bayesian_consensus
+from institutional_integrations.bayesian_consensus import global_bayesian_consensus
 from institutional_integrations.nofx_ai_terminal_engine import (
-    NoFxAction, NoFxModelDecision, global_nofx_direction_board,
-    global_nofx_disposer, global_nofx_model_manager)
+    NoFxAction,
+    NoFxModelDecision,
+    global_nofx_direction_board,
+    global_nofx_disposer,
+    global_nofx_model_manager,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -26,18 +29,15 @@ def _get_symbol_pip_specs(symbol: Any, current_price: Any) -> Any:
     sym_upper = symbol.upper()
     if "XAU" in sym_upper or "GOLD" in sym_upper:
         return {"pip_size": 0.1, "pip_value_per_lot": 10.0}
-    elif "XAG" in sym_upper or "SILVER" in sym_upper:
+    if "XAG" in sym_upper or "SILVER" in sym_upper:
         return {"pip_size": 0.01, "pip_value_per_lot": 50.0}
-    elif any((c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"])):
-        return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
-    elif any(
-        (idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"])
+    if any(c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]) or any(
+        idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]
     ):
         return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
-    elif "JPY" in sym_upper:
+    if "JPY" in sym_upper:
         return {"pip_size": 0.01, "pip_value_per_lot": 6.5}
-    else:
-        return {"pip_size": 0.0001, "pip_value_per_lot": 10.0}
+    return {"pip_size": 0.0001, "pip_value_per_lot": 10.0}
 
 
 def _get_symbol_min_lot(symbol: Any) -> Any:
@@ -47,12 +47,13 @@ def _get_symbol_min_lot(symbol: Any) -> Any:
     sym_upper = symbol.upper()
     if "XRP" in sym_upper:
         return 1.0
-    elif "LTC" in sym_upper or "SOL" in sym_upper:
+    if (
+        "LTC" in sym_upper
+        or "SOL" in sym_upper
+        or any(idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500"])
+    ):
         return 0.1
-    elif any((idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500"])):
-        return 0.1
-    else:
-        return 0.01
+    return 0.01
 
 
 class ScalperBrain:
@@ -110,7 +111,9 @@ class ScalperBrain:
         rsi_val = indicators.calculate_rsi(closes, getattr(config, "RSI_PERIOD", 14))
         atr_val = indicators.calculate_atr(highs, lows, closes, getattr(config, "ATR_PERIOD", 14))
         bb = indicators.calculate_bollinger_bands(
-            closes, getattr(config, "BB_PERIOD", 20), getattr(config, "BB_STD_DEV", 2.0)
+            closes,
+            getattr(config, "BB_PERIOD", 20),
+            getattr(config, "BB_STD_DEV", 2.0),
         )
         macd = indicators.calculate_macd(
             closes,
@@ -132,10 +135,8 @@ class ScalperBrain:
             return {"decision": "HOLD", "lot_size": 0.0, "sl": 0.0, "tp": 0.0, "explanation": msg, "indicators": {}}
         baseline_atr = (
             sum(
-                (
-                    indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
-                    for i in range(max(15, len(closes) - 20), len(closes))
-                )
+                indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
+                for i in range(max(15, len(closes) - 20), len(closes))
             )
             / 20.0
         )
@@ -232,10 +233,8 @@ class ScalperBrain:
         reg_state_val = 1.0 if reg_info["regime"] == "TRENDING" else 0.0
         baseline_atr = (
             sum(
-                (
-                    indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
-                    for i in range(max(15, len(closes) - 20), len(closes))
-                )
+                indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
+                for i in range(max(15, len(closes) - 20), len(closes))
             )
             / 20.0
         )
@@ -260,7 +259,7 @@ class ScalperBrain:
             opens_arr = np.roll(closes, 1)
             opens_arr[0] = closes[0]
             ohlcv_mat = np.column_stack(
-                (opens_arr[-min_len:], highs[-min_len:], lows[-min_len:], closes[-min_len:], vols[-min_len:])
+                (opens_arr[-min_len:], highs[-min_len:], lows[-min_len:], closes[-min_len:], vols[-min_len:]),
             )
         else:
             ohlcv_mat = np.empty((0, 5))
@@ -299,7 +298,9 @@ class ScalperBrain:
         sig_bo = "HOLD"
         donchian = indicators.calculate_donchian_channels(highs, lows, getattr(config, "BREAKOUT_PERIOD", 20))
         squeeze = indicators.calculate_bollinger_squeeze(
-            closes, getattr(config, "BB_PERIOD", 20), getattr(config, "BB_STD_DEV", 2.0)
+            closes,
+            getattr(config, "BB_PERIOD", 20),
+            getattr(config, "BB_STD_DEV", 2.0),
         )
         if donchian and squeeze is not None:
             if current_price >= donchian["upper"]:
@@ -326,7 +327,7 @@ class ScalperBrain:
                 for j in range(max(1, len(closes) - 20), len(closes))
             ]
             mean_r = sum(ratio_series) / len(ratio_series)
-            var_r = sum(((x - mean_r) ** 2 for x in ratio_series)) / len(ratio_series)
+            var_r = sum((x - mean_r) ** 2 for x in ratio_series) / len(ratio_series)
             std_r = math.sqrt(var_r) if var_r > 0 else 0.001
             curr_ratio = closes[-1] / (closes[-2] if closes[-2] > 0 else 1.0)
             z_score = (curr_ratio - mean_r) / std_r
@@ -522,15 +523,13 @@ class ScalperBrain:
             for m_style in methods_to_test:
                 for strat_name, raw_sig in all_strategies.items():
                     if raw_sig in ["BUY", "SELL"]:
-                        if (
-                            prevailing_sentiment == "BULLISH"
-                            and raw_sig == "SELL"
-                            or (prevailing_sentiment == "BEARISH" and raw_sig == "BUY")
+                        if (prevailing_sentiment == "BULLISH" and raw_sig == "SELL") or (
+                            prevailing_sentiment == "BEARISH" and raw_sig == "BUY"
                         ):
                             continue
-                        if kronos_upside_prob < 0.25 and raw_sig == "BUY":
-                            continue
-                        elif kronos_upside_prob > 0.75 and raw_sig == "SELL":
+                        if (kronos_upside_prob < 0.25 and raw_sig == "BUY") or (
+                            kronos_upside_prob > 0.75 and raw_sig == "SELL"
+                        ):
                             continue
                         prob = ai_bullish_prob if raw_sig == "BUY" else 1.0 - ai_bullish_prob
                         if prob < 0.6:
@@ -548,20 +547,18 @@ class ScalperBrain:
                                 "tp": tp_val,
                                 "explanation": exp,
                                 "probability": prob,
-                            }
+                            },
                         )
         elif strategy_mode == "MULTI_STRATEGY_CONCURRENT":
             for strat_name, raw_sig in all_strategies.items():
                 if raw_sig in ["BUY", "SELL"]:
-                    if (
-                        prevailing_sentiment == "BULLISH"
-                        and raw_sig == "SELL"
-                        or (prevailing_sentiment == "BEARISH" and raw_sig == "BUY")
+                    if (prevailing_sentiment == "BULLISH" and raw_sig == "SELL") or (
+                        prevailing_sentiment == "BEARISH" and raw_sig == "BUY"
                     ):
                         continue
-                    if kronos_upside_prob < 0.25 and raw_sig == "BUY":
-                        continue
-                    elif kronos_upside_prob > 0.75 and raw_sig == "SELL":
+                    if (kronos_upside_prob < 0.25 and raw_sig == "BUY") or (
+                        kronos_upside_prob > 0.75 and raw_sig == "SELL"
+                    ):
                         continue
                     prob = ai_bullish_prob if raw_sig == "BUY" else 1.0 - ai_bullish_prob
                     if prob < 0.6:
@@ -579,7 +576,7 @@ class ScalperBrain:
                             "tp": tp_val,
                             "explanation": exp,
                             "probability": prob,
-                        }
+                        },
                     )
         else:
             single_dec = "HOLD"
@@ -633,7 +630,7 @@ class ScalperBrain:
                         "tp": tp_val,
                         "explanation": single_exp,
                         "probability": prob,
-                    }
+                    },
                 )
         if concurrent_decisions:
             by_method_dir = {}
@@ -649,8 +646,7 @@ class ScalperBrain:
             else f"No authentic buy/sell signal in {strategy_mode} mode{agent_notes}"
         )
         try:
-            from institutional_integrations.trade_memory_protocol import \
-                global_trade_memory_protocol
+            from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
 
             if top_decision == "HOLD":
                 global_trade_memory_protocol.log_no_trade_veto(
@@ -705,7 +701,12 @@ class ScalperBrain:
         }
 
     def normalize_volume(
-        self, symbol: Any, volume: Any, min_vol: Any = 0.01, max_vol: Any = 100.0, step_vol: Any = 0.01
+        self,
+        symbol: Any,
+        volume: Any,
+        min_vol: Any = 0.01,
+        max_vol: Any = 100.0,
+        step_vol: Any = 0.01,
     ) -> Any:
         """Normalizes lot size according to minimum volume, maximum volume, and volume step."""
         if volume <= 0:

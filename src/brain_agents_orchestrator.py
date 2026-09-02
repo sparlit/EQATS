@@ -18,7 +18,6 @@ import concurrent.futures
 import datetime
 import os
 import time
-from typing import Any
 
 import database
 
@@ -28,7 +27,7 @@ class BrainAgentContext:
 
     def __init__(self, symbol: Any = "EURUSD") -> None:
         self.symbol = symbol
-        self.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        self.timestamp = datetime.datetime.now(datetime.UTC).isoformat()
         self.research_data = {}
         self.technical_data = {}
         self.prediction_data = {}
@@ -41,7 +40,7 @@ class BrainAgentContext:
         self.interventions = []
 
     def log_agent_message(self, agent_name: Any, message: Any) -> None:
-        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
+        ts = datetime.datetime.now(datetime.UTC).strftime("%H:%M:%S")
         entry = f"[{ts}] [{agent_name}] {message}"
         self.agent_messages.append(entry)
 
@@ -53,7 +52,7 @@ class BrainOrchestratorDirective:
     """
 
     def __init__(self) -> None:
-        self.timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        self.timestamp = datetime.datetime.now(datetime.UTC).isoformat()
         self.recommended_bias = "HOLD"
         self.confidence_score = 0.0
         self.recommended_style = "SCALPING"
@@ -108,7 +107,8 @@ class AnalystBrainAgent:
         spread_pips = (ask - bid) * 10000.0 if "JPY" not in sym else (ask - bid) * 100.0
         context.technical_data = {"bid": bid, "ask": ask, "mid": mid, "spread_pips": spread_pips}
         context.log_agent_message(
-            self.name, f"Analyst price action for {sym}: Mid={mid:.5f}, Spread={spread_pips:.2f} pips."
+            self.name,
+            f"Analyst price action for {sym}: Mid={mid:.5f}, Spread={spread_pips:.2f} pips.",
         )
         return context
 
@@ -126,7 +126,8 @@ class PredictionBrainAgent:
         if loss > 0.2:
             predictor.learning_rate = min(0.1, predictor.learning_rate * 1.1)
             context.log_agent_message(
-                self.name, f"Loss elevated ({loss:.4f}). Accelerated learning rate to {predictor.learning_rate:.3f}."
+                self.name,
+                f"Loss elevated ({loss:.4f}). Accelerated learning rate to {predictor.learning_rate:.3f}.",
             )
         else:
             predictor.learning_rate = max(0.01, predictor.learning_rate * 0.95)
@@ -363,11 +364,11 @@ class AgenticBrainsOrchestrator:
         self.master_interventions = []
         self.last_directive = BrainOrchestratorDirective()
         self._log_orchestrator(
-            "🤖 Master Agentic Brains Orchestrator initialized with Parallel Multiprocessing & 13 Strategy Swarm."
+            "🤖 Master Agentic Brains Orchestrator initialized with Parallel Multiprocessing & 13 Strategy Swarm.",
         )
 
     def _log_orchestrator(self, message: Any) -> None:
-        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S")
+        ts = datetime.datetime.now(datetime.UTC).strftime("%H:%M:%S")
         entry = f"[{ts}] [ORCHESTRATOR] {message}"
         self.telemetry_history.append(entry)
         if len(self.telemetry_history) > 100:
@@ -381,7 +382,7 @@ class AgenticBrainsOrchestrator:
         a BrainOrchestratorDirective payload.
         """
         start_time = time.time()
-        self.last_loop_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        self.last_loop_time = datetime.datetime.now(datetime.UTC).isoformat()
         context = BrainAgentContext(symbol=symbol)
         context = self.research_agent.process(context, scalper_instance)
         context = self.analyst_agent.process(context, scalper_instance)
@@ -391,8 +392,7 @@ class AgenticBrainsOrchestrator:
         accuracy = context.prediction_data.get("accuracy", 50.0)
         method_scores = {}
         strategy_scores = {}
-        from institutional_integrations.system_autotune import \
-            global_tuned_config
+        from institutional_integrations.system_autotune import global_tuned_config
 
         optimal_workers = global_tuned_config.get("thread_pool_workers", max(4, min((os.cpu_count() or 8) * 2, 32)))
         with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
@@ -442,7 +442,7 @@ class AgenticBrainsOrchestrator:
         interventions = []
         if risk_res["drawdown_pct"] >= 2.5:
             interventions.append(
-                f"INTERVENTION: Drawdown ({risk_res['drawdown_pct']}%) exceeded limit. Risk clamped to {risk_res['risk_modifier']}x."
+                f"INTERVENTION: Drawdown ({risk_res['drawdown_pct']}%) exceeded limit. Risk clamped to {risk_res['risk_modifier']}x.",
             )
         if spread_pips > 4.0:
             interventions.append(f"INTERVENTION: Excessive spread ({spread_pips:.2f} pips). Enforcing HOLD bias.")
@@ -453,11 +453,11 @@ class AgenticBrainsOrchestrator:
             [
                 f"Parallel Multi-Agent Swarm Sweep completed in {elapsed_ms:.1f}ms for {symbol}.",
                 f"Top Strategy: {strat_gov_res.get('top_strategy')} ({strat_gov_res.get('top_score')} pts) | Style: {best_method}",
-            ]
+            ],
         )
         self.last_directive = directive
         self._log_orchestrator(
-            f"Parallel Swarm Sweep ({elapsed_ms:.1f}ms): Bias={directive.recommended_bias}, TopStrat={strat_gov_res.get('top_strategy')}, RiskMod={directive.risk_ceiling_modifier}x."
+            f"Parallel Swarm Sweep ({elapsed_ms:.1f}ms): Bias={directive.recommended_bias}, TopStrat={strat_gov_res.get('top_strategy')}, RiskMod={directive.risk_ceiling_modifier}x.",
         )
         return directive
 

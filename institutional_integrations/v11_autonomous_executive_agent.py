@@ -21,7 +21,7 @@ class ExecutiveAgenticDirective:
         self.validation_summary = "All 33 Validation Gates operational"
         self.actionable_instructions = []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "timestamp": self.timestamp,
             "bias": self.bias,
@@ -44,7 +44,11 @@ class AutonomousExecutiveAgent:
         self.last_directive = ExecutiveAgenticDirective()
 
     def generate_executive_directive(
-        self, symbol: str, regime_info: Dict[str, Any], validation_info: Dict[str, Any], kronos_prob: float = 0.50
+        self,
+        symbol: str,
+        regime_info: dict[str, Any],
+        validation_info: dict[str, Any],
+        kronos_prob: float = 0.50,
     ) -> ExecutiveAgenticDirective:
         """
         Synthesizes multi-module intelligence into an executive directive.
@@ -59,7 +63,7 @@ class AutonomousExecutiveAgent:
             directive.bias = "HOLD"
             directive.executive_confidence = 0.20
             directive.actionable_instructions.append(
-                f"VETO: Strategy failed 33-gate validation ({validation_info.get('gates_passed', 0)}/33 passed)"
+                f"VETO: Strategy failed 33-gate validation ({validation_info.get('gates_passed', 0)}/33 passed)",
             )
             self.last_directive = directive
             return directive
@@ -69,21 +73,21 @@ class AutonomousExecutiveAgent:
             directive.executive_confidence = min(0.95, 0.50 + kronos_prob * 0.40)
             directive.recommended_horizon = "INTRADAY" if "STRONG_TREND" in regime else "SCALP"
             directive.actionable_instructions.append(
-                f"EXECUTE BUY: Upward trend aligned with Kronos upside probability ({kronos_prob:.2f})"
+                f"EXECUTE BUY: Upward trend aligned with Kronos upside probability ({kronos_prob:.2f})",
             )
         elif direction == "DOWN" and kronos_prob <= 0.45:
             directive.bias = "SELL"
             directive.executive_confidence = min(0.95, 0.50 + (1.0 - kronos_prob) * 0.40)
             directive.recommended_horizon = "INTRADAY" if "STRONG_TREND" in regime else "SCALP"
             directive.actionable_instructions.append(
-                f"EXECUTE SELL: Downward trend aligned with Kronos downside probability ({1.0 - kronos_prob:.2f})"
+                f"EXECUTE SELL: Downward trend aligned with Kronos downside probability ({1.0 - kronos_prob:.2f})",
             )
         else:
             directive.bias = "HOLD"
             directive.executive_confidence = 0.50
             directive.recommended_horizon = "SCALP"
             directive.actionable_instructions.append(
-                f"HOLD: Neutral direction or Kronos/Regime divergence (Kronos={kronos_prob:.2f}, Trend={direction})"
+                f"HOLD: Neutral direction or Kronos/Regime divergence (Kronos={kronos_prob:.2f}, Trend={direction})",
             )
 
         self.last_directive = directive

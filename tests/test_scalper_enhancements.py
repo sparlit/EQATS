@@ -39,7 +39,13 @@ def test_add_broker_account_leverage_normalization() -> None:
     config.DB_PATH = test_db
     database.init_db()
     database.add_broker_account(
-        "Test Gateway", "ServerA", "12345", "pass", leverage="888", environment="Demo", is_active=1
+        "Test Gateway",
+        "ServerA",
+        "12345",
+        "pass",
+        leverage="888",
+        environment="Demo",
+        is_active=1,
     )
     creds = database.get_broker_credentials()
     assert creds["leverage"] == "1:888"
@@ -56,17 +62,32 @@ def test_leverage_persistence_and_custom_options() -> None:
     config.DB_PATH = test_db
     database.init_db()
     database.save_broker_credentials(
-        "DemoServer", "888123", "pass123", "1:888", broker_name="Sovereign Gateway", environment="Demo"
+        "DemoServer",
+        "888123",
+        "pass123",
+        "1:888",
+        broker_name="Sovereign Gateway",
+        environment="Demo",
     )
     creds1 = database.get_broker_credentials()
     assert creds1["leverage"] == "1:888"
     database.save_broker_credentials(
-        "DemoServer", "888123", "pass123", "1:3000", broker_name="High Leverage Gateway", environment="Demo"
+        "DemoServer",
+        "888123",
+        "pass123",
+        "1:3000",
+        broker_name="High Leverage Gateway",
+        environment="Demo",
     )
     creds2 = database.get_broker_credentials()
     assert creds2["leverage"] == "1:3000"
     database.save_broker_credentials(
-        "DemoServer", "888123", "pass123", "1:10000", broker_name="Ultra Leverage Gateway", environment="Demo"
+        "DemoServer",
+        "888123",
+        "pass123",
+        "1:10000",
+        broker_name="Ultra Leverage Gateway",
+        environment="Demo",
     )
     creds3 = database.get_broker_credentials()
     assert creds3["leverage"] == "1:10000"

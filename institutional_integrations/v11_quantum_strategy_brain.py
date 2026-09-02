@@ -93,7 +93,7 @@ class StrategyGenomeInstance:
         self.confidence_score = 0.50
         self.validation_state = "CANDIDATE"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "strategy_id": self.strategy_id,
             "family": self.family,
@@ -115,7 +115,7 @@ class QuantumStrategyGenomeBrain:
 
     def __init__(self):
         self.version = "11.0.0"
-        self.registered_genomes: Dict[str, StrategyGenomeInstance] = {}
+        self.registered_genomes: dict[str, StrategyGenomeInstance] = {}
 
     def classify_asset_class(self, symbol: str) -> str:
         sym = symbol.upper()
@@ -123,29 +123,32 @@ class QuantumStrategyGenomeBrain:
             exch, symbol_code = sym.split(":", 1)
             if exch in ["NSE", "NFO"]:
                 return AssetClass.INDIAN_NSE
-            elif exch == "BSE":
+            if exch == "BSE":
                 return AssetClass.INDIAN_BSE
-            elif exch == "MCX":
+            if exch == "MCX":
                 return AssetClass.INDIAN_MCX
-            elif exch == "NCDEX":
+            if exch == "NCDEX":
                 return AssetClass.INDIAN_NCDEX
 
         if any(m in sym for m in ["XAU", "GOLD", "XAG", "SILVER", "PLATINUM"]):
             return AssetClass.PRECIOUS_METALS
-        elif any(e in sym for e in ["WTI", "BRENT", "OIL", "USOIL", "UKOIL", "NATGAS"]):
+        if any(e in sym for e in ["WTI", "BRENT", "OIL", "USOIL", "UKOIL", "NATGAS"]):
             return AssetClass.OIL_ENERGY
-        elif any(c in sym for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "DOGE"]):
+        if any(c in sym for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "DOGE"]):
             return AssetClass.CRYPTO
-        elif any(idx in sym for idx in ["US30", "NAS100", "SPX500", "GER40", "UK100", "NIFTY", "BANKNIFTY"]):
+        if any(idx in sym for idx in ["US30", "NAS100", "SPX500", "GER40", "UK100", "NIFTY", "BANKNIFTY"]):
             return AssetClass.INDICES
-        else:
-            return AssetClass.FOREX
+        return AssetClass.FOREX
 
     def generate_strategy_genome(
-        self, symbol: str, family: str, horizon: str, timeframe: str = "M15"
+        self,
+        symbol: str,
+        family: str,
+        horizon: str,
+        timeframe: str = "M15",
     ) -> StrategyGenomeInstance:
         asset_cls = self.classify_asset_class(symbol)
-        exchange = symbol.split(":")[0] if ":" in symbol else "GLOBAL_INTERBANK"
+        exchange = symbol.split(":", maxsplit=1)[0] if ":" in symbol else "GLOBAL_INTERBANK"
         strat_id = f"V11_GENOME_{family}_{horizon}_{symbol.replace(':', '_')}"
 
         genome = StrategyGenomeInstance(
@@ -161,8 +164,12 @@ class QuantumStrategyGenomeBrain:
         return genome
 
     def evaluate_bowtie_hourglass_strategy(
-        self, symbol: str, current_price: float, atr_val: float, regime: str = "TRENDING"
-    ) -> Dict[str, Any]:
+        self,
+        symbol: str,
+        current_price: float,
+        atr_val: float,
+        regime: str = "TRENDING",
+    ) -> dict[str, Any]:
         """
         Evaluates the Bowtie / Hourglass conditional breakout & position construction model.
         Sets pending buy-stop and sell-stop structures around the current price axis.

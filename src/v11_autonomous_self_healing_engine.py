@@ -30,8 +30,8 @@ class V11HyperAutonomousSelfFixingGovernor:
         self.version = "11.0.0"
         self.check_interval_sec = check_interval_sec
         self._running = False
-        self._daemon_thread: Optional[threading.Thread] = None
-        self.healing_logs: List[str] = []
+        self._daemon_thread: threading.Thread | None = None
+        self.healing_logs: list[str] = []
         self.system_health_score = 100.0
         self.db_lock_repaired_count = 0
         self.feed_reconnected_count = 0
@@ -82,12 +82,11 @@ class V11HyperAutonomousSelfFixingGovernor:
                 self._log_healing(f"Database recovery attempt result: {ex}")
                 return False
 
-    def perform_autotune_and_patching(self) -> Dict[str, Any]:
+    def perform_autotune_and_patching(self) -> dict[str, Any]:
         """
         Autonomously inspects system vitals, auto-tunes worker pools, and patches runtime parameters.
         """
-        from institutional_integrations.system_autotune import \
-            auto_tune_system_parameters
+        from institutional_integrations.system_autotune import auto_tune_system_parameters
 
         tuned = auto_tune_system_parameters()
         self.autotune_cycles_count += 1
@@ -112,7 +111,7 @@ class V11HyperAutonomousSelfFixingGovernor:
         # 2. System Autotune & Patching
         tuned = self.perform_autotune_and_patching()
         self._log_healing(
-            f"Healing cycle completed: health={self.system_health_score:.1f}%, state={self.active_health_state}, autotuned_workers={tuned.get('thread_pool_workers', 4)}"
+            f"Healing cycle completed: health={self.system_health_score:.1f}%, state={self.active_health_state}, autotuned_workers={tuned.get('thread_pool_workers', 4)}",
         )
 
     def start_high_priority_daemon(self):
@@ -141,7 +140,7 @@ class V11HyperAutonomousSelfFixingGovernor:
             self._daemon_thread.join(timeout=3.0)
         self._log_healing("🛑 Standalone Self-Healing Governor daemon stopped cleanly.")
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         return {
             "governor_version": self.version,
             "running": self._running,

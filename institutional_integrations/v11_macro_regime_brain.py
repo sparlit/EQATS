@@ -33,8 +33,12 @@ class MacroRegimeClassifierBrain:
         self.version = "11.0.0"
 
     def classify_regime(
-        self, highs: List[float], lows: List[float], closes: List[float], volumes: Optional[List[float]] = None
-    ) -> Dict[str, Any]:
+        self,
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
+        volumes: list[float] | None = None,
+    ) -> dict[str, Any]:
         """
         Classifies current market regime using multi-bar price action, ATR volatility ratio,
         and directional trend strength.
@@ -54,9 +58,9 @@ class MacroRegimeClassifierBrain:
         sma50 = sum(closes[-min(50, n) :]) / float(min(50, n))
 
         # Direction
-        if current_price > sma20 and sma20 > sma50:
+        if current_price > sma20 > sma50:
             direction = "UP"
-        elif current_price < sma20 and sma20 < sma50:
+        elif current_price < sma20 < sma50:
             direction = "DOWN"
         else:
             direction = "SIDEWAYS"
