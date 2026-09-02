@@ -7,21 +7,24 @@ on:
     types: [opened, synchronize, reopened, labeled]
     branches: [main, master]
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   auto-label-conflicts:
     name: Auto Label Merge Conflicts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Label Merge Conflicts
-        uses: prince-chrismc/label-merge-conflicts-action@v3
+        uses: prince-chrismc/label-merge-conflicts-action@21e6705eaa6aab66e4e486279389c8e3e4c465b7 # v3
         continue-on-error: true
         with:
           conflict_label_name: "has conflict"
@@ -35,12 +38,16 @@ jobs:
     name: Auto Resolve Conflicts (Theirs)
     if: github.event_name == 'pull_request' && github.event.label.name == 'auto-merge-theirs'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Configure Git User
         run: |
@@ -50,20 +57,21 @@ jobs:
       - name: Pull and Force Merge (Theirs)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-
-          git checkout $HEAD_BRANCH
-          if ! git merge origin/$BASE_BRANCH -X theirs -m "chore: auto-resolved conflicts favoring theirs"; then
+          git checkout "$HEAD_BRANCH"
+          if ! git merge "origin/$BASE_BRANCH" -X theirs -m "chore: auto-resolved conflicts favoring theirs"; then
             echo "Merge failed even with conflict strategy. Manual intervention required."
             exit 1
           fi
-          git push origin $HEAD_BRANCH
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${HEAD_BRANCH}"
 
       - name: Remove Label
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr edit ${{ github.event.pull_request.number }} --remove-label "auto-merge-theirs"
+          gh pr edit "$PR_NUMBER" --remove-label "auto-merge-theirs"

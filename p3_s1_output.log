@@ -1,8 +1,3 @@
-=== MATRIX FAULT CONSOLIDATION REPORT ===
-=== PHASE-1 MYPY LOG ===
-/usr/bin/python3.13t: No module named mypy
-=== PHASE-2 PYTEST LOG ===
-/usr/bin/python3.13t: No module named pytest
 === PHASE-3 STAGE-1 RUST LOG ===
 error: unexpected argument '-i' found
 
