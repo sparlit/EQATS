@@ -261,16 +261,12 @@ def test_autonomous_executive_agent_directives() -> None:
 
     regime_info = {"regime": RegimeType.TREND_STRONG, "direction": "UP"}
     validation_info = {"overall_pass": True, "gates_passed": 33}
-    directive_buy = agent.generate_executive_directive(
-        "EURUSD", regime_info, validation_info, kronos_prob=0.75
-    )
+    directive_buy = agent.generate_executive_directive("EURUSD", regime_info, validation_info, kronos_prob=0.75)
     assert directive_buy.bias == "BUY"
     assert directive_buy.executive_confidence > 0.50
 
     validation_fail = {"overall_pass": False, "gates_passed": 20}
-    directive_veto = agent.generate_executive_directive(
-        "EURUSD", regime_info, validation_fail, kronos_prob=0.75
-    )
+    directive_veto = agent.generate_executive_directive("EURUSD", regime_info, validation_fail, kronos_prob=0.75)
     assert directive_veto.bias == "HOLD"
     assert directive_veto.executive_confidence < 0.50
 
@@ -306,10 +302,7 @@ def test_v11_strict_edge_cases_and_boundary_checks() -> None:
     assert res_empty["decision"] == "HOLD"
     assert "Insufficient history" in res_empty.get("explanation", "")
 
-    bars_tight = [
-        {"open": 1.1, "high": 1.1001, "low": 1.0999, "close": 1.1, "tick_volume": 100}
-        for _ in range(250)
-    ]
+    bars_tight = [{"open": 1.1, "high": 1.1001, "low": 1.0999, "close": 1.1, "tick_volume": 100} for _ in range(250)]
     res_tight = scalper_brain.evaluate("EURUSD", bars_tight, current_equity=10000.0)
     assert res_tight["decision"] in ["HOLD", "BUY", "SELL"]
 
