@@ -16,6 +16,7 @@ main.dist/
 
 # Local environment
 .venv/
+venv/
 .env
 
 # Rust Target Build Artifacts
