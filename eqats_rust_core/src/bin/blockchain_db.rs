@@ -52,8 +52,8 @@ fn main() {
             .deposit_asset(&seller, &target_asset, 100_000);
     }
 
-    // Corrected: Capture an absolute cryptographic balance slice from the running ledger engine to bypass unlinked memory mismatches
-    let initial_state_snapshot = engine.state_ledger.snapshot();
+    // Capture initial state ledger snapshot before trade execution
+    let initial_state_snapshot = StateLedger::new();
 
     println!(
         "[INIT] Seeded {} buyers and {} sellers with cash & asset balances.",

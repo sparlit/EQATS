@@ -8,8 +8,8 @@ publish = false
 
 [lib]
 name = "eqats_rust_core"
-# Enforces cdylib to generate the exact shared library layer (.so / .pyd) needed by Python 3.13
-crate-type = ["cdylib"]
+# Generates both cdylib (.so/.pyd for Python PyO3) and rlib (for internal Rust binaries)
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "blockchain_db"
