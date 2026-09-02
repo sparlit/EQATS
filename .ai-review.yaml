@@ -12,13 +12,14 @@ llm:
     api_token: ${OPENAI_API_KEY}
 
 vcs:
-  provider: GITLAB
+  provider: GITHUB
 
   pipeline:
-    project_id: "1"
-    merge_request_id: "100"
+    owner: ${GITHUB_REPOSITORY_OWNER}
+    repo: ${GITHUB_REPOSITORY_NAME}
+    pull_number: ${PR_NUMBER}
 
   http_client:
     timeout: 120
-    api_url: https://gitlab.com
-    api_token: ${GITLAB_API_TOKEN}
+    api_url: https://api.github.com
+    api_token: ${GITHUB_TOKEN}

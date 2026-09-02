@@ -23,7 +23,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Disable credential persistence to prevent third-party actions or
           # the update script from accessing the GitHub token via .git/config
@@ -42,9 +42,13 @@ jobs:
       - name: Commit and Push Changes
         # Provide write-capable token explicitly only for this final operation,
         # after all third-party code has completed execution.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          GH_REF: ${{ github.ref }}
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@://github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
           git diff-index --quiet HEAD || git commit -m "chore: auto-update roadmap and timeline in README"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${GH_REF}"
