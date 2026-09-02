@@ -24,13 +24,14 @@ jobs:
 
       # Phase-1 Entry constraint: Hard force synchronize to the upstream tracking branch
       - name: Force Synchronize Repository Context
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           git config --global user.name "EQATS Autonomous Agent"
           git config --global user.email "agent@tsyslabs.com"
-          
-          TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
+
           echo "Target branch detected for synchronization: $TARGET_BRANCH"
-          
+
           git fetch origin "$TARGET_BRANCH"
           git reset --hard "origin/$TARGET_BRANCH"
           git pull origin "$TARGET_BRANCH" --force
@@ -39,10 +40,11 @@ jobs:
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y python3.13-nogil python3-dev rustc cargo patchelf ccache
-          
+          sudo apt-get install -y python3.13-nogil python3.13-dev rustc cargo patchelf ccache
+
           # Initialize stable workspace structures
-          python3 -m venv venv
+          PYTHON_CMD=$(which python3.13t 2>/dev/null || which python3.13 2>/dev/null || which python3)
+          $PYTHON_CMD -m venv venv
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
           $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip setuptools wheel
 
@@ -59,9 +61,9 @@ jobs:
         id: phase_1
         run: |
           echo "=== PHASE-1 MYPY LOG ===" > phase_1_output.log
-          python3.13t -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
+          python -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
           cat phase_1_output.log
-          
+
           if grep -q "error:" phase_1_output.log || grep -q "Found" phase_1_output.log; then
             echo "PHASE_1_PASSED=false" >> $GITHUB_ENV
             echo "CURRENT_FAILED_PHASE=Phase-1 (Mypy Static Typing Analysis)" >> $GITHUB_ENV
@@ -77,9 +79,9 @@ jobs:
         if: env.PHASE_1_PASSED == 'true'
         run: |
           echo "=== PHASE-2 PYTEST LOG ===" > phase_2_output.log
-          python3.13t -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
+          python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
           cat phase_2_output.log
-          
+
           if grep -q "FAILED" phase_2_output.log || grep -q "ERRORS" phase_2_output.log; then
             echo "PHASE_2_PASSED=false" >> $GITHUB_ENV
             echo "CURRENT_FAILED_PHASE=Phase-2 (Pytest Distributed Multi-Thread Matrix)" >> $GITHUB_ENV
@@ -99,13 +101,13 @@ jobs:
           echo "=== PHASE-3 STAGE-1 RUST LOG ===" > p3_s1_output.log
           if [ -d "eqats_rust_core" ]; then
             cd eqats_rust_core
-            maturin develop --release -i python3.13t >> ../p3_s1_output.log 2>&1 || true
+            maturin develop --release >> ../p3_s1_output.log 2>&1 || true
             cd ..
           else
             echo "Directory 'eqats_rust_core' not located; bypassing tracking step." >> p3_s1_output.log
           fi
           cat p3_s1_output.log
-          
+
           if grep -q "error:" p3_s1_output.log || grep -q "failed" p3_s1_output.log; then
             echo "P3_S1_PASSED=false" >> $GITHUB_ENV
             echo "CURRENT_FAILED_PHASE=Phase-3 Stage-1 (Maturin Native Rust Compilation)" >> $GITHUB_ENV
@@ -121,9 +123,9 @@ jobs:
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true'
         run: |
           echo "=== PHASE-3 STAGE-2 PYTHON LOG ===" > p3_s2_output.log
-          python3.13t -m compileall . >> p3_s2_output.log 2>&1 || true
+          python -m compileall . >> p3_s2_output.log 2>&1 || true
           cat p3_s2_output.log
-          
+
           if grep -q "error" p3_s2_output.log || grep -q "ERROR" p3_s2_output.log; then
             echo "P3_S2_PASSED=false" >> $GITHUB_ENV
             echo "CURRENT_FAILED_PHASE=Phase-3 Stage-2 (Python compileall Pre-Compilation)" >> $GITHUB_ENV
@@ -139,9 +141,9 @@ jobs:
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true' && env.P3_S2_PASSED == 'true'
         run: |
           echo "=== PHASE-3 STAGE-3 NUITKA LOG ===" > p3_s3_output.log
-          python3.13t -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
+          python -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
           cat p3_s3_output.log
-          
+
           if grep -q "FATAL" p3_s3_output.log || grep -q "Error:" p3_s3_output.log; then
             echo "P3_S3_PASSED=false" >> $GITHUB_ENV
             echo "CURRENT_FAILED_PHASE=Phase-3 Stage-3 (Nuitka Standalone Binary Packaging)" >> $GITHUB_ENV
@@ -164,54 +166,78 @@ jobs:
           S2_STATE=${{ env.P3_S2_PASSED || 'true' }}
           S3_STATE=${{ env.P3_S3_PASSED || 'true' }}
           FAILED_PHASE_NAME="${{ env.CURRENT_FAILED_PHASE || 'None' }}"
-          
+
           if [ "$P1_STATE" = "true" ] && [ "$P2_STATE" = "true" ] && [ "$S1_STATE" = "true" ] && [ "$S2_STATE" = "true" ] && [ "$S3_STATE" = "true" ] && [ "$FAILED_PHASE_NAME" = "None" ]; then
             echo "================================================================================"
             echo " [SUCCESS] REPOSITORY PASSED ALL MULTI-PHASE CHECKS. HEALING MATRIX TERMINATED."
             echo "================================================================================"
             exit 0
           fi
-          
+
           echo "[ANOMALY DETECTED] Identified failure point: $FAILED_PHASE_NAME"
           echo "=== MATRIX FAULT CONSOLIDATION REPORT ===" > master_healing_input.log
-          
+
           [ -f phase_1_output.log ] && cat phase_1_output.log >> master_healing_input.log
           [ -f phase_2_output.log ] && cat phase_2_output.log >> master_healing_input.log
           [ -f p3_s1_output.log ] && cat p3_s1_output.log >> master_healing_input.log
           [ -f p3_s2_output.log ] && cat p3_s2_output.log >> master_healing_input.log
           [ -f p3_s3_output.log ] && cat p3_s3_output.log >> master_healing_input.log
-          
+
           if [ -z "$NVIDIA_API_KEY" ]; then
             echo "[CRITICAL ERROR] NVIDIA_API_KEY secret is unconfigured in Repository Settings!"
             exit 1
           fi
-          
-          REPORT_PAYLOAD=$(cat master_healing_input.log | sed 's/"/\"/g' | sed ':a;N;$!ba;s/
-/\n/g')
-          
-          SYSTEM_PROMPT="You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
-          USER_PROMPT="Our pipeline failed at execution stage: $FAILED_PHASE_NAME.\n\nReview this consolidation error trace:\n\n$REPORT_PAYLOAD\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
-          
+
           echo "Dispatching execution logs directly to NVIDIA NIM Model: nvidia/nemotron-3-ultra-550b-a55b..."
-          
-          curl -s -X POST "https://integrate.api.nvidia.com/v1/chat/completions"             -H "Authorization: Bearer $NVIDIA_API_KEY"             -H "Content-Type: application/json"             -d "{
-              \"model\": \"nvidia/nemotron-3-ultra-550b-a55b\",
-              \"messages\": [
-                {\"role\": \"system\", \"content\": \"$SYSTEM_PROMPT\"},
-                {\"role\": \"user\", \"content\": \"$USER_PROMPT\"}
+
+          python - << 'EOF'
+          import json, os, urllib.request
+
+          key = os.environ.get("NVIDIA_API_KEY", "")
+          failed_phase = os.environ.get("CURRENT_FAILED_PHASE") or os.environ.get("FAILED_PHASE_NAME", "Unknown Phase")
+
+          log_content = ""
+          if os.path.exists("master_healing_input.log"):
+              with open("master_healing_input.log", "r", encoding="utf-8", errors="ignore") as f:
+                  log_content = f.read()
+
+          system_prompt = "You are an Elite Quantitative Systems Architect optimizing a high-frequency trading platform for Python 3.13+ Free-Threaded (No-GIL) environments. Your mandate is to parse failing phase logs and return automated code fixes."
+          user_prompt = f"Our pipeline failed at execution stage: {failed_phase}.\n\nReview this consolidation error trace:\n\n{log_content}\n\nIdentify the exact root causes of any errors, type-checking warnings, or compilation bottlenecks. Modify the project files directly to rectify and fix them completely. Your changes must remain thread-safe under No-GIL operation."
+
+          payload = {
+              "model": "nvidia/nemotron-3-ultra-550b-a55b",
+              "messages": [
+                  {"role": "system", "content": system_prompt},
+                  {"role": "user", "content": user_prompt}
               ],
-              \"temperature\": 0.1,
-              \"top_p\": 0.7,
-              \"max_tokens\": 4096
-            }" || echo "Handshake established with NVIDIA NIM context gateway."
-            
+              "temperature": 0.1,
+              "top_p": 0.7,
+              "max_tokens": 4096
+          }
+
+          req = urllib.request.Request(
+              "https://integrate.api.nvidia.com/v1/chat/completions",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {key}",
+                  "Content-Type": "application/json"
+              },
+              method="POST"
+          )
+          try:
+              with urllib.request.urlopen(req) as response:
+                  print("Response received from NVIDIA NIM endpoint:", response.status)
+          except Exception as e:
+              print("Handshake established with NVIDIA NIM context gateway or request error:", e)
+          EOF
+
           echo "Writing modifications to repository context..."
-          
-          TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
-          
+
+          TARGET_BRANCH="${TARGET_BRANCH:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}}"
+
           git add -A
           git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified defects flagged at stage: $FAILED_PHASE_NAME" || true
-          git push origin "$TARGET_BRANCH" --force
-          
+          git push origin "HEAD:$TARGET_BRANCH" --force
+
           echo "[HEALING TRACK RUNNING] Pushed patches back upstream to branch $TARGET_BRANCH. Terminalling thread execution to trigger a fresh validation loop sequence starting back at Phase-1."
           exit 1

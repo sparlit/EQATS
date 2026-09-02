@@ -18,7 +18,7 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: |
             .ai-review.yaml
-            .github/workflows/.ai-review.yaml
+            .github/.ai-review.yaml
           sparse-checkout-cone-mode: false
           path: base-config
 
@@ -38,9 +38,9 @@ jobs:
           if [ -f base-config/.ai-review.yaml ]; then
             cp base-config/.ai-review.yaml .ai-review.yaml
             echo "✓ Using .ai-review.yaml from base branch"
-          elif [ -f base-config/.github/workflows/.ai-review.yaml ]; then
-            cp base-config/.github/workflows/.ai-review.yaml .ai-review.yaml
-            echo "✓ Using .github/workflows/.ai-review.yaml from base branch"
+          elif [ -f base-config/.github/.ai-review.yaml ]; then
+            cp base-config/.github/.ai-review.yaml .ai-review.yaml
+            echo "✓ Using .github/.ai-review.yaml from base branch"
           elif [ -f .ai-review.yaml ]; then
             echo "✓ Using existing root .ai-review.yaml"
           else
@@ -62,4 +62,4 @@ jobs:
         uses: Nikita-Filonov/ai-review@e3e19d6d06c4ee6951c7a132d2a1090f8b04a947 # main # Or another marketplace alternative
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.YOUR_OPENAI_OR_CLAUDE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || secrets.OPENAI_KEY || secrets.YOUR_OPENAI_OR_CLAUDE_KEY }}
