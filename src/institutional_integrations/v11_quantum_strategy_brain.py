@@ -7,9 +7,9 @@ Decouples Strategy Type from Trading Horizon into independent composable dimensi
   - Multi-Asset Mapping covering Forex, Precious Metals, Oil/Energy, Stocks, Indices, Crypto, and Indian Venues (NSE, BSE, MSE, MCX, NCDEX).
 """
 
-import math
 import logging
-from typing import Dict, List, Any, Optional
+import math
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("v11_quantum_strategy_brain")
 
@@ -44,14 +44,14 @@ class StrategyFamily:
 
 
 class TradingHorizon:
-    HFT = "HFT"                  # Microseconds -> Seconds
-    SCALP = "SCALP"              # Seconds -> Minutes
-    INTRADAY = "INTRADAY"        # Minutes -> Hours
-    DAY = "DAY_TRADING"          # Session Open -> Close
+    HFT = "HFT"  # Microseconds -> Seconds
+    SCALP = "SCALP"  # Seconds -> Minutes
+    INTRADAY = "INTRADAY"  # Minutes -> Hours
+    DAY = "DAY_TRADING"  # Session Open -> Close
     SHORT_SWING = "SHORT_SWING"  # 1 -> 5 Days
-    SWING = "SWING"              # Days -> Weeks
-    POSITION = "POSITION"        # Weeks -> Months
-    LONG_TERM = "LONG_TERM"      # Months -> Years
+    SWING = "SWING"  # Days -> Weeks
+    POSITION = "POSITION"  # Weeks -> Months
+    LONG_TERM = "LONG_TERM"  # Months -> Years
 
 
 class AssetClass:
@@ -81,7 +81,7 @@ class StrategyGenomeInstance:
         asset_class: str,
         exchange: str,
         symbol: str,
-        timeframe: str = "M15"
+        timeframe: str = "M15",
     ):
         self.strategy_id = strategy_id
         self.family = family
@@ -142,11 +142,7 @@ class QuantumStrategyGenomeBrain:
             return AssetClass.FOREX
 
     def generate_strategy_genome(
-        self,
-        symbol: str,
-        family: str,
-        horizon: str,
-        timeframe: str = "M15"
+        self, symbol: str, family: str, horizon: str, timeframe: str = "M15"
     ) -> StrategyGenomeInstance:
         asset_cls = self.classify_asset_class(symbol)
         exchange = symbol.split(":")[0] if ":" in symbol else "GLOBAL_INTERBANK"
@@ -159,17 +155,13 @@ class QuantumStrategyGenomeBrain:
             asset_class=asset_cls,
             exchange=exchange,
             symbol=symbol,
-            timeframe=timeframe
+            timeframe=timeframe,
         )
         self.registered_genomes[strat_id] = genome
         return genome
 
     def evaluate_bowtie_hourglass_strategy(
-        self,
-        symbol: str,
-        current_price: float,
-        atr_val: float,
-        regime: str = "TRENDING"
+        self, symbol: str, current_price: float, atr_val: float, regime: str = "TRENDING"
     ) -> Dict[str, Any]:
         """
         Evaluates the Bowtie / Hourglass conditional breakout & position construction model.
@@ -182,7 +174,13 @@ class QuantumStrategyGenomeBrain:
 
         decision = "HOLD"
         if regime == "TRENDING":
-            decision = "BUY_PENDING_STOP" if current_price >= buy_entry_trigger else "SELL_PENDING_STOP" if current_price <= sell_entry_trigger else "HOLD"
+            decision = (
+                "BUY_PENDING_STOP"
+                if current_price >= buy_entry_trigger
+                else "SELL_PENDING_STOP"
+                if current_price <= sell_entry_trigger
+                else "HOLD"
+            )
 
         return {
             "strategy": StrategyFamily.BOWTIE_HOURGLASS,

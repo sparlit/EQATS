@@ -13,34 +13,27 @@ Verifies:
 
 import os
 import time
+
 import pytest
+
 import brain
 import config
 import database
 
 try:
-    from institutional_integrations.parallel_pool import get_parallel_pool, parallel_thread_map, parallel_process_map
-    from institutional_integrations.v11_multi_asset_validation_engine import (
-        MultiAsset33GateValidationEngine,
-        global_v11_validation_engine,
-        StrategyHealthState,
-    )
-    from institutional_integrations.v11_quantum_strategy_brain import (
-        QuantumStrategyGenomeBrain,
-        global_v11_quantum_strategy_brain,
-        StrategyFamily,
-        TradingHorizon,
-        AssetClass,
-    )
-    from institutional_integrations.v11_macro_regime_brain import (
-        MacroRegimeClassifierBrain,
-        global_v11_macro_regime_brain,
-        RegimeType,
-    )
+    from institutional_integrations.parallel_pool import (get_parallel_pool,
+                                                          parallel_process_map,
+                                                          parallel_thread_map)
     from institutional_integrations.v11_autonomous_executive_agent import (
-        AutonomousExecutiveAgent,
-        global_v11_executive_agent,
-    )
+        AutonomousExecutiveAgent, global_v11_executive_agent)
+    from institutional_integrations.v11_macro_regime_brain import (
+        MacroRegimeClassifierBrain, RegimeType, global_v11_macro_regime_brain)
+    from institutional_integrations.v11_multi_asset_validation_engine import (
+        MultiAsset33GateValidationEngine, StrategyHealthState,
+        global_v11_validation_engine)
+    from institutional_integrations.v11_quantum_strategy_brain import (
+        AssetClass, QuantumStrategyGenomeBrain, StrategyFamily, TradingHorizon,
+        global_v11_quantum_strategy_brain)
 except ImportError:
     from parallel_pool import get_parallel_pool, parallel_thread_map, parallel_process_map
     from v11_multi_asset_validation_engine import (
@@ -66,21 +59,19 @@ except ImportError:
     )
 
 from v11_autonomous_self_healing_engine import (
-    V11HyperAutonomousSelfFixingGovernor,
-    global_v11_self_healing_governor,
-)
+    V11HyperAutonomousSelfFixingGovernor, global_v11_self_healing_governor)
 
 
 def setup_module() -> None:
-    config.DB_PATH = 'test_v11_0_upgrade.db'
+    config.DB_PATH = "test_v11_0_upgrade.db"
     config.SIMULATION_MODE = True
     database.init_db()
 
 
 def teardown_module() -> None:
-    if os.path.exists('test_v11_0_upgrade.db'):
+    if os.path.exists("test_v11_0_upgrade.db"):
         try:
-            os.remove('test_v11_0_upgrade.db')
+            os.remove("test_v11_0_upgrade.db")
         except Exception:
             pass
 
@@ -88,12 +79,12 @@ def teardown_module() -> None:
 def test_v11_0_system_version_assertions() -> None:
     """Verifies that ScalperBrain, validation engine, strategy brain, macro regime, executive agent, and self-healing governor report v11.0.0."""
     scalper_brain = brain.ScalperBrain()
-    assert scalper_brain.version == '11.0.0'
-    assert global_v11_validation_engine.version == '11.0.0'
-    assert global_v11_quantum_strategy_brain.version == '11.0.0'
-    assert global_v11_macro_regime_brain.version == '11.0.0'
-    assert global_v11_executive_agent.version == '11.0.0'
-    assert global_v11_self_healing_governor.version == '11.0.0'
+    assert scalper_brain.version == "11.0.0"
+    assert global_v11_validation_engine.version == "11.0.0"
+    assert global_v11_quantum_strategy_brain.version == "11.0.0"
+    assert global_v11_macro_regime_brain.version == "11.0.0"
+    assert global_v11_executive_agent.version == "11.0.0"
+    assert global_v11_self_healing_governor.version == "11.0.0"
 
 
 def test_parallel_multi_processing_core() -> None:
@@ -109,20 +100,28 @@ def test_parallel_multi_processing_core() -> None:
     assert thread_results == [1, 4, 9, 16, 25]
 
     scalper_brain = brain.ScalperBrain()
-    bars = [{'open': 1.1 + i * 0.0001, 'high': 1.1005 + i * 0.0001, 'low': 1.0995 + i * 0.0001, 'close': 1.1002 + i * 0.0001} for i in range(210)]
+    bars = [
+        {
+            "open": 1.1 + i * 0.0001,
+            "high": 1.1005 + i * 0.0001,
+            "low": 1.0995 + i * 0.0001,
+            "close": 1.1002 + i * 0.0001,
+        }
+        for i in range(210)
+    ]
 
     symbols_dict = {
-        'EURUSD': bars,
-        'GBPUSD': bars,
-        'XAUUSD': bars,
+        "EURUSD": bars,
+        "GBPUSD": bars,
+        "XAUUSD": bars,
     }
 
     eval_results = scalper_brain.evaluate_symbols_parallel(symbols_dict, 10000.0)
     assert len(eval_results) == 3
-    assert 'EURUSD' in eval_results
-    assert 'GBPUSD' in eval_results
-    assert 'XAUUSD' in eval_results
-    assert 'decision' in eval_results['EURUSD']
+    assert "EURUSD" in eval_results
+    assert "GBPUSD" in eval_results
+    assert "XAUUSD" in eval_results
+    assert "decision" in eval_results["EURUSD"]
 
 
 def test_33_gate_validation_and_anti_overfitting_engine() -> None:
@@ -178,10 +177,7 @@ def test_quantum_strategy_genome_and_horizon_brain() -> None:
     assert brain_instance.classify_asset_class("EURUSD") == AssetClass.FOREX
 
     genome = brain_instance.generate_strategy_genome(
-        symbol="EURUSD",
-        family=StrategyFamily.TREND,
-        horizon=TradingHorizon.INTRADAY,
-        timeframe="M15"
+        symbol="EURUSD", family=StrategyFamily.TREND, horizon=TradingHorizon.INTRADAY, timeframe="M15"
     )
     assert genome.family == StrategyFamily.TREND
     assert genome.horizon == TradingHorizon.INTRADAY

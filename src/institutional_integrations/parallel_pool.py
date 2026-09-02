@@ -1,19 +1,21 @@
 """
-No-GIL Parallel Pool Orchestrator Script for EQATS Version 11.0.0.
+No-GIL Parallel Pool Orchestrator Script for EQATS.
 
 Provides high-performance multi-threading and multi-processing execution pools
 bypassing single-threaded execution bottlenecks across strategy evaluation,
-analytical calculations, backtesting sweeps, predictive neural forecasts, and background tasks.
+analytical calculations, backtesting sweeps, and background tasks.
 """
 
-import sys
-import os
-import time
 import logging
-from typing import Callable, Any, List, Dict, Optional, Iterable
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, Future, as_completed
+import os
+import sys
+import time
+from concurrent.futures import (Future, ProcessPoolExecutor,
+                                ThreadPoolExecutor, as_completed)
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 logger = logging.getLogger(__name__)
+
 
 class ParallelPoolOrchestrator:
     """
@@ -31,16 +33,13 @@ class ParallelPoolOrchestrator:
     def get_thread_executor(self) -> ThreadPoolExecutor:
         if self._thread_pool is None:
             self._thread_pool = ThreadPoolExecutor(
-                max_workers=self.max_threads,
-                thread_name_prefix="eqats_v11_thread"
+                max_workers=self.max_threads, thread_name_prefix="eqats_parallel_thread"
             )
         return self._thread_pool
 
     def get_process_executor(self) -> ProcessPoolExecutor:
         if self._process_pool is None:
-            self._process_pool = ProcessPoolExecutor(
-                max_workers=self.max_processes
-            )
+            self._process_pool = ProcessPoolExecutor(max_workers=self.max_processes)
         return self._process_pool
 
     def map_threads(self, fn: Callable[..., Any], *iterables: Iterable[Any]) -> List[Any]:
@@ -53,38 +52,13 @@ class ParallelPoolOrchestrator:
         executor = self.get_process_executor()
         return list(executor.map(fn, *iterables))
 
-    def submit_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
+    def submit_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future:
         executor = self.get_thread_executor()
         return executor.submit(fn, *args, **kwargs)
 
-    def submit_process(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
+    def submit_process(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future:
         executor = self.get_process_executor()
         return executor.submit(fn, *args, **kwargs)
-
-    def execute_batch_parallel(
-        self,
-        fn: Callable[..., Any],
-        items: List[Any],
-        use_processes: bool = False,
-        timeout: Optional[float] = 30.0
-    ) -> List[Any]:
-        """
-        Submits a batch of items to parallel worker pools and gathers results safely.
-        """
-        if not items:
-            return []
-
-        executor = self.get_process_executor() if use_processes else self.get_thread_executor()
-        futures: List[Future[Any]] = [executor.submit(fn, item) for item in items]
-        results: List[Any] = []
-
-        for future in as_completed(futures, timeout=timeout):
-            try:
-                results.append(future.result())
-            except Exception as e:
-                logger.error("Parallel batch execution worker exception: %s", e)
-                results.append(None)
-        return results
 
     def shutdown(self, wait: bool = True) -> None:
         if self._thread_pool:
@@ -97,14 +71,17 @@ class ParallelPoolOrchestrator:
 
 _GLOBAL_PARALLEL_POOL: Optional[ParallelPoolOrchestrator] = None
 
+
 def get_parallel_pool() -> ParallelPoolOrchestrator:
     global _GLOBAL_PARALLEL_POOL
     if _GLOBAL_PARALLEL_POOL is None:
         _GLOBAL_PARALLEL_POOL = ParallelPoolOrchestrator()
     return _GLOBAL_PARALLEL_POOL
 
+
 def parallel_thread_map(fn: Callable[..., Any], *iterables: Iterable[Any]) -> List[Any]:
     return get_parallel_pool().map_threads(fn, *iterables)
+
 
 def parallel_process_map(fn: Callable[..., Any], *iterables: Iterable[Any]) -> List[Any]:
     return get_parallel_pool().map_processes(fn, *iterables)

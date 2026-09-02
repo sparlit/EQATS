@@ -7,12 +7,12 @@ heal database locks/disk I/O errors, auto-patch runtime faults, restore interrup
 and autotune strategy parameters via LLM agentic feedback loops.
 """
 
+import logging
 import os
 import sys
-import time
 import threading
-import logging
-from typing import Dict, List, Any, Optional
+import time
+from typing import Any, Dict, List, Optional
 
 import config
 import database
@@ -54,7 +54,9 @@ class V11HyperAutonomousSelfFixingGovernor:
                 os.nice(-5)
                 self._log_healing("OS process scheduling priority elevated (nice -5).")
             elif sys.platform == "win32":
-                import win32process, win32api
+                import win32api
+                import win32process
+
                 handle = win32api.GetCurrentProcess()
                 win32process.SetPriorityClass(handle, win32process.HIGH_PRIORITY_CLASS)
                 self._log_healing("Windows process priority elevated to HIGH_PRIORITY_CLASS.")
@@ -84,7 +86,8 @@ class V11HyperAutonomousSelfFixingGovernor:
         """
         Autonomously inspects system vitals, auto-tunes worker pools, and patches runtime parameters.
         """
-        from institutional_integrations.system_autotune import auto_tune_system_parameters
+        from institutional_integrations.system_autotune import \
+            auto_tune_system_parameters
 
         tuned = auto_tune_system_parameters()
         self.autotune_cycles_count += 1
@@ -108,7 +111,9 @@ class V11HyperAutonomousSelfFixingGovernor:
 
         # 2. System Autotune & Patching
         tuned = self.perform_autotune_and_patching()
-        self._log_healing(f"Healing cycle completed: health={self.system_health_score:.1f}%, state={self.active_health_state}, autotuned_workers={tuned.get('thread_pool_workers', 4)}")
+        self._log_healing(
+            f"Healing cycle completed: health={self.system_health_score:.1f}%, state={self.active_health_state}, autotuned_workers={tuned.get('thread_pool_workers', 4)}"
+        )
 
     def start_high_priority_daemon(self):
         """Starts the backend self-healing governor daemon thread."""
@@ -127,11 +132,7 @@ class V11HyperAutonomousSelfFixingGovernor:
                     self._log_healing(f"⚠️ Self-Healing daemon cycle exception handled: {e}")
                 time.sleep(self.check_interval_sec)
 
-        self._daemon_thread = threading.Thread(
-            target=_loop,
-            name="v11_self_healing_governor_daemon",
-            daemon=True
-        )
+        self._daemon_thread = threading.Thread(target=_loop, name="v11_self_healing_governor_daemon", daemon=True)
         self._daemon_thread.start()
 
     def stop_daemon(self):

@@ -9,9 +9,9 @@ Provides multi-dimensional regime classification across:
   5. Session State (TOKYO, LONDON, NEW_YORK, INDIAN_MARKET_OPEN, OVERLAP)
 """
 
-import math
 import logging
-from typing import Dict, List, Any, Optional
+import math
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("v11_macro_regime_brain")
 
@@ -33,11 +33,7 @@ class MacroRegimeClassifierBrain:
         self.version = "11.0.0"
 
     def classify_regime(
-        self,
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
-        volumes: Optional[List[float]] = None
+        self, highs: List[float], lows: List[float], closes: List[float], volumes: Optional[List[float]] = None
     ) -> Dict[str, Any]:
         """
         Classifies current market regime using multi-bar price action, ATR volatility ratio,
@@ -55,7 +51,7 @@ class MacroRegimeClassifierBrain:
         n = len(closes)
         current_price = closes[-1]
         sma20 = sum(closes[-20:]) / 20.0
-        sma50 = sum(closes[-min(50, n):]) / float(min(50, n))
+        sma50 = sum(closes[-min(50, n) :]) / float(min(50, n))
 
         # Direction
         if current_price > sma20 and sma20 > sma50:
