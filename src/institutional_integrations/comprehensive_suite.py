@@ -104,11 +104,11 @@ def integrate_click() -> Any:
     try:
         import click
 
-        @click.command()
-        @click.option('--mode', default='SIMULATION')
         def hello(mode: Any) -> Any:
             return f'Mode set to {mode}'
-        return {'status': 'ACTIVE', 'command': str(hello), 'engine': 'CLICK'}
+
+        cmd = click.command()(click.option('--mode', default='SIMULATION')(hello))
+        return {'status': 'ACTIVE', 'command': str(cmd), 'engine': 'CLICK'}
     except Exception:
         return {'status': 'UNAVAILABLE', 'fallback': True, 'command': 'MockClickCmd', 'engine': 'CLICK'}
 

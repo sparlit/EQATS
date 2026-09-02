@@ -10,8 +10,8 @@ authors = [
     { name = "Simon Peter", email = "author@tsyslabs.com" }
 ]
 readme = "README.md"
-# Upgraded to force Free-Threaded (No-GIL) PEP 703 compliance natively
-requires-python = ">=3.13"
+# Compatible with Python 3.12+ and Free-Threaded (No-GIL) PEP 703
+requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.24.0",
     "pillow>=10.0.0",
