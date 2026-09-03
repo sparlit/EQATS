@@ -1,3 +1,4 @@
+<!-- codespell:ignore MIS,IST -->
 ## File: todo_tasks.md
 
 # GRANULAR ADAPTATION TASK PIPELINE
