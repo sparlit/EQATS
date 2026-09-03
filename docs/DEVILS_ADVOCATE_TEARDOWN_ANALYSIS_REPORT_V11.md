@@ -1,4 +1,3 @@
-<!-- codespell:ignore MIS,IST -->
 # ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 11.0.0)
 
 ## DEVIL'S ADVOCATE DEEP-DIVE TEARDOWN, DRILL-DOWN, & DECOMPOSED ANALYSIS REPORT
@@ -17,8 +16,9 @@ layer, and integration boundary across Python source modules (`src/`,
 database schemas (`database.py`), web/REST APIs (`web_api.py`), and 33-sheet
 Quantum Terminal GUI presentation components (`gui.py`).
 
-The primary goal of this teardown is to systematically challenge all operational
-assumptions, interrogate limits, and evaluate:
+The primary goal of this teardown is to systematically challenge all
+operational assumptions, interrogate limits, and evaluate:
+
 1. **Structural Integrity & Concurrency Constraints** (Thread race conditions,
    SQLite lock contention, and Python GIL multi-processing behaviors).
 2. **Deterministic Governance & Safety Invariants** (Validation of `INV-001`
@@ -43,20 +43,20 @@ assumptions, interrogate limits, and evaluate:
   - *Teardown Verdict*: Verified mathematically sound. Zero-ATR edge cases are
     guarded with default baseline ATR fallbacks (`0.0010`).
 - **Multi-Process Parallel Pool GIL Bypass (`src/institutional_integrations/parallel_pool.py`)**:
-  - *Analysis*: Dispatches heavy neural network evaluations and 33-gate validation
-    tasks across `ProcessPoolExecutor` and `ThreadPoolExecutor`.
+  - *Analysis*: Dispatches heavy neural network evaluations and 33-gate
+    validation tasks across `ProcessPoolExecutor` and `ThreadPoolExecutor`.
   - *Teardown Verdict*: Bypasses Python GIL contention under high-frequency
     workloads, utilizing physical host CPU cores efficiently.
 
 ### 2.2 Multi-Asset 33-Gate Validation & Anti-Overfitting Engine
 
-- **33-Gate Multi-Asset Pipeline (Gates 0–33)**:
-  - *Analysis*: Validates trade candidates through 33 distinct validation gates,
-    including Deflated Sharpe Ratio (DSR), Probability of Backtest Overfitting
-    (PBO), Combinatorial Purged Cross-Validation (CPCV), spread-drag checks,
-    and macro regime alignment.
+- **33-Gate Multi-Asset Pipeline (Gates 1–33)**:
+  - *Analysis*: Validates trade candidates through 33 distinct validation gates
+    (Gates 1–33), including Deflated Sharpe Ratio (DSR), Probability of Backtest
+    Overfitting (PBO), Combinatorial Purged Cross-Validation (CPCV), spread-drag
+    checks, and macro regime alignment.
   - *Teardown Verdict*: Operates deterministically without synthetic mock
-    pass-throughs. All gate calculations return structured audit signatures.
+    pass-throughs. All 33 gate calculations return structured audit signatures.
 
 ### 2.3 Autonomous Self-Healing Governor Daemon
 
@@ -70,9 +70,10 @@ assumptions, interrogate limits, and evaluate:
 ### 2.4 Multi-Broker Universal Adapter & Exchange Integrations
 
 - **SEBI & International Broker Order Normalization**:
-  - *Analysis*: Enforces tick-size rounding (`round_to_indian_tick_size`), integer
-    share quantities (`round_to_indian_quantity`), product tags (`MIS`, `CNC`,
-    `NRML`), and exchange state machine intraday cutoff rules (3:00 PM IST
+  - *Analysis*: Enforces tick-size rounding (`round_to_indian_tick_size`),
+    integer share quantities (`round_to_indian_quantity`), product tags
+    (Margin Intra-day Square-off / MIS, Cash & Carry / CNC, Normal / NRML), and
+    exchange state machine intraday cutoff rules (03:00 PM Indian Standard Time
     auto-squareoff).
   - *Teardown Verdict*: Prevents order rejection errors (`[Invalid volume]`,
     `[Invalid price]`) on live broker gateways.
@@ -125,6 +126,7 @@ safety invariants (`INV-001` to `INV-015`):
 ## 4. VERIFICATION & TEST COVERAGE MATRIX
 
 To confirm all teardown findings and verify zero regressions across the codebase:
+
 1. **Automated Integration Test Suite**: 405 test cases executed in `pytest`.
 2. **Pass Rate**: **100% Passed (405/405)**.
 3. **Execution Time**: 141.56 seconds.
