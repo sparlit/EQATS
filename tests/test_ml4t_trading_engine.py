@@ -1,10 +1,14 @@
 """
 Unit and Integration Tests for ML4T Financial ML Engine.
 """
-from typing import Any
+
 from datetime import datetime, timedelta
+from typing import Any
+
 import pytest
-from institutional_integrations.ml4t_trading_engine import PurgedWalkForwardCV, EigenportfolioDecomposition
+
+from institutional_integrations.ml4t_trading_engine import EigenportfolioDecomposition, PurgedWalkForwardCV
+
 
 def test_purged_walk_forward_cv() -> None:
     cv = PurgedWalkForwardCV(train_days=100, val_days=30, embargo_days=5, num_folds=2)
@@ -18,12 +22,17 @@ def test_purged_walk_forward_cv() -> None:
     assert f1.val_start == f1.embargo_end
     assert f1.val_end == f1.val_start + timedelta(days=30)
 
+
 def test_eigenportfolio_decomposition() -> None:
     pca_engine = EigenportfolioDecomposition()
-    returns_data = {'AAPL': [0.01, -0.02, 0.015, 0.005, -0.01, 0.02], 'MSFT': [0.008, -0.018, 0.012, 0.004, -0.008, 0.018], 'GOOGL': [0.012, -0.022, 0.018, 0.006, -0.012, 0.022]}
+    returns_data = {
+        "AAPL": [0.01, -0.02, 0.015, 0.005, -0.01, 0.02],
+        "MSFT": [0.008, -0.018, 0.012, 0.004, -0.008, 0.018],
+        "GOOGL": [0.012, -0.022, 0.018, 0.006, -0.012, 0.022],
+    }
     res = pca_engine.compute_eigenportfolios(returns_data, n_components=2)
     assert res.num_components == 2
     assert len(res.explained_variance_ratios) == 2
-    assert 'AAPL' in res.first_eigenportfolio_weights
-    assert 'MSFT' in res.first_eigenportfolio_weights
-    assert 'GOOGL' in res.first_eigenportfolio_weights
+    assert "AAPL" in res.first_eigenportfolio_weights
+    assert "MSFT" in res.first_eigenportfolio_weights
+    assert "GOOGL" in res.first_eigenportfolio_weights

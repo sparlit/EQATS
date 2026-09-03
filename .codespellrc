@@ -1,0 +1,3 @@
+[codespell]
+skip = *.lock,*.json,venv,.git,*.pdf,*.xlsx
+ignore-words-list = mis,ist,ttest,scrip,strat

@@ -1,9 +1,9 @@
 """
-No-GIL Parallel Pool Orchestrator Script for EQATS.
+No-GIL Parallel Pool Orchestrator Script for EQATS Version 11.0.0.
 
 Provides high-performance multi-threading and multi-processing execution pools
 bypassing single-threaded execution bottlenecks across strategy evaluation,
-analytical calculations, backtesting sweeps, and background tasks.
+analytical calculations, backtesting sweeps, predictive neural forecasts, and background tasks.
 """
 
 import logging
@@ -32,10 +32,7 @@ class ParallelPoolOrchestrator:
 
     def get_thread_executor(self) -> ThreadPoolExecutor:
         if self._thread_pool is None:
-            self._thread_pool = ThreadPoolExecutor(
-                max_workers=self.max_threads,
-                thread_name_prefix="eqats_parallel_thread",
-            )
+            self._thread_pool = ThreadPoolExecutor(max_workers=self.max_threads, thread_name_prefix="eqats_v11_thread")
         return self._thread_pool
 
     def get_process_executor(self) -> ProcessPoolExecutor:
@@ -53,13 +50,38 @@ class ParallelPoolOrchestrator:
         executor = self.get_process_executor()
         return list(executor.map(fn, *iterables))
 
-    def submit_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future:
+    def submit_thread(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
         executor = self.get_thread_executor()
         return executor.submit(fn, *args, **kwargs)
 
-    def submit_process(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future:
+    def submit_process(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Future[Any]:
         executor = self.get_process_executor()
         return executor.submit(fn, *args, **kwargs)
+
+    def execute_batch_parallel(
+        self,
+        fn: Callable[..., Any],
+        items: list[Any],
+        use_processes: bool = False,
+        timeout: float | None = 30.0,
+    ) -> list[Any]:
+        """
+        Submits a batch of items to parallel worker pools and gathers results safely.
+        """
+        if not items:
+            return []
+
+        executor = self.get_process_executor() if use_processes else self.get_thread_executor()
+        futures: list[Future[Any]] = [executor.submit(fn, item) for item in items]
+        results: list[Any] = []
+
+        for future in as_completed(futures, timeout=timeout):
+            try:
+                results.append(future.result())
+            except Exception as e:
+                logger.error("Parallel batch execution worker exception: %s", e)
+                results.append(None)
+        return results
 
     def shutdown(self, wait: bool = True) -> None:
         if self._thread_pool:

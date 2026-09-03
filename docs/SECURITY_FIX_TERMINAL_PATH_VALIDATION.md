@@ -54,7 +54,7 @@ if terminal_path and str(terminal_path).strip():
             "Terminal path validation failed for add_broker_account: %s. "
             "Terminal path will be cleared for security. Error: %s",
             terminal_path,
-            e
+            e,
         )
         validated_terminal_path = ""
 ```
@@ -77,10 +77,7 @@ if path and str(path).strip():
         _log.info("Using validated MT5 terminal path: %s", validated_path)
     except ValueError as e:
         _log.error(
-            "Terminal path validation failed in MT5Connector.connect(): %s. "
-            "Path will not be used. Error: %s",
-            path,
-            e
+            "Terminal path validation failed in MT5Connector.connect(): %s. Path will not be used. Error: %s", path, e
         )
         # Do not add path to init_kwargs - let MT5 use default path
 ```
@@ -117,7 +114,7 @@ database.save_broker_credentials(
     account_id="12345",
     password="password",
     leverage="1:100",
-    terminal_path=r"C:\malware\backdoor.exe"
+    terminal_path=r"C:\malware\backdoor.exe",
 )
 ```
 - Malicious path would be stored and executed

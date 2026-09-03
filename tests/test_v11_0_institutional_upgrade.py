@@ -225,7 +225,7 @@ def test_quantum_strategy_genome_and_multi_asset_taxonomy() -> None:
             assert genome.asset_class == AssetClass.FOREX
 
     bowtie = brain_instance.evaluate_bowtie_hourglass_strategy(
-        "EURUSD", current_price=1.1000, atr_val=0.0015, regime="TRENDING"
+        "EURUSD", current_price=1.1000, atr_val=0.0015, regime="TRENDING",
     )
     assert bowtie["strategy"] == StrategyFamily.BOWTIE_HOURGLASS
     assert bowtie["buy_trigger"] > 1.1000

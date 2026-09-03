@@ -72,7 +72,7 @@ def execute_order(self, symbol, order_type, lot_size, sl, tp):
 **Before (vulnerable code):**
 ```python
 def execute_order(self, symbol, order_type, lot_size, sl, tp):
-    # ... 
+    # ...
     # Query live broker volume constraints to avoid [Invalid volume] errors
     info = self.mt5.symbol_info(symbol)
     if info is not None:

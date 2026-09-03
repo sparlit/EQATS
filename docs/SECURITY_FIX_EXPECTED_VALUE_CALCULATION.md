@@ -95,8 +95,15 @@ env = self.engine.risk.calculate_expected_net_value(
 _log.info(
     "Expected Net Value calculation for %s: probability=%.3f, SL_dist=%.5f, TP_dist=%.5f, "
     "gross_edge=%.5f, spread=%.5f, commission=%.5f, slippage=%.5f, ENV=%.5f",
-    symbol, signal_probability, sl_distance, tp_distance, 
-    gross_edge, actual_spread, estimated_commission, estimated_slippage, env
+    symbol,
+    signal_probability,
+    sl_distance,
+    tp_distance,
+    gross_edge,
+    actual_spread,
+    estimated_commission,
+    estimated_slippage,
+    env,
 )
 ```
 
@@ -113,24 +120,22 @@ _log.info(
 
 **New Code (lines 544-612):**
 ```python
-def authorize_trade(
-    self, symbol: str, expected_net_value: float, safety_violations: list
-) -> bool:
+def authorize_trade(self, symbol: str, expected_net_value: float, safety_violations: list) -> bool:
     """
     The only final authorization boundary permitted to trigger order routing.
     No Trade Admission means NO trade can ever occur.
-    
+
     SECURITY: Expected net value must be derived from actual signal probability,
     stop-loss/take-profit distances, and real trading costs. A fabricated or
     dimensionally inconsistent value will fail this check.
     """
     # ... [resilience and violation checks] ...
-    
+
     # SECURITY FIX: Require meaningfully positive expected value
     # The minimum threshold accounts for estimation errors and provides safety margin
     # Expected net value should be in price units (e.g., 0.0001 for 1 pip on EURUSD)
     min_positive_edge = getattr(config, "MIN_EXPECTED_NET_VALUE_THRESHOLD", 0.00001)
-    
+
     if expected_net_value <= min_positive_edge:
         global_event_bus.publish(
             Event(
@@ -145,7 +150,7 @@ def authorize_trade(
             )
         )
         return False
-    
+
     # ... [approval logic] ...
 ```
 

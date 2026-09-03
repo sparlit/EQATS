@@ -58,18 +58,18 @@ brokers = database.get_all_brokers()
 # Re-save each broker (this encrypts using new Fernet method)
 for broker in brokers:
     database.save_broker_credentials(
-        server=broker['server'],
-        account_id=broker['account_id'],
-        password=broker['password'],
-        leverage=broker['leverage'],
-        broker_name=broker.get('broker_name', 'Gateway'),
-        environment=broker.get('environment', 'Demo'),
-        protocol_type=broker.get('protocol_type', 'MT5'),
-        api_key=broker.get('api_key', ''),
-        api_secret=broker.get('api_secret', ''),
-        rest_url=broker.get('rest_url', ''),
-        ws_url=broker.get('ws_url', ''),
-        terminal_path=broker.get('terminal_path', '')
+        server=broker["server"],
+        account_id=broker["account_id"],
+        password=broker["password"],
+        leverage=broker["leverage"],
+        broker_name=broker.get("broker_name", "Gateway"),
+        environment=broker.get("environment", "Demo"),
+        protocol_type=broker.get("protocol_type", "MT5"),
+        api_key=broker.get("api_key", ""),
+        api_secret=broker.get("api_secret", ""),
+        rest_url=broker.get("rest_url", ""),
+        ws_url=broker.get("ws_url", ""),
+        terminal_path=broker.get("terminal_path", ""),
     )
 ```
 

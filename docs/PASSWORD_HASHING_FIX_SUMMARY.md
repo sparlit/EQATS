@@ -72,6 +72,7 @@ This patch mitigates the user credential storage vulnerability by replacing fast
 Administrators can check migration progress:
 ```python
 import database
+
 status = database.get_credential_migration_status()
 print(f"Migration complete: {status['migration_complete']}")
 ```

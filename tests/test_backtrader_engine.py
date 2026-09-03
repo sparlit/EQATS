@@ -1,9 +1,13 @@
 """
 Unit and Integration Tests for Backtrader Engine.
 """
+
 from typing import Any
+
 import pytest
+
 from institutional_integrations.backtrader_engine import BacktraderAnalyzerEngine, BacktraderSizerEngine
+
 
 def test_backtrader_analyzer_metrics() -> None:
     analyzer = BacktraderAnalyzerEngine()
@@ -14,6 +18,7 @@ def test_backtrader_analyzer_metrics() -> None:
     assert metrics.sqn_score > 0.0
     assert metrics.win_rate == 60.0
     assert metrics.annual_return_pct > 0.0
+
 
 def test_backtrader_sizers() -> None:
     sizer = BacktraderSizerEngine()

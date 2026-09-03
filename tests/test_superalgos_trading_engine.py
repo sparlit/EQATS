@@ -1,17 +1,13 @@
 from typing import Any
+
 """
 Unit and Integration Tests for Superalgos Trading Stages Engine.
 """
-from typing import Any
 from datetime import datetime, timedelta
-import pytest
-from institutional_integrations.superalgos_trading_engine import SuperalgosTradingStagesEngine, StageType, TriggerStatus
 
-from institutional_integrations.superalgos_trading_engine import (
-    SuperalgosTradingStagesEngine,
-    StageType,
-    TriggerStatus,
-)
+import pytest
+
+from institutional_integrations.superalgos_trading_engine import StageType, SuperalgosTradingStagesEngine, TriggerStatus
 
 
 def test_superalgos_trading_stages_lifecycle() -> None:
@@ -20,8 +16,16 @@ def test_superalgos_trading_stages_lifecycle() -> None:
     trig = engine.evaluate_trigger_stage(True)
     assert trig == TriggerStatus.ON
     assert engine.current_stage == StageType.OPEN_STAGE
-    pos = engine.execute_open_stage(symbol='BTCUSDT', side='BUY', entry_price=50000.0, size=1.0, stop_loss=49000.0, take_profit=52000.0, open_time=now)
-    assert pos.symbol == 'BTCUSDT'
+    pos = engine.execute_open_stage(
+        symbol="BTCUSDT",
+        side="BUY",
+        entry_price=50000.0,
+        size=1.0,
+        stop_loss=49000.0,
+        take_profit=52000.0,
+        open_time=now,
+    )
+    assert pos.symbol == "BTCUSDT"
     assert str(engine.current_stage) == str(StageType.MANAGE_STAGE)
     stage_hold = engine.evaluate_manage_stage(current_price=51000.0)
     assert stage_hold == StageType.MANAGE_STAGE

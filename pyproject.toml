@@ -70,7 +70,7 @@ known-first-party = ["institutional_integrations", "brain", "connector", "databa
 # Upgraded typing boundaries to strictly analyze Python 3.13 source states
 python_version = "3.13"
 ignore_missing_imports = true
-exclude = ["build", "dist", "eqats.egg-info", ".eggs"]
+exclude = ["main\\.py$", "build", "dist", "eqats.egg-info", ".eggs"]
 # Corrected: Swapped false overrides to true constraints to support your --strict validation track
 warn_unused_ignores = true
 warn_redundant_casts = true

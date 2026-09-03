@@ -1,21 +1,44 @@
 """
 Unit and Integration Tests for Solana DEX Risk Guard Engine.
 """
+
 from typing import Any
+
 import pytest
-from institutional_integrations.solana_dex_risk_guard import SolanaDEXRiskGuard, DEXPoolMetrics
+
+from institutional_integrations.solana_dex_risk_guard import DEXPoolMetrics, SolanaDEXRiskGuard
+
 
 def test_solana_dex_risk_guard_safe_pool() -> None:
     guard = SolanaDEXRiskGuard()
-    safe_metrics = DEXPoolMetrics(mint_address='SAFE_MINT_111', lp_supply=1000000.0, lp_burned_pct=100.0, mint_authority_renounced=True, freeze_authority_revoked=True, is_metadata_mutable=False, has_verified_socials=True, pool_size_sol=100.0)
+    safe_metrics = DEXPoolMetrics(
+        mint_address="SAFE_MINT_111",
+        lp_supply=1000000.0,
+        lp_burned_pct=100.0,
+        mint_authority_renounced=True,
+        freeze_authority_revoked=True,
+        is_metadata_mutable=False,
+        has_verified_socials=True,
+        pool_size_sol=100.0,
+    )
     res = guard.audit_dex_pool(safe_metrics)
     assert res.passed is True
     assert len(res.violations) == 0
     assert res.risk_score == 0.0
 
+
 def test_solana_dex_risk_guard_honeypot_pool() -> None:
     guard = SolanaDEXRiskGuard()
-    dangerous_metrics = DEXPoolMetrics(mint_address='DANGER_MINT_999', lp_supply=1000000.0, lp_burned_pct=0.0, mint_authority_renounced=False, freeze_authority_revoked=False, is_metadata_mutable=True, has_verified_socials=False, pool_size_sol=2.0)
+    dangerous_metrics = DEXPoolMetrics(
+        mint_address="DANGER_MINT_999",
+        lp_supply=1000000.0,
+        lp_burned_pct=0.0,
+        mint_authority_renounced=False,
+        freeze_authority_revoked=False,
+        is_metadata_mutable=True,
+        has_verified_socials=False,
+        pool_size_sol=2.0,
+    )
     res = guard.audit_dex_pool(dangerous_metrics)
     assert res.passed is False
     assert len(res.violations) >= 4

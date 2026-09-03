@@ -50,14 +50,16 @@ client_order_id = f"EQATS_{uuid.uuid4().hex[:16]}_{int(time.time() * 1000)}"
 
 b) **Include in Payload** (Lines 261-270):
 ```python
-payload = json.dumps({
-    "client_order_id": client_order_id,  # NEW: Idempotency key
-    "symbol": symbol,
-    "side": order_type,
-    "volume": lot_size,
-    "sl": sl,
-    "tp": tp,
-})
+payload = json.dumps(
+    {
+        "client_order_id": client_order_id,  # NEW: Idempotency key
+        "symbol": symbol,
+        "side": order_type,
+        "volume": lot_size,
+        "sl": sl,
+        "tp": tp,
+    }
+)
 ```
 
 c) **Reconciliation After Timeout** (Lines 301-326):

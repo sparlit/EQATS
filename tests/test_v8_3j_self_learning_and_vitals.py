@@ -2,37 +2,66 @@
 Integration test suite for EQATS v8.3j self-learning trade reflection, hardware capacity auto-detection,
 and zero-mock resilience.
 """
+
 from typing import Any
+
+from institutional_integrations.system_autotune import auto_tune_system_parameters, detect_system_capabilities
 from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
-from institutional_integrations.system_autotune import detect_system_capabilities, auto_tune_system_parameters
+
 
 def test_trade_memory_self_learning_retraining() -> None:
     """Verifies that winning and losing trade reflections retrain strategy weightings dynamically."""
     protocol = global_trade_memory_protocol
-    initial_weight = protocol.get_adaptive_strategy_weight('SMC_ICT')
-    protocol.log_reflection(ticket=101, symbol='EURUSD', direction='BUY', open_price=1.1, close_price=1.105, profit=50.0, reason='TP_HIT', strategy_used='SMC_ICT')
-    win_weight = protocol.get_adaptive_strategy_weight('SMC_ICT')
+    initial_weight = protocol.get_adaptive_strategy_weight("SMC_ICT")
+    protocol.log_reflection(
+        ticket=101,
+        symbol="EURUSD",
+        direction="BUY",
+        open_price=1.1,
+        close_price=1.105,
+        profit=50.0,
+        reason="TP_HIT",
+        strategy_used="SMC_ICT",
+    )
+    win_weight = protocol.get_adaptive_strategy_weight("SMC_ICT")
     assert win_weight > initial_weight
-    protocol.log_reflection(ticket=102, symbol='EURUSD', direction='SELL', open_price=1.105, close_price=1.108, profit=-30.0, reason='SL_HIT', strategy_used='SMC_ICT')
-    loss_weight = protocol.get_adaptive_strategy_weight('SMC_ICT')
+    protocol.log_reflection(
+        ticket=102,
+        symbol="EURUSD",
+        direction="SELL",
+        open_price=1.105,
+        close_price=1.108,
+        profit=-30.0,
+        reason="SL_HIT",
+        strategy_used="SMC_ICT",
+    )
+    loss_weight = protocol.get_adaptive_strategy_weight("SMC_ICT")
     assert loss_weight < win_weight
+
 
 def test_no_trade_veto_logging_and_feature_analysis() -> None:
     """Verifies no-trade veto logging and post-mortem feature statistics."""
     protocol = global_trade_memory_protocol
-    protocol.log_no_trade_veto(symbol='GBPUSD', direction='BUY', signal_probability=75.0, veto_reason='VPIN_TOXICITY_HIGH', strategy_used='ORDER_FLOW')
+    protocol.log_no_trade_veto(
+        symbol="GBPUSD",
+        direction="BUY",
+        signal_probability=75.0,
+        veto_reason="VPIN_TOXICITY_HIGH",
+        strategy_used="ORDER_FLOW",
+    )
     analysis = protocol.analyze_post_mortem_features()
-    assert analysis['total_records'] > 0
-    assert analysis['veto_count'] >= 1
-    assert 'adaptive_weights' in analysis
+    assert analysis["total_records"] > 0
+    assert analysis["veto_count"] >= 1
+    assert "adaptive_weights" in analysis
+
 
 def test_system_autotune_capabilities_and_tiers() -> None:
     """Verifies hardware capabilities detection and dynamic parameter tuning."""
     caps = detect_system_capabilities()
-    assert 'cpu_logical_cores' in caps
-    assert 'ram_total_gb' in caps
-    assert caps['performance_tier'] in ['LOW', 'MEDIUM', 'HIGH', 'ULTRA']
+    assert "cpu_logical_cores" in caps
+    assert "ram_total_gb" in caps
+    assert caps["performance_tier"] in ["LOW", "MEDIUM", "HIGH", "ULTRA"]
     tuned = auto_tune_system_parameters(caps)
-    assert tuned['process_pool_workers'] >= 2
-    assert tuned['thread_pool_workers'] >= 4
-    assert tuned['ml_batch_size'] in [16, 32, 64, 128]
+    assert tuned["process_pool_workers"] >= 2
+    assert tuned["thread_pool_workers"] >= 4
+    assert tuned["ml_batch_size"] in [16, 32, 64, 128]

@@ -1,25 +1,29 @@
 import os
 import re
+import subprocess
 import sys
 import time
-import subprocess
+
 from openai import OpenAI
+
 
 def load_file(filepath):
     if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, encoding="utf-8") as f:
             return f.read()
     return ""
+
 
 def save_file(filepath, content):
     # CRITICAL ROOT FILE REPAIR: Verify path exists before running os.makedirs
     dirname = os.path.dirname(filepath)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
-    with open(filepath, 'w', encoding='utf-8') as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
         f.flush()
         os.fsync(f.fileno())
+
 
 def verify_rust_compilation(repo_short_name):
     sandbox_dir = f"modules/{repo_short_name}"
@@ -43,32 +47,30 @@ serde_json = "1.0"
                 f.write(cargo_toml_patch)
 
         check_run = subprocess.run(
-            ["cargo", "check", "--manifest-path", f"{sandbox_dir}/Cargo.toml"],
-            capture_output=True,
-            text=True
+            ["cargo", "check", "--manifest-path", f"{sandbox_dir}/Cargo.toml"], capture_output=True, text=True,
         )
         if check_run.returncode == 0:
             print(f"✅ [{repo_short_name}] Pre-compilation test suite PASSED.")
             return True
-        else:
-            print(f"❌ [{repo_short_name}] Pre-compilation test suite FAILED.")
-            print(check_run.stderr)
-            return False
+        print(f"❌ [{repo_short_name}] Pre-compilation test suite FAILED.")
+        print(check_run.stderr)
+        return False
     except Exception as e:
         print(f"[{repo_short_name}] Cargo check couldn't run: {e}")
         return False
+
 
 def git_commit_and_push(repo_name):
     try:
         subprocess.run(["git", "config", "--local", "user.email", "aquice-bot@github.com"], check=True)
         subprocess.run(["git", "config", "--local", "user.name", "AQuICE Auto-Architect Bot"], check=True)
         subprocess.run(["git", "add", "."], check=True)
-        
+
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         if not status.stdout.strip():
             print(f"[{repo_name}] No code mutations found.")
             return
-            
+
         subprocess.run(["git", "commit", "-m", f"AQuICE: Adapted and verified {repo_name}"], check=True)
         subprocess.run(["git", "pull", "origin", "main", "--rebase"], check=True)
         subprocess.run(["git", "push", "origin", "main"], check=True)
@@ -76,10 +78,11 @@ def git_commit_and_push(repo_name):
     except Exception as e:
         print(f"Git execution encountered a sync error on repo {repo_name}: {e}")
 
+
 def run_conversion_cycle(current_repo, api_key, model_name):
     blueprint = load_file("ingestion_blueprint.md")
     todo_list = load_file("todo_tasks.md")
-    repo_short = current_repo.split('/')[-1]
+    repo_short = current_repo.split("/")[-1]
 
     system_prompt = """You are an Elite Quantitative Systems Architect.
 Your core objective is to execute a deep-dive architectural extraction and optimization pipeline across the assigned repository.
@@ -111,35 +114,30 @@ EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
     llm_output = ""
 
     # 🔄 PAYLOAD FIX: Enforce standard flat compliant dict array layout format maps
-    messages_payload = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
+    messages_payload = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"[{current_repo}] Connecting to NIM endpoint [{fixed_base_url}] (Attempt {attempt}/{max_retries})...")
+            print(
+                f"[{current_repo}] Connecting to NIM endpoint [{fixed_base_url}] (Attempt {attempt}/{max_retries})...",
+            )
             completion = client.chat.completions.create(
-                model=model_name,
-                messages=messages_payload,
-                max_tokens=4096,
-                temperature=0.2
+                model=model_name, messages=messages_payload, max_tokens=4096, temperature=0.2,
             )
             # Safe object checking parser handler fallback logic
-            if hasattr(completion, 'choices') and len(completion.choices) > 0:
+            if hasattr(completion, "choices") and len(completion.choices) > 0:
                 choice = completion.choices[0]
-                if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                if hasattr(choice, "message") and hasattr(choice.message, "content"):
                     llm_output = choice.message.content
-                elif isinstance(choice, dict) and 'message' in choice:
-                    llm_output = choice['message'].get('content', '')
-            elif isinstance(completion, dict) and 'choices' in completion:
-                llm_output = completion['choices'][0]['message']['content']
-            
+                elif isinstance(choice, dict) and "message" in choice:
+                    llm_output = choice["message"].get("content", "")
+            elif isinstance(completion, dict) and "choices" in completion:
+                llm_output = completion["choices"][0]["message"]["content"]
+
             if llm_output:
                 break
-            else:
-                raise ValueError("Inference engine returned an empty output layout context window.")
-                
+            raise ValueError("Inference engine returned an empty output layout context window.")
+
         except Exception as conn_err:
             print(f"⚠️ [{current_repo}] Attempt {attempt} failed: {conn_err}")
             if attempt < max_retries:
@@ -148,14 +146,14 @@ EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
             else:
                 return False
 
-    file_blocks = re.findall(r'===\s*FILE:\s*([^\s]+)\s*===(.*?)===\s*END FILE\s*===', llm_output, re.DOTALL)
+    file_blocks = re.findall(r"===\s*FILE:\s*([^\s]+)\s*===(.*?)===\s*END FILE\s*===", llm_output, re.DOTALL)
     if not file_blocks:
         print(f"CRITICAL ERROR: Failed to isolate file markers from NIM output for {current_repo}.")
         return False
 
     for filepath, content in file_blocks:
         filepath = filepath.strip()
-        content = content.strip('\n')
+        content = content.strip("\n")
         print(f"[{current_repo}] Writing file: {filepath}")
         save_file(filepath, content)
 
@@ -165,15 +163,18 @@ EXECUTE PHASES 1 THROUGH 4 FOR THIS REPOSITORY NOW.
         return False
 
     todo_list_disk = load_file("todo_tasks.md")
-    todo_list_disk = re.sub(rf'-\s*\[\s*\]\s*{re.escape(current_repo)}', f"- [x] {current_repo}", todo_list_disk)
-    todo_list_disk = re.sub(rf'\*\s*{re.escape(current_repo)}', f"* [COMPLETED] {current_repo}", todo_list_disk)
+    todo_list_disk = re.sub(rf"-\s*\[\s*\]\s*{re.escape(current_repo)}", f"- [x] {current_repo}", todo_list_disk)
+    todo_list_disk = re.sub(rf"\*\s*{re.escape(current_repo)}", f"* [COMPLETED] {current_repo}", todo_list_disk)
     save_file("todo_tasks.md", todo_list_disk)
 
     blueprint_disk = load_file("ingestion_blueprint.md")
-    blueprint_disk = re.sub(rf'⏳ Pending\s*\|\s*{re.escape(repo_short)}', f"✅ Completed | {repo_short}", blueprint_disk)
+    blueprint_disk = re.sub(
+        rf"⏳ Pending\s*\|\s*{re.escape(repo_short)}", f"✅ Completed | {repo_short}", blueprint_disk,
+    )
     save_file("ingestion_blueprint.md", blueprint_disk)
 
     return True
+
 
 def main():
     api_key = os.getenv("LLM_API_KEY")
@@ -187,7 +188,7 @@ def main():
         "daydy-dev/moon-dev-ai-agents-for-trading",
         "atilaahmettaner/tradingview-mcp",
         "white-trade-loan/algo-trading-platform",
-        "Superalgos/Algorithmic-Trading-Plugins"
+        "Superalgos/Algorithmic-Trading-Plugins",
     ]
 
     print(f"Starting AQuICE Engine Loop. Target model: {model_name}")
@@ -198,22 +199,23 @@ def main():
             print(f"Skipping repository [{repo}] (Already completed).")
             continue
 
-        print(f"\n=======================================================")
+        print("\n=======================================================")
         print(f"PROCESSING TARGET: {repo}")
-        print(f"=======================================================")
-        
+        print("=======================================================")
+
         success = run_conversion_cycle(repo, api_key, model_name)
-        
+
         if success:
             git_commit_and_push(repo)
         else:
             print(f"Flagging failure metrics for: {repo}")
             todo_list = load_file("todo_tasks.md")
-            todo_list = re.sub(rf'\*\s*{re.escape(repo)}', f"* [FAILED] {repo}", todo_list)
+            todo_list = re.sub(rf"\*\s*{re.escape(repo)}", f"* [FAILED] {repo}", todo_list)
             save_file("todo_tasks.md", todo_list)
             git_commit_and_push(repo)
 
     print("\n🎉 SUCCESS: Conversion loop sequence completed.")
+
 
 if __name__ == "__main__":
     main()

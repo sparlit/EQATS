@@ -23,11 +23,7 @@ The FIX execution boundary forwarded caller-controlled order values without enfo
 # SECURITY: Validate order_type to prevent fail-open direction encoding
 # Only accept case-insensitive "BUY" or "SELL" - reject all other values
 if not isinstance(order_type, str) or order_type.upper() not in ("BUY", "SELL"):
-    _log.error(
-        "UniversalBrokerGateway: Invalid order_type '%s' for %s. Must be 'BUY' or 'SELL'.",
-        order_type,
-        symbol
-    )
+    _log.error("UniversalBrokerGateway: Invalid order_type '%s' for %s. Must be 'BUY' or 'SELL'.", order_type, symbol)
     return {
         "success": False,
         "ticket": "",

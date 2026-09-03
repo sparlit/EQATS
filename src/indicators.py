@@ -3,8 +3,10 @@ Technical indicators, analytics, and market regime classification implementation
 Operates completely autonomously with dynamic parameter adaptation and optional
 Rust CFFI acceleration for maximum institutional execution performance.
 """
-from typing import Any
+
 import math
+from typing import Any
+
 
 def calculate_ema(prices: Any, period: Any) -> Any:
     """
@@ -16,6 +18,7 @@ def calculate_ema(prices: Any, period: Any) -> Any:
         return None
     try:
         from institutional_integrations.rust_bridge import is_rust_available, rust_accelerated_ema
+
         if is_rust_available():
             ema_series = rust_accelerated_ema(prices, period)
             if ema_series and len(ema_series) == len(prices):
@@ -29,7 +32,8 @@ def calculate_ema(prices: Any, period: Any) -> Any:
         ema = price * multiplier + ema * (1.0 - multiplier)
     return ema
 
-def calculate_rsi(prices: Any, period: Any=14) -> Any:
+
+def calculate_rsi(prices: Any, period: Any = 14) -> Any:
     """
     Calculates Relative Strength Index (RSI).
     """
@@ -60,7 +64,8 @@ def calculate_rsi(prices: Any, period: Any=14) -> Any:
     rsi = 100.0 - 100.0 / (1.0 + rs)
     return round(rsi, 4)
 
-def calculate_atr(highs: Any, lows: Any, closes: Any, period: Any=14) -> Any:
+
+def calculate_atr(highs: Any, lows: Any, closes: Any, period: Any = 14) -> Any:
     """
     Calculates Average True Range (ATR) with Wilder's smoothing.
     """
@@ -82,7 +87,8 @@ def calculate_atr(highs: Any, lows: Any, closes: Any, period: Any=14) -> Any:
         atr = (atr * (period - 1) + true_ranges[i]) / float(period)
     return atr
 
-def calculate_macd(prices: Any, fast_period: Any=12, slow_period: Any=26, signal_period: Any=9) -> Any:
+
+def calculate_macd(prices: Any, fast_period: Any = 12, slow_period: Any = 26, signal_period: Any = 9) -> Any:
     """
     Calculates MACD (Moving Average Convergence Divergence).
     Returns dict: { 'macd': float, 'signal': float, 'histogram': float } or None.
@@ -107,9 +113,10 @@ def calculate_macd(prices: Any, fast_period: Any=12, slow_period: Any=26, signal
     current_macd = macd_line[-1]
     current_signal = signal_line
     current_histogram = current_macd - current_signal
-    return {'macd': current_macd, 'signal': current_signal, 'histogram': current_histogram}
+    return {"macd": current_macd, "signal": current_signal, "histogram": current_histogram}
 
-def calculate_bollinger_bands(prices: Any, period: Any=20, num_std: Any=2.0) -> Any:
+
+def calculate_bollinger_bands(prices: Any, period: Any = 20, num_std: Any = 2.0) -> Any:
     """
     Calculates Bollinger Bands.
     Returns dict: { 'upper': float, 'middle': float, 'lower': float, 'bandwidth': float } or None.
@@ -118,14 +125,15 @@ def calculate_bollinger_bands(prices: Any, period: Any=20, num_std: Any=2.0) -> 
         return None
     window = prices[-period:]
     middle = sum(window) / float(period)
-    variance = sum(((x - middle) ** 2 for x in window)) / float(period)
+    variance = sum((x - middle) ** 2 for x in window) / float(period)
     std_dev = math.sqrt(max(0.0, variance))
     if std_dev == 0.0:
         std_dev = 1e-09
     upper = middle + num_std * std_dev
     lower = middle - num_std * std_dev
     bandwidth = (upper - lower) / middle if middle != 0 else 0.0
-    return {'upper': upper, 'middle': middle, 'lower': lower, 'bandwidth': bandwidth}
+    return {"upper": upper, "middle": middle, "lower": lower, "bandwidth": bandwidth}
+
 
 def calculate_pivot_points(high: Any, low: Any, close: Any) -> Any:
     """
@@ -137,9 +145,10 @@ def calculate_pivot_points(high: Any, low: Any, close: Any) -> Any:
     s1 = 2.0 * pivot - high
     r2 = pivot + (high - low)
     s2 = pivot - (high - low)
-    return {'pivot': pivot, 'r1': r1, 's1': s1, 'r2': r2, 's2': s2}
+    return {"pivot": pivot, "r1": r1, "s1": s1, "r2": r2, "s2": s2}
 
-def calculate_donchian_channels(highs: Any, lows: Any, period: Any=20) -> Any:
+
+def calculate_donchian_channels(highs: Any, lows: Any, period: Any = 20) -> Any:
     """
     Calculates Donchian Channels (highest high and lowest low over lookback).
     Returns dict: { 'upper': float, 'lower': float, 'middle': float } or None.
@@ -149,20 +158,22 @@ def calculate_donchian_channels(highs: Any, lows: Any, period: Any=20) -> Any:
     upper = max(highs[-period:])
     lower = min(lows[-period:])
     middle = (upper + lower) / 2.0
-    return {'upper': upper, 'lower': lower, 'middle': middle}
+    return {"upper": upper, "lower": lower, "middle": middle}
 
-def calculate_bollinger_squeeze(prices: Any, period: Any=20, num_std: Any=2.0) -> Any:
+
+def calculate_bollinger_squeeze(prices: Any, period: Any = 20, num_std: Any = 2.0) -> Any:
     """
     Calculates Bollinger Band Width ratio to evaluate volatility squeeze conditions.
     Formula: (Upper Band - Lower Band) / Middle Band
     Returns float or None.
     """
     bb = calculate_bollinger_bands(prices, period, num_std)
-    if bb is None or bb['middle'] == 0:
+    if bb is None or bb["middle"] == 0:
         return None
-    return bb['bandwidth']
+    return bb["bandwidth"]
 
-def calculate_adx(highs: Any, lows: Any, closes: Any, period: Any=14) -> Any:
+
+def calculate_adx(highs: Any, lows: Any, closes: Any, period: Any = 14) -> Any:
     """
     Average Directional Index (ADX) measuring trend strength.
     Range [0, 100]. Values > 22-25 indicate strong trend.
@@ -209,17 +220,18 @@ def calculate_adx(highs: Any, lows: Any, closes: Any, period: Any=14) -> Any:
         adx = (adx * (period - 1) + dx_list[i]) / float(period)
     return round(adx, 2)
 
-def calculate_stochastic(highs: Any, lows: Any, closes: Any, period: Any=14, d_period: Any=3) -> Any:
+
+def calculate_stochastic(highs: Any, lows: Any, closes: Any, period: Any = 14, d_period: Any = 3) -> Any:
     """
     Stochastic Oscillator (%K and %D).
     Returns dict: {'k': float, 'd': float}
     """
     if not closes or len(closes) < period:
-        return {'k': 50.0, 'd': 50.0}
+        return {"k": 50.0, "d": 50.0}
     k_values = []
     for i in range(len(closes) - d_period, len(closes)):
-        sub_highs = highs[max(0, i - period + 1):i + 1]
-        sub_lows = lows[max(0, i - period + 1):i + 1]
+        sub_highs = highs[max(0, i - period + 1) : i + 1]
+        sub_lows = lows[max(0, i - period + 1) : i + 1]
         if not sub_highs or not sub_lows:
             continue
         h_high = max(sub_highs)
@@ -229,7 +241,8 @@ def calculate_stochastic(highs: Any, lows: Any, closes: Any, period: Any=14, d_p
         k_values.append(k)
     k_curr = k_values[-1] if k_values else 50.0
     d_curr = sum(k_values) / float(len(k_values)) if k_values else 50.0
-    return {'k': round(k_curr, 2), 'd': round(d_curr, 2)}
+    return {"k": round(k_curr, 2), "d": round(d_curr, 2)}
+
 
 def calculate_ichimoku(highs: Any, lows: Any, closes: Any) -> Any:
     """
@@ -238,23 +251,29 @@ def calculate_ichimoku(highs: Any, lows: Any, closes: Any) -> Any:
     """
     if not closes or len(closes) < 26:
         curr = closes[-1] if closes else 0.0
-        return {'tenkan': curr, 'kijun': curr}
+        return {"tenkan": curr, "kijun": curr}
     high_9 = max(highs[-9:])
     low_9 = min(lows[-9:])
     tenkan = (high_9 + low_9) / 2.0
     high_26 = max(highs[-26:])
     low_26 = min(lows[-26:])
     kijun = (high_26 + low_26) / 2.0
-    return {'tenkan': round(tenkan, 5), 'kijun': round(kijun, 5)}
+    return {"tenkan": round(tenkan, 5), "kijun": round(kijun, 5)}
 
-def calculate_swing_points(highs: Any, lows: Any, window: Any=2) -> Any:
+
+def calculate_swing_points(highs: Any, lows: Any, window: Any = 2) -> Any:
     """
     Detects Williams Fractal Swing Highs and Swing Lows.
     A Swing High at bar i requires: High[i] > High[i-k] and High[i] > High[i+k] for k in 1..window.
     A Swing Low at bar i requires: Low[i] < Low[i-k] and Low[i] < Low[i+k] for k in 1..window.
     """
     if not highs or not lows or len(highs) < 2 * window + 1:
-        return {'swing_highs': [], 'swing_lows': [], 'last_swing_high': highs[-1] if highs else None, 'last_swing_low': lows[-1] if lows else None}
+        return {
+            "swing_highs": [],
+            "swing_lows": [],
+            "last_swing_high": highs[-1] if highs else None,
+            "last_swing_low": lows[-1] if lows else None,
+        }
     swing_highs = []
     swing_lows = []
     for i in range(window, len(highs) - window):
@@ -266,21 +285,29 @@ def calculate_swing_points(highs: Any, lows: Any, window: Any=2) -> Any:
             if lows[i] >= lows[i - w] or lows[i] >= lows[i + w]:
                 is_sl = False
         if is_sh:
-            swing_highs.append({'price': highs[i], 'idx': i})
+            swing_highs.append({"price": highs[i], "idx": i})
         if is_sl:
-            swing_lows.append({'price': lows[i], 'idx': i})
-    last_sh = swing_highs[-1]['price'] if swing_highs else max(highs[-10:])
-    last_sl = swing_lows[-1]['price'] if swing_lows else min(lows[-10:])
-    return {'swing_highs': swing_highs, 'swing_lows': swing_lows, 'last_swing_high': last_sh, 'last_swing_low': last_sl}
+            swing_lows.append({"price": lows[i], "idx": i})
+    last_sh = swing_highs[-1]["price"] if swing_highs else max(highs[-10:])
+    last_sl = swing_lows[-1]["price"] if swing_lows else min(lows[-10:])
+    return {"swing_highs": swing_highs, "swing_lows": swing_lows, "last_swing_high": last_sh, "last_swing_low": last_sl}
 
-def calculate_vsa_metrics(highs: Any, lows: Any, closes: Any, volumes: Any=None) -> Any:
+
+def calculate_vsa_metrics(highs: Any, lows: Any, closes: Any, volumes: Any = None) -> Any:
     """
     Calculates Volume Spread Analysis (VSA) metrics.
     If real tick volumes are available, uses real volumes; otherwise uses ATR-normalized candle range.
     Returns dict with spread, relative volume, effort vs result, and accumulation/distribution flags.
     """
     if not closes or len(closes) < 10:
-        return {'relative_volume': 1.0, 'relative_spread': 1.0, 'is_ultra_high_vol': False, 'is_narrow_spread': False, 'effort_result_divergence': False, 'vsa_bias': 'NEUTRAL'}
+        return {
+            "relative_volume": 1.0,
+            "relative_spread": 1.0,
+            "is_ultra_high_vol": False,
+            "is_narrow_spread": False,
+            "effort_result_divergence": False,
+            "vsa_bias": "NEUTRAL",
+        }
     ranges = [highs[i] - lows[i] for i in range(len(closes))]
     curr_range = ranges[-1]
     avg_range = sum(ranges[-10:]) / 10.0 if sum(ranges[-10:]) > 0 else 1e-05
@@ -296,22 +323,38 @@ def calculate_vsa_metrics(highs: Any, lows: Any, closes: Any, volumes: Any=None)
     is_ultra_high_vol = relative_volume >= 1.4
     is_narrow_spread = relative_spread <= 0.65
     effort_result_divergence = is_ultra_high_vol and is_narrow_spread
-    vsa_bias = 'NEUTRAL'
+    vsa_bias = "NEUTRAL"
     if effort_result_divergence:
         if closes[-1] > closes[-2]:
-            vsa_bias = 'ACCUMULATION'
+            vsa_bias = "ACCUMULATION"
         else:
-            vsa_bias = 'DISTRIBUTION'
-    return {'relative_volume': round(relative_volume, 2), 'relative_spread': round(relative_spread, 2), 'is_ultra_high_vol': is_ultra_high_vol, 'is_narrow_spread': is_narrow_spread, 'effort_result_divergence': effort_result_divergence, 'vsa_bias': vsa_bias}
+            vsa_bias = "DISTRIBUTION"
+    return {
+        "relative_volume": round(relative_volume, 2),
+        "relative_spread": round(relative_spread, 2),
+        "is_ultra_high_vol": is_ultra_high_vol,
+        "is_narrow_spread": is_narrow_spread,
+        "effort_result_divergence": effort_result_divergence,
+        "vsa_bias": vsa_bias,
+    }
 
-def classify_market_regime(highs: Any, lows: Any, closes: Any, period: Any=20) -> Any:
+
+def classify_market_regime(highs: Any, lows: Any, closes: Any, period: Any = 20) -> Any:
     """
     Statistically classifies the current market regime using ADX trend strength,
     EMA separation, and Bollinger Squeeze ratios.
     Returns a dict with complete regime analytics.
     """
     if not closes or len(closes) < 30:
-        return {'regime': 'RANGING', 'detailed_regime': 'RANGING_COMPRESSED', 'volatility': 'LOW', 'trend_intensity': 0.0, 'squeeze_ratio': 0.0, 'adx': 20.0, 'direction': 'NEUTRAL'}
+        return {
+            "regime": "RANGING",
+            "detailed_regime": "RANGING_COMPRESSED",
+            "volatility": "LOW",
+            "trend_intensity": 0.0,
+            "squeeze_ratio": 0.0,
+            "adx": 20.0,
+            "direction": "NEUTRAL",
+        }
     ema_long_period = min(200, len(closes) - 1)
     ema_short_period = min(20, len(closes) - 1)
     ema_long = calculate_ema(closes, ema_long_period) or closes[-1]
@@ -319,9 +362,9 @@ def classify_market_regime(highs: Any, lows: Any, closes: Any, period: Any=20) -
     atr_val = calculate_atr(highs, lows, closes, 14) or closes[-1] * 0.001
     adx_val = calculate_adx(highs, lows, closes, 14)
     trend_intensity = abs(ema_short - ema_long) / atr_val if atr_val > 0 else 0.0
-    is_trending = adx_val >= 22.0 and trend_intensity >= 0.8 or trend_intensity >= 1.5
-    regime = 'TRENDING' if is_trending else 'RANGING'
-    direction = 'BULLISH' if ema_short >= ema_long else 'BEARISH'
+    is_trending = (adx_val >= 22.0 and trend_intensity >= 0.8) or trend_intensity >= 1.5
+    regime = "TRENDING" if is_trending else "RANGING"
+    direction = "BULLISH" if ema_short >= ema_long else "BEARISH"
     squeeze = calculate_bollinger_squeeze(closes, period, 2.0) or 0.0
     historical_squeezes = []
     lookback = min(40, len(closes))
@@ -330,35 +373,54 @@ def classify_market_regime(highs: Any, lows: Any, closes: Any, period: Any=20) -
         if sq is not None:
             historical_squeezes.append(sq)
     avg_squeeze = sum(historical_squeezes) / float(len(historical_squeezes)) if historical_squeezes else squeeze
-    volatility = 'HIGH' if squeeze > avg_squeeze else 'LOW'
-    if regime == 'TRENDING':
-        detailed_regime = f'TRENDING_{direction}'
+    volatility = "HIGH" if squeeze > avg_squeeze else "LOW"
+    if regime == "TRENDING":
+        detailed_regime = f"TRENDING_{direction}"
     else:
-        detailed_regime = 'RANGING_EXPANDED' if volatility == 'HIGH' else 'RANGING_COMPRESSED'
-    return {'regime': regime, 'detailed_regime': detailed_regime, 'volatility': volatility, 'trend_intensity': round(trend_intensity, 4), 'squeeze_ratio': round(squeeze, 4), 'adx': round(adx_val, 2), 'direction': direction}
+        detailed_regime = "RANGING_EXPANDED" if volatility == "HIGH" else "RANGING_COMPRESSED"
+    return {
+        "regime": regime,
+        "detailed_regime": detailed_regime,
+        "volatility": volatility,
+        "trend_intensity": round(trend_intensity, 4),
+        "squeeze_ratio": round(squeeze, 4),
+        "adx": round(adx_val, 2),
+        "direction": direction,
+    }
+
 
 def get_smc_analysis(history_bars: Any) -> Any:
     """Returns institutional Smart Money Concepts (SMC) & ICT market structure analysis."""
     try:
         import institutional_integrations.smc_ict_engine as smc
+
         return smc.global_smc_engine.analyze(history_bars)
     except Exception:
-        return {'order_blocks': {'bullish_ob': None, 'bearish_ob': None}, 'fvgs': {'bullish_fvgs': [], 'bearish_fvgs': []}, 'mss': {'mss_status': 'NEUTRAL', 'break_level': None}, 'liquidity_sweeps': {'bsl_sweep': False, 'ssl_sweep': False}, 'bias': 'NEUTRAL', 'confluence_score': 50.0}
+        return {
+            "order_blocks": {"bullish_ob": None, "bearish_ob": None},
+            "fvgs": {"bullish_fvgs": [], "bearish_fvgs": []},
+            "mss": {"mss_status": "NEUTRAL", "break_level": None},
+            "liquidity_sweeps": {"bsl_sweep": False, "ssl_sweep": False},
+            "bias": "NEUTRAL",
+            "confluence_score": 50.0,
+        }
 
-def calculate_order_flow_metrics(history_bars: Any, order_book: Any=None) -> Any:
+
+def calculate_order_flow_metrics(history_bars: Any, order_book: Any = None) -> Any:
     """
     Computes microstructure order flow signals combining VPIN flow toxicity,
     DOM level 2 depth imbalances, and short-term book pressure.
     """
     try:
         import institutional_integrations.order_flow_imbalance as ofi
+
         vol_buys = []
         vol_sells = []
         for bar in history_bars[-20:]:
-            high = bar.get('high', 0.0)
-            low = bar.get('low', 0.0)
-            close = bar.get('close', 0.0)
-            vol = bar.get('vol', bar.get('volume', (high - low) * 10000.0))
+            high = bar.get("high", 0.0)
+            low = bar.get("low", 0.0)
+            close = bar.get("close", 0.0)
+            vol = bar.get("vol", bar.get("volume", (high - low) * 10000.0))
             rng = max(1e-05, high - low)
             buy_vol = vol * max(0.05, min(0.95, (close - low) / rng))
             sell_vol = vol - buy_vol
@@ -366,11 +428,27 @@ def calculate_order_flow_metrics(history_bars: Any, order_book: Any=None) -> Any
             vol_sells.append(sell_vol)
         avg_bucket = sum(vol_buys + vol_sells) / max(1.0, len(vol_buys) * 2.0)
         vpin = ofi.calculate_vpin(vol_buys, vol_sells, bucket_size=max(1.0, avg_bucket))
-        dom_metrics = {'imbalance_ratio': 0.0, 'dominant_side': 'NEUTRAL'}
-        pressure_metrics = {'pressure_score': 0.0, 'expected_direction': 'BALANCED'}
+        dom_metrics = {"imbalance_ratio": 0.0, "dominant_side": "NEUTRAL"}
+        pressure_metrics = {"pressure_score": 0.0, "expected_direction": "BALANCED"}
         if order_book and isinstance(order_book, dict):
             dom_metrics = ofi.detect_bid_ask_imbalance(order_book)
-            pressure_metrics = ofi.predict_short_term_book_pressure(dom_metrics.get('total_bid_qty', 0.0), dom_metrics.get('total_ask_qty', 0.0))
-        return {'vpin': vpin, 'is_toxic_flow': vpin >= 0.65, 'dom_imbalance': dom_metrics.get('imbalance_ratio', 0.0), 'dominant_side': dom_metrics.get('dominant_side', 'NEUTRAL'), 'pressure_score': pressure_metrics.get('pressure_score', 0.0), 'expected_direction': pressure_metrics.get('expected_direction', 'BALANCED')}
+            pressure_metrics = ofi.predict_short_term_book_pressure(
+                dom_metrics.get("total_bid_qty", 0.0), dom_metrics.get("total_ask_qty", 0.0),
+            )
+        return {
+            "vpin": vpin,
+            "is_toxic_flow": vpin >= 0.65,
+            "dom_imbalance": dom_metrics.get("imbalance_ratio", 0.0),
+            "dominant_side": dom_metrics.get("dominant_side", "NEUTRAL"),
+            "pressure_score": pressure_metrics.get("pressure_score", 0.0),
+            "expected_direction": pressure_metrics.get("expected_direction", "BALANCED"),
+        }
     except Exception:
-        return {'vpin': 0.15, 'is_toxic_flow': False, 'dom_imbalance': 0.0, 'dominant_side': 'NEUTRAL', 'pressure_score': 0.0, 'expected_direction': 'BALANCED'}
+        return {
+            "vpin": 0.15,
+            "is_toxic_flow": False,
+            "dom_imbalance": 0.0,
+            "dominant_side": "NEUTRAL",
+            "pressure_score": 0.0,
+            "expected_direction": "BALANCED",
+        }

@@ -2,9 +2,13 @@
 Unit tests for PyTrader & TradingGym Suite integration.
 Verifies TradingGymRLAdapter and PyTraderDepthAnalyzer.
 """
+
 from typing import Any
+
 import pytest
+
 from institutional_integrations.pytrader_gym_suite import PyTraderDepthAnalyzer, TradingGymRLAdapter
+
 
 def test_trading_gym_rl_adapter() -> None:
     adapter = TradingGymRLAdapter(initial_balance=10000.0, fee_pct=0.001)
@@ -17,10 +21,11 @@ def test_trading_gym_rl_adapter() -> None:
     assert res_buy.reward is not None
     res_hold = adapter.step(action=0, current_price=105.0, returns_history=[0.01, 0.02, 0.05])
     assert res_hold.reward > 0.0
-    assert res_hold.info['equity'] > 10000.0
+    assert res_hold.info["equity"] > 10000.0
     res_sell = adapter.step(action=2, current_price=105.0, returns_history=[0.01, 0.02, 0.0])
     assert adapter.position == 0.0
     assert adapter.balance > 10000.0
+
 
 def test_pytrader_depth_analyzer() -> None:
     analyzer = PyTraderDepthAnalyzer()
@@ -31,4 +36,4 @@ def test_pytrader_depth_analyzer() -> None:
     assert res.ask_depth_volume == 20.0
     assert res.depth_ratio == 3.0
     assert res.imbalance_pct == 50.0
-    assert res.buy_pressure == 'HIGH_BUY'
+    assert res.buy_pressure == "HIGH_BUY"

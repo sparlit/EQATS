@@ -47,14 +47,12 @@ The `UniversalBrokerGateway` had three critical fail-open vulnerabilities:
 # Validate protocol is supported before initialization
 if self.protocol not in self.SUPPORTED_PROTOCOLS:
     _log.error(
-        "UniversalBrokerGateway: Unsupported protocol '%s' specified. "
-        "Supported protocols: %s",
+        "UniversalBrokerGateway: Unsupported protocol '%s' specified. Supported protocols: %s",
         self.protocol,
-        ", ".join(self.SUPPORTED_PROTOCOLS)
+        ", ".join(self.SUPPORTED_PROTOCOLS),
     )
     raise ValueError(
-        f"Unsupported protocol '{self.protocol}'. "
-        f"Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}"
+        f"Unsupported protocol '{self.protocol}'. Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}"
     )
 ```
 
@@ -74,7 +72,7 @@ if self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
         _log.error(
             "UniversalBrokerGateway: Protocol %s requires 'rest_url' configuration. "
             "Connection rejected to prevent fail-open execution.",
-            self.protocol
+            self.protocol,
         )
         print(
             f"Universal Broker Gateway [{self.protocol}] Connection Error: "
@@ -83,7 +81,7 @@ if self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
         )
         self.is_connected_flag = False
         return False
-    
+
     # Endpoint is configured, mark as connected
     self.is_connected_flag = True
     print(
@@ -105,10 +103,9 @@ if self.protocol in ["REST_WS", "IBKR", "CTRADER", "CCXT"]:
 ```python
 # Reject unsupported protocols to prevent fail-open fallback
 _log.error(
-    "UniversalBrokerGateway: Unsupported protocol '%s'. "
-    "Supported protocols: %s. Connection rejected.",
+    "UniversalBrokerGateway: Unsupported protocol '%s'. Supported protocols: %s. Connection rejected.",
     self.protocol,
-    ", ".join(self.SUPPORTED_PROTOCOLS)
+    ", ".join(self.SUPPORTED_PROTOCOLS),
 )
 print(
     f"Universal Broker Gateway Connection Error: "
@@ -148,7 +145,7 @@ return {
 _log.error(
     "UniversalBrokerGateway: Order execution failed - no valid execution path for protocol %s. "
     "This indicates a configuration error (missing rest_url) or unsupported protocol.",
-    self.protocol
+    self.protocol,
 )
 self._breaker.record_failure()
 return {

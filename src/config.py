@@ -1,12 +1,46 @@
-from typing import Any
 import logging
 import os
-_log = logging.getLogger('config')
+from typing import Any
+
+_log = logging.getLogger("config")
 SIMULATION_MODE = False
 DEMO_ACCOUNT_ONLY = True
-MT5_TERMINAL_PATH = 'C:\\Program Files\\Alpari MT5\\terminal64.exe'
-SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD', 'EURGBP', 'EURJPY', 'EURCAD', 'EURCHF', 'EURNZD', 'EURAUD', 'GBPJPY', 'GBPCAD', 'GBPCHF', 'GBPAUD', 'GBPNZD', 'AUDJPY', 'NZDJPY', 'CHFJPY', 'CADJPY', 'AUDCAD', 'AUDNZD', 'NZDCAD', 'XAUUSD', 'XAGUSD', 'BTCUSD', 'ETHUSD', 'LTCUSD', 'SOLUSD', 'XRPUSD']
-TIMEFRAME_NAME = 'M1'
+MT5_TERMINAL_PATH = "C:\\Program Files\\Alpari MT5\\terminal64.exe"
+SYMBOLS = [
+    "EURUSD",
+    "GBPUSD",
+    "USDJPY",
+    "USDCHF",
+    "AUDUSD",
+    "NZDUSD",
+    "USDCAD",
+    "EURGBP",
+    "EURJPY",
+    "EURCAD",
+    "EURCHF",
+    "EURNZD",
+    "EURAUD",
+    "GBPJPY",
+    "GBPCAD",
+    "GBPCHF",
+    "GBPAUD",
+    "GBPNZD",
+    "AUDJPY",
+    "NZDJPY",
+    "CHFJPY",
+    "CADJPY",
+    "AUDCAD",
+    "AUDNZD",
+    "NZDCAD",
+    "XAUUSD",
+    "XAGUSD",
+    "BTCUSD",
+    "ETHUSD",
+    "LTCUSD",
+    "SOLUSD",
+    "XRPUSD",
+]
+TIMEFRAME_NAME = "M1"
 RISK_PER_TRADE_PERCENT = 1.0
 MAX_DAILY_DRAWDOWN_PERCENT = 3.0
 MAX_CONCURRENT_TRADES = 20
@@ -23,12 +57,20 @@ BLOCK_ROLLOVER_HOUR = True
 BLOCK_WEEKENDS = True
 TRAILING_STOP_ENABLED = True
 TRAILING_STOP_ATR_MULT = 1.5
-ACTIVE_STRATEGY = 'AUTO'
-TRADING_STYLE = 'AUTO'
+ACTIVE_STRATEGY = "AUTO"
+TRADING_STYLE = "AUTO"
 BREAKOUT_PERIOD = 20
 SQUEEZE_RSI_MAX = 60
 SQUEEZE_RSI_MIN = 40
-SWAP_LONG_POINTS = {'USDJPY': 12.5, 'EURUSD': -4.2, 'GBPUSD': -3.1, 'AUDUSD': 4.5, 'XAUUSD': -18.5, 'BTCUSD': 0.0, 'ETHUSD': 0.0}
+SWAP_LONG_POINTS = {
+    "USDJPY": 12.5,
+    "EURUSD": -4.2,
+    "GBPUSD": -3.1,
+    "AUDUSD": 4.5,
+    "XAUUSD": -18.5,
+    "BTCUSD": 0.0,
+    "ETHUSD": 0.0,
+}
 MIN_CARRY_YIELD_POINTS = 2.0
 GRID_MAX_LEVELS = 5
 GRID_SPACING_ATR_MULT = 1.2
@@ -43,16 +85,16 @@ BB_STD_DEV = 2.0
 MACD_FAST = 12
 MACD_SLOW = 26
 MACD_SIGNAL = 9
-DB_PATH = 'scalper_brain.db'
-MT5_COMMON_FILES_PATH = os.environ.get('MT5_COMMON_PATH', '.')
-if os.name == 'nt' and 'APPDATA' in os.environ:
-    standard_mt5_common_path = os.path.join(os.environ['APPDATA'], 'MetaQuotes', 'Terminal', 'Common', 'Files')
+DB_PATH = "scalper_brain.db"
+MT5_COMMON_FILES_PATH = os.environ.get("MT5_COMMON_PATH", ".")
+if os.name == "nt" and "APPDATA" in os.environ:
+    standard_mt5_common_path = os.path.join(os.environ["APPDATA"], "MetaQuotes", "Terminal", "Common", "Files")
     try:
         os.makedirs(standard_mt5_common_path, exist_ok=True)
         MT5_COMMON_FILES_PATH = standard_mt5_common_path
     except Exception as e:
-        _log.debug('Cannot use standard MT5 common path %r, falling back to cwd: %s', standard_mt5_common_path, e)
+        _log.debug("Cannot use standard MT5 common path %r, falling back to cwd: %s", standard_mt5_common_path, e)
 TELEGRAM_ENABLED = False
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 CHECK_INTERVAL_SECONDS = 5

@@ -45,14 +45,14 @@ def hash_credential_secure(secret_text):
     """
     Generates cryptographically secure password hash using bcrypt with per-credential
     random salt and configurable work factor.
-    
+
     Uses bcrypt with 12 rounds (2^12 = 4096 iterations), providing strong protection
     against offline brute-force and dictionary attacks.
     """
     if _BCRYPT_AVAILABLE:
-        password_bytes = secret_text.encode('utf-8')
+        password_bytes = secret_text.encode("utf-8")
         hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
-        return hashed.decode('utf-8')
+        return hashed.decode("utf-8")
 ```
 
 **Key Improvements:**
@@ -70,16 +70,16 @@ def verify_credential(secret_text, stored_hash):
     """
     Verifies password against stored hash, supporting both legacy SHA-256
     and modern bcrypt hashes with automatic migration.
-    
+
     Returns: (is_valid: bool, needs_rehash: bool)
     """
     # Detect hash format
-    if stored_hash.startswith(('$2a$', '$2b$', '$2y$')):
+    if stored_hash.startswith(("$2a$", "$2b$", "$2y$")):
         # Modern bcrypt hash
         return (bcrypt.checkpw(password_bytes, hash_bytes), False)
     else:
         # Legacy SHA-256 hash - verify and flag for upgrade
-        is_valid = (stored_hash == hash_credential(secret_text))
+        is_valid = stored_hash == hash_credential(secret_text)
         return (is_valid, is_valid)  # If valid, needs rehash
 ```
 
@@ -96,7 +96,7 @@ def verify_credential(secret_text, stored_hash):
 params = (
     username,
     hash_credential_secure(password),  # New bcrypt hash
-    hash_credential_secure(pin),       # New bcrypt hash
+    hash_credential_secure(pin),  # New bcrypt hash
     role,
     int(mfa_enabled),
     datetime.datetime.now().isoformat(),
@@ -111,10 +111,7 @@ is_valid, needs_rehash = verify_credential(password_input, stored_hash)
 # Automatic migration: upgrade legacy hash to bcrypt on successful login
 if is_valid and needs_rehash:
     new_hash = hash_credential_secure(password_input)
-    cursor.execute(
-        "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
-        (new_hash, username)
-    )
+    cursor.execute("UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)", (new_hash, username))
     conn.commit()
     _log.info("Upgraded password hash to bcrypt for user: %s", username)
 ```

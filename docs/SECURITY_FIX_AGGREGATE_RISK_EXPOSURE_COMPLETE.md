@@ -66,27 +66,26 @@ if actual_aggregate_exposure_pct is not None:
 # Calculate aggregate exposure from existing positions
 for pos in active_positions_refresh:
     if pos_lot > 0 and pos_open_price > 0 and pos_sl > 0:
-        pos_exposure = calculate_stop_loss_exposure(
-            pos_symbol, pos_lot, pos_open_price, pos_sl, current_equity
-        )
+        pos_exposure = calculate_stop_loss_exposure(pos_symbol, pos_lot, pos_open_price, pos_sl, current_equity)
         aggregate_exposure_pct += pos_exposure
 
 # Calculate proposed order exposure
 if entry_price_estimate > 0 and sl > 0 and lot_size > 0:
-    proposed_exposure = calculate_stop_loss_exposure(
-        symbol, lot_size, entry_price_estimate, sl, current_equity
-    )
+    proposed_exposure = calculate_stop_loss_exposure(symbol, lot_size, entry_price_estimate, sl, current_equity)
     total_exposure_with_new_order = aggregate_exposure_pct + proposed_exposure
     _log.info(
         "Aggregate stop-loss exposure: existing=%.2f%%, proposed=%.2f%%, total=%.2f%% (equity=%.2f)",
-        aggregate_exposure_pct, proposed_exposure, total_exposure_with_new_order, current_equity
+        aggregate_exposure_pct,
+        proposed_exposure,
+        total_exposure_with_new_order,
+        current_equity,
     )
 else:
     _log.warning(
         "SECURITY: Cannot calculate actual stop-loss exposure for %s. "
         "Falling back to deprecated count-based risk calculation. "
         "This may allow exposure to exceed limits.",
-        symbol
+        symbol,
     )
 ```
 
@@ -109,9 +108,12 @@ if total_exposure_with_new_order is not None:
     if curr_portfolio_risk > global_risk_cap:
         _log.warning(
             "BLOCKED: Aggregate stop-loss exposure %.2f%% exceeds GLOBAL_RISK_LIMIT_CAP_PERCENT %.2f%%",
-            curr_portfolio_risk, global_risk_cap
+            curr_portfolio_risk,
+            global_risk_cap,
         )
-        print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Aggregate stop-loss exposure {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}%.")
+        print(
+            f"🛡️ [GLOBAL RISK CAP BLOCKED]: Aggregate stop-loss exposure {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}%."
+        )
         continue
 else:
     # DEPRECATED: Legacy count-based calculation as fallback
@@ -121,9 +123,12 @@ else:
     if curr_portfolio_risk > global_risk_cap:
         _log.warning(
             "BLOCKED (count-based fallback): Estimated risk %.2f%% exceeds GLOBAL_RISK_LIMIT_CAP_PERCENT %.2f%%",
-            curr_portfolio_risk, global_risk_cap
+            curr_portfolio_risk,
+            global_risk_cap,
         )
-        print(f"🛡️ [GLOBAL RISK CAP BLOCKED]: Estimated risk {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}% (count-based fallback).")
+        print(
+            f"🛡️ [GLOBAL RISK CAP BLOCKED]: Estimated risk {curr_portfolio_risk:.1f}% exceeds Global Risk Cap {global_risk_cap:.1f}% (count-based fallback)."
+        )
         continue
 ```
 

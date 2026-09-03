@@ -3,34 +3,61 @@ Exhaustive v8.3e Full Coverage Test Suite.
 Sweeps every module, function, strategy, method, loop branch, API connector,
 Rust bridge function, trade memory reflection protocol, and edge case without exception.
 """
+
 from typing import Any
-import database
-import indicators
-import event_bus
+
 import brain_agents_orchestrator
+import database
+import event_bus
+import indicators
 import institutional_integrations.enterprise_gateway as enterprise_gw
 import institutional_integrations.machine_learning as ml_eng
 import institutional_integrations.rust_bridge as rust_br
 import institutional_integrations.trade_memory_protocol as trade_mem
 
-class TestExhaustiveV83eCoverage:
 
+class TestExhaustiveV83eCoverage:
     def setup_method(self) -> None:
         database.init_db()
 
     def test_01_trade_memory_reflection_and_no_trade_veto(self) -> None:
         protocol = trade_mem.TradeMemoryReflectionProtocol()
-        rec1 = protocol.log_reflection(ticket=1001, symbol='EURUSD', direction='BUY', open_price=1.085, close_price=1.09, profit=50.0, reason='TP Hit', mfe=55.0, mae=10.0)
-        assert rec1['is_win'] is True
-        assert rec1['efficiency_score'] > 0
-        rec2 = protocol.log_reflection(ticket=1002, symbol='GBPUSD', direction='SELL', open_price=1.26, close_price=1.265, profit=-50.0, reason='SL Hit', mfe=5.0, mae=50.0)
-        assert rec2['is_win'] is False
-        rec3 = protocol.log_no_trade_veto(symbol='EURUSD', direction='BUY', signal_probability=58.0, veto_reason='Signal probability below 60.0% gate (INV-003)')
-        assert rec3['ticket'] == 'VETO'
-        assert 'INV-003' in rec3['reason']
-        summary = protocol.get_summary(symbol='EURUSD')
-        assert summary['total_reflections'] == 2
-        assert len(summary['recent_reflections']) > 0
+        rec1 = protocol.log_reflection(
+            ticket=1001,
+            symbol="EURUSD",
+            direction="BUY",
+            open_price=1.085,
+            close_price=1.09,
+            profit=50.0,
+            reason="TP Hit",
+            mfe=55.0,
+            mae=10.0,
+        )
+        assert rec1["is_win"] is True
+        assert rec1["efficiency_score"] > 0
+        rec2 = protocol.log_reflection(
+            ticket=1002,
+            symbol="GBPUSD",
+            direction="SELL",
+            open_price=1.26,
+            close_price=1.265,
+            profit=-50.0,
+            reason="SL Hit",
+            mfe=5.0,
+            mae=50.0,
+        )
+        assert rec2["is_win"] is False
+        rec3 = protocol.log_no_trade_veto(
+            symbol="EURUSD",
+            direction="BUY",
+            signal_probability=58.0,
+            veto_reason="Signal probability below 60.0% gate (INV-003)",
+        )
+        assert rec3["ticket"] == "VETO"
+        assert "INV-003" in rec3["reason"]
+        summary = protocol.get_summary(symbol="EURUSD")
+        assert summary["total_reflections"] == 2
+        assert len(summary["recent_reflections"]) > 0
 
     def test_02_all_13_strategy_agents_and_governors(self) -> None:
         orchestrator = brain_agents_orchestrator.AgenticBrainsOrchestrator()
@@ -39,23 +66,33 @@ class TestExhaustiveV83eCoverage:
         strat_gov = brain_agents_orchestrator.StrategyGovernorBrain()
         strat_scores = {agent.__class__.__name__: 80.0 for agent in orchestrator.strategy_agents}
         strat_dec = strat_gov.govern(strat_scores)
-        assert 'top_strategy' in strat_dec
+        assert "top_strategy" in strat_dec
         method_gov = brain_agents_orchestrator.MethodGovernorBrain()
-        method_scores = {'SCALPING': 85.0, 'DAY_TRADING': 70.0, 'SWING_TRADING': 60.0, 'POSITION_TRADING': 50.0}
+        method_scores = {"SCALPING": 85.0, "DAY_TRADING": 70.0, "SWING_TRADING": 60.0, "POSITION_TRADING": 50.0}
         method_dec = method_gov.govern(method_scores)
-        assert method_dec['top_method'] == 'SCALPING'
+        assert method_dec["top_method"] == "SCALPING"
 
     def test_03_enterprise_gateway_adapters(self) -> None:
         gateway = enterprise_gw.EnterpriseServicesGateway()
         vitals = gateway.get_vitals_health()
         assert isinstance(vitals, dict)
-        assert 'postgres' in vitals
-        assert 'clickhouse' in vitals
-        assert 'valkey' in vitals
-        assert 'pulsar' in vitals
-        pre_res = gateway.pre_trade_service.process_pre_trade_pipeline('EURUSD', [{'close': 1.085}, {'close': 1.086}])
-        assert pre_res['status'] == 'PROCESSED'
-        post_res = gateway.post_trade_service.record_post_trade_completion({'ticket': 9999, 'symbol': 'EURUSD', 'type': 'BUY', 'lots': 0.1, 'open_price': 1.085, 'close_price': 1.09, 'profit': 50.0})
+        assert "postgres" in vitals
+        assert "clickhouse" in vitals
+        assert "valkey" in vitals
+        assert "pulsar" in vitals
+        pre_res = gateway.pre_trade_service.process_pre_trade_pipeline("EURUSD", [{"close": 1.085}, {"close": 1.086}])
+        assert pre_res["status"] == "PROCESSED"
+        post_res = gateway.post_trade_service.record_post_trade_completion(
+            {
+                "ticket": 9999,
+                "symbol": "EURUSD",
+                "type": "BUY",
+                "lots": 0.1,
+                "open_price": 1.085,
+                "close_price": 1.09,
+                "profit": 50.0,
+            },
+        )
         assert post_res is True
 
     def test_04_indicators_and_regime_classification(self) -> None:
@@ -65,7 +102,7 @@ class TestExhaustiveV83eCoverage:
         volumes = [100.0 for _ in range(50)]
         regime_info = indicators.classify_market_regime(highs, lows, closes)
         assert isinstance(regime_info, dict)
-        assert 'regime' in regime_info
+        assert "regime" in regime_info
         swings = indicators.calculate_swing_points(highs, lows)
         assert isinstance(swings, dict)
         vsa = indicators.calculate_vsa_metrics(highs, lows, closes, volumes)
@@ -78,7 +115,7 @@ class TestExhaustiveV83eCoverage:
         assert isinstance(lr_pred, float)
         ens_mean, preds = ml_eng.generate_multi_model_ensemble_prediction(prices)
         assert isinstance(ens_mean, float)
-        assert 'pytorch_lstm' in preds
+        assert "pytorch_lstm" in preds
 
     def test_06_event_bus_and_registry_pattern(self) -> None:
         bus = event_bus.EventBus()
@@ -86,11 +123,12 @@ class TestExhaustiveV83eCoverage:
 
         def sample_handler(event: Any) -> None:
             received.append(event)
-        bus.subscribe('MARKET_DATA', sample_handler)
-        ev = event_bus.Event('MARKET_DATA', 'TEST_SRC', {'symbol': 'EURUSD', 'bid': 1.085, 'ask': 1.0852})
+
+        bus.subscribe("MARKET_DATA", sample_handler)
+        ev = event_bus.Event("MARKET_DATA", "TEST_SRC", {"symbol": "EURUSD", "bid": 1.085, "ask": 1.0852})
         bus.publish(ev)
         assert len(received) == 1
-        assert received[0].payload['symbol'] == 'EURUSD'
+        assert received[0].payload["symbol"] == "EURUSD"
 
     def test_07_rust_bridge_and_accelerator_fallbacks(self) -> None:
         status = rust_br.is_rust_available()

@@ -165,13 +165,14 @@ pip install cryptography
 Re-enter credentials through GUI or:
 ```python
 import database
+
 database.save_broker_credentials(
     server="your-server",
     account_id="your-account",
     password="your-password",
     leverage="1:100",
     api_key="your-api-key",
-    api_secret="your-api-secret"
+    api_secret="your-api-secret",
 )
 ```
 
