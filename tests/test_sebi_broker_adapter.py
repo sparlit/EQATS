@@ -176,9 +176,25 @@ def test_indian_market_state_machine_and_tick_size() -> None:
     assert allowed_cnc is True
     assert price_cnc == 520.15
 
+def test_indian_broker_plugin_registry_and_microkernel() -> None:
+    from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry, OpenAlgoFenixAdapter, KiteConnectAdapter
+    registered = IndianBrokerPluginRegistry.list_registered_brokers()
+    assert 'ZERODHA' in registered
+    assert 'DHAN' in registered
+    assert 'FENIX' in registered
+    assert IndianBrokerPluginRegistry.is_enabled('FENIX') is True
+    assert IndianBrokerPluginRegistry.get_adapter_class('FENIX') is OpenAlgoFenixAdapter
+
+    # Test dynamic disable and re-enable
+    IndianBrokerPluginRegistry.disable('FENIX')
+    assert IndianBrokerPluginRegistry.is_enabled('FENIX') is False
+    assert IndianBrokerPluginRegistry.get_adapter_class('FENIX') is None
+    IndianBrokerPluginRegistry.enable('FENIX')
+    assert IndianBrokerPluginRegistry.is_enabled('FENIX') is True
+
 def test_unified_indian_broker_client_adapter_all_brokers() -> None:
     from institutional_integrations.sebi_broker_adapter import UnifiedIndianBrokerClientAdapter
-    brokers = ['ZERODHA', 'DHAN', 'ANGELONE', 'KOTAK', 'UPSTOX', 'ICICI', '5PAISA', 'IIFL', 'MOTILAL']
+    brokers = ['ZERODHA', 'DHAN', 'ANGELONE', 'KOTAK', 'UPSTOX', 'ICICI', '5PAISA', 'IIFL', 'MOTILAL', 'FENIX', 'OPENALGO']
     for broker in brokers:
         client = UnifiedIndianBrokerClientAdapter(broker_name=broker, api_key=f'test_key_{broker}', client_id=f'client_{broker}', is_sandbox=True)
         assert client.login() is True
