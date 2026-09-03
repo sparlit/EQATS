@@ -235,7 +235,7 @@
 | manishn32/option_chain_analyzer | Pending | Pending | Pending | Pending | Initializing |
 | manitgupta/NSE-MCP | Pending | Pending | Pending | Pending | Initializing |
 | mapsx/nse | Pending | Pending | Pending | Pending | Initializing |
-| marketcalls/openalgo | Pending | Pending | Pending | Pending | Initializing |
+| marketcalls/openalgo | Complete | Complete | Complete | Complete | Active |
 | marketcalls/openchart | Pending | Pending | Pending | Pending | Initializing |
 | marketcalls/sector-rotation-map | Pending | Pending | Pending | Pending | Initializing |
 | MathisWellmann/lfest-rs | Pending | Pending | Pending | Pending | Initializing |
@@ -327,7 +327,7 @@
 | rehanhaider/stocky | Pending | Pending | Pending | Pending | Initializing |
 | rhnvrm/stock-market-circulars | Pending | Pending | Pending | Pending | Initializing |
 | rhnvrm/stock-market-circulars | Pending | Pending | Pending | Pending | Initializing |
-| ricequant/rqalpha | Pending | Pending | Pending | Pending | Initializing |
+| ricequant/rqalpha | Complete | Complete | Complete | Complete | Active |
 | rishikesh5/Algo-Trading-with-python | Pending | Pending | Pending | Pending | Initializing |
 | RishilBhutada/rscreener | Pending | Pending | Pending | Pending | Initializing |
 | riyaz-ali/bhav-copy | Pending | Pending | Pending | Pending | Initializing |
@@ -394,8 +394,8 @@
 | techyaura/nse-bhavcopy | Pending | Pending | Pending | Pending | Initializing |
 | telepair/polymarket-hft | Pending | Pending | Pending | Pending | Initializing |
 | tesserspace/tesser | Pending | Pending | Pending | Pending | Initializing |
-| TheHardeep/fenix | Pending | Pending | Pending | Pending | Initializing |
-| thehardeep/fenix | Pending | Pending | Pending | Pending | Initializing |
+| TheHardeep/fenix | Complete | Complete | Complete | Complete | Active |
+| thehardeep/fenix | Complete | Complete | Complete | Complete | Active |
 | Thejesh-k463/VYUHA-LOG | Pending | Pending | Pending | Pending | Initializing |
 | theonlyanil/pnsea | Pending | Pending | Pending | Pending | Initializing |
 | thiyagab/autotrade | Pending | Pending | Pending | Pending | Initializing |

@@ -38,7 +38,7 @@ class V11HyperAutonomousSelfFixingGovernor:
         self.autotune_cycles_count = 0
         self.active_health_state = "ACTIVE"
 
-    def _log_healing(self, message: str):
+    def _log_healing(self, message: str) -> None:
         ts = time.strftime("%H:%M:%S", time.gmtime())
         entry = f"[{ts}] [V11_SELF_HEALER] {message}"
         self.healing_logs.append(entry)
@@ -47,7 +47,7 @@ class V11HyperAutonomousSelfFixingGovernor:
         logger.info(entry)
         print(entry)
 
-    def set_high_priority_os_process(self):
+    def set_high_priority_os_process(self) -> None:
         """Attempts to set high process priority on Linux/Unix or Windows for the daemon."""
         try:
             if hasattr(os, "nice"):
@@ -103,7 +103,7 @@ class V11HyperAutonomousSelfFixingGovernor:
 
         return tuned
 
-    def run_healing_cycle(self):
+    def run_healing_cycle(self) -> None:
         """Executes a single backend diagnostic, healing, and autotuning cycle."""
         # 1. Database & WAL Checkpoint Healing
         self.perform_database_healing()
@@ -114,7 +114,7 @@ class V11HyperAutonomousSelfFixingGovernor:
             f"Healing cycle completed: health={self.system_health_score:.1f}%, state={self.active_health_state}, autotuned_workers={tuned.get('thread_pool_workers', 4)}",
         )
 
-    def start_high_priority_daemon(self):
+    def start_high_priority_daemon(self) -> None:
         """Starts the backend self-healing governor daemon thread."""
         if self._running:
             return
@@ -122,7 +122,7 @@ class V11HyperAutonomousSelfFixingGovernor:
         self._running = True
         self.set_high_priority_os_process()
 
-        def _loop():
+        def _loop() -> None:
             self._log_healing("🚀 Standalone Backend High-Priority Self-Healing Governor started.")
             while self._running:
                 try:
@@ -134,7 +134,7 @@ class V11HyperAutonomousSelfFixingGovernor:
         self._daemon_thread = threading.Thread(target=_loop, name="v11_self_healing_governor_daemon", daemon=True)
         self._daemon_thread.start()
 
-    def stop_daemon(self):
+    def stop_daemon(self) -> None:
         self._running = False
         if self._daemon_thread and self._daemon_thread.is_alive():
             self._daemon_thread.join(timeout=3.0)
