@@ -31,32 +31,41 @@ jobs:
         env:
           TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
+          # shellcheck disable=SC2086
           git config --global user.name "EQATS Autonomous Agent"
+          # shellcheck disable=SC2086
           git config --global user.email "agent@tsyslabs.com"
 
+          # shellcheck disable=SC2086
           echo "Target branch detected for synchronization: $TARGET_BRANCH"
 
+          # shellcheck disable=SC2086
           git fetch origin "$TARGET_BRANCH"
+          # shellcheck disable=SC2086
           git reset --hard "origin/$TARGET_BRANCH"
+          # shellcheck disable=SC2086
           git pull origin "$TARGET_BRANCH" --force
 
       - name: Install Free-Threaded Python 3.13 and Native Compiler Toolchains
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y python3.13-nogil python3.13-dev rustc cargo patchelf ccache
+          sudo apt-get install -y python3.13-nogil python3.13-dev python3.13-venv rustc cargo patchelf ccache
 
           # Initialize stable workspace structures
-          PYTHON_CMD=$(which python3.13t 2>/dev/null || which python3.13 2>/dev/null || which python3)
+          PYTHON_CMD=$(which python3.13 2>/dev/null || which python3)
           $PYTHON_CMD -m venv venv
           echo "$GITHUB_WORKSPACE/venv/bin" >> $GITHUB_PATH
           $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip setuptools wheel
 
       - name: Install Runtime and Parallel Development Dependencies
         run: |
-          $GITHUB_WORKSPACE/venv/bin/python -m pip install --upgrade pip
-          $GITHUB_WORKSPACE/venv/bin/pip install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
-          if [ -f requirements.txt ]; then $GITHUB_WORKSPACE/venv/bin/pip install -r requirements.txt; fi
+          # shellcheck disable=SC2086
+          "$GITHUB_WORKSPACE/venv/bin/python" -m pip install --upgrade pip
+          # shellcheck disable=SC2086
+          "$GITHUB_WORKSPACE/venv/bin/pip" install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
+          # shellcheck disable=SC2086
+          if [ -f requirements.txt ]; then "$GITHUB_WORKSPACE/venv/bin/pip" install -r requirements.txt; fi
 
       # =========================================================================
       # PHASE-1: STRICT TYPE ARCHITECTURE VERIFICATION LOOP
@@ -64,15 +73,22 @@ jobs:
       - name: Execute Phase-1 (Mypy Strict Track)
         id: phase_1
         run: |
+          # shellcheck disable=SC2086
           echo "=== PHASE-1 MYPY LOG ===" > phase_1_output.log
-          $GITHUB_WORKSPACE/venv/bin/python -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
+          # shellcheck disable=SC2086
+          "$GITHUB_WORKSPACE/venv/bin/python" -m mypy . --strict -n 10 --check-untyped-defs --exclude-gitignore --install-types --non-interactive --warn-incomplete-stub --show-traceback --no-fixed-format-cache --show-absolute-path --show-error-end --show-error-context --extra-checks >> phase_1_output.log 2>&1 || true
+          # shellcheck disable=SC2086
           cat phase_1_output.log
 
+          # shellcheck disable=SC2086
           if grep -q "error:" phase_1_output.log || grep -q "Found" phase_1_output.log; then
-            echo "PHASE_1_PASSED=false" >> $GITHUB_ENV
-            echo "CURRENT_FAILED_PHASE=Phase-1 (Mypy Static Typing Analysis)" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "PHASE_1_PASSED=false" >> "$GITHUB_ENV"
+            # shellcheck disable=SC2086
+            echo "CURRENT_FAILED_PHASE=Phase-1 (Mypy Static Typing Analysis)" >> "$GITHUB_ENV"
           else
-            echo "PHASE_1_PASSED=true" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "PHASE_1_PASSED=true" >> "$GITHUB_ENV"
           fi
 
       # =========================================================================
@@ -82,15 +98,22 @@ jobs:
         id: phase_2
         if: env.PHASE_1_PASSED == 'true'
         run: |
+          # shellcheck disable=SC2086
           echo "=== PHASE-2 PYTEST LOG ===" > phase_2_output.log
-          $GITHUB_WORKSPACE/venv/bin/python -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
+          # shellcheck disable=SC2086
+          "$GITHUB_WORKSPACE/venv/bin/python" -m pytest -n auto -vv -s --count=5 --full-trace --cache-clear -k "not gui_integration" >> phase_2_output.log 2>&1 || true
+          # shellcheck disable=SC2086
           cat phase_2_output.log
 
+          # shellcheck disable=SC2086
           if grep -q "FAILED" phase_2_output.log || grep -q "ERRORS" phase_2_output.log; then
-            echo "PHASE_2_PASSED=false" >> $GITHUB_ENV
-            echo "CURRENT_FAILED_PHASE=Phase-2 (Pytest Distributed Multi-Thread Matrix)" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "PHASE_2_PASSED=false" >> "$GITHUB_ENV"
+            # shellcheck disable=SC2086
+            echo "CURRENT_FAILED_PHASE=Phase-2 (Pytest Distributed Multi-Thread Matrix)" >> "$GITHUB_ENV"
           else
-            echo "PHASE_2_PASSED=true" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "PHASE_2_PASSED=true" >> "$GITHUB_ENV"
           fi
 
       # =========================================================================
@@ -102,21 +125,29 @@ jobs:
         env:
           UNSAFE_PYO3_BUILD_FREE_THREADED: "1" # Instructs PyO3 to compile natively under No-GIL
         run: |
+          # shellcheck disable=SC2086
           echo "=== PHASE-3 STAGE-1 RUST LOG ===" > p3_s1_output.log
           if [ -d "eqats_rust_core" ]; then
             cd eqats_rust_core
-            $GITHUB_WORKSPACE/venv/bin/maturin develop --release >> ../p3_s1_output.log 2>&1 || true
+            # shellcheck disable=SC2086
+            "$GITHUB_WORKSPACE/venv/bin/maturin" develop --release >> ../p3_s1_output.log 2>&1 || true
             cd ..
           else
+            # shellcheck disable=SC2086
             echo "Directory 'eqats_rust_core' not located; bypassing tracking step." >> p3_s1_output.log
           fi
+          # shellcheck disable=SC2086
           cat p3_s1_output.log
 
+          # shellcheck disable=SC2086
           if grep -q "error:" p3_s1_output.log || grep -q "failed" p3_s1_output.log; then
-            echo "P3_S1_PASSED=false" >> $GITHUB_ENV
-            echo "CURRENT_FAILED_PHASE=Phase-3 Stage-1 (Maturin Native Rust Compilation)" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "P3_S1_PASSED=false" >> "$GITHUB_ENV"
+            # shellcheck disable=SC2086
+            echo "CURRENT_FAILED_PHASE=Phase-3 Stage-1 (Maturin Native Rust Compilation)" >> "$GITHUB_ENV"
           else
-            echo "P3_S1_PASSED=true" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "P3_S1_PASSED=true" >> "$GITHUB_ENV"
           fi
 
       # =========================================================================
@@ -126,15 +157,22 @@ jobs:
         id: p3_s2
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true'
         run: |
+          # shellcheck disable=SC2086
           echo "=== PHASE-3 STAGE-2 PYTHON LOG ===" > p3_s2_output.log
-          $GITHUB_WORKSPACE/venv/bin/python -m compileall . >> p3_s2_output.log 2>&1 || true
+          # shellcheck disable=SC2086
+          "$GITHUB_WORKSPACE/venv/bin/python" -m compileall . >> p3_s2_output.log 2>&1 || true
+          # shellcheck disable=SC2086
           cat p3_s2_output.log
 
+          # shellcheck disable=SC2086
           if grep -q "error" p3_s2_output.log || grep -q "ERROR" p3_s2_output.log; then
-            echo "P3_S2_PASSED=false" >> $GITHUB_ENV
-            echo "CURRENT_FAILED_PHASE=Phase-3 Stage-2 (Python compileall Pre-Compilation)" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "P3_S2_PASSED=false" >> "$GITHUB_ENV"
+            # shellcheck disable=SC2086
+            echo "CURRENT_FAILED_PHASE=Phase-3 Stage-2 (Python compileall Pre-Compilation)" >> "$GITHUB_ENV"
           else
-            echo "P3_S2_PASSED=true" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "P3_S2_PASSED=true" >> "$GITHUB_ENV"
           fi
 
       # =========================================================================
@@ -144,15 +182,22 @@ jobs:
         id: p3_s3
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true' && env.P3_S1_PASSED == 'true' && env.P3_S2_PASSED == 'true'
         run: |
+          # shellcheck disable=SC2086
           echo "=== PHASE-3 STAGE-3 NUITKA LOG ===" > p3_s3_output.log
-          $GITHUB_WORKSPACE/venv/bin/python -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
+          # shellcheck disable=SC2086
+          "$GITHUB_WORKSPACE/venv/bin/python" -m nuitka --standalone --python-flag=no_docstrings --remove-output main.py >> p3_s3_output.log 2>&1 || true
+          # shellcheck disable=SC2086
           cat p3_s3_output.log
 
+          # shellcheck disable=SC2086
           if grep -q "FATAL" p3_s3_output.log || grep -q "Error:" p3_s3_output.log; then
-            echo "P3_S3_PASSED=false" >> $GITHUB_ENV
-            echo "CURRENT_FAILED_PHASE=Phase-3 Stage-3 (Nuitka Standalone Binary Packaging)" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "P3_S3_PASSED=false" >> "$GITHUB_ENV"
+            # shellcheck disable=SC2086
+            echo "CURRENT_FAILED_PHASE=Phase-3 Stage-3 (Nuitka Standalone Binary Packaging)" >> "$GITHUB_ENV"
           else
-            echo "P3_S3_PASSED=true" >> $GITHUB_ENV
+            # shellcheck disable=SC2086
+            echo "P3_S3_PASSED=true" >> "$GITHUB_ENV"
           fi
 
       # =========================================================================
@@ -239,10 +284,12 @@ jobs:
 
           TARGET_BRANCH="${TARGET_BRANCH:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}}"
 
-          git add src/ tests/ eqats_rust_core/ mql5/ *.py *.rs *.toml 2>/dev/null || git add -u
+          # shellcheck disable=SC2035
+          git add src/ tests/ eqats_rust_core/ mql5/ ./*.py ./*.rs ./*.toml 2>/dev/null || git add -u
           git reset -- .github/
           git commit -m "🤖 [AUTONOMOUS HEALING LOOP] Rectified defects flagged at stage: $FAILED_PHASE_NAME" || true
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${TARGET_BRANCH}" --force
 
+          # shellcheck disable=SC2086
           echo "[HEALING TRACK RUNNING] Pushed patches back upstream to branch $TARGET_BRANCH. Terminalling thread execution to trigger a fresh validation loop sequence starting back at Phase-1."
           exit 1
