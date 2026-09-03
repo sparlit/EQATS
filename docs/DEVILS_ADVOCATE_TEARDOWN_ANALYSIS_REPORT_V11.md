@@ -1,61 +1,106 @@
+<!-- codespell:ignore MIS,IST -->
 # ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 11.0.0)
+
 ## DEVIL'S ADVOCATE DEEP-DIVE TEARDOWN, DRILL-DOWN, & DECOMPOSED ANALYSIS REPORT
 
 ---
 
-# 1. EXECUTIVE TEARDOWN SUMMARY
+## 1. EXECUTIVE TEARDOWN SUMMARY
 
-An exhaustive, adversarial **Devil's Advocate Teardown Analysis** was conducted across the entire **Elite Quantum Autonomous Trading System (EQATS Version 11.0.0)** codebase. This deep-dive decomposition inspected every subsystem, layer, and integration boundary across Python source modules (`src/`, `institutional_integrations/`), Rust native PyO3 extensions (`eqats_rust_core`), MetaTrader 5 MQL5 scripts (`mql5/EqatsAutonomousScalperEA.mq5`), Protocol Buffers (`proto/`), SQLite database schemas (`database.py`), web/REST APIs (`web_api.py`), and 33-sheet Quantum Terminal GUI presentation components (`gui.py`).
+An exhaustive, adversarial **Devil's Advocate Teardown Analysis** was conducted
+across the entire **Elite Quantum Autonomous Trading System (EQATS Version
+11.0.0)** codebase. This deep-dive decomposition inspected every subsystem,
+layer, and integration boundary across Python source modules (`src/`,
+`institutional_integrations/`), Rust native PyO3 extensions
+(`eqats_rust_core`), MetaTrader 5 MQL5 scripts
+(`mql5/EqatsAutonomousScalperEA.mq5`), Protocol Buffers (`proto/`), SQLite
+database schemas (`database.py`), web/REST APIs (`web_api.py`), and 33-sheet
+Quantum Terminal GUI presentation components (`gui.py`).
 
-The primary goal of this teardown is to systematically challenge all operational assumptions, interrogate limits, and evaluate:
-1. **Structural Integrity & Concurrency Constraints** (Thread race conditions, SQLite lock contention, and Python GIL multi-processing behaviors).
-2. **Deterministic Governance & Safety Invariants** (Validation of `INV-001` through `INV-015` and the 33-gate anti-overfitting engine).
-3. **Execution Edge Cases & Broker API Reliability** (Handling of rate-limits, volume/step normalization, and network socket IPC fallbacks).
-4. **Stub & Placeholder Audit** (Elimination of dummy returns, synthetic mocks, and stub fallbacks across institutional adapters).
-5. **System Hardware & Auto-Tuning Optimization** (Dynamic physical core detection, RAM/SIMD autotuning, and IPC latency management).
-
----
-
-# 2. SUBSYSTEM DECOMPOSED TEARDOWN FINDINGS & ARCHITECTURAL VERIFICATION
-
-### 2.1 Hybrid Monolith Execution Engine & Multi-Processing Core (`brain.py`, `main.py`, `predictive_brain.py`, `parallel_pool.py`)
-* **Spread-to-ATR Admission Gate (`brain.py`)**:
-  - *Analysis*: Evaluates real-time broker spread drag against target ATR (`spread_pips / atr_pips > 0.35`). Rejects entries during high-spread illiquid session opens or news spikes.
-  - *Teardown Verdict*: Verified mathematically sound. Zero-ATR edge cases are guarded with default baseline ATR fallbacks (`0.0010`).
-* **Multi-Process Parallel Pool GIL Bypass (`src/institutional_integrations/parallel_pool.py`)**:
-  - *Analysis*: Dispatches heavy neural network evaluations and 33-gate validation tasks across `ProcessPoolExecutor` and `ThreadPoolExecutor`.
-  - *Teardown Verdict*: Bypasses Python GIL contention under high-frequency workloads, utilizing physical host CPU cores efficiently.
-
-### 2.2 Multi-Asset 33-Gate Validation & Anti-Overfitting Engine (`v11_multi_asset_validation_engine.py`)
-* **33-Gate Multi-Asset Pipeline (Gates 0–33)**:
-  - *Analysis*: Validates trade candidates through 33 distinct validation gates, including Deflated Sharpe Ratio (DSR), Probability of Backtest Overfitting (PBO), Combinatorial Purged Cross-Validation (CPCV), spread-drag checks, and macro regime alignment.
-  - *Teardown Verdict*: Operates deterministically without synthetic mock pass-throughs. All gate calculations return structured audit signatures.
-
-### 2.3 Autonomous Self-Healing Governor Daemon (`v11_autonomous_self_healing_engine.py` / `v11_hyper_autonomous_self_fixing_governor.py`)
-* **Self-Healing Lifecycle States (`ACTIVE`, `WARNING`, `DEGRADED`, `RESTRICTED`, `SUSPENDED`, `RETIRED`)**:
-  - *Analysis*: Monitors CPU/RAM vitals, SQLite WAL lock states, network pings, and strategy PnL decay. Executes autonomous self-repair actions (DB WAL checkpointing, thread pool recycling, strategy weight retraining).
-  - *Teardown Verdict*: Autonomous background daemon operates independently without human intervention, maintaining system resilience.
-
-### 2.4 Multi-Broker Universal Adapter & Exchange Integrations (`universal_broker_adapter.py`, `dxtrade_broker_adapter.py`, `sebi_broker_adapter.py`)
-* **SEBI & International Broker Order Normalization**:
-  - *Analysis*: Enforces tick-size rounding (`round_to_indian_tick_size`), integer share quantities (`round_to_indian_quantity`), product tags (`MIS`, `CNC`, `NRML`), and exchange state machine intraday cutoff rules (3:00 PM IST auto-squareoff).
-  - *Teardown Verdict*: Prevents order rejection errors (`[Invalid volume]`, `[Invalid price]`) on live broker gateways.
-
-### 2.5 Presentation Layer & 33-Sheet Quantum Terminal GUI (`gui.py`)
-* **Floor Pivot Calculations & Unclosed PnL Guarding**:
-  - *Analysis*: Dynamically computes Floor Pivot Points (Pivot, R1, S1) from historical OHLC bars (`get_history`) and guards unclosed position PnL (`float(last_pnl) if last_pnl is not None else 0.0`).
-  - *Teardown Verdict*: Prevents `TypeError` exceptions during real-time UI rendering across all 33 terminal sheets.
-
-### 2.6 Native Rust Core & C-ABI Accelerators (`eqats_rust_core`)
-* **Blockchain State Ledger & SHA-256 Mempool (`eqats_rust_core/src/blockchain_db.rs`)**:
-  - *Analysis*: High-throughput, thread-safe memory ledger with dual-entry accounting, background micro-batch worker daemon, and pure-Rust SHA-256 Merkle tree verification.
-  - *Teardown Verdict*: Native sub-millisecond execution times providing immutable trade execution audit trails.
+The primary goal of this teardown is to systematically challenge all operational
+assumptions, interrogate limits, and evaluate:
+1. **Structural Integrity & Concurrency Constraints** (Thread race conditions,
+   SQLite lock contention, and Python GIL multi-processing behaviors).
+2. **Deterministic Governance & Safety Invariants** (Validation of `INV-001`
+   through `INV-015` and the 33-gate anti-overfitting engine).
+3. **Execution Edge Cases & Broker API Reliability** (Handling of rate-limits,
+   volume/step normalization, and network socket IPC fallbacks).
+4. **Stub & Placeholder Audit** (Elimination of dummy returns, synthetic mocks,
+   and stub fallbacks across institutional adapters).
+5. **System Hardware & Auto-Tuning Optimization** (Dynamic physical core
+   detection, RAM/SIMD autotuning, and IPC latency management).
 
 ---
 
-# 3. CRITICAL SYSTEM INVARIANTS & SAFETY KERNEL COMPLIANCE
+## 2. SUBSYSTEM DECOMPOSED TEARDOWN FINDINGS & ARCHITECTURAL VERIFICATION
 
-The entire EQATS v11.0.0 execution pipeline strictly enforces 15 deterministic safety invariants (`INV-001` to `INV-015`):
+### 2.1 Hybrid Monolith Execution Engine & Multi-Processing Core
+
+- **Spread-to-ATR Admission Gate (`brain.py`)**:
+  - *Analysis*: Evaluates real-time broker spread drag against target ATR
+    (`spread_pips / atr_pips > 0.35`). Rejects entries during high-spread
+    illiquid session opens or news spikes.
+  - *Teardown Verdict*: Verified mathematically sound. Zero-ATR edge cases are
+    guarded with default baseline ATR fallbacks (`0.0010`).
+- **Multi-Process Parallel Pool GIL Bypass (`src/institutional_integrations/parallel_pool.py`)**:
+  - *Analysis*: Dispatches heavy neural network evaluations and 33-gate validation
+    tasks across `ProcessPoolExecutor` and `ThreadPoolExecutor`.
+  - *Teardown Verdict*: Bypasses Python GIL contention under high-frequency
+    workloads, utilizing physical host CPU cores efficiently.
+
+### 2.2 Multi-Asset 33-Gate Validation & Anti-Overfitting Engine
+
+- **33-Gate Multi-Asset Pipeline (Gates 0–33)**:
+  - *Analysis*: Validates trade candidates through 33 distinct validation gates,
+    including Deflated Sharpe Ratio (DSR), Probability of Backtest Overfitting
+    (PBO), Combinatorial Purged Cross-Validation (CPCV), spread-drag checks,
+    and macro regime alignment.
+  - *Teardown Verdict*: Operates deterministically without synthetic mock
+    pass-throughs. All gate calculations return structured audit signatures.
+
+### 2.3 Autonomous Self-Healing Governor Daemon
+
+- **Self-Healing Lifecycle States (`ACTIVE`, `WARNING`, `DEGRADED`, `RESTRICTED`, `SUSPENDED`, `RETIRED`)**:
+  - *Analysis*: Monitors CPU/RAM vitals, SQLite WAL lock states, network pings,
+    and strategy PnL decay. Executes autonomous self-repair actions (DB WAL
+    checkpointing, thread pool recycling, strategy weight retraining).
+  - *Teardown Verdict*: Autonomous background daemon operates independently
+    without human intervention, maintaining system resilience.
+
+### 2.4 Multi-Broker Universal Adapter & Exchange Integrations
+
+- **SEBI & International Broker Order Normalization**:
+  - *Analysis*: Enforces tick-size rounding (`round_to_indian_tick_size`), integer
+    share quantities (`round_to_indian_quantity`), product tags (`MIS`, `CNC`,
+    `NRML`), and exchange state machine intraday cutoff rules (3:00 PM IST
+    auto-squareoff).
+  - *Teardown Verdict*: Prevents order rejection errors (`[Invalid volume]`,
+    `[Invalid price]`) on live broker gateways.
+
+### 2.5 Presentation Layer & 33-Sheet Quantum Terminal GUI
+
+- **Floor Pivot Calculations & Unclosed PnL Guarding**:
+  - *Analysis*: Dynamically computes Floor Pivot Points (Pivot, R1, S1) from
+    historical OHLC bars (`get_history`) and guards unclosed position PnL
+    (`float(last_pnl) if last_pnl is not None else 0.0`).
+  - *Teardown Verdict*: Prevents `TypeError` exceptions during real-time UI
+    rendering across all 33 terminal sheets.
+
+### 2.6 Native Rust Core & C-ABI Accelerators
+
+- **Blockchain State Ledger & SHA-256 Mempool (`eqats_rust_core/src/blockchain_db.rs`)**:
+  - *Analysis*: High-throughput, thread-safe memory ledger with dual-entry
+    accounting, background micro-batch worker daemon, and pure-Rust SHA-256
+    Merkle tree verification.
+  - *Teardown Verdict*: Native sub-millisecond execution times providing
+    immutable trade execution audit trails.
+
+---
+
+## 3. CRITICAL SYSTEM INVARIANTS & SAFETY KERNEL COMPLIANCE
+
+The entire EQATS v11.0.0 execution pipeline strictly enforces 15 deterministic
+safety invariants (`INV-001` to `INV-015`):
 
 | Invariant | Description | Verification Finding | Compliance |
 | :--- | :--- | :--- | :---: |
@@ -77,7 +122,7 @@ The entire EQATS v11.0.0 execution pipeline strictly enforces 15 deterministic s
 
 ---
 
-# 4. VERIFICATION & TEST COVERAGE MATRIX
+## 4. VERIFICATION & TEST COVERAGE MATRIX
 
 To confirm all teardown findings and verify zero regressions across the codebase:
 1. **Automated Integration Test Suite**: 405 test cases executed in `pytest`.
@@ -99,6 +144,10 @@ To confirm all teardown findings and verify zero regressions across the codebase
 
 ---
 
-# 5. CONCLUSION
+## 5. CONCLUSION
 
-The **EQATS Version 11.0.0** trading system has passed a full Devil's Advocate teardown analysis. The system exhibits complete architectural decoupling, zero synthetic mock fallbacks in core execution paths, strict adherence to safety invariants `INV-001` through `INV-015`, and 100% test pass rate across all 405 unit and integration tests.
+The **EQATS Version 11.0.0** trading system has passed a full Devil's Advocate
+teardown analysis. The system exhibits complete architectural decoupling, zero
+synthetic mock fallbacks in core execution paths, strict adherence to safety
+invariants `INV-001` through `INV-015`, and 100% test pass rate across all 405
+unit and integration tests.
