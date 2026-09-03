@@ -1,7 +1,18 @@
+import os
+import sys
+from pathlib import Path
+
+# Ensure src directory and project root are in sys.path for seamless imports
+_SRC_DIR = Path(__file__).resolve().parent
+_ROOT_DIR = _SRC_DIR.parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.insert(1, str(_ROOT_DIR))
+
 from typing import Any
 import datetime
 import logging
-import os
 import threading
 import time
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
@@ -657,7 +668,8 @@ class AutonomousScalper:
         except Exception as e:
             print(f'Warning: Telemetry push exception: {e}')
         print('-' * 120)
-if __name__ == '__main__':
+def run_main() -> None:
+    """Main execution function for launching the system in GUI or Console mode."""
     use_gui = True
     try:
         import tkinter
@@ -679,3 +691,7 @@ if __name__ == '__main__':
                     time.sleep(config.CHECK_INTERVAL_SECONDS)
             except KeyboardInterrupt:
                 scalper.stop()
+
+
+if __name__ == '__main__':
+    run_main()
