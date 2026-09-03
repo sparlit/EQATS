@@ -19,7 +19,7 @@
 | 0xRustPro/Stealth-BSC-BNB-create-devbuy-volume-bundler-trading-bot | Pending | Pending | Pending | Pending | Initializing |
 | 0xTan1319/hyperliquid-trading-bot-rust | Pending | Pending | Pending | Pending | Initializing |
 | 85599/BankNIFTY-Golden-Ratio-Strategy | Complete | Complete | Complete | Complete | Active |
-| aadityatamrakar/option_chain_analysis | Pending | Pending | Pending | Pending | Initializing |
+| aadityatamrakar/option_chain_analysis | Complete | Complete | Complete | Complete | Active |
 | aaryansinha16/AI-trader | Pending | Pending | Pending | Pending | Initializing |
 | abhiwalia15/AI-for-Finance-Stocks-real-time-analysis- | Pending | Pending | Pending | Pending | Initializing |
 | abuhurairalakdawala/indian-share-market | Pending | Pending | Pending | Pending | Initializing |
