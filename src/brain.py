@@ -2,7 +2,12 @@ import logging
 import math
 from typing import Any
 
-import numpy as np
+try:
+    import numpy as np
+except (ImportError, ModuleNotFoundError, Exception) as _np_err:
+    _log = logging.getLogger(__name__)
+    _log.warning("NumPy C-extension loading note: %s. Operating in pure-Python array mode.", _np_err)
+    np = None
 
 import config
 import database
@@ -256,13 +261,17 @@ class ScalperBrain:
         vols = [bar.get("tick_volume", bar.get("volume", 1000.0)) for bar in history_bars]
         min_len = min(len(highs), len(lows), len(closes), len(vols))
         if min_len > 0:
-            opens_arr = np.roll(closes, 1)
-            opens_arr[0] = closes[0]
-            ohlcv_mat = np.column_stack(
-                (opens_arr[-min_len:], highs[-min_len:], lows[-min_len:], closes[-min_len:], vols[-min_len:]),
-            )
+            if np is not None:
+                opens_arr = np.roll(closes, 1)
+                opens_arr[0] = closes[0]
+                ohlcv_mat = np.column_stack(
+                    (opens_arr[-min_len:], highs[-min_len:], lows[-min_len:], closes[-min_len:], vols[-min_len:]),
+                )
+            else:
+                opens_lst = [closes[0]] + closes[:-1]
+                ohlcv_mat = [[opens_lst[i], highs[i], lows[i], closes[i], vols[i]] for i in range(-min_len, 0)]
         else:
-            ohlcv_mat = np.empty((0, 5))
+            ohlcv_mat = [] if np is None else np.empty((0, 5))
         kronos_res = kronos_model.forecast_probabilistic(ohlcv_mat, forecast_horizon=24)
         kronos_upside_prob = kronos_res.get("upside_probability", 0.5)
         sig_tf = "HOLD"
