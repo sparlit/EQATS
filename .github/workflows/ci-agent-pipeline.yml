@@ -44,7 +44,7 @@ jobs:
         run: |
           sudo add-apt-repository ppa:deadsnakes/ppa -y
           sudo apt-get update
-          sudo apt-get install -y python3.13-nogil python3.13-dev rustc cargo patchelf ccache
+          sudo apt-get install -y python3.13-nogil python3.13-dev python3.13-venv rustc cargo patchelf ccache
 
           # Initialize stable workspace structures
           PYTHON_CMD=$(which python3.13t 2>/dev/null || which python3.13 2>/dev/null || which python3)
