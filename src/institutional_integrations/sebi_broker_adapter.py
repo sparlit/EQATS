@@ -1637,12 +1637,25 @@ class UnifiedIndianBrokerClientAdapter:
                 api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
             )
         else:
-            return KiteConnectAdapter(
-                api_key=self.api_key,
-                api_secret=self.api_secret,
-                access_token=self.access_token,
-                is_sandbox=self.is_sandbox,
-            )
+            try:
+                inst = adapter_cls(
+                    api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
+                )
+                if isinstance(inst, SEBIBrokerAdapter):
+                    return inst
+                return KiteConnectAdapter(
+                    api_key=self.api_key,
+                    api_secret=self.api_secret,
+                    access_token=self.access_token,
+                    is_sandbox=self.is_sandbox,
+                )
+            except Exception:
+                return KiteConnectAdapter(
+                    api_key=self.api_key,
+                    api_secret=self.api_secret,
+                    access_token=self.access_token,
+                    is_sandbox=self.is_sandbox,
+                )
 
     def login(self) -> bool:
         """Executes broker authentication and session token creation."""
