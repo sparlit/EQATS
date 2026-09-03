@@ -52,13 +52,13 @@ operational assumptions, interrogate limits, and evaluate:
 
 ### 2.2 Multi-Asset 33-Gate Validation & Anti-Overfitting Engine
 
-- **33-Gate Multi-Asset Pipeline (Gates 0–33)**:
-  - *Analysis*: Validates trade candidates through 33 distinct validation gates,
-    including Deflated Sharpe Ratio (DSR), Probability of Backtest Overfitting
-    (PBO), Combinatorial Purged Cross-Validation (CPCV), spread-drag checks,
-    and macro regime alignment.
+- **33-Gate Multi-Asset Pipeline (Gates 1–33)**:
+  - *Analysis*: Validates trade candidates through 33 distinct validation gates
+    (Gates 1–33), including Deflated Sharpe Ratio (DSR), Probability of Backtest
+    Overfitting (PBO), Combinatorial Purged Cross-Validation (CPCV), spread-drag
+    checks, and macro regime alignment.
   - *Teardown Verdict*: Operates deterministically without synthetic mock
-    pass-throughs. All gate calculations return structured audit signatures.
+    pass-throughs. All 33 gate calculations return structured audit signatures.
 
 ### 2.3 Autonomous Self-Healing Governor Daemon
 
