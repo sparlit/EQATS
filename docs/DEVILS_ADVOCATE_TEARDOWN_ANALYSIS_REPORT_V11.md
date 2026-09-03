@@ -45,8 +45,10 @@ operational assumptions, interrogate limits, and evaluate:
 - **Multi-Process Parallel Pool GIL Bypass (`src/institutional_integrations/parallel_pool.py`)**:
   - *Analysis*: Dispatches heavy neural network evaluations and 33-gate
     validation tasks across `ProcessPoolExecutor` and `ThreadPoolExecutor`.
-  - *Teardown Verdict*: Bypasses Python GIL contention under high-frequency
-    workloads, utilizing physical host CPU cores efficiently.
+  - *Teardown Verdict*: GIL bypass occurs only when using `ProcessPoolExecutor`.
+    `ThreadPoolExecutor` paths such as `Brain.evaluate_symbols_parallel` and the
+    neural predictor do not bypass the GIL for CPU-bound Python work unless tasks
+    release it or execute native code.
 
 ### 2.2 Multi-Asset 33-Gate Validation & Anti-Overfitting Engine
 
