@@ -31,7 +31,7 @@
 | agrawalarnav129-ui/jarvis-trading | Pending | Pending | Pending | Pending | Initializing |
 | AI4Finance-Foundation/FinRL-Trading | Pending | Pending | Pending | Pending | Initializing |
 | ajakaiye33/ngrcoydisclosures | Pending | Pending | Pending | Pending | Initializing |
-| ajeeshworkspace/indian-trading-skills | Pending | Pending | Pending | Pending | Initializing |
+| ajeeshworkspace/indian-trading-skills | Complete | Complete | Complete | Complete | Active |
 | akashnag/scripwatch | Pending | Pending | Pending | Pending | Initializing |
 | akashyadavv/AlgoTradingNSE | Complete | Complete | Complete | Complete | Active |
 | akshaypawar7/WODS | Pending | Pending | Pending | Pending | Initializing |
