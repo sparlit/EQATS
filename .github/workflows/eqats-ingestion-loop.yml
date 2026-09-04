@@ -113,11 +113,11 @@ jobs:
           if [ "$CURRENT" -lt "$TOTAL" ]; then
             echo "[+] Progress Status Matrix: ($CURRENT / $TOTAL). Cascade triggering subsequent factory loop..."
             
-            # Use GitHub Environment variables directly to completely avoid syntax or brace errors
-            API_URL="https://github.com{{ github.repository }}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
+            # STAGE HARD PATCH: Use pure native environment variables to completely avoid syntax or brace errors
+            API_URL="https://github.com{GITHUB_REPOSITORY}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
             
             curl -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
               -H "Accept: application/vnd.github.v3+json" \
               "$API_URL" \
               -d '{"ref":"main"}'
