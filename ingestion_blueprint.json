@@ -1,10 +1,10 @@
 {
-  "current_index": 0,
+  "current_index": 1,
   "repositories": [
     {
       "name": "tectonicdb",
       "url": "https://github.com/tectonicdb",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "hyperliquid_rust_bot",
