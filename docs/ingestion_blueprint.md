@@ -35,7 +35,7 @@
 | akashnag/scripwatch | Pending | Pending | Pending | Pending | Initializing |
 | akashyadavv/AlgoTradingNSE | Pending | Pending | Pending | Pending | Initializing |
 | akshaypawar7/WODS | Pending | Pending | Pending | Pending | Initializing |
-| akshayraje/get-nse-bhavcopy | Pending | Pending | Pending | Pending | Initializing |
+| akshayraje/get-nse-bhavcopy | Complete | Complete | Complete | Complete | Active |
 | akshayz14/indian-stock-tracker | Pending | Pending | Pending | Pending | Initializing |
 | akt114/BuyNSell | Pending | Pending | Pending | Pending | Initializing |
 | AlexWan/OsEngine | Pending | Pending | Pending | Pending | Initializing |
