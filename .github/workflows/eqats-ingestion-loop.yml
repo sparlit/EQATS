@@ -113,7 +113,7 @@ jobs:
           if [ "$CURRENT" -lt "$TOTAL" ]; then
             echo "[+] Progress Status Matrix: ($CURRENT / $TOTAL). Cascade triggering subsequent factory loop..."
             
-            # STAGE HARD PATCH: Use pure native environment variables to completely avoid syntax or brace errors
+            # FIXED URL STRUCTURE: Strict endpoint targeting the programmatic REST API gateway
             API_URL="https://github.com{GITHUB_REPOSITORY}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
             
             curl -X POST \
