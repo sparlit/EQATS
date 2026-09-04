@@ -49,7 +49,7 @@
 | amv-dev/yata | Pending | Pending | Pending | Pending | Initializing |
 | Aneesh540/VSE | Pending | Pending | Pending | Pending | Initializing |
 | Animesh4002/ai-stock-screener | Pending | Pending | Pending | Pending | Initializing |
-| aniruddhsujish/NSETradeAgents | Pending | Pending | Pending | Pending | Initializing |
+| aniruddhsujish/NSETradeAgents | Complete | Complete | Complete | Complete | Active |
 | anjulgarg/sharewatch | Pending | Pending | Pending | Pending | Initializing |
 | ankitchaudhary6886/nse-system | Pending | Pending | Pending | Pending | Initializing |
 | ankitsny/nse_scrapper | Pending | Pending | Pending | Pending | Initializing |
