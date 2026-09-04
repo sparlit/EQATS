@@ -42,8 +42,7 @@
 | algotrading-lab/ai-algotrading-agent | Complete | Complete | Complete | Complete | Active |
 | alloc7260/NSE | Complete | Complete | Complete | Complete | Active |
 | alphabench/raptorbt | Complete | Complete | Complete | Complete | Active |
-| althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
-| althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
+| althk/zerobha | Complete | Complete | Complete | Complete | Active |
 | Ameobea/tickgrinder | Pending | Pending | Pending | Pending | Initializing |
 | amitashwinibhagat/nse-swing-scanner | Complete | Complete | Complete | Complete | Active |
 | amv-dev/yata | Pending | Pending | Pending | Pending | Initializing |
