@@ -40,7 +40,7 @@
 | akt114/BuyNSell | Complete | Complete | Complete | Complete | Active |
 | AlexWan/OsEngine | Pending | Pending | Pending | Pending | Initializing |
 | algotrading-lab/ai-algotrading-agent | Pending | Pending | Pending | Pending | Initializing |
-| alloc7260/NSE | Pending | Pending | Pending | Pending | Initializing |
+| alloc7260/NSE | Complete | Complete | Complete | Complete | Active |
 | alphabench/raptorbt | Pending | Pending | Pending | Pending | Initializing |
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
