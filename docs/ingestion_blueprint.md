@@ -45,7 +45,7 @@
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | Ameobea/tickgrinder | Pending | Pending | Pending | Pending | Initializing |
-| amitashwinibhagat/nse-swing-scanner | Pending | Pending | Pending | Pending | Initializing |
+| amitashwinibhagat/nse-swing-scanner | Complete | Complete | Complete | Complete | Active |
 | amv-dev/yata | Pending | Pending | Pending | Pending | Initializing |
 | Aneesh540/VSE | Pending | Pending | Pending | Pending | Initializing |
 | Animesh4002/ai-stock-screener | Pending | Pending | Pending | Pending | Initializing |
