@@ -33,7 +33,7 @@
 | ajakaiye33/ngrcoydisclosures | Pending | Pending | Pending | Pending | Initializing |
 | ajeeshworkspace/indian-trading-skills | Pending | Pending | Pending | Pending | Initializing |
 | akashnag/scripwatch | Pending | Pending | Pending | Pending | Initializing |
-| akashyadavv/AlgoTradingNSE | Pending | Pending | Pending | Pending | Initializing |
+| akashyadavv/AlgoTradingNSE | Complete | Complete | Complete | Complete | Active |
 | akshaypawar7/WODS | Pending | Pending | Pending | Pending | Initializing |
 | akshayraje/get-nse-bhavcopy | Complete | Complete | Complete | Complete | Active |
 | akshayz14/indian-stock-tracker | Pending | Pending | Pending | Pending | Initializing |
@@ -45,7 +45,7 @@
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | Ameobea/tickgrinder | Pending | Pending | Pending | Pending | Initializing |
-| amitashwinibhagat/nse-swing-scanner | Pending | Pending | Pending | Pending | Initializing |
+| amitashwinibhagat/nse-swing-scanner | Complete | Complete | Complete | Complete | Active |
 | amv-dev/yata | Pending | Pending | Pending | Pending | Initializing |
 | Aneesh540/VSE | Pending | Pending | Pending | Pending | Initializing |
 | Animesh4002/ai-stock-screener | Pending | Pending | Pending | Pending | Initializing |
