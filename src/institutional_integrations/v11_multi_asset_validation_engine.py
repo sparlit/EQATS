@@ -50,7 +50,7 @@ class MultiAsset33GateValidationEngine:
     robustness, out-of-sample verification, deflated Sharpe testing, and cost stress filters.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.version = "11.0.0"
         self.strategy_states: dict[str, str] = {}
         self.test_counter: dict[str, int] = {}
