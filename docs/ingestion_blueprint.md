@@ -32,7 +32,7 @@
 | AI4Finance-Foundation/FinRL-Trading | Pending | Pending | Pending | Pending | Initializing |
 | ajakaiye33/ngrcoydisclosures | Pending | Pending | Pending | Pending | Initializing |
 | ajeeshworkspace/indian-trading-skills | Complete | Complete | Complete | Complete | Active |
-| akashnag/scripwatch | Pending | Pending | Pending | Pending | Initializing |
+| akashnag/scripwatch | Complete | Complete | Complete | Complete | Active |
 | akashyadavv/AlgoTradingNSE | Complete | Complete | Complete | Complete | Active |
 | akshaypawar7/WODS | Pending | Pending | Pending | Pending | Initializing |
 | akshayraje/get-nse-bhavcopy | Complete | Complete | Complete | Complete | Active |
