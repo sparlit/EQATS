@@ -113,7 +113,7 @@ class QuantumStrategyGenomeBrain:
     Evaluates signal candidates across composable strategy families and trading horizons.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.version = "11.0.0"
         self.registered_genomes: dict[str, StrategyGenomeInstance] = {}
 

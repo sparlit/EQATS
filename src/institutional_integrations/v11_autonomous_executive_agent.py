@@ -13,13 +13,13 @@ logger = logging.getLogger("v11_autonomous_executive_agent")
 
 
 class ExecutiveAgenticDirective:
-    def __init__(self):
+    def __init__(self) -> None:
         self.timestamp = time.time()
         self.bias = "HOLD"
         self.executive_confidence = 0.50
         self.recommended_horizon = "SCALP"
         self.validation_summary = "All 33 Validation Gates operational"
-        self.actionable_instructions = []
+        self.actionable_instructions: List[str] = []
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,7 +39,7 @@ class AutonomousExecutiveAgent:
     and Kronos Foundation Model to issue high-level autonomous directives.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.version = "11.0.0"
         self.last_directive = ExecutiveAgenticDirective()
 
