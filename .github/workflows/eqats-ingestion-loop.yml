@@ -112,10 +112,14 @@ jobs:
           
           if [ "$CURRENT" -lt "$TOTAL" ]; then
             echo "[+] Progress Status Matrix: ($CURRENT / $TOTAL). Cascade triggering subsequent factory loop..."
+            
+            # Use GitHub Environment variables directly to completely avoid syntax or brace errors
+            API_URL="https://github.com{{ github.repository }}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
+            
             curl -X POST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
-              "https://github.com{{ github.repository }}/actions/workflows/eqats-ingestion-loop.yml/dispatches" \
+              "$API_URL" \
               -d '{"ref":"main"}'
           else
             echo "[+] SUCCESS: The factory has processed all $TOTAL repositories with zero stubs remaining."
