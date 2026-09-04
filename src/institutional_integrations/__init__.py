@@ -208,6 +208,11 @@ from .ftmo_tradingbot_core import (
     ScaleOnProfitEngine,
 )
 from .go_gateway import start_go_concurrency_websocket_relay
+from .bsc_volume_bundler_engine import (
+    MAGIC_NUMBER_BSC_VOLUME_BUNDLER,
+    BSCVolumeBundlerAdapter,
+    BSCVolumeBundlerStrategy,
+)
 from .hummingbot_suite import (
     ArbitrageOpportunity,
     AvellanedaQuote,
@@ -215,6 +220,16 @@ from .hummingbot_suite import (
     CrossExchangeArbitrageEngine,
     PureMarketMakingInventorySkewEngine,
     SkewedSpreads,
+)
+from .hyperliquid_rust_bot_engine import (
+    MAGIC_NUMBER_HYPERLIQUID_RUST_BOT,
+    HyperliquidRustBotAdapter,
+    HyperliquidRustBotStrategy,
+)
+from .jarvis_trading_engine import (
+    MAGIC_NUMBER_JARVIS_TRADING,
+    JarvisTradingAdapter,
+    JarvisTradingStrategy,
 )
 from .ict_system_v2_engine import (
     ICTSignalResult,
@@ -331,6 +346,11 @@ from .quantdinger_engine import (
 )
 from .quantum_quantum_engine import QuantumAutoEngine
 from .rc_news_feeder import NewsBlackoutCheck, NewsEvent, NewsImpact, RCNewsFeederEngine
+from .rig_solana_trader_engine import (
+    MAGIC_NUMBER_RIG_SOLANA_TRADER,
+    RigSolanaTraderAdapter,
+    RigSolanaTraderStrategy,
+)
 from .rust_bridge import execute_high_speed_rust_order_send
 from .sebi_broker_adapter import (
     VALID_INDIAN_EXCHANGES,
@@ -412,6 +432,8 @@ __all__ = [
     "ArkoRiskGuard",
     "AvellanedaQuote",
     "AvellanedaStoikovMarketMakingEngine",
+    "BSCVolumeBundlerAdapter",
+    "BSCVolumeBundlerStrategy",
     "BacktestTradeSignal",
     "BacktraderAnalyzerEngine",
     "BacktraderPerformanceMetrics",
@@ -479,6 +501,10 @@ __all__ = [
     "GridState",
     "GymStepResult",
     "HedgeFundSwarmOrchestrator",
+    "HyperliquidRustBotAdapter",
+    "HyperliquidRustBotStrategy",
+    "JarvisTradingAdapter",
+    "JarvisTradingStrategy",
     "HighPrecisionOrderMatchingEngine",
     "ICICIDirectAdapter",
     "ICTSignalResult",
@@ -573,6 +599,8 @@ __all__ = [
     "QuantumAutoEngine",
     "QuantumSelfHealer",
     "RCNewsFeederEngine",
+    "RigSolanaTraderAdapter",
+    "RigSolanaTraderStrategy",
     "RelativePricePredictionEvaluator",
     "ResearchHypothesisResult",
     "ResearchObjectiveConfig",
