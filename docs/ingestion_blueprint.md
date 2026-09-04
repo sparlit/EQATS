@@ -20,7 +20,7 @@
 | 0xTan1319/hyperliquid-trading-bot-rust | Pending | Pending | Pending | Pending | Initializing |
 | 85599/BankNIFTY-Golden-Ratio-Strategy | Complete | Complete | Complete | Complete | Active |
 | aadityatamrakar/option_chain_analysis | Complete | Complete | Complete | Complete | Active |
-| aaryansinha16/AI-trader | Pending | Pending | Pending | Pending | Initializing |
+| aaryansinha16/AI-trader | Complete | Complete | Complete | Complete | Active |
 | abhiwalia15/AI-for-Finance-Stocks-real-time-analysis- | Pending | Pending | Pending | Pending | Initializing |
 | abuhurairalakdawala/indian-share-market | Complete | Complete | Complete | Complete | Active |
 | adavarski/DevSecOps-full-integration-chain | Pending | Pending | Pending | Pending | Initializing |
