@@ -53,47 +53,35 @@ jobs:
         run: |
           echo "[+] Launching EQATS Autonomous Ingestion Cycle..."
           
-          # Clean up any residual system frameworks or stray folders from prior runs
           if [ -d "_tmp_workspace" ]; then
-              echo "[*] Purging orphaned sandbox workspace..."
               rm -rf _tmp_workspace/
           fi
           
-          # Run the primary repository extraction factory code
           python3 .github/scripts/autonomous_factory.py
           ENGINE_STATUS=$?
           
-          # Set up tracking signatures for the repository updates
           git config --global user.name "EQATS Ingestion Engine"
           git config --global user.email "factory-engine@eqats.internal"
           
+          # Force stash any loose files or testing assets to clear rebase paths
+          git stash -u || true
+          
           if [ $ENGINE_STATUS -ne 0 ]; then
-              echo "[-] Ingestion Factory encountered an error ($ENGINE_STATUS). Initiating Self-Healing Protocol..."
-              
-              # Stage ledger matrix indices and adapted code targets safely
-              git add ingestion_blueprint.json todo_tasks.md modules/adapted/ || true
-              
-              # Generate unique chronological identifiers to prevent empty commit cancellations
-              git commit -m "EQATS Engine Auto-Fix: Resolving ledger index states [Time: $(date +%s)]" || true
-              
-              # Pull upstream changes forcing ours to win over state tracking arrays to stop exit code 1 drops
+              echo "[-] Ingestion Factory encountered an error ($ENGINE_STATUS)."
               git pull origin main --rebase -X theirs || true
+              git stash pop || true
+              git add ingestion_blueprint.json todo_tasks.md modules/adapted/ || true
+              git commit -m "EQATS Engine Auto-Fix: Resolving ledger index states [Time: $(date +%s)]" || true
               git push origin main
-              
-              echo "[+] Workspace footprint stabilized dynamically."
           else
               echo "[+] Active repository block compiled successfully. Freezing assets..."
+              git pull origin main --rebase -X theirs || true
+              git stash pop || true
               git add ingestion_blueprint.json todo_tasks.md modules/adapted/ || true
               
-              # Hardened Commit Layer: Checks if changes exist before trying to commit, avoiding exit code 1
               if ! git diff-index --quiet HEAD; then
                 git commit -m "EQATS Engine Progress: Advanced repository integration index"
-              else
-                echo "[*] No structural code changes captured in this block. Skipping redundant commit allocation."
               fi
-              
-              # Clean push code updates back to the branch
-              git pull origin main --rebase -X theirs || true
               git push origin main
           fi
 
