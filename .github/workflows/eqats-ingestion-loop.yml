@@ -39,7 +39,7 @@ jobs:
       - name: Initialize Project Tools Matrix
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy pytest maturin pyo3-pack
+          pip install ruff mypy pytest maturin pyo3-pack requests
 
       - name: Make Orchestration Scripts Executable
         run: |
@@ -100,27 +100,51 @@ jobs:
       - name: Programmatic Self-Trigger Automation Loop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          # Query tracking arrays via Python to calculate index increments
-          CURRENT=$(python3 -c "import json; open('ingestion_blueprint.json') or exit(1); print(json.load(open('ingestion_blueprint.json'))['current_index'])" 2>/dev/null || echo "0")
-          TOTAL=$(python3 -c "import json; open('ingestion_blueprint.json') or exit(1); print(json.load(open('ingestion_blueprint.json'))['repositories'].__len__())" 2>/dev/null || echo "0")
+          python3 -c "
+          import os
+          import json
+          import subprocess
           
-          if [ "$TOTAL" -eq "0" ]; then
-              echo "[-] Error: ingestion_blueprint.json could not be parsed or contains zero repositories."
-              exit 1
-          fi
-          
-          if [ "$CURRENT" -lt "$TOTAL" ]; then
-            echo "[+] Progress Status Matrix: ($CURRENT / $TOTAL). Cascade triggering subsequent factory loop..."
-            
-            # FIXED URL STRUCTURE: Strict endpoint targeting the programmatic REST API gateway
-            API_URL="https://github.com{GITHUB_REPOSITORY}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
-            
-            curl -X POST \
-              -H "Authorization: token ${GITHUB_TOKEN}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "$API_URL" \
-              -d '{"ref":"main"}'
-          else
-            echo "[+] SUCCESS: The factory has processed all $TOTAL repositories with zero stubs remaining."
-          fi
+          # 1. Parse ledger matrix indices safely
+          try:
+              with open('ingestion_blueprint.json', 'r') as f:
+                  blueprint = json.load(f)
+              current = blueprint['current_index']
+              total = len(blueprint['repositories'])
+          except Exception as e:
+              print(f'[-] Error parsing blueprint JSON matrix: {e}')
+              exit(1)
+              
+          if total == 0:
+              print('[-] Error: Ingestion blueprint contains zero repository endpoints.')
+              exit(1)
+              
+          if current < total:
+              print(f'[+] Progress Status Matrix: ({current} / {total}). Dispatched via native Python engine...')
+              
+              # 2. Extract verified infrastructure variables directly from environment dictionary
+              token = os.environ.get('GITHUB_TOKEN')
+              repo = os.environ.get('GITHUB_REPOSITORY')
+              
+              # 3. Assemble rigid, structural REST destination path
+              api_url = f'https://github.com{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches'
+              
+              # 4. Execute curl payload natively via clean subprocess call array
+              cmd = [
+                  'curl', '-X', 'POST',
+                  '-H', f'Authorization: token {token}',
+                  '-H', 'Accept: application/vnd.github.v3+json',
+                  api_url,
+                  '-d', '{\"ref\":\"main\"}'
+              ]
+              
+              res = subprocess.run(cmd, capture_output=True, text=True)
+              if res.returncode != 0:
+                  print(f'[-] Trigger payload failed. Stderr: {res.stderr}')
+                  exit(1)
+              print('[+] Automation cascade payload successfully processed by GitHub core.')
+          else:
+              print(f'[+] SUCCESS: The factory has processed all {total} repositories with zero stubs remaining.')
+          "
