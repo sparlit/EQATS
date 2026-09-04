@@ -47,7 +47,7 @@
 | amitashwinibhagat/nse-swing-scanner | Complete | Complete | Complete | Complete | Active |
 | amv-dev/yata | Pending | Pending | Pending | Pending | Initializing |
 | Aneesh540/VSE | Pending | Pending | Pending | Pending | Initializing |
-| Animesh4002/ai-stock-screener | Pending | Pending | Pending | Pending | Initializing |
+| Animesh4002/ai-stock-screener | Complete | Complete | Complete | Complete | Active |
 | aniruddhsujish/NSETradeAgents | Complete | Complete | Complete | Complete | Active |
 | anjulgarg/sharewatch | Pending | Pending | Pending | Pending | Initializing |
 | ankitchaudhary6886/nse-system | Pending | Pending | Pending | Pending | Initializing |
@@ -56,7 +56,7 @@
 | anshuthopsee/nse-oi-visualizer | Pending | Pending | Pending | Pending | Initializing |
 | anshuthopsee/nse-oi-visualizer | Pending | Pending | Pending | Pending | Initializing |
 | anthdm/rust-trading-engine | Pending | Pending | Pending | Pending | Initializing |
-| anurag-roy/kite-option-chain | Pending | Pending | Pending | Pending | Initializing |
+| anurag-roy/kite-option-chain | Complete | Complete | Complete | Complete | Active |
 | anurag-roy/shoonya-option-chain | Pending | Pending | Pending | Pending | Initializing |
 | api-evangelist/nse-india | Pending | Pending | Pending | Pending | Initializing |
 | Aravin/Algo-Trade | Pending | Pending | Pending | Pending | Initializing |
@@ -64,7 +64,7 @@
 | ArishHassan/nse-live_testing | Pending | Pending | Pending | Pending | Initializing |
 | arvchahal/kalshi-rs | Pending | Pending | Pending | Pending | Initializing |
 | asavinov/intelligent-trading-bot | Pending | Pending | Pending | Pending | Initializing |
-| AshayK003/nse-sentiment-analyzer | Pending | Pending | Pending | Pending | Initializing |
+| AshayK003/nse-sentiment-analyzer | Complete | Complete | Complete | Complete | Active |
 | ashgen/NSEDataAnalytics | Pending | Pending | Pending | Pending | Initializing |
 | ashishkumar30/Stock_Market_Live_Trading_using_AI | Pending | Pending | Pending | Pending | Initializing |
 | ashok-kollipara/options-oi | Pending | Pending | Pending | Pending | Initializing |
