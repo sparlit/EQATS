@@ -22,11 +22,11 @@
 | aadityatamrakar/option_chain_analysis | Complete | Complete | Complete | Complete | Active |
 | aaryansinha16/AI-trader | Pending | Pending | Pending | Pending | Initializing |
 | abhiwalia15/AI-for-Finance-Stocks-real-time-analysis- | Pending | Pending | Pending | Pending | Initializing |
-| abuhurairalakdawala/indian-share-market | Pending | Pending | Pending | Pending | Initializing |
+| abuhurairalakdawala/indian-share-market | Complete | Complete | Complete | Complete | Active |
 | adavarski/DevSecOps-full-integration-chain | Pending | Pending | Pending | Pending | Initializing |
 | adityazerodha/holiday-calendar.github.io | Pending | Pending | Pending | Pending | Initializing |
-| aeron7/nsepython | Pending | Pending | Pending | Pending | Initializing |
-| aeron7/nsepythonserver | Pending | Pending | Pending | Pending | Initializing |
+| aeron7/nsepython | Complete | Complete | Complete | Complete | Active |
+| aeron7/nsepythonserver | Complete | Complete | Complete | Complete | Active |
 | affaan-m/dprc-autotrader-v2 | Pending | Pending | Pending | Pending | Initializing |
 | agrawalarnav129-ui/jarvis-trading | Pending | Pending | Pending | Pending | Initializing |
 | AI4Finance-Foundation/FinRL-Trading | Pending | Pending | Pending | Pending | Initializing |
