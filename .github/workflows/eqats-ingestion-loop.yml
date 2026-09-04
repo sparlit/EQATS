@@ -84,7 +84,13 @@ jobs:
           else
               echo "[+] Active repository block compiled successfully. Freezing assets..."
               git add ingestion_blueprint.json todo_tasks.md modules/adapted/ || true
-              git commit -m "EQATS Engine Progress: Advanced repository integration index" || true
+              
+              # Hardened Commit Layer: Checks if changes exist before trying to commit, avoiding exit code 1
+              if ! git diff-index --quiet HEAD; then
+                git commit -m "EQATS Engine Progress: Advanced repository integration index"
+              else
+                echo "[*] No structural code changes captured in this block. Skipping redundant commit allocation."
+              fi
               
               # Clean push code updates back to the branch
               git pull origin main --rebase -X theirs || true
