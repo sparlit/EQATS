@@ -1,0 +1,2060 @@
+{
+  "current_index": 0,
+  "repositories": [
+    {
+      "name": "tectonicdb",
+      "url": "https://github.com0b01/tectonicdb",
+      "status": "pending"
+    },
+    {
+      "name": "hyperliquid_rust_bot",
+      "url": "https://github.com0xnosystem/hyperliquid_rust_bot",
+      "status": "pending"
+    },
+    {
+      "name": "indian-stock-market-api",
+      "url": "https://github.com0xramm/indian-stock-market-api",
+      "status": "pending"
+    },
+    {
+      "name": "stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
+      "url": "https://github.com0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
+      "status": "pending"
+    },
+    {
+      "name": "hyperliquid-trading-bot-rust",
+      "url": "https://github.com0xtan1319/hyperliquid-trading-bot-rust",
+      "status": "pending"
+    },
+    {
+      "name": "banknifty-golden-ratio-strategy",
+      "url": "https://github.com85599/banknifty-golden-ratio-strategy",
+      "status": "pending"
+    },
+    {
+      "name": "option_chain_analysis",
+      "url": "https://github.comaadityatamrakar/option_chain_analysis",
+      "status": "pending"
+    },
+    {
+      "name": "ai-trader",
+      "url": "https://github.comaaryansinha16/ai-trader",
+      "status": "pending"
+    },
+    {
+      "name": "ai-for-finance-stocks-real-time-analysis-",
+      "url": "https://github.comabhiwalia15/ai-for-finance-stocks-real-time-analysis-",
+      "status": "pending"
+    },
+    {
+      "name": "indian-share-market",
+      "url": "https://github.comabuhurairalakdawala/indian-share-market",
+      "status": "pending"
+    },
+    {
+      "name": "devsecops-full-integration-chain",
+      "url": "https://github.comadavarski/devsecops-full-integration-chain",
+      "status": "pending"
+    },
+    {
+      "name": "holiday-calendar.github.io",
+      "url": "https://github.comadityazerodha/holiday-calendar.github.io",
+      "status": "pending"
+    },
+    {
+      "name": "nsepython",
+      "url": "https://github.comaeron7/nsepython",
+      "status": "pending"
+    },
+    {
+      "name": "nsepythonserver",
+      "url": "https://github.comaeron7/nsepythonserver",
+      "status": "pending"
+    },
+    {
+      "name": "dprc-autotrader-v2",
+      "url": "https://github.comaffaan-m/dprc-autotrader-v2",
+      "status": "pending"
+    },
+    {
+      "name": "jarvis-trading",
+      "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
+      "status": "pending"
+    },
+    {
+      "name": "finrl-trading",
+      "url": "https://github.comai4finance-foundation/finrl-trading",
+      "status": "pending"
+    },
+    {
+      "name": "ngrcoydisclosures",
+      "url": "https://github.comajakaiye33/ngrcoydisclosures",
+      "status": "pending"
+    },
+    {
+      "name": "indian-trading-skills",
+      "url": "https://github.comajeeshworkspace/indian-trading-skills",
+      "status": "pending"
+    },
+    {
+      "name": "scripwatch",
+      "url": "https://github.comakashnag/scripwatch",
+      "status": "pending"
+    },
+    {
+      "name": "algotradingnse",
+      "url": "https://github.comakashyadavv/algotradingnse",
+      "status": "pending"
+    },
+    {
+      "name": "wods",
+      "url": "https://github.comakshaypawar7/wods",
+      "status": "pending"
+    },
+    {
+      "name": "get-nse-bhavcopy",
+      "url": "https://github.comakshayraje/get-nse-bhavcopy",
+      "status": "pending"
+    },
+    {
+      "name": "indian-stock-tracker",
+      "url": "https://github.comakshayz14/indian-stock-tracker",
+      "status": "pending"
+    },
+    {
+      "name": "buynsell",
+      "url": "https://github.comakt114/buynsell",
+      "status": "pending"
+    },
+    {
+      "name": "osengine",
+      "url": "https://github.comalexwan/osengine",
+      "status": "pending"
+    },
+    {
+      "name": "ai-algotrading-agent",
+      "url": "https://github.comalgotrading-lab/ai-algotrading-agent",
+      "status": "pending"
+    },
+    {
+      "name": "nse",
+      "url": "https://github.comalloc7260/nse",
+      "status": "pending"
+    },
+    {
+      "name": "raptorbt",
+      "url": "https://github.comalphabench/raptorbt",
+      "status": "pending"
+    },
+    {
+      "name": "zerobha",
+      "url": "https://github.comalthk/zerobha",
+      "status": "pending"
+    },
+    {
+      "name": "tickgrinder",
+      "url": "https://github.comameobea/tickgrinder",
+      "status": "pending"
+    },
+    {
+      "name": "nse-swing-scanner",
+      "url": "https://github.comamitashwinibhagat/nse-swing-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "yata",
+      "url": "https://github.comamv-dev/yata",
+      "status": "pending"
+    },
+    {
+      "name": "vse",
+      "url": "https://github.comaneesh540/vse",
+      "status": "pending"
+    },
+    {
+      "name": "ai-stock-screener",
+      "url": "https://github.comanimesh4002/ai-stock-screener",
+      "status": "pending"
+    },
+    {
+      "name": "nsetradeagents",
+      "url": "https://github.comaniruddhsujish/nsetradeagents",
+      "status": "pending"
+    },
+    {
+      "name": "sharewatch",
+      "url": "https://github.comanjulgarg/sharewatch",
+      "status": "pending"
+    },
+    {
+      "name": "nse-system",
+      "url": "https://github.comankitchaudhary6886/nse-system",
+      "status": "pending"
+    },
+    {
+      "name": "nse_scrapper",
+      "url": "https://github.comankitsny/nse_scrapper",
+      "status": "pending"
+    },
+    {
+      "name": "nse",
+      "url": "https://github.comanshulk/nse",
+      "status": "pending"
+    },
+    {
+      "name": "nse-oi-visualizer",
+      "url": "https://github.comanshuthopsee/nse-oi-visualizer",
+      "status": "pending"
+    },
+    {
+      "name": "rust-trading-engine",
+      "url": "https://github.comanthdm/rust-trading-engine",
+      "status": "pending"
+    },
+    {
+      "name": "kite-option-chain",
+      "url": "https://github.comanurag-roy/kite-option-chain",
+      "status": "pending"
+    },
+    {
+      "name": "shoonya-option-chain",
+      "url": "https://github.comanurag-roy/shoonya-option-chain",
+      "status": "pending"
+    },
+    {
+      "name": "nse-india",
+      "url": "https://github.comapi-evangelist/nse-india",
+      "status": "pending"
+    },
+    {
+      "name": "algo-trade",
+      "url": "https://github.comaravin/algo-trade",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data",
+      "url": "https://github.comaravin/nse-data",
+      "status": "pending"
+    },
+    {
+      "name": "nse-live_testing",
+      "url": "https://github.comarishhassan/nse-live_testing",
+      "status": "pending"
+    },
+    {
+      "name": "kalshi-rs",
+      "url": "https://github.comarvchahal/kalshi-rs",
+      "status": "pending"
+    },
+    {
+      "name": "intelligent-trading-bot",
+      "url": "https://github.comasavinov/intelligent-trading-bot",
+      "status": "pending"
+    },
+    {
+      "name": "nse-sentiment-analyzer",
+      "url": "https://github.comashayk003/nse-sentiment-analyzer",
+      "status": "pending"
+    },
+    {
+      "name": "nsedataanalytics",
+      "url": "https://github.comashgen/nsedataanalytics",
+      "status": "pending"
+    },
+    {
+      "name": "stock_market_live_trading_using_ai",
+      "url": "https://github.comashishkumar30/stock_market_live_trading_using_ai",
+      "status": "pending"
+    },
+    {
+      "name": "options-oi",
+      "url": "https://github.comashok-kollipara/options-oi",
+      "status": "pending"
+    },
+    {
+      "name": "nse-quant-trading",
+      "url": "https://github.comashokkumar3502/nse-quant-trading",
+      "status": "pending"
+    },
+    {
+      "name": "rust-finance",
+      "url": "https://github.comashutosh0x/rust-finance",
+      "status": "pending"
+    },
+    {
+      "name": "live-nse-stock",
+      "url": "https://github.comashwanthkumar/live-nse-stock",
+      "status": "pending"
+    },
+    {
+      "name": "nse-var-dashboard",
+      "url": "https://github.comathreysethumadhavan-finance/nse-var-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "tradingview-mcp",
+      "url": "https://github.comatilaahmettaner/tradingview-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "open-interest-nse-live-analysis",
+      "url": "https://github.comatrybyme/open-interest-nse-live-analysis",
+      "status": "pending"
+    },
+    {
+      "name": "time-series-forecast-nsepy",
+      "url": "https://github.comatul-anand-jha/time-series-forecast-nsepy",
+      "status": "pending"
+    },
+    {
+      "name": "sectoral-breadth-dashboard",
+      "url": "https://github.comaugmentalphawealth/sectoral-breadth-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "rustquant",
+      "url": "https://github.comavhz/rustquant",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-dashboard",
+      "url": "https://github.comavin1311/nse-bse-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "nse-closing-stock-price-prediction-using-lstm",
+      "url": "https://github.comavirichie/nse-closing-stock-price-prediction-using-lstm",
+      "status": "pending"
+    },
+    {
+      "name": "stockmart",
+      "url": "https://github.comayushmaanbhav/stockmart",
+      "status": "pending"
+    },
+    {
+      "name": "orderflowmap",
+      "url": "https://github.comazhagesan-dev/orderflowmap",
+      "status": "pending"
+    },
+    {
+      "name": "nse-options-data-collector",
+      "url": "https://github.combarathgb007/nse-options-data-collector",
+      "status": "pending"
+    },
+    {
+      "name": "upstox-python-data",
+      "url": "https://github.combarathgb007/upstox-python-data",
+      "status": "pending"
+    },
+    {
+      "name": "barter-rs",
+      "url": "https://github.combarter-rs/barter-rs",
+      "status": "pending"
+    },
+    {
+      "name": "bhavfno",
+      "url": "https://github.combeinghorizontal/bhavfno",
+      "status": "pending"
+    },
+    {
+      "name": "advanced-nse-momentum-terminal",
+      "url": "https://github.combenimward9621/advanced-nse-momentum-terminal",
+      "status": "pending"
+    },
+    {
+      "name": "eod2",
+      "url": "https://github.combennythadikaran/eod2",
+      "status": "pending"
+    },
+    {
+      "name": "eod2_data",
+      "url": "https://github.combennythadikaran/eod2_data",
+      "status": "pending"
+    },
+    {
+      "name": "nseindiaapi",
+      "url": "https://github.combennythadikaran/nseindiaapi",
+      "status": "pending"
+    },
+    {
+      "name": "nse-trading-skills",
+      "url": "https://github.combhala-srinivash/nse-trading-skills",
+      "status": "pending"
+    },
+    {
+      "name": "stock_prediction",
+      "url": "https://github.combhumi008007/stock_prediction",
+      "status": "pending"
+    },
+    {
+      "name": "tradingview-rs",
+      "url": "https://github.combitbytelabio/tradingview-rs",
+      "status": "pending"
+    },
+    {
+      "name": "netstrat",
+      "url": "https://github.comblitzarx1/netstrat",
+      "status": "pending"
+    },
+    {
+      "name": "xcrypto",
+      "url": "https://github.combohr1005/xcrypto",
+      "status": "pending"
+    },
+    {
+      "name": "nse",
+      "url": "https://github.combraverock/nse",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-api",
+      "url": "https://github.combshada/nse-bse-api",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-mcp",
+      "url": "https://github.combshada/nse-bse-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "algo_trading_strategies_india",
+      "url": "https://github.combuzzsubash/algo_trading_strategies_india",
+      "status": "pending"
+    },
+    {
+      "name": "in-stock-screener",
+      "url": "https://github.comc3point/in-stock-screener",
+      "status": "pending"
+    },
+    {
+      "name": "nse-support-tools",
+      "url": "https://github.comc3point/nse-support-tools",
+      "status": "pending"
+    },
+    {
+      "name": "rotala",
+      "url": "https://github.comcalumrussell/rotala",
+      "status": "pending"
+    },
+    {
+      "name": "ccxt",
+      "url": "https://github.comccxt/ccxt",
+      "status": "pending"
+    },
+    {
+      "name": "financial-info-extractor",
+      "url": "https://github.comchaitanyarahalkar/financial-info-extractor",
+      "status": "pending"
+    },
+    {
+      "name": "nse-daily-volatility-reports",
+      "url": "https://github.comchartiny/nse-daily-volatility-reports",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-bulk-deals-",
+      "url": "https://github.comchauhanramkeval-blip/nse-stock-bulk-deals-",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-market-bulk-deals-",
+      "url": "https://github.comchauhanramkeval-blip/nse-stock-market-bulk-deals-",
+      "status": "pending"
+    },
+    {
+      "name": "nsedatabase",
+      "url": "https://github.comchinmayhundekari/nsedatabase",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-arbitrage-bot",
+      "url": "https://github.comchinthan-11/nse-bse-arbitrage-bot",
+      "status": "pending"
+    },
+    {
+      "name": "interchangabletrade-protocol",
+      "url": "https://github.comchulilee/interchangabletrade-protocol",
+      "status": "pending"
+    },
+    {
+      "name": "indian-stock-market-api",
+      "url": "https://github.comclayborninconsistent906/indian-stock-market-api",
+      "status": "pending"
+    },
+    {
+      "name": "nse-ohlc-scraper-plotter",
+      "url": "https://github.comcodegallivant/nse-ohlc-scraper-plotter",
+      "status": "pending"
+    },
+    {
+      "name": "polymarket-trading-bot-rust",
+      "url": "https://github.comconteurshadow/polymarket-trading-bot-rust",
+      "status": "pending"
+    },
+    {
+      "name": "hyper-grid",
+      "url": "https://github.comcrazygirl437/hyper-grid",
+      "status": "pending"
+    },
+    {
+      "name": "coinsignal",
+      "url": "https://github.comcrypto-crawler/coinsignal",
+      "status": "pending"
+    },
+    {
+      "name": "solana-copytrading-bot",
+      "url": "https://github.comcutupdev/solana-copytrading-bot",
+      "status": "pending"
+    },
+    {
+      "name": "nsefinance-python",
+      "url": "https://github.comcyberomin/nsefinance-python",
+      "status": "pending"
+    },
+    {
+      "name": "apcacli",
+      "url": "https://github.comd-e-s-o/apcacli",
+      "status": "pending"
+    },
+    {
+      "name": "tropix",
+      "url": "https://github.comdallyshalla/tropix",
+      "status": "pending"
+    },
+    {
+      "name": "geger",
+      "url": "https://github.comday0market/geger",
+      "status": "pending"
+    },
+    {
+      "name": "moon-dev-ai-agents-for-trading",
+      "url": "https://github.comdaydy-dev/moon-dev-ai-agents-for-trading",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data",
+      "url": "https://github.comdebaonline4u/nse-data",
+      "status": "pending"
+    },
+    {
+      "name": "project-nifty",
+      "url": "https://github.comdebopam-d/project-nifty",
+      "status": "pending"
+    },
+    {
+      "name": "ibx",
+      "url": "https://github.comdeepentropy/ibx",
+      "status": "pending"
+    },
+    {
+      "name": "evpoly",
+      "url": "https://github.comdegenapetrader/evpoly",
+      "status": "pending"
+    },
+    {
+      "name": "openbook",
+      "url": "https://github.comdegensugarboo/openbook",
+      "status": "pending"
+    },
+    {
+      "name": "nse-screener",
+      "url": "https://github.comdeshpanda/nse-screener",
+      "status": "pending"
+    },
+    {
+      "name": "nse-screener-data",
+      "url": "https://github.comdeshpanda/nse-screener-data",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-scanner",
+      "url": "https://github.comdeshwalmahesh/nse-stock-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "chartink-to-tradingview-extension",
+      "url": "https://github.comdevagam/chartink-to-tradingview-extension",
+      "status": "pending"
+    },
+    {
+      "name": "top-gainers-and-losers-nse",
+      "url": "https://github.comdevangmukherjee/top-gainers-and-losers-nse",
+      "status": "pending"
+    },
+    {
+      "name": "portfolio-monte-carlo",
+      "url": "https://github.comdevanshx9x/portfolio-monte-carlo",
+      "status": "pending"
+    },
+    {
+      "name": "stocks-dashboard",
+      "url": "https://github.comdhruvan246/stocks-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "nse-delivery-data",
+      "url": "https://github.comdkraj0612/nse-delivery-data",
+      "status": "pending"
+    },
+    {
+      "name": "kalshi-rust",
+      "url": "https://github.comdpeachpeach/kalshi-rust",
+      "status": "pending"
+    },
+    {
+      "name": "echobird",
+      "url": "https://github.comedison7009/echobird",
+      "status": "pending"
+    },
+    {
+      "name": "pybroker",
+      "url": "https://github.comedtechre/pybroker",
+      "status": "pending"
+    },
+    {
+      "name": "mtfdb",
+      "url": "https://github.comeggmasonvalue/mtfdb",
+      "status": "pending"
+    },
+    {
+      "name": "nse_52wk_screener",
+      "url": "https://github.comej9909-create/nse_52wk_screener",
+      "status": "pending"
+    },
+    {
+      "name": "indian-stock-market",
+      "url": "https://github.comekanshsinghal/indian-stock-market",
+      "status": "pending"
+    },
+    {
+      "name": "rust-trade",
+      "url": "https://github.comerio-harrison/rust-trade",
+      "status": "pending"
+    },
+    {
+      "name": "botvana",
+      "url": "https://github.comfeatherenvy/botvana",
+      "status": "pending"
+    },
+    {
+      "name": "nse-sharia-news-feed",
+      "url": "https://github.comferoz-ghub-26/nse-sharia-news-feed",
+      "status": "pending"
+    },
+    {
+      "name": "yfinance-stock-history",
+      "url": "https://github.comferoze/yfinance-stock-history",
+      "status": "pending"
+    },
+    {
+      "name": "nse-preopen-data",
+      "url": "https://github.comferozmd53/nse-preopen-data",
+      "status": "pending"
+    },
+    {
+      "name": "ferrumfix",
+      "url": "https://github.comferrumfix/ferrumfix",
+      "status": "pending"
+    },
+    {
+      "name": "finstack-mcp",
+      "url": "https://github.comfinstacklabs/finstack-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "dingir-exchange",
+      "url": "https://github.comfluidex/dingir-exchange",
+      "status": "pending"
+    },
+    {
+      "name": "btrader",
+      "url": "https://github.comgabriel-milan/btrader",
+      "status": "pending"
+    },
+    {
+      "name": "nsebhavcopy",
+      "url": "https://github.comgadiyar/nsebhavcopy",
+      "status": "pending"
+    },
+    {
+      "name": "nse_historical_data",
+      "url": "https://github.comganeshbiyer/nse_historical_data",
+      "status": "pending"
+    },
+    {
+      "name": "kronos-india",
+      "url": "https://github.comgeorgiag7652/kronos-india",
+      "status": "pending"
+    },
+    {
+      "name": "10101",
+      "url": "https://github.comget10101/10101",
+      "status": "pending"
+    },
+    {
+      "name": "shoonya-php",
+      "url": "https://github.comghostjat/shoonya-php",
+      "status": "pending"
+    },
+    {
+      "name": "bhavcopy-downloader",
+      "url": "https://github.comgirishg4t/bhavcopy-downloader",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-bhavcopy",
+      "url": "https://github.comgirishg4t/nse-bse-bhavcopy",
+      "status": "pending"
+    },
+    {
+      "name": "live-nse-bse-mcp",
+      "url": "https://github.comgirishkumardv/live-nse-bse-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "nsebank_hft",
+      "url": "https://github.comgomitechnology-source/nsebank_hft",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-news-scanner",
+      "url": "https://github.comgroverjikaladka/nse-bse-news-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data-syncer",
+      "url": "https://github.comgurudayal37/nse-data-syncer",
+      "status": "pending"
+    },
+    {
+      "name": "prediction-markets-trading-bot-toolkits",
+      "url": "https://github.comharrieronchain/prediction-markets-trading-bot-toolkits",
+      "status": "pending"
+    },
+    {
+      "name": "statistical-arbitrage-model",
+      "url": "https://github.comharshadannina/statistical-arbitrage-model",
+      "status": "pending"
+    },
+    {
+      "name": "stockchain",
+      "url": "https://github.comhash-it-out/stockchain",
+      "status": "pending"
+    },
+    {
+      "name": "nse-oi-analysis",
+      "url": "https://github.comhawkeyecoding/nse-oi-analysis",
+      "status": "pending"
+    },
+    {
+      "name": "trendmaster",
+      "url": "https://github.comhemangjoshi37a/trendmaster",
+      "status": "pending"
+    },
+    {
+      "name": "getbhavcopy",
+      "url": "https://github.comhemenkapadia/getbhavcopy",
+      "status": "pending"
+    },
+    {
+      "name": "nse-tool-stocks-aerial-view",
+      "url": "https://github.comhenry-richard7/nse-tool-stocks-aerial-view",
+      "status": "pending"
+    },
+    {
+      "name": "arbitrage-trading",
+      "url": "https://github.comhermanodecastro/arbitrage-trading",
+      "status": "pending"
+    },
+    {
+      "name": "nsedata",
+      "url": "https://github.comhgsujay/nsedata",
+      "status": "pending"
+    },
+    {
+      "name": "stock-nse-india",
+      "url": "https://github.comhi-imcodeman/stock-nse-india",
+      "status": "pending"
+    },
+    {
+      "name": "rakshaquant",
+      "url": "https://github.comhimanshumohanty-git24/rakshaquant",
+      "status": "pending"
+    },
+    {
+      "name": "bse_nse_announcement",
+      "url": "https://github.comhirawatt/bse_nse_announcement",
+      "status": "pending"
+    },
+    {
+      "name": "indian-trading-skills",
+      "url": "https://github.comhmerro3/indian-trading-skills",
+      "status": "pending"
+    },
+    {
+      "name": "india-trade-cli",
+      "url": "https://github.comhopit-ai/india-trade-cli",
+      "status": "pending"
+    },
+    {
+      "name": "nse-historical-data",
+      "url": "https://github.comhotessy/nse-historical-data",
+      "status": "pending"
+    },
+    {
+      "name": "stock-prediction-models",
+      "url": "https://github.comhuseinzol05/stock-prediction-models",
+      "status": "pending"
+    },
+    {
+      "name": "tickdownload",
+      "url": "https://github.comhyphenos/tickdownload",
+      "status": "pending"
+    },
+    {
+      "name": "nse-observer",
+      "url": "https://github.comibm/nse-observer",
+      "status": "pending"
+    },
+    {
+      "name": "nse-india-all-stocks-tickers-data",
+      "url": "https://github.comimanojkumar/nse-india-all-stocks-tickers-data",
+      "status": "pending"
+    },
+    {
+      "name": "nse",
+      "url": "https://github.comindianfoods-automation/nse",
+      "status": "pending"
+    },
+    {
+      "name": "nsestockanalyser",
+      "url": "https://github.comindra5196/nsestockanalyser",
+      "status": "pending"
+    },
+    {
+      "name": "hypersdk",
+      "url": "https://github.cominfinitefield/hypersdk",
+      "status": "pending"
+    },
+    {
+      "name": "coinbase-pro-rs",
+      "url": "https://github.cominv2004/coinbase-pro-rs",
+      "status": "pending"
+    },
+    {
+      "name": "india-sector-screener",
+      "url": "https://github.comishaan3h/india-sector-screener",
+      "status": "pending"
+    },
+    {
+      "name": "nse-scanner",
+      "url": "https://github.comitsnrk1/nse-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "cci20-sma20-strategy",
+      "url": "https://github.comjandginvestment/cci20-sma20-strategy",
+      "status": "pending"
+    },
+    {
+      "name": "nse-scanner",
+      "url": "https://github.comjayeshsrathod/nse-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "rust_bt",
+      "url": "https://github.comjensnesten/rust_bt",
+      "status": "pending"
+    },
+    {
+      "name": "midas",
+      "url": "https://github.comjerryshell/midas",
+      "status": "pending"
+    },
+    {
+      "name": "nsedownload",
+      "url": "https://github.comjinit24/nsedownload",
+      "status": "pending"
+    },
+    {
+      "name": "optionstratlib",
+      "url": "https://github.comjoaquinbejar/optionstratlib",
+      "status": "pending"
+    },
+    {
+      "name": "nse-scanner",
+      "url": "https://github.comjohnebe2020-trade/nse-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data",
+      "url": "https://github.comjoshiadvait8/nse-data",
+      "status": "pending"
+    },
+    {
+      "name": "master-data",
+      "url": "https://github.comjugaad-py/master-data",
+      "status": "pending"
+    },
+    {
+      "name": "cli-candlestick-chart",
+      "url": "https://github.comjulien-r44/cli-candlestick-chart",
+      "status": "pending"
+    },
+    {
+      "name": "trusted",
+      "url": "https://github.comjunbeoml22/trusted",
+      "status": "pending"
+    },
+    {
+      "name": "marketinsight",
+      "url": "https://github.comkalyanm45/marketinsight",
+      "status": "pending"
+    },
+    {
+      "name": "stock-research-assistant",
+      "url": "https://github.comkalyanroyinfo/stock-research-assistant",
+      "status": "pending"
+    },
+    {
+      "name": "stoklore",
+      "url": "https://github.comkarthik002002/stoklore",
+      "status": "pending"
+    },
+    {
+      "name": "nsemine",
+      "url": "https://github.comkbizme/nsemine",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-scraper",
+      "url": "https://github.comkenmwaura1/nse-stock-scraper",
+      "status": "pending"
+    },
+    {
+      "name": "optionworkstation",
+      "url": "https://github.comkhakhasshi/optionworkstation",
+      "status": "pending"
+    },
+    {
+      "name": "nse-option-chain",
+      "url": "https://github.comkishanlalchoudhary/nse-option-chain",
+      "status": "pending"
+    },
+    {
+      "name": "dailyvaultrates",
+      "url": "https://github.comkislayykumar/dailyvaultrates",
+      "status": "pending"
+    },
+    {
+      "name": "nse-momentum-dashboard",
+      "url": "https://github.comkkirankumar1511/nse-momentum-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-event-driven-quant-research-platform",
+      "url": "https://github.comkondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
+      "status": "pending"
+    },
+    {
+      "name": "backtest",
+      "url": "https://github.comkostorub/backtest",
+      "status": "pending"
+    },
+    {
+      "name": "kraken-cli",
+      "url": "https://github.comkrakenfx/kraken-cli",
+      "status": "pending"
+    },
+    {
+      "name": "algo-trader",
+      "url": "https://github.comkuldeeepy/algo-trader",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-price-crawler",
+      "url": "https://github.comkwoshvick/nse-stock-price-crawler",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-price-prediction",
+      "url": "https://github.comkwoshvick/nse-stock-price-prediction",
+      "status": "pending"
+    },
+    {
+      "name": "nse_sentiment_analysis",
+      "url": "https://github.comkwoshvick/nse_sentiment_analysis",
+      "status": "pending"
+    },
+    {
+      "name": "bhavcopy",
+      "url": "https://github.comlakshaysinghal/bhavcopy",
+      "status": "pending"
+    },
+    {
+      "name": "laminar-chain",
+      "url": "https://github.comlaminar-protocol/laminar-chain",
+      "status": "pending"
+    },
+    {
+      "name": "nse-intraday-bot",
+      "url": "https://github.comlavakus/nse-intraday-bot",
+      "status": "pending"
+    },
+    {
+      "name": "nseindia_lob",
+      "url": "https://github.comlebedov/nseindia_lob",
+      "status": "pending"
+    },
+    {
+      "name": "nseindia_reformat",
+      "url": "https://github.comlebedov/nseindia_reformat",
+      "status": "pending"
+    },
+    {
+      "name": "matching-core",
+      "url": "https://github.comllc-993/matching-core",
+      "status": "pending"
+    },
+    {
+      "name": "longbridge-terminal",
+      "url": "https://github.comlongbridge/longbridge-terminal",
+      "status": "pending"
+    },
+    {
+      "name": "extrema_infra",
+      "url": "https://github.comlqz13th/extrema_infra",
+      "status": "pending"
+    },
+    {
+      "name": "stock-market-india",
+      "url": "https://github.commaanavshah/stock-market-india",
+      "status": "pending"
+    },
+    {
+      "name": "financial-data",
+      "url": "https://github.commaheshcharig/financial-data",
+      "status": "pending"
+    },
+    {
+      "name": "nseoptionalpha",
+      "url": "https://github.commailbagrahul/nseoptionalpha",
+      "status": "pending"
+    },
+    {
+      "name": "nse-factor-engine",
+      "url": "https://github.commanavgupta83/nse-factor-engine",
+      "status": "pending"
+    },
+    {
+      "name": "nsedata",
+      "url": "https://github.commandarl/nsedata",
+      "status": "pending"
+    },
+    {
+      "name": "open-interest-data-extractor",
+      "url": "https://github.commanddar/open-interest-data-extractor",
+      "status": "pending"
+    },
+    {
+      "name": "nifty50_data_analysis_nsetools_nsepy_python",
+      "url": "https://github.commanishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
+      "status": "pending"
+    },
+    {
+      "name": "option_chain_analyzer",
+      "url": "https://github.commanishn32/option_chain_analyzer",
+      "status": "pending"
+    },
+    {
+      "name": "nse-mcp",
+      "url": "https://github.commanitgupta/nse-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "nse",
+      "url": "https://github.commapsx/nse",
+      "status": "pending"
+    },
+    {
+      "name": "openalgo",
+      "url": "https://github.commarketcalls/openalgo",
+      "status": "pending"
+    },
+    {
+      "name": "openchart",
+      "url": "https://github.commarketcalls/openchart",
+      "status": "pending"
+    },
+    {
+      "name": "sector-rotation-map",
+      "url": "https://github.commarketcalls/sector-rotation-map",
+      "status": "pending"
+    },
+    {
+      "name": "lfest-rs",
+      "url": "https://github.commathiswellmann/lfest-rs",
+      "status": "pending"
+    },
+    {
+      "name": "trade_aggregation-rs",
+      "url": "https://github.commathiswellmann/trade_aggregation-rs",
+      "status": "pending"
+    },
+    {
+      "name": "stock-news-monitor",
+      "url": "https://github.commaverick14303/stock-news-monitor",
+      "status": "pending"
+    },
+    {
+      "name": "tastytrade-rs",
+      "url": "https://github.commchsl/tastytrade-rs",
+      "status": "pending"
+    },
+    {
+      "name": "velocity",
+      "url": "https://github.comme-imfhd/velocity",
+      "status": "pending"
+    },
+    {
+      "name": "meanalgo.github.io",
+      "url": "https://github.commeanalgo/meanalgo.github.io",
+      "status": "pending"
+    },
+    {
+      "name": "ai_driven_algorithmic_trading",
+      "url": "https://github.commechvec-debug/ai_driven_algorithmic_trading",
+      "status": "pending"
+    },
+    {
+      "name": "market-platform",
+      "url": "https://github.commeetnepali/market-platform",
+      "status": "pending"
+    },
+    {
+      "name": "algomln",
+      "url": "https://github.commelognestudio/algomln",
+      "status": "pending"
+    },
+    {
+      "name": "tickerstore",
+      "url": "https://github.commeticulouscraftman/tickerstore",
+      "status": "pending"
+    },
+    {
+      "name": "pm-hftbacktest",
+      "url": "https://github.commileswangs/pm-hftbacktest",
+      "status": "pending"
+    },
+    {
+      "name": "rust-share",
+      "url": "https://github.commineralres/rust-share",
+      "status": "pending"
+    },
+    {
+      "name": "breadth-radar",
+      "url": "https://github.commkshibu2/breadth-radar",
+      "status": "pending"
+    },
+    {
+      "name": "pynse",
+      "url": "https://github.commlfreerl/pynse",
+      "status": "pending"
+    },
+    {
+      "name": "rust-trailer",
+      "url": "https://github.commonomadic/rust-trailer",
+      "status": "pending"
+    },
+    {
+      "name": "solana-copy-sniper-mev-trading-bot",
+      "url": "https://github.commortdeus/solana-copy-sniper-mev-trading-bot",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data-analysis",
+      "url": "https://github.commrappipramod/nse-data-analysis",
+      "status": "pending"
+    },
+    {
+      "name": "nse-market-app",
+      "url": "https://github.commrimahajan/nse-market-app",
+      "status": "pending"
+    },
+    {
+      "name": "nse-smart-investor",
+      "url": "https://github.commrinaljhunjhunwala-ui/nse-smart-investor",
+      "status": "pending"
+    },
+    {
+      "name": "nsemodule",
+      "url": "https://github.commuepsilon/nsemodule",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bot",
+      "url": "https://github.commuokapwambua/nse-bot",
+      "status": "pending"
+    },
+    {
+      "name": "stock",
+      "url": "https://github.commuthuvenki/stock",
+      "status": "pending"
+    },
+    {
+      "name": "mutxri-terminal",
+      "url": "https://github.commutxri/mutxri-terminal",
+      "status": "pending"
+    },
+    {
+      "name": "shortcircuit",
+      "url": "https://github.comnabrahma/shortcircuit",
+      "status": "pending"
+    },
+    {
+      "name": "nseindexoptionsdata",
+      "url": "https://github.comnagarajugunda/nseindexoptionsdata",
+      "status": "pending"
+    },
+    {
+      "name": "openlimits",
+      "url": "https://github.comnash-io/openlimits",
+      "status": "pending"
+    },
+    {
+      "name": "nautilus_trader",
+      "url": "https://github.comnautechsystems/nautilus_trader",
+      "status": "pending"
+    },
+    {
+      "name": "nse-top500-realtime-screener",
+      "url": "https://github.comnawin383/nse-top500-realtime-screener",
+      "status": "pending"
+    },
+    {
+      "name": "mftool",
+      "url": "https://github.comnayakwadis/mftool",
+      "status": "pending"
+    },
+    {
+      "name": "nse-neuron",
+      "url": "https://github.comnayakwadis/nse-neuron",
+      "status": "pending"
+    },
+    {
+      "name": "automate-scrap-nse-data",
+      "url": "https://github.comneha01/automate-scrap-nse-data",
+      "status": "pending"
+    },
+    {
+      "name": "nse-historical-data",
+      "url": "https://github.comneilghosh/nse-historical-data",
+      "status": "pending"
+    },
+    {
+      "name": "hummingboss",
+      "url": "https://github.comnethermindeth/hummingboss",
+      "status": "pending"
+    },
+    {
+      "name": "nsei_mcp_server",
+      "url": "https://github.comngm9/nsei_mcp_server",
+      "status": "pending"
+    },
+    {
+      "name": "algorithmic-trading-python",
+      "url": "https://github.comnickmccullum/algorithmic-trading-python",
+      "status": "pending"
+    },
+    {
+      "name": "ninjabook",
+      "url": "https://github.comninja-quant/ninjabook",
+      "status": "pending"
+    },
+    {
+      "name": "pump-fun-sdk",
+      "url": "https://github.comnirholas/pump-fun-sdk",
+      "status": "pending"
+    },
+    {
+      "name": "nse_livedata_from_excel_extraction",
+      "url": "https://github.comnitin-bhawarkar/nse_livedata_from_excel_extraction",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-fetcher",
+      "url": "https://github.comnived15/nse-stock-fetcher",
+      "status": "pending"
+    },
+    {
+      "name": "hftbacktest",
+      "url": "https://github.comnkaz001/hftbacktest",
+      "status": "pending"
+    },
+    {
+      "name": "nsedownload",
+      "url": "https://github.comnsedownload/nsedownload",
+      "status": "pending"
+    },
+    {
+      "name": "securitywisensedata",
+      "url": "https://github.comnvegupta1/securitywisensedata",
+      "status": "pending"
+    },
+    {
+      "name": "trading_engine_rust",
+      "url": "https://github.comomerhalid/trading_engine_rust",
+      "status": "pending"
+    },
+    {
+      "name": "nse_eod",
+      "url": "https://github.comopmashin/nse_eod",
+      "status": "pending"
+    },
+    {
+      "name": "fund",
+      "url": "https://github.comoscmcompany/fund",
+      "status": "pending"
+    },
+    {
+      "name": "nse_indices",
+      "url": "https://github.comp0w/nse_indices",
+      "status": "pending"
+    },
+    {
+      "name": "nse_trader",
+      "url": "https://github.comparmar-m/nse_trader",
+      "status": "pending"
+    },
+    {
+      "name": "nsestockf-oalert",
+      "url": "https://github.comparthsamani/nsestockf-oalert",
+      "status": "pending"
+    },
+    {
+      "name": "portfoliosorts_nse",
+      "url": "https://github.compatrick-weiss/portfoliosorts_nse",
+      "status": "pending"
+    },
+    {
+      "name": "algo-trading",
+      "url": "https://github.compaul-folbrecht/algo-trading",
+      "status": "pending"
+    },
+    {
+      "name": "nse-option-chain---llm-project",
+      "url": "https://github.compawan941394/nse-option-chain---llm-project",
+      "status": "pending"
+    },
+    {
+      "name": "stock-watchlist",
+      "url": "https://github.compec-css/stock-watchlist",
+      "status": "pending"
+    },
+    {
+      "name": "tickertrackbot",
+      "url": "https://github.comperunnial/tickertrackbot",
+      "status": "pending"
+    },
+    {
+      "name": "kite-helper",
+      "url": "https://github.compishangujeniya/kite-helper",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stocks-data-scrapper",
+      "url": "https://github.compishangujeniya/nse-stocks-data-scrapper",
+      "status": "pending"
+    },
+    {
+      "name": "nseta",
+      "url": "https://github.compkjmesra/nseta",
+      "status": "pending"
+    },
+    {
+      "name": "pknsetools",
+      "url": "https://github.compkjmesra/pknsetools",
+      "status": "pending"
+    },
+    {
+      "name": "pkscreener",
+      "url": "https://github.compkjmesra/pkscreener",
+      "status": "pending"
+    },
+    {
+      "name": "stockmarket_project",
+      "url": "https://github.compmjangid90/stockmarket_project",
+      "status": "pending"
+    },
+    {
+      "name": "nse_bse_downloader",
+      "url": "https://github.compparesh25/nse_bse_downloader",
+      "status": "pending"
+    },
+    {
+      "name": "nse-ml-2021",
+      "url": "https://github.compradeepjindal/nse-ml-2021",
+      "status": "pending"
+    },
+    {
+      "name": "excel-tools-indian-stock-market",
+      "url": "https://github.compradyumnac/excel-tools-indian-stock-market",
+      "status": "pending"
+    },
+    {
+      "name": "express-option-chain",
+      "url": "https://github.compramakrishn/express-option-chain",
+      "status": "pending"
+    },
+    {
+      "name": "screeni-py",
+      "url": "https://github.compranjal-joshi/screeni-py",
+      "status": "pending"
+    },
+    {
+      "name": "nsekit-mcp",
+      "url": "https://github.comprasad1612/nsekit-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "nse-scanner",
+      "url": "https://github.compraveen-mannem/nse-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "stockx",
+      "url": "https://github.compujanm/stockx",
+      "status": "pending"
+    },
+    {
+      "name": "mmb",
+      "url": "https://github.compurefinance/mmb",
+      "status": "pending"
+    },
+    {
+      "name": "lean.datasource.zerodha",
+      "url": "https://github.comquantconnect/lean.datasource.zerodha",
+      "status": "pending"
+    },
+    {
+      "name": "nse-premarket-data",
+      "url": "https://github.comquantmechanics/nse-premarket-data",
+      "status": "pending"
+    },
+    {
+      "name": "nse-alpha",
+      "url": "https://github.comquantxaashish/nse-alpha",
+      "status": "pending"
+    },
+    {
+      "name": "deep-trading",
+      "url": "https://github.comrachnog/deep-trading",
+      "status": "pending"
+    },
+    {
+      "name": "nseeod",
+      "url": "https://github.comrahlumin/nseeod",
+      "status": "pending"
+    },
+    {
+      "name": "trading_expiry",
+      "url": "https://github.comrahulghuge94/trading_expiry",
+      "status": "pending"
+    },
+    {
+      "name": "getnsestockprice",
+      "url": "https://github.comrajaramsrinivas/getnsestockprice",
+      "status": "pending"
+    },
+    {
+      "name": "nse-clock-data",
+      "url": "https://github.comrajeshkolhe110/nse-clock-data",
+      "status": "pending"
+    },
+    {
+      "name": "alice-blue-futures",
+      "url": "https://github.comrajeshsivadasan/alice-blue-futures",
+      "status": "pending"
+    },
+    {
+      "name": "alice-blue-options-buying",
+      "url": "https://github.comrajeshsivadasan/alice-blue-options-buying",
+      "status": "pending"
+    },
+    {
+      "name": "bhav",
+      "url": "https://github.comrajmaurya0904/bhav",
+      "status": "pending"
+    },
+    {
+      "name": "nse1minr",
+      "url": "https://github.comramamet/nse1minr",
+      "status": "pending"
+    },
+    {
+      "name": "qtpylib",
+      "url": "https://github.comranaroussi/qtpylib",
+      "status": "pending"
+    },
+    {
+      "name": "nse-rs",
+      "url": "https://github.comratan00/nse-rs",
+      "status": "pending"
+    },
+    {
+      "name": "brg-zone-scanner",
+      "url": "https://github.comratnaker16-bit/brg-zone-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "option-writing-calls-using-open-interest",
+      "url": "https://github.comrbhatia46/option-writing-calls-using-open-interest",
+      "status": "pending"
+    },
+    {
+      "name": "swadeshi-tracker",
+      "url": "https://github.comreborn-digitech/swadeshi-tracker",
+      "status": "pending"
+    },
+    {
+      "name": "stocky",
+      "url": "https://github.comrehanhaider/stocky",
+      "status": "pending"
+    },
+    {
+      "name": "stock-market-circulars",
+      "url": "https://github.comrhnvrm/stock-market-circulars",
+      "status": "pending"
+    },
+    {
+      "name": "rqalpha",
+      "url": "https://github.comricequant/rqalpha",
+      "status": "pending"
+    },
+    {
+      "name": "algo-trading-with-python",
+      "url": "https://github.comrishikesh5/algo-trading-with-python",
+      "status": "pending"
+    },
+    {
+      "name": "rscreener",
+      "url": "https://github.comrishilbhutada/rscreener",
+      "status": "pending"
+    },
+    {
+      "name": "bhav-copy",
+      "url": "https://github.comriyaz-ali/bhav-copy",
+      "status": "pending"
+    },
+    {
+      "name": "nse-whatsapp-alerts",
+      "url": "https://github.comrizwandil6/nse-whatsapp-alerts",
+      "status": "pending"
+    },
+    {
+      "name": "nse_analyser",
+      "url": "https://github.comrjganatra/nse_analyser",
+      "status": "pending"
+    },
+    {
+      "name": "market-sentiments",
+      "url": "https://github.comrockbandassembly371/market-sentiments",
+      "status": "pending"
+    },
+    {
+      "name": "india-market-dashboard",
+      "url": "https://github.comromesh1980/india-market-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "stock-prediction",
+      "url": "https://github.comronak-59/stock-prediction",
+      "status": "pending"
+    },
+    {
+      "name": "agentic-stock-research-system",
+      "url": "https://github.comrooneyrulz/agentic-stock-research-system",
+      "status": "pending"
+    },
+    {
+      "name": "nse-stock-dashboard",
+      "url": "https://github.comrsh-lab/nse-stock-dashboard",
+      "status": "pending"
+    },
+    {
+      "name": "nse-delivery-scanner",
+      "url": "https://github.comrsireddy002/nse-delivery-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "nse2r",
+      "url": "https://github.comrsquaredacademy/nse2r",
+      "status": "pending"
+    },
+    {
+      "name": "zerodhawebsocket",
+      "url": "https://github.comrthennan/zerodhawebsocket",
+      "status": "pending"
+    },
+    {
+      "name": "nselib",
+      "url": "https://github.comruchitanmay/nselib",
+      "status": "pending"
+    },
+    {
+      "name": "ai_nse",
+      "url": "https://github.comruijiang81/ai_nse",
+      "status": "pending"
+    },
+    {
+      "name": "algo_ai_skill",
+      "url": "https://github.comrupeezytech/algo_ai_skill",
+      "status": "pending"
+    },
+    {
+      "name": "golden",
+      "url": "https://github.comryqdev/golden",
+      "status": "pending"
+    },
+    {
+      "name": "stock-price-forecaster-lstm",
+      "url": "https://github.coms-agawane/stock-price-forecaster-lstm",
+      "status": "pending"
+    },
+    {
+      "name": "stable-swap",
+      "url": "https://github.comsaber-hq/stable-swap",
+      "status": "pending"
+    },
+    {
+      "name": "autoresearch-nse",
+      "url": "https://github.comsagar-n/autoresearch-nse",
+      "status": "pending"
+    },
+    {
+      "name": "hakija",
+      "url": "https://github.comsahilgupta/hakija",
+      "status": "pending"
+    },
+    {
+      "name": "nse-options-last-5-years",
+      "url": "https://github.comsajal101agrawal/nse-options-last-5-years",
+      "status": "pending"
+    },
+    {
+      "name": "nse-india-web-scraping",
+      "url": "https://github.comsampad-hegde/nse-india-web-scraping",
+      "status": "pending"
+    },
+    {
+      "name": "financeindia",
+      "url": "https://github.comsandeep-jaiswar/financeindia",
+      "status": "pending"
+    },
+    {
+      "name": "nse_option_chain",
+      "url": "https://github.comsangram2905/nse_option_chain",
+      "status": "pending"
+    },
+    {
+      "name": "nse_option_stock_market",
+      "url": "https://github.comsangram2905/nse_option_stock_market",
+      "status": "pending"
+    },
+    {
+      "name": "market-rover",
+      "url": "https://github.comsankarganeshb/market-rover",
+      "status": "pending"
+    },
+    {
+      "name": "new_fyers_nse",
+      "url": "https://github.comsapare542/new_fyers_nse",
+      "status": "pending"
+    },
+    {
+      "name": "market-data-ops-platform",
+      "url": "https://github.comsaubhagyapandey27/market-data-ops-platform",
+      "status": "pending"
+    },
+    {
+      "name": "fund-forge",
+      "url": "https://github.comshabbirhasan1/fund-forge",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data",
+      "url": "https://github.comshabbirhasan1/nse-data",
+      "status": "pending"
+    },
+    {
+      "name": "nsebsemcx",
+      "url": "https://github.comshabbirhasan1/nsebsemcx",
+      "status": "pending"
+    },
+    {
+      "name": "quicknsedatafetcher",
+      "url": "https://github.comshahanuj2610/quicknsedatafetcher",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-mcp",
+      "url": "https://github.comshamu0509/nse-bse-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "stocks-app",
+      "url": "https://github.comshikharka/stocks-app",
+      "status": "pending"
+    },
+    {
+      "name": "shunkan",
+      "url": "https://github.comshrewdlemon/shunkan",
+      "status": "pending"
+    },
+    {
+      "name": "ai_trading_calls_pridictor",
+      "url": "https://github.comshreyashdarade/ai_trading_calls_pridictor",
+      "status": "pending"
+    },
+    {
+      "name": "nifty-500-live-sentiment-analysis",
+      "url": "https://github.comshubxam/nifty-500-live-sentiment-analysis",
+      "status": "pending"
+    },
+    {
+      "name": "nse-screener",
+      "url": "https://github.comsiddharthakrsaha/nse-screener",
+      "status": "pending"
+    },
+    {
+      "name": "nse-swing-screener",
+      "url": "https://github.comsinghsurendrapratap/nse-swing-screener",
+      "status": "pending"
+    },
+    {
+      "name": "polymarket-bot",
+      "url": "https://github.comskharchikov/polymarket-bot",
+      "status": "pending"
+    },
+    {
+      "name": "ml-crypto-trading-bot",
+      "url": "https://github.comsleeyax/ml-crypto-trading-bot",
+      "status": "pending"
+    },
+    {
+      "name": "automoonbot",
+      "url": "https://github.comsnowcheetos/automoonbot",
+      "status": "pending"
+    },
+    {
+      "name": "jyotishtrader",
+      "url": "https://github.comsonimaharshi1999/jyotishtrader",
+      "status": "pending"
+    },
+    {
+      "name": "stellarescrow",
+      "url": "https://github.comstellar-xcrow/stellarescrow",
+      "status": "pending"
+    },
+    {
+      "name": "nsearch",
+      "url": "https://github.comstevschmid/nsearch",
+      "status": "pending"
+    },
+    {
+      "name": "bandl",
+      "url": "https://github.comstockalgo/bandl",
+      "status": "pending"
+    },
+    {
+      "name": "next-gen-algo-trading-bot",
+      "url": "https://github.comstudiogangster/next-gen-algo-trading-bot",
+      "status": "pending"
+    },
+    {
+      "name": "sensibull-realtime-options-api-ingestor",
+      "url": "https://github.comstudiogangster/sensibull-realtime-options-api-ingestor",
+      "status": "pending"
+    },
+    {
+      "name": "raderbot",
+      "url": "https://github.comsubaquatic-pierre/raderbot",
+      "status": "pending"
+    },
+    {
+      "name": "nse-momentum-data",
+      "url": "https://github.comsudhanshusingh23-wiz/nse-momentum-data",
+      "status": "pending"
+    },
+    {
+      "name": "nse-real-time-stocks-analysis-and-predictions-using-p",
+      "url": "https://github.comsumitjoshi21/nse-real-time-stocks-analysis-and-predictions-using-p",
+      "status": "pending"
+    },
+    {
+      "name": "oianalysis",
+      "url": "https://github.comsumitsainidev/oianalysis",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data",
+      "url": "https://github.comsumukshashidhar-archive/nse-data",
+      "status": "pending"
+    },
+    {
+      "name": "algorithmic-trading-plugins",
+      "url": "https://github.comsuperalgos/algorithmic-trading-plugins",
+      "status": "pending"
+    },
+    {
+      "name": "trading-signals-plugins",
+      "url": "https://github.comsuperalgos/trading-signals-plugins",
+      "status": "pending"
+    },
+    {
+      "name": "nse_1000cr_momentum",
+      "url": "https://github.comsvsashank/nse_1000cr_momentum",
+      "status": "pending"
+    },
+    {
+      "name": "nsepy",
+      "url": "https://github.comswapniljariwala/nsepy",
+      "status": "pending"
+    },
+    {
+      "name": "quotelib",
+      "url": "https://github.comswapniljariwala/quotelib",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-indian-stock-market-data-mcp",
+      "url": "https://github.comtapetide-hq/nse-bse-indian-stock-market-data-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "rust-crypto-trader",
+      "url": "https://github.comtcharding/rust-crypto-trader",
+      "status": "pending"
+    },
+    {
+      "name": "nseproxy",
+      "url": "https://github.comtechfanetechnologies/nseproxy",
+      "status": "pending"
+    },
+    {
+      "name": "pytvlwcharts",
+      "url": "https://github.comtechfanetechnologies/pytvlwcharts",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bhavcopy",
+      "url": "https://github.comtechyaura/nse-bhavcopy",
+      "status": "pending"
+    },
+    {
+      "name": "polymarket-hft",
+      "url": "https://github.comtelepair/polymarket-hft",
+      "status": "pending"
+    },
+    {
+      "name": "tesser",
+      "url": "https://github.comtesserspace/tesser",
+      "status": "pending"
+    },
+    {
+      "name": "fenix",
+      "url": "https://github.comthehardeep/fenix",
+      "status": "pending"
+    },
+    {
+      "name": "vyuha-log",
+      "url": "https://github.comthejesh-k463/vyuha-log",
+      "status": "pending"
+    },
+    {
+      "name": "pnsea",
+      "url": "https://github.comtheonlyanil/pnsea",
+      "status": "pending"
+    },
+    {
+      "name": "autotrade",
+      "url": "https://github.comthiyagab/autotrade",
+      "status": "pending"
+    },
+    {
+      "name": "nse-data-bank",
+      "url": "https://github.comtilak999/nse-data-bank",
+      "status": "pending"
+    },
+    {
+      "name": "polymarket-kalshi-arbitrage-bot",
+      "url": "https://github.comtoptrendev/polymarket-kalshi-arbitrage-bot",
+      "status": "pending"
+    },
+    {
+      "name": "rabbit_trading",
+      "url": "https://github.comttzztztz/rabbit_trading",
+      "status": "pending"
+    },
+    {
+      "name": "turtlestack-lite",
+      "url": "https://github.comturtlehq-tech/turtlestack-lite",
+      "status": "pending"
+    },
+    {
+      "name": "nse_analyses",
+      "url": "https://github.comuashogeschoolutrecht/nse_analyses",
+      "status": "pending"
+    },
+    {
+      "name": "nsepy-continuous-data",
+      "url": "https://github.comvarundivakar/nsepy-continuous-data",
+      "status": "pending"
+    },
+    {
+      "name": "python-nse-option-chain-analyzer",
+      "url": "https://github.comvaruns2002/python-nse-option-chain-analyzer",
+      "status": "pending"
+    },
+    {
+      "name": "nse-equity-research-report-generator",
+      "url": "https://github.comvedl/nse-equity-research-report-generator",
+      "status": "pending"
+    },
+    {
+      "name": "opendelta-nse",
+      "url": "https://github.comven2day/opendelta-nse",
+      "status": "pending"
+    },
+    {
+      "name": "viabtc_exchange_server",
+      "url": "https://github.comviabtc/viabtc_exchange_server",
+      "status": "pending"
+    },
+    {
+      "name": "nse-daydata",
+      "url": "https://github.comvignesh-moorthy/nse-daydata",
+      "status": "pending"
+    },
+    {
+      "name": "portfolio_analysis",
+      "url": "https://github.comvikaschouhan/portfolio_analysis",
+      "status": "pending"
+    },
+    {
+      "name": "nse-bse-stock-prices-automation",
+      "url": "https://github.comvikranth3140/nse-bse-stock-prices-automation",
+      "status": "pending"
+    },
+    {
+      "name": "algotrade-api",
+      "url": "https://github.comvinay-ram1999/algotrade-api",
+      "status": "pending"
+    },
+    {
+      "name": "ipo-exchange-scrape",
+      "url": "https://github.comvinodscode/ipo-exchange-scrape",
+      "status": "pending"
+    },
+    {
+      "name": "nse-pre-market",
+      "url": "https://github.comvinothkumarmuruga-cyber/nse-pre-market",
+      "status": "pending"
+    },
+    {
+      "name": "obscura-intel",
+      "url": "https://github.comvivektmurali/obscura-intel",
+      "status": "pending"
+    },
+    {
+      "name": "nse-live-market",
+      "url": "https://github.comvividvilla/nse-live-market",
+      "status": "pending"
+    },
+    {
+      "name": "ladder",
+      "url": "https://github.comvjpaij/ladder",
+      "status": "pending"
+    },
+    {
+      "name": "polymarket-bot",
+      "url": "https://github.comvoicegn/polymarket-bot",
+      "status": "pending"
+    },
+    {
+      "name": "nsepython",
+      "url": "https://github.comvolatility4u/nsepython",
+      "status": "pending"
+    },
+    {
+      "name": "nsecli",
+      "url": "https://github.comvsjha18/nsecli",
+      "status": "pending"
+    },
+    {
+      "name": "nsetools",
+      "url": "https://github.comvsjha18/nsetools",
+      "status": "pending"
+    },
+    {
+      "name": "most",
+      "url": "https://github.comwangrunji0408/most",
+      "status": "pending"
+    },
+    {
+      "name": "binance-trader-bot",
+      "url": "https://github.comwaxdred/binance-trader-bot",
+      "status": "pending"
+    },
+    {
+      "name": "tradingview-screenshot-bot-",
+      "url": "https://github.comwebclinic017/tradingview-screenshot-bot-",
+      "status": "pending"
+    },
+    {
+      "name": "algo-trading-platform",
+      "url": "https://github.comwhite-trade-loan/algo-trading-platform",
+      "status": "pending"
+    },
+    {
+      "name": "rao-s-scrap-platform",
+      "url": "https://github.comwizardrao/rao-s-scrap-platform",
+      "status": "pending"
+    },
+    {
+      "name": "crypto-trading-hunter",
+      "url": "https://github.comwookiao/crypto-trading-hunter",
+      "status": "pending"
+    },
+    {
+      "name": "dynasty",
+      "url": "https://github.comx86y/dynasty",
+      "status": "pending"
+    },
+    {
+      "name": "nse-oi-scanner",
+      "url": "https://github.comxorasysgen/nse-oi-scanner",
+      "status": "pending"
+    },
+    {
+      "name": "lighter-rust",
+      "url": "https://github.comyongkangc/lighter-rust",
+      "status": "pending"
+    },
+    {
+      "name": "rrg",
+      "url": "https://github.comyswa-var/rrg",
+      "status": "pending"
+    },
+    {
+      "name": "the-data-analyst-toolkit",
+      "url": "https://github.comyusuf4030/the-data-analyst-toolkit",
+      "status": "pending"
+    },
+    {
+      "name": "qaaccount-rs",
+      "url": "https://github.comyutiansut/qaaccount-rs",
+      "status": "pending"
+    }
+  ]
+}
