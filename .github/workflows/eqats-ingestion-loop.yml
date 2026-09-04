@@ -70,17 +70,21 @@ jobs:
               echo "[-] Ingestion Factory encountered an error ($ENGINE_STATUS)."
               git pull origin main --rebase -X theirs || true
               git stash pop || true
-              git add ingestion_blueprint.json todo_tasks.md modules/adapted/ || true
+              
+              # Stage EVERYTHING modified including system files to ensure a clean branch tree
+              git add .
               git commit -m "EQATS Engine Auto-Fix: Resolving ledger index states [Time: $(date +%s)]" || true
               git push origin main
           else
               echo "[+] Active repository block compiled successfully. Freezing assets..."
               git pull origin main --rebase -X theirs || true
               git stash pop || true
-              git add ingestion_blueprint.json todo_tasks.md modules/adapted/ || true
+              
+              # Stage EVERYTHING modified including code adjustments and tracking sheets
+              git add .
               
               if ! git diff-index --quiet HEAD; then
-                git commit -m "EQATS Engine Progress: Advanced repository integration index"
+                git commit -m "EQATS Engine Progress: Advanced repository integration index" || true
               fi
               git push origin main
           fi
