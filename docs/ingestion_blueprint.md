@@ -41,7 +41,7 @@
 | AlexWan/OsEngine | Complete | Complete | Complete | Complete | Active |
 | algotrading-lab/ai-algotrading-agent | Complete | Complete | Complete | Complete | Active |
 | alloc7260/NSE | Complete | Complete | Complete | Complete | Active |
-| alphabench/raptorbt | Pending | Pending | Pending | Pending | Initializing |
+| alphabench/raptorbt | Complete | Complete | Complete | Complete | Active |
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | althk/zerobha | Pending | Pending | Pending | Pending | Initializing |
 | Ameobea/tickgrinder | Pending | Pending | Pending | Pending | Initializing |
