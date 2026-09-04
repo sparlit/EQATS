@@ -96,7 +96,7 @@ jobs:
           python3 -c "
           import os
           import json
-          import subprocess
+          import urllib.request
           
           try:
               with open('ingestion_blueprint.json', 'r') as f:
@@ -112,27 +112,35 @@ jobs:
               exit(1)
               
           if current < total:
-              print(f'[+] Progress Status Matrix: ({current} / {total}). Dispatched via native Python engine...')
+              print(f'[+] Progress Status Matrix: ({current} / {total}). Dispatched via native Python urllib network stack...')
               
               token = os.environ.get('GITHUB_TOKEN')
               repo = os.environ.get('GITHUB_REPOSITORY')
               
-              # RIGID FIX: Explicitly target the programmatic REST API gateway
+              # Pure Python network isolation - completely unlinked from curl or bash string expansions
               api_url = f'https://github.com{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches'
               
-              cmd = [
-                  'curl', '-X', 'POST',
-                  '-H', f'Authorization: token {token}',
-                  '-H', 'Accept: application/vnd.github.v3+json',
-                  api_url,
-                  '-d', '{\"ref\":\"main\"}'
-              ]
+              req = urllib.request.Request(
+                  api_url, 
+                  data=json.dumps({'ref': 'main'}).encode('utf-8'),
+                  headers={
+                      'Authorization': f'token {token}',
+                      'Accept': 'application/vnd.github.v3+json',
+                      'Content-Type': 'application/json'
+                  },
+                  method='POST'
+              )
               
-              res = subprocess.run(cmd, capture_output=True, text=True)
-              if res.returncode != 0:
-                  print(f'[-] Trigger payload failed. Stderr: {res.stderr}')
+              try:
+                  with urllib.request.urlopen(req) as response:
+                      if response.status in:
+                          print('[+] Automation cascade payload successfully processed by GitHub REST core.')
+                      else:
+                          print(f'[-] Received unexpected status code from GitHub: {response.status}')
+                          exit(1)
+              except Exception as net_err:
+                  print(f'[-] Native transmission failed: {net_err}')
                   exit(1)
-              print('[+] Automation cascade payload successfully processed by GitHub core.')
           else:
               print(f'[+] SUCCESS: The factory has processed all {total} repositories with zero stubs remaining.')
           "
