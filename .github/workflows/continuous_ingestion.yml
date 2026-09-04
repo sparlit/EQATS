@@ -14,9 +14,7 @@ jobs:
       fail-fast: false # Prevents one broken repository from stopping the rest of the queue
       matrix:
         repository: [
-          "ricequant/rqalpha",
-          "sparlit/it-portal",
-          "sparlit/itmanager"
+          "sparlit/EQATS"          
         ]
 
     steps:
