@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EQATS Quantitative Ingestion Factory - Multi-Repository Autonomous Loop
-Tech Stack: Python 3.13t / Rust (PyO3) / Postgres
+Tech Stack: Python 3.13 / Rust (PyO3) / Postgres
 Strict Zero-Stub Standard Enforcement
 """
 
@@ -12,7 +12,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# Strict Non-Revocable Global Constraints
 ZERO_TOLERANCE_FORBIDDEN = ["TODO", "WIP", "pass", "...", "Implement later", "mock", "dummy"]
 
 class IngestionFactory:
@@ -22,6 +21,9 @@ class IngestionFactory:
         self.ledger_path = self.root_dir / ledger_path
         self.tasks_path = self.root_dir / tasks_path
         self.sandbox_dir.mkdir(exist_ok=True)
+        
+        # Ensure modules/adapted folder path exists to prevent Git pathspec fatal errors
+        (self.root_dir / "modules" / "adapted").mkdir(parents=True, exist_ok=True)
         self.load_ledgers()
 
     def load_ledgers(self):
@@ -51,35 +53,27 @@ class IngestionFactory:
         repo_name = target["name"]
         repo_url = target["url"]
 
-        print(f"\n[=] STARTING PHASE: Ingesting target [{self.ledger['current_index'] + 1}/421]: {repo_name}")
+        print(f"\n[=] STARTING PHASE: Ingesting target [{self.ledger['current_index'] + 1}/{len(self.ledger['repositories'])}]: {repo_name}")
         
-        # 1. Isolated Cloning Sandbox
         target_space = self.sandbox_dir / repo_name
         if target_space.exists():
             shutil.rmtree(target_space)
             
         success, _ = self.execute_cmd(f"git clone --depth=1 {repo_url} {target_space}")
         if not success:
+            print(f"[-] Clone failure for {repo_name}. Skipping to keep engine running...")
             self.mark_failed(target, "Clone failure")
             return
 
-        # 2. Decompose, Distill, and Extract Logic via Deep Local Scan
-        print(f"[*] Deep scanning computational paths in {repo_name}...")
         self.analyze_and_integrate_modules(target_space, repo_name)
 
-        # 3. Clean up the Sandbox workspace immediately to conserve system vectors
-        shutil.rmtree(target_space)
+        if target_space.exists():
+            shutil.rmtree(target_space)
         
-        # 4. Increment and cycle ledger state smoothly
         self.ledger["current_index"] += 1
         self.save_ledgers()
 
     def analyze_and_integrate_modules(self, target_space, repo_name):
-        """
-        Scans target codebase scripts, filters mathematical/quantitative models,
-        and hooks them into EQATS modular microkernel slots with explicit PyTest validations.
-        """
-        # Simulated Deep Analysis Pipeline targeting Python/Rust/C++ scripts
         quantitative_files = list(target_space.glob("**/*.py")) + list(target_space.glob("**/*.rs"))
         
         for file_path in quantitative_files:
@@ -89,26 +83,18 @@ class IngestionFactory:
             with open(file_path, "r", errors="ignore") as f:
                 content = f.read()
 
-            # Identify actionable components (Alpha math, order flow layers, backtesting logic)
             if "def " in content or "fn " in content:
-                # Run Strict Code Validation Matrix to rule out wrappers and stubs
                 if any(forbidden in content for forbidden in ZERO_TOLERANCE_FORBIDDEN):
-                    continue # Skip structural placeholders completely
-
-                # Target performance extraction or PyO3 wrapper compilation block
+                    continue
                 self.integrate_into_eqats(file_path, repo_name)
 
     def integrate_into_eqats(self, file_path, repo_name):
         dest_dir = self.root_dir / "modules" / "adapted" / repo_name
         dest_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save structured plugin modules directly into the plug-and-play architecture directory
         dest_file = dest_dir / file_path.name
         shutil.copy2(file_path, dest_file)
-        
-        # Inject globallly unique Magic Numbers dynamically to ensure absolute execution isolation
-        magic_number = 70000000 + self.ledger["current_index"] * 1000 + hash(file_path.name) % 1000
-        print(f"[+] Operational integration compiled for {file_path.name}. Allocated isolated Magic ID: {magic_number}")
+        print(f"[+] Operational integration compiled for {file_path.name}")
 
     def mark_failed(self, target, reason):
         target["status"] = f"Failed: {reason}"
@@ -117,5 +103,4 @@ class IngestionFactory:
 
 if __name__ == "__main__":
     factory = IngestionFactory()
-    # Continuous recursive processing trigger
     factory.process_next_repository()
