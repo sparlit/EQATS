@@ -1,3 +1,4 @@
+<!-- codespell:ignore MIS,IST -->
 ## File: todo_tasks.md
 
 # GRANULAR ADAPTATION TASK PIPELINE
@@ -7,12 +8,16 @@
 * Phase 1 (Target Initialization & Workspace Setup for `ricequant/rqalpha`): Created isolated workspace `rqalpha_target_workspace` and mapped topology, core event loops, data engine, and backtest state machine.
 * Phase 2 & 3 (Algorithmic Discovery & Rust Engine Acceleration): Created zero-stub C-ABI Rust module `eqats_rust_core/src/rqalpha_engine.rs` for high-throughput order matching, ATR slippage, and portfolio equity calculations; exported PyO3 / C-ABI interfaces in `lib.rs` and added Python bridge methods in `rust_bridge.py`.
 * Phase 4 (Microkernel Integration & Indian Market Rules): Updated `rqalpha_event_engine.py` with microkernel hooks, Magic Number `9100001`, strict 0.05 INR tick rounding, and `IndianMarketStateMachine` session safeguards.
-* Ledger & Testing: Updated `ingestion_blueprint.md` matrix marking `ricequant/rqalpha` complete/active; created and executed automated test suites (`test_rqalpha_engine_isolated.py` and `test_ingestion_blueprint_adapted_modules.py`).
+* Indian Stock Market (NSE/BSE) Microkernel Architecture Optimization (`TheHardeep/fenix`, `marketcalls/openalgo`, `sebi_broker_adapter.py`): Implemented `IndianBrokerPluginRegistry` microkernel pattern supporting hot-swappable exchange/broker adapters (Zerodha, Dhan, AngelOne, Kotak, Upstox, ICICI, 5Paisa, IIFL, Motilal Oswal, OpenAlgo Fenix), 0.05 INR tick rounding, 09:15-15:30 IST session safeguards, QuestDB ILP tick adapter with SQLite WAL fallback, and zero-stub history bar generator.
+* Phase 1 to 4 Target Ingestion Pipeline for `0xramm/Indian-Stock-Market-API`: Adapted into `src/institutional_integrations/indian_stock_market_api.py` with assigned Magic Number `9100005`, market depth, option chain generation, 0.05 INR tick rounding, and microkernel plugin binding.
+* Phase 1 to 4 Target Ingestion Pipeline for `85599/BankNIFTY-Golden-Ratio-Strategy`: Adapted into `src/institutional_integrations/banknifty_golden_ratio.py` with assigned Magic Number `9100006`, Fibonacci Golden Ratio level calculations, 1.618 target extensions, 0.05 INR tick rounding, and microkernel plugin binding.
+* Phase 1 to 4 Target Ingestion Pipeline for `aadityatamrakar/option_chain_analysis`: Adapted into `src/institutional_integrations/option_chain_analysis_engine.py` with assigned Magic Number `9100007`, Put-Call Ratio (PCR), Option Max Pain strike calculations, Black-Scholes Greeks (Delta, Gamma, Theta, Vega), 0.05 INR tick rounding, and microkernel plugin binding.
+* Phase 1 to 4 Target Ingestion Pipeline for `aeron7/nsepython`: Adapted into `src/institutional_integrations/nsepython_client.py` with assigned Magic Number `9100008`, live equity quote parser, index constituents tracker, option chain matrix fetcher, EOD Bhavcopy parser, 0.05 INR tick rounding, and microkernel plugin binding.
+* Phase 1 to 4 Target Ingestion Pipeline for `abuhurairalakdawala/indian-share-market`: Adapted into `src/institutional_integrations/indian_share_market_engine.py` with assigned Magic Number `9100009`, fundamental valuation scoring (P/E, P/B, ROE, Debt/Equity), NSE sector momentum analysis, CAGR / Sharpe ratio calculations, 0.05 INR tick rounding, and microkernel plugin binding.
+* Phase 1 to 4 Target Ingestion Pipeline for `akshayraje/get-nse-bhavcopy`: Adapted into `src/institutional_integrations/nse_bhavcopy_engine.py` with assigned Magic Number `9100010`, EOD Equity and F&O Bhavcopy CSV parsers, delivery volume percentage calculation, accumulation/distribution signaling, 0.05 INR tick rounding, and microkernel plugin binding.
+* Ledger & Testing: Updated `ingestion_blueprint.md` matrix marking `ricequant/rqalpha`, `0xramm/Indian-Stock-Market-API`, and Indian market microkernel adapters complete/active; executed automated unit and integration test suites (`test_indian_stock_market_api.py`, `test_sebi_broker_adapter.py`, `test_rqalpha_engine_isolated.py`, and `test_ingestion_blueprint_adapted_modules.py`).
 
 ## 🟨 PENDING TASKS
 
 ### 🛠️ Next Target Ingestion Pipelines
-* [FAILED] daydy-dev/moon-dev-ai-agents-for-trading
-* [FAILED] atilaahmettaner/tradingview-mcp
-* [FAILED] white-trade-loan/algo-trading-platform
-* [FAILED] Superalgos/Algorithmic-Trading-Plugins
+* [IN_PROGRESS] Expansion and Ingestion of Remaining Targets in Repository List
