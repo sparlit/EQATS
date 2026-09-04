@@ -111,7 +111,7 @@ jobs:
             curl -X POST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
-              https://github.com{{ github.repository }}/actions/workflows/eqats-ingestion-loop.yml/dispatches \
+              "https://github.com{{ github.repository }}/actions/workflows/eqats-ingestion-loop.yml/dispatches" \
               -d '{"ref":"main"}'
           else
             echo "[+] SUCCESS: The factory has processed all $TOTAL repositories with zero stubs remaining."
