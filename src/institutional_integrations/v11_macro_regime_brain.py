@@ -29,7 +29,7 @@ class MacroRegimeClassifierBrain:
     Multi-Asset Market Regime & Cross-Asset Correlation Classifier.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.version = "11.0.0"
 
     def classify_regime(

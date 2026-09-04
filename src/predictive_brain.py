@@ -7,7 +7,15 @@ calculates rolling accuracy, and adjusts its weights via backpropagation.
 import math
 from typing import Any, Dict
 
-import numpy as np
+try:
+    import numpy as np
+except (ImportError, ModuleNotFoundError, Exception) as _np_err:
+    import logging
+
+    logging.getLogger("predictive_brain").warning(
+        "NumPy C-extension loading note: %s. Using pure-Python random initialization.", _np_err
+    )
+    np = None
 
 
 class NeuralNetworkPredictor:
@@ -21,11 +29,20 @@ class NeuralNetworkPredictor:
 
     def __init__(self, learning_rate: Any = 0.1) -> None:
         self.learning_rate = learning_rate
-        rng = np.random.RandomState(42)
-        self.w_input_hidden = rng.uniform(-0.5, 0.5, (6, 5)).tolist()
-        self.bias_hidden = rng.uniform(-0.1, 0.1, 5).tolist()
-        self.w_hidden_output = rng.uniform(-0.5, 0.5, 5).tolist()
-        self.bias_output = float(rng.uniform(-0.1, 0.1))
+        if np is not None:
+            rng = np.random.RandomState(42)
+            self.w_input_hidden = rng.uniform(-0.5, 0.5, (6, 5)).tolist()
+            self.bias_hidden = rng.uniform(-0.1, 0.1, 5).tolist()
+            self.w_hidden_output = rng.uniform(-0.5, 0.5, 5).tolist()
+            self.bias_output = float(rng.uniform(-0.1, 0.1))
+        else:
+            import random
+
+            rng_py = random.Random(42)
+            self.w_input_hidden = [[rng_py.uniform(-0.5, 0.5) for _ in range(5)] for _ in range(6)]
+            self.bias_hidden = [rng_py.uniform(-0.1, 0.1) for _ in range(5)]
+            self.w_hidden_output = [rng_py.uniform(-0.5, 0.5) for _ in range(5)]
+            self.bias_output = rng_py.uniform(-0.1, 0.1)
         self.last_inputs = None
         self.last_prediction = None
         self.correct_predictions = 0
@@ -98,15 +115,11 @@ class NeuralNetworkPredictor:
             else:
                 adjusted_lr *= 0.95
             for h in range(5):
-                self.w_hidden_output[h] += (
-                    adjusted_lr * output_delta * self.hidden_activated[h]
-                )
+                self.w_hidden_output[h] += adjusted_lr * output_delta * self.hidden_activated[h]
             self.bias_output += adjusted_lr * output_delta
             for i in range(6):
                 for h in range(5):
-                    self.w_input_hidden[i][h] += (
-                        adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
-                    )
+                    self.w_input_hidden[i][h] += adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
             for h in range(5):
                 self.bias_hidden[h] += adjusted_lr * hidden_deltas[h]
         acc = self.get_accuracy()
@@ -133,9 +146,7 @@ class NeuralNetworkPredictor:
         avg_w_ih = total_w_ih / max(1.0, n_ih)
         n_ho = float(len(self.w_hidden_output)) if self.w_hidden_output else 5.0
         avg_w_ho = sum(self.w_hidden_output) / max(1.0, n_ho)
-        hidden_str = ",".join(
-            f"{h:.2f}" for h in getattr(self, "hidden_activated", [0.0] * 5)
-        )
+        hidden_str = ",".join(f"{h:.2f}" for h in getattr(self, "hidden_activated", [0.0] * 5))
         return {
             "avg_w_ih": round(avg_w_ih, 4),
             "avg_w_ho": round(avg_w_ho, 4),
@@ -186,9 +197,7 @@ def batch_predict_symbols_parallel(symbol_inputs_map: Any) -> Any:
         return results
     max_workers = min(8, max(1, len(symbol_inputs_map)))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_predict_single, item) for item in symbol_inputs_map.items()
-        ]
+        futures = [executor.submit(_predict_single, item) for item in symbol_inputs_map.items()]
         for fut in concurrent.futures.as_completed(futures):
             try:
                 sym, prob = fut.result()
