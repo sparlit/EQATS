@@ -58,7 +58,8 @@ def dispatch_next_cycle():
         try:
             with urllib.request.urlopen(req) as response:
                 status = response.getcode()
-                if status in:
+                # FIXED: Standard range check prevents empty tuple parsing collisions
+                if 200 <= status <= 299:
                     print("[+] Automation cascade payload successfully processed by GitHub REST core.")
                 else:
                     print(f"[-] Received unexpected status code from GitHub core gateway: {status}")
