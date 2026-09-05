@@ -1,5 +1,5 @@
 {
-  "current_index": 11,
+  "current_index": 45,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -89,7 +89,7 @@
     {
       "name": "ngrcoydisclosures",
       "url": "https://github.com/ajakaiye33/ngrcoydisclosures",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "indian-trading-skills",
@@ -159,17 +159,17 @@
     {
       "name": "nse-swing-scanner",
       "url": "https://github.com/amitashwinibhagat/nse-swing-scanner",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "yata",
       "url": "https://github.com/amv-dev/yata",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "vse",
       "url": "https://github.com/aneesh540/vse",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "ai-stock-screener",
@@ -189,47 +189,47 @@
     {
       "name": "nse-system",
       "url": "https://github.com/ankitchaudhary6886/nse-system",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "nse_scrapper",
       "url": "https://github.com/ankitsny/nse_scrapper",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "nse",
       "url": "https://github.com/anshulk/nse",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "nse-oi-visualizer",
       "url": "https://github.com/anshuthopsee/nse-oi-visualizer",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "rust-trading-engine",
       "url": "https://github.com/anthdm/rust-trading-engine",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "kite-option-chain",
       "url": "https://github.com/anurag-roy/kite-option-chain",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "shoonya-option-chain",
       "url": "https://github.com/anurag-roy/shoonya-option-chain",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "nse-india",
       "url": "https://github.com/api-evangelist/nse-india",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "algo-trade",
       "url": "https://github.com/aravin/algo-trade",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "name": "nse-data",
