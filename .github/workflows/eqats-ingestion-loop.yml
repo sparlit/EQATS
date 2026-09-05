@@ -93,56 +93,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          python3 -c "
-          import os
-          import json
-          import urllib.request
-          
-          try:
-              with open('ingestion_blueprint.json', 'r') as f:
-                  blueprint = json.load(f)
-              current = blueprint['current_index']
-              total = len(blueprint['repositories'])
-          except Exception as e:
-              print(f'[-] Error parsing blueprint JSON matrix: {e}')
-              exit(1)
-              
-          if total == 0:
-              print('[-] Error: Ingestion blueprint contains zero repository endpoints.')
-              exit(1)
-              
-          if current < total:
-              print(f'[+] Progress Status Matrix: ({current} / {total}). Dispatched via native Python urllib network stack...')
-              
-              token = os.environ.get('GITHUB_TOKEN')
-              repo = os.environ.get('GITHUB_REPOSITORY')
-              
-              # CRITICAL FIX: Direct routing to official programmatic REST API gateway
-              api_url = f'https://github.com{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches'
-              
-              req = urllib.request.Request(
-                  api_url, 
-                  data=json.dumps({'ref': 'main'}).encode('utf-8'),
-                  headers={
-                      'Authorization': f'token {token}',
-                      'Accept': 'application/vnd.github.v3+json',
-                      'Content-Type': 'application/json',
-                      'User-Agent': 'EQATS-Ingestion-Engine'
-                  },
-                  method='POST'
-              )
-              
-              try:
-                  with urllib.request.urlopen(req) as response:
-                      # CRITICAL FIX: Explicit HTTP status verification codes injected 
-                      if response.status in:
-                          print('[+] Automation cascade payload successfully processed by GitHub REST core.')
-                      else:
-                          print(f'[-] Received unexpected status code from GitHub: {response.status}')
-                          exit(1)
-              except Exception as net_err:
-                  print(f'[-] Native transmission failed: {net_err}')
-                  exit(1)
-          else:
-              print(f'[+] SUCCESS: The factory has processed all {total} repositories with zero stubs remaining.')
-          "
+          # Safe decoupled execution unlinked from YAML string constraints
+          python3 .github/scripts/trigger_loop.py
