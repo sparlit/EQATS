@@ -39,7 +39,8 @@ jobs:
       - name: Initialize Project Tools Matrix
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy pytest maturin pyo3-pack requests
+          # FIXED: Added pytest-xdist to natively enable parallel multi-core testing execution via the -n flag
+          pip install ruff mypy pytest pytest-xdist maturin pyo3-pack requests
 
       - name: Execute Resilient Self-Healing Processing Loop
         env:
