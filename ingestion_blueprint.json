@@ -1,9 +1,5 @@
 {
-<<<<<<< Updated upstream
-  "current_index": 4,
-=======
-  "current_index": 6,
->>>>>>> Stashed changes
+  "current_index": 0,
   "repositories": [
     {
       "name": "tectonicdb",
