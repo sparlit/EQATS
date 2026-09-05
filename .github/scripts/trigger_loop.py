@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EQATS Automated Workflow Cascade Dispatcher
-Fault-Tolerant Network Resiliency Engine - Zero Unattended Failures
+DNS Failover Core - Direct Core Anycast IP Routing Matrix
 """
 
 import os
@@ -10,10 +10,16 @@ import urllib.request
 import sys
 import time
 
+# Hardcoded Anycast IP backup layer targeting official ://github.com operational routes
+GITHUB_API_IP_FALLBACKS = [
+    "140.82.112.6",
+    "140.82.113.6",
+    "140.82.114.6"
+]
+
 def dispatch_next_cycle():
     blueprint_path = "ingestion_blueprint.json"
     
-    # 1. Parse ledger matrix indices safely
     try:
         with open(blueprint_path, 'r', encoding='utf-8') as f:
             blueprint = json.load(f)
@@ -30,52 +36,62 @@ def dispatch_next_cycle():
     if current < total:
         print(f"[+] Progress Matrix Index: ({current} / {total}). Triggering subsequent pipeline cascade...")
         
-        # 2. Extract verified variables from system environment parameters
         token = os.environ.get('GITHUB_TOKEN')
         repo = os.environ.get('GITHUB_REPOSITORY')
         
         if not token or not repo:
             print("[-] Error: Missing structural environment variables (GITHUB_TOKEN or GITHUB_REPOSITORY).")
             sys.exit(1)
-            
-        # 3. Assemble rigid programmatic REST API gateway destination path
-        api_url = f"https://github.com{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
+
         payload = json.dumps({'ref': 'main'}).encode('utf-8')
-        
-        req = urllib.request.Request(
-            api_url, 
-            data=payload,
-            headers={
-                'Authorization': f'token {token}',
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'EQATS-Ingestion-Engine'
-            },
-            method='POST'
-        )
-        
-        # 4. Transmit payload with fault-tolerant infinite retry loop
-        retry_delay = 5  # Base sleep interval in seconds
+        retry_delay = 5
         attempt = 1
         
         while True:
+            # Alternate endpoints between standard DNS path and hard-coded Anycast IP paths
+            if attempt % 3 == 0 or "Errno -2" in locals().get('last_error_str', ''):
+                # Fallback to direct Anycast IP routing to completely bypass system DNS failures
+                ip_target = GITHUB_API_IP_FALLBACKS[attempt % len(GITHUB_API_IP_FALLBACKS)]
+                api_url = f"https://{ip_target}/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
+                use_ip_fallback = True
+                print(f"[*] DNS Anomaly Active. Bypassing nameservers, hard-routing via Anycast IP: {ip_target}")
+            else:
+                api_url = f"https://://github.com/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
+                use_ip_fallback = False
+
+            req = urllib.request.Request(
+                api_url, 
+                data=payload,
+                headers={
+                    'Authorization': f'token {token}',
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'EQATS-Ingestion-Engine'
+                },
+                method='POST'
+            )
+            
+            # If routing directly via IP, inject the host header explicitly to clear SNI validation checks
+            if use_ip_fallback:
+                req.add_header('Host', '://github.com')
+
             try:
                 print(f"[*] Dispatching REST trigger API payload (Attempt {attempt})...")
-                with urllib.request.urlopen(req, timeout=15) as response:
+                # Lowering timeout parameters to enforce rapid fallback transitions
+                with urllib.request.urlopen(req, timeout=8) as response:
                     status = response.getcode()
                     if 200 <= status <= 299:
                         print("[+] Automation cascade payload successfully processed by GitHub REST core.")
-                        return  # Break loop on clean delivery success
+                        return
                     else:
-                        print(f"[-] Received unexpected status code: {status}. Retrying in {retry_delay}s...")
+                        print(f"[-] Received unexpected status code: {status}. Retrying...")
             except Exception as net_err:
-                # Catch Errno -2 DNS dropouts or any momentary network timeouts
+                last_error_str = str(net_err)
                 print(f"[-] Network connection anomaly detected: {net_err}")
                 print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
             
             time.sleep(retry_delay)
-            # Apply linear increments to delay capped at 60 seconds to optimize loop recovery profiles
-            retry_delay = min(retry_delay + 5, 60)
+            retry_delay = min(retry_delay + 2, 15)  # Cap at 15s to keep cycles responsive
             attempt += 1
             
     else:
