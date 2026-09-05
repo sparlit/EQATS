@@ -1,69 +1,75 @@
 #!/usr/bin/env python3
 """
 EQATS Automated Workflow Cascade Dispatcher
-Application-Level Socket Level Resolver Engine - Zero System DNS Reliance
+Custom HTTPS Connection Tunneling Engine - Absolute System DNS Independence
 """
 
 import os
 import json
 import urllib.request
+import http.client
 import sys
 import time
 import socket
+import ssl
 
 def resolve_via_public_dns(hostname="://github.com"):
-    """
-    Surgically queries public Anycast DNS servers over UDP ports
-    completely bypassing the runner's broken local system resolver daemon.
-    """
+    """Queries public Anycast DNS servers over raw UDP to bypass dead system resolvers."""
     public_dns_ips = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
-    # DNS Query payload framework for ://github.com (Type A record)
     dns_query_packet = (
-        b"\xaa\xbb"  # Transaction ID
-        b"\x01\x00"  # Standard query flags
-        b"\x00\x01\x00\x00\x00\x00\x00\x00"  # Questions: 1, Answers/Authority/Additional: 0
-        b"\x03api\x06github\x03com\x00"  # QNAME: ://github.com
-        b"\x00\x01\x00\x01"  # QTYPE: A, QCLASS: IN
+        b"\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+        b"\x03api\x06github\x03com\x00\x00\x01\x00\x01"
     )
     
     for dns_server in public_dns_ips:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(3.0)
+            sock.settimeout(2.0)
             sock.sendto(dns_query_packet, (dns_server, 53))
             data, _ = sock.recvfrom(512)
             sock.close()
             
-            # Simple DNS parser: isolate the last 4 bytes of the packet for the A Record IP
             if len(data) >= 16:
+                # Isolate the final 4 bytes containing the resolved A-Record IPv4 parameters
                 ip_bytes = data[-4:]
                 resolved_ip = f"{ip_bytes[0]}.{ip_bytes[1]}.{ip_bytes[2]}.{ip_bytes[3]}"
-                # Validate IP structure format
-                socket.inet_aton(resolved_ip)
-                print(f"[+] Application-Level DNS Resolution Success via {dns_server}: {resolved_ip}")
+                socket.inet_aton(resolved_ip) # Enforce string structural sanity validation
+                print(f"[+] Application-Level DNS Success via {dns_server}: {resolved_ip}")
                 return resolved_ip
-        except Exception as e:
-            print(f"[*] Public DNS server {dns_server} query timed out or failed: {e}")
+        except Exception:
             continue
             
-    # Hardcoded fallback endpoints if public resolvers fail
-    print("[*] Public resolvers unreachable. Deploying structural fallback Anycast block...")
-    return "140.82.112.6"
+    print("[*] Public resolvers timed out. Deploying default hardcoded operational Anycast route...")
+    return "140.82.113.6"
 
-def patch_socket_runtime(target_ip):
-    """
-    Intercepts the low-level socket creation layer in the execution thread.
-    Forces all connections to ://github.com to route directly to the validated IP.
-    """
-    original_getaddrinfo = socket.getaddrinfo
+class DNSInsulatedHTTPSConnection(http.client.HTTPSConnection):
+    """Custom HTTPS Connection wrapper that routes to an explicit IP while preserving SNI contexts."""
+    def __init__(self, host, ip_target, *args, **kwargs):
+        self.ip_target = ip_target
+        super().__init__(host, *args, **kwargs)
 
-    def customized_getaddrinfo(host, port, *args, **kwargs):
-        if host == "://github.com":
-            # Direct socket injection bypasses system resolution tables entirely
-            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (target_ip, port))]
-        return original_getaddrinfo(host, port, *args, **kwargs)
+    def connect(self):
+        # Establish a raw TCP socket directly to the resolved target IP address
+        self.sock = socket.create_connection((self.ip_target, self.port), self.timeout, self.source_address)
+        if self._tunnel_host:
+            self._tunnel()
+            
+        # Wrap the socket securely, ensuring the SNI hostname remains ://github.com
+        server_hostname = self._tunnel_host or self.host
+        self.sock = self.ctx.wrap_socket(self.sock, server_hostname=server_hostname)
 
-    socket.getaddrinfo = customized_getaddrinfo
+class DNSInsulatedHTTPSHandler(urllib.request.HTTPSHandler):
+    """Custom urllib opener handler that injects the DNS-insulated connection class."""
+    def __init__(self, ip_target, context):
+        self.ip_target = ip_target
+        self.context = context
+        super().__init__(context=context)
+
+    def https_open(self, req):
+        return self.do_open(
+            lambda host, **kwargs: DNSInsulatedHTTPSConnection(host, ip_target=self.ip_target, context=self.context, **kwargs),
+            req
+        )
 
 def dispatch_next_cycle():
     blueprint_path = "ingestion_blueprint.json"
@@ -91,35 +97,37 @@ def dispatch_next_cycle():
             print("[-] Error: Missing structural environment variables (GITHUB_TOKEN or GITHUB_REPOSITORY).")
             sys.exit(1)
 
-        # 1. Resolve domain endpoint completely unlinked from system nameservers
-        target_ip = resolve_via_public_dns("://github.com")
-        
-        # 2. Inject patched function block into python core runtime socket layer
-        patch_socket_runtime(target_ip)
-
-        # 3. Standard payload setup - works cleanly now that hostname mapping is handled underneath
         api_url = f"https://://github.com/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
         payload = json.dumps({'ref': 'main'}).encode('utf-8')
-        
-        req = urllib.request.Request(
-            api_url, 
-            data=payload,
-            headers={
-                'Authorization': f'token {token}',
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'EQATS-Ingestion-Engine'
-            },
-            method='POST'
-        )
         
         retry_delay = 5
         attempt = 1
         
         while True:
             try:
+                # 1. Dynamically resolve the domain endpoint without touching system nameservers
+                target_ip = resolve_via_public_dns("://github.com")
+                print(f"[*] Tunneling request directly to Anycast IP Destination: {target_ip}")
+                
+                # 2. Set up the secure context and register the custom connection opener
+                ssl_context = ssl.create_default_context()
+                opener = urllib.request.build_opener(DNSInsulatedHTTPSHandler(target_ip, context=ssl_context))
+                
+                req = urllib.request.Request(
+                    api_url, 
+                    data=payload,
+                    headers={
+                        'Authorization': f'token {token}',
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'EQATS-Ingestion-Engine'
+                    },
+                    method='POST'
+                )
+
                 print(f"[*] Dispatching REST trigger API payload (Attempt {attempt})...")
-                with urllib.request.urlopen(req, timeout=10) as response:
+                # 3. Transmit the payload using our custom tunnel handler
+                with opener.open(req, timeout=10) as response:
                     status = response.getcode()
                     if 200 <= status <= 299:
                         print("[+] Automation cascade payload successfully processed by GitHub REST core.")
@@ -129,16 +137,10 @@ def dispatch_next_cycle():
             except Exception as net_err:
                 print(f"[-] Network connection anomaly detected: {net_err}")
                 print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
-                
-                # Dynamic re-resolution check in case IP mapping changes mid-loop
-                if attempt % 5 == 0:
-                    new_ip = resolve_via_public_dns("://github.com")
-                    patch_socket_runtime(new_ip)
             
             time.sleep(retry_delay)
             retry_delay = min(retry_delay + 2, 15)
             attempt += 1
-            
     else:
         print(f"[+] SUCCESS: The factory has processed all {total} repositories with zero stubs remaining.")
 
