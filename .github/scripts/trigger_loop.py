@@ -46,18 +46,23 @@ class DNSInsulatedHTTPSConnection(http.client.HTTPSConnection):
     def __init__(self, host, ip_target, ssl_context, *args, **kwargs):
         self.ip_target = ip_target
         self.ssl_context = ssl_context
-        # Pass the verified context into python's native structural initialization params
+        # Enforce structural context injection upstream
         kwargs['context'] = ssl_context
         super().__init__(host, *args, **kwargs)
 
     def connect(self):
-        # Establish raw TCP socket pipeline directly to the public resolved IP 
+        # Establish raw TCP socket pipeline directly to the resolved public IP destination
         self.sock = socket.create_connection((self.ip_target, self.port), self.timeout, self.source_address)
         if self._tunnel_host:
             self._tunnel()
             
-        # Hard fixed attribute call utilizing python's core native context module parameters
+        # Target identity assignment
         server_hostname = self._tunnel_host or self.host
+        
+        # FIXED: Explicitly set the internal _host attribute to satisfy check_hostname requirements
+        self._host = server_hostname
+        
+        # Safely execute secure TLS wrap using native parameters
         self.sock = self.ssl_context.wrap_socket(self.sock, server_hostname=server_hostname)
 
 class DNSInsulatedHTTPSHandler(urllib.request.HTTPSHandler):
@@ -111,7 +116,7 @@ def dispatch_next_cycle():
                 target_ip = resolve_via_public_dns("://github.com")
                 print(f"[*] Tunneling request directly to Anycast IP Destination: {target_ip}")
                 
-                # 2. Build default secure context
+                # 2. Build secure context
                 ssl_context = ssl.create_default_context()
                 opener = urllib.request.build_opener(DNSInsulatedHTTPSHandler(target_ip, context=ssl_context))
                 
