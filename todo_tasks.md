@@ -457,3 +457,48 @@
 - [ ] yswa-var/RRG
 - [ ] yusuf4030/the-data-analyst-toolkit
 - [ ] yutiansut/qaaccount-rs
+
+- [x] **Repo 018: AI4Finance-Foundation/FinRL-Trading (Magic Number: 9100033)**
+  - Deep Reinforcement Learning (DRL) ensemble portfolio allocation and adaptive sector rotation adapted into `src/institutional_integrations/finrl_trading_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `FINRL_TRADING`.
+  - Unit tests added to `tests/test_finrl_trading_engine.py` with 100% pass rate.
+
+- [x] **Repo 019: ajakaiye33/ngrcoydisclosures (Magic Number: 9100034)**
+  - Corporate disclosure XML feed parser and event classification adapted into `src/institutional_integrations/ngrcoydisclosures_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NGRCOY_DISCLOSURES`.
+  - Unit tests added to `tests/test_ngrcoydisclosures_engine.py` with 100% pass rate.
+
+- [x] **Repo 032: amv-dev/yata (Magic Number: 9100037)**
+  - Streaming technical indicators (Hull Moving Average HMA, MACD, Parabolic SAR) adapted into `src/institutional_integrations/yata_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `YATA_TECHNICAL`.
+  - Unit tests added to `tests/test_yata_engine.py` with 100% pass rate.
+
+- [x] **Repo 033: aneesh540/vse (Magic Number: 9100038)**
+  - Virtual Demat account portfolio manager and simulated buy/sell trade execution adapted into `src/institutional_integrations/vse_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `VSE_DEMAT`.
+  - Unit tests added to `tests/test_vse_engine.py` with 100% pass rate.
+
+- [x] **Repo 040: ankitchaudhary6886/nse-system (Magic Number: 9100040)**
+  - Multi-factor composite stock scoring, market regime gatekeeper, sector relative strength ranking, and institutional activity tracking adapted into `src/institutional_integrations/nse_system_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_SYSTEM`.
+  - Unit tests added to `tests/test_nse_system_engine.py` with 100% pass rate.
+
+- [x] **Repo 043: anshuthopsee/nse-oi-visualizer (Magic Number: 9100043)**
+  - Option chain Open Interest (OI) buildup analytics, Call/Put OI change imbalance scoring, Max Pain strike calculation, and Black-76 option pricing model adapted into `src/institutional_integrations/nse_oi_visualizer_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_OI_VISUALIZER`.
+  - Unit tests added to `tests/test_nse_oi_visualizer_engine.py` with 100% pass rate.
+
+- [x] **Repo 045: anthdm/rust-trading-engine (Magic Number: 9100044)**
+  - Price-time priority L2 limit orderbook matching engine, bid/ask queue execution, and market pair order matching adapted into `src/institutional_integrations/rust_matching_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `RUST_MATCHING_ENGINE`.
+  - Unit tests added to `tests/test_rust_matching_engine.py` with 100% pass rate.
+
+- [x] **Repo 048: api-evangelist/nse-india (Magic Number: 9100046)**
+  - API endpoint specification registry, domain security compliance checks (DNSSEC, SPF, DMARC), and API quality/health scoring adapted into `src/institutional_integrations/nse_india_api_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_INDIA_API`.
+  - Unit tests added to `tests/test_nse_india_api_engine.py` with 100% pass rate.
+
+- [x] **Repo 049: Aravin/Algo-Trade (Magic Number: 9100047)**
+  - Multi-broker unified gateway router and automated session token refresher adapted into `src/institutional_integrations/algo_trade_aravin_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `ALGO_TRADE_ARAVIN`.
+  - Unit tests added to `tests/test_algo_trade_aravin_engine.py` with 100% pass rate.
