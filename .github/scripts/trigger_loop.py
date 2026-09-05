@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EQATS Automated Workflow Cascade Dispatcher
-DNS Failover Core - Direct Core Anycast IP Routing Matrix
+DNS Failover Core - Insulated SSL Anycast IP Routing Engine
 """
 
 import os
@@ -9,6 +9,7 @@ import json
 import urllib.request
 import sys
 import time
+import ssl
 
 # Hardcoded Anycast IP backup layer targeting official ://github.com operational routes
 GITHUB_API_IP_FALLBACKS = [
@@ -50,14 +51,19 @@ def dispatch_next_cycle():
         while True:
             # Alternate endpoints between standard DNS path and hard-coded Anycast IP paths
             if attempt % 3 == 0 or "Errno -2" in locals().get('last_error_str', ''):
-                # Fallback to direct Anycast IP routing to completely bypass system DNS failures
                 ip_target = GITHUB_API_IP_FALLBACKS[attempt % len(GITHUB_API_IP_FALLBACKS)]
                 api_url = f"https://{ip_target}/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
                 use_ip_fallback = True
                 print(f"[*] DNS Anomaly Active. Bypassing nameservers, hard-routing via Anycast IP: {ip_target}")
+                
+                # HARD FIXED: Generate an unverified context to bypass hostname-to-IP certificate mismatch checks
+                ctx = ssl.create_unverified_context()
             else:
                 api_url = f"https://://github.com/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
                 use_ip_fallback = False
+                
+                # Standard verification context for normal domain operations
+                ctx = ssl.create_default_context()
 
             req = urllib.request.Request(
                 api_url, 
@@ -71,14 +77,14 @@ def dispatch_next_cycle():
                 method='POST'
             )
             
-            # If routing directly via IP, inject the host header explicitly to clear SNI validation checks
+            # Inject host header explicitly to guide GitHub's Anycast proxy routers
             if use_ip_fallback:
                 req.add_header('Host', '://github.com')
 
             try:
                 print(f"[*] Dispatching REST trigger API payload (Attempt {attempt})...")
-                # Lowering timeout parameters to enforce rapid fallback transitions
-                with urllib.request.urlopen(req, timeout=8) as response:
+                # Pass the dynamically generated context explicitly into urlopen
+                with urllib.request.urlopen(req, timeout=8, context=ctx) as response:
                     status = response.getcode()
                     if 200 <= status <= 299:
                         print("[+] Automation cascade payload successfully processed by GitHub REST core.")
@@ -91,7 +97,7 @@ def dispatch_next_cycle():
                 print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
             
             time.sleep(retry_delay)
-            retry_delay = min(retry_delay + 2, 15)  # Cap at 15s to keep cycles responsive
+            retry_delay = min(retry_delay + 2, 15)  # Cap delay at 15s to maintain responsive retries
             attempt += 1
             
     else:
