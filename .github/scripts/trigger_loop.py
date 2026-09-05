@@ -30,10 +30,9 @@ def resolve_via_public_dns(hostname="://github.com"):
             sock.close()
             
             if len(data) >= 16:
-                # Isolate the final 4 bytes containing the resolved A-Record IPv4 parameters
                 ip_bytes = data[-4:]
                 resolved_ip = f"{ip_bytes[0]}.{ip_bytes[1]}.{ip_bytes[2]}.{ip_bytes[3]}"
-                socket.inet_aton(resolved_ip) # Enforce string structural sanity validation
+                socket.inet_aton(resolved_ip)
                 print(f"[+] Application-Level DNS Success via {dns_server}: {resolved_ip}")
                 return resolved_ip
         except Exception:
@@ -44,19 +43,22 @@ def resolve_via_public_dns(hostname="://github.com"):
 
 class DNSInsulatedHTTPSConnection(http.client.HTTPSConnection):
     """Custom HTTPS Connection wrapper that routes to an explicit IP while preserving SNI contexts."""
-    def __init__(self, host, ip_target, *args, **kwargs):
+    def __init__(self, host, ip_target, ssl_context, *args, **kwargs):
         self.ip_target = ip_target
+        self.ssl_context = ssl_context
+        # Pass the verified context into python's native structural initialization params
+        kwargs['context'] = ssl_context
         super().__init__(host, *args, **kwargs)
 
     def connect(self):
-        # Establish a raw TCP socket directly to the resolved target IP address
+        # Establish raw TCP socket pipeline directly to the public resolved IP 
         self.sock = socket.create_connection((self.ip_target, self.port), self.timeout, self.source_address)
         if self._tunnel_host:
             self._tunnel()
             
-        # Wrap the socket securely, ensuring the SNI hostname remains ://github.com
+        # Hard fixed attribute call utilizing python's core native context module parameters
         server_hostname = self._tunnel_host or self.host
-        self.sock = self.ctx.wrap_socket(self.sock, server_hostname=server_hostname)
+        self.sock = self.ssl_context.wrap_socket(self.sock, server_hostname=server_hostname)
 
 class DNSInsulatedHTTPSHandler(urllib.request.HTTPSHandler):
     """Custom urllib opener handler that injects the DNS-insulated connection class."""
@@ -67,7 +69,7 @@ class DNSInsulatedHTTPSHandler(urllib.request.HTTPSHandler):
 
     def https_open(self, req):
         return self.do_open(
-            lambda host, **kwargs: DNSInsulatedHTTPSConnection(host, ip_target=self.ip_target, context=self.context, **kwargs),
+            lambda host, **kwargs: DNSInsulatedHTTPSConnection(host, ip_target=self.ip_target, ssl_context=self.context, **kwargs),
             req
         )
 
@@ -105,11 +107,11 @@ def dispatch_next_cycle():
         
         while True:
             try:
-                # 1. Dynamically resolve the domain endpoint without touching system nameservers
+                # 1. Resolve domain endpoint without touching system nameservers
                 target_ip = resolve_via_public_dns("://github.com")
                 print(f"[*] Tunneling request directly to Anycast IP Destination: {target_ip}")
                 
-                # 2. Set up the secure context and register the custom connection opener
+                # 2. Build default secure context
                 ssl_context = ssl.create_default_context()
                 opener = urllib.request.build_opener(DNSInsulatedHTTPSHandler(target_ip, context=ssl_context))
                 
