@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 EQATS Automated Workflow Cascade Dispatcher
-Isolated Environment Module - Strict Zero Syntax Error Tolerance
+Fault-Tolerant Network Resiliency Engine - Zero Unattended Failures
 """
 
 import os
 import json
 import urllib.request
 import sys
+import time
 
 def dispatch_next_cycle():
     blueprint_path = "ingestion_blueprint.json"
@@ -39,7 +40,6 @@ def dispatch_next_cycle():
             
         # 3. Assemble rigid programmatic REST API gateway destination path
         api_url = f"https://github.com{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
-        
         payload = json.dumps({'ref': 'main'}).encode('utf-8')
         
         req = urllib.request.Request(
@@ -54,19 +54,30 @@ def dispatch_next_cycle():
             method='POST'
         )
         
-        # 4. Transmit payload natively with strict HTTP status code validation checks
-        try:
-            with urllib.request.urlopen(req) as response:
-                status = response.getcode()
-                # FIXED: Standard range check prevents empty tuple parsing collisions
-                if 200 <= status <= 299:
-                    print("[+] Automation cascade payload successfully processed by GitHub REST core.")
-                else:
-                    print(f"[-] Received unexpected status code from GitHub core gateway: {status}")
-                    sys.exit(1)
-        except Exception as net_err:
-            print(f"[-] Native transmission failed: {net_err}")
-            sys.exit(1)
+        # 4. Transmit payload with fault-tolerant infinite retry loop
+        retry_delay = 5  # Base sleep interval in seconds
+        attempt = 1
+        
+        while True:
+            try:
+                print(f"[*] Dispatching REST trigger API payload (Attempt {attempt})...")
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    status = response.getcode()
+                    if 200 <= status <= 299:
+                        print("[+] Automation cascade payload successfully processed by GitHub REST core.")
+                        return  # Break loop on clean delivery success
+                    else:
+                        print(f"[-] Received unexpected status code: {status}. Retrying in {retry_delay}s...")
+            except Exception as net_err:
+                # Catch Errno -2 DNS dropouts or any momentary network timeouts
+                print(f"[-] Network connection anomaly detected: {net_err}")
+                print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
+            
+            time.sleep(retry_delay)
+            # Apply linear increments to delay capped at 60 seconds to optimize loop recovery profiles
+            retry_delay = min(retry_delay + 5, 60)
+            attempt += 1
+            
     else:
         print(f"[+] SUCCESS: The factory has processed all {total} repositories with zero stubs remaining.")
 
