@@ -56,8 +56,8 @@ def dispatch_next_cycle():
                 use_ip_fallback = True
                 print(f"[*] DNS Anomaly Active. Bypassing nameservers, hard-routing via Anycast IP: {ip_target}")
                 
-                # HARD FIXED: Generate an unverified context to bypass hostname-to-IP certificate mismatch checks
-                ctx = ssl.create_unverified_context()
+                # FIXED: Call the correct unverified context internal constructor module
+                ctx = ssl._create_unverified_context()
             else:
                 api_url = f"https://://github.com/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
                 use_ip_fallback = False
@@ -83,7 +83,6 @@ def dispatch_next_cycle():
 
             try:
                 print(f"[*] Dispatching REST trigger API payload (Attempt {attempt})...")
-                # Pass the dynamically generated context explicitly into urlopen
                 with urllib.request.urlopen(req, timeout=8, context=ctx) as response:
                     status = response.getcode()
                     if 200 <= status <= 299:
@@ -97,7 +96,7 @@ def dispatch_next_cycle():
                 print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
             
             time.sleep(retry_delay)
-            retry_delay = min(retry_delay + 2, 15)  # Cap delay at 15s to maintain responsive retries
+            retry_delay = min(retry_delay + 2, 15)
             attempt += 1
             
     else:
