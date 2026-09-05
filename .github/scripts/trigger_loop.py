@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
 EQATS Automated Workflow Cascade Dispatcher
-Custom HTTPS Connection Tunneling Engine - Absolute System DNS Independence
+Direct HTTP Client Tunneling Core - Absolute Invalidation of Urllib Verification Constraints
 """
 
 import os
 import json
-import urllib.request
 import http.client
 import sys
 import time
@@ -41,43 +40,6 @@ def resolve_via_public_dns(hostname="://github.com"):
     print("[*] Public resolvers timed out. Deploying default hardcoded operational Anycast route...")
     return "140.82.113.6"
 
-class DNSInsulatedHTTPSConnection(http.client.HTTPSConnection):
-    """Custom HTTPS Connection wrapper that routes to an explicit IP while preserving SNI contexts."""
-    def __init__(self, host, ip_target, ssl_context, *args, **kwargs):
-        self.ip_target = ip_target
-        self.ssl_context = ssl_context
-        # Enforce structural context injection upstream
-        kwargs['context'] = ssl_context
-        super().__init__(host, *args, **kwargs)
-
-    def connect(self):
-        # Establish raw TCP socket pipeline directly to the resolved public IP destination
-        self.sock = socket.create_connection((self.ip_target, self.port), self.timeout, self.source_address)
-        if self._tunnel_host:
-            self._tunnel()
-            
-        # Target identity assignment
-        server_hostname = self._tunnel_host or self.host
-        
-        # FIXED: Explicitly set the internal _host attribute to satisfy check_hostname requirements
-        self._host = server_hostname
-        
-        # Safely execute secure TLS wrap using native parameters
-        self.sock = self.ssl_context.wrap_socket(self.sock, server_hostname=server_hostname)
-
-class DNSInsulatedHTTPSHandler(urllib.request.HTTPSHandler):
-    """Custom urllib opener handler that injects the DNS-insulated connection class."""
-    def __init__(self, ip_target, context):
-        self.ip_target = ip_target
-        self.context = context
-        super().__init__(context=context)
-
-    def https_open(self, req):
-        return self.do_open(
-            lambda host, **kwargs: DNSInsulatedHTTPSConnection(host, ip_target=self.ip_target, ssl_context=self.context, **kwargs),
-            req
-        )
-
 def dispatch_next_cycle():
     blueprint_path = "ingestion_blueprint.json"
     
@@ -104,46 +66,68 @@ def dispatch_next_cycle():
             print("[-] Error: Missing structural environment variables (GITHUB_TOKEN or GITHUB_REPOSITORY).")
             sys.exit(1)
 
-        api_url = f"https://://github.com/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
-        payload = json.dumps({'ref': 'main'}).encode('utf-8')
+        # Structure endpoint and payload properties explicitly
+        endpoint_path = f"/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
+        payload_data = json.dumps({'ref': 'main'}).encode('utf-8')
         
         retry_delay = 5
         attempt = 1
         
         while True:
+            conn = None
             try:
                 # 1. Resolve domain endpoint without touching system nameservers
                 target_ip = resolve_via_public_dns("://github.com")
                 print(f"[*] Tunneling request directly to Anycast IP Destination: {target_ip}")
                 
-                # 2. Build secure context
+                # 2. Set up secure context explicitly avoiding any broken structural defaults
                 ssl_context = ssl.create_default_context()
-                opener = urllib.request.build_opener(DNSInsulatedHTTPSHandler(target_ip, context=ssl_context))
                 
-                req = urllib.request.Request(
-                    api_url, 
-                    data=payload,
+                # 3. Initialize low-level HTTP Connection directly to the resolved target IP address
+                # Passing ://github.com as the host name keeps SNI validation rules valid
+                conn = http.client.HTTPSConnection(
+                    host="://github.com",
+                    port=443,
+                    context=ssl_context,
+                    timeout=10
+                )
+                
+                # Intercept socket creation and force connectivity to our target IP address
+                original_connect = conn.connect
+                def forced_ip_connect():
+                    conn.sock = socket.create_connection((target_ip, 443), conn.timeout, conn.source_address)
+                    conn.sock = ssl_context.wrap_socket(conn.sock, server_hostname="://github.com")
+                conn.connect = forced_ip_connect
+
+                print(f"[*] Dispatching REST trigger API payload via low-level connection core (Attempt {attempt})...")
+                
+                # 4. Transmit payload natively
+                conn.request(
+                    method="POST",
+                    url=endpoint_path,
+                    body=payload_data,
                     headers={
                         'Authorization': f'token {token}',
                         'Accept': 'application/vnd.github.v3+json',
                         'Content-Type': 'application/json',
                         'User-Agent': 'EQATS-Ingestion-Engine'
-                    },
-                    method='POST'
+                    }
                 )
-
-                print(f"[*] Dispatching REST trigger API payload (Attempt {attempt})...")
-                # 3. Transmit the payload using our custom tunnel handler
-                with opener.open(req, timeout=10) as response:
-                    status = response.getcode()
-                    if 200 <= status <= 299:
-                        print("[+] Automation cascade payload successfully processed by GitHub REST core.")
-                        return
-                    else:
-                        print(f"[-] Received unexpected status code: {status}. Retrying...")
+                
+                response = conn.getresponse()
+                status = response.status
+                
+                if 200 <= status <= 299:
+                    print("[+] Automation cascade payload successfully processed by GitHub REST core.")
+                    return
+                else:
+                    print(f"[-] Received unexpected status code: {status}. Retrying...")
             except Exception as net_err:
                 print(f"[-] Network connection anomaly detected: {net_err}")
                 print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
+            finally:
+                if conn:
+                    conn.close()
             
             time.sleep(retry_delay)
             retry_delay = min(retry_delay + 2, 15)
