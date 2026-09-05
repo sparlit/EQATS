@@ -34,8 +34,17 @@ class IngestionFactory:
             self.ledger = {"current_index": 0, "repositories": []}
             
     def save_ledgers(self):
-        with open(self.ledger_path, "w") as f:
-            json.dump(self.ledger, f, indent=2)
+        """Writes the tracking ledger atomically to prevent file corruption."""
+        temp_path = self.ledger_path.with_suffix(".tmp")
+        try:
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(self.ledger, f, indent=2)
+            # Atomic file replacement operation
+            temp_path.replace(self.ledger_path)
+        except Exception as e:
+            print(f"[-] Failed atomic ledger write: {e}")
+            if temp_path.exists():
+                temp_path.unlink()
 
     def execute_cmd(self, cmd, cwd=None):
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)
