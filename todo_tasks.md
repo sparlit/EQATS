@@ -7,6 +7,32 @@
 - Isolation Guarantee: 100% Actor Model Isolation via Thread-Bounded Hot-Swappable Plugins
 - Ledger Schema Version: 2.1.0 (Deterministic Validation Active)
 
+---
+
+### 🛡️ INSTITUTIONAL MITIGATIONS & SYSTEM ENHANCEMENT TASKS (V11.0.0 Baseline)
+
+#### 1. Concurrency, Database WAL & Multiprocessing Optimization
+- [x] **SQLite WAL Mode & Connection Retry Hardening (`src/database.py`)**
+  - Enforce `PRAGMA journal_mode=WAL;`, `PRAGMA busy_timeout=10000;`, and `PRAGMA synchronous=NORMAL;` across connection initializations to prevent disk I/O lock contention.
+- [x] **Multiprocessing Start Method Standardization (`src/main.py`)**
+  - Enforce `spawn` process start method in `main.py` entry point with graceful fallback to prevent multi-threaded `os.fork()` deprecation warnings and child process deadlocks in Python 3.12+.
+- [x] **Zero-Copy GIL Bypass Acceleration (`eqats_rust_core`)**
+  - Verify C-extension / Rust PyO3 acceleration for 33-gate validation matrix and high-frequency indicator calculations.
+
+#### 2. Risk Kernel, Pre-Flight Order Framing & Idempotency
+- [x] **Tick Size & Volume Step Pre-Flight Sanitization (`src/institutional_integrations/sebi_broker_adapter.py`)**
+  - Enforce 0.05 INR tick rounding, lot step normalization, and exchange session boundary enforcement prior to order submission.
+- [x] **Client Order Idempotency Key Tracking (`src/connector.py`)**
+  - Track high-resolution millisecond order hashes (`UUIDv5` / timestamp SHA-256) to eliminate duplicate executions on network reconnects.
+
+#### 3. Dynamic Strategy Calibration & Autonomous Self-Healing
+- [x] **Dynamic Exponential Adaptive Strategy Weight Retraining (`src/v11_autonomous_self_healing_engine.py`)**
+  - Retrain strategy weights dynamically based on rolling Sharpe ratio decay and win/loss feature reflection logs.
+- [x] **High-Priority Autonomous Self-Healing Daemon (`src/v11_autonomous_self_healing_engine.py`)**
+  - Monitor host CPU/RAM vitals, SQLite WAL lock status, and execute automatic thread pool recycling and WAL checkpointing.
+
+---
+
 ### ACTIVE TASK PIPELINE
   - Analyse each repository listed below
   - integrate all good and usefull codes/modules/functions/data/information into the trading system

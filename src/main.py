@@ -694,4 +694,9 @@ def run_main() -> None:
 
 
 if __name__ == '__main__':
+    import multiprocessing as mp
+    try:
+        mp.set_start_method('spawn', force=False)
+    except Exception:
+        pass
     run_main()
