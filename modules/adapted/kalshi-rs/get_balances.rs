@@ -1,0 +1,58 @@
+use kalshi_rs::auth::Account;
+use kalshi_rs::portfolio::models::*;
+use kalshi_rs::KalshiClient;
+#[tokio::main]
+/// get your balances
+///
+///Run with: cargo run --example get_balances
+///
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let api_key_id = std::env::var("KALSHI_API_KEY_ID").expect("KALSHI_API_KEY_ID must be set");
+    let account = Account::from_file("kalshi_private.pem", api_key_id)?;
+    let client = KalshiClient::new(account);
+    let balance = client.get_balance().await?;
+    println!("Account Balance:");
+    println!("  Available: ${:.2}", balance.balance as f64 / 100.0);
+    println!(
+        "  Portfolio Value: ${:.2}",
+        balance.portfolio_value as f64 / 100.0
+    );
+    let positions_params = GetPositionsParams {
+        limit: Some(10),
+        ..Default::default()
+    };
+    let positions = client.get_positions(&positions_params).await?;
+    println!("\nOpen Positions ({}):", positions.market_positions.len());
+    for pos in positions.market_positions.iter().take(5) {
+        if let (Some(ticker), Some(position)) = (&pos.market_ticker, &pos.position_fp) {
+            println!("  {} - {} contracts", ticker, position);
+        }
+    }
+    let fills_params = GetFillsParams {
+        limit: Some(5),
+        ..Default::default()
+    };
+    let fills = client.get_fills(&fills_params).await?;
+    println!("\nRecent Fills ({}):", fills.fills.len());
+    for fill in fills.fills.iter() {
+        println!(
+            "  {} - {} @ ${}",
+            fill.ticker,
+            fill.count_fp,
+            if fill.side == "yes" { &fill.yes_price_dollars } else { &fill.no_price_dollars }
+        );
+    }
+    let orders_params = GetOrdersParams {
+        status: Some("resting".to_string()),
+        limit: Some(10),
+        ..Default::default()
+    };
+    let orders = client.get_orders(&orders_params).await?;
+    println!("\nPending Orders ({}):", orders.orders.len());
+    for order in orders.orders.iter().take(5) {
+        if let (Some(remaining), Some(price)) = (order.remaining_count_fp.clone(), order.yes_price_dollars.clone()) {
+            println!("  {} - {} @ {} cents", order.ticker, remaining, price);
+        }
+    }
+    Ok(())
+}

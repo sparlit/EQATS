@@ -1,0 +1,369 @@
+use rust_decimal::Decimal;
+use serde::Deserializer;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Market {
+    #[serde(rename = "conditionId")]
+    pub condition_id: String,
+    #[serde(rename = "id")]
+    pub market_id: Option<String>, // Market ID (numeric string)
+    pub question: String,
+    pub slug: String,
+    pub description: Option<String>,
+    #[serde(rename = "resolutionSource")]
+    pub resolution_source: Option<String>,
+    #[serde(rename = "endDate")]
+    pub end_date: Option<String>,
+    #[serde(rename = "endDateISO")]
+    pub end_date_iso: Option<String>,
+    #[serde(rename = "endDateIso")]
+    pub end_date_iso_alt: Option<String>,
+    #[serde(rename = "gameStartTime")]
+    pub game_start_time: Option<String>,
+    #[serde(rename = "startDate")]
+    pub start_date: Option<String>,
+    #[serde(rename = "sportsMarketType")]
+    pub sports_market_type: Option<String>,
+    pub active: bool,
+    pub closed: bool,
+    pub tokens: Option<Vec<Token>>,
+    #[serde(rename = "clobTokenIds")]
+    pub clob_token_ids: Option<String>, // JSON string array
+    pub outcomes: Option<String>, // JSON string array like "[\"Up\", \"Down\"]"
+    pub competitive: Option<f64>,
+    pub events: Option<Vec<GammaEventSummary>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GammaEventSummary {
+    pub slug: Option<String>,
+    #[serde(rename = "gameId")]
+    pub game_id: Option<i64>,
+    #[serde(rename = "startTime")]
+    pub start_time: Option<String>,
+    pub live: Option<bool>,
+    pub period: Option<String>,
+    pub status: Option<String>,
+    pub score: Option<String>,
+    #[serde(rename = "eventState")]
+    pub event_state: Option<GammaEventState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GammaEventState {
+    pub live: Option<bool>,
+    pub period: Option<String>,
+    pub status: Option<String>,
+    pub score: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Token {
+    #[serde(rename = "tokenId")]
+    pub token_id: String,
+    pub outcome: String,
+    pub price: Option<Decimal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderBook {
+    pub bids: Vec<OrderBookEntry>,
+    pub asks: Vec<OrderBookEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderBookEntry {
+    pub price: Decimal,
+    pub size: Decimal,
+}
+
+#[derive(Debug, Clone)]
+pub struct TokenPrice {
+    pub token_id: String,
+    pub bid: Option<Decimal>,
+    pub ask: Option<Decimal>,
+}
+
+impl TokenPrice {
+    pub fn mid_price(&self) -> Option<Decimal> {
+        match (self.bid, self.ask) {
+            (Some(bid), Some(ask)) => Some((bid + ask) / Decimal::from(2)),
+            (Some(bid), None) => Some(bid),
+            (None, Some(ask)) => Some(ask),
+            (None, None) => None,
+        }
+    }
+
+    pub fn ask_price(&self) -> Decimal {
+        self.ask.unwrap_or(Decimal::ZERO)
+    }
+}
+
+/// Order structure for creating orders (before signing)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderRequest {
+    pub token_id: String,
+    pub side: String, // "BUY" or "SELL"
+    pub size: String,
+    pub price: String,
+    #[serde(rename = "type")]
+    pub order_type: String, // "LIMIT"(legacy), "GTC", "GTD", "FOK", "FAK"/"IOC", or "MARKET" (market path only)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expiration_ts: Option<i64>, // unix seconds; when set, order is posted as GTD
+    #[serde(rename = "postOnly", default, skip_serializing_if = "Option::is_none")]
+    pub post_only: Option<bool>, // optional exchange-enforced maker-only flag (GTC/GTD only)
+}
+
+/// Signed order structure for posting to Polymarket
+/// According to Polymarket docs, orders must be signed with private key before posting
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignedOrder {
+    // Order fields
+    #[serde(rename = "tokenID")]
+    pub token_id: String,
+    pub side: String, // "BUY" or "SELL"
+    pub size: String,
+    pub price: String,
+    #[serde(rename = "type")]
+    pub order_type: String, // "LIMIT" or "MARKET"
+
+    // Signature fields (will be populated when signing)
+    pub signature: Option<String>,
+    pub signer: Option<String>, // Address derived from private key
+    pub nonce: Option<u64>,
+    pub expiration: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderResponse {
+    pub order_id: Option<String>,
+    pub status: String,
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub making_amount: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub taking_amount: Option<String>,
+    #[serde(default)]
+    pub trade_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BalanceResponse {
+    pub balance: String,
+    pub allowance: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedeemResponse {
+    pub success: bool,
+    pub message: Option<String>,
+    pub transaction_hash: Option<String>,
+    pub amount_redeemed: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MarketData {
+    pub condition_id: String,
+    pub market_name: String,
+    pub up_token: Option<TokenPrice>,
+    pub down_token: Option<TokenPrice>,
+}
+
+/// Trade for momentum-based strategy (buy any token when price reaches 0.9 after 10 minutes)
+#[derive(Debug, Clone)]
+pub struct PendingTrade {
+    pub token_id: String,     // Token ID (can be BTC Up/Down, ETH Up/Down)
+    pub condition_id: String, // Market condition ID (BTC or ETH)
+    pub token_type: crate::detector::TokenType, // Type of token
+    pub investment_amount: f64, // Fixed trade amount
+    pub units: f64,           // Total token shares purchased (expected)
+    pub purchase_price: f64,  // Price at which token was purchased (BID)
+    pub sell_price: f64,      // Target sell price (0.99 or 1.0)
+    pub timestamp: std::time::Instant, // When the trade was executed
+    pub market_timestamp: u64, // The 15-minute period timestamp
+    pub source_timeframe: String, // Source strategy timeframe ("5m", "15m", or "1h")
+    pub strategy_id: String,  // Stable strategy identity for attribution
+    pub entry_mode: String,   // Entry stream: "ladder", "reactive", "restored", etc.
+    pub order_id: Option<String>, // Order ID for exact cancel/fill tracking
+    pub end_timestamp: Option<u64>, // Market end timestamp for expiry-aware logic
+    pub sold: bool,           // Whether the token has been sold
+    pub confirmed_balance: Option<f64>, // Confirmed token balance in portfolio (None = not verified yet)
+    pub buy_order_confirmed: bool,      // Whether the buy order was confirmed and tokens received
+    pub limit_sell_orders_placed: bool, // Whether limit sell orders have been placed (for market buys and limit buy fills)
+    pub no_sell: bool, // If true, do not place any sell orders after fill (log confirmation only)
+    pub claim_on_closure: bool, // If true, claim/redeem tokens at market closure instead of selling (e.g., insufficient liquidity)
+    pub sell_attempts: u32,     // Number of times we've tried to sell (to limit retries)
+    pub redemption_attempts: u32, // Number of times we've tried to redeem (to track failed redemptions)
+    pub redemption_abandoned: bool, // If true, redemption failed too many times - don't block new positions
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketToken {
+    pub outcome: String,
+    pub price: rust_decimal::Decimal,
+    #[serde(rename = "token_id")]
+    pub token_id: String,
+    pub winner: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketDetails {
+    #[serde(rename = "accepting_order_timestamp")]
+    pub accepting_order_timestamp: Option<String>,
+    #[serde(rename = "accepting_orders")]
+    pub accepting_orders: bool,
+    pub active: bool,
+    pub archived: bool,
+    pub closed: bool,
+    #[serde(rename = "condition_id")]
+    pub condition_id: String,
+    pub description: String,
+    #[serde(rename = "enable_order_book")]
+    pub enable_order_book: bool,
+    #[serde(
+        rename = "end_date_iso",
+        default,
+        deserialize_with = "deserialize_string_or_empty"
+    )]
+    pub end_date_iso: String,
+    pub fpmm: String,
+    #[serde(rename = "game_start_time")]
+    pub game_start_time: Option<String>,
+    pub icon: String,
+    pub image: String,
+    #[serde(rename = "is_50_50_outcome")]
+    pub is_50_50_outcome: bool,
+    #[serde(rename = "maker_base_fee")]
+    pub maker_base_fee: rust_decimal::Decimal,
+    #[serde(rename = "market_slug")]
+    pub market_slug: String,
+    #[serde(rename = "minimum_order_size")]
+    pub minimum_order_size: rust_decimal::Decimal,
+    #[serde(rename = "minimum_tick_size")]
+    pub minimum_tick_size: rust_decimal::Decimal,
+    #[serde(rename = "neg_risk")]
+    pub neg_risk: bool,
+    #[serde(rename = "neg_risk_market_id")]
+    pub neg_risk_market_id: String,
+    #[serde(rename = "neg_risk_request_id")]
+    pub neg_risk_request_id: String,
+    #[serde(rename = "notifications_enabled")]
+    pub notifications_enabled: bool,
+    pub question: String,
+    #[serde(rename = "question_id")]
+    pub question_id: String,
+    pub rewards: Rewards,
+    #[serde(rename = "seconds_delay")]
+    pub seconds_delay: u32,
+    #[serde(default, deserialize_with = "deserialize_string_vec_or_empty")]
+    pub tags: Vec<String>,
+    #[serde(rename = "taker_base_fee")]
+    pub taker_base_fee: rust_decimal::Decimal,
+    pub tokens: Vec<MarketToken>,
+}
+
+fn deserialize_string_or_empty<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+fn deserialize_string_vec_or_empty<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<Vec<String>>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Rewards {
+    #[serde(rename = "max_spread")]
+    pub max_spread: rust_decimal::Decimal,
+    #[serde(rename = "min_size")]
+    pub min_size: rust_decimal::Decimal,
+    pub rates: Option<serde_json::Value>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MarketDetails;
+    use serde_json::json;
+
+    fn market_details_json(tags: serde_json::Value) -> serde_json::Value {
+        json!({
+            "accepting_order_timestamp": null,
+            "accepting_orders": true,
+            "active": true,
+            "archived": false,
+            "closed": false,
+            "condition_id": "0xcondition",
+            "description": "Test market",
+            "enable_order_book": true,
+            "end_date_iso": null,
+            "fpmm": "",
+            "game_start_time": null,
+            "icon": "",
+            "image": "",
+            "is_50_50_outcome": false,
+            "maker_base_fee": 0,
+            "market_slug": "test-market",
+            "minimum_order_size": 5,
+            "minimum_tick_size": 0.01,
+            "neg_risk": false,
+            "neg_risk_market_id": "",
+            "neg_risk_request_id": "",
+            "notifications_enabled": false,
+            "question": "Test?",
+            "question_id": "0xquestion",
+            "rewards": {
+                "max_spread": 0,
+                "min_size": 0,
+                "rates": null
+            },
+            "seconds_delay": 0,
+            "tags": tags,
+            "taker_base_fee": 0,
+            "tokens": [
+                {
+                    "outcome": "Yes",
+                    "price": 0.5,
+                    "token_id": "token-yes",
+                    "winner": false
+                }
+            ]
+        })
+    }
+
+    #[test]
+    fn market_details_treats_null_tags_as_empty() {
+        let market: MarketDetails = serde_json::from_value(market_details_json(json!(null)))
+            .expect("null tags should deserialize");
+
+        assert!(market.tags.is_empty());
+    }
+
+    #[test]
+    fn market_details_defaults_missing_tags_to_empty() {
+        let mut value = market_details_json(json!([]));
+        value
+            .as_object_mut()
+            .expect("market fixture should be an object")
+            .remove("tags");
+
+        let market: MarketDetails =
+            serde_json::from_value(value).expect("missing tags should deserialize");
+
+        assert!(market.tags.is_empty());
+    }
+
+    #[test]
+    fn market_details_preserves_tag_values() {
+        let market: MarketDetails =
+            serde_json::from_value(market_details_json(json!(["sports", "nba"])))
+                .expect("tag arrays should deserialize");
+
+        assert_eq!(market.tags, ["sports", "nba"]);
+    }
+}
