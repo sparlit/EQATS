@@ -433,3 +433,4 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 48 | ArishHassan/nse-live_testing | https://github.com/sparlit/EQATS/pull/640 | https://github.com/sparlit/EQATS/issues/641 | 2026-09-06T09:15:07.506Z |
+| 48 | ArishHassan/nse-live_testing |  | https://github.com/sparlit/EQATS/issues/651 | 2026-09-06T09:25:10.923Z |
