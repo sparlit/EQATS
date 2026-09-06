@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 169 | Ishaan3H/india-sector-screener | https://github.com/sparlit/EQATS/pull/1115 | https://github.com/sparlit/EQATS/issues/1116 | 2026-09-06T11:41:43.691Z |
 | 169 | Ishaan3H/india-sector-screener |  | https://github.com/sparlit/EQATS/issues/1155 | 2026-09-06T11:51:13.580Z |
+| 169 | Ishaan3H/india-sector-screener |  | https://github.com/sparlit/EQATS/issues/1158 | 2026-09-06T11:53:09.078Z |
