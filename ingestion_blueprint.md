@@ -433,6 +433,6 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 104 | dallyshalla/tropix | https://github.com/sparlit/EQATS/pull/847 | https://github.com/sparlit/EQATS/issues/848 | 2026-09-06T10:18:50.198Z |
-| 104 | dallyshalla/tropix |  | https://github.com/sparlit/EQATS/issues/895 | 2026-09-06T10:30:12.629Z |
-| 104 | dallyshalla/tropix |  | https://github.com/sparlit/EQATS/issues/897 | 2026-09-06T10:31:17.108Z |
+| 97 | codegallivant/NSE-OHLC-scraper-plotter | https://github.com/sparlit/EQATS/pull/845 | https://github.com/sparlit/EQATS/issues/846 | 2026-09-06T10:18:49.615Z |
+| 97 | codegallivant/NSE-OHLC-scraper-plotter |  | https://github.com/sparlit/EQATS/issues/865 | 2026-09-06T10:22:04.312Z |
+| 97 | codegallivant/NSE-OHLC-scraper-plotter |  | https://github.com/sparlit/EQATS/issues/876 | 2026-09-06T10:24:56.313Z |
