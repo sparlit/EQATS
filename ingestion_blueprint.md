@@ -438,3 +438,4 @@
 | 164 | imanojkumar/NSE-India-All-Stocks-Tickers-Data | https://github.com/sparlit/EQATS/pull/1097 | https://github.com/sparlit/EQATS/issues/1098 | 2026-09-06T11:33:22.311Z |
 | 164 | imanojkumar/NSE-India-All-Stocks-Tickers-Data |  | https://github.com/sparlit/EQATS/issues/1123 | 2026-09-06T11:43:49.700Z |
 | 164 | imanojkumar/NSE-India-All-Stocks-Tickers-Data |  | https://github.com/sparlit/EQATS/issues/1130 | 2026-09-06T11:45:49.719Z |
+| 164 | imanojkumar/NSE-India-All-Stocks-Tickers-Data |  | https://github.com/sparlit/EQATS/issues/1142 | 2026-09-06T11:48:11.954Z |
