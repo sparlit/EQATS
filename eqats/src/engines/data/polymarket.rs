@@ -35,13 +35,19 @@ impl PolymarketDataEngine {
     }
 }
 
+impl Default for PolymarketDataEngine {
+    fn default() -> Self {
+        Self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_fetch_markets_returns_data() {
-        let engine = PolymarketDataEngine::new();
+        let engine = PolymarketDataEngine::default();
         let markets = engine.fetch_markets();
         assert!(!markets.is_empty(), "should return at least one market");
         let m = &markets[0];
