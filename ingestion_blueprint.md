@@ -436,3 +436,4 @@
 | 57 | ashwanthkumar/Live-NSE-Stock |  | https://github.com/sparlit/EQATS/issues/689 | 2026-09-06T09:34:25.712Z |
 | 57 | ashwanthkumar/Live-NSE-Stock |  | https://github.com/sparlit/EQATS/issues/701 | 2026-09-06T09:40:22.226Z |
 | 82 | bshada/nse-bse-api | https://github.com/sparlit/EQATS/pull/768 | https://github.com/sparlit/EQATS/issues/769 | 2026-09-06T10:02:25.755Z |
+| 82 | bshada/nse-bse-api |  | https://github.com/sparlit/EQATS/issues/770 | 2026-09-06T10:03:48.368Z |
