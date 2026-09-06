@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 54 | ashok-kollipara/options-oi | https://github.com/sparlit/EQATS/pull/655 | https://github.com/sparlit/EQATS/issues/656 | 2026-09-06T09:25:25.163Z |
 | 54 | ashok-kollipara/options-oi |  | https://github.com/sparlit/EQATS/issues/664 | 2026-09-06T09:27:35.786Z |
+| 54 | ashok-kollipara/options-oi |  | https://github.com/sparlit/EQATS/issues/676 | 2026-09-06T09:32:30.433Z |
