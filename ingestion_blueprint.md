@@ -438,3 +438,4 @@
 | 251 | NethermindEth/hummingboss | https://github.com/sparlit/EQATS/pull/1433 | https://github.com/sparlit/EQATS/issues/1434 | 2026-09-06T13:18:31.498Z |
 | 251 | NethermindEth/hummingboss |  | https://github.com/sparlit/EQATS/issues/1485 | 2026-09-06T13:36:18.707Z |
 | 251 | NethermindEth/hummingboss |  | https://github.com/sparlit/EQATS/issues/1487 | 2026-09-06T13:36:51.537Z |
+| 251 | NethermindEth/hummingboss |  | https://github.com/sparlit/EQATS/issues/1540 | 2026-09-06T13:54:32.042Z |
