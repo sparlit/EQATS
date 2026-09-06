@@ -433,6 +433,6 @@
 | 37 | anjulgarg/sharewatch |  | https://github.com/sparlit/EQATS/issues/622 | 2026-09-06T09:03:33.577Z |
 | 47 | Aravin/nse-data | https://github.com/sparlit/EQATS/pull/638 | https://github.com/sparlit/EQATS/issues/639 | 2026-09-06T09:14:03.816Z |
 | 47 | Aravin/nse-data |  | https://github.com/sparlit/EQATS/issues/648 | 2026-09-06T09:24:29.073Z |
-| 72 | benimward9621/advanced-nse-momentum-terminal | https://github.com/sparlit/EQATS/pull/742 | https://github.com/sparlit/EQATS/issues/743 | 2026-09-06T09:52:45.192Z |
-| 72 | benimward9621/advanced-nse-momentum-terminal |  | https://github.com/sparlit/EQATS/issues/752 | 2026-09-06T09:55:14.005Z |
-| 72 | benimward9621/advanced-nse-momentum-terminal |  | https://github.com/sparlit/EQATS/issues/760 | 2026-09-06T09:59:58.403Z |
+| 77 | Bhumi008007/Stock_Prediction | https://github.com/sparlit/EQATS/pull/739 | https://github.com/sparlit/EQATS/issues/740 | 2026-09-06T09:52:39.281Z |
+| 77 | Bhumi008007/Stock_Prediction |  | https://github.com/sparlit/EQATS/issues/757 | 2026-09-06T09:58:41.638Z |
+| 77 | Bhumi008007/Stock_Prediction |  | https://github.com/sparlit/EQATS/issues/782 | 2026-09-06T10:07:50.898Z |
