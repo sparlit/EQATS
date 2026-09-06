@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 129 | feroze/YFinance-stock-history | https://github.com/sparlit/EQATS/pull/957 | https://github.com/sparlit/EQATS/issues/958 | 2026-09-06T10:49:04.079Z |
+| 129 | feroze/YFinance-stock-history |  | https://github.com/sparlit/EQATS/issues/982 | 2026-09-06T10:59:10.667Z |
