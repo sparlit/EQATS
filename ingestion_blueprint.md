@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 60 | atrybyme/Open-Interest-NSE-Live-Analysis | https://github.com/sparlit/EQATS/pull/677 | https://github.com/sparlit/EQATS/issues/678 | 2026-09-06T09:32:43.716Z |
 | 60 | atrybyme/Open-Interest-NSE-Live-Analysis |  | https://github.com/sparlit/EQATS/issues/693 | 2026-09-06T09:35:45.083Z |
+| 84 | buzzsubash/algo_trading_strategies_india | https://github.com/sparlit/EQATS/pull/771 | https://github.com/sparlit/EQATS/issues/772 | 2026-09-06T10:04:40.539Z |
