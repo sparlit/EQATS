@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 180 | Julien-R44/cli-candlestick-chart | https://github.com/sparlit/EQATS/pull/1161 | https://github.com/sparlit/EQATS/issues/1162 | 2026-09-06T11:54:56.511Z |
 | 180 | Julien-R44/cli-candlestick-chart |  | https://github.com/sparlit/EQATS/issues/1187 | 2026-09-06T12:01:27.118Z |
+| 180 | Julien-R44/cli-candlestick-chart |  | https://github.com/sparlit/EQATS/issues/1199 | 2026-09-06T12:05:58.357Z |
