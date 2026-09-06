@@ -438,3 +438,4 @@
 | 217 | marketcalls/openchart | https://github.com/sparlit/EQATS/pull/1317 | https://github.com/sparlit/EQATS/issues/1318 | 2026-09-06T12:41:06.079Z |
 | 217 | marketcalls/openchart |  | https://github.com/sparlit/EQATS/issues/1331 | 2026-09-06T12:44:53.641Z |
 | 217 | marketcalls/openchart |  | https://github.com/sparlit/EQATS/issues/1366 | 2026-09-06T12:57:34.123Z |
+| 217 | marketcalls/openchart |  | https://github.com/sparlit/EQATS/issues/1367 | 2026-09-06T12:57:57.960Z |
