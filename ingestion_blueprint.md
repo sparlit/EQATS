@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 192 | kostorub/backtest | https://github.com/sparlit/EQATS/pull/1225 | https://github.com/sparlit/EQATS/issues/1226 | 2026-09-06T12:13:24.276Z |
 | 192 | kostorub/backtest |  | https://github.com/sparlit/EQATS/issues/1231 | 2026-09-06T12:15:04.908Z |
+| 192 | kostorub/backtest |  | https://github.com/sparlit/EQATS/issues/1261 | 2026-09-06T12:23:24.314Z |
