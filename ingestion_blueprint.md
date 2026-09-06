@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 305 | rhnvrm/stock-market-circulars | https://github.com/sparlit/EQATS/pull/1662 | https://github.com/sparlit/EQATS/issues/1663 | 2026-09-06T14:36:17.398Z |
 | 305 | rhnvrm/stock-market-circulars |  | https://github.com/sparlit/EQATS/issues/1679 | 2026-09-06T14:43:26.189Z |
+| 305 | rhnvrm/stock-market-circulars |  | https://github.com/sparlit/EQATS/issues/1769 | 2026-09-06T15:18:55.422Z |
