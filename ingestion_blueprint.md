@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 201 | lebedov/nseindia_lob | https://github.com/sparlit/EQATS/pull/1259 | https://github.com/sparlit/EQATS/issues/1260 | 2026-09-06T12:22:09.715Z |
 | 201 | lebedov/nseindia_lob |  | https://github.com/sparlit/EQATS/issues/1264 | 2026-09-06T12:23:34.521Z |
+| 201 | lebedov/nseindia_lob |  | https://github.com/sparlit/EQATS/issues/1308 | 2026-09-06T12:36:54.411Z |
