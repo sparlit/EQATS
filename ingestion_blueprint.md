@@ -419,3 +419,4 @@
 - **EQATS Integration Module:** `src/institutional_integrations/braverock_nse_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `BRAVEROCK_NSE`.
 | 10 | abuhurairalakdawala/indian-share-market | https://github.com/sparlit/EQATS/pull/565 | https://github.com/sparlit/EQATS/issues/566 | 2026-09-06T08:18:51.107Z |
+| 14 | aeron7/nsepythonserver | https://github.com/sparlit/EQATS/pull/571 | https://github.com/sparlit/EQATS/issues/572 | 2026-09-06T08:22:06.260Z |
