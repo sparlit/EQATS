@@ -1,3 +1,14 @@
+## Repo 018. AI4Finance-Foundation/FinRL-Trading
+- **Repository URL:** `https://github.com/AI4Finance-Foundation/FinRL-Trading`
+- **Magic Number:** `9100033`
+- **Architecture & System Design:** Deep Reinforcement Learning (DRL) stock portfolio allocation, time-series momentum signals, GICS sector rotation, and automated trade execution workflows.
+- **Categorization:**
+  - **Data Engines:** `src/data/data_fetcher.py`, `src/data/data_processor.py`, fundamental data & historical S&P 500 fetchers.
+  - **Signal & Execution Logic:** `src/strategies/rl_model.py`, `src/strategies/fundamental_portfolio_drl.py`, `src/strategies/adaptive_rotation/` multi-asset group strength & market regime engine.
+  - **Risk Engineering:** `src/strategies/adaptive_rotation/risk_manager.py`, PyPortfolioOpt efficient frontier risk bounds, draw-down guards.
+- **EQATS Integration Module:** `src/institutional_integrations/finrl_trading_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `FINRL_TRADING`.
+  - Feature scoring, continuous action state space mapping, 0.05 INR tick size rounding, and IST market session validation.
 
 
 ## Repo 018. AI4Finance-Foundation/FinRL-Trading
