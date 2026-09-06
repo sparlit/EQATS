@@ -435,3 +435,4 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
+| 171 | jandginvestment/cci20-sma20-strategy | https://github.com/sparlit/EQATS/pull/1126 | https://github.com/sparlit/EQATS/issues/1127 | 2026-09-06T11:45:03.186Z |
