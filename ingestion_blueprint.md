@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 237 | mrinaljhunjhunwala-ui/nse-smart-investor | https://github.com/sparlit/EQATS/pull/1388 | https://github.com/sparlit/EQATS/issues/1389 | 2026-09-06T13:05:34.986Z |
 | 237 | mrinaljhunjhunwala-ui/nse-smart-investor |  | https://github.com/sparlit/EQATS/issues/1416 | 2026-09-06T13:14:37.958Z |
+| 237 | mrinaljhunjhunwala-ui/nse-smart-investor |  | https://github.com/sparlit/EQATS/issues/1429 | 2026-09-06T13:17:32.605Z |
