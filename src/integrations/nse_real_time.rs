@@ -1,0 +1,1 @@
+// Integration infeasible: repository unavailable or missing source code.\npub fn placeholder() -> &'static str {\n    \"Integration not possible due to missing source.\"\n}
