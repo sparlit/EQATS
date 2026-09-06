@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 193 | krakenfx/kraken-cli | https://github.com/sparlit/EQATS/pull/1229 | https://github.com/sparlit/EQATS/issues/1230 | 2026-09-06T12:14:47.448Z |
 | 193 | krakenfx/kraken-cli |  | https://github.com/sparlit/EQATS/issues/1236 | 2026-09-06T12:16:54.779Z |
+| 193 | krakenfx/kraken-cli |  | https://github.com/sparlit/EQATS/issues/1265 | 2026-09-06T12:23:47.586Z |
