@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 261 | omerhalid/trading_engine_rust | https://github.com/sparlit/EQATS/pull/1478 | https://github.com/sparlit/EQATS/issues/1479 | 2026-09-06T13:35:09.213Z |
 | 261 | omerhalid/trading_engine_rust |  | https://github.com/sparlit/EQATS/issues/1523 | 2026-09-06T13:48:02.261Z |
+| 261 | omerhalid/trading_engine_rust |  | https://github.com/sparlit/EQATS/issues/1555 | 2026-09-06T13:58:18.853Z |
