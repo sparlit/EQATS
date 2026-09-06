@@ -436,3 +436,4 @@
 | 101 | cutupdev/Solana-Copytrading-bot | https://github.com/sparlit/EQATS/pull/830 | https://github.com/sparlit/EQATS/issues/831 | 2026-09-06T10:16:47.755Z |
 | 101 | cutupdev/Solana-Copytrading-bot |  | https://github.com/sparlit/EQATS/issues/867 | 2026-09-06T10:22:39.733Z |
 | 101 | cutupdev/Solana-Copytrading-bot |  | https://github.com/sparlit/EQATS/issues/890 | 2026-09-06T10:28:09.611Z |
+| 101 | cutupdev/Solana-Copytrading-bot |  | https://github.com/sparlit/EQATS/issues/891 | 2026-09-06T10:28:24.404Z |
