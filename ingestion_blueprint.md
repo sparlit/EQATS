@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 229 | mileswangs/pm-hftbacktest | https://github.com/sparlit/EQATS/pull/1371 | https://github.com/sparlit/EQATS/issues/1372 | 2026-09-06T12:59:10.346Z |
 | 229 | mileswangs/pm-hftbacktest |  | https://github.com/sparlit/EQATS/issues/1392 | 2026-09-06T13:07:43.311Z |
+| 229 | mileswangs/pm-hftbacktest |  | https://github.com/sparlit/EQATS/issues/1443 | 2026-09-06T13:22:43.432Z |
