@@ -436,3 +436,4 @@
 | 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- | https://github.com/sparlit/EQATS/pull/798 | https://github.com/sparlit/EQATS/issues/799 | 2026-09-06T10:10:20.290Z |
 | 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/818 | 2026-09-06T10:13:45.313Z |
 | 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/839 | 2026-09-06T10:18:02.396Z |
+| 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/852 | 2026-09-06T10:19:47.631Z |
