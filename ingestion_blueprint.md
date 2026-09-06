@@ -438,3 +438,4 @@
 | 143 | gomitechnology-source/NSEBANK_HFT | https://github.com/sparlit/EQATS/pull/1020 | https://github.com/sparlit/EQATS/issues/1021 | 2026-09-06T11:09:50.590Z |
 | 143 | gomitechnology-source/NSEBANK_HFT |  | https://github.com/sparlit/EQATS/issues/1047 | 2026-09-06T11:16:59.510Z |
 | 143 | gomitechnology-source/NSEBANK_HFT |  | https://github.com/sparlit/EQATS/issues/1059 | 2026-09-06T11:20:10.310Z |
+| 143 | gomitechnology-source/NSEBANK_HFT |  | https://github.com/sparlit/EQATS/issues/1068 | 2026-09-06T11:22:45.181Z |
