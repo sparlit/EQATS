@@ -438,3 +438,4 @@
 | 236 | mrimahajan/NSE-Market-App | https://github.com/sparlit/EQATS/pull/1385 | https://github.com/sparlit/EQATS/issues/1386 | 2026-09-06T13:04:26.402Z |
 | 236 | mrimahajan/NSE-Market-App |  | https://github.com/sparlit/EQATS/issues/1401 | 2026-09-06T13:11:18.408Z |
 | 236 | mrimahajan/NSE-Market-App |  | https://github.com/sparlit/EQATS/issues/1421 | 2026-09-06T13:15:45.571Z |
+| 236 | mrimahajan/NSE-Market-App |  | https://github.com/sparlit/EQATS/issues/1465 | 2026-09-06T13:31:43.145Z |
