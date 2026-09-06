@@ -437,3 +437,4 @@
 | 79 | blitzarx1/netstrat | https://github.com/sparlit/EQATS/pull/750 | https://github.com/sparlit/EQATS/issues/751 | 2026-09-06T09:54:42.282Z |
 | 79 | blitzarx1/netstrat |  | https://github.com/sparlit/EQATS/issues/759 | 2026-09-06T09:59:12.442Z |
 | 79 | blitzarx1/netstrat |  | https://github.com/sparlit/EQATS/issues/773 | 2026-09-06T10:04:57.247Z |
+| 79 | blitzarx1/netstrat |  | https://github.com/sparlit/EQATS/issues/788 | 2026-09-06T10:08:40.839Z |
