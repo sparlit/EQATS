@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 303 | reborn-digitech/swadeshi-tracker | https://github.com/sparlit/EQATS/pull/1648 | https://github.com/sparlit/EQATS/issues/1649 | 2026-09-06T14:29:50.454Z |
+| 303 | reborn-digitech/swadeshi-tracker |  | https://github.com/sparlit/EQATS/issues/1671 | 2026-09-06T14:40:39.589Z |
