@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 301 | ratnaker16-bit/BrG-Zone-Scanner | https://github.com/sparlit/EQATS/pull/1635 | https://github.com/sparlit/EQATS/issues/1636 | 2026-09-06T14:26:10.545Z |
+| 301 | ratnaker16-bit/BrG-Zone-Scanner |  | https://github.com/sparlit/EQATS/issues/1666 | 2026-09-06T14:39:11.548Z |
