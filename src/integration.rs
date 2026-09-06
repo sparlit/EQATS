@@ -1,0 +1,1 @@
+// Integration infeasible due to missing repository information.\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn test_nothing() {}\n}
