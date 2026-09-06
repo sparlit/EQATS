@@ -438,3 +438,4 @@
 | 147 | HarshaDannina/Statistical-Arbitrage-Model | https://github.com/sparlit/EQATS/pull/1040 | https://github.com/sparlit/EQATS/issues/1041 | 2026-09-06T11:15:22.340Z |
 | 147 | HarshaDannina/Statistical-Arbitrage-Model |  | https://github.com/sparlit/EQATS/issues/1062 | 2026-09-06T11:20:58.206Z |
 | 147 | HarshaDannina/Statistical-Arbitrage-Model |  | https://github.com/sparlit/EQATS/issues/1072 | 2026-09-06T11:24:41.758Z |
+| 147 | HarshaDannina/Statistical-Arbitrage-Model |  | https://github.com/sparlit/EQATS/issues/1074 | 2026-09-06T11:26:38.860Z |
