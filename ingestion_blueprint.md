@@ -1,5 +1,3 @@
-
-
 ## Repo 018. AI4Finance-Foundation/FinRL-Trading
 - **Repository URL:** `https://github.com/AI4Finance-Foundation/FinRL-Trading`
 - **Magic Number:** `9100033`
