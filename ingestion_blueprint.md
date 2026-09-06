@@ -433,3 +433,4 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 50 | asavinov/intelligent-trading-bot | https://github.com/sparlit/EQATS/pull/644 | https://github.com/sparlit/EQATS/issues/646 | 2026-09-06T09:23:43.232Z |
+| 50 | asavinov/intelligent-trading-bot |  | https://github.com/sparlit/EQATS/issues/660 | 2026-09-06T09:26:35.953Z |
