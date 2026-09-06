@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 292 | Rahulghuge94/trading_expiry | https://github.com/sparlit/EQATS/pull/1607 | https://github.com/sparlit/EQATS/issues/1608 | 2026-09-06T14:14:41.854Z |
 | 292 | Rahulghuge94/trading_expiry |  | https://github.com/sparlit/EQATS/issues/1692 | 2026-09-06T14:50:50.417Z |
+| 292 | Rahulghuge94/trading_expiry |  | https://github.com/sparlit/EQATS/issues/1715 | 2026-09-06T14:57:51.707Z |
