@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 312 | Rockbandassembly371/market-sentiments | https://github.com/sparlit/EQATS/pull/1696 | https://github.com/sparlit/EQATS/issues/1697 | 2026-09-06T14:52:00.766Z |
 | 312 | Rockbandassembly371/market-sentiments |  | https://github.com/sparlit/EQATS/issues/1703 | 2026-09-06T14:54:14.897Z |
+| 312 | Rockbandassembly371/market-sentiments |  | https://github.com/sparlit/EQATS/issues/1775 | 2026-09-06T15:22:34.136Z |
