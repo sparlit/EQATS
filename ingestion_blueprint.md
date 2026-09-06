@@ -433,3 +433,4 @@
 | 37 | anjulgarg/sharewatch |  | https://github.com/sparlit/EQATS/issues/622 | 2026-09-06T09:03:33.577Z |
 | 47 | Aravin/nse-data | https://github.com/sparlit/EQATS/pull/638 | https://github.com/sparlit/EQATS/issues/639 | 2026-09-06T09:14:03.816Z |
 | 47 | Aravin/nse-data |  | https://github.com/sparlit/EQATS/issues/648 | 2026-09-06T09:24:29.073Z |
+| 77 | Bhumi008007/Stock_Prediction | https://github.com/sparlit/EQATS/pull/739 | https://github.com/sparlit/EQATS/issues/740 | 2026-09-06T09:52:39.281Z |
