@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 191 | kondaiahpola1-wq/NSE-BSE-Event-Driven-Quant-Research-Platform | https://github.com/sparlit/EQATS/pull/1219 | https://github.com/sparlit/EQATS/issues/1220 | 2026-09-06T12:12:34.746Z |
 | 191 | kondaiahpola1-wq/NSE-BSE-Event-Driven-Quant-Research-Platform |  | https://github.com/sparlit/EQATS/issues/1224 | 2026-09-06T12:13:23.138Z |
+| 191 | kondaiahpola1-wq/NSE-BSE-Event-Driven-Quant-Research-Platform |  | https://github.com/sparlit/EQATS/issues/1256 | 2026-09-06T12:21:01.380Z |
