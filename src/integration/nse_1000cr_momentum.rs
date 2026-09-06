@@ -1,0 +1,1 @@
+// Integration infeasible: the repository provides only static HTML with no executable logic or data pipelines to integrate.\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn test_placeholder() {\n        assert!(true);\n    }\n}
