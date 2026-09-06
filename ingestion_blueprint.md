@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 90 | chartiny/nse-daily-volatility-reports | https://github.com/sparlit/EQATS/pull/794 | https://github.com/sparlit/EQATS/issues/795 | 2026-09-06T10:09:47.152Z |
 | 90 | chartiny/nse-daily-volatility-reports |  | https://github.com/sparlit/EQATS/issues/817 | 2026-09-06T10:13:32.989Z |
+| 90 | chartiny/nse-daily-volatility-reports |  | https://github.com/sparlit/EQATS/issues/834 | 2026-09-06T10:17:38.461Z |
