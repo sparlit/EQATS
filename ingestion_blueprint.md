@@ -438,3 +438,4 @@
 | 243 | NagarajuGunda/NSEIndexOptionsData | https://github.com/sparlit/EQATS/pull/1406 | https://github.com/sparlit/EQATS/issues/1407 | 2026-09-06T13:12:10.218Z |
 | 243 | NagarajuGunda/NSEIndexOptionsData |  | https://github.com/sparlit/EQATS/issues/1437 | 2026-09-06T13:19:22.405Z |
 | 243 | NagarajuGunda/NSEIndexOptionsData |  | https://github.com/sparlit/EQATS/issues/1448 | 2026-09-06T13:25:08.681Z |
+| 243 | NagarajuGunda/NSEIndexOptionsData |  | https://github.com/sparlit/EQATS/issues/1488 | 2026-09-06T13:37:26.548Z |
