@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 122 | edtechre/pybroker | https://github.com/sparlit/EQATS/pull/928 | https://github.com/sparlit/EQATS/issues/929 | 2026-09-06T10:40:23.334Z |
+| 122 | edtechre/pybroker |  | https://github.com/sparlit/EQATS/issues/959 | 2026-09-06T10:49:42.506Z |
