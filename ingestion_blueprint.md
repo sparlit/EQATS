@@ -436,3 +436,4 @@
 | 89 | chaitanyarahalkar/Financial-Info-Extractor | https://github.com/sparlit/EQATS/pull/789 | https://github.com/sparlit/EQATS/issues/790 | 2026-09-06T10:09:17.746Z |
 | 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/812 | 2026-09-06T10:12:57.972Z |
 | 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/832 | 2026-09-06T10:16:59.053Z |
+| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/843 | 2026-09-06T10:18:24.985Z |
