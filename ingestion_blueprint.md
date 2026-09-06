@@ -433,3 +433,4 @@
 | 37 | anjulgarg/sharewatch |  | https://github.com/sparlit/EQATS/issues/622 | 2026-09-06T09:03:33.577Z |
 | 47 | Aravin/nse-data | https://github.com/sparlit/EQATS/pull/638 | https://github.com/sparlit/EQATS/issues/639 | 2026-09-06T09:14:03.816Z |
 | 47 | Aravin/nse-data |  | https://github.com/sparlit/EQATS/issues/648 | 2026-09-06T09:24:29.073Z |
+| 72 | benimward9621/advanced-nse-momentum-terminal | https://github.com/sparlit/EQATS/pull/742 | https://github.com/sparlit/EQATS/issues/743 | 2026-09-06T09:52:45.192Z |
