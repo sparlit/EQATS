@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 93 | chinmayHundekari/NSEDatabase | https://github.com/sparlit/EQATS/pull/805 | https://github.com/sparlit/EQATS/issues/806 | 2026-09-06T10:11:13.533Z |
+| 93 | chinmayHundekari/NSEDatabase |  | https://github.com/sparlit/EQATS/issues/824 | 2026-09-06T10:15:16.827Z |
