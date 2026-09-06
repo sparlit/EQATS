@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 288 | QuantMechanics/nse-premarket-data | https://github.com/sparlit/EQATS/pull/1590 | https://github.com/sparlit/EQATS/issues/1591 | 2026-09-06T14:10:58.818Z |
+| 288 | QuantMechanics/nse-premarket-data |  | https://github.com/sparlit/EQATS/issues/1637 | 2026-09-06T14:26:31.327Z |
