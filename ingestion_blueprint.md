@@ -436,3 +436,4 @@
 | 60 | atrybyme/Open-Interest-NSE-Live-Analysis |  | https://github.com/sparlit/EQATS/issues/693 | 2026-09-06T09:35:45.083Z |
 | 84 | buzzsubash/algo_trading_strategies_india | https://github.com/sparlit/EQATS/pull/771 | https://github.com/sparlit/EQATS/issues/772 | 2026-09-06T10:04:40.539Z |
 | 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/784 | 2026-09-06T10:08:07.137Z |
+| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/803 | 2026-09-06T10:10:48.689Z |
