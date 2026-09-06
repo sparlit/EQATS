@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 233 | monomadic/rust-trailer | https://github.com/sparlit/EQATS/pull/1379 | https://github.com/sparlit/EQATS/issues/1380 | 2026-09-06T13:02:05.887Z |
 | 233 | monomadic/rust-trailer |  | https://github.com/sparlit/EQATS/issues/1397 | 2026-09-06T13:09:27.609Z |
+| 233 | monomadic/rust-trailer |  | https://github.com/sparlit/EQATS/issues/1410 | 2026-09-06T13:13:21.602Z |
