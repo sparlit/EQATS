@@ -433,3 +433,4 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy | https://github.com/sparlit/EQATS/pull/684 | https://github.com/sparlit/EQATS/issues/685 | 2026-09-06T09:33:31.799Z |
+| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/699 | 2026-09-06T09:39:38.895Z |
