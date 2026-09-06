@@ -436,3 +436,4 @@
 | 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/699 | 2026-09-06T09:39:38.895Z |
 | 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/707 | 2026-09-06T09:44:04.407Z |
 | 83 | bshada/nse-bse-mcp | https://github.com/sparlit/EQATS/pull/774 | https://github.com/sparlit/EQATS/issues/775 | 2026-09-06T10:06:26.433Z |
+| 83 | bshada/nse-bse-mcp |  | https://github.com/sparlit/EQATS/issues/796 | 2026-09-06T10:09:53.653Z |
