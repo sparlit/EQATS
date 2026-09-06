@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 128 | feroz-ghub-26/nse-sharia-news-feed | https://github.com/sparlit/EQATS/pull/954 | https://github.com/sparlit/EQATS/issues/955 | 2026-09-06T10:47:55.774Z |
 | 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/975 | 2026-09-06T10:56:20.097Z |
+| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/997 | 2026-09-06T11:02:52.207Z |
