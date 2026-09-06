@@ -438,3 +438,4 @@
 | 258 | nkaz001/hftbacktest | https://github.com/sparlit/EQATS/pull/1466 | https://github.com/sparlit/EQATS/issues/1467 | 2026-09-06T13:32:09.356Z |
 | 258 | nkaz001/hftbacktest |  | https://github.com/sparlit/EQATS/issues/1508 | 2026-09-06T13:41:20.161Z |
 | 258 | nkaz001/hftbacktest |  | https://github.com/sparlit/EQATS/issues/1536 | 2026-09-06T13:53:13.693Z |
+| 258 | nkaz001/hftbacktest |  | https://github.com/sparlit/EQATS/issues/1566 | 2026-09-06T14:02:13.311Z |
