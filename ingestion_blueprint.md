@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 302 | rbhatia46/Option-Writing-Calls-Using-Open-Interest | https://github.com/sparlit/EQATS/pull/1638 | https://github.com/sparlit/EQATS/issues/1639 | 2026-09-06T14:26:42.499Z |
+| 302 | rbhatia46/Option-Writing-Calls-Using-Open-Interest |  | https://github.com/sparlit/EQATS/issues/1669 | 2026-09-06T14:40:00.848Z |
