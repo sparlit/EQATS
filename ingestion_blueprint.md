@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 107 | debaonline4u/NSE-Data | https://github.com/sparlit/EQATS/pull/883 | https://github.com/sparlit/EQATS/issues/884 | 2026-09-06T10:26:35.712Z |
+| 107 | debaonline4u/NSE-Data |  | https://github.com/sparlit/EQATS/issues/904 | 2026-09-06T10:34:03.149Z |
