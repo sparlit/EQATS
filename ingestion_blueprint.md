@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 200 | lavakus/nse-intraday-bot | https://github.com/sparlit/EQATS/pull/1253 | https://github.com/sparlit/EQATS/issues/1254 | 2026-09-06T12:20:53.426Z |
+| 200 | lavakus/nse-intraday-bot |  | https://github.com/sparlit/EQATS/issues/1258 | 2026-09-06T12:21:25.891Z |
