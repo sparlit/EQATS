@@ -436,3 +436,4 @@
 | 105 | day0market/geger | https://github.com/sparlit/EQATS/pull/850 | https://github.com/sparlit/EQATS/issues/851 | 2026-09-06T10:19:32.542Z |
 | 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/877 | 2026-09-06T10:25:16.094Z |
 | 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/898 | 2026-09-06T10:31:49.774Z |
+| 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/901 | 2026-09-06T10:32:55.197Z |
