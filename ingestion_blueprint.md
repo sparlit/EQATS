@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 293 | rajaramsrinivas/GetNSEStockPrice | https://github.com/sparlit/EQATS/pull/1611 | https://github.com/sparlit/EQATS/issues/1612 | 2026-09-06T14:15:36.387Z |
+| 293 | rajaramsrinivas/GetNSEStockPrice |  | https://github.com/sparlit/EQATS/issues/1651 | 2026-09-06T14:31:01.556Z |
