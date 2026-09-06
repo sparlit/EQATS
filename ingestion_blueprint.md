@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 272 | pishangujeniya/kite-helper | https://github.com/sparlit/EQATS/pull/1520 | https://github.com/sparlit/EQATS/issues/1521 | 2026-09-06T13:47:07.998Z |
+| 272 | pishangujeniya/kite-helper |  | https://github.com/sparlit/EQATS/issues/1593 | 2026-09-06T14:11:22.308Z |
