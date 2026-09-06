@@ -435,3 +435,4 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
+| 157 | hirawatt/BSE_NSE_Announcement | https://github.com/sparlit/EQATS/pull/1105 | https://github.com/sparlit/EQATS/issues/1106 | 2026-09-06T11:35:36.027Z |
