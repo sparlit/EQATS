@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 158 | HmERro3/indian-trading-skills | https://github.com/sparlit/EQATS/pull/1077 | https://github.com/sparlit/EQATS/issues/1078 | 2026-09-06T11:28:00.351Z |
 | 158 | HmERro3/indian-trading-skills |  | https://github.com/sparlit/EQATS/issues/1107 | 2026-09-06T11:36:29.733Z |
+| 158 | HmERro3/indian-trading-skills |  | https://github.com/sparlit/EQATS/issues/1117 | 2026-09-06T11:42:04.395Z |
