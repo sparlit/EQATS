@@ -419,3 +419,4 @@
 - **EQATS Integration Module:** `src/institutional_integrations/braverock_nse_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `BRAVEROCK_NSE`.
 | 11 | adavarski/DevSecOps-full-integration-chain | https://github.com/sparlit/EQATS/pull/567 | https://github.com/sparlit/EQATS/issues/568 | 2026-09-06T08:19:19.746Z |
+| 15 | affaan-m/dprc-autotrader-v2 | https://github.com/sparlit/EQATS/pull/573 | https://github.com/sparlit/EQATS/issues/574 | 2026-09-06T08:23:01.232Z |
