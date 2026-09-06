@@ -438,3 +438,4 @@
 | 241 | mutxri/MUTXRI-TERMINAL | https://github.com/sparlit/EQATS/pull/1398 | https://github.com/sparlit/EQATS/issues/1399 | 2026-09-06T13:10:02.942Z |
 | 241 | mutxri/MUTXRI-TERMINAL |  | https://github.com/sparlit/EQATS/issues/1432 | 2026-09-06T13:18:15.154Z |
 | 241 | mutxri/MUTXRI-TERMINAL |  | https://github.com/sparlit/EQATS/issues/1447 | 2026-09-06T13:24:39.241Z |
+| 241 | mutxri/MUTXRI-TERMINAL |  | https://github.com/sparlit/EQATS/issues/1484 | 2026-09-06T13:36:08.349Z |
