@@ -435,3 +435,4 @@
 | 45 | api-evangelist/nse-india | https://github.com/sparlit/EQATS/pull/630 | https://github.com/sparlit/EQATS/issues/631 | 2026-09-06T09:09:07.851Z |
 | 45 | api-evangelist/nse-india |  | https://github.com/sparlit/EQATS/issues/643 | 2026-09-06T09:22:49.974Z |
 | 73 | BennyThadikaran/eod2 | https://github.com/sparlit/EQATS/pull/716 | https://github.com/sparlit/EQATS/issues/717 | 2026-09-06T09:47:14.080Z |
+| 73 | BennyThadikaran/eod2 |  | https://github.com/sparlit/EQATS/issues/744 | 2026-09-06T09:53:22.762Z |
