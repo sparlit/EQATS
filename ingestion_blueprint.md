@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 133 | fluidex/dingir-exchange | https://github.com/sparlit/EQATS/pull/978 | https://github.com/sparlit/EQATS/issues/980 | 2026-09-06T10:58:21.741Z |
 | 133 | fluidex/dingir-exchange |  | https://github.com/sparlit/EQATS/issues/1003 | 2026-09-06T11:05:07.923Z |
+| 133 | fluidex/dingir-exchange |  | https://github.com/sparlit/EQATS/issues/1023 | 2026-09-06T11:10:47.824Z |
