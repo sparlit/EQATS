@@ -111,3 +111,4 @@
 - **EQATS Integration Module:** `src/institutional_integrations/algo_trade_aravin_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `ALGO_TRADE_ARAVIN`.
 | 1 | 0b01/tectonicdb | https://github.com/sparlit/EQATS/pull/553 | https://github.com/sparlit/EQATS/issues/554 | 2026-09-06T06:59:23.223Z |
+| 5 | 0xTan1319/hyperliquid-trading-bot-rust | https://github.com/sparlit/EQATS/pull/555 | https://github.com/sparlit/EQATS/issues/556 | 2026-09-06T07:37:23.142Z |
