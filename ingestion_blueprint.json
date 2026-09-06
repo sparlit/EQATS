@@ -2,12 +2,16 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "current_index": 45,
 =======
   "current_index": 156,
 >>>>>>> Stashed changes
 =======
   "current_index": 46,
+>>>>>>> Stashed changes
+=======
+  "current_index": 16,
 >>>>>>> Stashed changes
 =======
   "current_index": 16,
@@ -85,8 +89,18 @@
     },
     {
       "name": "dprc-autotrader-v2",
+<<<<<<< Updated upstream
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
       "status": "pending"
+=======
+      "url": "https://github.comaffaan-m/dprc-autotrader-v2",
+      "status": "Failed: Clone failure"
+    },
+    {
+      "name": "jarvis-trading",
+      "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
+      "status": "Failed: Clone failure"
+>>>>>>> Stashed changes
     },
     {
       "name": "jarvis-trading",
