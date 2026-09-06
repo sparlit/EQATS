@@ -582,3 +582,8 @@
   - Crypto spot/futures trading, PyAlgo moving average crossover signal evaluation, order routing, position PnL tracking, 0.05 INR tick rounding, IST trading session validation adapted into `src/institutional_integrations/xcrypto_engine.py`.
   - Registered in `IndianBrokerPluginRegistry` under `XCRYPTO`.
   - Unit tests added to `tests/test_xcrypto_engine.py` with 100% pass rate.
+
+- [x] **Repo 084: braverock/nse (Magic Number: 9100081)**
+  - Batch Means (BM), Overlapping Batch Means (OBM), Newey-West Bartlett kernel, and Effective Sample Size (ESS) Numerical Standard Error estimation adapted into `src/institutional_integrations/braverock_nse_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `BRAVEROCK_NSE`.
+  - Unit tests added to `tests/test_braverock_nse_engine.py` with 100% pass rate.

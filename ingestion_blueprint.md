@@ -10,6 +10,19 @@
   - Registered in `IndianBrokerPluginRegistry` as `FINRL_TRADING`.
   - Feature scoring, continuous action state space mapping, 0.05 INR tick size rounding, and IST market session validation.
 
+
+## Repo 018. AI4Finance-Foundation/FinRL-Trading
+- **Repository URL:** `https://github.com/AI4Finance-Foundation/FinRL-Trading`
+- **Magic Number:** `9100033`
+- **Architecture & System Design:** Deep Reinforcement Learning (DRL) stock portfolio allocation, time-series momentum signals, GICS sector rotation, and automated trade execution workflows.
+- **Categorization:**
+  - **Data Engines:** `src/data/data_fetcher.py`, `src/data/data_processor.py`, fundamental data & historical S&P 500 fetchers.
+  - **Signal & Execution Logic:** `src/strategies/rl_model.py`, `src/strategies/fundamental_portfolio_drl.py`, `src/strategies/adaptive_rotation/` multi-asset group strength & market regime engine.
+  - **Risk Engineering:** `src/strategies/adaptive_rotation/risk_manager.py`, PyPortfolioOpt efficient frontier risk bounds, draw-down guards.
+- **EQATS Integration Module:** `src/institutional_integrations/finrl_trading_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `FINRL_TRADING`.
+  - Feature scoring, continuous action state space mapping, 0.05 INR tick size rounding, and IST market session validation.
+
 ## Repo 019. ajakaiye33/ngrcoydisclosures
 - **Repository URL:** `https://github.com/ajakaiye33/ngrcoydisclosures`
 - **Magic Number:** `9100034`
@@ -108,9 +121,6 @@
   - **Risk Engineering:** Session token inactivity checks, 0.05 INR price tick rounding, IST trading session enforcement.
 - **EQATS Integration Module:** `src/institutional_integrations/algo_trade_aravin_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `ALGO_TRADE_ARAVIN`.
-| 1 | 0b01/tectonicdb | https://github.com/sparlit/EQATS/pull/553 | https://github.com/sparlit/EQATS/issues/554 | 2026-09-06T06:59:23.223Z |
-| 5 | 0xTan1319/hyperliquid-trading-bot-rust | https://github.com/sparlit/EQATS/pull/555 | https://github.com/sparlit/EQATS/issues/556 | 2026-09-06T07:37:23.142Z |
-| 6 | 85599/BankNIFTY-Golden-Ratio-Strategy | https://github.com/sparlit/EQATS/pull/557 | https://github.com/sparlit/EQATS/issues/558 | 2026-09-06T07:50:15.073Z |
 
 ## Repo 050. Aravin/nse-data
 - **Repository URL:** `https://github.com/Aravin/nse-data`
@@ -397,3 +407,14 @@
   - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
 - **EQATS Integration Module:** `src/institutional_integrations/xcrypto_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `XCRYPTO`.
+
+## Repo 084. braverock/nse
+- **Repository URL:** `https://github.com/braverock/nse`
+- **Magic Number:** `9100081`
+- **Architecture & System Design:** R package for Numerical Standard Error (NSE) estimation in time series and Markov Chain Monte Carlo outputs (`R/nse.R`, `R/hirukawa.R`, `R/kernels.R`, `R/boostrap.R`, `R/prewhitening.R`).
+- **Categorization:**
+  - **Data Engines:** Time series return stream residual variance extractor.
+  - **Signal & Execution Logic:** Batch Means (BM), Overlapping Batch Means (OBM), Newey-West Kernel, and Effective Sample Size (ESS) time-series variance estimator (`analyze_time_series`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/braverock_nse_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `BRAVEROCK_NSE`.
