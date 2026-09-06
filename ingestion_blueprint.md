@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 304 | rehanhaider/stocky | https://github.com/sparlit/EQATS/pull/1652 | https://github.com/sparlit/EQATS/issues/1653 | 2026-09-06T14:32:01.521Z |
 | 304 | rehanhaider/stocky |  | https://github.com/sparlit/EQATS/issues/1674 | 2026-09-06T14:41:46.453Z |
+| 304 | rehanhaider/stocky |  | https://github.com/sparlit/EQATS/issues/1744 | 2026-09-06T15:07:34.806Z |
