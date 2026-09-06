@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 194 | kuldeeepy/algo-trader | https://github.com/sparlit/EQATS/pull/1233 | https://github.com/sparlit/EQATS/issues/1234 | 2026-09-06T12:15:42.917Z |
+| 194 | kuldeeepy/algo-trader |  | https://github.com/sparlit/EQATS/issues/1269 | 2026-09-06T12:24:16.715Z |
