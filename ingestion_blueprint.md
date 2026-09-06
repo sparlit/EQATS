@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 259 | NSEDownload/NSEDownload | https://github.com/sparlit/EQATS/pull/1471 | https://github.com/sparlit/EQATS/issues/1472 | 2026-09-06T13:32:38.064Z |
 | 259 | NSEDownload/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1514 | 2026-09-06T13:43:17.283Z |
+| 259 | NSEDownload/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1541 | 2026-09-06T13:55:02.981Z |
