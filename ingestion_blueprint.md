@@ -438,3 +438,4 @@
 | 173 | jensnesten/rust_bt | https://github.com/sparlit/EQATS/pull/1137 | https://github.com/sparlit/EQATS/issues/1138 | 2026-09-06T11:47:24.679Z |
 | 173 | jensnesten/rust_bt |  | https://github.com/sparlit/EQATS/issues/1160 | 2026-09-06T11:54:01.552Z |
 | 173 | jensnesten/rust_bt |  | https://github.com/sparlit/EQATS/issues/1163 | 2026-09-06T11:55:30.251Z |
+| 173 | jensnesten/rust_bt |  | https://github.com/sparlit/EQATS/issues/1176 | 2026-09-06T11:58:56.826Z |
