@@ -438,3 +438,4 @@
 | 198 | lakshaysinghal/bhavCopy | https://github.com/sparlit/EQATS/pull/1247 | https://github.com/sparlit/EQATS/issues/1248 | 2026-09-06T12:18:45.164Z |
 | 198 | lakshaysinghal/bhavCopy |  | https://github.com/sparlit/EQATS/issues/1251 | 2026-09-06T12:20:16.657Z |
 | 198 | lakshaysinghal/bhavCopy |  | https://github.com/sparlit/EQATS/issues/1302 | 2026-09-06T12:34:54.345Z |
+| 198 | lakshaysinghal/bhavCopy |  | https://github.com/sparlit/EQATS/issues/1303 | 2026-09-06T12:35:18.655Z |
