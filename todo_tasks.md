@@ -587,3 +587,8 @@
   - Batch Means (BM), Overlapping Batch Means (OBM), Newey-West Bartlett kernel, and Effective Sample Size (ESS) Numerical Standard Error estimation adapted into `src/institutional_integrations/braverock_nse_engine.py`.
   - Registered in `IndianBrokerPluginRegistry` under `BRAVEROCK_NSE`.
   - Unit tests added to `tests/test_braverock_nse_engine.py` with 100% pass rate.
+
+- [x] **Repo 085: bshada/nse-bse-api (Magic Number: 9100082)**
+  - Dual-exchange quote parsing (NSE & BSE), price spread computation, option chain Put-Call Ratio (PCR) & Max Pain strike calculation, top gainers/losers classification adapted into `src/institutional_integrations/nse_bse_api_bshada_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_BSE_API_BSHADA`.
+  - Unit tests added to `tests/test_nse_bse_api_bshada_engine.py` with 100% pass rate.
