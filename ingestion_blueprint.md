@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 173 | jensnesten/rust_bt | https://github.com/sparlit/EQATS/pull/1137 | https://github.com/sparlit/EQATS/issues/1138 | 2026-09-06T11:47:24.679Z |
 | 173 | jensnesten/rust_bt |  | https://github.com/sparlit/EQATS/issues/1160 | 2026-09-06T11:54:01.552Z |
+| 173 | jensnesten/rust_bt |  | https://github.com/sparlit/EQATS/issues/1163 | 2026-09-06T11:55:30.251Z |
