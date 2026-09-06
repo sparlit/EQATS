@@ -435,3 +435,4 @@
 | 58 | athreysethumadhavan-finance/nse-var-dashboard | https://github.com/sparlit/EQATS/pull/671 | https://github.com/sparlit/EQATS/issues/672 | 2026-09-06T09:30:16.687Z |
 | 58 | athreysethumadhavan-finance/nse-var-dashboard |  | https://github.com/sparlit/EQATS/issues/675 | 2026-09-06T09:32:09.666Z |
 | 58 | athreysethumadhavan-finance/nse-var-dashboard |  | https://github.com/sparlit/EQATS/issues/690 | 2026-09-06T09:34:57.569Z |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard |  | https://github.com/sparlit/EQATS/issues/702 | 2026-09-06T09:40:45.850Z |
