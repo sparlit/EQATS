@@ -438,3 +438,4 @@
 | 296 | RajeshSivadasan/alice-blue-options-buying | https://github.com/sparlit/EQATS/pull/1617 | https://github.com/sparlit/EQATS/issues/1618 | 2026-09-06T14:18:12.716Z |
 | 296 | RajeshSivadasan/alice-blue-options-buying |  | https://github.com/sparlit/EQATS/issues/1655 | 2026-09-06T14:33:06.928Z |
 | 296 | RajeshSivadasan/alice-blue-options-buying |  | https://github.com/sparlit/EQATS/issues/1701 | 2026-09-06T14:53:33.473Z |
+| 296 | RajeshSivadasan/alice-blue-options-buying |  | https://github.com/sparlit/EQATS/issues/1736 | 2026-09-06T15:04:03.746Z |
