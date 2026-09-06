@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 120 | dpeachpeach/kalshi-rust | https://github.com/sparlit/EQATS/pull/923 | https://github.com/sparlit/EQATS/issues/924 | 2026-09-06T10:38:10.388Z |
 | 120 | dpeachpeach/kalshi-rust |  | https://github.com/sparlit/EQATS/issues/972 | 2026-09-06T10:54:44.737Z |
+| 120 | dpeachpeach/kalshi-rust |  | https://github.com/sparlit/EQATS/issues/977 | 2026-09-06T10:56:35.962Z |
