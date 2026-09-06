@@ -438,3 +438,4 @@
 | 181 | JunbeomL22/trusted | https://github.com/sparlit/EQATS/pull/1165 | https://github.com/sparlit/EQATS/issues/1166 | 2026-09-06T11:55:57.528Z |
 | 181 | JunbeomL22/trusted |  | https://github.com/sparlit/EQATS/issues/1189 | 2026-09-06T12:02:53.012Z |
 | 181 | JunbeomL22/trusted |  | https://github.com/sparlit/EQATS/issues/1202 | 2026-09-06T12:07:42.320Z |
+| 181 | JunbeomL22/trusted |  | https://github.com/sparlit/EQATS/issues/1214 | 2026-09-06T12:11:13.118Z |
