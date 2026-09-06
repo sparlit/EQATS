@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 254 | ninja-quant/ninjabook | https://github.com/sparlit/EQATS/pull/1490 | https://github.com/sparlit/EQATS/issues/1491 | 2026-09-06T13:38:05.380Z |
 | 254 | ninja-quant/ninjabook |  | https://github.com/sparlit/EQATS/issues/1509 | 2026-09-06T13:41:20.423Z |
+| 254 | ninja-quant/ninjabook |  | https://github.com/sparlit/EQATS/issues/1546 | 2026-09-06T13:56:21.310Z |
