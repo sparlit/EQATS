@@ -433,5 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 98 | ConteurShadow/Polymarket-Trading-Bot-Rust | https://github.com/sparlit/EQATS/pull/878 | https://github.com/sparlit/EQATS/issues/879 | 2026-09-06T10:25:38.287Z |
-| 98 | ConteurShadow/Polymarket-Trading-Bot-Rust |  | https://github.com/sparlit/EQATS/issues/882 | 2026-09-06T10:26:18.282Z |
+| 116 | devangmukherjee/top-gainers-and-losers-nse | https://github.com/sparlit/EQATS/pull/912 | https://github.com/sparlit/EQATS/issues/913 | 2026-09-06T10:35:17.559Z |
+| 116 | devangmukherjee/top-gainers-and-losers-nse |  | https://github.com/sparlit/EQATS/issues/936 | 2026-09-06T10:43:02.815Z |
+| 116 | devangmukherjee/top-gainers-and-losers-nse |  | https://github.com/sparlit/EQATS/issues/960 | 2026-09-06T10:49:48.364Z |
+| 116 | devangmukherjee/top-gainers-and-losers-nse |  | https://github.com/sparlit/EQATS/issues/961 | 2026-09-06T10:49:51.110Z |
