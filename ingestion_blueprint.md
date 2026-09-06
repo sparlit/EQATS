@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 167 | infinitefield/hypersdk | https://github.com/sparlit/EQATS/pull/1150 | https://github.com/sparlit/EQATS/issues/1151 | 2026-09-06T11:50:09.394Z |
+| 167 | infinitefield/hypersdk |  | https://github.com/sparlit/EQATS/issues/1154 | 2026-09-06T11:51:09.210Z |
