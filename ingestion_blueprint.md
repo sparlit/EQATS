@@ -110,3 +110,4 @@
   - **Risk Engineering:** Session token inactivity checks, 0.05 INR price tick rounding, IST trading session enforcement.
 - **EQATS Integration Module:** `src/institutional_integrations/algo_trade_aravin_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `ALGO_TRADE_ARAVIN`.
+| 1 | 0b01/tectonicdb | https://github.com/sparlit/EQATS/pull/553 | https://github.com/sparlit/EQATS/issues/554 | 2026-09-06T06:59:23.223Z |
