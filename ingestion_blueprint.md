@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 103 | d-e-s-o/apcacli | https://github.com/sparlit/EQATS/pull/841 | https://github.com/sparlit/EQATS/issues/842 | 2026-09-06T10:18:23.079Z |
 | 103 | d-e-s-o/apcacli |  | https://github.com/sparlit/EQATS/issues/873 | 2026-09-06T10:24:00.234Z |
+| 103 | d-e-s-o/apcacli |  | https://github.com/sparlit/EQATS/issues/893 | 2026-09-06T10:29:15.287Z |
