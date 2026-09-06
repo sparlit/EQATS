@@ -433,7 +433,5 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 105 | day0market/geger | https://github.com/sparlit/EQATS/pull/850 | https://github.com/sparlit/EQATS/issues/851 | 2026-09-06T10:19:32.542Z |
-| 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/877 | 2026-09-06T10:25:16.094Z |
-| 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/898 | 2026-09-06T10:31:49.774Z |
-| 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/901 | 2026-09-06T10:32:55.197Z |
+| 106 | daydy-dev/moon-dev-ai-agents-for-trading | https://github.com/sparlit/EQATS/pull/854 | https://github.com/sparlit/EQATS/issues/855 | 2026-09-06T10:20:04.662Z |
+| 106 | daydy-dev/moon-dev-ai-agents-for-trading |  | https://github.com/sparlit/EQATS/issues/903 | 2026-09-06T10:33:27.330Z |
