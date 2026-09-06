@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 287 | QuantConnect/Lean.DataSource.Zerodha | https://github.com/sparlit/EQATS/pull/1632 | https://github.com/sparlit/EQATS/issues/1633 | 2026-09-06T14:25:45.741Z |
+| 287 | QuantConnect/Lean.DataSource.Zerodha |  | https://github.com/sparlit/EQATS/issues/1678 | 2026-09-06T14:43:21.219Z |
