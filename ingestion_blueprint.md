@@ -438,3 +438,4 @@
 | 207 | maheshcharig/financial-data | https://github.com/sparlit/EQATS/pull/1278 | https://github.com/sparlit/EQATS/issues/1279 | 2026-09-06T12:29:46.276Z |
 | 207 | maheshcharig/financial-data |  | https://github.com/sparlit/EQATS/issues/1288 | 2026-09-06T12:30:43.596Z |
 | 207 | maheshcharig/financial-data |  | https://github.com/sparlit/EQATS/issues/1321 | 2026-09-06T12:41:50.577Z |
+| 207 | maheshcharig/financial-data |  | https://github.com/sparlit/EQATS/issues/1326 | 2026-09-06T12:43:07.915Z |
