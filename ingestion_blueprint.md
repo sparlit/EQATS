@@ -433,6 +433,6 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 107 | debaonline4u/NSE-Data | https://github.com/sparlit/EQATS/pull/883 | https://github.com/sparlit/EQATS/issues/884 | 2026-09-06T10:26:35.712Z |
-| 107 | debaonline4u/NSE-Data |  | https://github.com/sparlit/EQATS/issues/904 | 2026-09-06T10:34:03.149Z |
-| 107 | debaonline4u/NSE-Data |  | https://github.com/sparlit/EQATS/issues/910 | 2026-09-06T10:34:49.697Z |
+| 113 | deshpanda/nse-screener-data | https://github.com/sparlit/EQATS/pull/899 | https://github.com/sparlit/EQATS/issues/900 | 2026-09-06T10:32:50.408Z |
+| 113 | deshpanda/nse-screener-data |  | https://github.com/sparlit/EQATS/issues/937 | 2026-09-06T10:43:32.818Z |
+| 113 | deshpanda/nse-screener-data |  | https://github.com/sparlit/EQATS/issues/938 | 2026-09-06T10:43:36.182Z |
