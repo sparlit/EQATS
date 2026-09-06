@@ -428,3 +428,4 @@
 | 31 | Ameobea/tickgrinder | https://github.com/sparlit/EQATS/pull/596 | https://github.com/sparlit/EQATS/issues/597 | 2026-09-06T08:52:59.618Z |
 | 31 | Ameobea/tickgrinder |  | https://github.com/sparlit/EQATS/issues/600 | 2026-09-06T08:53:58.016Z |
 | 33 | amv-dev/yata | https://github.com/sparlit/EQATS/pull/603 | https://github.com/sparlit/EQATS/issues/604 | 2026-09-06T08:56:56.699Z |
+| 33 | amv-dev/yata |  | https://github.com/sparlit/EQATS/issues/607 | 2026-09-06T08:58:08.036Z |
