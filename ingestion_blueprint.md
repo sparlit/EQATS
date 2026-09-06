@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 253 | nickmccullum/algorithmic-trading-python | https://github.com/sparlit/EQATS/pull/1440 | https://github.com/sparlit/EQATS/issues/1441 | 2026-09-06T13:21:00.876Z |
+| 253 | nickmccullum/algorithmic-trading-python |  | https://github.com/sparlit/EQATS/issues/1489 | 2026-09-06T13:37:47.429Z |
