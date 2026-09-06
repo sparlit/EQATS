@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 131 | ferrumfix/ferrumfix | https://github.com/sparlit/EQATS/pull/987 | https://github.com/sparlit/EQATS/issues/988 | 2026-09-06T10:59:56.723Z |
+| 131 | ferrumfix/ferrumfix |  | https://github.com/sparlit/EQATS/issues/1015 | 2026-09-06T11:08:28.925Z |
