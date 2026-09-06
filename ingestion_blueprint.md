@@ -433,3 +433,4 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 44 | anurag-roy/shoonya-option-chain | https://github.com/sparlit/EQATS/pull/628 | https://github.com/sparlit/EQATS/issues/629 | 2026-09-06T09:08:47.158Z |
+| 44 | anurag-roy/shoonya-option-chain |  | https://github.com/sparlit/EQATS/issues/642 | 2026-09-06T09:22:23.421Z |
