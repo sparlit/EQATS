@@ -437,3 +437,4 @@
 | 75 | BennyThadikaran/NseIndiaApi | https://github.com/sparlit/EQATS/pull/722 | https://github.com/sparlit/EQATS/issues/723 | 2026-09-06T09:48:30.075Z |
 | 75 | BennyThadikaran/NseIndiaApi |  | https://github.com/sparlit/EQATS/issues/749 | 2026-09-06T09:54:40.314Z |
 | 75 | BennyThadikaran/NseIndiaApi |  | https://github.com/sparlit/EQATS/issues/755 | 2026-09-06T09:57:23.908Z |
+| 75 | BennyThadikaran/NseIndiaApi |  | https://github.com/sparlit/EQATS/issues/767 | 2026-09-06T10:01:27.900Z |
