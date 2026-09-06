@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 102 | cyberomin/NSEFinance-Python | https://github.com/sparlit/EQATS/pull/835 | https://github.com/sparlit/EQATS/issues/836 | 2026-09-06T10:17:39.504Z |
+| 102 | cyberomin/NSEFinance-Python |  | https://github.com/sparlit/EQATS/issues/868 | 2026-09-06T10:23:00.815Z |
