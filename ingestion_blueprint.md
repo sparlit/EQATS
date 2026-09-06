@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 177 | johnebe2020-trade/Nse-scanner | https://github.com/sparlit/EQATS/pull/1174 | https://github.com/sparlit/EQATS/issues/1175 | 2026-09-06T11:58:30.713Z |
 | 177 | johnebe2020-trade/Nse-scanner |  | https://github.com/sparlit/EQATS/issues/1179 | 2026-09-06T11:59:27.865Z |
+| 177 | johnebe2020-trade/Nse-scanner |  | https://github.com/sparlit/EQATS/issues/1195 | 2026-09-06T12:03:47.626Z |
