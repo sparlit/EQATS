@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 89 | chaitanyarahalkar/Financial-Info-Extractor | https://github.com/sparlit/EQATS/pull/789 | https://github.com/sparlit/EQATS/issues/790 | 2026-09-06T10:09:17.746Z |
+| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/812 | 2026-09-06T10:12:57.972Z |
