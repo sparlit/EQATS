@@ -438,3 +438,4 @@
 | 269 | pawan941394/Nse-Option-Chain---LLM-Project | https://github.com/sparlit/EQATS/pull/1511 | https://github.com/sparlit/EQATS/issues/1512 | 2026-09-06T13:42:27.049Z |
 | 269 | pawan941394/Nse-Option-Chain---LLM-Project |  | https://github.com/sparlit/EQATS/issues/1549 | 2026-09-06T13:56:49.973Z |
 | 269 | pawan941394/Nse-Option-Chain---LLM-Project |  | https://github.com/sparlit/EQATS/issues/1582 | 2026-09-06T14:06:26.589Z |
+| 269 | pawan941394/Nse-Option-Chain---LLM-Project |  | https://github.com/sparlit/EQATS/issues/1600 | 2026-09-06T14:13:18.281Z |
