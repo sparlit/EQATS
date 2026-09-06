@@ -435,3 +435,4 @@
 | 49 | arvchahal/kalshi-rs | https://github.com/sparlit/EQATS/pull/657 | https://github.com/sparlit/EQATS/issues/658 | 2026-09-06T09:25:36.449Z |
 | 80 | Bohr1005/xcrypto | https://github.com/sparlit/EQATS/pull/761 | https://github.com/sparlit/EQATS/issues/762 | 2026-09-06T10:00:14.472Z |
 | 80 | Bohr1005/xcrypto |  | https://github.com/sparlit/EQATS/issues/776 | 2026-09-06T10:06:32.996Z |
+| 80 | Bohr1005/xcrypto |  | https://github.com/sparlit/EQATS/issues/791 | 2026-09-06T10:09:29.846Z |
