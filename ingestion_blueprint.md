@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 250 | neilghosh/nse-historical-data | https://github.com/sparlit/EQATS/pull/1468 | https://github.com/sparlit/EQATS/issues/1469 | 2026-09-06T13:32:15.730Z |
+| 250 | neilghosh/nse-historical-data |  | https://github.com/sparlit/EQATS/issues/1481 | 2026-09-06T13:35:26.093Z |
