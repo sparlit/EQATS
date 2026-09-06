@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 130 | ferozmd53/nse-preopen-data | https://github.com/sparlit/EQATS/pull/963 | https://github.com/sparlit/EQATS/issues/964 | 2026-09-06T10:50:21.269Z |
+| 130 | ferozmd53/nse-preopen-data |  | https://github.com/sparlit/EQATS/issues/986 | 2026-09-06T10:59:25.550Z |
