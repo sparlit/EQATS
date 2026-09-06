@@ -422,3 +422,4 @@
 | 15 | affaan-m/dprc-autotrader-v2 | https://github.com/sparlit/EQATS/pull/573 | https://github.com/sparlit/EQATS/issues/574 | 2026-09-06T08:23:01.232Z |
 | 17 | AI4Finance-Foundation/FinRL-Trading | https://github.com/sparlit/EQATS/pull/575 | https://github.com/sparlit/EQATS/issues/576 | 2026-09-06T08:29:04.271Z |
 | 22 | akshaypawar7/WODS | https://github.com/sparlit/EQATS/pull/581 | https://github.com/sparlit/EQATS/issues/582 | 2026-09-06T08:41:50.098Z |
+| 24 | akshayz14/indian-stock-tracker | https://github.com/sparlit/EQATS/pull/586 | https://github.com/sparlit/EQATS/issues/587 | 2026-09-06T08:44:15.146Z |
