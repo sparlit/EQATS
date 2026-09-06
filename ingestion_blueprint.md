@@ -438,3 +438,4 @@
 | 288 | QuantMechanics/nse-premarket-data | https://github.com/sparlit/EQATS/pull/1590 | https://github.com/sparlit/EQATS/issues/1591 | 2026-09-06T14:10:58.818Z |
 | 288 | QuantMechanics/nse-premarket-data |  | https://github.com/sparlit/EQATS/issues/1637 | 2026-09-06T14:26:31.327Z |
 | 288 | QuantMechanics/nse-premarket-data |  | https://github.com/sparlit/EQATS/issues/1680 | 2026-09-06T14:43:47.923Z |
+| 288 | QuantMechanics/nse-premarket-data |  | https://github.com/sparlit/EQATS/issues/1702 | 2026-09-06T14:53:44.768Z |
