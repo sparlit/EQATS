@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 199 | laminar-protocol/laminar-chain | https://github.com/sparlit/EQATS/pull/1249 | https://github.com/sparlit/EQATS/issues/1250 | 2026-09-06T12:20:10.859Z |
 | 199 | laminar-protocol/laminar-chain |  | https://github.com/sparlit/EQATS/issues/1255 | 2026-09-06T12:20:58.511Z |
+| 199 | laminar-protocol/laminar-chain |  | https://github.com/sparlit/EQATS/issues/1305 | 2026-09-06T12:35:42.956Z |
