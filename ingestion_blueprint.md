@@ -432,9 +432,7 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 50 | asavinov/intelligent-trading-bot | https://github.com/sparlit/EQATS/pull/644 | https://github.com/sparlit/EQATS/issues/646 | 2026-09-06T09:23:43.232Z |
-| 50 | asavinov/intelligent-trading-bot |  | https://github.com/sparlit/EQATS/issues/660 | 2026-09-06T09:26:35.953Z |
-| 79 | blitzarx1/netstrat | https://github.com/sparlit/EQATS/pull/750 | https://github.com/sparlit/EQATS/issues/751 | 2026-09-06T09:54:42.282Z |
-| 79 | blitzarx1/netstrat |  | https://github.com/sparlit/EQATS/issues/759 | 2026-09-06T09:59:12.442Z |
-| 79 | blitzarx1/netstrat |  | https://github.com/sparlit/EQATS/issues/773 | 2026-09-06T10:04:57.247Z |
-| 79 | blitzarx1/netstrat |  | https://github.com/sparlit/EQATS/issues/788 | 2026-09-06T10:08:40.839Z |
+| 49 | arvchahal/kalshi-rs | https://github.com/sparlit/EQATS/pull/657 | https://github.com/sparlit/EQATS/issues/658 | 2026-09-06T09:25:36.449Z |
+| 80 | Bohr1005/xcrypto | https://github.com/sparlit/EQATS/pull/761 | https://github.com/sparlit/EQATS/issues/762 | 2026-09-06T10:00:14.472Z |
+| 80 | Bohr1005/xcrypto |  | https://github.com/sparlit/EQATS/issues/776 | 2026-09-06T10:06:32.996Z |
+| 80 | Bohr1005/xcrypto |  | https://github.com/sparlit/EQATS/issues/791 | 2026-09-06T10:09:29.846Z |
