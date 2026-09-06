@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 307 | rishikesh5/Algo-Trading-with-python | https://github.com/sparlit/EQATS/pull/1667 | https://github.com/sparlit/EQATS/issues/1668 | 2026-09-06T14:39:53.615Z |
 | 307 | rishikesh5/Algo-Trading-with-python |  | https://github.com/sparlit/EQATS/issues/1682 | 2026-09-06T14:45:37.983Z |
+| 307 | rishikesh5/Algo-Trading-with-python |  | https://github.com/sparlit/EQATS/issues/1753 | 2026-09-06T15:11:27.066Z |
