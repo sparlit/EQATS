@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 105 | day0market/geger | https://github.com/sparlit/EQATS/pull/850 | https://github.com/sparlit/EQATS/issues/851 | 2026-09-06T10:19:32.542Z |
+| 105 | day0market/geger |  | https://github.com/sparlit/EQATS/issues/877 | 2026-09-06T10:25:16.094Z |
