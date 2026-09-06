@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- | https://github.com/sparlit/EQATS/pull/801 | https://github.com/sparlit/EQATS/issues/802 | 2026-09-06T10:10:34.481Z |
 | 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/819 | 2026-09-06T10:14:03.172Z |
+| 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/840 | 2026-09-06T10:18:18.190Z |
