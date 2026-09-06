@@ -436,3 +436,4 @@
 | 88 | ccxt/ccxt | https://github.com/sparlit/EQATS/pull/786 | https://github.com/sparlit/EQATS/issues/787 | 2026-09-06T10:08:28.726Z |
 | 88 | ccxt/ccxt |  | https://github.com/sparlit/EQATS/issues/808 | 2026-09-06T10:11:31.498Z |
 | 88 | ccxt/ccxt |  | https://github.com/sparlit/EQATS/issues/827 | 2026-09-06T10:15:49.501Z |
+| 88 | ccxt/ccxt |  | https://github.com/sparlit/EQATS/issues/837 | 2026-09-06T10:17:41.774Z |
