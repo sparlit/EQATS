@@ -432,9 +432,6 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 60 | atrybyme/Open-Interest-NSE-Live-Analysis | https://github.com/sparlit/EQATS/pull/677 | https://github.com/sparlit/EQATS/issues/678 | 2026-09-06T09:32:43.716Z |
-| 60 | atrybyme/Open-Interest-NSE-Live-Analysis |  | https://github.com/sparlit/EQATS/issues/693 | 2026-09-06T09:35:45.083Z |
-| 84 | buzzsubash/algo_trading_strategies_india | https://github.com/sparlit/EQATS/pull/771 | https://github.com/sparlit/EQATS/issues/772 | 2026-09-06T10:04:40.539Z |
-| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/784 | 2026-09-06T10:08:07.137Z |
-| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/803 | 2026-09-06T10:10:48.689Z |
-| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/813 | 2026-09-06T10:12:58.126Z |
+| 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
+| 85 | c3point/in-stock-screener | https://github.com/sparlit/EQATS/pull/792 | https://github.com/sparlit/EQATS/issues/793 | 2026-09-06T10:09:34.537Z |
+| 85 | c3point/in-stock-screener |  | https://github.com/sparlit/EQATS/issues/816 | 2026-09-06T10:13:06.984Z |
