@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 63 | avhz/RustQuant | https://github.com/sparlit/EQATS/pull/691 | https://github.com/sparlit/EQATS/issues/692 | 2026-09-06T09:35:05.589Z |
 | 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/703 | 2026-09-06T09:41:38.444Z |
+| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/706 | 2026-09-06T09:43:29.309Z |
