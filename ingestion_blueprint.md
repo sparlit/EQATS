@@ -438,3 +438,4 @@
 | 140 | girishg4t/bhavCopy-downloader | https://github.com/sparlit/EQATS/pull/1009 | https://github.com/sparlit/EQATS/issues/1010 | 2026-09-06T11:06:30.489Z |
 | 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1038 | 2026-09-06T11:15:18.936Z |
 | 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1048 | 2026-09-06T11:17:29.799Z |
+| 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1052 | 2026-09-06T11:18:00.886Z |
