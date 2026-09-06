@@ -436,3 +436,4 @@
 | 122 | edtechre/pybroker | https://github.com/sparlit/EQATS/pull/928 | https://github.com/sparlit/EQATS/issues/929 | 2026-09-06T10:40:23.334Z |
 | 122 | edtechre/pybroker |  | https://github.com/sparlit/EQATS/issues/959 | 2026-09-06T10:49:42.506Z |
 | 122 | edtechre/pybroker |  | https://github.com/sparlit/EQATS/issues/976 | 2026-09-06T10:56:26.122Z |
+| 122 | edtechre/pybroker |  | https://github.com/sparlit/EQATS/issues/979 | 2026-09-06T10:58:20.809Z |
