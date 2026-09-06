@@ -432,6 +432,7 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 57 | ashwanthkumar/Live-NSE-Stock | https://github.com/sparlit/EQATS/pull/669 | https://github.com/sparlit/EQATS/issues/670 | 2026-09-06T09:29:03.383Z |
-| 57 | ashwanthkumar/Live-NSE-Stock |  | https://github.com/sparlit/EQATS/issues/689 | 2026-09-06T09:34:25.712Z |
-| 57 | ashwanthkumar/Live-NSE-Stock |  | https://github.com/sparlit/EQATS/issues/701 | 2026-09-06T09:40:22.226Z |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard | https://github.com/sparlit/EQATS/pull/671 | https://github.com/sparlit/EQATS/issues/672 | 2026-09-06T09:30:16.687Z |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard |  | https://github.com/sparlit/EQATS/issues/675 | 2026-09-06T09:32:09.666Z |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard |  | https://github.com/sparlit/EQATS/issues/690 | 2026-09-06T09:34:57.569Z |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard |  | https://github.com/sparlit/EQATS/issues/702 | 2026-09-06T09:40:45.850Z |
