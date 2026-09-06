@@ -436,3 +436,4 @@
 | 94 | chinthan-11/NSE-BSE-Arbitrage-bot | https://github.com/sparlit/EQATS/pull/810 | https://github.com/sparlit/EQATS/issues/811 | 2026-09-06T10:12:02.378Z |
 | 94 | chinthan-11/NSE-BSE-Arbitrage-bot |  | https://github.com/sparlit/EQATS/issues/828 | 2026-09-06T10:15:53.655Z |
 | 94 | chinthan-11/NSE-BSE-Arbitrage-bot |  | https://github.com/sparlit/EQATS/issues/853 | 2026-09-06T10:19:55.458Z |
+| 94 | chinthan-11/NSE-BSE-Arbitrage-bot |  | https://github.com/sparlit/EQATS/issues/866 | 2026-09-06T10:22:23.836Z |
