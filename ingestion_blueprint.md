@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 110 | Degenapetrader/EVPOLY | https://github.com/sparlit/EQATS/pull/874 | https://github.com/sparlit/EQATS/issues/875 | 2026-09-06T10:24:23.932Z |
 | 110 | Degenapetrader/EVPOLY |  | https://github.com/sparlit/EQATS/issues/902 | 2026-09-06T10:33:27.226Z |
+| 110 | Degenapetrader/EVPOLY |  | https://github.com/sparlit/EQATS/issues/916 | 2026-09-06T10:36:30.795Z |
