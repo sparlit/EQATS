@@ -432,6 +432,4 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 67 | Azhagesan-dev/OrderFlowMap | https://github.com/sparlit/EQATS/pull/711 | https://github.com/sparlit/EQATS/issues/712 | 2026-09-06T09:45:04.442Z |
-| 67 | Azhagesan-dev/OrderFlowMap |  | https://github.com/sparlit/EQATS/issues/725 | 2026-09-06T09:50:02.345Z |
-| 67 | Azhagesan-dev/OrderFlowMap |  | https://github.com/sparlit/EQATS/issues/734 | 2026-09-06T09:51:13.701Z |
+| 64 | avin1311/nse-bse-dashboard | https://github.com/sparlit/EQATS/pull/714 | https://github.com/sparlit/EQATS/issues/715 | 2026-09-06T09:46:38.849Z |
