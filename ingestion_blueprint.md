@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 189 | kislayykumar/DailyVaultRates | https://github.com/sparlit/EQATS/pull/1210 | https://github.com/sparlit/EQATS/issues/1211 | 2026-09-06T12:09:42.359Z |
+| 189 | kislayykumar/DailyVaultRates |  | https://github.com/sparlit/EQATS/issues/1215 | 2026-09-06T12:11:30.353Z |
