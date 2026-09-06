@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 109 | deepentropy/ibx | https://github.com/sparlit/EQATS/pull/869 | https://github.com/sparlit/EQATS/issues/870 | 2026-09-06T10:23:02.235Z |
+| 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/896 | 2026-09-06T10:31:06.115Z |
