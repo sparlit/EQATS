@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 262 | opmashin/nse_eod | https://github.com/sparlit/EQATS/pull/1482 | https://github.com/sparlit/EQATS/issues/1483 | 2026-09-06T13:35:34.380Z |
 | 262 | opmashin/nse_eod |  | https://github.com/sparlit/EQATS/issues/1525 | 2026-09-06T13:48:51.027Z |
+| 262 | opmashin/nse_eod |  | https://github.com/sparlit/EQATS/issues/1561 | 2026-09-06T14:00:16.159Z |
