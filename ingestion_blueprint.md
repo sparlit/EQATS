@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 231 | mkshibu2/breadth-radar | https://github.com/sparlit/EQATS/pull/1393 | https://github.com/sparlit/EQATS/issues/1394 | 2026-09-06T13:07:56.703Z |
+| 231 | mkshibu2/breadth-radar |  | https://github.com/sparlit/EQATS/issues/1405 | 2026-09-06T13:11:44.872Z |
