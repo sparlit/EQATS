@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 245 | nautechsystems/nautilus_trader | https://github.com/sparlit/EQATS/pull/1411 | https://github.com/sparlit/EQATS/issues/1412 | 2026-09-06T13:13:22.673Z |
 | 245 | nautechsystems/nautilus_trader |  | https://github.com/sparlit/EQATS/issues/1442 | 2026-09-06T13:22:26.338Z |
+| 245 | nautechsystems/nautilus_trader |  | https://github.com/sparlit/EQATS/issues/1457 | 2026-09-06T13:28:07.677Z |
