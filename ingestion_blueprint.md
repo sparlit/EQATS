@@ -438,3 +438,4 @@
 | 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/710 | 2026-09-06T09:44:38.863Z |
 | 86 | c3point/Nse-Support-Tools | https://github.com/sparlit/EQATS/pull/777 | https://github.com/sparlit/EQATS/issues/778 | 2026-09-06T10:07:08.509Z |
 | 86 | c3point/Nse-Support-Tools |  | https://github.com/sparlit/EQATS/issues/800 | 2026-09-06T10:10:24.094Z |
+| 86 | c3point/Nse-Support-Tools |  | https://github.com/sparlit/EQATS/issues/820 | 2026-09-06T10:14:16.897Z |
