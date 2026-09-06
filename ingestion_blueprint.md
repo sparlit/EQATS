@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 165 | indianfoods-automation/nse | https://github.com/sparlit/EQATS/pull/1100 | https://github.com/sparlit/EQATS/issues/1101 | 2026-09-06T11:33:44.399Z |
 | 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1124 | 2026-09-06T11:44:03.632Z |
+| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1133 | 2026-09-06T11:46:07.338Z |
