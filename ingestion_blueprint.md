@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 150 | hemangjoshi37a/TrendMaster | https://github.com/sparlit/EQATS/pull/1070 | https://github.com/sparlit/EQATS/issues/1071 | 2026-09-06T11:23:32.366Z |
 | 150 | hemangjoshi37a/TrendMaster |  | https://github.com/sparlit/EQATS/issues/1084 | 2026-09-06T11:30:08.722Z |
+| 150 | hemangjoshi37a/TrendMaster |  | https://github.com/sparlit/EQATS/issues/1087 | 2026-09-06T11:30:27.297Z |
