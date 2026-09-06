@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 123 | eggmasonvalue/MTFDB | https://github.com/sparlit/EQATS/pull/931 | https://github.com/sparlit/EQATS/issues/933 | 2026-09-06T10:42:40.544Z |
+| 123 | eggmasonvalue/MTFDB |  | https://github.com/sparlit/EQATS/issues/962 | 2026-09-06T10:50:05.186Z |
