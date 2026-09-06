@@ -430,7 +430,9 @@
 | 32 | amitashwinibhagat/nse-swing-scanner | https://github.com/sparlit/EQATS/pull/601 | https://github.com/sparlit/EQATS/issues/602 | 2026-09-06T08:55:46.395Z |
 | 34 | Aneesh540/VSE | https://github.com/sparlit/EQATS/pull/605 | https://github.com/sparlit/EQATS/issues/606 | 2026-09-06T08:57:51.161Z |
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
-| 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
-| 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 41 | anshuthopsee/nse-oi-visualizer | https://github.com/sparlit/EQATS/pull/635 | https://github.com/sparlit/EQATS/issues/636 | 2026-09-06T09:10:52.791Z |
-| 71 | beinghorizontal/BhavFnO | https://github.com/sparlit/EQATS/pull/737 | https://github.com/sparlit/EQATS/issues/738 | 2026-09-06T09:52:16.856Z |
+| 37 | anjulgarg/sharewatch |  | https://github.com/sparlit/EQATS/issues/622 | 2026-09-06T09:03:33.577Z |
+| 47 | Aravin/nse-data | https://github.com/sparlit/EQATS/pull/638 | https://github.com/sparlit/EQATS/issues/639 | 2026-09-06T09:14:03.816Z |
+| 47 | Aravin/nse-data |  | https://github.com/sparlit/EQATS/issues/648 | 2026-09-06T09:24:29.073Z |
+| 72 | benimward9621/advanced-nse-momentum-terminal | https://github.com/sparlit/EQATS/pull/742 | https://github.com/sparlit/EQATS/issues/743 | 2026-09-06T09:52:45.192Z |
+| 72 | benimward9621/advanced-nse-momentum-terminal |  | https://github.com/sparlit/EQATS/issues/752 | 2026-09-06T09:55:14.005Z |
+| 72 | benimward9621/advanced-nse-momentum-terminal |  | https://github.com/sparlit/EQATS/issues/760 | 2026-09-06T09:59:58.403Z |
