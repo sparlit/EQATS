@@ -429,3 +429,4 @@
   - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
 - **EQATS Integration Module:** `src/institutional_integrations/nse_bse_api_bshada_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `NSE_BSE_API_BSHADA`.
+| 25 | akt114/BuyNSell | https://github.com/sparlit/EQATS/pull/588 | https://github.com/sparlit/EQATS/issues/589 | 2026-09-06T08:45:38.574Z |
