@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 240 | muthuvenki/Stock | https://github.com/sparlit/EQATS/pull/1427 | https://github.com/sparlit/EQATS/issues/1428 | 2026-09-06T13:17:19.510Z |
+| 240 | muthuvenki/Stock |  | https://github.com/sparlit/EQATS/issues/1480 | 2026-09-06T13:35:21.816Z |
