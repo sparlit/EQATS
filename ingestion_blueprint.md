@@ -432,10 +432,8 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 63 | avhz/RustQuant | https://github.com/sparlit/EQATS/pull/691 | https://github.com/sparlit/EQATS/issues/692 | 2026-09-06T09:35:05.589Z |
-| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/703 | 2026-09-06T09:41:38.444Z |
-| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/706 | 2026-09-06T09:43:29.309Z |
-| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/713 | 2026-09-06T09:45:51.652Z |
-| 87 | calumrussell/rotala | https://github.com/sparlit/EQATS/pull/780 | https://github.com/sparlit/EQATS/issues/781 | 2026-09-06T10:07:38.624Z |
-| 87 | calumrussell/rotala |  | https://github.com/sparlit/EQATS/issues/804 | 2026-09-06T10:10:59.830Z |
-| 87 | calumrussell/rotala |  | https://github.com/sparlit/EQATS/issues/823 | 2026-09-06T10:15:13.110Z |
+| 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
+| 88 | ccxt/ccxt | https://github.com/sparlit/EQATS/pull/786 | https://github.com/sparlit/EQATS/issues/787 | 2026-09-06T10:08:28.726Z |
+| 88 | ccxt/ccxt |  | https://github.com/sparlit/EQATS/issues/808 | 2026-09-06T10:11:31.498Z |
+| 88 | ccxt/ccxt |  | https://github.com/sparlit/EQATS/issues/827 | 2026-09-06T10:15:49.501Z |
+| 88 | ccxt/ccxt |  | https://github.com/sparlit/EQATS/issues/837 | 2026-09-06T10:17:41.774Z |
