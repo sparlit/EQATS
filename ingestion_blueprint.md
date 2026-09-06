@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 216 | marketcalls/openalgo | https://github.com/sparlit/EQATS/pull/1315 | https://github.com/sparlit/EQATS/issues/1316 | 2026-09-06T12:40:34.497Z |
 | 216 | marketcalls/openalgo |  | https://github.com/sparlit/EQATS/issues/1330 | 2026-09-06T12:43:46.332Z |
+| 216 | marketcalls/openalgo |  | https://github.com/sparlit/EQATS/issues/1364 | 2026-09-06T12:57:17.265Z |
