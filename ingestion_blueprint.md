@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 94 | chinthan-11/NSE-BSE-Arbitrage-bot | https://github.com/sparlit/EQATS/pull/810 | https://github.com/sparlit/EQATS/issues/811 | 2026-09-06T10:12:02.378Z |
 | 94 | chinthan-11/NSE-BSE-Arbitrage-bot |  | https://github.com/sparlit/EQATS/issues/828 | 2026-09-06T10:15:53.655Z |
+| 94 | chinthan-11/NSE-BSE-Arbitrage-bot |  | https://github.com/sparlit/EQATS/issues/853 | 2026-09-06T10:19:55.458Z |
