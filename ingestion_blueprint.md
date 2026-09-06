@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 332 | Sangram2905/NSE_Option_Stock_market | https://github.com/sparlit/EQATS/pull/1766 | https://github.com/sparlit/EQATS/issues/1767 | 2026-09-06T15:18:21.073Z |
+| 332 | Sangram2905/NSE_Option_Stock_market |  | https://github.com/sparlit/EQATS/issues/1777 | 2026-09-06T15:24:00.429Z |
