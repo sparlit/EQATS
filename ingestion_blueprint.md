@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 85 | c3point/in-stock-screener | https://github.com/sparlit/EQATS/pull/792 | https://github.com/sparlit/EQATS/issues/793 | 2026-09-06T10:09:34.537Z |
+| 85 | c3point/in-stock-screener |  | https://github.com/sparlit/EQATS/issues/816 | 2026-09-06T10:13:06.984Z |
