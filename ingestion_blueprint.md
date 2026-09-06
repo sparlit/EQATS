@@ -433,7 +433,5 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 109 | deepentropy/ibx | https://github.com/sparlit/EQATS/pull/869 | https://github.com/sparlit/EQATS/issues/870 | 2026-09-06T10:23:02.235Z |
-| 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/896 | 2026-09-06T10:31:06.115Z |
-| 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/914 | 2026-09-06T10:35:28.673Z |
-| 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/917 | 2026-09-06T10:36:30.980Z |
+| 98 | ConteurShadow/Polymarket-Trading-Bot-Rust | https://github.com/sparlit/EQATS/pull/878 | https://github.com/sparlit/EQATS/issues/879 | 2026-09-06T10:25:38.287Z |
+| 98 | ConteurShadow/Polymarket-Trading-Bot-Rust |  | https://github.com/sparlit/EQATS/issues/882 | 2026-09-06T10:26:18.282Z |
