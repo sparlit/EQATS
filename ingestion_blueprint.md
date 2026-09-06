@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 168 | inv2004/coinbase-pro-rs | https://github.com/sparlit/EQATS/pull/1110 | https://github.com/sparlit/EQATS/issues/1111 | 2026-09-06T11:40:40.962Z |
+| 168 | inv2004/coinbase-pro-rs |  | https://github.com/sparlit/EQATS/issues/1149 | 2026-09-06T11:50:08.500Z |
