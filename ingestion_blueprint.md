@@ -433,7 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor | https://github.com/sparlit/EQATS/pull/789 | https://github.com/sparlit/EQATS/issues/790 | 2026-09-06T10:09:17.746Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/812 | 2026-09-06T10:12:57.972Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/832 | 2026-09-06T10:16:59.053Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/843 | 2026-09-06T10:18:24.985Z |
+| 90 | chartiny/nse-daily-volatility-reports | https://github.com/sparlit/EQATS/pull/794 | https://github.com/sparlit/EQATS/issues/795 | 2026-09-06T10:09:47.152Z |
+| 90 | chartiny/nse-daily-volatility-reports |  | https://github.com/sparlit/EQATS/issues/817 | 2026-09-06T10:13:32.989Z |
+| 90 | chartiny/nse-daily-volatility-reports |  | https://github.com/sparlit/EQATS/issues/834 | 2026-09-06T10:17:38.461Z |
+| 90 | chartiny/nse-daily-volatility-reports |  | https://github.com/sparlit/EQATS/issues/844 | 2026-09-06T10:18:48.718Z |
