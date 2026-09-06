@@ -435,3 +435,4 @@
 | 49 | arvchahal/kalshi-rs | https://github.com/sparlit/EQATS/pull/657 | https://github.com/sparlit/EQATS/issues/658 | 2026-09-06T09:25:36.449Z |
 | 81 | braverock/nse | https://github.com/sparlit/EQATS/pull/763 | https://github.com/sparlit/EQATS/issues/764 | 2026-09-06T10:00:18.375Z |
 | 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/766 | 2026-09-06T10:01:18.108Z |
+| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/779 | 2026-09-06T10:07:22.234Z |
