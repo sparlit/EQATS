@@ -433,7 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor | https://github.com/sparlit/EQATS/pull/789 | https://github.com/sparlit/EQATS/issues/790 | 2026-09-06T10:09:17.746Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/812 | 2026-09-06T10:12:57.972Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/832 | 2026-09-06T10:16:59.053Z |
-| 89 | chaitanyarahalkar/Financial-Info-Extractor |  | https://github.com/sparlit/EQATS/issues/843 | 2026-09-06T10:18:24.985Z |
+| 93 | chinmayHundekari/NSEDatabase | https://github.com/sparlit/EQATS/pull/805 | https://github.com/sparlit/EQATS/issues/806 | 2026-09-06T10:11:13.533Z |
+| 93 | chinmayHundekari/NSEDatabase |  | https://github.com/sparlit/EQATS/issues/824 | 2026-09-06T10:15:16.827Z |
+| 93 | chinmayHundekari/NSEDatabase |  | https://github.com/sparlit/EQATS/issues/849 | 2026-09-06T10:19:22.026Z |
+| 93 | chinmayHundekari/NSEDatabase |  | https://github.com/sparlit/EQATS/issues/864 | 2026-09-06T10:21:53.549Z |
