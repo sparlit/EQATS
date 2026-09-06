@@ -438,3 +438,4 @@
 | 281 | pramakrishn/express-option-chain | https://github.com/sparlit/EQATS/pull/1558 | https://github.com/sparlit/EQATS/issues/1559 | 2026-09-06T13:59:36.805Z |
 | 281 | pramakrishn/express-option-chain |  | https://github.com/sparlit/EQATS/issues/1598 | 2026-09-06T14:12:34.785Z |
 | 281 | pramakrishn/express-option-chain |  | https://github.com/sparlit/EQATS/issues/1646 | 2026-09-06T14:28:31.815Z |
+| 281 | pramakrishn/express-option-chain |  | https://github.com/sparlit/EQATS/issues/1650 | 2026-09-06T14:30:59.879Z |
