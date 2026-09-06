@@ -436,3 +436,4 @@
 | 119 | dkraj0612/nse-delivery-data | https://github.com/sparlit/EQATS/pull/920 | https://github.com/sparlit/EQATS/issues/921 | 2026-09-06T10:37:42.453Z |
 | 119 | dkraj0612/nse-delivery-data |  | https://github.com/sparlit/EQATS/issues/946 | 2026-09-06T10:45:56.303Z |
 | 119 | dkraj0612/nse-delivery-data |  | https://github.com/sparlit/EQATS/issues/971 | 2026-09-06T10:53:25.615Z |
+| 119 | dkraj0612/nse-delivery-data |  | https://github.com/sparlit/EQATS/issues/974 | 2026-09-06T10:55:59.433Z |
