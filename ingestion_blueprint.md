@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 230 | mineralres/rust-share | https://github.com/sparlit/EQATS/pull/1376 | https://github.com/sparlit/EQATS/issues/1377 | 2026-09-06T13:01:23.162Z |
 | 230 | mineralres/rust-share |  | https://github.com/sparlit/EQATS/issues/1390 | 2026-09-06T13:05:55.352Z |
+| 230 | mineralres/rust-share |  | https://github.com/sparlit/EQATS/issues/1404 | 2026-09-06T13:11:22.094Z |
