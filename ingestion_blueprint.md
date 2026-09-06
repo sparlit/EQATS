@@ -433,6 +433,6 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 103 | d-e-s-o/apcacli | https://github.com/sparlit/EQATS/pull/841 | https://github.com/sparlit/EQATS/issues/842 | 2026-09-06T10:18:23.079Z |
-| 103 | d-e-s-o/apcacli |  | https://github.com/sparlit/EQATS/issues/873 | 2026-09-06T10:24:00.234Z |
-| 103 | d-e-s-o/apcacli |  | https://github.com/sparlit/EQATS/issues/893 | 2026-09-06T10:29:15.287Z |
+| 104 | dallyshalla/tropix | https://github.com/sparlit/EQATS/pull/847 | https://github.com/sparlit/EQATS/issues/848 | 2026-09-06T10:18:50.198Z |
+| 104 | dallyshalla/tropix |  | https://github.com/sparlit/EQATS/issues/895 | 2026-09-06T10:30:12.629Z |
+| 104 | dallyshalla/tropix |  | https://github.com/sparlit/EQATS/issues/897 | 2026-09-06T10:31:17.108Z |
