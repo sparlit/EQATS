@@ -431,3 +431,4 @@
 | 34 | Aneesh540/VSE | https://github.com/sparlit/EQATS/pull/605 | https://github.com/sparlit/EQATS/issues/606 | 2026-09-06T08:57:51.161Z |
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
+| 41 | anshuthopsee/nse-oi-visualizer | https://github.com/sparlit/EQATS/pull/623 | https://github.com/sparlit/EQATS/issues/624 | 2026-09-06T09:05:44.985Z |
