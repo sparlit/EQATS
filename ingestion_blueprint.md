@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 164 | imanojkumar/NSE-India-All-Stocks-Tickers-Data | https://github.com/sparlit/EQATS/pull/1097 | https://github.com/sparlit/EQATS/issues/1098 | 2026-09-06T11:33:22.311Z |
+| 164 | imanojkumar/NSE-India-All-Stocks-Tickers-Data |  | https://github.com/sparlit/EQATS/issues/1123 | 2026-09-06T11:43:49.700Z |
