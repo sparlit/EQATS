@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 252 | ngm9/nsei_mcp_server | https://github.com/sparlit/EQATS/pull/1435 | https://github.com/sparlit/EQATS/issues/1436 | 2026-09-06T13:18:57.344Z |
+| 252 | ngm9/nsei_mcp_server |  | https://github.com/sparlit/EQATS/issues/1492 | 2026-09-06T13:38:18.531Z |
