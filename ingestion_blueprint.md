@@ -432,9 +432,9 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy | https://github.com/sparlit/EQATS/pull/684 | https://github.com/sparlit/EQATS/issues/685 | 2026-09-06T09:33:31.799Z |
-| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/699 | 2026-09-06T09:39:38.895Z |
-| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/707 | 2026-09-06T09:44:04.407Z |
-| 83 | bshada/nse-bse-mcp | https://github.com/sparlit/EQATS/pull/774 | https://github.com/sparlit/EQATS/issues/775 | 2026-09-06T10:06:26.433Z |
-| 83 | bshada/nse-bse-mcp |  | https://github.com/sparlit/EQATS/issues/796 | 2026-09-06T10:09:53.653Z |
-| 83 | bshada/nse-bse-mcp |  | https://github.com/sparlit/EQATS/issues/809 | 2026-09-06T10:12:00.692Z |
+| 60 | atrybyme/Open-Interest-NSE-Live-Analysis | https://github.com/sparlit/EQATS/pull/677 | https://github.com/sparlit/EQATS/issues/678 | 2026-09-06T09:32:43.716Z |
+| 60 | atrybyme/Open-Interest-NSE-Live-Analysis |  | https://github.com/sparlit/EQATS/issues/693 | 2026-09-06T09:35:45.083Z |
+| 84 | buzzsubash/algo_trading_strategies_india | https://github.com/sparlit/EQATS/pull/771 | https://github.com/sparlit/EQATS/issues/772 | 2026-09-06T10:04:40.539Z |
+| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/784 | 2026-09-06T10:08:07.137Z |
+| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/803 | 2026-09-06T10:10:48.689Z |
+| 84 | buzzsubash/algo_trading_strategies_india |  | https://github.com/sparlit/EQATS/issues/813 | 2026-09-06T10:12:58.126Z |
