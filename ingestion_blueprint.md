@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 118 | dhruvan246/stocks-dashboard | https://github.com/sparlit/EQATS/pull/918 | https://github.com/sparlit/EQATS/issues/919 | 2026-09-06T10:37:10.710Z |
 | 118 | dhruvan246/stocks-dashboard |  | https://github.com/sparlit/EQATS/issues/945 | 2026-09-06T10:45:17.433Z |
+| 118 | dhruvan246/stocks-dashboard |  | https://github.com/sparlit/EQATS/issues/969 | 2026-09-06T10:52:59.134Z |
