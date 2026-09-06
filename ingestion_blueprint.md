@@ -1,5 +1,3 @@
-
-
 ## Repo 018. AI4Finance-Foundation/FinRL-Trading
 - **Repository URL:** `https://github.com/AI4Finance-Foundation/FinRL-Trading`
 - **Magic Number:** `9100033`
@@ -110,5 +108,289 @@
   - **Risk Engineering:** Session token inactivity checks, 0.05 INR price tick rounding, IST trading session enforcement.
 - **EQATS Integration Module:** `src/institutional_integrations/algo_trade_aravin_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `ALGO_TRADE_ARAVIN`.
-| 1 | 0b01/tectonicdb | https://github.com/sparlit/EQATS/pull/553 | https://github.com/sparlit/EQATS/issues/554 | 2026-09-06T06:59:23.223Z |
-| 5 | 0xTan1319/hyperliquid-trading-bot-rust | https://github.com/sparlit/EQATS/pull/555 | https://github.com/sparlit/EQATS/issues/556 | 2026-09-06T07:37:23.142Z |
+
+## Repo 050. Aravin/nse-data
+- **Repository URL:** `https://github.com/Aravin/nse-data`
+- **Magic Number:** `9100048`
+- **Architecture & System Design:** TypeScript client for NSE data API endpoints with cookie session extraction (`src/common/http.ts`), equity quote parsing (`src/api/equity-quote`), and option chain matrix extraction (`src/api/equity-option-chain`).
+- **Categorization:**
+  - **Data Engines:** Akamai header spoofing, set-cookie session manager, equity quote and option chain payload parsers.
+  - **Signal & Execution Logic:** Equity price change momentum evaluation and Put-Call Ratio (PCR) calculation.
+  - **Risk Engineering:** 0.05 INR price tick size rounding, IST trading session validation.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_data_aravin_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_DATA_ARAVIN`.
+
+## Repo 051. ArishHassan/nse-live_testing
+- **Repository URL:** `https://github.com/ArishHassan/nse-live_testing`
+- **Magic Number:** `9100049`
+- **Architecture & System Design:** Live NSE market data feed connectivity tester and latency benchmarking utility.
+- **Categorization:**
+  - **Data Engines:** Live NSE HTTP/REST response parsers, ping latency recorders, connectivity health checkers.
+  - **Signal & Execution Logic:** Network latency thresholding, response timeout detection, connection status categorization.
+  - **Risk Engineering:** 0.05 INR price tick size rounding, IST market session validation.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_live_testing_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_LIVE_TESTING`.
+
+## Repo 052. arvchahal/kalshi-rs
+- **Repository URL:** `https://github.com/arvchahal/kalshi-rs`
+- **Magic Number:** `9100050`
+- **Architecture & System Design:** Rust SDK for Kalshi prediction markets REST API, market orderbook query engine, and event probability pricing.
+- **Categorization:**
+  - **Data Engines:** Kalshi REST API payload decoders, event ticker market data structures (`Market`, `Orderbook`).
+  - **Signal & Execution Logic:** Implied YES/NO event probability pricing and Expected Value (EV) calculation.
+  - **Risk Engineering:** Zero-margin requirement checks, 0.05 INR price tick rounding, IST trading session validation.
+- **EQATS Integration Module:** `src/institutional_integrations/kalshi_rs_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `KALSHI_RS`.
+
+## Repo 053. asavinov/intelligent-trading-bot
+- **Repository URL:** `https://github.com/asavinov/intelligent-trading-bot`
+- **Magic Number:** `9100051`
+- **Architecture & System Design:** Machine Learning time-series feature engineering and price trend signal classification engine.
+- **Categorization:**
+  - **Data Engines:** Rolling window price transformer, mean return & volatility aggregators.
+  - **Signal & Execution Logic:** Multi-factor ML feature extraction (`ret_mean`, `volatility`, `high_ratio`, `low_ratio`) and logistic probability signal classification (`prob_buy`, `recommended_signal`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/intelligent_trading_bot_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `INTELLIGENT_TRADING_BOT`.
+
+## Repo 055. ashgen/NSEDataAnalytics
+- **Repository URL:** `https://github.com/ashgen/NSEDataAnalytics`
+- **Magic Number:** `9100052`
+- **Architecture & System Design:** Implied Volatility (IV) smile spline interpolation, bid-ask volume imbalance analytics, and Max Pain strike calculation engine.
+- **Categorization:**
+  - **Data Engines:** Historical tick/quote loader (`LoadFromCSV.py`), bid/ask market depth volume parser (`BidAskVolume.py`).
+  - **Signal & Execution Logic:** Implied volatility smile calculation (`VolSmileCalc.py`), spline interpolation (`SplineInterpVol.py`), Max Pain strike calculation (`MaxPain.py`), bid/ask volume imbalance ratio.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_data_analytics_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_DATA_ANALYTICS`.
+
+## Repo 056. ashishkumar30/stock_market_live_trading_using_ai
+- **Repository URL:** `https://github.com/ashishkumar30/stock_market_live_trading_using_ai`
+- **Magic Number:** `9100053`
+- **Architecture & System Design:** Guppy Multiple Moving Average (GMMA) trend scoring, Heikin-Ashi candle transformation, and RSI momentum break triggers.
+- **Categorization:**
+  - **Data Engines:** Historical price data fetcher, Heikin-Ashi candle transformer (`convert_to_heikin_ashi`).
+  - **Signal & Execution Logic:** GMMA short/long group EMA alignment (`evaluate_gmma_trend`), RSI momentum break triggers.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/ai_stock_live_trader_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `AI_STOCK_LIVE_TRADER`.
+
+## Repo 057. ashok-kollipara/options-oi
+- **Repository URL:** `https://github.com/ashok-kollipara/options-oi`
+- **Magic Number:** `9100054`
+- **Architecture & System Design:** Open Interest (OI) strike matrix parser, Call/Put OI change imbalance scoring, Put-Call Ratio (PCR) analytics.
+- **Categorization:**
+  - **Data Engines:** NSE JSON option chain fetcher and response handler (`json_handler.py`).
+  - **Signal & Execution Logic:** Put-Call Ratio calculation (`compute_pcr`), Call/Put OI change imbalance scoring (`analyze_oi_change_imbalance`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/options_oi_analytics_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `OPTIONS_OI_ANALYTICS`.
+
+## Repo 058. AshokKumar3502/nse-quant-trading
+- **Repository URL:** `https://github.com/AshokKumar3502/nse-quant-trading`
+- **Magic Number:** `9100055`
+- **Architecture & System Design:** Multi-timeframe stock breakout scanner (`stock_scanner.py`), Bollinger Band volatility squeeze detection, ATR trailing stop bounds.
+- **Categorization:**
+  - **Data Engines:** Stock market data scanner and report generator (`upload_reports.py`).
+  - **Signal & Execution Logic:** Bollinger Band volatility squeeze & 20-bar high breakout triggers (`evaluate_volatility_breakout`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_quant_trading_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_QUANT_TRADING`.
+
+## Repo 059. Ashutosh0x/rust-finance
+- **Repository URL:** `https://github.com/Ashutosh0x/rust-finance`
+- **Magic Number:** `9100056`
+- **Architecture & System Design:** High-performance Rust quantitative finance workspace crates (`crates/pricing`, `crates/risk`, `crates/signals`).
+- **Categorization:**
+  - **Data Engines:** Fast market event bus and price ticks decoder.
+  - **Signal & Execution Logic:** Black-Scholes analytical option pricing and Delta calculation (`calculate_black_scholes`).
+  - **Risk Engineering:** Parametric Value-at-Risk (VaR) Monte Carlo risk bounds (`calculate_value_at_risk`), 0.05 INR price tick rounding, IST trading session validation.
+- **EQATS Integration Module:** `src/institutional_integrations/rust_finance_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `RUST_FINANCE`.
+
+## Repo 060. ashwanthkumar/Live-NSE-Stock
+- **Repository URL:** `https://github.com/ashwanthkumar/Live-NSE-Stock`
+- **Magic Number:** `9100057`
+- **Architecture & System Design:** Live NSE quote JSON parser and stock price percentage change tracker (`live_quote.js`).
+- **Categorization:**
+  - **Data Engines:** Live NSE HTTP/REST quote response parser (`parse_quote_response`).
+  - **Signal & Execution Logic:** Real-time stock price change percentage calculation (`p_change`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/live_nse_stock_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `LIVE_NSE_STOCK`.
+
+## Repo 061. athreysethumadhavan-finance/nse-var-dashboard
+- **Repository URL:** `https://github.com/athreysethumadhavan-finance/nse-var-dashboard`
+- **Magic Number:** `9100058`
+- **Architecture & System Design:** Portfolio Value-at-Risk (VaR) and Conditional VaR (Expected Shortfall) calculation dashboard (`var_dashboard.py`).
+- **Categorization:**
+  - **Data Engines:** Historical return distribution series transformer.
+  - **Signal & Execution Logic:** Historical VaR/CVaR cutoff calculation (`compute_historical_var`), Parametric Gaussian VaR (`compute_parametric_var`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_var_dashboard_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_VAR_DASHBOARD`.
+
+## Repo 062. atilaahmettaner/tradingview-mcp
+- **Repository URL:** `https://github.com/atilaahmettaner/tradingview-mcp`
+- **Magic Number:** `9100059`
+- **Architecture & System Design:** Model Context Protocol (MCP) server providing TradingView technical indicators and multi-indicator technical recommendation summary aggregation (`server.py`).
+- **Categorization:**
+  - **Data Engines:** TradingView quote and technical indicator payload parser.
+  - **Signal & Execution Logic:** Multi-indicator technical recommendation summary (`compute_technical_summary`) combining moving averages (SMA 10, SMA 20) and RSI overbought/oversold levels.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/tradingview_mcp_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `TRADINGVIEW_MCP`.
+
+## Repo 063. atrybyme/Open-Interest-NSE-Live-Analysis
+- **Repository URL:** `https://github.com/atrybyme/Open-Interest-NSE-Live-Analysis`
+- **Magic Number:** `9100060`
+- **Architecture & System Design:** Live Option Max Pain calculation, historical Open Interest histogram distribution (`historical_histogram.py`), and Put-Call Ratio (PCR) momentum calculation.
+- **Categorization:**
+  - **Data Engines:** Live options CSV data fetcher and histogram builder.
+  - **Signal & Execution Logic:** Option Max Pain calculation (`compute_max_pain`), PCR trend momentum evaluation (`analyze_pcr_momentum`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/open_interest_live_analysis_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `OPEN_INTEREST_LIVE_ANALYSIS`.
+
+## Repo 064. Atul-Anand-Jha/Time-Series-Forecast-NSEPy
+- **Repository URL:** `https://github.com/Atul-Anand-Jha/Time-Series-Forecast-NSEPy`
+- **Magic Number:** `9100061`
+- **Architecture & System Design:** Auto-Regressive (AR) time-series price forecasting and exponentially weighted moving average momentum prediction (`NSEPy=Part-1 and 2.ipynb`).
+- **Categorization:**
+  - **Data Engines:** NSEPy historical stock CSV ingestor (`infy_stock.csv`, `tcs_stock.csv`).
+  - **Signal & Execution Logic:** Auto-Regressive linear weight forecasting (`forecast_next_close`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/time_series_forecast_nsepy_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `TIME_SERIES_FORECAST_NSEPY`.
+
+## Repo 065. augmentalphawealth/Sectoral-Breadth-Dashboard
+- **Repository URL:** `https://github.com/augmentalphawealth/Sectoral-Breadth-Dashboard`
+- **Magic Number:** `9100062`
+- **Architecture & System Design:** Sectoral advance/decline breadth metrics and percentage of sector constituents trading above EMA 50 / EMA 200 moving averages.
+- **Categorization:**
+  - **Data Engines:** Multi-symbol sector constituent price matrix parser (`process_sector_constituents`).
+  - **Signal & Execution Logic:** Sector breadth calculation (`calculate_sector_breadth`), advance/decline ratio evaluation.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/sectoral_breadth_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `SECTORAL_BREADTH`.
+
+## Repo 066. avhz/RustQuant
+- **Repository URL:** `https://github.com/avhz/RustQuant`
+- **Magic Number:** `9100063`
+- **Architecture & System Design:** Quantitative finance library in Rust providing analytical option pricing (Black-Scholes), Heston stochastic volatility simulation, and Sharpe/Sortino portfolio risk metrics.
+- **Categorization:**
+  - **Data Engines:** High-performance stochastic path simulator (`simulate_heston_process`).
+  - **Signal & Execution Logic:** Analytical Black-Scholes call/put pricing (`black_scholes_price`), Heston stochastic volatility path simulation.
+  - **Risk Engineering:** Sharpe and Sortino downside risk calculations (`calculate_portfolio_risk_metrics`), 0.05 INR price tick rounding, IST trading session validation.
+- **EQATS Integration Module:** `src/institutional_integrations/rustquant_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `RUSTQUANT`.
+
+## Repo 067. avin1311/nse-bse-dashboard
+- **Repository URL:** `https://github.com/avin1311/nse-bse-dashboard`
+- **Magic Number:** `9100064`
+- **Architecture & System Design:** Multi-exchange quote aggregation (NSE & BSE) and dual-exchange price spread arbitrage evaluation.
+- **Categorization:**
+  - **Data Engines:** Multi-exchange quote response parser (`aggregate_quotes`).
+  - **Signal & Execution Logic:** Dual-exchange price spread arbitrage signal evaluation (`evaluate_arbitrage_spread`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_bse_dashboard_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_BSE_DASHBOARD`.
+
+## Repo 068. avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM
+- **Repository URL:** `https://github.com/avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM`
+- **Magic Number:** `9100065`
+- **Architecture & System Design:** Time-series sequence prediction for NSE stock closing prices using min-max scaling and weighted recurrent LSTM prediction.
+- **Categorization:**
+  - **Data Engines:** Closing price sequence scaler (`min_max_scale`).
+  - **Signal & Execution Logic:** LSTM sequence prediction (`predict_next_close`) and predicted change percentage signal generation.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_closing_lstm_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_CLOSING_LSTM`.
+
+## Repo 069. ayushmaanbhav/stockmart
+- **Repository URL:** `https://github.com/ayushmaanbhav/stockmart`
+- **Magic Number:** `9100066`
+- **Architecture & System Design:** Real-time stock trading platform and simulation engine in Rust (`backend/src/domain/trading/orderbook.rs`, `portfolio.rs`) providing limit orderbook matching and portfolio equity evaluation.
+- **Categorization:**
+  - **Data Engines:** Orderbook depth builder and portfolio position state tracker (`evaluate_portfolio_equity`).
+  - **Signal & Execution Logic:** Limit order matching engine (`add_limit_order`, `_match_orderbook`) matching top bids and asks.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/stockmart_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `STOCKMART`.
+
+## Repo 071. BarathGB007/nse-options-data-collector
+- **Repository URL:** `https://github.com/BarathGB007/nse-options-data-collector`
+- **Magic Number:** `9100068`
+- **Architecture & System Design:** Automated NSE options data collection and premarket gap analyzer (`collectors/oi_collector.py`, `premarket_collector.py`).
+- **Categorization:**
+  - **Data Engines:** Option chain Open Interest (OI) snapshot parser and premarket Indicative Equilibrium Price (IEP) fetcher (`process_oi_snapshot`).
+  - **Signal & Execution Logic:** Put-Call Ratio (PCR) market bias evaluation and premarket gap percentage classifier (`analyze_premarket_gap`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_options_data_collector_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_OPTIONS_DATA_COLLECTOR`.
+
+## Repo 074. beinghorizontal/BhavFnO
+- **Repository URL:** `https://github.com/beinghorizontal/BhavFnO`
+- **Magic Number:** `9100071`
+- **Architecture & System Design:** F&O Bhavcopy parser and monthly options expiry calculator (`def_expiry.py`, `main.py`).
+- **Categorization:**
+  - **Data Engines:** Monthly options expiry date generator with last Thursday/holiday shift adjustments (`calculate_monthly_expiries`).
+  - **Signal & Execution Logic:** CE/PE Open Interest aggregator and weighted Implied Volatility (IV) & Put-Call Ratio (PCR) evaluator (`compute_bhav_iv_pcr`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/bhavfno_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `BHAVFNO`.
+
+## Repo 075. benimward9621/advanced-nse-momentum-terminal
+- **Repository URL:** `https://github.com/benimward9621/advanced-nse-momentum-terminal`
+- **Magic Number:** `9100072`
+- **Architecture & System Design:** Browser-based research workspace and momentum terminal (`index.html`) providing Relative Strength screening, volatility-adjusted trend scoring, and ETF/sector heatmap analytics.
+- **Categorization:**
+  - **Data Engines:** Sector rotation and ETF heatmap payload processor.
+  - **Signal & Execution Logic:** Mansfield Relative Strength (RS) momentum score evaluator (`calculate_relative_strength`) and volatility-normalized trend detector (`compute_volatility_adjusted_trend`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/advanced_nse_momentum_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `ADVANCED_NSE_MOMENTUM`.
+
+## Repo 076. BennyThadikaran/eod2
+- **Repository URL:** `https://github.com/BennyThadikaran/eod2`
+- **Magic Number:** `9100073`
+- **Architecture & System Design:** End-of-Day technical charting and market breadth analyzer (`src/renderer/indicators.py`, `src/market_breadth_sync.py`).
+- **Categorization:**
+  - **Data Engines:** Daily CSV price loader and market breadth sync engine (`evaluate_market_breadth`).
+  - **Signal & Execution Logic:** Dorsey Relative Strength (`compute_dorsey_rs`) and Mansfield Relative Strength (`compute_mansfield_rs`) indicator calculators.
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/eod2_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `EOD2`.
+
+## Repo 078. BennyThadikaran/NseIndiaApi
+- **Repository URL:** `https://github.com/BennyThadikaran/NseIndiaApi`
+- **Magic Number:** `9100075`
+- **Architecture & System Design:** Python API wrapper and HTTP transport layer for NSE India exchange endpoints (`src/nse/NSE.py`, `src/nse/transport.py`).
+- **Categorization:**
+  - **Data Engines:** Live quote JSON response parser (`parse_quote_data`) and session cookie transport layer.
+  - **Signal & Execution Logic:** Bulk and block deal institutional accumulation/distribution imbalance analyzer (`analyze_bulk_deals`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/nse_india_api_benny_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NSE_INDIA_API_BENNY`.
+
+## Repo 082. blitzarx1/netstrat
+- **Repository URL:** `https://github.com/blitzarx1/netstrat`
+- **Magic Number:** `9100079`
+- **Architecture & System Design:** Network graph topology analyzer and synthetic market data generator in Rust (`src/widgets/net_props/graph/cycle.rs`, `src/netstrat/syntetic_data/dataset.rs`).
+- **Categorization:**
+  - **Data Engines:** Synthetic market dataset mesh resolution generator (`generate_synthetic_dataset`).
+  - **Signal & Execution Logic:** Market exchange network graph cycle and arbitrage path detector (`detect_graph_cycles`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/netstrat_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `NETSTRAT`.
+
+## Repo 083. bohr1005/xcrypto
+- **Repository URL:** `https://github.com/bohr1005/xcrypto`
+- **Magic Number:** `9100080`
+- **Architecture & System Design:** High-performance Rust & Python crypto spot/futures trading framework with Binance connectors, Chat interface, position tracking, and PyAlgo strategy engine (`xcrypto/src/rest.rs`, `xcrypto/src/ws.rs`, `xcrypto/pyalgo/src/lib.rs`).
+- **Categorization:**
+  - **Data Engines:** Binance spot and futures market data parser and WebSocket stream ingestor.
+  - **Signal & Execution Logic:** PyAlgo moving average crossover signal generator and position PnL evaluator (`evaluate_pyalgo_signal`).
+  - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
+- **EQATS Integration Module:** `src/institutional_integrations/xcrypto_engine.py`
+  - Registered in `IndianBrokerPluginRegistry` as `XCRYPTO`.

@@ -94,36 +94,36 @@
 - [ ] Aravin/nse-data
 - [ ] ArishHassan/nse-live_testing
 - [ ] arvchahal/kalshi-rs
-- [ ] asavinov/intelligent-trading-bot
+- [x] asavinov/intelligent-trading-bot
 - [ ] AshayK003/nse-sentiment-analyzer
 - [ ] ashgen/NSEDataAnalytics
-- [ ] ashishkumar30/Stock_Market_Live_Trading_using_AI
+- [x] ashishkumar30/Stock_Market_Live_Trading_using_AI
 - [ ] ashok-kollipara/options-oi
 - [ ] AshokKumar3502/nse-quant-trading
-- [ ] Ashutosh0x/rust-finance
-- [ ] ashwanthkumar/Live-NSE-Stock
-- [ ] athreysethumadhavan-finance/nse-var-dashboard
-- [ ] atilaahmettaner/tradingview-mcp
-- [ ] atrybyme/Open-Interest-NSE-Live-Analysis
-- [ ] Atul-Anand-Jha/Time-Series-Forecast-NSEPy
-- [ ] augmentalphawealth/Sectoral-Breadth-Dashboard
-- [ ] avhz/RustQuant
-- [ ] avin1311/nse-bse-dashboard
-- [ ] avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM
-- [ ] ayushmaanbhav/StockMart
-- [ ] Azhagesan-dev/OrderFlowMap
-- [ ] BarathGB007/nse-options-data-collector
-- [ ] BarathGB007/upstox-python-data
-- [ ] barter-rs/barter-rs
-- [ ] beinghorizontal/BhavFnO
-- [ ] benimward9621/advanced-nse-momentum-terminal
-- [ ] BennyThadikaran/eod2
-- [ ] BennyThadikaran/eod2_data
-- [ ] BennyThadikaran/NseIndiaApi
-- [ ] Bhala-Srinivash/nse-trading-skills
-- [ ] Bhumi008007/Stock_Prediction
-- [ ] bitbytelabio/tradingview-rs
-- [ ] blitzarx1/netstrat
+- [x] Ashutosh0x/rust-finance
+- [x] ashwanthkumar/Live-NSE-Stock
+- [x] athreysethumadhavan-finance/nse-var-dashboard
+- [x] atilaahmettaner/tradingview-mcp
+- [x] atrybyme/Open-Interest-NSE-Live-Analysis
+- [x] Atul-Anand-Jha/Time-Series-Forecast-NSEPy
+- [x] augmentalphawealth/Sectoral-Breadth-Dashboard
+- [x] avhz/RustQuant
+- [x] avin1311/nse-bse-dashboard
+- [x] avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM
+- [x] ayushmaanbhav/StockMart
+- [x] Azhagesan-dev/OrderFlowMap
+- [x] BarathGB007/nse-options-data-collector
+- [x] BarathGB007/upstox-python-data
+- [x] barter-rs/barter-rs
+- [x] beinghorizontal/BhavFnO
+- [x] benimward9621/advanced-nse-momentum-terminal
+- [x] BennyThadikaran/eod2
+- [x] BennyThadikaran/eod2_data
+- [x] BennyThadikaran/NseIndiaApi
+- [x] Bhala-Srinivash/nse-trading-skills
+- [x] Bhumi008007/Stock_Prediction
+- [x] bitbytelabio/tradingview-rs
+- [x] blitzarx1/netstrat
 - [ ] Bohr1005/xcrypto
 - [ ] braverock/nse
 - [ ] bshada/nse-bse-api
@@ -502,3 +502,83 @@
   - Multi-broker unified gateway router and automated session token refresher adapted into `src/institutional_integrations/algo_trade_aravin_engine.py`.
   - Registered in `IndianBrokerPluginRegistry` under `ALGO_TRADE_ARAVIN`.
   - Unit tests added to `tests/test_algo_trade_aravin_engine.py` with 100% pass rate.
+
+- [x] **Repo 050: Aravin/nse-data (Magic Number: 9100048)**
+  - Live equity quote parsing, option chain strike matrix extraction, and Put-Call Ratio (PCR) analytics adapted into `src/institutional_integrations/nse_data_aravin_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_DATA_ARAVIN`.
+  - Unit tests added to `tests/test_nse_data_aravin_engine.py` with 100% pass rate.
+
+- [x] **Repo 059: Ashutosh0x/rust-finance (Magic Number: 9100056)**
+  - Black-Scholes analytical option pricing and Monte Carlo Value-at-Risk (VaR) calculations adapted into `src/institutional_integrations/rust_finance_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `RUST_FINANCE`.
+  - Unit tests added to `tests/test_rust_finance_engine.py` with 100% pass rate.
+
+- [x] **Repo 060: ashwanthkumar/Live-NSE-Stock (Magic Number: 9100057)**
+  - Live NSE quote JSON parsing and percentage price change tracking adapted into `src/institutional_integrations/live_nse_stock_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `LIVE_NSE_STOCK`.
+  - Unit tests added to `tests/test_live_nse_stock_engine.py` with 100% pass rate.
+
+- [x] **Repo 061: athreysethumadhavan-finance/nse-var-dashboard (Magic Number: 9100058)**
+  - Historical, Parametric, and Conditional VaR (Expected Shortfall) portfolio tail risk calculations adapted into `src/institutional_integrations/nse_var_dashboard_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_VAR_DASHBOARD`.
+  - Unit tests added to `tests/test_nse_var_dashboard_engine.py` with 100% pass rate.
+
+- [x] **Repo 062: atilaahmettaner/tradingview-mcp (Magic Number: 9100059)**
+  - Model Context Protocol (MCP) technical analysis and TradingView-style recommendation summary aggregation adapted into `src/institutional_integrations/tradingview_mcp_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `TRADINGVIEW_MCP`.
+  - Unit tests added to `tests/test_tradingview_mcp_engine.py` with 100% pass rate.
+
+- [x] **Repo 082: blitzarx1/netstrat (Magic Number: 9100079)**
+  - Network graph cycle detection, synthetic dataset generation with derivative mesh resolution adapted into `src/institutional_integrations/netstrat_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NETSTRAT`.
+  - Unit tests added to `tests/test_netstrat_engine.py` with 100% pass rate.
+
+- [x] **Repo 063: atrybyme/Open-Interest-NSE-Live-Analysis (Magic Number: 9100060)**
+  - Live Option Max Pain calculation, historical Open Interest histogram distribution, Put-Call Ratio (PCR) momentum calculation adapted into `src/institutional_integrations/open_interest_live_analysis_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `OPEN_INTEREST_LIVE_ANALYSIS`.
+  - Unit tests added to `tests/test_open_interest_live_analysis_engine.py` with 100% pass rate.
+
+- [x] **Repo 064: Atul-Anand-Jha/Time-Series-Forecast-NSEPy (Magic Number: 9100061)**
+  - Auto-Regressive (AR) time-series forecasting, exponentially weighted moving average momentum prediction adapted into `src/institutional_integrations/time_series_forecast_nsepy_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `TIME_SERIES_FORECAST_NSEPY`.
+  - Unit tests added to `tests/test_time_series_forecast_nsepy_engine.py` with 100% pass rate.
+
+- [x] **Repo 056: ashishkumar30/Stock_Market_Live_Trading_using_AI (Magic Number: 9100053)**
+  - Guppy Multiple Moving Average (GMMA) trend scoring, Heikin-Ashi candle transformation, and RSI momentum break triggers adapted into `src/institutional_integrations/ai_stock_live_trader_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `AI_STOCK_LIVE_TRADER`.
+  - Unit tests added to `tests/test_ai_stock_live_trader_engine.py` with 100% pass rate.
+
+- [x] **Repo 053: asavinov/intelligent-trading-bot (Magic Number: 9100051)**
+  - Machine learning time-series feature engineering, rolling mean return/volatility metrics, and logistic trend probability classification adapted into `src/institutional_integrations/intelligent_trading_bot_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `INTELLIGENT_TRADING_BOT`.
+  - Unit tests added to `tests/test_intelligent_trading_bot_engine.py` with 100% pass rate.
+
+- [x] **Repo 065: augmentalphawealth/Sectoral-Breadth-Dashboard (Magic Number: 9100062)**
+  - Sectoral advance/decline breadth metrics and percentage of sector constituents trading above moving averages adapted into `src/institutional_integrations/sectoral_breadth_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `SECTORAL_BREADTH`.
+  - Unit tests added to `tests/test_sectoral_breadth_engine.py` with 100% pass rate.
+
+- [x] **Repo 066: avhz/RustQuant (Magic Number: 9100063)**
+  - Analytical Black-Scholes pricing, Heston stochastic volatility simulation, Sharpe/Sortino risk metrics adapted into `src/institutional_integrations/rustquant_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `RUSTQUANT`.
+  - Unit tests added to `tests/test_rustquant_engine.py` with 100% pass rate.
+
+- [x] **Repo 067: avin1311/nse-bse-dashboard (Magic Number: 9100064)**
+  - Multi-exchange quote aggregation (NSE & BSE) and dual-exchange price spread arbitrage evaluation adapted into `src/institutional_integrations/nse_bse_dashboard_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_BSE_DASHBOARD`.
+  - Unit tests added to `tests/test_nse_bse_dashboard_engine.py` with 100% pass rate.
+
+- [x] **Repo 068: avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM (Magic Number: 9100065)**
+  - Min-Max scaling, LSTM sequence prediction, and predicted change percentage signal generation adapted into `src/institutional_integrations/nse_closing_lstm_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_CLOSING_LSTM`.
+  - Unit tests added to `tests/test_nse_closing_lstm_engine.py` with 100% pass rate.
+
+- [x] **Repo 069: ayushmaanbhav/StockMart (Magic Number: 9100066)**
+  - Limit orderbook matching, portfolio position valuation, 0.05 INR price tick rounding, IST trading session validation adapted into `src/institutional_integrations/stockmart_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `STOCKMART`.
+  - Unit tests added to `tests/test_stockmart_engine.py` with 100% pass rate.
+
+- [x] **Repo 083: bohr1005/xcrypto (Magic Number: 9100080)**
+  - Crypto spot/futures trading, PyAlgo moving average crossover signal evaluation, order routing, position PnL tracking, 0.05 INR tick rounding, IST trading session validation adapted into `src/institutional_integrations/xcrypto_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `XCRYPTO`.
+  - Unit tests added to `tests/test_xcrypto_engine.py` with 100% pass rate.
