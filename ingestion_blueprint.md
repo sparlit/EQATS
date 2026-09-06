@@ -436,3 +436,4 @@
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/718 | 2026-09-06T09:47:34.714Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/724 | 2026-09-06T09:49:02.621Z |
 | 140 | girishg4t/bhavCopy-downloader | https://github.com/sparlit/EQATS/pull/1009 | https://github.com/sparlit/EQATS/issues/1010 | 2026-09-06T11:06:30.489Z |
+| 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1038 | 2026-09-06T11:15:18.936Z |
