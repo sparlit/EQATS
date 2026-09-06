@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 55 | AshokKumar3502/nse-quant-trading | https://github.com/sparlit/EQATS/pull/662 | https://github.com/sparlit/EQATS/issues/663 | 2026-09-06T09:26:49.848Z |
 | 55 | AshokKumar3502/nse-quant-trading |  | https://github.com/sparlit/EQATS/issues/665 | 2026-09-06T09:27:54.992Z |
+| 55 | AshokKumar3502/nse-quant-trading |  | https://github.com/sparlit/EQATS/issues/682 | 2026-09-06T09:33:19.061Z |
