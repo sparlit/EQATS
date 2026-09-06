@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 125 | ekanshsinghal/indian-stock-market | https://github.com/sparlit/EQATS/pull/941 | https://github.com/sparlit/EQATS/issues/942 | 2026-09-06T10:44:26.185Z |
 | 125 | ekanshsinghal/indian-stock-market |  | https://github.com/sparlit/EQATS/issues/967 | 2026-09-06T10:52:29.581Z |
+| 125 | ekanshsinghal/indian-stock-market |  | https://github.com/sparlit/EQATS/issues/983 | 2026-09-06T10:59:22.249Z |
