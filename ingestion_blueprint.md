@@ -397,3 +397,4 @@
   - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
 - **EQATS Integration Module:** `src/institutional_integrations/xcrypto_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `XCRYPTO`.
+| 8 | aaryansinha16/AI-trader | https://github.com/sparlit/EQATS/pull/560 | https://github.com/sparlit/EQATS/issues/561 | 2026-09-06T08:13:12.693Z |
