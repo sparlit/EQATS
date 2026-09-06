@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 213 | manishn32/option_chain_analyzer | https://github.com/sparlit/EQATS/pull/1298 | https://github.com/sparlit/EQATS/issues/1299 | 2026-09-06T12:33:44.441Z |
+| 213 | manishn32/option_chain_analyzer |  | https://github.com/sparlit/EQATS/issues/1306 | 2026-09-06T12:36:05.156Z |
