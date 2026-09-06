@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 149 | HawkEyeCoding/nse-oi-analysis | https://github.com/sparlit/EQATS/pull/1066 | https://github.com/sparlit/EQATS/issues/1067 | 2026-09-06T11:22:33.670Z |
+| 149 | HawkEyeCoding/nse-oi-analysis |  | https://github.com/sparlit/EQATS/issues/1079 | 2026-09-06T11:28:05.862Z |
