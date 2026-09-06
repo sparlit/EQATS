@@ -433,3 +433,4 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 46 | Aravin/Algo-Trade | https://github.com/sparlit/EQATS/pull/633 | https://github.com/sparlit/EQATS/issues/634 | 2026-09-06T09:10:51.485Z |
+| 70 | barter-rs/barter-rs | https://github.com/sparlit/EQATS/pull/730 | https://github.com/sparlit/EQATS/issues/731 | 2026-09-06T09:50:55.640Z |
