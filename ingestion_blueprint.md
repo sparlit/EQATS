@@ -430,3 +430,4 @@
 | 32 | amitashwinibhagat/nse-swing-scanner | https://github.com/sparlit/EQATS/pull/601 | https://github.com/sparlit/EQATS/issues/602 | 2026-09-06T08:55:46.395Z |
 | 34 | Aneesh540/VSE | https://github.com/sparlit/EQATS/pull/605 | https://github.com/sparlit/EQATS/issues/606 | 2026-09-06T08:57:51.161Z |
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
+| 37 | anjulgarg/sharewatch |  | https://github.com/sparlit/EQATS/issues/622 | 2026-09-06T09:03:33.577Z |
