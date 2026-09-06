@@ -438,3 +438,4 @@
 | 256 | Nitin-Bhawarkar/NSE_Livedata_from_excel_extraction | https://github.com/sparlit/EQATS/pull/1450 | https://github.com/sparlit/EQATS/issues/1451 | 2026-09-06T13:26:06.964Z |
 | 256 | Nitin-Bhawarkar/NSE_Livedata_from_excel_extraction |  | https://github.com/sparlit/EQATS/issues/1499 | 2026-09-06T13:40:02.357Z |
 | 256 | Nitin-Bhawarkar/NSE_Livedata_from_excel_extraction |  | https://github.com/sparlit/EQATS/issues/1522 | 2026-09-06T13:47:30.003Z |
+| 256 | Nitin-Bhawarkar/NSE_Livedata_from_excel_extraction |  | https://github.com/sparlit/EQATS/issues/1565 | 2026-09-06T14:01:39.606Z |
