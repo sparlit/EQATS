@@ -427,6 +427,6 @@
 | 27 | algotrading-lab/ai-algotrading-agent | https://github.com/sparlit/EQATS/pull/592 | https://github.com/sparlit/EQATS/issues/593 | 2026-09-06T08:48:40.345Z |
 | 31 | Ameobea/tickgrinder | https://github.com/sparlit/EQATS/pull/596 | https://github.com/sparlit/EQATS/issues/597 | 2026-09-06T08:52:59.618Z |
 | 31 | Ameobea/tickgrinder |  | https://github.com/sparlit/EQATS/issues/600 | 2026-09-06T08:53:58.016Z |
-| 33 | amv-dev/yata | https://github.com/sparlit/EQATS/pull/603 | https://github.com/sparlit/EQATS/issues/604 | 2026-09-06T08:56:56.699Z |
-| 33 | amv-dev/yata |  | https://github.com/sparlit/EQATS/issues/607 | 2026-09-06T08:58:08.036Z |
-| 37 | anjulgarg/sharewatch | https://github.com/sparlit/EQATS/pull/612 | https://github.com/sparlit/EQATS/issues/613 | 2026-09-06T09:00:01.168Z |
+| 32 | amitashwinibhagat/nse-swing-scanner | https://github.com/sparlit/EQATS/pull/601 | https://github.com/sparlit/EQATS/issues/602 | 2026-09-06T08:55:46.395Z |
+| 34 | Aneesh540/VSE | https://github.com/sparlit/EQATS/pull/605 | https://github.com/sparlit/EQATS/issues/606 | 2026-09-06T08:57:51.161Z |
+| 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
