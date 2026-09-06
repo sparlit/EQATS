@@ -436,3 +436,4 @@
 | 125 | ekanshsinghal/indian-stock-market | https://github.com/sparlit/EQATS/pull/941 | https://github.com/sparlit/EQATS/issues/942 | 2026-09-06T10:44:26.185Z |
 | 125 | ekanshsinghal/indian-stock-market |  | https://github.com/sparlit/EQATS/issues/967 | 2026-09-06T10:52:29.581Z |
 | 125 | ekanshsinghal/indian-stock-market |  | https://github.com/sparlit/EQATS/issues/983 | 2026-09-06T10:59:22.249Z |
+| 125 | ekanshsinghal/indian-stock-market |  | https://github.com/sparlit/EQATS/issues/992 | 2026-09-06T11:00:46.214Z |
