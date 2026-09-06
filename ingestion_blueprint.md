@@ -435,3 +435,4 @@
 | 40 | anshulk/nse |  | https://github.com/sparlit/EQATS/issues/632 | 2026-09-06T09:10:15.931Z |
 | 76 | Bhala-Srinivash/nse-trading-skills | https://github.com/sparlit/EQATS/pull/732 | https://github.com/sparlit/EQATS/issues/733 | 2026-09-06T09:51:04.611Z |
 | 76 | Bhala-Srinivash/nse-trading-skills |  | https://github.com/sparlit/EQATS/issues/754 | 2026-09-06T09:56:55.237Z |
+| 76 | Bhala-Srinivash/nse-trading-skills |  | https://github.com/sparlit/EQATS/issues/756 | 2026-09-06T09:58:00.434Z |
