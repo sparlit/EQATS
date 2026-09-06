@@ -3,5 +3,5 @@
 // via its unified REST/WebSocket API using a generic HTTP client. This module provides a placeholder
 // for future FFI or code-generation bindings.
 
-#[cfg(false)]
+#[allow(dead_code)]
 fn placeholder() {}
