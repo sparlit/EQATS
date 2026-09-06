@@ -438,3 +438,4 @@
 | 249 | neha01/Automate-Scrap-Nse-Data | https://github.com/sparlit/EQATS/pull/1430 | https://github.com/sparlit/EQATS/issues/1431 | 2026-09-06T13:18:04.520Z |
 | 249 | neha01/Automate-Scrap-Nse-Data |  | https://github.com/sparlit/EQATS/issues/1463 | 2026-09-06T13:31:09.471Z |
 | 249 | neha01/Automate-Scrap-Nse-Data |  | https://github.com/sparlit/EQATS/issues/1476 | 2026-09-06T13:34:35.154Z |
+| 249 | neha01/Automate-Scrap-Nse-Data |  | https://github.com/sparlit/EQATS/issues/1531 | 2026-09-06T13:50:24.312Z |
