@@ -438,3 +438,4 @@
 | 152 | henry-richard7/NSE-Tool-Stocks-Aerial-View | https://github.com/sparlit/EQATS/pull/1049 | https://github.com/sparlit/EQATS/issues/1050 | 2026-09-06T11:17:43.393Z |
 | 152 | henry-richard7/NSE-Tool-Stocks-Aerial-View |  | https://github.com/sparlit/EQATS/issues/1080 | 2026-09-06T11:29:08.139Z |
 | 152 | henry-richard7/NSE-Tool-Stocks-Aerial-View |  | https://github.com/sparlit/EQATS/issues/1088 | 2026-09-06T11:30:55.022Z |
+| 152 | henry-richard7/NSE-Tool-Stocks-Aerial-View |  | https://github.com/sparlit/EQATS/issues/1096 | 2026-09-06T11:32:39.164Z |
