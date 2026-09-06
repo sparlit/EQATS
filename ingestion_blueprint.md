@@ -436,3 +436,4 @@
 | 109 | deepentropy/ibx | https://github.com/sparlit/EQATS/pull/869 | https://github.com/sparlit/EQATS/issues/870 | 2026-09-06T10:23:02.235Z |
 | 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/896 | 2026-09-06T10:31:06.115Z |
 | 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/914 | 2026-09-06T10:35:28.673Z |
+| 109 | deepentropy/ibx |  | https://github.com/sparlit/EQATS/issues/917 | 2026-09-06T10:36:30.980Z |
