@@ -438,3 +438,4 @@
 | 170 | Itsnrk1/nse-scanner | https://github.com/sparlit/EQATS/pull/1118 | https://github.com/sparlit/EQATS/issues/1119 | 2026-09-06T11:42:14.374Z |
 | 170 | Itsnrk1/nse-scanner |  | https://github.com/sparlit/EQATS/issues/1156 | 2026-09-06T11:51:29.076Z |
 | 170 | Itsnrk1/nse-scanner |  | https://github.com/sparlit/EQATS/issues/1159 | 2026-09-06T11:53:22.413Z |
+| 170 | Itsnrk1/nse-scanner |  | https://github.com/sparlit/EQATS/issues/1168 | 2026-09-06T11:56:15.632Z |
