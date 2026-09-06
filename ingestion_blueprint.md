@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 255 | nirholas/pump-fun-sdk | https://github.com/sparlit/EQATS/pull/1445 | https://github.com/sparlit/EQATS/issues/1446 | 2026-09-06T13:24:26.281Z |
+| 255 | nirholas/pump-fun-sdk |  | https://github.com/sparlit/EQATS/issues/1495 | 2026-09-06T13:39:26.932Z |
