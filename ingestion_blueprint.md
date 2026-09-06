@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 121 | edison7009/EchoBird | https://github.com/sparlit/EQATS/pull/925 | https://github.com/sparlit/EQATS/issues/926 | 2026-09-06T10:39:40.078Z |
+| 121 | edison7009/EchoBird |  | https://github.com/sparlit/EQATS/issues/956 | 2026-09-06T10:49:01.998Z |
