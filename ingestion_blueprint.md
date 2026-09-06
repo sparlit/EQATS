@@ -438,3 +438,4 @@
 | 142 | GirishKumarDV/Live-NSE-BSE-MCP | https://github.com/sparlit/EQATS/pull/1018 | https://github.com/sparlit/EQATS/issues/1019 | 2026-09-06T11:09:15.984Z |
 | 142 | GirishKumarDV/Live-NSE-BSE-MCP |  | https://github.com/sparlit/EQATS/issues/1045 | 2026-09-06T11:16:21.956Z |
 | 142 | GirishKumarDV/Live-NSE-BSE-MCP |  | https://github.com/sparlit/EQATS/issues/1057 | 2026-09-06T11:19:03.113Z |
+| 142 | GirishKumarDV/Live-NSE-BSE-MCP |  | https://github.com/sparlit/EQATS/issues/1063 | 2026-09-06T11:21:39.134Z |
