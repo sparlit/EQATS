@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 247 | NayakwadiS/mftool | https://github.com/sparlit/EQATS/pull/1455 | https://github.com/sparlit/EQATS/issues/1456 | 2026-09-06T13:28:02.979Z |
 | 247 | NayakwadiS/mftool |  | https://github.com/sparlit/EQATS/issues/1461 | 2026-09-06T13:29:57.343Z |
+| 247 | NayakwadiS/mftool |  | https://github.com/sparlit/EQATS/issues/1524 | 2026-09-06T13:48:47.914Z |
