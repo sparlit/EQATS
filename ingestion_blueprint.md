@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 53 | ashishkumar30/Stock_Market_Live_Trading_using_AI | https://github.com/sparlit/EQATS/pull/649 | https://github.com/sparlit/EQATS/issues/650 | 2026-09-06T09:25:03.234Z |
 | 53 | ashishkumar30/Stock_Market_Live_Trading_using_AI |  | https://github.com/sparlit/EQATS/issues/661 | 2026-09-06T09:26:40.652Z |
+| 53 | ashishkumar30/Stock_Market_Live_Trading_using_AI |  | https://github.com/sparlit/EQATS/issues/674 | 2026-09-06T09:31:57.968Z |
