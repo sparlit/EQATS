@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 96 | Clayborninconsistent906/Indian-Stock-Market-API | https://github.com/sparlit/EQATS/pull/821 | https://github.com/sparlit/EQATS/issues/822 | 2026-09-06T10:14:45.995Z |
 | 96 | Clayborninconsistent906/Indian-Stock-Market-API |  | https://github.com/sparlit/EQATS/issues/838 | 2026-09-06T10:18:01.909Z |
+| 96 | Clayborninconsistent906/Indian-Stock-Market-API |  | https://github.com/sparlit/EQATS/issues/863 | 2026-09-06T10:21:47.271Z |
