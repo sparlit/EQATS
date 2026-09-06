@@ -438,3 +438,4 @@
 | 266 | parthsamani/NSEstockF-OAlert | https://github.com/sparlit/EQATS/pull/1502 | https://github.com/sparlit/EQATS/issues/1503 | 2026-09-06T13:40:23.861Z |
 | 266 | parthsamani/NSEstockF-OAlert |  | https://github.com/sparlit/EQATS/issues/1538 | 2026-09-06T13:54:02.132Z |
 | 266 | parthsamani/NSEstockF-OAlert |  | https://github.com/sparlit/EQATS/issues/1576 | 2026-09-06T14:04:39.688Z |
+| 266 | parthsamani/NSEstockF-OAlert |  | https://github.com/sparlit/EQATS/issues/1594 | 2026-09-06T14:11:22.532Z |
