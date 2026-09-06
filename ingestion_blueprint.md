@@ -433,7 +433,6 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 102 | cyberomin/NSEFinance-Python | https://github.com/sparlit/EQATS/pull/835 | https://github.com/sparlit/EQATS/issues/836 | 2026-09-06T10:17:39.504Z |
-| 102 | cyberomin/NSEFinance-Python |  | https://github.com/sparlit/EQATS/issues/868 | 2026-09-06T10:23:00.815Z |
-| 102 | cyberomin/NSEFinance-Python |  | https://github.com/sparlit/EQATS/issues/892 | 2026-09-06T10:28:51.911Z |
-| 102 | cyberomin/NSEFinance-Python |  | https://github.com/sparlit/EQATS/issues/894 | 2026-09-06T10:29:50.472Z |
+| 103 | d-e-s-o/apcacli | https://github.com/sparlit/EQATS/pull/841 | https://github.com/sparlit/EQATS/issues/842 | 2026-09-06T10:18:23.079Z |
+| 103 | d-e-s-o/apcacli |  | https://github.com/sparlit/EQATS/issues/873 | 2026-09-06T10:24:00.234Z |
+| 103 | d-e-s-o/apcacli |  | https://github.com/sparlit/EQATS/issues/893 | 2026-09-06T10:29:15.287Z |
