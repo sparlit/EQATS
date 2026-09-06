@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 174 | jerryshell/midas | https://github.com/sparlit/EQATS/pull/1140 | https://github.com/sparlit/EQATS/issues/1141 | 2026-09-06T11:47:48.958Z |
 | 174 | jerryshell/midas |  | https://github.com/sparlit/EQATS/issues/1167 | 2026-09-06T11:56:06.406Z |
+| 174 | jerryshell/midas |  | https://github.com/sparlit/EQATS/issues/1184 | 2026-09-06T12:01:16.550Z |
