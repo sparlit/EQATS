@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 295 | RajeshSivadasan/alice-blue-futures | https://github.com/sparlit/EQATS/pull/1615 | https://github.com/sparlit/EQATS/issues/1616 | 2026-09-06T14:16:24.735Z |
+| 295 | RajeshSivadasan/alice-blue-futures |  | https://github.com/sparlit/EQATS/issues/1654 | 2026-09-06T14:32:27.680Z |
