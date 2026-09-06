@@ -438,3 +438,4 @@
 | 209 | manavgupta83/nse-factor-engine | https://github.com/sparlit/EQATS/pull/1286 | https://github.com/sparlit/EQATS/issues/1287 | 2026-09-06T12:30:40.888Z |
 | 209 | manavgupta83/nse-factor-engine |  | https://github.com/sparlit/EQATS/issues/1294 | 2026-09-06T12:32:40.736Z |
 | 209 | manavgupta83/nse-factor-engine |  | https://github.com/sparlit/EQATS/issues/1325 | 2026-09-06T12:42:40.184Z |
+| 209 | manavgupta83/nse-factor-engine |  | https://github.com/sparlit/EQATS/issues/1337 | 2026-09-06T12:48:24.626Z |
