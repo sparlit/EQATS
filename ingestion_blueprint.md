@@ -438,3 +438,4 @@
 | 226 | Meetnepali/market-platform | https://github.com/sparlit/EQATS/pull/1356 | https://github.com/sparlit/EQATS/issues/1357 | 2026-09-06T12:54:59.399Z |
 | 226 | Meetnepali/market-platform |  | https://github.com/sparlit/EQATS/issues/1368 | 2026-09-06T12:58:42.734Z |
 | 226 | Meetnepali/market-platform |  | https://github.com/sparlit/EQATS/issues/1384 | 2026-09-06T13:04:10.289Z |
+| 226 | Meetnepali/market-platform |  | https://github.com/sparlit/EQATS/issues/1414 | 2026-09-06T13:14:07.688Z |
