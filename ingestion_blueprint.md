@@ -436,3 +436,4 @@
 | 136 | ganeshbiyer/Nse_Historical_Data | https://github.com/sparlit/EQATS/pull/991 | https://github.com/sparlit/EQATS/issues/993 | 2026-09-06T11:00:48.311Z |
 | 136 | ganeshbiyer/Nse_Historical_Data |  | https://github.com/sparlit/EQATS/issues/1017 | 2026-09-06T11:08:48.789Z |
 | 136 | ganeshbiyer/Nse_Historical_Data |  | https://github.com/sparlit/EQATS/issues/1027 | 2026-09-06T11:12:33.868Z |
+| 136 | ganeshbiyer/Nse_Historical_Data |  | https://github.com/sparlit/EQATS/issues/1028 | 2026-09-06T11:13:02.718Z |
