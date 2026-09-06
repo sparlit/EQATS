@@ -433,7 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- | https://github.com/sparlit/EQATS/pull/798 | https://github.com/sparlit/EQATS/issues/799 | 2026-09-06T10:10:20.290Z |
-| 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/818 | 2026-09-06T10:13:45.313Z |
-| 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/839 | 2026-09-06T10:18:02.396Z |
-| 91 | chauhanramkeval-blip/Nse-stock-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/852 | 2026-09-06T10:19:47.631Z |
+| 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- | https://github.com/sparlit/EQATS/pull/801 | https://github.com/sparlit/EQATS/issues/802 | 2026-09-06T10:10:34.481Z |
+| 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/819 | 2026-09-06T10:14:03.172Z |
+| 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/840 | 2026-09-06T10:18:18.190Z |
+| 92 | chauhanramkeval-blip/NSE-stock-market-bulk-deals- |  | https://github.com/sparlit/EQATS/issues/856 | 2026-09-06T10:20:06.453Z |
