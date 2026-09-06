@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 219 | MathisWellmann/lfest-rs | https://github.com/sparlit/EQATS/pull/1327 | https://github.com/sparlit/EQATS/issues/1328 | 2026-09-06T12:43:12.418Z |
 | 219 | MathisWellmann/lfest-rs |  | https://github.com/sparlit/EQATS/issues/1336 | 2026-09-06T12:48:10.005Z |
+| 219 | MathisWellmann/lfest-rs |  | https://github.com/sparlit/EQATS/issues/1374 | 2026-09-06T12:59:57.990Z |
