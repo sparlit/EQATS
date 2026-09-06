@@ -433,6 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 49 | arvchahal/kalshi-rs | https://github.com/sparlit/EQATS/pull/657 | https://github.com/sparlit/EQATS/issues/658 | 2026-09-06T09:25:36.449Z |
-| 80 | Bohr1005/xcrypto | https://github.com/sparlit/EQATS/pull/761 | https://github.com/sparlit/EQATS/issues/762 | 2026-09-06T10:00:14.472Z |
-| 80 | Bohr1005/xcrypto |  | https://github.com/sparlit/EQATS/issues/776 | 2026-09-06T10:06:32.996Z |
-| 80 | Bohr1005/xcrypto |  | https://github.com/sparlit/EQATS/issues/791 | 2026-09-06T10:09:29.846Z |
+| 81 | braverock/nse | https://github.com/sparlit/EQATS/pull/763 | https://github.com/sparlit/EQATS/issues/764 | 2026-09-06T10:00:18.375Z |
+| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/766 | 2026-09-06T10:01:18.108Z |
+| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/779 | 2026-09-06T10:07:22.234Z |
+| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/797 | 2026-09-06T10:10:14.386Z |
