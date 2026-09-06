@@ -433,6 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 99 | crazygirl437/hyper-grid | https://github.com/sparlit/EQATS/pull/825 | https://github.com/sparlit/EQATS/issues/826 | 2026-09-06T10:15:41.077Z |
-| 99 | crazygirl437/hyper-grid |  | https://github.com/sparlit/EQATS/issues/857 | 2026-09-06T10:20:17.515Z |
-| 99 | crazygirl437/hyper-grid |  | https://github.com/sparlit/EQATS/issues/885 | 2026-09-06T10:26:46.347Z |
+| 101 | cutupdev/Solana-Copytrading-bot | https://github.com/sparlit/EQATS/pull/830 | https://github.com/sparlit/EQATS/issues/831 | 2026-09-06T10:16:47.755Z |
+| 101 | cutupdev/Solana-Copytrading-bot |  | https://github.com/sparlit/EQATS/issues/867 | 2026-09-06T10:22:39.733Z |
+| 101 | cutupdev/Solana-Copytrading-bot |  | https://github.com/sparlit/EQATS/issues/890 | 2026-09-06T10:28:09.611Z |
+| 101 | cutupdev/Solana-Copytrading-bot |  | https://github.com/sparlit/EQATS/issues/891 | 2026-09-06T10:28:24.404Z |
