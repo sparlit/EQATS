@@ -438,3 +438,4 @@
 | 293 | rajaramsrinivas/GetNSEStockPrice | https://github.com/sparlit/EQATS/pull/1611 | https://github.com/sparlit/EQATS/issues/1612 | 2026-09-06T14:15:36.387Z |
 | 293 | rajaramsrinivas/GetNSEStockPrice |  | https://github.com/sparlit/EQATS/issues/1651 | 2026-09-06T14:31:01.556Z |
 | 293 | rajaramsrinivas/GetNSEStockPrice |  | https://github.com/sparlit/EQATS/issues/1693 | 2026-09-06T14:51:05.846Z |
+| 293 | rajaramsrinivas/GetNSEStockPrice |  | https://github.com/sparlit/EQATS/issues/1724 | 2026-09-06T14:59:09.999Z |
