@@ -432,8 +432,10 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 49 | arvchahal/kalshi-rs | https://github.com/sparlit/EQATS/pull/657 | https://github.com/sparlit/EQATS/issues/658 | 2026-09-06T09:25:36.449Z |
-| 81 | braverock/nse | https://github.com/sparlit/EQATS/pull/763 | https://github.com/sparlit/EQATS/issues/764 | 2026-09-06T10:00:18.375Z |
-| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/766 | 2026-09-06T10:01:18.108Z |
-| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/779 | 2026-09-06T10:07:22.234Z |
-| 81 | braverock/nse |  | https://github.com/sparlit/EQATS/issues/797 | 2026-09-06T10:10:14.386Z |
+| 57 | ashwanthkumar/Live-NSE-Stock | https://github.com/sparlit/EQATS/pull/669 | https://github.com/sparlit/EQATS/issues/670 | 2026-09-06T09:29:03.383Z |
+| 57 | ashwanthkumar/Live-NSE-Stock |  | https://github.com/sparlit/EQATS/issues/689 | 2026-09-06T09:34:25.712Z |
+| 57 | ashwanthkumar/Live-NSE-Stock |  | https://github.com/sparlit/EQATS/issues/701 | 2026-09-06T09:40:22.226Z |
+| 82 | bshada/nse-bse-api | https://github.com/sparlit/EQATS/pull/768 | https://github.com/sparlit/EQATS/issues/769 | 2026-09-06T10:02:25.755Z |
+| 82 | bshada/nse-bse-api |  | https://github.com/sparlit/EQATS/issues/770 | 2026-09-06T10:03:48.368Z |
+| 82 | bshada/nse-bse-api |  | https://github.com/sparlit/EQATS/issues/785 | 2026-09-06T10:08:27.169Z |
+| 82 | bshada/nse-bse-api |  | https://github.com/sparlit/EQATS/issues/807 | 2026-09-06T10:11:28.130Z |
