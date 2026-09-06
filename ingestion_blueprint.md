@@ -434,3 +434,4 @@
 | 47 | Aravin/nse-data | https://github.com/sparlit/EQATS/pull/638 | https://github.com/sparlit/EQATS/issues/639 | 2026-09-06T09:14:03.816Z |
 | 47 | Aravin/nse-data |  | https://github.com/sparlit/EQATS/issues/648 | 2026-09-06T09:24:29.073Z |
 | 72 | benimward9621/advanced-nse-momentum-terminal | https://github.com/sparlit/EQATS/pull/742 | https://github.com/sparlit/EQATS/issues/743 | 2026-09-06T09:52:45.192Z |
+| 72 | benimward9621/advanced-nse-momentum-terminal |  | https://github.com/sparlit/EQATS/issues/752 | 2026-09-06T09:55:14.005Z |
