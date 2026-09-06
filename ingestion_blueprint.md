@@ -438,3 +438,4 @@
 | 210 | mandarl/nsedata | https://github.com/sparlit/EQATS/pull/1290 | https://github.com/sparlit/EQATS/issues/1291 | 2026-09-06T12:31:25.545Z |
 | 210 | mandarl/nsedata |  | https://github.com/sparlit/EQATS/issues/1297 | 2026-09-06T12:33:33.977Z |
 | 210 | mandarl/nsedata |  | https://github.com/sparlit/EQATS/issues/1329 | 2026-09-06T12:43:18.978Z |
+| 210 | mandarl/nsedata |  | https://github.com/sparlit/EQATS/issues/1339 | 2026-09-06T12:49:09.133Z |
