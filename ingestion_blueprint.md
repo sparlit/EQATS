@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 215 | mapsx/nse | https://github.com/sparlit/EQATS/pull/1322 | https://github.com/sparlit/EQATS/issues/1323 | 2026-09-06T12:42:30.981Z |
+| 215 | mapsx/nse |  | https://github.com/sparlit/EQATS/issues/1350 | 2026-09-06T12:52:35.889Z |
