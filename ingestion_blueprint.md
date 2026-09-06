@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | https://github.com/sparlit/EQATS/pull/854 | https://github.com/sparlit/EQATS/issues/855 | 2026-09-06T10:20:04.662Z |
+| 106 | daydy-dev/moon-dev-ai-agents-for-trading |  | https://github.com/sparlit/EQATS/issues/903 | 2026-09-06T10:33:27.330Z |
