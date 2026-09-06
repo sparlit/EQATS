@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 220 | MathisWellmann/trade_aggregation-rs | https://github.com/sparlit/EQATS/pull/1375 | https://github.com/sparlit/EQATS/issues/1378 | 2026-09-06T13:01:22.978Z |
+| 220 | MathisWellmann/trade_aggregation-rs |  | https://github.com/sparlit/EQATS/issues/1391 | 2026-09-06T13:05:59.801Z |
