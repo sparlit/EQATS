@@ -432,4 +432,6 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 64 | avin1311/nse-bse-dashboard | https://github.com/sparlit/EQATS/pull/714 | https://github.com/sparlit/EQATS/issues/715 | 2026-09-06T09:46:38.849Z |
+| 46 | Aravin/Algo-Trade | https://github.com/sparlit/EQATS/pull/633 | https://github.com/sparlit/EQATS/issues/634 | 2026-09-06T09:10:51.485Z |
+| 69 | BarathGB007/upstox-python-data | https://github.com/sparlit/EQATS/pull/726 | https://github.com/sparlit/EQATS/issues/727 | 2026-09-06T09:50:15.934Z |
+| 69 | BarathGB007/upstox-python-data |  | https://github.com/sparlit/EQATS/issues/745 | 2026-09-06T09:53:23.017Z |
