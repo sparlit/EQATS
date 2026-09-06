@@ -438,3 +438,4 @@
 | 202 | lebedov/nseindia_reformat | https://github.com/sparlit/EQATS/pull/1262 | https://github.com/sparlit/EQATS/issues/1263 | 2026-09-06T12:23:32.868Z |
 | 202 | lebedov/nseindia_reformat |  | https://github.com/sparlit/EQATS/issues/1268 | 2026-09-06T12:24:07.618Z |
 | 202 | lebedov/nseindia_reformat |  | https://github.com/sparlit/EQATS/issues/1307 | 2026-09-06T12:36:21.622Z |
+| 202 | lebedov/nseindia_reformat |  | https://github.com/sparlit/EQATS/issues/1312 | 2026-09-06T12:38:50.160Z |
