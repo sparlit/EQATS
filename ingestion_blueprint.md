@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 212 | manishkr1754/NIFTY50_Data_Analysis_NSETOOLS_NSEPY_Python | https://github.com/sparlit/EQATS/pull/1295 | https://github.com/sparlit/EQATS/issues/1296 | 2026-09-06T12:33:11.581Z |
+| 212 | manishkr1754/NIFTY50_Data_Analysis_NSETOOLS_NSEPY_Python |  | https://github.com/sparlit/EQATS/issues/1304 | 2026-09-06T12:35:35.302Z |
