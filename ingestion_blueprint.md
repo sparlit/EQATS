@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 181 | JunbeomL22/trusted | https://github.com/sparlit/EQATS/pull/1165 | https://github.com/sparlit/EQATS/issues/1166 | 2026-09-06T11:55:57.528Z |
+| 181 | JunbeomL22/trusted |  | https://github.com/sparlit/EQATS/issues/1189 | 2026-09-06T12:02:53.012Z |
