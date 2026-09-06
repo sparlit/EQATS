@@ -438,3 +438,4 @@
 | 163 | IBM/nse-observer | https://github.com/sparlit/EQATS/pull/1089 | https://github.com/sparlit/EQATS/issues/1090 | 2026-09-06T11:31:17.384Z |
 | 163 | IBM/nse-observer |  | https://github.com/sparlit/EQATS/issues/1122 | 2026-09-06T11:43:19.548Z |
 | 163 | IBM/nse-observer |  | https://github.com/sparlit/EQATS/issues/1128 | 2026-09-06T11:45:15.384Z |
+| 163 | IBM/nse-observer |  | https://github.com/sparlit/EQATS/issues/1139 | 2026-09-06T11:47:38.877Z |
