@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 232 | mlfreerl/pynse | https://github.com/sparlit/EQATS/pull/1395 | https://github.com/sparlit/EQATS/issues/1396 | 2026-09-06T13:08:41.601Z |
 | 232 | mlfreerl/pynse |  | https://github.com/sparlit/EQATS/issues/1409 | 2026-09-06T13:12:48.262Z |
+| 232 | mlfreerl/pynse |  | https://github.com/sparlit/EQATS/issues/1454 | 2026-09-06T13:27:50.930Z |
