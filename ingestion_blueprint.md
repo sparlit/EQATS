@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 161 | huseinzol05/Stock-Prediction-Models | https://github.com/sparlit/EQATS/pull/1081 | https://github.com/sparlit/EQATS/issues/1082 | 2026-09-06T11:29:40.214Z |
+| 161 | huseinzol05/Stock-Prediction-Models |  | https://github.com/sparlit/EQATS/issues/1129 | 2026-09-06T11:45:19.914Z |
