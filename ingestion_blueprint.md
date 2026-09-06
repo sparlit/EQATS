@@ -433,3 +433,4 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 62 | augmentalphawealth/Sectoral-Breadth-Dashboard | https://github.com/sparlit/EQATS/pull/686 | https://github.com/sparlit/EQATS/issues/687 | 2026-09-06T09:33:58.641Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/700 | 2026-09-06T09:40:19.687Z |
