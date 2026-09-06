@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 179 | jugaad-py/master-data | https://github.com/sparlit/EQATS/pull/1152 | https://github.com/sparlit/EQATS/issues/1153 | 2026-09-06T11:50:13.456Z |
 | 179 | jugaad-py/master-data |  | https://github.com/sparlit/EQATS/issues/1180 | 2026-09-06T11:59:59.520Z |
+| 179 | jugaad-py/master-data |  | https://github.com/sparlit/EQATS/issues/1190 | 2026-09-06T12:02:52.904Z |
