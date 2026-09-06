@@ -438,3 +438,4 @@
 | 176 | joaquinbejar/OptionStratLib | https://github.com/sparlit/EQATS/pull/1146 | https://github.com/sparlit/EQATS/issues/1147 | 2026-09-06T11:48:49.978Z |
 | 176 | joaquinbejar/OptionStratLib |  | https://github.com/sparlit/EQATS/issues/1171 | 2026-09-06T11:57:54.533Z |
 | 176 | joaquinbejar/OptionStratLib |  | https://github.com/sparlit/EQATS/issues/1172 | 2026-09-06T11:58:14.330Z |
+| 176 | joaquinbejar/OptionStratLib |  | https://github.com/sparlit/EQATS/issues/1191 | 2026-09-06T12:03:20.482Z |
