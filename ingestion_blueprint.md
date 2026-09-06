@@ -433,7 +433,6 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 96 | Clayborninconsistent906/Indian-Stock-Market-API | https://github.com/sparlit/EQATS/pull/821 | https://github.com/sparlit/EQATS/issues/822 | 2026-09-06T10:14:45.995Z |
-| 96 | Clayborninconsistent906/Indian-Stock-Market-API |  | https://github.com/sparlit/EQATS/issues/838 | 2026-09-06T10:18:01.909Z |
-| 96 | Clayborninconsistent906/Indian-Stock-Market-API |  | https://github.com/sparlit/EQATS/issues/863 | 2026-09-06T10:21:47.271Z |
-| 96 | Clayborninconsistent906/Indian-Stock-Market-API |  | https://github.com/sparlit/EQATS/issues/872 | 2026-09-06T10:23:59.731Z |
+| 99 | crazygirl437/hyper-grid | https://github.com/sparlit/EQATS/pull/825 | https://github.com/sparlit/EQATS/issues/826 | 2026-09-06T10:15:41.077Z |
+| 99 | crazygirl437/hyper-grid |  | https://github.com/sparlit/EQATS/issues/857 | 2026-09-06T10:20:17.515Z |
+| 99 | crazygirl437/hyper-grid |  | https://github.com/sparlit/EQATS/issues/885 | 2026-09-06T10:26:46.347Z |
