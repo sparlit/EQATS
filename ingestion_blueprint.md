@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 197 | kwoshvick/NSE_Sentiment_Analysis | https://github.com/sparlit/EQATS/pull/1245 | https://github.com/sparlit/EQATS/issues/1246 | 2026-09-06T12:18:36.163Z |
+| 197 | kwoshvick/NSE_Sentiment_Analysis |  | https://github.com/sparlit/EQATS/issues/1284 | 2026-09-06T12:30:19.338Z |
