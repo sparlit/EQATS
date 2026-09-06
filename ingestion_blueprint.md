@@ -436,3 +436,4 @@
 | 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/703 | 2026-09-06T09:41:38.444Z |
 | 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/706 | 2026-09-06T09:43:29.309Z |
 | 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/713 | 2026-09-06T09:45:51.652Z |
+| 87 | calumrussell/rotala | https://github.com/sparlit/EQATS/pull/780 | https://github.com/sparlit/EQATS/issues/781 | 2026-09-06T10:07:38.624Z |
