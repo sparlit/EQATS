@@ -438,3 +438,4 @@
 | 306 | ricequant/rqalpha | https://github.com/sparlit/EQATS/pull/1664 | https://github.com/sparlit/EQATS/issues/1665 | 2026-09-06T14:38:21.561Z |
 | 306 | ricequant/rqalpha |  | https://github.com/sparlit/EQATS/issues/1681 | 2026-09-06T14:44:54.667Z |
 | 306 | ricequant/rqalpha |  | https://github.com/sparlit/EQATS/issues/1749 | 2026-09-06T15:09:39.589Z |
+| 306 | ricequant/rqalpha |  | https://github.com/sparlit/EQATS/issues/1770 | 2026-09-06T15:20:57.110Z |
