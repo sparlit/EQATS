@@ -422,3 +422,4 @@
 | 15 | affaan-m/dprc-autotrader-v2 | https://github.com/sparlit/EQATS/pull/573 | https://github.com/sparlit/EQATS/issues/574 | 2026-09-06T08:23:01.232Z |
 | 17 | AI4Finance-Foundation/FinRL-Trading | https://github.com/sparlit/EQATS/pull/575 | https://github.com/sparlit/EQATS/issues/576 | 2026-09-06T08:29:04.271Z |
 | 21 | akashyadavv/AlgoTradingNSE | https://github.com/sparlit/EQATS/pull/579 | https://github.com/sparlit/EQATS/issues/580 | 2026-09-06T08:40:58.965Z |
+| 23 | akshayraje/get-nse-bhavcopy | https://github.com/sparlit/EQATS/pull/583 | https://github.com/sparlit/EQATS/issues/584 | 2026-09-06T08:43:09.610Z |
