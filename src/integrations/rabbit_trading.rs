@@ -1,0 +1,1 @@
+// Integration infeasible due to lack of source access\npub mod rabbit_trading {\n    pub fn dummy() -> bool { true }\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n    #[test]\n    fn test_dummy() {\n        assert!(dummy());\n    }\n}
