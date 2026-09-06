@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 244 | nash-io/openlimits | https://github.com/sparlit/EQATS/pull/1438 | https://github.com/sparlit/EQATS/issues/1439 | 2026-09-06T13:20:23.279Z |
+| 244 | nash-io/openlimits |  | https://github.com/sparlit/EQATS/issues/1452 | 2026-09-06T13:26:13.374Z |
