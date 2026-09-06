@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 108 | Debopam-D/Project-NIFTY | https://github.com/sparlit/EQATS/pull/861 | https://github.com/sparlit/EQATS/issues/862 | 2026-09-06T10:21:11.918Z |
 | 108 | Debopam-D/Project-NIFTY |  | https://github.com/sparlit/EQATS/issues/888 | 2026-09-06T10:27:25.754Z |
+| 108 | Debopam-D/Project-NIFTY |  | https://github.com/sparlit/EQATS/issues/907 | 2026-09-06T10:34:40.460Z |
