@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 298 | ramamet/nse1minR | https://github.com/sparlit/EQATS/pull/1622 | https://github.com/sparlit/EQATS/issues/1623 | 2026-09-06T14:19:37.613Z |
 | 298 | ramamet/nse1minR |  | https://github.com/sparlit/EQATS/issues/1657 | 2026-09-06T14:34:42.693Z |
+| 298 | ramamet/nse1minR |  | https://github.com/sparlit/EQATS/issues/1707 | 2026-09-06T14:55:20.705Z |
