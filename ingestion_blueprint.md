@@ -425,3 +425,4 @@
 | 24 | akshayz14/indian-stock-tracker | https://github.com/sparlit/EQATS/pull/586 | https://github.com/sparlit/EQATS/issues/587 | 2026-09-06T08:44:15.146Z |
 | 26 | AlexWan/OsEngine | https://github.com/sparlit/EQATS/pull/590 | https://github.com/sparlit/EQATS/issues/591 | 2026-09-06T08:46:38.805Z |
 | 27 | algotrading-lab/ai-algotrading-agent | https://github.com/sparlit/EQATS/pull/592 | https://github.com/sparlit/EQATS/issues/593 | 2026-09-06T08:48:40.345Z |
+| 28 | alloc7260/NSE | https://github.com/sparlit/EQATS/pull/594 | https://github.com/sparlit/EQATS/issues/595 | 2026-09-06T08:49:11.753Z |
