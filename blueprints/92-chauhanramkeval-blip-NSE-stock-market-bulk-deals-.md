@@ -1,0 +1,3 @@
+## Integration Blueprint for eqats
+
+Due to the absence of a README or accessible documentation in the repository `chauhanramkeval-blip/NSE-stock-market-bulk-deals-`, no concrete features could be identified. Consequently, no specific integration points for the Data Engines, Signal & Execution Logic, or Risk Engineering domains can be recommended at this time. If the repository later provides documentation detailing its data acquisition or processing capabilities (e.g., bulk deal data collection from NSE), those could be evaluated for inclusion in eqats' data engine layer.
