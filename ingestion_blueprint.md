@@ -438,3 +438,4 @@
 | 213 | manishn32/option_chain_analyzer | https://github.com/sparlit/EQATS/pull/1298 | https://github.com/sparlit/EQATS/issues/1299 | 2026-09-06T12:33:44.441Z |
 | 213 | manishn32/option_chain_analyzer |  | https://github.com/sparlit/EQATS/issues/1306 | 2026-09-06T12:36:05.156Z |
 | 213 | manishn32/option_chain_analyzer |  | https://github.com/sparlit/EQATS/issues/1338 | 2026-09-06T12:48:25.180Z |
+| 213 | manishn32/option_chain_analyzer |  | https://github.com/sparlit/EQATS/issues/1345 | 2026-09-06T12:51:30.279Z |
