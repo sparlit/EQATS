@@ -438,3 +438,4 @@
 | 303 | reborn-digitech/swadeshi-tracker | https://github.com/sparlit/EQATS/pull/1648 | https://github.com/sparlit/EQATS/issues/1649 | 2026-09-06T14:29:50.454Z |
 | 303 | reborn-digitech/swadeshi-tracker |  | https://github.com/sparlit/EQATS/issues/1671 | 2026-09-06T14:40:39.589Z |
 | 303 | reborn-digitech/swadeshi-tracker |  | https://github.com/sparlit/EQATS/issues/1742 | 2026-09-06T15:06:36.401Z |
+| 303 | reborn-digitech/swadeshi-tracker |  | https://github.com/sparlit/EQATS/issues/1762 | 2026-09-06T15:15:13.648Z |
