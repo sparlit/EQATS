@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 263 | oscmcompany/fund | https://github.com/sparlit/EQATS/pull/1493 | https://github.com/sparlit/EQATS/issues/1494 | 2026-09-06T13:39:17.895Z |
 | 263 | oscmcompany/fund |  | https://github.com/sparlit/EQATS/issues/1570 | 2026-09-06T14:02:59.574Z |
+| 263 | oscmcompany/fund |  | https://github.com/sparlit/EQATS/issues/1585 | 2026-09-06T14:09:33.356Z |
