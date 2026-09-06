@@ -432,6 +432,11 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 85 | c3point/in-stock-screener | https://github.com/sparlit/EQATS/pull/792 | https://github.com/sparlit/EQATS/issues/793 | 2026-09-06T10:09:34.537Z |
-| 85 | c3point/in-stock-screener |  | https://github.com/sparlit/EQATS/issues/816 | 2026-09-06T10:13:06.984Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard | https://github.com/sparlit/EQATS/pull/686 | https://github.com/sparlit/EQATS/issues/687 | 2026-09-06T09:33:58.641Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/700 | 2026-09-06T09:40:19.687Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/705 | 2026-09-06T09:42:37.599Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/710 | 2026-09-06T09:44:38.863Z |
+| 86 | c3point/Nse-Support-Tools | https://github.com/sparlit/EQATS/pull/777 | https://github.com/sparlit/EQATS/issues/778 | 2026-09-06T10:07:08.509Z |
+| 86 | c3point/Nse-Support-Tools |  | https://github.com/sparlit/EQATS/issues/800 | 2026-09-06T10:10:24.094Z |
+| 86 | c3point/Nse-Support-Tools |  | https://github.com/sparlit/EQATS/issues/820 | 2026-09-06T10:14:16.897Z |
+| 86 | c3point/Nse-Support-Tools |  | https://github.com/sparlit/EQATS/issues/829 | 2026-09-06T10:16:18.721Z |
