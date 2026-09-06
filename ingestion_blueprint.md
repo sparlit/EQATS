@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 68 | BarathGB007/nse-options-data-collector | https://github.com/sparlit/EQATS/pull/708 | https://github.com/sparlit/EQATS/issues/709 | 2026-09-06T09:44:05.608Z |
 | 68 | BarathGB007/nse-options-data-collector |  | https://github.com/sparlit/EQATS/issues/735 | 2026-09-06T09:51:21.281Z |
+| 68 | BarathGB007/nse-options-data-collector |  | https://github.com/sparlit/EQATS/issues/736 | 2026-09-06T09:52:15.214Z |
