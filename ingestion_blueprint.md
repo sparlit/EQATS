@@ -436,3 +436,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 211 | manddar/Open-Interest-Data-Extractor | https://github.com/sparlit/EQATS/pull/1332 | https://github.com/sparlit/EQATS/issues/1333 | 2026-09-06T12:46:41.241Z |
+| 211 | manddar/Open-Interest-Data-Extractor |  | https://github.com/sparlit/EQATS/issues/1340 | 2026-09-06T12:49:31.497Z |
