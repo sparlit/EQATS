@@ -438,3 +438,4 @@
 | 259 | NSEDownload/NSEDownload | https://github.com/sparlit/EQATS/pull/1471 | https://github.com/sparlit/EQATS/issues/1472 | 2026-09-06T13:32:38.064Z |
 | 259 | NSEDownload/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1514 | 2026-09-06T13:43:17.283Z |
 | 259 | NSEDownload/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1541 | 2026-09-06T13:55:02.981Z |
+| 259 | NSEDownload/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1571 | 2026-09-06T14:03:42.937Z |
