@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 135 | gadiyar/NSEBhavcopy | https://github.com/sparlit/EQATS/pull/984 | https://github.com/sparlit/EQATS/issues/985 | 2026-09-06T10:59:24.009Z |
 | 135 | gadiyar/NSEBhavcopy |  | https://github.com/sparlit/EQATS/issues/1011 | 2026-09-06T11:06:54.745Z |
+| 135 | gadiyar/NSEBhavcopy |  | https://github.com/sparlit/EQATS/issues/1026 | 2026-09-06T11:12:34.035Z |
