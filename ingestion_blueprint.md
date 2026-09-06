@@ -432,6 +432,6 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
-| 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
-| 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
+| 68 | BarathGB007/nse-options-data-collector | https://github.com/sparlit/EQATS/pull/708 | https://github.com/sparlit/EQATS/issues/709 | 2026-09-06T09:44:05.608Z |
+| 68 | BarathGB007/nse-options-data-collector |  | https://github.com/sparlit/EQATS/issues/735 | 2026-09-06T09:51:21.281Z |
+| 68 | BarathGB007/nse-options-data-collector |  | https://github.com/sparlit/EQATS/issues/736 | 2026-09-06T09:52:15.214Z |
