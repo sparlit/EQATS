@@ -438,3 +438,4 @@
 | 169 | Ishaan3H/india-sector-screener | https://github.com/sparlit/EQATS/pull/1115 | https://github.com/sparlit/EQATS/issues/1116 | 2026-09-06T11:41:43.691Z |
 | 169 | Ishaan3H/india-sector-screener |  | https://github.com/sparlit/EQATS/issues/1155 | 2026-09-06T11:51:13.580Z |
 | 169 | Ishaan3H/india-sector-screener |  | https://github.com/sparlit/EQATS/issues/1158 | 2026-09-06T11:53:09.078Z |
+| 169 | Ishaan3H/india-sector-screener |  | https://github.com/sparlit/EQATS/issues/1164 | 2026-09-06T11:55:55.490Z |
