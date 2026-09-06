@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 124 | ej9909-create/nse_52wk_screener | https://github.com/sparlit/EQATS/pull/939 | https://github.com/sparlit/EQATS/issues/940 | 2026-09-06T10:43:50.058Z |
 | 124 | ej9909-create/nse_52wk_screener |  | https://github.com/sparlit/EQATS/issues/966 | 2026-09-06T10:51:29.405Z |
+| 124 | ej9909-create/nse_52wk_screener |  | https://github.com/sparlit/EQATS/issues/989 | 2026-09-06T11:00:04.662Z |
