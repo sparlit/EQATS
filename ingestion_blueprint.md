@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 270 | PEC-CSS/Stock-Watchlist | https://github.com/sparlit/EQATS/pull/1515 | https://github.com/sparlit/EQATS/issues/1516 | 2026-09-06T13:44:11.472Z |
 | 270 | PEC-CSS/Stock-Watchlist |  | https://github.com/sparlit/EQATS/issues/1550 | 2026-09-06T13:57:28.969Z |
+| 270 | PEC-CSS/Stock-Watchlist |  | https://github.com/sparlit/EQATS/issues/1606 | 2026-09-06T14:14:39.481Z |
