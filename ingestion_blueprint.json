@@ -1,12 +1,16 @@
 {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "current_index": 45,
 =======
   "current_index": 156,
 >>>>>>> Stashed changes
 =======
   "current_index": 46,
+>>>>>>> Stashed changes
+=======
+  "current_index": 16,
 >>>>>>> Stashed changes
   "repositories": [
     {
@@ -86,8 +90,13 @@
     },
     {
       "name": "jarvis-trading",
+<<<<<<< Updated upstream
       "url": "https://github.com/agrawalarnav129-ui/jarvis-trading",
       "status": "pending"
+=======
+      "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
+      "status": "Failed: Clone failure"
+>>>>>>> Stashed changes
     },
     {
       "name": "finrl-trading",
