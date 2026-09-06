@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 175 | jinit24/NSEDownload | https://github.com/sparlit/EQATS/pull/1143 | https://github.com/sparlit/EQATS/issues/1144 | 2026-09-06T11:48:12.702Z |
 | 175 | jinit24/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1169 | 2026-09-06T11:56:38.265Z |
+| 175 | jinit24/NSEDownload |  | https://github.com/sparlit/EQATS/issues/1170 | 2026-09-06T11:57:24.116Z |
