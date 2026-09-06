@@ -432,6 +432,7 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy | https://github.com/sparlit/EQATS/pull/684 | https://github.com/sparlit/EQATS/issues/685 | 2026-09-06T09:33:31.799Z |
-| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/699 | 2026-09-06T09:39:38.895Z |
-| 61 | Atul-Anand-Jha/Time-Series-Forecast-NSEPy |  | https://github.com/sparlit/EQATS/issues/707 | 2026-09-06T09:44:04.407Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard | https://github.com/sparlit/EQATS/pull/686 | https://github.com/sparlit/EQATS/issues/687 | 2026-09-06T09:33:58.641Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/700 | 2026-09-06T09:40:19.687Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/705 | 2026-09-06T09:42:37.599Z |
+| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/710 | 2026-09-06T09:44:38.863Z |
