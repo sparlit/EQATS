@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 266 | parthsamani/NSEstockF-OAlert | https://github.com/sparlit/EQATS/pull/1502 | https://github.com/sparlit/EQATS/issues/1503 | 2026-09-06T13:40:23.861Z |
 | 266 | parthsamani/NSEstockF-OAlert |  | https://github.com/sparlit/EQATS/issues/1538 | 2026-09-06T13:54:02.132Z |
+| 266 | parthsamani/NSEstockF-OAlert |  | https://github.com/sparlit/EQATS/issues/1576 | 2026-09-06T14:04:39.688Z |
