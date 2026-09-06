@@ -438,3 +438,4 @@
 | 196 | kwoshvick/NSE-Stock-Price-Prediction | https://github.com/sparlit/EQATS/pull/1240 | https://github.com/sparlit/EQATS/issues/1241 | 2026-09-06T12:17:53.489Z |
 | 196 | kwoshvick/NSE-Stock-Price-Prediction |  | https://github.com/sparlit/EQATS/issues/1242 | 2026-09-06T12:17:57.397Z |
 | 196 | kwoshvick/NSE-Stock-Price-Prediction |  | https://github.com/sparlit/EQATS/issues/1275 | 2026-09-06T12:27:25.651Z |
+| 196 | kwoshvick/NSE-Stock-Price-Prediction |  | https://github.com/sparlit/EQATS/issues/1289 | 2026-09-06T12:30:50.593Z |
