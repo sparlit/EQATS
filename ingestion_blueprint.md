@@ -418,3 +418,4 @@
   - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
 - **EQATS Integration Module:** `src/institutional_integrations/braverock_nse_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `BRAVEROCK_NSE`.
+| 13 | aeron7/nsepython | https://github.com/sparlit/EQATS/pull/569 | https://github.com/sparlit/EQATS/issues/570 | 2026-09-06T08:21:02.775Z |
