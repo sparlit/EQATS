@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 299 | ranaroussi/qtpylib | https://github.com/sparlit/EQATS/pull/1625 | https://github.com/sparlit/EQATS/issues/1626 | 2026-09-06T14:20:26.171Z |
 | 299 | ranaroussi/qtpylib |  | https://github.com/sparlit/EQATS/issues/1661 | 2026-09-06T14:36:16.590Z |
+| 299 | ranaroussi/qtpylib |  | https://github.com/sparlit/EQATS/issues/1750 | 2026-09-06T15:09:54.989Z |
