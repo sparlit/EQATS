@@ -435,3 +435,4 @@
 | 48 | ArishHassan/nse-live_testing | https://github.com/sparlit/EQATS/pull/640 | https://github.com/sparlit/EQATS/issues/641 | 2026-09-06T09:15:07.506Z |
 | 48 | ArishHassan/nse-live_testing |  | https://github.com/sparlit/EQATS/issues/651 | 2026-09-06T09:25:10.923Z |
 | 78 | bitbytelabio/tradingview-rs | https://github.com/sparlit/EQATS/pull/747 | https://github.com/sparlit/EQATS/issues/748 | 2026-09-06T09:53:45.979Z |
+| 78 | bitbytelabio/tradingview-rs |  | https://github.com/sparlit/EQATS/issues/758 | 2026-09-06T09:58:46.881Z |
