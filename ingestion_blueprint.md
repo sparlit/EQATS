@@ -432,7 +432,7 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard | https://github.com/sparlit/EQATS/pull/686 | https://github.com/sparlit/EQATS/issues/687 | 2026-09-06T09:33:58.641Z |
-| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/700 | 2026-09-06T09:40:19.687Z |
-| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/705 | 2026-09-06T09:42:37.599Z |
-| 62 | augmentalphawealth/Sectoral-Breadth-Dashboard |  | https://github.com/sparlit/EQATS/issues/710 | 2026-09-06T09:44:38.863Z |
+| 63 | avhz/RustQuant | https://github.com/sparlit/EQATS/pull/691 | https://github.com/sparlit/EQATS/issues/692 | 2026-09-06T09:35:05.589Z |
+| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/703 | 2026-09-06T09:41:38.444Z |
+| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/706 | 2026-09-06T09:43:29.309Z |
+| 63 | avhz/RustQuant |  | https://github.com/sparlit/EQATS/issues/713 | 2026-09-06T09:45:51.652Z |
