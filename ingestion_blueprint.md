@@ -435,3 +435,4 @@
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 126 | Erio-Harrison/rust-trade | https://github.com/sparlit/EQATS/pull/947 | https://github.com/sparlit/EQATS/issues/948 | 2026-09-06T10:46:00.963Z |
 | 126 | Erio-Harrison/rust-trade |  | https://github.com/sparlit/EQATS/issues/990 | 2026-09-06T11:00:32.006Z |
+| 126 | Erio-Harrison/rust-trade |  | https://github.com/sparlit/EQATS/issues/996 | 2026-09-06T11:01:54.823Z |
