@@ -437,3 +437,4 @@
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
 | 217 | marketcalls/openchart | https://github.com/sparlit/EQATS/pull/1317 | https://github.com/sparlit/EQATS/issues/1318 | 2026-09-06T12:41:06.079Z |
 | 217 | marketcalls/openchart |  | https://github.com/sparlit/EQATS/issues/1331 | 2026-09-06T12:44:53.641Z |
+| 217 | marketcalls/openchart |  | https://github.com/sparlit/EQATS/issues/1366 | 2026-09-06T12:57:34.123Z |
