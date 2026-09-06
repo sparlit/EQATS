@@ -438,3 +438,4 @@
 | 189 | kislayykumar/DailyVaultRates | https://github.com/sparlit/EQATS/pull/1210 | https://github.com/sparlit/EQATS/issues/1211 | 2026-09-06T12:09:42.359Z |
 | 189 | kislayykumar/DailyVaultRates |  | https://github.com/sparlit/EQATS/issues/1215 | 2026-09-06T12:11:30.353Z |
 | 189 | kislayykumar/DailyVaultRates |  | https://github.com/sparlit/EQATS/issues/1252 | 2026-09-06T12:20:16.958Z |
+| 189 | kislayykumar/DailyVaultRates |  | https://github.com/sparlit/EQATS/issues/1257 | 2026-09-06T12:21:03.461Z |
