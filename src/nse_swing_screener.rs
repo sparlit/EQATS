@@ -1,0 +1,1 @@
+// Genuine integration infeasible due to lack of access to source code of singhsurendrapratap/nse-swing-screener.\n\nuse pyo3::prelude::*;\n\n/// A placeholder module for the NSE swing screener integration.\n/// This module does not implement any actual screener logic.\n#[pymodule]\nfn nse_swing_screener(_py: Python, m: &PyModule) -> PyResult<()> {\n    Ok(())\n}
