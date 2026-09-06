@@ -434,3 +434,4 @@
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
 | 127 | featherenvy/botvana | https://github.com/sparlit/EQATS/pull/951 | https://github.com/sparlit/EQATS/issues/952 | 2026-09-06T10:47:18.838Z |
+| 127 | featherenvy/botvana |  | https://github.com/sparlit/EQATS/issues/973 | 2026-09-06T10:55:53.426Z |
