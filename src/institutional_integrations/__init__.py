@@ -383,6 +383,7 @@ from .trading_seatbelt_engine import CooldownStatus, SeatbeltStatus, TradingSeat
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue
 from .zipline_finance_engine import CommissionResult
 from .zipline_finance_engine import OrderSide as ZiplineOrderSide
+from .braverock_nse_engine import BraverockNSEBrokerAdapter, NumericalStandardErrorEngine
 from .xcrypto_engine import XCryptoBrokerAdapter, XCryptoEngine
 from .zipline_finance_engine import (
     RiskControlCheck,
@@ -614,6 +615,8 @@ __all__ = [
     "UnifiedIndianBrokerClientAdapter",
     "UpstoxAdapter",
     "VWAPFadeStrategy",
+    "BraverockNSEBrokerAdapter",
+    "NumericalStandardErrorEngine",
     "VolatilityAnalyst",
     "VolatilityExpansionStrategy",
     "XCryptoBrokerAdapter",
