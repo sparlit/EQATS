@@ -438,3 +438,4 @@
 | 275 | pkjmesra/PKNSETools | https://github.com/sparlit/EQATS/pull/1532 | https://github.com/sparlit/EQATS/issues/1533 | 2026-09-06T13:50:30.721Z |
 | 275 | pkjmesra/PKNSETools |  | https://github.com/sparlit/EQATS/issues/1580 | 2026-09-06T14:05:43.994Z |
 | 275 | pkjmesra/PKNSETools |  | https://github.com/sparlit/EQATS/issues/1614 | 2026-09-06T14:16:23.593Z |
+| 275 | pkjmesra/PKNSETools |  | https://github.com/sparlit/EQATS/issues/1624 | 2026-09-06T14:20:14.301Z |
