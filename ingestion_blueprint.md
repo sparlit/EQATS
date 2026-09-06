@@ -432,4 +432,6 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 49 | arvchahal/kalshi-rs | https://github.com/sparlit/EQATS/pull/657 | https://github.com/sparlit/EQATS/issues/658 | 2026-09-06T09:25:36.449Z |
+| 56 | Ashutosh0x/rust-finance | https://github.com/sparlit/EQATS/pull/666 | https://github.com/sparlit/EQATS/issues/667 | 2026-09-06T09:27:56.535Z |
+| 56 | Ashutosh0x/rust-finance |  | https://github.com/sparlit/EQATS/issues/668 | 2026-09-06T09:28:33.790Z |
+| 56 | Ashutosh0x/rust-finance |  | https://github.com/sparlit/EQATS/issues/688 | 2026-09-06T09:33:58.690Z |
