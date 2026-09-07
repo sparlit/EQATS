@@ -1,12 +1,16 @@
 {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "current_index": 18,
 =======
   "current_index": 20,
 >>>>>>> Stashed changes
 =======
   "current_index": 15,
+>>>>>>> Stashed changes
+=======
+  "current_index": 19,
 >>>>>>> Stashed changes
   "repositories": [
     {
@@ -102,7 +106,7 @@
     {
       "name": "indian-trading-skills",
       "url": "https://github.comajeeshworkspace/indian-trading-skills",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "scripwatch",
