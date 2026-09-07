@@ -1,5 +1,9 @@
 {
+<<<<<<< Updated upstream
   "current_index": 18,
+=======
+  "current_index": 20,
+>>>>>>> Stashed changes
   "repositories": [
     {
       "name": "tectonicdb",
@@ -99,7 +103,7 @@
     {
       "name": "scripwatch",
       "url": "https://github.comakashnag/scripwatch",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "algotradingnse",
