@@ -249,7 +249,7 @@ class AutonomousRepoIntegrator:
                     continue
 
             if file_path.suffix == ".py":
-                self.run_cmd(f"{py_exec} -m ruff check --fix {file_path}")
+                self.run_cmd(f"{py_exec} -m ruff check --fix --unsafe-fixes {file_path}")
                 self.run_cmd(f"{py_exec} -m ruff format {file_path}")
 
             if file_path.suffix == ".py":
