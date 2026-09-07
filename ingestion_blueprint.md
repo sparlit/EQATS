@@ -432,8 +432,10 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 137 | georgiag7652/kronos-india | https://github.com/sparlit/EQATS/pull/994 | https://github.com/sparlit/EQATS/issues/995 | 2026-09-06T11:01:24.974Z |
-| 137 | georgiag7652/kronos-india |  | https://github.com/sparlit/EQATS/issues/1029 | 2026-09-06T11:13:12.732Z |
-| 137 | georgiag7652/kronos-india |  | https://github.com/sparlit/EQATS/issues/1030 | 2026-09-06T11:13:29.605Z |
-| 137 | georgiag7652/kronos-india |  | https://github.com/sparlit/EQATS/issues/1032 | 2026-09-06T11:13:39.455Z |
+| 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM | https://github.com/sparlit/EQATS/pull/694 | https://github.com/sparlit/EQATS/issues/695 | 2026-09-06T09:36:43.009Z |
+| 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/718 | 2026-09-06T09:47:34.714Z |
+| 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/724 | 2026-09-06T09:49:02.621Z |
+| 138 | get10101/10101 | https://github.com/sparlit/EQATS/pull/999 | https://github.com/sparlit/EQATS/issues/1000 | 2026-09-06T11:03:51.889Z |
+| 138 | get10101/10101 |  | https://github.com/sparlit/EQATS/issues/1031 | 2026-09-06T11:13:37.717Z |
+| 138 | get10101/10101 |  | https://github.com/sparlit/EQATS/issues/1035 | 2026-09-06T11:14:03.004Z |
+| 138 | get10101/10101 |  | https://github.com/sparlit/EQATS/issues/1039 | 2026-09-06T11:15:19.086Z |

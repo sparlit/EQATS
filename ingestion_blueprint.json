@@ -1,9 +1,5 @@
 {
-<<<<<<< Updated upstream
-  "current_index": 15,
-=======
-  "current_index": 17,
->>>>>>> Stashed changes
+  "current_index": 16,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -83,12 +79,12 @@
     {
       "name": "jarvis-trading",
       "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "finrl-trading",
       "url": "https://github.comai4finance-foundation/finrl-trading",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "ngrcoydisclosures",
