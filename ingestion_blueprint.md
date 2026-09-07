@@ -433,7 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 136 | ganeshbiyer/Nse_Historical_Data | https://github.com/sparlit/EQATS/pull/991 | https://github.com/sparlit/EQATS/issues/993 | 2026-09-06T11:00:48.311Z |
-| 136 | ganeshbiyer/Nse_Historical_Data |  | https://github.com/sparlit/EQATS/issues/1017 | 2026-09-06T11:08:48.789Z |
-| 136 | ganeshbiyer/Nse_Historical_Data |  | https://github.com/sparlit/EQATS/issues/1027 | 2026-09-06T11:12:33.868Z |
-| 136 | ganeshbiyer/Nse_Historical_Data |  | https://github.com/sparlit/EQATS/issues/1028 | 2026-09-06T11:13:02.718Z |
+| 137 | georgiag7652/kronos-india | https://github.com/sparlit/EQATS/pull/994 | https://github.com/sparlit/EQATS/issues/995 | 2026-09-06T11:01:24.974Z |
+| 137 | georgiag7652/kronos-india |  | https://github.com/sparlit/EQATS/issues/1029 | 2026-09-06T11:13:12.732Z |
+| 137 | georgiag7652/kronos-india |  | https://github.com/sparlit/EQATS/issues/1030 | 2026-09-06T11:13:29.605Z |
+| 137 | georgiag7652/kronos-india |  | https://github.com/sparlit/EQATS/issues/1032 | 2026-09-06T11:13:39.455Z |
