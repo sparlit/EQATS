@@ -433,5 +433,6 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 129 | feroze/YFinance-stock-history | https://github.com/sparlit/EQATS/pull/957 | https://github.com/sparlit/EQATS/issues/958 | 2026-09-06T10:49:04.079Z |
-| 129 | feroze/YFinance-stock-history |  | https://github.com/sparlit/EQATS/issues/982 | 2026-09-06T10:59:10.667Z |
+| 130 | ferozmd53/nse-preopen-data | https://github.com/sparlit/EQATS/pull/963 | https://github.com/sparlit/EQATS/issues/964 | 2026-09-06T10:50:21.269Z |
+| 130 | ferozmd53/nse-preopen-data |  | https://github.com/sparlit/EQATS/issues/986 | 2026-09-06T10:59:25.550Z |
+| 130 | ferozmd53/nse-preopen-data |  | https://github.com/sparlit/EQATS/issues/1014 | 2026-09-06T11:07:59.030Z |
