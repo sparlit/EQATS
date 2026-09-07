@@ -1,424 +1,417 @@
-## 📋 THE DEFINITIVE TARGET REPOSITORY LIST
-You must process these repositories sequentially, completing all Phases all stages all process each:
-001. 0b01/tectonicdb
-002. 0xNoSystem/hyperliquid_rust_bot
-003. 0xramm/Indian-Stock-Market-API
-004. 0xramm/Indian-Stock-Market-API
-005. 0xRustPro/Stealth-BSC-BNB-create-devbuy-volume-bundler-trading-bot
-006. 0xTan1319/hyperliquid-trading-bot-rust
-007. 85599/BankNIFTY-Golden-Ratio-Strategy
-008. aadityatamrakar/option_chain_analysis
-009. aaryansinha16/AI-trader
-010. abhiwalia15/AI-for-Finance-Stocks-real-time-analysis-
-011. abuhurairalakdawala/indian-share-market
-012. adavarski/DevSecOps-full-integration-chain
-013. adityazerodha/holiday-calendar.github.io
-014. aeron7/nsepython
-015. aeron7/nsepythonserver
-016. affaan-m/dprc-autotrader-v2
-017. agrawalarnav129-ui/jarvis-trading
-018. AI4Finance-Foundation/FinRL-Trading
-019. ajakaiye33/ngrcoydisclosures
-020. ajeeshworkspace/indian-trading-skills
-021. akashnag/scripwatch
-022. akashyadavv/AlgoTradingNSE
-023. akshaypawar7/WODS
-024. akshayraje/get-nse-bhavcopy
-025. akshayz14/indian-stock-tracker
-026. akt114/BuyNSell
-027. AlexWan/OsEngine
-028. algotrading-lab/ai-algotrading-agent
-029. alloc7260/NSE
-030. alphabench/raptorbt
-031. althk/zerobha
-032. althk/zerobha
-033. Ameobea/tickgrinder
-034. amitashwinibhagat/nse-swing-scanner
-035. amv-dev/yata
-036. Aneesh540/VSE
-037. Animesh4002/ai-stock-screener
-038. aniruddhsujish/NSETradeAgents
-039. anjulgarg/sharewatch
-040. ankitchaudhary6886/nse-system
-041. ankitsny/nse_scrapper
-042. anshulk/nse
-043. anshuthopsee/nse-oi-visualizer
-044. anshuthopsee/nse-oi-visualizer
-045. anthdm/rust-trading-engine
-046. anurag-roy/kite-option-chain
-047. anurag-roy/shoonya-option-chain
-048. api-evangelist/nse-india
-049. Aravin/Algo-Trade
-050. Aravin/nse-data
-051. ArishHassan/nse-live_testing
-052. arvchahal/kalshi-rs
-053. asavinov/intelligent-trading-bot
-054. AshayK003/nse-sentiment-analyzer
-055. ashgen/NSEDataAnalytics
-056. ashishkumar30/Stock_Market_Live_Trading_using_AI
-057. ashok-kollipara/options-oi
-058. AshokKumar3502/nse-quant-trading
-059. Ashutosh0x/rust-finance
-060. ashwanthkumar/Live-NSE-Stock
-061. athreysethumadhavan-finance/nse-var-dashboard
-062. atilaahmettaner/tradingview-mcp
-063. atrybyme/Open-Interest-NSE-Live-Analysis
-064. Atul-Anand-Jha/Time-Series-Forecast-NSEPy
-065. augmentalphawealth/Sectoral-Breadth-Dashboard
-066. avhz/RustQuant
-067. avin1311/nse-bse-dashboard
-068. avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM
-069. ayushmaanbhav/StockMart
-070. Azhagesan-dev/OrderFlowMap
-071. BarathGB007/nse-options-data-collector
-072. BarathGB007/upstox-python-data
-073. barter-rs/barter-rs
-074. beinghorizontal/BhavFnO
-075. benimward9621/advanced-nse-momentum-terminal
-076. BennyThadikaran/eod2
-077. BennyThadikaran/eod2_data
-078. BennyThadikaran/NseIndiaApi
-079. Bhala-Srinivash/nse-trading-skills
-080. Bhumi008007/Stock_Prediction
-081. bitbytelabio/tradingview-rs
-082. blitzarx1/netstrat
-083. Bohr1005/xcrypto
-084. braverock/nse
-085. bshada/nse-bse-api
-086. bshada/nse-bse-mcp
-087. buzzsubash/algo_trading_strategies_india
-088. buzzsubash/algo_trading_strategies_india
-089. c3point/in-stock-screener
-090. c3point/Nse-Support-Tools
-091. calumrussell/rotala
-092. ccxt/ccxt
-093. chaitanyarahalkar/Financial-Info-Extractor
-094. chartiny/nse-daily-volatility-reports
-095. chauhanramkeval-blip/Nse-stock-bulk-deals-
-096. chauhanramkeval-blip/NSE-stock-market-bulk-deals-
-097. chinmayHundekari/NSEDatabase
-098. chinthan-11/NSE-BSE-Arbitrage-bot
-099. Chulilee/InterChangableTrade-Protocol
-100. Clayborninconsistent906/Indian-Stock-Market-API
-101. codegallivant/NSE-OHLC-scraper-plotter
-102. ConteurShadow/Polymarket-Trading-Bot-Rust
-103. crazygirl437/hyper-grid
-104. crypto-crawler/coinsignal
-105. cutupdev/Solana-Copytrading-bot
-106. cyberomin/NSEFinance-Python
-107. d-e-s-o/apcacli
-108. dallyshalla/tropix
-109. day0market/geger
-110. daydy-dev/moon-dev-ai-agents-for-trading
-111. debaonline4u/NSE-Data
-112. Debopam-D/Project-NIFTY
-113. deepentropy/ibx
-114. Degenapetrader/EVPOLY
-115. DegenSugarBoo/OpenBook
-116. deshpanda/nse-screener
-117. deshpanda/nse-screener-data
-118. deshwalmahesh/NSE-Stock-Scanner
-119. devAgam/chartink-to-tradingview-extension
-120. devangmukherjee/top-gainers-and-losers-nse
-121. devanshx9x/portfolio-monte-carlo
-122. dhruvan246/stocks-dashboard
-123. dkraj0612/nse-delivery-data
-124. dpeachpeach/kalshi-rust
-125. edison7009/EchoBird
-126. edtechre/pybroker
-127. eggmasonvalue/MTFDB
-128. ej9909-create/nse_52wk_screener
-129. ekanshsinghal/indian-stock-market
-130. Erio-Harrison/rust-trade
-131. featherenvy/botvana
-132. feroz-ghub-26/nse-sharia-news-feed
-133. feroz-ghub-26/nse-sharia-news-feed
-134. feroze/YFinance-stock-history
-135. ferozmd53/nse-preopen-data
-136. ferrumfix/ferrumfix
-137. finstacklabs/finstack-mcp
-138. fluidex/dingir-exchange
-139. gabriel-milan/btrader
-140. gadiyar/NSEBhavcopy
-141. ganeshbiyer/Nse_Historical_Data
-142. georgiag7652/kronos-india
-143. get10101/10101
-144. ghostjat/Shoonya-php
-145. girishg4t/bhavCopy-downloader
-146. girishg4t/nse-bse-bhavcopy
-147. GirishKumarDV/Live-NSE-BSE-MCP
-148. GirishKumarDV/Live-NSE-BSE-MCP
-149. gomitechnology-source/NSEBANK_HFT
-150. groverjikaladka/nse-bse-news-scanner
-151. gurudayal37/nse-data-syncer
-152. HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits
-153. HarshaDannina/Statistical-Arbitrage-Model
-154. Hash-It-Out/StockChain
-155. HawkEyeCoding/nse-oi-analysis
-156. hemangjoshi37a/TrendMaster
-157. hemenkapadia/getbhavcopy
-158. henry-richard7/NSE-Tool-Stocks-Aerial-View
-159. hermanodecastro/arbitrage-trading
-160. hgsujay/NseData
-161. hi-imcodeman/stock-nse-india
-162. HimanshuMohanty-Git24/RakshaQuant
-163. hirawatt/BSE_NSE_Announcement
-164. HmERro3/indian-trading-skills
-165. hopit-ai/india-trade-cli
-166. hopit-ai/india-trade-cli
-167. hotessy/nse-historical-data
-168. huseinzol05/Stock-Prediction-Models
-169. hyphenOs/tickdownload
-170. IBM/nse-observer
-171. imanojkumar/NSE-India-All-Stocks-Tickers-Data
-172. indianfoods-automation/nse
-173. Indra5196/NseStockAnalyser
-174. infinitefield/hypersdk
-175. inv2004/coinbase-pro-rs
-176. Ishaan3H/india-sector-screener
-177. Itsnrk1/nse-scanner
-178. jandginvestment/cci20-sma20-strategy
-179. JayeshSRathod/nse-scanner
-180. jensnesten/rust_bt
-181. jerryshell/midas
-182. jinit24/NSEDownload
-183. joaquinbejar/OptionStratLib
-184. johnebe2020-trade/Nse-scanner
-185. joshiadvait8/nse-data
-186. jugaad-py/master-data
-187. Julien-R44/cli-candlestick-chart
-188. JunbeomL22/trusted
-189. KalyanM45/MarketInsight
-190. kalyanroyinfo/stock-research-assistant
-191. Karthik002002/Stoklore
-192. kbizme/nsemine
-193. KenMwaura1/nse-stock-scraper
-194. khakhasshi/OptionWorkstation
-195. kishanlalchoudhary/NSE-Option-Chain
-196. kislayykumar/DailyVaultRates
-197. kkirankumar1511/nse-momentum-dashboard
-198. kondaiahpola1-wq/NSE-BSE-Event-Driven-Quant-Research-Platform
-199. kostorub/backtest
-200. krakenfx/kraken-cli
-201. kuldeeepy/algo-trader
-202. kwoshvick/NSE-Stock-Price-Crawler
-203. kwoshvick/NSE-Stock-Price-Prediction
-204. kwoshvick/NSE_Sentiment_Analysis
-205. lakshaysinghal/bhavCopy
-206. laminar-protocol/laminar-chain
-207. lavakus/nse-intraday-bot
-208. lebedov/nseindia_lob
-209. lebedov/nseindia_reformat
-210. llc-993/matching-core
-211. longbridge/longbridge-terminal
-212. Lqz13Th/extrema_infra
-213. maanavshah/stock-market-india
-214. maheshcharig/financial-data
-215. mailbagrahul/NSEoptionAlpha
-216. manavgupta83/nse-factor-engine
-217. mandarl/nsedata
-218. manddar/Open-Interest-Data-Extractor
-219. manishkr1754/NIFTY50_Data_Analysis_NSETOOLS_NSEPY_Python
-220. manishn32/option_chain_analyzer
-221. manitgupta/NSE-MCP
-222. mapsx/nse
-223. marketcalls/openalgo
-224. marketcalls/openchart
-225. marketcalls/sector-rotation-map
-226. MathisWellmann/lfest-rs
-227. MathisWellmann/trade_aggregation-rs
-228. maverick14303/stock-news-monitor
-229. MCHSL/tastytrade-rs
-230. me-imfhd/velocity
-231. meanalgo/meanalgo.github.io
-232. mechvec-debug/Ai_Driven_Algorithmic_trading
-233. Meetnepali/market-platform
-234. MelogneStudio/AlgoMLN
-235. meticulousCraftman/TickerStore
-236. mileswangs/pm-hftbacktest
-237. mineralres/rust-share
-238. mkshibu2/breadth-radar
-239. mlfreerl/pynse
-240. monomadic/rust-trailer
-241. mortdeus/solana-copy-sniper-mev-trading-bot
-242. mrappipramod/NSE-Data-Analysis
-243. mrimahajan/NSE-Market-App
-244. mrinaljhunjhunwala-ui/nse-smart-investor
-245. muepsilon/nsemodule
-246. MuokaPWambua/NSE-BOT
-247. muthuvenki/Stock
-248. mutxri/MUTXRI-TERMINAL
-249. nabrahma/ShortCircuit
-250. NagarajuGunda/NSEIndexOptionsData
-251. nash-io/openlimits
-252. nautechsystems/nautilus_trader
-253. nawin383/nse-top500-realtime-screener
-254. NayakwadiS/mftool
-255. NayakwadiS/NSE-Neuron
-256. neha01/Automate-Scrap-Nse-Data
-257. neilghosh/nse-historical-data
-258. NethermindEth/hummingboss
-259. ngm9/nsei_mcp_server
-260. nickmccullum/algorithmic-trading-python
-261. ninja-quant/ninjabook
-262. nirholas/pump-fun-sdk
-263. Nitin-Bhawarkar/NSE_Livedata_from_excel_extraction
-264. nived15/NSE-Stock-Fetcher
-265. nkaz001/hftbacktest
-266. NSEDownload/NSEDownload
-267. nvegupta1/SecurityWiseNSEData
-268. omerhalid/trading_engine_rust
-269. opmashin/nse_eod
-270. oscmcompany/fund
-271. P0W/nse_indices
-272. parmar-m/NSE_TRADER
-273. parthsamani/NSEstockF-OAlert
-274. patrick-weiss/PortfolioSorts_NSE
-275. Paul-Folbrecht/algo-trading
-276. pawan941394/Nse-Option-Chain---LLM-Project
-277. PEC-CSS/Stock-Watchlist
-278. perunnial/tickertrackbot
-279. pishangujeniya/kite-helper
-280. pishangujeniya/nse-stocks-data-scrapper
-281. pkjmesra/nseta
-282. pkjmesra/PKNSETools
-283. pkjmesra/PKScreener
-284. pkjmesra/PKScreener
-285. pmjangid90/StockMarket_Project
-286. pparesh25/NSE_BSE_Downloader
-287. pradeepjindal/nse-ml-2021
-288. pradyumnac/Excel-Tools-Indian-Stock-Market
-289. pramakrishn/express-option-chain
-290. pranjal-joshi/Screeni-py
-291. Prasad1612/NseKit-MCP
-292. Praveen-Mannem/nse-scanner
-293. pujanm/StockX
-294. purefinance/mmb
-295. QuantConnect/Lean.DataSource.Zerodha
-296. QuantMechanics/nse-premarket-data
-297. quantxaashish/nse-alpha
-298. Rachnog/Deep-Trading
-299. rahlumin/nseeod
-300. Rahulghuge94/trading_expiry
-301. rajaramsrinivas/GetNSEStockPrice
-302. rajeshkolhe110/nse-clock-data
-303. RajeshSivadasan/alice-blue-futures
-304. RajeshSivadasan/alice-blue-options-buying
-305. rajmaurya0904/bhav
-306. ramamet/nse1minR
-307. ranaroussi/qtpylib
-308. ratan00/nse-rs
-309. ratnaker16-bit/BrG-Zone-Scanner
-310. rbhatia46/Option-Writing-Calls-Using-Open-Interest
-311. reborn-digitech/swadeshi-tracker
-312. rehanhaider/stocky
-313. rhnvrm/stock-market-circulars
-314. rhnvrm/stock-market-circulars
-315. ricequant/rqalpha
-316. rishikesh5/Algo-Trading-with-python
-317. RishilBhutada/rscreener
-318. riyaz-ali/bhav-copy
-319. rizwandil6/nse-whatsapp-alerts
-320. rjganatra/nse_analyser
-321. Rockbandassembly371/market-sentiments
-322. ROMESH1980/india-market-dashboard
-323. Ronak-59/Stock-Prediction
-324. rooneyrulz/agentic-stock-research-system
-325. rsh-lab/nse-stock-dashboard
-326. rsireddy002/nse-delivery-scanner
-327. rsquaredacademy/nse2r
-328. rthennan/ZerodhaWebsocket
-329. RuchiTanmay/nselib
-330. ruijiang81/AI_NSE
-331. RupeezyTech/algo_ai_skill
-332. ryqdev/golden
-333. s-agawane/stock-price-forecaster-lstm
-334. saber-hq/stable-swap
-335. sagar-n/autoresearch-nse
-336. sahilgupta/hakija
-337. sajal101agrawal/nse-options-last-5-years
-338. Sampad-Hegde/NSE-India-Web-Scraping
-339. sandeep-jaiswar/financeindia
-340. Sangram2905/NSE_Option_Chain
-341. Sangram2905/NSE_Option_Stock_market
-342. SankarGaneshb/Market-Rover
-343. sapare542/new_fyers_nse
-344. saubhagyapandey27/market-data-ops-platform
-345. ShabbirHasan1/fund-forge
-346. ShabbirHasan1/NSE-Data
-347. ShabbirHasan1/nsebsemcx
-348. ShahAnuj2610/QuickNSEDataFetcher
-349. shamu0509/nse-bse-mcp
-350. shikharka/stocks-app
-351. ShrewdLemon/shunkan
-352. ShreyashDarade/AI_Trading_Calls_Pridictor
-353. Shubxam/Nifty-500-Live-Sentiment-Analysis
-354. SiddharthaKrSaha/nse-screener
-355. singhsurendrapratap/nse-swing-screener
-356. skharchikov/polymarket-bot
-357. sleeyax/ml-crypto-trading-bot
-358. SnowCheetos/AutoMoonBot
-359. sonimaharshi1999/JyotishTrader
-360. Stellar-xcrow/StellarEscrow
-361. stevschmid/nsearch
-362. stockalgo/bandl
-363. studiogangster/next-gen-algo-trading-bot
-364. studiogangster/sensibull-realtime-options-api-ingestor
-365. subaquatic-pierre/raderbot
-366. sudhanshusingh23-wiz/nse-momentum-data
-367. sumitjoshi21/NSE-Real-Time-Stocks-Analysis-and-Predictions-Using-P
-368. sumitsainidev/OIAnalysis
-369. sumukshashidhar-archive/nse-data
-370. Superalgos/Algorithmic-Trading-Plugins
-371. Superalgos/Trading-Signals-Plugins
-372. svsashank/NSE_1000Cr_Momentum
-373. swapniljariwala/nsepy
-374. swapniljariwala/quotelib
-375. Tapetide-hq/nse-bse-indian-stock-market-data-mcp
-376. tcharding/rust-crypto-trader
-377. TechfaneTechnologies/nseproxy
-378. TechfaneTechnologies/pytvlwcharts
-379. techyaura/nse-bhavcopy
-380. telepair/polymarket-hft
-381. tesserspace/tesser
-382. TheHardeep/fenix
-383. thehardeep/fenix
-384. Thejesh-k463/VYUHA-LOG
-385. theonlyanil/pnsea
-386. thiyagab/autotrade
-387. tilak999/NSE-Data-bank
-388. TopTrenDev/polymarket-kalshi-arbitrage-bot
-389. ttzztztz/rabbit_trading
-390. turtlehq-tech/turtlestack-lite
-391. uashogeschoolutrecht/NSE_Analyses
-392. VarunDivakar/NSEpy-Continuous-data
-393. VarunS2002/Python-NSE-Option-Chain-Analyzer
-394. Vedl/nse-equity-research-report-generator
-395. ven2day/opendelta-nse
-396. viabtc/viabtc_exchange_server
-397. vignesh-moorthy/NSE-DayData
-398. vikaschouhan/portfolio_analysis
-399. Vikranth3140/NSE-BSE-Stock-Prices-Automation
-400. vinay-ram1999/AlgoTrade-API
-401. vinodscode/ipo-exchange-scrape
-402. vinothkumarmuruga-cyber/NSE-PRE-MARKET
-403. vivektmurali/obscura-intel
-404. vividvilla/NSE-Live-Market
-405. vjpaij/ladder
-406. voicegn/polymarket-bot
-407. volatility4u/nsepython
-408. vsjha18/nsecli
-409. vsjha18/nsetools
-410. wangrunji0408/most
-411. waxdred/Binance-Trader-Bot
-412. webclinic017/Tradingview-Screenshot-Bot-
-413. white-trade-loan/algo-trading-platform
-414. WizardRao/Rao-s-SCRAP-Platform
-415. WooKiao/Crypto-trading-Hunter
-416. x86y/dynasty
-417. xorasysgen/Nse-OI-Scanner
-418. yongkangc/lighter-rust
-419. yswa-var/RRG
-420. yusuf4030/the-data-analyst-toolkit
-421. yutiansut/qaaccount-rs
+# Master Institutional Repository Integration List (411 Repositories)
 
+This document contains the sequential list of all 411 target GitHub repositories to be processed, extracted, self-healed, and integrated into the institutional trading engine.
+
+| Index | Repository Target | Status |
+|---|---|---|
+| 1 | 0b01/tectonicdb | Pending |
+| 2 | 0xnosystem/hyperliquid_rust_bot | Pending |
+| 3 | 0xramm/indian-stock-market-api | Pending |
+| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Pending |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Pending |
+| 6 | 85599/banknifty-golden-ratio-strategy | Pending |
+| 7 | aadityatamrakar/option_chain_analysis | Pending |
+| 8 | aaryansinha16/ai-trader | Pending |
+| 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | Pending |
+| 10 | abuhurairalakdawala/indian-share-market | Pending |
+| 11 | adavarski/devsecops-full-integration-chain | Pending |
+| 12 | adityazerodha/holiday-calendar.github.io | Pending |
+| 13 | aeron7/nsepython | Pending |
+| 14 | aeron7/nsepythonserver | Pending |
+| 15 | affaan-m/dprc-autotrader-v2 | Pending |
+| 16 | agrawalarnav129-ui/jarvis-trading | Pending |
+| 17 | ai4finance-foundation/finrl-trading | Pending |
+| 18 | ajakaiye33/ngrcoydisclosures | Pending |
+| 19 | ajeeshworkspace/indian-trading-skills | Pending |
+| 20 | akashnag/scripwatch | Pending |
+| 21 | akashyadavv/algotradingnse | Pending |
+| 22 | akshaypawar7/wods | Pending |
+| 23 | akshayraje/get-nse-bhavcopy | Pending |
+| 24 | akshayz14/indian-stock-tracker | Pending |
+| 25 | akt114/buynsell | Pending |
+| 26 | alexwan/osengine | Pending |
+| 27 | algotrading-lab/ai-algotrading-agent | Pending |
+| 28 | alloc7260/nse | Pending |
+| 29 | alphabench/raptorbt | Pending |
+| 30 | althk/zerobha | Pending |
+| 31 | ameobea/tickgrinder | Pending |
+| 32 | amitashwinibhagat/nse-swing-scanner | Pending |
+| 33 | amv-dev/yata | Pending |
+| 34 | aneesh540/vse | Pending |
+| 35 | animesh4002/ai-stock-screener | Pending |
+| 36 | aniruddhsujish/nsetradeagents | Pending |
+| 37 | anjulgarg/sharewatch | Pending |
+| 38 | ankitchaudhary6886/nse-system | Pending |
+| 39 | ankitsny/nse_scrapper | Pending |
+| 40 | anshulk/nse | Pending |
+| 41 | anshuthopsee/nse-oi-visualizer | Pending |
+| 42 | anthdm/rust-trading-engine | Pending |
+| 43 | anurag-roy/kite-option-chain | Pending |
+| 44 | anurag-roy/shoonya-option-chain | Pending |
+| 45 | api-evangelist/nse-india | Pending |
+| 46 | aravin/algo-trade | Pending |
+| 47 | aravin/nse-data | Pending |
+| 48 | arishhassan/nse-live_testing | Pending |
+| 49 | arvchahal/kalshi-rs | Pending |
+| 50 | asavinov/intelligent-trading-bot | Pending |
+| 51 | ashayk003/nse-sentiment-analyzer | Pending |
+| 52 | ashgen/nsedataanalytics | Pending |
+| 53 | ashishkumar30/stock_market_live_trading_using_ai | Pending |
+| 54 | ashok-kollipara/options-oi | Pending |
+| 55 | ashokkumar3502/nse-quant-trading | Pending |
+| 56 | ashutosh0x/rust-finance | Pending |
+| 57 | ashwanthkumar/live-nse-stock | Pending |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard | Pending |
+| 59 | atilaahmettaner/tradingview-mcp | Pending |
+| 60 | atrybyme/open-interest-nse-live-analysis | Pending |
+| 61 | atul-anand-jha/time-series-forecast-nsepy | Pending |
+| 62 | augmentalphawealth/sectoral-breadth-dashboard | Pending |
+| 63 | avhz/rustquant | Pending |
+| 64 | avin1311/nse-bse-dashboard | Pending |
+| 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | Pending |
+| 66 | ayushmaanbhav/stockmart | Pending |
+| 67 | azhagesan-dev/orderflowmap | Pending |
+| 68 | barathgb007/nse-options-data-collector | Pending |
+| 69 | barathgb007/upstox-python-data | Pending |
+| 70 | barter-rs/barter-rs | Pending |
+| 71 | beinghorizontal/bhavfno | Pending |
+| 72 | benimward9621/advanced-nse-momentum-terminal | Pending |
+| 73 | bennythadikaran/eod2 | Pending |
+| 74 | bennythadikaran/eod2_data | Pending |
+| 75 | bennythadikaran/nseindiaapi | Pending |
+| 76 | bhala-srinivash/nse-trading-skills | Pending |
+| 77 | bhumi008007/stock_prediction | Pending |
+| 78 | bitbytelabio/tradingview-rs | Pending |
+| 79 | blitzarx1/netstrat | Pending |
+| 80 | bohr1005/xcrypto | Pending |
+| 81 | braverock/nse | Pending |
+| 82 | bshada/nse-bse-api | Pending |
+| 83 | bshada/nse-bse-mcp | Pending |
+| 84 | buzzsubash/algo_trading_strategies_india | Pending |
+| 85 | c3point/in-stock-screener | Pending |
+| 86 | c3point/nse-support-tools | Pending |
+| 87 | calumrussell/rotala | Pending |
+| 88 | ccxt/ccxt | Pending |
+| 89 | chaitanyarahalkar/financial-info-extractor | Pending |
+| 90 | chartiny/nse-daily-volatility-reports | Pending |
+| 91 | chauhanramkeval-blip/nse-stock-bulk-deals- | Pending |
+| 92 | chauhanramkeval-blip/nse-stock-market-bulk-deals- | Pending |
+| 93 | chinmayhundekari/nsedatabase | Pending |
+| 94 | chinthan-11/nse-bse-arbitrage-bot | Pending |
+| 95 | chulilee/interchangabletrade-protocol | Pending |
+| 96 | clayborninconsistent906/indian-stock-market-api | Pending |
+| 97 | codegallivant/nse-ohlc-scraper-plotter | Pending |
+| 98 | conteurshadow/polymarket-trading-bot-rust | Pending |
+| 99 | crazygirl437/hyper-grid | Pending |
+| 100 | crypto-crawler/coinsignal | Pending |
+| 101 | cutupdev/solana-copytrading-bot | Pending |
+| 102 | cyberomin/nsefinance-python | Pending |
+| 103 | d-e-s-o/apcacli | Pending |
+| 104 | dallyshalla/tropix | Pending |
+| 105 | day0market/geger | Pending |
+| 106 | daydy-dev/moon-dev-ai-agents-for-trading | Pending |
+| 107 | debaonline4u/nse-data | Pending |
+| 108 | debopam-d/project-nifty | Pending |
+| 109 | deepentropy/ibx | Pending |
+| 110 | degenapetrader/evpoly | Pending |
+| 111 | degensugarboo/openbook | Pending |
+| 112 | deshpanda/nse-screener | Pending |
+| 113 | deshpanda/nse-screener-data | Pending |
+| 114 | deshwalmahesh/nse-stock-scanner | Pending |
+| 115 | devagam/chartink-to-tradingview-extension | Pending |
+| 116 | devangmukherjee/top-gainers-and-losers-nse | Pending |
+| 117 | devanshx9x/portfolio-monte-carlo | Pending |
+| 118 | dhruvan246/stocks-dashboard | Pending |
+| 119 | dkraj0612/nse-delivery-data | Pending |
+| 120 | dpeachpeach/kalshi-rust | Pending |
+| 121 | edison7009/echobird | Pending |
+| 122 | edtechre/pybroker | Pending |
+| 123 | eggmasonvalue/mtfdb | Pending |
+| 124 | ej9909-create/nse_52wk_screener | Pending |
+| 125 | ekanshsinghal/indian-stock-market | Pending |
+| 126 | erio-harrison/rust-trade | Pending |
+| 127 | featherenvy/botvana | Pending |
+| 128 | feroz-ghub-26/nse-sharia-news-feed | Pending |
+| 129 | feroze/yfinance-stock-history | Pending |
+| 130 | ferozmd53/nse-preopen-data | Pending |
+| 131 | ferrumfix/ferrumfix | Pending |
+| 132 | finstacklabs/finstack-mcp | Pending |
+| 133 | fluidex/dingir-exchange | Pending |
+| 134 | gabriel-milan/btrader | Pending |
+| 135 | gadiyar/nsebhavcopy | Pending |
+| 136 | ganeshbiyer/nse_historical_data | Pending |
+| 137 | georgiag7652/kronos-india | Pending |
+| 138 | get10101/10101 | Pending |
+| 139 | ghostjat/shoonya-php | Pending |
+| 140 | girishg4t/bhavcopy-downloader | Pending |
+| 141 | girishg4t/nse-bse-bhavcopy | Pending |
+| 142 | girishkumardv/live-nse-bse-mcp | Pending |
+| 143 | gomitechnology-source/nsebank_hft | Pending |
+| 144 | groverjikaladka/nse-bse-news-scanner | Pending |
+| 145 | gurudayal37/nse-data-syncer | Pending |
+| 146 | harrieronchain/prediction-markets-trading-bot-toolkits | Pending |
+| 147 | harshadannina/statistical-arbitrage-model | Pending |
+| 148 | hash-it-out/stockchain | Pending |
+| 149 | hawkeyecoding/nse-oi-analysis | Pending |
+| 150 | hemangjoshi37a/trendmaster | Pending |
+| 151 | hemenkapadia/getbhavcopy | Pending |
+| 152 | henry-richard7/nse-tool-stocks-aerial-view | Pending |
+| 153 | hermanodecastro/arbitrage-trading | Pending |
+| 154 | hgsujay/nsedata | Pending |
+| 155 | hi-imcodeman/stock-nse-india | Pending |
+| 156 | himanshumohanty-git24/rakshaquant | Pending |
+| 157 | hirawatt/bse_nse_announcement | Pending |
+| 158 | hmerro3/indian-trading-skills | Pending |
+| 159 | hopit-ai/india-trade-cli | Pending |
+| 160 | hotessy/nse-historical-data | Pending |
+| 161 | huseinzol05/stock-prediction-models | Pending |
+| 162 | hyphenos/tickdownload | Pending |
+| 163 | ibm/nse-observer | Pending |
+| 164 | imanojkumar/nse-india-all-stocks-tickers-data | Pending |
+| 165 | indianfoods-automation/nse | Pending |
+| 166 | indra5196/nsestockanalyser | Pending |
+| 167 | infinitefield/hypersdk | Pending |
+| 168 | inv2004/coinbase-pro-rs | Pending |
+| 169 | ishaan3h/india-sector-screener | Pending |
+| 170 | itsnrk1/nse-scanner | Pending |
+| 171 | jandginvestment/cci20-sma20-strategy | Pending |
+| 172 | jayeshsrathod/nse-scanner | Pending |
+| 173 | jensnesten/rust_bt | Pending |
+| 174 | jerryshell/midas | Pending |
+| 175 | jinit24/nsedownload | Pending |
+| 176 | joaquinbejar/optionstratlib | Pending |
+| 177 | johnebe2020-trade/nse-scanner | Pending |
+| 178 | joshiadvait8/nse-data | Pending |
+| 179 | jugaad-py/master-data | Pending |
+| 180 | julien-r44/cli-candlestick-chart | Pending |
+| 181 | junbeoml22/trusted | Pending |
+| 182 | kalyanm45/marketinsight | Pending |
+| 183 | kalyanroyinfo/stock-research-assistant | Pending |
+| 184 | karthik002002/stoklore | Pending |
+| 185 | kbizme/nsemine | Pending |
+| 186 | kenmwaura1/nse-stock-scraper | Pending |
+| 187 | khakhasshi/optionworkstation | Pending |
+| 188 | kishanlalchoudhary/nse-option-chain | Pending |
+| 189 | kislayykumar/dailyvaultrates | Pending |
+| 190 | kkirankumar1511/nse-momentum-dashboard | Pending |
+| 191 | kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform | Pending |
+| 192 | kostorub/backtest | Pending |
+| 193 | krakenfx/kraken-cli | Pending |
+| 194 | kuldeeepy/algo-trader | Pending |
+| 195 | kwoshvick/nse-stock-price-crawler | Pending |
+| 196 | kwoshvick/nse-stock-price-prediction | Pending |
+| 197 | kwoshvick/nse_sentiment_analysis | Pending |
+| 198 | lakshaysinghal/bhavcopy | Pending |
+| 199 | laminar-protocol/laminar-chain | Pending |
+| 200 | lavakus/nse-intraday-bot | Pending |
+| 201 | lebedov/nseindia_lob | Pending |
+| 202 | lebedov/nseindia_reformat | Pending |
+| 203 | llc-993/matching-core | Pending |
+| 204 | longbridge/longbridge-terminal | Pending |
+| 205 | lqz13th/extrema_infra | Pending |
+| 206 | maanavshah/stock-market-india | Pending |
+| 207 | maheshcharig/financial-data | Pending |
+| 208 | mailbagrahul/nseoptionalpha | Pending |
+| 209 | manavgupta83/nse-factor-engine | Pending |
+| 210 | mandarl/nsedata | Pending |
+| 211 | manddar/open-interest-data-extractor | Pending |
+| 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | Pending |
+| 213 | manishn32/option_chain_analyzer | Pending |
+| 214 | manitgupta/nse-mcp | Pending |
+| 215 | mapsx/nse | Pending |
+| 216 | marketcalls/openalgo | Pending |
+| 217 | marketcalls/openchart | Pending |
+| 218 | marketcalls/sector-rotation-map | Pending |
+| 219 | mathiswellmann/lfest-rs | Pending |
+| 220 | mathiswellmann/trade_aggregation-rs | Pending |
+| 221 | maverick14303/stock-news-monitor | Pending |
+| 222 | mchsl/tastytrade-rs | Pending |
+| 223 | me-imfhd/velocity | Pending |
+| 224 | meanalgo/meanalgo.github.io | Pending |
+| 225 | mechvec-debug/ai_driven_algorithmic_trading | Pending |
+| 226 | meetnepali/market-platform | Pending |
+| 227 | melognestudio/algomln | Pending |
+| 228 | meticulouscraftman/tickerstore | Pending |
+| 229 | mileswangs/pm-hftbacktest | Pending |
+| 230 | mineralres/rust-share | Pending |
+| 231 | mkshibu2/breadth-radar | Pending |
+| 232 | mlfreerl/pynse | Pending |
+| 233 | monomadic/rust-trailer | Pending |
+| 234 | mortdeus/solana-copy-sniper-mev-trading-bot | Pending |
+| 235 | mrappipramod/nse-data-analysis | Pending |
+| 236 | mrimahajan/nse-market-app | Pending |
+| 237 | mrinaljhunjhunwala-ui/nse-smart-investor | Pending |
+| 238 | muepsilon/nsemodule | Pending |
+| 239 | muokapwambua/nse-bot | Pending |
+| 240 | muthuvenki/stock | Pending |
+| 241 | mutxri/mutxri-terminal | Pending |
+| 242 | nabrahma/shortcircuit | Pending |
+| 243 | nagarajugunda/nseindexoptionsdata | Pending |
+| 244 | nash-io/openlimits | Pending |
+| 245 | nautechsystems/nautilus_trader | Pending |
+| 246 | nawin383/nse-top500-realtime-screener | Pending |
+| 247 | nayakwadis/mftool | Pending |
+| 248 | nayakwadis/nse-neuron | Pending |
+| 249 | neha01/automate-scrap-nse-data | Pending |
+| 250 | neilghosh/nse-historical-data | Pending |
+| 251 | nethermindeth/hummingboss | Pending |
+| 252 | ngm9/nsei_mcp_server | Pending |
+| 253 | nickmccullum/algorithmic-trading-python | Pending |
+| 254 | ninja-quant/ninjabook | Pending |
+| 255 | nirholas/pump-fun-sdk | Pending |
+| 256 | nitin-bhawarkar/nse_livedata_from_excel_extraction | Pending |
+| 257 | nived15/nse-stock-fetcher | Pending |
+| 258 | nkaz001/hftbacktest | Pending |
+| 259 | nsedownload/nsedownload | Pending |
+| 260 | nvegupta1/securitywisensedata | Pending |
+| 261 | omerhalid/trading_engine_rust | Pending |
+| 262 | opmashin/nse_eod | Pending |
+| 263 | oscmcompany/fund | Pending |
+| 264 | p0w/nse_indices | Pending |
+| 265 | parmar-m/nse_trader | Pending |
+| 266 | parthsamani/nsestockf-oalert | Pending |
+| 267 | patrick-weiss/portfoliosorts_nse | Pending |
+| 268 | paul-folbrecht/algo-trading | Pending |
+| 269 | pawan941394/nse-option-chain---llm-project | Pending |
+| 270 | pec-css/stock-watchlist | Pending |
+| 271 | perunnial/tickertrackbot | Pending |
+| 272 | pishangujeniya/kite-helper | Pending |
+| 273 | pishangujeniya/nse-stocks-data-scrapper | Pending |
+| 274 | pkjmesra/nseta | Pending |
+| 275 | pkjmesra/pknsetools | Pending |
+| 276 | pkjmesra/pkscreener | Pending |
+| 277 | pmjangid90/stockmarket_project | Pending |
+| 278 | pparesh25/nse_bse_downloader | Pending |
+| 279 | pradeepjindal/nse-ml-2021 | Pending |
+| 280 | pradyumnac/excel-tools-indian-stock-market | Pending |
+| 281 | pramakrishn/express-option-chain | Pending |
+| 282 | pranjal-joshi/screeni-py | Pending |
+| 283 | prasad1612/nsekit-mcp | Pending |
+| 284 | praveen-mannem/nse-scanner | Pending |
+| 285 | pujanm/stockx | Pending |
+| 286 | purefinance/mmb | Pending |
+| 287 | quantconnect/lean.datasource.zerodha | Pending |
+| 288 | quantmechanics/nse-premarket-data | Pending |
+| 289 | quantxaashish/nse-alpha | Pending |
+| 290 | rachnog/deep-trading | Pending |
+| 291 | rahlumin/nseeod | Pending |
+| 292 | rahulghuge94/trading_expiry | Pending |
+| 293 | rajaramsrinivas/getnsestockprice | Pending |
+| 294 | rajeshkolhe110/nse-clock-data | Pending |
+| 295 | rajeshsivadasan/alice-blue-futures | Pending |
+| 296 | rajeshsivadasan/alice-blue-options-buying | Pending |
+| 297 | rajmaurya0904/bhav | Pending |
+| 298 | ramamet/nse1minr | Pending |
+| 299 | ranaroussi/qtpylib | Pending |
+| 300 | ratan00/nse-rs | Pending |
+| 301 | ratnaker16-bit/brg-zone-scanner | Pending |
+| 302 | rbhatia46/option-writing-calls-using-open-interest | Pending |
+| 303 | reborn-digitech/swadeshi-tracker | Pending |
+| 304 | rehanhaider/stocky | Pending |
+| 305 | rhnvrm/stock-market-circulars | Pending |
+| 306 | ricequant/rqalpha | Pending |
+| 307 | rishikesh5/algo-trading-with-python | Pending |
+| 308 | rishilbhutada/rscreener | Pending |
+| 309 | riyaz-ali/bhav-copy | Pending |
+| 310 | rizwandil6/nse-whatsapp-alerts | Pending |
+| 311 | rjganatra/nse_analyser | Pending |
+| 312 | rockbandassembly371/market-sentiments | Pending |
+| 313 | romesh1980/india-market-dashboard | Pending |
+| 314 | ronak-59/stock-prediction | Pending |
+| 315 | rooneyrulz/agentic-stock-research-system | Pending |
+| 316 | rsh-lab/nse-stock-dashboard | Pending |
+| 317 | rsireddy002/nse-delivery-scanner | Pending |
+| 318 | rsquaredacademy/nse2r | Pending |
+| 319 | rthennan/zerodhawebsocket | Pending |
+| 320 | ruchitanmay/nselib | Pending |
+| 321 | ruijiang81/ai_nse | Pending |
+| 322 | rupeezytech/algo_ai_skill | Pending |
+| 323 | ryqdev/golden | Pending |
+| 324 | s-agawane/stock-price-forecaster-lstm | Pending |
+| 325 | saber-hq/stable-swap | Pending |
+| 326 | sagar-n/autoresearch-nse | Pending |
+| 327 | sahilgupta/hakija | Pending |
+| 328 | sajal101agrawal/nse-options-last-5-years | Pending |
+| 329 | sampad-hegde/nse-india-web-scraping | Pending |
+| 330 | sandeep-jaiswar/financeindia | Pending |
+| 331 | sangram2905/nse_option_chain | Pending |
+| 332 | sangram2905/nse_option_stock_market | Pending |
+| 333 | sankarganeshb/market-rover | Pending |
+| 334 | sapare542/new_fyers_nse | Pending |
+| 335 | saubhagyapandey27/market-data-ops-platform | Pending |
+| 336 | shabbirhasan1/fund-forge | Pending |
+| 337 | shabbirhasan1/nse-data | Pending |
+| 338 | shabbirhasan1/nsebsemcx | Pending |
+| 339 | shahanuj2610/quicknsedatafetcher | Pending |
+| 340 | shamu0509/nse-bse-mcp | Pending |
+| 341 | shikharka/stocks-app | Pending |
+| 342 | shrewdlemon/shunkan | Pending |
+| 343 | shreyashdarade/ai_trading_calls_pridictor | Pending |
+| 344 | shubxam/nifty-500-live-sentiment-analysis | Pending |
+| 345 | siddharthakrsaha/nse-screener | Pending |
+| 346 | singhsurendrapratap/nse-swing-screener | Pending |
+| 347 | skharchikov/polymarket-bot | Pending |
+| 348 | sleeyax/ml-crypto-trading-bot | Pending |
+| 349 | snowcheetos/automoonbot | Pending |
+| 350 | sonimaharshi1999/jyotishtrader | Pending |
+| 351 | stellar-xcrow/stellarescrow | Pending |
+| 352 | stevschmid/nsearch | Pending |
+| 353 | stockalgo/bandl | Pending |
+| 354 | studiogangster/next-gen-algo-trading-bot | Pending |
+| 355 | studiogangster/sensibull-realtime-options-api-ingestor | Pending |
+| 356 | subaquatic-pierre/raderbot | Pending |
+| 357 | sudhanshusingh23-wiz/nse-momentum-data | Pending |
+| 358 | sumitjoshi21/nse-real-time-stocks-analysis-and-predictions-using-p | Pending |
+| 359 | sumitsainidev/oianalysis | Pending |
+| 360 | sumukshashidhar-archive/nse-data | Pending |
+| 361 | superalgos/algorithmic-trading-plugins | Pending |
+| 362 | superalgos/trading-signals-plugins | Pending |
+| 363 | svsashank/nse_1000cr_momentum | Pending |
+| 364 | swapniljariwala/nsepy | Pending |
+| 365 | swapniljariwala/quotelib | Pending |
+| 366 | tapetide-hq/nse-bse-indian-stock-market-data-mcp | Pending |
+| 367 | tcharding/rust-crypto-trader | Pending |
+| 368 | techfanetechnologies/nseproxy | Pending |
+| 369 | techfanetechnologies/pytvlwcharts | Pending |
+| 370 | techyaura/nse-bhavcopy | Pending |
+| 371 | telepair/polymarket-hft | Pending |
+| 372 | tesserspace/tesser | Pending |
+| 373 | thehardeep/fenix | Pending |
+| 374 | thejesh-k463/vyuha-log | Pending |
+| 375 | theonlyanil/pnsea | Pending |
+| 376 | thiyagab/autotrade | Pending |
+| 377 | tilak999/nse-data-bank | Pending |
+| 378 | toptrendev/polymarket-kalshi-arbitrage-bot | Pending |
+| 379 | ttzztztz/rabbit_trading | Pending |
+| 380 | turtlehq-tech/turtlestack-lite | Pending |
+| 381 | uashogeschoolutrecht/nse_analyses | Pending |
+| 382 | varundivakar/nsepy-continuous-data | Pending |
+| 383 | varuns2002/python-nse-option-chain-analyzer | Pending |
+| 384 | vedl/nse-equity-research-report-generator | Pending |
+| 385 | ven2day/opendelta-nse | Pending |
+| 386 | viabtc/viabtc_exchange_server | Pending |
+| 387 | vignesh-moorthy/nse-daydata | Pending |
+| 388 | vikaschouhan/portfolio_analysis | Pending |
+| 389 | vikranth3140/nse-bse-stock-prices-automation | Pending |
+| 390 | vinay-ram1999/algotrade-api | Pending |
+| 391 | vinodscode/ipo-exchange-scrape | Pending |
+| 392 | vinothkumarmuruga-cyber/nse-pre-market | Pending |
+| 393 | vivektmurali/obscura-intel | Pending |
+| 394 | vividvilla/nse-live-market | Pending |
+| 395 | vjpaij/ladder | Pending |
+| 396 | voicegn/polymarket-bot | Pending |
+| 397 | volatility4u/nsepython | Pending |
+| 398 | vsjha18/nsecli | Pending |
+| 399 | vsjha18/nsetools | Pending |
+| 400 | wangrunji0408/most | Pending |
+| 401 | waxdred/binance-trader-bot | Pending |
+| 402 | webclinic017/tradingview-screenshot-bot- | Pending |
+| 403 | white-trade-loan/algo-trading-platform | Pending |
+| 404 | wizardrao/rao-s-scrap-platform | Pending |
+| 405 | wookiao/crypto-trading-hunter | Pending |
+| 406 | x86y/dynasty | Pending |
+| 407 | xorasysgen/nse-oi-scanner | Pending |
+| 408 | yongkangc/lighter-rust | Pending |
+| 409 | yswa-var/rrg | Pending |
+| 410 | yusuf4030/the-data-analyst-toolkit | Pending |
+| 411 | yutiansut/qaaccount-rs | Pending |
