@@ -435,6 +435,6 @@
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM | https://github.com/sparlit/EQATS/pull/694 | https://github.com/sparlit/EQATS/issues/695 | 2026-09-06T09:36:43.009Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/718 | 2026-09-06T09:47:34.714Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/724 | 2026-09-06T09:49:02.621Z |
-| 145 | gurudayal37/nse-data-syncer | https://github.com/sparlit/EQATS/pull/1033 | https://github.com/sparlit/EQATS/issues/1034 | 2026-09-06T11:13:48.922Z |
-| 145 | gurudayal37/nse-data-syncer |  | https://github.com/sparlit/EQATS/issues/1055 | 2026-09-06T11:18:22.302Z |
-| 145 | gurudayal37/nse-data-syncer |  | https://github.com/sparlit/EQATS/issues/1064 | 2026-09-06T11:21:51.438Z |
+| 146 | HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits | https://github.com/sparlit/EQATS/pull/1036 | https://github.com/sparlit/EQATS/issues/1037 | 2026-09-06T11:14:26.056Z |
+| 146 | HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits |  | https://github.com/sparlit/EQATS/issues/1058 | 2026-09-06T11:20:07.712Z |
+| 146 | HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits |  | https://github.com/sparlit/EQATS/issues/1073 | 2026-09-06T11:25:44.460Z |
