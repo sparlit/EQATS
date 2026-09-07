@@ -1,12 +1,16 @@
 {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "current_index": 18,
 =======
   "current_index": 20,
 >>>>>>> Stashed changes
 =======
   "current_index": 20,
+>>>>>>> Stashed changes
+=======
+  "current_index": 15,
 >>>>>>> Stashed changes
   "repositories": [
     {
@@ -87,17 +91,17 @@
     {
       "name": "jarvis-trading",
       "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "finrl-trading",
       "url": "https://github.comai4finance-foundation/finrl-trading",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "ngrcoydisclosures",
       "url": "https://github.comajakaiye33/ngrcoydisclosures",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "indian-trading-skills",
@@ -107,7 +111,7 @@
     {
       "name": "scripwatch",
       "url": "https://github.comakashnag/scripwatch",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "algotradingnse",
