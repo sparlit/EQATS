@@ -91,10 +91,7 @@ class TectonicDB:
 
     async def cmd(self, cmd):
         loop = asyncio.get_event_loop()
-        if type(cmd) != str:
-            message = (cmd.decode() + "\n").encode()
-        else:
-            message = (cmd + "\n").encode()
+        message = (cmd.decode() + "\n").encode() if type(cmd) != str else (cmd + "\n").encode()
         loop.sock_sendall(self.sock, message)
 
         if "GET" in cmd and "JSON" not in cmd and "CSV" not in cmd:
@@ -148,36 +145,23 @@ class TectonicDB:
     async def insert(self, ts, seq, is_trade, is_bid, price, size, dbname):
         return await self.cmd(
             "INSERT {}, {}, {} ,{}, {}, {}; INTO {}".format(
-                ts,
-                seq,
-                "t" if is_trade else "f",
-                "t" if is_bid else "f",
-                price,
-                size,
-                dbname,
-            ),
+                ts, seq, "t" if is_trade else "f", "t" if is_bid else "f", price, size, dbname
+            )
         )
 
     async def add(self, ts, seq, is_trade, is_bid, price, size):
         return await self.cmd(
-            "ADD {}, {}, {} ,{}, {}, {};".format(
-                ts,
-                seq,
-                "t" if is_trade else "f",
-                "t" if is_bid else "f",
-                price,
-                size,
-            ),
+            "ADD {}, {}, {} ,{}, {}, {};".format(ts, seq, "t" if is_trade else "f", "t" if is_bid else "f", price, size)
         )
 
     async def getall(self):
         success, ret = await self.cmd("GET ALL")
-        return success, list(map(lambda x: x.to_dict(), ret))
+        return success, [x.to_dict() for x in ret]
 
     async def get(self, n):
         success, ret = await self.cmd(f"GET {n}")
         if success:
-            return success, list(map(lambda x: x.to_dict(), ret))
+            return success, [x.to_dict() for x in ret]
         return False, None
 
     async def clear(self):
@@ -214,5 +198,4 @@ class TectonicDB:
     async def range(self, dbname, start, finish):
         self.use(dbname)
         data = await self.cmd(f"GET ALL FROM {start} TO {finish} AS CSV".encode())
-        data = data[1]
-        return data
+        return data[1]
