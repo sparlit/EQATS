@@ -1,13 +1,5 @@
 {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  "current_index": 18,
-=======
   "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 19,
->>>>>>> Stashed changes
   "repositories": [
     {
       "name": "tectonicdb",
@@ -102,7 +94,7 @@
     {
       "name": "indian-trading-skills",
       "url": "https://github.comajeeshworkspace/indian-trading-skills",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "scripwatch",
