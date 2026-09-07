@@ -435,7 +435,5 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 165 | indianfoods-automation/nse | https://github.com/sparlit/EQATS/pull/1100 | https://github.com/sparlit/EQATS/issues/1101 | 2026-09-06T11:33:44.399Z |
-| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1124 | 2026-09-06T11:44:03.632Z |
-| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1133 | 2026-09-06T11:46:07.338Z |
-| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1145 | 2026-09-06T11:48:26.238Z |
+| 160 | hotessy/nse-historical-data | https://github.com/sparlit/EQATS/pull/1108 | https://github.com/sparlit/EQATS/issues/1109 | 2026-09-06T11:40:05.203Z |
+| 160 | hotessy/nse-historical-data |  | https://github.com/sparlit/EQATS/issues/1120 | 2026-09-06T11:43:04.932Z |
