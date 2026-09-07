@@ -1,5 +1,5 @@
 {
-  "current_index": 15,
+  "current_index": 16,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -79,7 +79,7 @@
     {
       "name": "jarvis-trading",
       "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "finrl-trading",
