@@ -435,5 +435,6 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 149 | HawkEyeCoding/nse-oi-analysis | https://github.com/sparlit/EQATS/pull/1066 | https://github.com/sparlit/EQATS/issues/1067 | 2026-09-06T11:22:33.670Z |
-| 149 | HawkEyeCoding/nse-oi-analysis |  | https://github.com/sparlit/EQATS/issues/1079 | 2026-09-06T11:28:05.862Z |
+| 158 | HmERro3/indian-trading-skills | https://github.com/sparlit/EQATS/pull/1077 | https://github.com/sparlit/EQATS/issues/1078 | 2026-09-06T11:28:00.351Z |
+| 158 | HmERro3/indian-trading-skills |  | https://github.com/sparlit/EQATS/issues/1107 | 2026-09-06T11:36:29.733Z |
+| 158 | HmERro3/indian-trading-skills |  | https://github.com/sparlit/EQATS/issues/1117 | 2026-09-06T11:42:04.395Z |
