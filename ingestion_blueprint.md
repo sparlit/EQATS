@@ -433,6 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 127 | featherenvy/botvana | https://github.com/sparlit/EQATS/pull/951 | https://github.com/sparlit/EQATS/issues/952 | 2026-09-06T10:47:18.838Z |
-| 127 | featherenvy/botvana |  | https://github.com/sparlit/EQATS/issues/973 | 2026-09-06T10:55:53.426Z |
-| 127 | featherenvy/botvana |  | https://github.com/sparlit/EQATS/issues/998 | 2026-09-06T11:03:25.992Z |
+| 128 | feroz-ghub-26/nse-sharia-news-feed | https://github.com/sparlit/EQATS/pull/954 | https://github.com/sparlit/EQATS/issues/955 | 2026-09-06T10:47:55.774Z |
+| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/975 | 2026-09-06T10:56:20.097Z |
+| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/997 | 2026-09-06T11:02:52.207Z |
+| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/1008 | 2026-09-06T11:06:16.547Z |
