@@ -435,5 +435,5 @@
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM | https://github.com/sparlit/EQATS/pull/694 | https://github.com/sparlit/EQATS/issues/695 | 2026-09-06T09:36:43.009Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/718 | 2026-09-06T09:47:34.714Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/724 | 2026-09-06T09:49:02.621Z |
-| 132 | finstacklabs/finstack-mcp | https://github.com/sparlit/EQATS/pull/1001 | https://github.com/sparlit/EQATS/issues/1002 | 2026-09-06T11:03:52.680Z |
-| 132 | finstacklabs/finstack-mcp |  | https://github.com/sparlit/EQATS/issues/1022 | 2026-09-06T11:10:12.184Z |
+| 139 | ghostjat/Shoonya-php | https://github.com/sparlit/EQATS/pull/1006 | https://github.com/sparlit/EQATS/issues/1007 | 2026-09-06T11:06:09.789Z |
+| 139 | ghostjat/Shoonya-php |  | https://github.com/sparlit/EQATS/issues/1046 | 2026-09-06T11:16:29.774Z |
