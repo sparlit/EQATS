@@ -435,5 +435,5 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 149 | HawkEyeCoding/nse-oi-analysis | https://github.com/sparlit/EQATS/pull/1066 | https://github.com/sparlit/EQATS/issues/1067 | 2026-09-06T11:22:33.670Z |
-| 149 | HawkEyeCoding/nse-oi-analysis |  | https://github.com/sparlit/EQATS/issues/1079 | 2026-09-06T11:28:05.862Z |
+| 161 | huseinzol05/Stock-Prediction-Models | https://github.com/sparlit/EQATS/pull/1081 | https://github.com/sparlit/EQATS/issues/1082 | 2026-09-06T11:29:40.214Z |
+| 161 | huseinzol05/Stock-Prediction-Models |  | https://github.com/sparlit/EQATS/issues/1129 | 2026-09-06T11:45:19.914Z |
