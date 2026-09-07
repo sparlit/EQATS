@@ -435,7 +435,5 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 153 | hermanodecastro/arbitrage-trading | https://github.com/sparlit/EQATS/pull/1053 | https://github.com/sparlit/EQATS/issues/1054 | 2026-09-06T11:18:13.740Z |
-| 153 | hermanodecastro/arbitrage-trading |  | https://github.com/sparlit/EQATS/issues/1083 | 2026-09-06T11:30:08.578Z |
-| 153 | hermanodecastro/arbitrage-trading |  | https://github.com/sparlit/EQATS/issues/1091 | 2026-09-06T11:31:21.675Z |
-| 153 | hermanodecastro/arbitrage-trading |  | https://github.com/sparlit/EQATS/issues/1099 | 2026-09-06T11:33:22.426Z |
+| 144 | groverjikaladka/nse-bse-news-scanner | https://github.com/sparlit/EQATS/pull/1060 | https://github.com/sparlit/EQATS/issues/1061 | 2026-09-06T11:20:46.145Z |
+| 144 | groverjikaladka/nse-bse-news-scanner |  | https://github.com/sparlit/EQATS/issues/1069 | 2026-09-06T11:23:30.110Z |
