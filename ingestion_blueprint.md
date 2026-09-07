@@ -435,6 +435,5 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 168 | inv2004/coinbase-pro-rs | https://github.com/sparlit/EQATS/pull/1110 | https://github.com/sparlit/EQATS/issues/1111 | 2026-09-06T11:40:40.962Z |
-| 168 | inv2004/coinbase-pro-rs |  | https://github.com/sparlit/EQATS/issues/1149 | 2026-09-06T11:50:08.500Z |
-| 168 | inv2004/coinbase-pro-rs |  | https://github.com/sparlit/EQATS/issues/1157 | 2026-09-06T11:52:28.417Z |
+| 159 | hopit-ai/india-trade-cli | https://github.com/sparlit/EQATS/pull/1113 | https://github.com/sparlit/EQATS/issues/1114 | 2026-09-06T11:41:42.364Z |
+| 159 | hopit-ai/india-trade-cli |  | https://github.com/sparlit/EQATS/issues/1121 | 2026-09-06T11:43:07.372Z |
