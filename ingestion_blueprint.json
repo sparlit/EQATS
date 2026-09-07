@@ -1,132 +1,8 @@
 {
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  "current_index": 85,
+  "current_index": 16,
 =======
-  "current_index": 87,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 86,
->>>>>>> Stashed changes
-=======
-  "current_index": 86,
->>>>>>> Stashed changes
-=======
-  "current_index": 88,
->>>>>>> Stashed changes
-=======
-  "current_index": 86,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
->>>>>>> Stashed changes
-=======
-  "current_index": 15,
+  "current_index": 19,
 >>>>>>> Stashed changes
   "repositories": [
     {
@@ -207,12 +83,12 @@
     {
       "name": "jarvis-trading",
       "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "finrl-trading",
       "url": "https://github.comai4finance-foundation/finrl-trading",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "ngrcoydisclosures",
@@ -222,7 +98,7 @@
     {
       "name": "indian-trading-skills",
       "url": "https://github.comajeeshworkspace/indian-trading-skills",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "scripwatch",
