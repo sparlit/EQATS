@@ -1,5 +1,9 @@
 {
+<<<<<<< Updated upstream
   "current_index": 85,
+=======
+  "current_index": 16,
+>>>>>>> Stashed changes
   "repositories": [
     {
       "name": "tectonicdb",
@@ -79,7 +83,7 @@
     {
       "name": "jarvis-trading",
       "url": "https://github.comagrawalarnav129-ui/jarvis-trading",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "finrl-trading",
