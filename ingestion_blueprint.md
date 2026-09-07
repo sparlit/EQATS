@@ -435,7 +435,6 @@
 | 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
 | 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 165 | indianfoods-automation/nse | https://github.com/sparlit/EQATS/pull/1100 | https://github.com/sparlit/EQATS/issues/1101 | 2026-09-06T11:33:44.399Z |
-| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1124 | 2026-09-06T11:44:03.632Z |
-| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1133 | 2026-09-06T11:46:07.338Z |
-| 165 | indianfoods-automation/nse |  | https://github.com/sparlit/EQATS/issues/1145 | 2026-09-06T11:48:26.238Z |
+| 168 | inv2004/coinbase-pro-rs | https://github.com/sparlit/EQATS/pull/1110 | https://github.com/sparlit/EQATS/issues/1111 | 2026-09-06T11:40:40.962Z |
+| 168 | inv2004/coinbase-pro-rs |  | https://github.com/sparlit/EQATS/issues/1149 | 2026-09-06T11:50:08.500Z |
+| 168 | inv2004/coinbase-pro-rs |  | https://github.com/sparlit/EQATS/issues/1157 | 2026-09-06T11:52:28.417Z |
