@@ -1,5 +1,5 @@
 {
-  "current_index": 16,
+  "current_index": 17,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -84,7 +84,7 @@
     {
       "name": "finrl-trading",
       "url": "https://github.comai4finance-foundation/finrl-trading",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "ngrcoydisclosures",
