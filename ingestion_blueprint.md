@@ -432,9 +432,10 @@
 | 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM | https://github.com/sparlit/EQATS/pull/694 | https://github.com/sparlit/EQATS/issues/695 | 2026-09-06T09:36:43.009Z |
-| 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/718 | 2026-09-06T09:47:34.714Z |
-| 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/724 | 2026-09-06T09:49:02.621Z |
-| 146 | HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits | https://github.com/sparlit/EQATS/pull/1036 | https://github.com/sparlit/EQATS/issues/1037 | 2026-09-06T11:14:26.056Z |
-| 146 | HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits |  | https://github.com/sparlit/EQATS/issues/1058 | 2026-09-06T11:20:07.712Z |
-| 146 | HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits |  | https://github.com/sparlit/EQATS/issues/1073 | 2026-09-06T11:25:44.460Z |
+| 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
+| 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
+| 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
+| 153 | hermanodecastro/arbitrage-trading | https://github.com/sparlit/EQATS/pull/1053 | https://github.com/sparlit/EQATS/issues/1054 | 2026-09-06T11:18:13.740Z |
+| 153 | hermanodecastro/arbitrage-trading |  | https://github.com/sparlit/EQATS/issues/1083 | 2026-09-06T11:30:08.578Z |
+| 153 | hermanodecastro/arbitrage-trading |  | https://github.com/sparlit/EQATS/issues/1091 | 2026-09-06T11:31:21.675Z |
+| 153 | hermanodecastro/arbitrage-trading |  | https://github.com/sparlit/EQATS/issues/1099 | 2026-09-06T11:33:22.426Z |
