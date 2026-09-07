@@ -1,5 +1,5 @@
 {
-  "current_index": 18,
+  "current_index": 19,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -94,7 +94,7 @@
     {
       "name": "indian-trading-skills",
       "url": "https://github.comajeeshworkspace/indian-trading-skills",
-      "status": "pending"
+      "status": "Failed: Clone failure"
     },
     {
       "name": "scripwatch",
