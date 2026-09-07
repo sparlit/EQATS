@@ -435,7 +435,7 @@
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM | https://github.com/sparlit/EQATS/pull/694 | https://github.com/sparlit/EQATS/issues/695 | 2026-09-06T09:36:43.009Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/718 | 2026-09-06T09:47:34.714Z |
 | 65 | avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM |  | https://github.com/sparlit/EQATS/issues/724 | 2026-09-06T09:49:02.621Z |
-| 140 | girishg4t/bhavCopy-downloader | https://github.com/sparlit/EQATS/pull/1009 | https://github.com/sparlit/EQATS/issues/1010 | 2026-09-06T11:06:30.489Z |
-| 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1038 | 2026-09-06T11:15:18.936Z |
-| 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1048 | 2026-09-06T11:17:29.799Z |
-| 140 | girishg4t/bhavCopy-downloader |  | https://github.com/sparlit/EQATS/issues/1052 | 2026-09-06T11:18:00.886Z |
+| 141 | girishg4t/nse-bse-bhavcopy | https://github.com/sparlit/EQATS/pull/1012 | https://github.com/sparlit/EQATS/issues/1013 | 2026-09-06T11:07:09.354Z |
+| 141 | girishg4t/nse-bse-bhavcopy |  | https://github.com/sparlit/EQATS/issues/1042 | 2026-09-06T11:15:46.132Z |
+| 141 | girishg4t/nse-bse-bhavcopy |  | https://github.com/sparlit/EQATS/issues/1051 | 2026-09-06T11:17:55.996Z |
+| 141 | girishg4t/nse-bse-bhavcopy |  | https://github.com/sparlit/EQATS/issues/1056 | 2026-09-06T11:18:30.834Z |
