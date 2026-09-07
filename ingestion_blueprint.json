@@ -30,6 +30,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   "current_index": 85,
 =======
   "current_index": 16,
@@ -124,6 +125,9 @@
 =======
   "current_index": 17,
 >>>>>>> Stashed changes
+=======
+  "current_index": 15,
+>>>>>>> Stashed changes
   "repositories": [
     {
       "name": "tectonicdb",
@@ -208,7 +212,7 @@
     {
       "name": "finrl-trading",
       "url": "https://github.comai4finance-foundation/finrl-trading",
-      "status": "Failed: Clone failure"
+      "status": "pending"
     },
     {
       "name": "ngrcoydisclosures",
