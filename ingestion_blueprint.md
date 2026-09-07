@@ -433,6 +433,7 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 118 | dhruvan246/stocks-dashboard | https://github.com/sparlit/EQATS/pull/918 | https://github.com/sparlit/EQATS/issues/919 | 2026-09-06T10:37:10.710Z |
-| 118 | dhruvan246/stocks-dashboard |  | https://github.com/sparlit/EQATS/issues/945 | 2026-09-06T10:45:17.433Z |
-| 118 | dhruvan246/stocks-dashboard |  | https://github.com/sparlit/EQATS/issues/969 | 2026-09-06T10:52:59.134Z |
+| 119 | dkraj0612/nse-delivery-data | https://github.com/sparlit/EQATS/pull/920 | https://github.com/sparlit/EQATS/issues/921 | 2026-09-06T10:37:42.453Z |
+| 119 | dkraj0612/nse-delivery-data |  | https://github.com/sparlit/EQATS/issues/946 | 2026-09-06T10:45:56.303Z |
+| 119 | dkraj0612/nse-delivery-data |  | https://github.com/sparlit/EQATS/issues/971 | 2026-09-06T10:53:25.615Z |
+| 119 | dkraj0612/nse-delivery-data |  | https://github.com/sparlit/EQATS/issues/974 | 2026-09-06T10:55:59.433Z |
