@@ -433,7 +433,5 @@
 | 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
 | 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
 | 42 | anthdm/rust-trading-engine |  | https://github.com/sparlit/EQATS/issues/637 | 2026-09-06T09:12:13.040Z |
-| 128 | feroz-ghub-26/nse-sharia-news-feed | https://github.com/sparlit/EQATS/pull/954 | https://github.com/sparlit/EQATS/issues/955 | 2026-09-06T10:47:55.774Z |
-| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/975 | 2026-09-06T10:56:20.097Z |
-| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/997 | 2026-09-06T11:02:52.207Z |
-| 128 | feroz-ghub-26/nse-sharia-news-feed |  | https://github.com/sparlit/EQATS/issues/1008 | 2026-09-06T11:06:16.547Z |
+| 129 | feroze/YFinance-stock-history | https://github.com/sparlit/EQATS/pull/957 | https://github.com/sparlit/EQATS/issues/958 | 2026-09-06T10:49:04.079Z |
+| 129 | feroze/YFinance-stock-history |  | https://github.com/sparlit/EQATS/issues/982 | 2026-09-06T10:59:10.667Z |
