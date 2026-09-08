@@ -1,0 +1,594 @@
+# File: todo_tasks.md
+
+## SYSTEM METRICS & TECH STACK STATE
+- Infrastructure Engine: Python 3.13+ / Rust Edition 2021 / MQL5
+- Execution Topology: Modular Microkernel (Plug-in)
+- Memory Topology: Zero-Copy Shared Memory Ring Buffer (IPC) / Memory-Mapped Arrays
+- Isolation Guarantee: 100% Actor Model Isolation via Thread-Bounded Hot-Swappable Plugins
+- Ledger Schema Version: 2.1.0 (Deterministic Validation Active)
+
+---
+
+### 🛡️ INSTITUTIONAL MITIGATIONS & SYSTEM ENHANCEMENT TASKS (V11.0.0 Baseline)
+
+#### 1. Concurrency, Database WAL & Multiprocessing Optimization
+- [x] **SQLite WAL Mode & Connection Retry Hardening (`src/database.py`)**
+  - Enforce `PRAGMA journal_mode=WAL;`, `PRAGMA busy_timeout=10000;`, and `PRAGMA synchronous=NORMAL;` across connection initializations to prevent disk I/O lock contention.
+- [x] **Multiprocessing Start Method Standardization (`src/main.py`)**
+  - Enforce `spawn` process start method in `main.py` entry point with graceful fallback to prevent multi-threaded `os.fork()` deprecation warnings and child process deadlocks in Python 3.12+.
+- [x] **Zero-Copy GIL Bypass Acceleration (`eqats_rust_core`)**
+  - Verify C-extension / Rust PyO3 acceleration for 33-gate validation matrix and high-frequency indicator calculations.
+
+#### 2. Risk Kernel, Pre-Flight Order Framing & Idempotency
+- [x] **Tick Size & Volume Step Pre-Flight Sanitization (`src/institutional_integrations/sebi_broker_adapter.py`)**
+  - Enforce 0.05 INR tick rounding, lot step normalization, and exchange session boundary enforcement prior to order submission.
+- [x] **Client Order Idempotency Key Tracking (`src/connector.py`)**
+  - Track high-resolution millisecond order hashes (`UUIDv5` / timestamp SHA-256) to eliminate duplicate executions on network reconnects.
+
+#### 3. Dynamic Strategy Calibration & Autonomous Self-Healing
+- [x] **Dynamic Exponential Adaptive Strategy Weight Retraining (`src/v11_autonomous_self_healing_engine.py`)**
+  - Retrain strategy weights dynamically based on rolling Sharpe ratio decay and win/loss feature reflection logs.
+- [x] **High-Priority Autonomous Self-Healing Daemon (`src/v11_autonomous_self_healing_engine.py`)**
+  - Monitor host CPU/RAM vitals, SQLite WAL lock status, and execute automatic thread pool recycling and WAL checkpointing.
+
+---
+
+### ACTIVE TASK PIPELINE
+  - Analyse each repository listed below
+  - integrate all good and usefull codes/modules/functions/data/information into the trading system
+  - update the ingestion_blueprint.md file and todo_tasks.md file on completetion of every task
+  - analyze and integrate all the repositories in the repo_list.md one-by-one.
+  - no exceptions
+  - while analyzing the repository, dig deep deep dive-in, decompose, teardown, drilldown, distill and find all useful and good modules, functions, codes etc. whatever good integrate into the trading system in perfectly working and fully functional and not as an unused code/module/function.
+  - zero stubs
+  - zero placeholder
+  - zero mock/dummy
+
+#### Repository List
+- [ ] 0b01/tectonicdb
+- [ ] 0xNoSystem/hyperliquid_rust_bot
+- [ ] 0xramm/Indian-Stock-Market-API
+- [ ] 0xRustPro/Stealth-BSC-BNB-create-devbuy-volume-bundler-trading-bot
+- [ ] 0xTan1319/hyperliquid-trading-bot-rust
+- [ ] 85599/BankNIFTY-Golden-Ratio-Strategy
+- [ ] aadityatamrakar/option_chain_analysis
+- [ ] aaryansinha16/AI-trader
+- [ ] abhiwalia15/AI-for-Finance-Stocks-real-time-analysis-
+- [ ] abuhurairalakdawala/indian-share-market
+- [ ] adavarski/DevSecOps-full-integration-chain
+- [ ] adityazerodha/holiday-calendar.github.io
+- [ ] aeron7/nsepython
+- [ ] aeron7/nsepythonserver
+- [ ] affaan-m/dprc-autotrader-v2
+- [ ] agrawalarnav129-ui/jarvis-trading
+- [ ] AI4Finance-Foundation/FinRL-Trading
+- [ ] ajakaiye33/ngrcoydisclosures
+- [ ] ajeeshworkspace/indian-trading-skills
+- [ ] akashnag/scripwatch
+- [ ] akashyadavv/AlgoTradingNSE
+- [ ] akshaypawar7/WODS
+- [ ] akshayraje/get-nse-bhavcopy
+- [ ] akshayz14/indian-stock-tracker
+- [ ] akt114/BuyNSell
+- [ ] AlexWan/OsEngine
+- [ ] algotrading-lab/ai-algotrading-agent
+- [ ] alloc7260/NSE
+- [ ] alphabench/raptorbt
+- [ ] althk/zerobha
+- [ ] Ameobea/tickgrinder
+- [ ] amitashwinibhagat/nse-swing-scanner
+- [ ] amv-dev/yata
+- [ ] Aneesh540/VSE
+- [ ] Animesh4002/ai-stock-screener
+- [ ] aniruddhsujish/NSETradeAgents
+- [ ] anjulgarg/sharewatch
+- [ ] ankitchaudhary6886/nse-system
+- [ ] ankitsny/nse_scrapper
+- [ ] anshulk/nse
+- [ ] anshuthopsee/nse-oi-visualizer
+- [ ] anthdm/rust-trading-engine
+- [ ] anurag-roy/kite-option-chain
+- [ ] anurag-roy/shoonya-option-chain
+- [ ] api-evangelist/nse-india
+- [ ] Aravin/Algo-Trade
+- [ ] Aravin/nse-data
+- [ ] ArishHassan/nse-live_testing
+- [ ] arvchahal/kalshi-rs
+- [x] asavinov/intelligent-trading-bot
+- [ ] AshayK003/nse-sentiment-analyzer
+- [ ] ashgen/NSEDataAnalytics
+- [x] ashishkumar30/Stock_Market_Live_Trading_using_AI
+- [ ] ashok-kollipara/options-oi
+- [ ] AshokKumar3502/nse-quant-trading
+- [x] Ashutosh0x/rust-finance
+- [x] ashwanthkumar/Live-NSE-Stock
+- [x] athreysethumadhavan-finance/nse-var-dashboard
+- [x] atilaahmettaner/tradingview-mcp
+- [x] atrybyme/Open-Interest-NSE-Live-Analysis
+- [x] Atul-Anand-Jha/Time-Series-Forecast-NSEPy
+- [x] augmentalphawealth/Sectoral-Breadth-Dashboard
+- [x] avhz/RustQuant
+- [x] avin1311/nse-bse-dashboard
+- [x] avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM
+- [x] ayushmaanbhav/StockMart
+- [x] Azhagesan-dev/OrderFlowMap
+- [x] BarathGB007/nse-options-data-collector
+- [x] BarathGB007/upstox-python-data
+- [x] barter-rs/barter-rs
+- [x] beinghorizontal/BhavFnO
+- [x] benimward9621/advanced-nse-momentum-terminal
+- [x] BennyThadikaran/eod2
+- [x] BennyThadikaran/eod2_data
+- [x] BennyThadikaran/NseIndiaApi
+- [x] Bhala-Srinivash/nse-trading-skills
+- [x] Bhumi008007/Stock_Prediction
+- [x] bitbytelabio/tradingview-rs
+- [x] blitzarx1/netstrat
+- [ ] Bohr1005/xcrypto
+- [ ] braverock/nse
+- [ ] bshada/nse-bse-api
+- [ ] bshada/nse-bse-mcp
+- [ ] buzzsubash/algo_trading_strategies_india
+- [ ] c3point/in-stock-screener
+- [ ] c3point/Nse-Support-Tools
+- [ ] calumrussell/rotala
+- [ ] ccxt/ccxt
+- [ ] chaitanyarahalkar/Financial-Info-Extractor
+- [ ] chartiny/nse-daily-volatility-reports
+- [ ] chauhanramkeval-blip/Nse-stock-bulk-deals-
+- [ ] chauhanramkeval-blip/NSE-stock-market-bulk-deals-
+- [ ] chinmayHundekari/NSEDatabase
+- [ ] chinthan-11/NSE-BSE-Arbitrage-bot
+- [ ] Chulilee/InterChangableTrade-Protocol
+- [ ] Clayborninconsistent906/Indian-Stock-Market-API
+- [ ] codegallivant/NSE-OHLC-scraper-plotter
+- [ ] ConteurShadow/Polymarket-Trading-Bot-Rust
+- [ ] crazygirl437/hyper-grid
+- [ ] crypto-crawler/coinsignal
+- [ ] cutupdev/Solana-Copytrading-bot
+- [ ] cyberomin/NSEFinance-Python
+- [ ] d-e-s-o/apcacli
+- [ ] dallyshalla/tropix
+- [ ] day0market/geger
+- [ ] daydy-dev/moon-dev-ai-agents-for-trading
+- [ ] debaonline4u/NSE-Data
+- [ ] Debopam-D/Project-NIFTY
+- [ ] deepentropy/ibx
+- [ ] Degenapetrader/EVPOLY
+- [ ] DegenSugarBoo/OpenBook
+- [ ] deshpanda/nse-screener
+- [ ] deshpanda/nse-screener-data
+- [ ] deshwalmahesh/NSE-Stock-Scanner
+- [ ] devAgam/chartink-to-tradingview-extension
+- [ ] devangmukherjee/top-gainers-and-losers-nse
+- [ ] devanshx9x/portfolio-monte-carlo
+- [ ] dhruvan246/stocks-dashboard
+- [ ] dkraj0612/nse-delivery-data
+- [ ] dpeachpeach/kalshi-rust
+- [ ] edison7009/EchoBird
+- [ ] edtechre/pybroker
+- [ ] eggmasonvalue/MTFDB
+- [ ] ej9909-create/nse_52wk_screener
+- [ ] ekanshsinghal/indian-stock-market
+- [ ] Erio-Harrison/rust-trade
+- [ ] featherenvy/botvana
+- [ ] feroz-ghub-26/nse-sharia-news-feed
+- [ ] feroze/YFinance-stock-history
+- [ ] ferozmd53/nse-preopen-data
+- [ ] ferrumfix/ferrumfix
+- [ ] finstacklabs/finstack-mcp
+- [ ] fluidex/dingir-exchange
+- [ ] gabriel-milan/btrader
+- [ ] gadiyar/NSEBhavcopy
+- [ ] ganeshbiyer/Nse_Historical_Data
+- [ ] georgiag7652/kronos-india
+- [ ] get10101/10101
+- [ ] ghostjat/Shoonya-php
+- [ ] girishg4t/bhavCopy-downloader
+- [ ] girishg4t/nse-bse-bhavcopy
+- [ ] GirishKumarDV/Live-NSE-BSE-MCP
+- [ ] gomitechnology-source/NSEBANK_HFT
+- [ ] groverjikaladka/nse-bse-news-scanner
+- [ ] gurudayal37/nse-data-syncer
+- [ ] HarrierOnChain/Prediction-Markets-Trading-Bot-Toolkits
+- [ ] HarshaDannina/Statistical-Arbitrage-Model
+- [ ] Hash-It-Out/StockChain
+- [ ] HawkEyeCoding/nse-oi-analysis
+- [ ] hemangjoshi37a/TrendMaster
+- [ ] hemenkapadia/getbhavcopy
+- [ ] henry-richard7/NSE-Tool-Stocks-Aerial-View
+- [ ] hermanodecastro/arbitrage-trading
+- [ ] hgsujay/NseData
+- [ ] hi-imcodeman/stock-nse-india
+- [ ] HimanshuMohanty-Git24/RakshaQuant
+- [ ] hirawatt/BSE_NSE_Announcement
+- [ ] HmERro3/indian-trading-skills
+- [ ] hopit-ai/india-trade-cli
+- [ ] hotessy/nse-historical-data
+- [ ] huseinzol05/Stock-Prediction-Models
+- [ ] hyphenOs/tickdownload
+- [ ] IBM/nse-observer
+- [ ] imanojkumar/NSE-India-All-Stocks-Tickers-Data
+- [ ] indianfoods-automation/nse
+- [ ] Indra5196/NseStockAnalyser
+- [ ] infinitefield/hypersdk
+- [ ] inv2004/coinbase-pro-rs
+- [ ] Ishaan3H/india-sector-screener
+- [ ] Itsnrk1/nse-scanner
+- [ ] jandginvestment/cci20-sma20-strategy
+- [ ] JayeshSRathod/nse-scanner
+- [ ] jensnesten/rust_bt
+- [ ] jerryshell/midas
+- [ ] jinit24/NSEDownload
+- [ ] joaquinbejar/OptionStratLib
+- [ ] johnebe2020-trade/Nse-scanner
+- [ ] joshiadvait8/nse-data
+- [ ] jugaad-py/master-data
+- [ ] Julien-R44/cli-candlestick-chart
+- [ ] JunbeomL22/trusted
+- [ ] KalyanM45/MarketInsight
+- [ ] kalyanroyinfo/stock-research-assistant
+- [ ] Karthik002002/Stoklore
+- [ ] kbizme/nsemine
+- [ ] KenMwaura1/nse-stock-scraper
+- [ ] khakhasshi/OptionWorkstation
+- [ ] kishanlalchoudhary/NSE-Option-Chain
+- [ ] kislayykumar/DailyVaultRates
+- [ ] kkirankumar1511/nse-momentum-dashboard
+- [ ] kondaiahpola1-wq/NSE-BSE-Event-Driven-Quant-Research-Platform
+- [ ] kostorub/backtest
+- [ ] krakenfx/kraken-cli
+- [ ] kuldeeepy/algo-trader
+- [ ] kwoshvick/NSE-Stock-Price-Crawler
+- [ ] kwoshvick/NSE-Stock-Price-Prediction
+- [ ] kwoshvick/NSE_Sentiment_Analysis
+- [ ] lakshaysinghal/bhavCopy
+- [ ] laminar-protocol/laminar-chain
+- [ ] lavakus/nse-intraday-bot
+- [ ] lebedov/nseindia_lob
+- [ ] lebedov/nseindia_reformat
+- [ ] llc-993/matching-core
+- [ ] longbridge/longbridge-terminal
+- [ ] Lqz13Th/extrema_infra
+- [ ] maanavshah/stock-market-india
+- [ ] maheshcharig/financial-data
+- [ ] mailbagrahul/NSEoptionAlpha
+- [ ] manavgupta83/nse-factor-engine
+- [ ] mandarl/nsedata
+- [ ] manddar/Open-Interest-Data-Extractor
+- [ ] manishkr1754/NIFTY50_Data_Analysis_NSETOOLS_NSEPY_Python
+- [ ] manishn32/option_chain_analyzer
+- [ ] manitgupta/NSE-MCP
+- [ ] mapsx/nse
+- [ ] marketcalls/openalgo
+- [ ] marketcalls/openchart
+- [ ] marketcalls/sector-rotation-map
+- [ ] MathisWellmann/lfest-rs
+- [ ] MathisWellmann/trade_aggregation-rs
+- [ ] maverick14303/stock-news-monitor
+- [ ] MCHSL/tastytrade-rs
+- [ ] me-imfhd/velocity
+- [ ] meanalgo/meanalgo.github.io
+- [ ] mechvec-debug/Ai_Driven_Algorithmic_trading
+- [ ] Meetnepali/market-platform
+- [ ] MelogneStudio/AlgoMLN
+- [ ] meticulousCraftman/TickerStore
+- [ ] mileswangs/pm-hftbacktest
+- [ ] mineralres/rust-share
+- [ ] mkshibu2/breadth-radar
+- [ ] mlfreerl/pynse
+- [ ] monomadic/rust-trailer
+- [ ] mortdeus/solana-copy-sniper-mev-trading-bot
+- [ ] mrappipramod/NSE-Data-Analysis
+- [ ] mrimahajan/NSE-Market-App
+- [ ] mrinaljhunjhunwala-ui/nse-smart-investor
+- [ ] muepsilon/nsemodule
+- [ ] MuokaPWambua/NSE-BOT
+- [ ] muthuvenki/Stock
+- [ ] mutxri/MUTXRI-TERMINAL
+- [ ] nabrahma/ShortCircuit
+- [ ] NagarajuGunda/NSEIndexOptionsData
+- [ ] nash-io/openlimits
+- [ ] nautechsystems/nautilus_trader
+- [ ] nawin383/nse-top500-realtime-screener
+- [ ] NayakwadiS/mftool
+- [ ] NayakwadiS/NSE-Neuron
+- [ ] neha01/Automate-Scrap-Nse-Data
+- [ ] neilghosh/nse-historical-data
+- [ ] NethermindEth/hummingboss
+- [ ] ngm9/nsei_mcp_server
+- [ ] nickmccullum/algorithmic-trading-python
+- [ ] ninja-quant/ninjabook
+- [ ] nirholas/pump-fun-sdk
+- [ ] Nitin-Bhawarkar/NSE_Livedata_from_excel_extraction
+- [ ] nived15/NSE-Stock-Fetcher
+- [ ] nkaz001/hftbacktest
+- [ ] NSEDownload/NSEDownload
+- [ ] nvegupta1/SecurityWiseNSEData
+- [ ] omerhalid/trading_engine_rust
+- [ ] opmashin/nse_eod
+- [ ] oscmcompany/fund
+- [ ] P0W/nse_indices
+- [ ] parmar-m/NSE_TRADER
+- [ ] parthsamani/NSEstockF-OAlert
+- [ ] patrick-weiss/PortfolioSorts_NSE
+- [ ] Paul-Folbrecht/algo-trading
+- [ ] pawan941394/Nse-Option-Chain---LLM-Project
+- [ ] PEC-CSS/Stock-Watchlist
+- [ ] perunnial/tickertrackbot
+- [ ] pishangujeniya/kite-helper
+- [ ] pishangujeniya/nse-stocks-data-scrapper
+- [ ] pkjmesra/nseta
+- [ ] pkjmesra/PKNSETools
+- [ ] pkjmesra/PKScreener
+- [ ] pmjangid90/StockMarket_Project
+- [ ] pparesh25/NSE_BSE_Downloader
+- [ ] pradeepjindal/nse-ml-2021
+- [ ] pradyumnac/Excel-Tools-Indian-Stock-Market
+- [ ] pramakrishn/express-option-chain
+- [ ] pranjal-joshi/Screeni-py
+- [ ] Prasad1612/NseKit-MCP
+- [ ] Praveen-Mannem/nse-scanner
+- [ ] pujanm/StockX
+- [ ] purefinance/mmb
+- [ ] QuantConnect/Lean.DataSource.Zerodha
+- [ ] QuantMechanics/nse-premarket-data
+- [ ] quantxaashish/nse-alpha
+- [ ] Rachnog/Deep-Trading
+- [ ] rahlumin/nseeod
+- [ ] Rahulghuge94/trading_expiry
+- [ ] rajaramsrinivas/GetNSEStockPrice
+- [ ] rajeshkolhe110/nse-clock-data
+- [ ] RajeshSivadasan/alice-blue-futures
+- [ ] RajeshSivadasan/alice-blue-options-buying
+- [ ] rajmaurya0904/bhav
+- [ ] ramamet/nse1minR
+- [ ] ranaroussi/qtpylib
+- [ ] ratan00/nse-rs
+- [ ] ratnaker16-bit/BrG-Zone-Scanner
+- [ ] rbhatia46/Option-Writing-Calls-Using-Open-Interest
+- [ ] reborn-digitech/swadeshi-tracker
+- [ ] rehanhaider/stocky
+- [ ] rhnvrm/stock-market-circulars
+- [ ] ricequant/rqalpha
+- [ ] rishikesh5/Algo-Trading-with-python
+- [ ] RishilBhutada/rscreener
+- [ ] riyaz-ali/bhav-copy
+- [ ] rizwandil6/nse-whatsapp-alerts
+- [ ] rjganatra/nse_analyser
+- [ ] Rockbandassembly371/market-sentiments
+- [ ] ROMESH1980/india-market-dashboard
+- [ ] Ronak-59/Stock-Prediction
+- [ ] rooneyrulz/agentic-stock-research-system
+- [ ] rsh-lab/nse-stock-dashboard
+- [ ] rsireddy002/nse-delivery-scanner
+- [ ] rsquaredacademy/nse2r
+- [ ] rthennan/ZerodhaWebsocket
+- [ ] RuchiTanmay/nselib
+- [ ] ruijiang81/AI_NSE
+- [ ] RupeezyTech/algo_ai_skill
+- [ ] ryqdev/golden
+- [ ] s-agawane/stock-price-forecaster-lstm
+- [ ] saber-hq/stable-swap
+- [ ] sagar-n/autoresearch-nse
+- [ ] sahilgupta/hakija
+- [ ] sajal101agrawal/nse-options-last-5-years
+- [ ] Sampad-Hegde/NSE-India-Web-Scraping
+- [ ] sandeep-jaiswar/financeindia
+- [ ] Sangram2905/NSE_Option_Chain
+- [ ] Sangram2905/NSE_Option_Stock_market
+- [ ] SankarGaneshb/Market-Rover
+- [ ] sapare542/new_fyers_nse
+- [ ] saubhagyapandey27/market-data-ops-platform
+- [ ] ShabbirHasan1/fund-forge
+- [ ] ShabbirHasan1/NSE-Data
+- [ ] ShabbirHasan1/nsebsemcx
+- [ ] ShahAnuj2610/QuickNSEDataFetcher
+- [ ] shamu0509/nse-bse-mcp
+- [ ] shikharka/stocks-app
+- [ ] ShrewdLemon/shunkan
+- [ ] ShreyashDarade/AI_Trading_Calls_Pridictor
+- [ ] Shubxam/Nifty-500-Live-Sentiment-Analysis
+- [ ] SiddharthaKrSaha/nse-screener
+- [ ] singhsurendrapratap/nse-swing-screener
+- [ ] skharchikov/polymarket-bot
+- [ ] sleeyax/ml-crypto-trading-bot
+- [ ] SnowCheetos/AutoMoonBot
+- [ ] sonimaharshi1999/JyotishTrader
+- [ ] Stellar-xcrow/StellarEscrow
+- [ ] stevschmid/nsearch
+- [ ] stockalgo/bandl
+- [ ] studiogangster/next-gen-algo-trading-bot
+- [ ] studiogangster/sensibull-realtime-options-api-ingestor
+- [ ] subaquatic-pierre/raderbot
+- [ ] sudhanshusingh23-wiz/nse-momentum-data
+- [ ] sumitjoshi21/NSE-Real-Time-Stocks-Analysis-and-Predictions-Using-P
+- [ ] sumitsainidev/OIAnalysis
+- [ ] sumukshashidhar-archive/nse-data
+- [ ] Superalgos/Algorithmic-Trading-Plugins
+- [ ] Superalgos/Trading-Signals-Plugins
+- [ ] svsashank/NSE_1000Cr_Momentum
+- [ ] swapniljariwala/nsepy
+- [ ] swapniljariwala/quotelib
+- [ ] Tapetide-hq/nse-bse-indian-stock-market-data-mcp
+- [ ] tcharding/rust-crypto-trader
+- [ ] TechfaneTechnologies/nseproxy
+- [ ] TechfaneTechnologies/pytvlwcharts
+- [ ] techyaura/nse-bhavcopy
+- [ ] telepair/polymarket-hft
+- [ ] tesserspace/tesser
+- [ ] TheHardeep/fenix
+- [ ] thehardeep/fenix
+- [ ] Thejesh-k463/VYUHA-LOG
+- [ ] theonlyanil/pnsea
+- [ ] thiyagab/autotrade
+- [ ] tilak999/NSE-Data-bank
+- [ ] TopTrenDev/polymarket-kalshi-arbitrage-bot
+- [ ] ttzztztz/rabbit_trading
+- [ ] turtlehq-tech/turtlestack-lite
+- [ ] uashogeschoolutrecht/NSE_Analyses
+- [ ] VarunDivakar/NSEpy-Continuous-data
+- [ ] VarunS2002/Python-NSE-Option-Chain-Analyzer
+- [ ] Vedl/nse-equity-research-report-generator
+- [ ] ven2day/opendelta-nse
+- [ ] viabtc/viabtc_exchange_server
+- [ ] vignesh-moorthy/NSE-DayData
+- [ ] vikaschouhan/portfolio_analysis
+- [ ] Vikranth3140/NSE-BSE-Stock-Prices-Automation
+- [ ] vinay-ram1999/AlgoTrade-API
+- [ ] vinodscode/ipo-exchange-scrape
+- [ ] vinothkumarmuruga-cyber/NSE-PRE-MARKET
+- [ ] vivektmurali/obscura-intel
+- [ ] vividvilla/NSE-Live-Market
+- [ ] vjpaij/ladder
+- [ ] voicegn/polymarket-bot
+- [ ] volatility4u/nsepython
+- [ ] vsjha18/nsecli
+- [ ] vsjha18/nsetools
+- [ ] wangrunji0408/most
+- [ ] waxdred/Binance-Trader-Bot
+- [ ] webclinic017/Tradingview-Screenshot-Bot-
+- [ ] white-trade-loan/algo-trading-platform
+- [ ] WizardRao/Rao-s-SCRAP-Platform
+- [ ] WooKiao/Crypto-trading-Hunter
+- [ ] x86y/dynasty
+- [ ] xorasysgen/Nse-OI-Scanner
+- [ ] yongkangc/lighter-rust
+- [ ] yswa-var/RRG
+- [ ] yusuf4030/the-data-analyst-toolkit
+- [ ] yutiansut/qaaccount-rs
+
+- [x] **Repo 018: AI4Finance-Foundation/FinRL-Trading (Magic Number: 9100033)**
+  - Deep Reinforcement Learning (DRL) ensemble portfolio allocation and adaptive sector rotation adapted into `src/institutional_integrations/finrl_trading_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `FINRL_TRADING`.
+  - Unit tests added to `tests/test_finrl_trading_engine.py` with 100% pass rate.
+
+- [x] **Repo 019: ajakaiye33/ngrcoydisclosures (Magic Number: 9100034)**
+  - Corporate disclosure XML feed parser and event classification adapted into `src/institutional_integrations/ngrcoydisclosures_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NGRCOY_DISCLOSURES`.
+  - Unit tests added to `tests/test_ngrcoydisclosures_engine.py` with 100% pass rate.
+
+- [x] **Repo 032: amv-dev/yata (Magic Number: 9100037)**
+  - Streaming technical indicators (Hull Moving Average HMA, MACD, Parabolic SAR) adapted into `src/institutional_integrations/yata_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `YATA_TECHNICAL`.
+  - Unit tests added to `tests/test_yata_engine.py` with 100% pass rate.
+
+- [x] **Repo 033: aneesh540/vse (Magic Number: 9100038)**
+  - Virtual Demat account portfolio manager and simulated buy/sell trade execution adapted into `src/institutional_integrations/vse_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `VSE_DEMAT`.
+  - Unit tests added to `tests/test_vse_engine.py` with 100% pass rate.
+
+- [x] **Repo 040: ankitchaudhary6886/nse-system (Magic Number: 9100040)**
+  - Multi-factor composite stock scoring, market regime gatekeeper, sector relative strength ranking, and institutional activity tracking adapted into `src/institutional_integrations/nse_system_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_SYSTEM`.
+  - Unit tests added to `tests/test_nse_system_engine.py` with 100% pass rate.
+
+- [x] **Repo 043: anshuthopsee/nse-oi-visualizer (Magic Number: 9100043)**
+  - Option chain Open Interest (OI) buildup analytics, Call/Put OI change imbalance scoring, Max Pain strike calculation, and Black-76 option pricing model adapted into `src/institutional_integrations/nse_oi_visualizer_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_OI_VISUALIZER`.
+  - Unit tests added to `tests/test_nse_oi_visualizer_engine.py` with 100% pass rate.
+
+- [x] **Repo 045: anthdm/rust-trading-engine (Magic Number: 9100044)**
+  - Price-time priority L2 limit orderbook matching engine, bid/ask queue execution, and market pair order matching adapted into `src/institutional_integrations/rust_matching_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `RUST_MATCHING_ENGINE`.
+  - Unit tests added to `tests/test_rust_matching_engine.py` with 100% pass rate.
+
+- [x] **Repo 048: api-evangelist/nse-india (Magic Number: 9100046)**
+  - API endpoint specification registry, domain security compliance checks (DNSSEC, SPF, DMARC), and API quality/health scoring adapted into `src/institutional_integrations/nse_india_api_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_INDIA_API`.
+  - Unit tests added to `tests/test_nse_india_api_engine.py` with 100% pass rate.
+
+- [x] **Repo 049: Aravin/Algo-Trade (Magic Number: 9100047)**
+  - Multi-broker unified gateway router and automated session token refresher adapted into `src/institutional_integrations/algo_trade_aravin_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `ALGO_TRADE_ARAVIN`.
+  - Unit tests added to `tests/test_algo_trade_aravin_engine.py` with 100% pass rate.
+
+- [x] **Repo 050: Aravin/nse-data (Magic Number: 9100048)**
+  - Live equity quote parsing, option chain strike matrix extraction, and Put-Call Ratio (PCR) analytics adapted into `src/institutional_integrations/nse_data_aravin_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_DATA_ARAVIN`.
+  - Unit tests added to `tests/test_nse_data_aravin_engine.py` with 100% pass rate.
+
+- [x] **Repo 059: Ashutosh0x/rust-finance (Magic Number: 9100056)**
+  - Black-Scholes analytical option pricing and Monte Carlo Value-at-Risk (VaR) calculations adapted into `src/institutional_integrations/rust_finance_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `RUST_FINANCE`.
+  - Unit tests added to `tests/test_rust_finance_engine.py` with 100% pass rate.
+
+- [x] **Repo 060: ashwanthkumar/Live-NSE-Stock (Magic Number: 9100057)**
+  - Live NSE quote JSON parsing and percentage price change tracking adapted into `src/institutional_integrations/live_nse_stock_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `LIVE_NSE_STOCK`.
+  - Unit tests added to `tests/test_live_nse_stock_engine.py` with 100% pass rate.
+
+- [x] **Repo 061: athreysethumadhavan-finance/nse-var-dashboard (Magic Number: 9100058)**
+  - Historical, Parametric, and Conditional VaR (Expected Shortfall) portfolio tail risk calculations adapted into `src/institutional_integrations/nse_var_dashboard_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_VAR_DASHBOARD`.
+  - Unit tests added to `tests/test_nse_var_dashboard_engine.py` with 100% pass rate.
+
+- [x] **Repo 062: atilaahmettaner/tradingview-mcp (Magic Number: 9100059)**
+  - Model Context Protocol (MCP) technical analysis and TradingView-style recommendation summary aggregation adapted into `src/institutional_integrations/tradingview_mcp_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `TRADINGVIEW_MCP`.
+  - Unit tests added to `tests/test_tradingview_mcp_engine.py` with 100% pass rate.
+
+- [x] **Repo 082: blitzarx1/netstrat (Magic Number: 9100079)**
+  - Network graph cycle detection, synthetic dataset generation with derivative mesh resolution adapted into `src/institutional_integrations/netstrat_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NETSTRAT`.
+  - Unit tests added to `tests/test_netstrat_engine.py` with 100% pass rate.
+
+- [x] **Repo 063: atrybyme/Open-Interest-NSE-Live-Analysis (Magic Number: 9100060)**
+  - Live Option Max Pain calculation, historical Open Interest histogram distribution, Put-Call Ratio (PCR) momentum calculation adapted into `src/institutional_integrations/open_interest_live_analysis_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `OPEN_INTEREST_LIVE_ANALYSIS`.
+  - Unit tests added to `tests/test_open_interest_live_analysis_engine.py` with 100% pass rate.
+
+- [x] **Repo 064: Atul-Anand-Jha/Time-Series-Forecast-NSEPy (Magic Number: 9100061)**
+  - Auto-Regressive (AR) time-series forecasting, exponentially weighted moving average momentum prediction adapted into `src/institutional_integrations/time_series_forecast_nsepy_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `TIME_SERIES_FORECAST_NSEPY`.
+  - Unit tests added to `tests/test_time_series_forecast_nsepy_engine.py` with 100% pass rate.
+
+- [x] **Repo 056: ashishkumar30/Stock_Market_Live_Trading_using_AI (Magic Number: 9100053)**
+  - Guppy Multiple Moving Average (GMMA) trend scoring, Heikin-Ashi candle transformation, and RSI momentum break triggers adapted into `src/institutional_integrations/ai_stock_live_trader_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `AI_STOCK_LIVE_TRADER`.
+  - Unit tests added to `tests/test_ai_stock_live_trader_engine.py` with 100% pass rate.
+
+- [x] **Repo 053: asavinov/intelligent-trading-bot (Magic Number: 9100051)**
+  - Machine learning time-series feature engineering, rolling mean return/volatility metrics, and logistic trend probability classification adapted into `src/institutional_integrations/intelligent_trading_bot_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `INTELLIGENT_TRADING_BOT`.
+  - Unit tests added to `tests/test_intelligent_trading_bot_engine.py` with 100% pass rate.
+
+- [x] **Repo 065: augmentalphawealth/Sectoral-Breadth-Dashboard (Magic Number: 9100062)**
+  - Sectoral advance/decline breadth metrics and percentage of sector constituents trading above moving averages adapted into `src/institutional_integrations/sectoral_breadth_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `SECTORAL_BREADTH`.
+  - Unit tests added to `tests/test_sectoral_breadth_engine.py` with 100% pass rate.
+
+- [x] **Repo 066: avhz/RustQuant (Magic Number: 9100063)**
+  - Analytical Black-Scholes pricing, Heston stochastic volatility simulation, Sharpe/Sortino risk metrics adapted into `src/institutional_integrations/rustquant_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `RUSTQUANT`.
+  - Unit tests added to `tests/test_rustquant_engine.py` with 100% pass rate.
+
+- [x] **Repo 067: avin1311/nse-bse-dashboard (Magic Number: 9100064)**
+  - Multi-exchange quote aggregation (NSE & BSE) and dual-exchange price spread arbitrage evaluation adapted into `src/institutional_integrations/nse_bse_dashboard_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_BSE_DASHBOARD`.
+  - Unit tests added to `tests/test_nse_bse_dashboard_engine.py` with 100% pass rate.
+
+- [x] **Repo 068: avirichie/NSE-Closing-Stock-Price-Prediction-Using-LSTM (Magic Number: 9100065)**
+  - Min-Max scaling, LSTM sequence prediction, and predicted change percentage signal generation adapted into `src/institutional_integrations/nse_closing_lstm_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_CLOSING_LSTM`.
+  - Unit tests added to `tests/test_nse_closing_lstm_engine.py` with 100% pass rate.
+
+- [x] **Repo 069: ayushmaanbhav/StockMart (Magic Number: 9100066)**
+  - Limit orderbook matching, portfolio position valuation, 0.05 INR price tick rounding, IST trading session validation adapted into `src/institutional_integrations/stockmart_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `STOCKMART`.
+  - Unit tests added to `tests/test_stockmart_engine.py` with 100% pass rate.
+
+- [x] **Repo 083: bohr1005/xcrypto (Magic Number: 9100080)**
+  - Crypto spot/futures trading, PyAlgo moving average crossover signal evaluation, order routing, position PnL tracking, 0.05 INR tick rounding, IST trading session validation adapted into `src/institutional_integrations/xcrypto_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `XCRYPTO`.
+  - Unit tests added to `tests/test_xcrypto_engine.py` with 100% pass rate.
+
+- [x] **Repo 084: braverock/nse (Magic Number: 9100081)**
+  - Batch Means (BM), Overlapping Batch Means (OBM), Newey-West Bartlett kernel, and Effective Sample Size (ESS) Numerical Standard Error estimation adapted into `src/institutional_integrations/braverock_nse_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `BRAVEROCK_NSE`.
+  - Unit tests added to `tests/test_braverock_nse_engine.py` with 100% pass rate.
+
+- [x] **Repo 085: bshada/nse-bse-api (Magic Number: 9100082)**
+  - Dual-exchange quote parsing (NSE & BSE), price spread computation, option chain Put-Call Ratio (PCR) & Max Pain strike calculation, top gainers/losers classification adapted into `src/institutional_integrations/nse_bse_api_bshada_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `NSE_BSE_API_BSHADA`.
+  - Unit tests added to `tests/test_nse_bse_api_bshada_engine.py` with 100% pass rate.

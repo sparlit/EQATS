@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import sys
 import time
-
 from pathlib import Path
 
 ZERO_TOLERANCE_FORBIDDEN = ["TODO", "WIP", "Implement later", "mock", "dummy"]
@@ -173,7 +172,6 @@ class AutonomousRepoIntegrator:
 
         print(f"[+] Cloning [{target['target']}] into sandbox...")
         code, out = self.run_cmd(f"git clone --depth=1 {repo_url} {target_dir}", retries=3)
-
         if code != 0:
             print(f"[-] Failed to clone {repo_url}: {out}")
             return None
@@ -233,6 +231,7 @@ class AutonomousRepoIntegrator:
 
     def self_healing_loop(self, file_path: Path, max_retries: int = 5) -> bool:
         """Multi-tier Multi-Event Self-Healing Loop:
+
         1. Syntax check & auto-fix
         2. Ruff linter & format auto-fix
         3. Mypy type annotation auto-fix
@@ -306,6 +305,7 @@ class AutonomousRepoIntegrator:
 
         if needed:
             content = f"from typing import {', '.join(needed)}\n" + content
+
         with file_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
@@ -361,7 +361,6 @@ class AutonomousRepoIntegrator:
         self.run_cmd(f'git commit -m "{commit_msg}"')
 
         push_code, push_out = self.run_cmd(f"git push origin {branch_name} --force", retries=3)
-
         if push_code != 0:
             print(f"[-] Failed to push branch {branch_name}: {push_out}")
             self.run_cmd("git checkout main")
@@ -384,7 +383,7 @@ class AutonomousRepoIntegrator:
                 self.run_cmd("git pull origin main --rebase")
                 self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"')
                 self.run_cmd("git push origin main", retries=3)
-                print(f"[+] Auto-Merge Loop completed for {branch_name}.")
+            print(f"[+] Auto-Merge Loop completed for {branch_name}.")
         else:
             print(f"[*] Branch pushed directly without PR creation: {pr_out.strip()}")
             self.run_cmd("git checkout main")
@@ -392,9 +391,9 @@ class AutonomousRepoIntegrator:
             self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
             self.run_cmd("git push origin main", retries=3)
 
-            self.run_cmd("git checkout main")
-            self.run_cmd("git pull origin main --rebase")
-            return (True, pr_url)
+        self.run_cmd("git checkout main")
+        self.run_cmd("git pull origin main --rebase")
+        return (True, pr_url)
 
     def process_single_repository(self, index: int) -> bool:
         """Processes a single repository target end-to-end."""
