@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 72
+Total Repositories: 411 | Current Index: 73
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -75,7 +75,7 @@ Total Repositories: 411 | Current Index: 72
 | 70 | barter-rs/barter-rs | Processed | None |
 | 71 | beinghorizontal/bhavfno | Completed | None |
 | 72 | benimward9621/advanced-nse-momentum-terminal | Processed | None |
-| 73 | bennythadikaran/eod2 | pending | None |
+| 73 | bennythadikaran/eod2 | Completed | None |
 | 74 | bennythadikaran/eod2_data | pending | None |
 | 75 | bennythadikaran/nseindiaapi | pending | None |
 | 76 | bhala-srinivash/nse-trading-skills | pending | None |
