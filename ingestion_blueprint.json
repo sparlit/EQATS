@@ -1,5 +1,5 @@
 {
-  "current_index": 94,
+  "current_index": 95,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -757,7 +757,7 @@
       "name": "interchangabletrade-protocol",
       "target": "chulilee/interchangabletrade-protocol",
       "url": "https://github.com/chulilee/interchangabletrade-protocol",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
