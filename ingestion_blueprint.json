@@ -1,5 +1,5 @@
 {
-  "current_index": 79,
+  "current_index": 80,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -637,7 +637,7 @@
       "name": "xcrypto",
       "target": "bohr1005/xcrypto",
       "url": "https://github.com/bohr1005/xcrypto",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
