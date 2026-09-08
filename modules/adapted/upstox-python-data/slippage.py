@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 Slippage model for paper trading.
 
@@ -9,9 +32,9 @@ Two modes:
 import random
 
 
-def compute_slippage(action: str, moneyness: float = 0.0, vix: float = 14.0,
-                     hour: int = 10, symbol: str = "NIFTY",
-                     is_exit: bool = False) -> float:
+def compute_slippage(
+    action: str, moneyness: float = 0.0, vix: float = 14.0, hour: int = 10, symbol: str = "NIFTY", is_exit: bool = False
+) -> float:
     """Compute formula-based slippage multiplier (fallback when no depth)."""
     base = 1.0
 
@@ -45,8 +68,7 @@ def compute_slippage(action: str, moneyness: float = 0.0, vix: float = 14.0,
     return max(base, 1.001)
 
 
-def _apply_depth_slippage(price: float, action: str, depth: dict,
-                          vix: float = 14.0, hour: int = 10) -> float:
+def _apply_depth_slippage(price: float, action: str, depth: dict, vix: float = 14.0, hour: int = 10) -> float:
     """Apply realistic slippage from bid/ask depth data."""
     bid = depth.get("bid", 0) or depth.get("best_bid", 0)
     ask = depth.get("ask", 0) or depth.get("best_ask", 0)
@@ -54,10 +76,7 @@ def _apply_depth_slippage(price: float, action: str, depth: dict,
     if not bid or not ask or bid <= 0 or ask <= 0:
         return None
 
-    if action == "BUY":
-        fill_price = ask
-    else:
-        fill_price = bid
+    fill_price = ask if action == "BUY" else bid
 
     spread = ask - bid
     if spread > 5.0:
@@ -76,27 +95,23 @@ def _apply_depth_slippage(price: float, action: str, depth: dict,
         vix_jitter += 0.001
 
     if action == "BUY":
-        fill_price *= (1 + vix_jitter)
+        fill_price *= 1 + vix_jitter
     else:
-        fill_price *= (1 - vix_jitter)
+        fill_price *= 1 - vix_jitter
 
     fill_price += random.uniform(-0.05, 0.05)
 
     return round(max(fill_price, 0.05), 2)
 
 
-def apply_slippage(price: float, action: str, *, depth: dict = None,
-                   **kwargs) -> float:
+def apply_slippage(price: float, action: str, *, depth: dict | None = None, **kwargs) -> float:
     """Apply slippage. Uses depth if available, else formula."""
     if depth:
-        result = _apply_depth_slippage(price, action, depth,
-                                       vix=kwargs.get("vix", 14.0),
-                                       hour=kwargs.get("hour", 10))
+        result = _apply_depth_slippage(price, action, depth, vix=kwargs.get("vix", 14.0), hour=kwargs.get("hour", 10))
         if result is not None:
             return result
 
     mult = compute_slippage(action, **kwargs)
     if action == "BUY":
         return round(price * mult, 2)
-    else:
-        return round(price / mult, 2)
+    return round(price / mult, 2)
