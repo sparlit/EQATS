@@ -1,5 +1,5 @@
 {
-  "current_index": 86,
+  "current_index": 87,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -693,7 +693,7 @@
       "name": "rotala",
       "target": "calumrussell/rotala",
       "url": "https://github.com/calumrussell/rotala",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
