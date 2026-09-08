@@ -10,7 +10,6 @@ authors = [
     { name = "Simon Peter", email = "author@tsyslabs.com" }
 ]
 readme = "README.md"
-# Compatible with Python 3.12+ and Free-Threaded (No-GIL) PEP 703
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.24.0",
@@ -32,7 +31,6 @@ ext_modules = [
 ]
 
 [tool.ruff]
-# Target optimized Python 3.13 runtime compiler features
 target-version = "py313"
 line-length = 120
 
@@ -61,24 +59,26 @@ ignore = [
     "N802",   # Function name should be lowercase
     "N803",   # Argument name should be lowercase
     "N806",   # Variable name should be lowercase
+    "Q000",   # Single quotes vs double quotes
+    "Q001",   # Single quotes vs double quotes
+    "Q002",   # Docstring quotes
+    "Q003",   # Avoidable escaped quotes
+    "COM812", # Missing trailing comma
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["institutional_integrations", "brain", "connector", "database", "indicators", "main", "config"]
 
 [tool.mypy]
-# Upgraded typing boundaries to strictly analyze Python 3.13 source states
 python_version = "3.13"
 ignore_missing_imports = true
 exclude = ["build", "dist", "eqats.egg-info", ".eggs"]
-# Corrected: Swapped false overrides to true constraints to support your --strict validation track
 warn_unused_ignores = true
 warn_redundant_casts = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_calls = true
 check_untyped_defs = true
-# Removed sweeping error code suppressions to allow Nemotron-3 to track and rectify real anomalies
 disable_error_code = ["import-untyped", "import-not-found"]
 
 [tool.pytest.ini_options]
