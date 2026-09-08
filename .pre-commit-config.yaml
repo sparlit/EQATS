@@ -1,0 +1,12 @@
+# .pre-commit-config.yaml
+# Safe, standard path location fully supported by all Git and GitHub interfaces.
+repos:
+  - repo: local
+    hooks:
+      - id: quant-sdlc-verification
+        name: Run Quant SDLC Local Validation Suite
+        entry: bash -c "python3 -m venv .local_env && source .local_env/bin/activate && python3 -m pip install pytest --quiet && if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt --quiet; fi && pytest test_scalper_enhancements.py test_sebi_broker_adapter.py -v"
+        language: system
+        stages: [pre-push] # Triggers automatically right before your team pushes code
+        always_run: true
+        pass_filenames: false

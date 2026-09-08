@@ -4,10 +4,11 @@ Unit and Integration Tests for EQATS Autonomous Repository Integrator & Self-Hea
 
 import json
 import os
-from pathlib import Path
 import shutil
 import sys
 import tempfile
+from pathlib import Path
+
 import pytest
 
 root_dir = Path(__file__).resolve().parent.parent
@@ -15,7 +16,7 @@ scripts_dir = root_dir / ".github" / "scripts"
 sys.path.insert(0, str(root_dir))
 sys.path.insert(0, str(scripts_dir))
 
-from autonomous_repo_integrator import AutonomousRepoIntegrator, IST_SESSION_HELPER
+from autonomous_repo_integrator import IST_SESSION_HELPER, AutonomousRepoIntegrator
 from trigger_loop import dispatch_next_cycle
 
 

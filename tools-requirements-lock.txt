@@ -1,0 +1,13 @@
+# Tooling Dependency Lockfile - See requirements-lock.txt for documentation
+
+This file should contain hash-pinned versions of CI/CD tooling dependencies:
+- ruff (Python linter)
+- bandit (Security scanner)
+- pytest (Testing framework)
+
+Generate this file by running:
+```bash
+bash .github/workflows/generate-lockfiles.sh
+```
+
+See requirements-lock.txt for full documentation on the lockfile system.
