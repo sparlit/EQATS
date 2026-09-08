@@ -1,5 +1,5 @@
 {
-  "current_index": 80,
+  "current_index": 81,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -645,7 +645,7 @@
       "name": "nse",
       "target": "braverock/nse",
       "url": "https://github.com/braverock/nse",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
