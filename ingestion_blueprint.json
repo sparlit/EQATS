@@ -1,5 +1,5 @@
 {
-  "current_index": 82,
+  "current_index": 83,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -661,7 +661,7 @@
       "name": "nse-bse-mcp",
       "target": "bshada/nse-bse-mcp",
       "url": "https://github.com/bshada/nse-bse-mcp",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
