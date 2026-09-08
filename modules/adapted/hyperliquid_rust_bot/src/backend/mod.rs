@@ -1,0 +1,20 @@
+pub(crate) mod app_state;
+pub(crate) mod auth;
+pub(crate) mod bot_manager;
+pub(crate) mod crypto;
+pub(crate) mod local_store;
+pub(crate) mod routes;
+pub(crate) mod scripting;
+pub(crate) mod storage_models;
+
+// Re-exports for the binary crate
+pub use app_state::{
+    AppState, BotStartupStore, CachedStrategy, NonceStore, StrategyCache, WsConnections,
+    broadcast_to_user,
+};
+pub use auth::{AuthUser, spawn_nonce_pruner, spawn_pending_agent_pruner};
+pub use bot_manager::BotManager;
+pub use local_store::LocalStore;
+pub use routes::create_router;
+pub use scripting::{CompiledStrategy, StateDeclarations, compile_strategy, create_engine};
+pub use storage_models::{StrategyRow, TradeRow};
