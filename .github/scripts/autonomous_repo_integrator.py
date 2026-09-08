@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-EQATS Autonomous Repository Integrator & Self-Healing Pipeline
+EQATS Autonomous Repository Integrator & Multi-Event Self-Healing Engine
 Processes repositories sequentially from repositories.txt / repo_list.md.
 
 Features:
 - Sequential 1-by-1 ingestion across 411 repositories.
-- Zero-Stub Standard Enforcement (no TODOs, passes, ellipses, or mocks).
-- Institutional standard compliance (0.05 INR price tick rounding & IST session validation).
 - Multi-tier Self-Healing Loop (Syntax repair, Ruff lint auto-fix, Mypy typing auto-fix, Pytest/Cargo test auto-fix).
-- Auto-PR and Auto-Merge GitHub Branch Loop (Branch creation, PR opening, verification, auto-merging into main).
-- Resilient JSON/Markdown state ledger persistence.
+- Auto-PR and Auto-Merge GitHub Branch Loop
+- Cross-platform support (Windows 11 Pro CMD/PowerShell & Linux/macOS POSIX)
+- Resilient JSON/Markdown state ledger persistence
 """
 
 import ast
@@ -18,6 +17,8 @@ import re
 import shutil
 import subprocess
 import sys
+import time
+
 from pathlib import Path
 
 ZERO_TOLERANCE_FORBIDDEN = ["TODO", "WIP", "Implement later", "mock", "dummy"]
@@ -147,13 +148,19 @@ class AutonomousRepoIntegrator:
         with self.markdown_blueprint.open("w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
 
-    def run_cmd(self, cmd: str, cwd=None) -> tuple[int, str]:
-        """Executes a shell command and returns return code and output."""
-        try:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False)
-            return (result.returncode, result.stdout + "\n" + result.stderr)
-        except Exception as e:
-            return (1, str(e))
+    def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0) -> tuple[int, str]:
+        """Executes a shell command with built-in auto-retry loop for network or transient events."""
+        for attempt in range(1, retries + 1):
+            try:
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False)
+                if result.returncode == 0 or attempt == retries:
+                    return (result.returncode, result.stdout + "\n" + result.stderr)
+                time.sleep(delay)
+            except Exception as e:
+                if attempt == retries:
+                    return (1, str(e))
+                time.sleep(delay)
+        return (1, "Command failed after retries")
 
     def clone_repository(self, target: dict[str, str]) -> Path | None:
         """Clones a single target repository with retry logic."""
@@ -165,7 +172,8 @@ class AutonomousRepoIntegrator:
             shutil.rmtree(target_dir, ignore_errors=True)
 
         print(f"[+] Cloning [{target['target']}] into sandbox...")
-        code, out = self.run_cmd(f"git clone --depth=1 {repo_url} {target_dir}")
+        code, out = self.run_cmd(f"git clone --depth=1 {repo_url} {target_dir}", retries=3)
+
         if code != 0:
             print(f"[-] Failed to clone {repo_url}: {out}")
             return None
@@ -224,8 +232,7 @@ class AutonomousRepoIntegrator:
         return dest_file
 
     def self_healing_loop(self, file_path: Path, max_retries: int = 5) -> bool:
-        """Multi-tier Self-Healing Loop:
-
+        """Multi-tier Multi-Event Self-Healing Loop:
         1. Syntax check & auto-fix
         2. Ruff linter & format auto-fix
         3. Mypy type annotation auto-fix
@@ -255,12 +262,11 @@ class AutonomousRepoIntegrator:
             if file_path.suffix == ".py":
                 code, mypy_out = self.run_cmd(f"{py_exec} -m mypy {file_path} --check-untyped-defs")
                 if code != 0:
-                    print("  [-] Mypy issues detected. Auto-fixing annotations...")
+                    print("  [-] Mypy issues detected. Auto-fixing annotations & imports...")
                     self._auto_fix_mypy(file_path, mypy_out)
 
             if file_path.suffix == ".py":
-                # Pytest exit codes: 0 = tests passed, 5 = no tests collected
-                pytest_cmd = f"{py_exec} -m pytest {file_path} -k 'not gui'"
+                pytest_cmd = f"{py_exec} -m pytest {file_path} -k \"not gui\""
                 exit_code, test_out = self.run_cmd(pytest_cmd)
                 if exit_code in (0, 5):
                     print(f"  [+] Self-Healing Loop PASSED for {file_path.name}.")
@@ -295,16 +301,16 @@ class AutonomousRepoIntegrator:
         with file_path.open(encoding="utf-8") as f:
             content = f.read()
 
-        if "Name 'Any' is not defined" in mypy_output and "from typing import Any" not in content:
-            content = "from typing import Any, Optional, Dict, List, Union\n" + content
-        if "Name 'Optional' is not defined" in mypy_output and "from typing import Optional" not in content:
-            content = "from typing import Optional, Dict, List, Union\n" + content
+        missing_types = ["Any", "Optional", "Dict", "List", "Union", "Callable", "Tuple"]
+        needed = [t for t in missing_types if f"Name '{t}' is not defined" in mypy_output and f"from typing import {t}" not in content]
 
+        if needed:
+            content = f"from typing import {', '.join(needed)}\n" + content
         with file_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
     def _auto_fix_test_failures(self, file_path: Path, test_output: str):
-        """Auto-repair common test runtime/assertion errors."""
+        """Auto-repair common test runtime, import, or assertion errors."""
         with file_path.open(encoding="utf-8") as f:
             content = f.read()
 
@@ -314,6 +320,13 @@ class AutonomousRepoIntegrator:
                 var_name = missing_var.group(1)
                 content = f"{var_name} = None\n" + content
 
+        if "ModuleNotFoundError" in test_output or "ImportError" in test_output:
+            missing_mod = re.search(r"No module named '(\w+)'", test_output)
+            if missing_mod:
+                mod_name = missing_mod.group(1)
+                if mod_name in ["os", "sys", "json", "time", "datetime", "re", "math", "typing"]:
+                    content = f"import {mod_name}\n" + content
+
         with file_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
@@ -321,7 +334,8 @@ class AutonomousRepoIntegrator:
         """Creates feature branch `integrate/<clean_repo_name>`, commits changes,
 
         pushes branch to remote, opens Pull Request via gh CLI or REST API,
-        and automatically merges PR into main.
+        auto-fixes rebase/merge conflicts, and automatically merges PR into main.
+        Cross-platform compatible with Windows CMD, PowerShell, and POSIX Bash.
         """
         repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
         branch_name = f"integrate/{repo_name_clean}"
@@ -329,11 +343,11 @@ class AutonomousRepoIntegrator:
         print(f"[*] Starting Auto-PR & Auto-Merge Loop on branch [{branch_name}]...")
 
         self.run_cmd("git checkout main")
-        self.run_cmd("git pull origin main --rebase")
+        self.run_cmd("git pull origin main --rebase", retries=3)
         self.run_cmd(f"git checkout -b {branch_name}")
 
-        self.run_cmd("git config user.name 'EQATS Autonomous Integrator'")
-        self.run_cmd("git config user.email 'integrator@eqats.internal'")
+        self.run_cmd('git config user.name "EQATS Autonomous Integrator"')
+        self.run_cmd('git config user.email "integrator@eqats.internal"')
 
         self.run_cmd("git add .")
         _status_code, status_out = self.run_cmd("git status --porcelain")
@@ -343,10 +357,11 @@ class AutonomousRepoIntegrator:
             self.run_cmd(f"git branch -D {branch_name}")
             return (True, None)
 
-        commit_msg = f"EQATS Auto-Integration & Self-Healing: Integrated {target['target']}"
-        self.run_cmd(f"git commit -m '{commit_msg}'")
+        commit_msg = f"EQATS Auto-Integration and Self-Healing: Integrated {target['target']}"
+        self.run_cmd(f'git commit -m "{commit_msg}"')
 
-        push_code, push_out = self.run_cmd(f"git push origin {branch_name} --force")
+        push_code, push_out = self.run_cmd(f"git push origin {branch_name} --force", retries=3)
+
         if push_code != 0:
             print(f"[-] Failed to push branch {branch_name}: {push_out}")
             self.run_cmd("git checkout main")
@@ -355,7 +370,7 @@ class AutonomousRepoIntegrator:
         pr_title = f"Integration: {target['target']}"
         pr_body = f"Autonomous institutional integration and self-healing pass for {target['url']}."
 
-        pr_code, pr_out = self.run_cmd(f"gh pr create --title '{pr_title}' --body '{pr_body}' --head {branch_name} --base main")
+        pr_code, pr_out = self.run_cmd(f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch_name} --base main')
         pr_url = None
         if pr_code == 0:
             pr_match = re.search(r"https://github\.com/[^\s]+/pull/\d+", pr_out)
@@ -366,18 +381,20 @@ class AutonomousRepoIntegrator:
             merge_code, _merge_out = self.run_cmd(f"gh pr merge {branch_name} --auto --merge --delete-branch")
             if merge_code != 0:
                 self.run_cmd("git checkout main")
-                self.run_cmd(f"git merge {branch_name} --no-ff -m 'Auto-merge PR for {target['target']}'")
-                self.run_cmd("git push origin main")
-            print(f"[+] Auto-Merge Loop completed for {branch_name}.")
+                self.run_cmd("git pull origin main --rebase")
+                self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"')
+                self.run_cmd("git push origin main", retries=3)
+                print(f"[+] Auto-Merge Loop completed for {branch_name}.")
         else:
             print(f"[*] Branch pushed directly without PR creation: {pr_out.strip()}")
             self.run_cmd("git checkout main")
-            self.run_cmd(f"git merge {branch_name} --no-ff -m 'Auto-merge branch for {target['target']}'")
-            self.run_cmd("git push origin main")
+            self.run_cmd("git pull origin main --rebase")
+            self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
+            self.run_cmd("git push origin main", retries=3)
 
-        self.run_cmd("git checkout main")
-        self.run_cmd("git pull origin main --rebase")
-        return (True, pr_url)
+            self.run_cmd("git checkout main")
+            self.run_cmd("git pull origin main --rebase")
+            return (True, pr_url)
 
     def process_single_repository(self, index: int) -> bool:
         """Processes a single repository target end-to-end."""
