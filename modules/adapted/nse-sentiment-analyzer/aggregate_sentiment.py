@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 SmartScore aggregation for NSE Sentiment Analyzer.
 
@@ -80,56 +103,56 @@ def compute_smartscore(
 ) -> tuple[dict[str, Any], list[float]]:
     """Compute the SmartScore (0–100) using four normalized sentiment components.
 
-SmartScore combines multiple signals into a single metric that summarizes
-overall market sentiment.
+    SmartScore combines multiple signals into a single metric that summarizes
+    overall market sentiment.
 
-Components
-----------
-1. Recency (45%)
-    Exponentially Weighted Moving Average (EWMA) of recent daily
-    event-adjusted sentiment using a 36-hour half-life.
+    Components
+    ----------
+    1. Recency (45%)
+        Exponentially Weighted Moving Average (EWMA) of recent daily
+        event-adjusted sentiment using a 36-hour half-life.
 
-2. Event-adjusted Sentiment (25%)
-    Average of today's event-adjusted headline sentiment scores.
+    2. Event-adjusted Sentiment (25%)
+        Average of today's event-adjusted headline sentiment scores.
 
-3. Headline Breadth (20%)
-    Measures whether positive headlines outnumber negative headlines.
+    3. Headline Breadth (20%)
+        Measures whether positive headlines outnumber negative headlines.
 
-4. News Volume (10%)
-    Log-normalized headline count to reward broader news coverage
-    without allowing volume to dominate the score.
+    4. News Volume (10%)
+        Log-normalized headline count to reward broader news coverage
+        without allowing volume to dominate the score.
 
-Formula
--------
-SmartScore = 100 × (
-    0.45 × S_recency +
-    0.25 × S_events +
-    0.20 × S_breadth +
-    0.10 × S_volume
-)
+    Formula
+    -------
+    SmartScore = 100 × (
+        0.45 × S_recency +
+        0.25 × S_events +
+        0.20 × S_breadth +
+        0.10 × S_volume
+    )
 
-The final score is clamped to the range 0–100.
+    The final score is clamped to the range 0–100.
 
-Signal Thresholds
------------------
-SmartScore >= 65      → BULLISH
-40 <= SmartScore < 65 → NEUTRAL
-SmartScore < 40       → BEARISH
+    Signal Thresholds
+    -----------------
+    SmartScore >= 65      → BULLISH
+    40 <= SmartScore < 65 → NEUTRAL
+    SmartScore < 40       → BEARISH
 
-Args:
-    headline_scores:
-        List of dictionaries containing raw VADER compound scores.
+    Args:
+        headline_scores:
+            List of dictionaries containing raw VADER compound scores.
 
-    event_adjusted_scores:
-        List of event-adjusted compound sentiment scores.
+        event_adjusted_scores:
+            List of event-adjusted compound sentiment scores.
 
-    history:
-        Optional historical daily sentiment records used for EWMA
-        calculation.
+        history:
+            Optional historical daily sentiment records used for EWMA
+            calculation.
 
-Returns:
-    Dictionary containing the SmartScore, individual component scores,
-    headline statistics, market signal, and historical SmartScore values.
+    Returns:
+        Dictionary containing the SmartScore, individual component scores,
+        headline statistics, market signal, and historical SmartScore values.
     """
     n = len(headline_scores)
 
@@ -195,9 +218,7 @@ Returns:
     history_scores: list[float] = []
     if history:
         history_scores = [
-            float(h["smartscore"])
-            for h in history
-            if h.get("smartscore") is not None and h["smartscore"] != ""
+            float(h["smartscore"]) for h in history if h.get("smartscore") is not None and h["smartscore"] != ""
         ]
     history_scores.append(round(smartscore, 1))
 
