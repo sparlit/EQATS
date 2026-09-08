@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 95
+Total Repositories: 411 | Current Index: 96
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -98,7 +98,7 @@ Total Repositories: 411 | Current Index: 95
 | 93 | chinmayhundekari/nsedatabase | Processed | None |
 | 94 | chinthan-11/nse-bse-arbitrage-bot | Processed | None |
 | 95 | chulilee/interchangabletrade-protocol | Processed | None |
-| 96 | clayborninconsistent906/indian-stock-market-api | pending | None |
+| 96 | clayborninconsistent906/indian-stock-market-api | Processed | None |
 | 97 | codegallivant/nse-ohlc-scraper-plotter | pending | None |
 | 98 | conteurshadow/polymarket-trading-bot-rust | pending | None |
 | 99 | crazygirl437/hyper-grid | pending | None |
