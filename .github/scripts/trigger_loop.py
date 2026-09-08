@@ -8,10 +8,10 @@ Dispatches workflow dispatch triggers to continue autonomous integration loop.
 import http.client
 import json
 import os
+from pathlib import Path
 import ssl
 import sys
 import time
-from pathlib import Path
 
 
 def _send_workflow_dispatch(repo: str, token: str, wf: str, payload_data: bytes):
@@ -80,7 +80,7 @@ def dispatch_next_cycle():
     if current < total:
         print(f"[+] Progress Matrix Index: ({current} / {total}). Triggering subsequent pipeline cascade...")
 
-        token = os.environ.get("GITHUB_TOKEN")
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         repo = os.environ.get("GITHUB_REPOSITORY")
 
         if not token or not repo:
@@ -89,7 +89,6 @@ def dispatch_next_cycle():
 
         workflows = [
             "autonomous-repo-integration.yml",
-            "eqats-ingestion-loop.yml",
         ]
 
         payload_data = json.dumps({"ref": "main"}).encode("utf-8")

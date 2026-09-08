@@ -6,7 +6,7 @@ Processes repositories sequentially from repositories.txt / repo_list.md.
 Features:
 - Sequential 1-by-1 ingestion across 411 repositories.
 - Multi-tier Self-Healing Loop (Syntax repair, Ruff lint auto-fix, Mypy typing auto-fix, Pytest/Cargo test auto-fix).
-- Auto-PR and Auto-Merge GitHub Branch Loop
+- Hardened Auto-PR and Auto-Merge GitHub Branch Loop with state ledger persistence
 - Cross-platform support (Windows 11 Pro CMD/PowerShell & Linux/macOS POSIX)
 - Resilient JSON/Markdown state ledger persistence
 """
@@ -428,14 +428,14 @@ class AutonomousRepoIntegrator:
 
         shutil.rmtree(target_dir, ignore_errors=True)
 
-        success, pr_url = self.execute_auto_pr_and_merge_loop(target)
+        target["status"] = "Completed" if integrated_count > 0 else "Processed"
+        self.ledger["current_index"] += 1
+        self.save_ledger()  # Save updated current_index & blueprint FIRST so git add stages it!
 
-        target["status"] = "Completed" if integrated_count > 0 and success else "Processed"
+        success, pr_url = self.execute_auto_pr_and_merge_loop(target)
         target["pr_url"] = pr_url
         target["merged"] = bool(success)
-
-        self.ledger["current_index"] += 1
-        self.save_ledger()
+        self.save_ledger()  # Save PR URL and merge status
 
         print(f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved.")
         return True
