@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 88
+Total Repositories: 411 | Current Index: 89
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -91,7 +91,7 @@ Total Repositories: 411 | Current Index: 88
 | 86 | c3point/nse-support-tools | Completed | None |
 | 87 | calumrussell/rotala | Processed | None |
 | 88 | ccxt/ccxt | Completed | None |
-| 89 | chaitanyarahalkar/financial-info-extractor | pending | None |
+| 89 | chaitanyarahalkar/financial-info-extractor | Processed | None |
 | 90 | chartiny/nse-daily-volatility-reports | pending | None |
 | 91 | chauhanramkeval-blip/nse-stock-bulk-deals- | pending | None |
 | 92 | chauhanramkeval-blip/nse-stock-market-bulk-deals- | pending | None |
