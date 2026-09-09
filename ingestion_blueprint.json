@@ -1,5 +1,5 @@
 {
-  "current_index": 152,
+  "current_index": 153,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1221,9 +1221,9 @@
       "name": "arbitrage-trading",
       "target": "hermanodecastro/arbitrage-trading",
       "url": "https://github.com/hermanodecastro/arbitrage-trading",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2170",
+      "merged": true
     },
     {
       "name": "nsedata",
