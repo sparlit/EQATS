@@ -1,5 +1,5 @@
 {
-  "current_index": 63,
+  "current_index": 64,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -509,9 +509,9 @@
       "name": "nse-bse-dashboard",
       "target": "avin1311/nse-bse-dashboard",
       "url": "https://github.com/avin1311/nse-bse-dashboard",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2255",
+      "merged": true
     },
     {
       "name": "nse-closing-stock-price-prediction-using-lstm",
