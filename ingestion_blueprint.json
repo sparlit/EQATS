@@ -1,5 +1,5 @@
 {
-  "current_index": 120,
+  "current_index": 3,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -13,15 +13,15 @@
       "name": "hyperliquid_rust_bot",
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2317",
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
       "target": "0xramm/indian-stock-market-api",
       "url": "https://github.com/0xramm/indian-stock-market-api",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
@@ -949,17 +949,17 @@
       "name": "nse-delivery-data",
       "target": "dkraj0612/nse-delivery-data",
       "url": "https://github.com/dkraj0612/nse-delivery-data",
-      "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2132",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "kalshi-rust",
       "target": "dpeachpeach/kalshi-rust",
       "url": "https://github.com/dpeachpeach/kalshi-rust",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2318",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "echobird",
@@ -1085,9 +1085,9 @@
       "name": "nse_historical_data",
       "target": "ganeshbiyer/nse_historical_data",
       "url": "https://github.com/ganeshbiyer/nse_historical_data",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2158",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "kronos-india",
