@@ -49,6 +49,7 @@ from raptorbt._raptorbt import (
     # Bar aggregation
     BarAggregator,
     # Batch backtest
+    BatchSingleItem,
     BatchSpreadItem,
     EngineEvent,
     # Streaming indicators
@@ -79,6 +80,7 @@ from raptorbt._raptorbt import (
     atr,
     bars_from_ticks,
     batch_optimize_portfolios,
+    batch_single_backtest,
     batch_spread_backtest,
     bollinger_bands,
     buy_sell_imbalance_delta,
@@ -169,6 +171,7 @@ __all__ = [
     "Bar",
     "BarAggregator",
     # Batch backtest
+    "BatchSingleItem",
     "BatchSpreadItem",
     "ClosePosition",
     "EngineEvent",
@@ -204,6 +207,7 @@ __all__ = [
     "atr",
     "bars_from_ticks",
     "batch_optimize_portfolios",
+    "batch_single_backtest",
     "batch_spread_backtest",
     "bollinger_bands",
     "buy_sell_imbalance_delta",

@@ -4,6 +4,7 @@ use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::core::types::{
@@ -630,6 +631,125 @@ pub struct PyTrade {
     pub fee_breakdown: Option<HashMap<String, f64>>,
     #[pyo3(get)]
     pub exit_reason: String,
+    /// Worst price reached against the position while it was open.
+    ///
+    /// `None` on paths that synthesise a trade instead of closing a tracked
+    /// position (spreads, baskets, pairs, options rollups). `None` means "not
+    /// measured" -- never read it as a zero excursion.
+    #[pyo3(get)]
+    pub mae_price: Option<f64>,
+    /// Best price reached in the position's favour while it was open.
+    #[pyo3(get)]
+    pub mfe_price: Option<f64>,
+    /// Maximum Adverse Excursion in money: the unrealised loss at the worst
+    /// point of the trade, before costs. Never positive.
+    ///
+    /// Measured bar by bar during the run. Its resolution is the bar, so a 5m
+    /// run knows the worst 5m extreme, not the worst tick inside it.
+    #[pyo3(get)]
+    pub mae_pnl: Option<f64>,
+    /// Maximum Favourable Excursion in money: the unrealised profit at the
+    /// best point of the trade, before costs. Never negative.
+    #[pyo3(get)]
+    pub mfe_pnl: Option<f64>,
+}
+
+/// Python-exposed order record.
+#[pyclass(name = "Order")]
+#[derive(Debug, Clone)]
+pub struct PyOrder {
+    #[pyo3(get)]
+    pub id: u64,
+    #[pyo3(get)]
+    pub client_id: String,
+    #[pyo3(get)]
+    pub symbol: String,
+    /// "buy" | "sell".
+    #[pyo3(get)]
+    pub side: String,
+    /// "market", "limit", "stop_market", ... — the shape, not its prices.
+    #[pyo3(get)]
+    pub kind: String,
+    /// "gtc", "day", "ioc", ...
+    #[pyo3(get)]
+    pub tif: String,
+    /// Final state: "filled", "canceled", "expired", "rejected", ...
+    #[pyo3(get)]
+    pub status: String,
+    #[pyo3(get)]
+    pub submitted_idx: usize,
+    #[pyo3(get)]
+    pub submitted_ts: i64,
+    /// Units asked for, or None when the request named a capital fraction
+    /// rather than a number — "not stated", never a zero request.
+    #[pyo3(get)]
+    pub requested_qty: Option<f64>,
+    /// Units filled, summed across slices. 0.0 for an order that never
+    /// filled, which is measured rather than missing.
+    #[pyo3(get)]
+    pub filled_qty: f64,
+    /// Size-weighted mean fill price, or None if it never filled.
+    #[pyo3(get)]
+    pub avg_fill_price: Option<f64>,
+    #[pyo3(get)]
+    pub last_fill_idx: Option<usize>,
+    /// How many separate fills it took; more than one is a partial-fill
+    /// sequence.
+    #[pyo3(get)]
+    pub fill_slices: u32,
+    #[pyo3(get)]
+    pub limit_price: Option<f64>,
+    #[pyo3(get)]
+    pub trigger_price: Option<f64>,
+    /// Why the engine refused it, as a stable snake_case identifier
+    /// ("insufficient_margin", "max_positions", ...). None when it was not
+    /// rejected.
+    #[pyo3(get)]
+    pub reject_reason: Option<String>,
+    #[pyo3(get)]
+    pub parent_id: Option<u64>,
+    #[pyo3(get)]
+    pub oco_group: Option<u64>,
+}
+
+#[pymethods]
+impl PyOrder {
+    fn __repr__(&self) -> String {
+        match &self.reject_reason {
+            Some(reason) => format!(
+                "Order(id={}, {} {}, status={}, rejected={})",
+                self.id, self.side, self.symbol, self.status, reason
+            ),
+            None => format!(
+                "Order(id={}, {} {}, status={}, filled={})",
+                self.id, self.side, self.symbol, self.status, self.filled_qty
+            ),
+        }
+    }
+}
+
+pub(crate) fn convert_order(o: crate::execution::orders::OrderRecord) -> PyOrder {
+    PyOrder {
+        id: o.id,
+        client_id: o.client_id,
+        symbol: o.symbol,
+        side: o.side.to_string(),
+        kind: o.kind.to_string(),
+        tif: o.tif.to_string(),
+        status: o.status.to_string(),
+        submitted_idx: o.submitted_idx,
+        submitted_ts: o.submitted_ts,
+        requested_qty: o.requested_qty,
+        filled_qty: o.filled_qty,
+        avg_fill_price: o.avg_fill_price,
+        last_fill_idx: o.last_fill_idx,
+        fill_slices: o.fill_slices,
+        limit_price: o.limit_price,
+        trigger_price: o.trigger_price,
+        reject_reason: o.reject_reason,
+        parent_id: o.parent_id,
+        oco_group: o.oco_group,
+    }
 }
 
 #[pymethods]
@@ -665,6 +785,14 @@ pub struct PyBacktestMetrics {
     /// duration on its own.
     #[pyo3(get)]
     pub max_drawdown_duration_secs: Option<f64>,
+    /// Root mean square of the drawdown curve, same percentage points as
+    /// `max_drawdown_pct`. Weights a drawdown by how long it lasted, which
+    /// `max_drawdown_pct` alone cannot express.
+    #[pyo3(get)]
+    pub ulcer_index: f64,
+    /// Share of equity samples strictly below the running high-water mark.
+    #[pyo3(get)]
+    pub time_under_water_pct: f64,
     #[pyo3(get)]
     pub win_rate_pct: f64,
     #[pyo3(get)]
@@ -728,6 +856,28 @@ pub struct PyBacktestMetrics {
     /// `metrics::trade_stats::total_turnover`.
     #[pyo3(get)]
     pub total_turnover: f64,
+    // Diagnostics. `None` throughout means "not measured on this path", never
+    // a measured zero -- see the field docs on `core::types::BacktestMetrics`.
+    #[pyo3(get)]
+    pub return_skew: Option<f64>,
+    #[pyo3(get)]
+    pub return_kurtosis: Option<f64>,
+    #[pyo3(get)]
+    pub tail_ratio: Option<f64>,
+    #[pyo3(get)]
+    pub cost_to_gross_profit_pct: Option<f64>,
+    #[pyo3(get)]
+    pub breakeven_cost_multiple: Option<f64>,
+    #[pyo3(get)]
+    pub return_consistency_pct: Option<f64>,
+    #[pyo3(get)]
+    pub avg_drawdown_pct: Option<f64>,
+    #[pyo3(get)]
+    pub mae_mfe_coverage_pct: Option<f64>,
+    #[pyo3(get)]
+    pub avg_mae_pnl: Option<f64>,
+    #[pyo3(get)]
+    pub mfe_capture_ratio: Option<f64>,
 }
 
 #[pymethods]
@@ -752,6 +902,8 @@ impl PyBacktestMetrics {
         // Bars above, seconds here. The bar count is a duration only on daily
         // data; on a tick run it is a count of ticks.
         dict.set_item("Max Drawdown Duration [s]", self.max_drawdown_duration_secs)?;
+        dict.set_item("Ulcer Index", self.ulcer_index)?;
+        dict.set_item("Time Under Water [%]", self.time_under_water_pct)?;
         dict.set_item("Total Trades", self.total_trades)?;
         dict.set_item("Total Closed Trades", self.total_closed_trades)?;
         dict.set_item("Total Open Trades", self.total_open_trades)?;
@@ -770,6 +922,14 @@ impl PyBacktestMetrics {
         dict.set_item("Sortino Ratio", self.sortino_ratio)?;
         dict.set_item("Calmar Ratio", self.calmar_ratio)?;
         dict.set_item("Omega Ratio", self.omega_ratio)?;
+        // A curated subset, not a mirror of the attribute surface: this is
+        // what a human prints or loads into a dataframe, and a dict that grows
+        // to forty keys stops summarising anything. Three of the diagnostics
+        // earn a place here -- the cost gate, the exit-quality figure and the
+        // drawdown-texture one. The rest stay attributes.
+        dict.set_item("Cost / Gross Profit [%]", self.cost_to_gross_profit_pct)?;
+        dict.set_item("MFE Capture Ratio", self.mfe_capture_ratio)?;
+        dict.set_item("Avg Drawdown [%]", self.avg_drawdown_pct)?;
         Ok(dict.into())
     }
 }
@@ -784,6 +944,7 @@ pub struct PyBacktestResult {
     drawdown_curve: Vec<f64>,
     trades: Vec<PyTrade>,
     returns: Vec<f64>,
+    orders: Vec<PyOrder>,
 }
 
 #[pymethods]
@@ -806,6 +967,12 @@ impl PyBacktestResult {
     /// Get list of trades.
     fn trades(&self) -> Vec<PyTrade> {
         self.trades.clone()
+    }
+
+    /// Every order the run placed, in submission order — including the ones
+    /// that never filled. Empty for a run that placed no typed orders.
+    fn orders(&self) -> Vec<PyOrder> {
+        self.orders.clone()
     }
 
     fn __repr__(&self) -> String {
@@ -849,13 +1016,17 @@ pub fn run_single_backtest<'py>(
     position_sizes: Option<PyReadonlyArray1<f64>>,
     instrument_config: Option<&PyInstrumentConfig>,
 ) -> PyResult<PyBacktestResult> {
+    // Borrowed, not copied: the `PyReadonlyArray1` guards stay alive for the
+    // whole call, so the engine can read NumPy's buffers directly. Copying
+    // them doubled peak memory for no benefit -- 1.25 GB of duplicates on a
+    // 25M-bar run, where the copy alone was 13.6% of total runtime.
     let ohlcv = OhlcvData {
-        timestamps: numpy_to_vec_i64(timestamps),
-        open: numpy_to_vec_f64(open),
-        high: numpy_to_vec_f64(high),
-        low: numpy_to_vec_f64(low),
-        close: numpy_to_vec_f64(close),
-        volume: numpy_to_vec_f64(volume),
+        timestamps: Cow::Borrowed(numpy_as_slice_i64(&timestamps)),
+        open: Cow::Borrowed(numpy_as_slice_f64(&open)),
+        high: Cow::Borrowed(numpy_as_slice_f64(&high)),
+        low: Cow::Borrowed(numpy_as_slice_f64(&low)),
+        close: Cow::Borrowed(numpy_as_slice_f64(&close)),
+        volume: Cow::Borrowed(numpy_as_slice_f64(&volume)),
     };
 
     let dir = parse_direction(direction)?;
@@ -889,23 +1060,26 @@ pub fn run_basket_backtest<'py>(
     instrument_configs: Option<HashMap<String, PyInstrumentConfig>>,
 ) -> PyResult<PyBacktestResult> {
     let rust_instruments: Vec<(OhlcvData, CompiledSignals)> = instruments
-        .into_iter()
+        // Iterated by reference so the numpy guards stay alive and their
+        // buffers can be borrowed rather than copied; `into_iter` would drop
+        // each guard at the end of its own closure body.
+        .iter()
         .map(|(ts, o, h, l, c, v, entries, exits, dir, weight, sym)| {
             let ohlcv = OhlcvData {
-                timestamps: numpy_to_vec_i64(ts),
-                open: numpy_to_vec_f64(o),
-                high: numpy_to_vec_f64(h),
-                low: numpy_to_vec_f64(l),
-                close: numpy_to_vec_f64(c),
-                volume: numpy_to_vec_f64(v),
+                timestamps: Cow::Borrowed(numpy_as_slice_i64(ts)),
+                open: Cow::Borrowed(numpy_as_slice_f64(o)),
+                high: Cow::Borrowed(numpy_as_slice_f64(h)),
+                low: Cow::Borrowed(numpy_as_slice_f64(l)),
+                close: Cow::Borrowed(numpy_as_slice_f64(c)),
+                volume: Cow::Borrowed(numpy_as_slice_f64(v)),
             };
             let signals = CompiledSignals {
-                symbol: sym,
-                entries: numpy_to_vec_bool(entries),
-                exits: numpy_to_vec_bool(exits),
+                symbol: sym.clone(),
+                entries: entries.as_slice().expect("contiguous").to_vec(),
+                exits: exits.as_slice().expect("contiguous").to_vec(),
                 position_sizes: None,
-                direction: parse_direction(dir)?,
-                weight,
+                direction: parse_direction(*dir)?,
+                weight: *weight,
             };
             Ok((ohlcv, signals))
         })
@@ -1032,23 +1206,26 @@ pub fn run_portfolio_backtest<'py>(
     }
 
     let rust_instruments: Vec<(OhlcvData, CompiledSignals)> = instruments
-        .into_iter()
+        // Iterated by reference so the numpy guards stay alive and their
+        // buffers can be borrowed rather than copied; `into_iter` would drop
+        // each guard at the end of its own closure body.
+        .iter()
         .map(|(ts, o, h, l, c, v, entries, exits, dir, weight, sym)| {
             let ohlcv = OhlcvData {
-                timestamps: numpy_to_vec_i64(ts),
-                open: numpy_to_vec_f64(o),
-                high: numpy_to_vec_f64(h),
-                low: numpy_to_vec_f64(l),
-                close: numpy_to_vec_f64(c),
-                volume: numpy_to_vec_f64(v),
+                timestamps: Cow::Borrowed(numpy_as_slice_i64(ts)),
+                open: Cow::Borrowed(numpy_as_slice_f64(o)),
+                high: Cow::Borrowed(numpy_as_slice_f64(h)),
+                low: Cow::Borrowed(numpy_as_slice_f64(l)),
+                close: Cow::Borrowed(numpy_as_slice_f64(c)),
+                volume: Cow::Borrowed(numpy_as_slice_f64(v)),
             };
             let signals = CompiledSignals {
-                symbol: sym,
-                entries: numpy_to_vec_bool(entries),
-                exits: numpy_to_vec_bool(exits),
+                symbol: sym.clone(),
+                entries: entries.as_slice().expect("contiguous").to_vec(),
+                exits: exits.as_slice().expect("contiguous").to_vec(),
                 position_sizes: None,
-                direction: parse_direction(dir)?,
-                weight,
+                direction: parse_direction(*dir)?,
+                weight: *weight,
             };
             Ok((ohlcv, signals))
         })
@@ -1134,12 +1311,12 @@ pub fn run_options_backtest<'py>(
     option_open_prices: Option<PyReadonlyArray1<f64>>,
 ) -> PyResult<PyBacktestResult> {
     let ohlcv = OhlcvData {
-        timestamps: numpy_to_vec_i64(timestamps),
-        open: numpy_to_vec_f64(open),
-        high: numpy_to_vec_f64(high),
-        low: numpy_to_vec_f64(low),
-        close: numpy_to_vec_f64(close),
-        volume: numpy_to_vec_f64(volume),
+        timestamps: Cow::Borrowed(numpy_as_slice_i64(&timestamps)),
+        open: Cow::Borrowed(numpy_as_slice_f64(&open)),
+        high: Cow::Borrowed(numpy_as_slice_f64(&high)),
+        low: Cow::Borrowed(numpy_as_slice_f64(&low)),
+        close: Cow::Borrowed(numpy_as_slice_f64(&close)),
+        volume: Cow::Borrowed(numpy_as_slice_f64(&volume)),
     };
 
     let opt_prices = numpy_to_vec_f64(option_prices);
@@ -1251,21 +1428,21 @@ pub fn run_pairs_backtest<'py>(
     dynamic_hedge: bool,
 ) -> PyResult<PyBacktestResult> {
     let leg1_ohlcv = OhlcvData {
-        timestamps: numpy_to_vec_i64(leg1_timestamps),
-        open: numpy_to_vec_f64(leg1_open),
-        high: numpy_to_vec_f64(leg1_high),
-        low: numpy_to_vec_f64(leg1_low),
-        close: numpy_to_vec_f64(leg1_close),
-        volume: numpy_to_vec_f64(leg1_volume),
+        timestamps: Cow::Borrowed(numpy_as_slice_i64(&leg1_timestamps)),
+        open: Cow::Borrowed(numpy_as_slice_f64(&leg1_open)),
+        high: Cow::Borrowed(numpy_as_slice_f64(&leg1_high)),
+        low: Cow::Borrowed(numpy_as_slice_f64(&leg1_low)),
+        close: Cow::Borrowed(numpy_as_slice_f64(&leg1_close)),
+        volume: Cow::Borrowed(numpy_as_slice_f64(&leg1_volume)),
     };
 
     let leg2_ohlcv = OhlcvData {
-        timestamps: numpy_to_vec_i64(leg2_timestamps),
-        open: numpy_to_vec_f64(leg2_open),
-        high: numpy_to_vec_f64(leg2_high),
-        low: numpy_to_vec_f64(leg2_low),
-        close: numpy_to_vec_f64(leg2_close),
-        volume: numpy_to_vec_f64(leg2_volume),
+        timestamps: Cow::Borrowed(numpy_as_slice_i64(&leg2_timestamps)),
+        open: Cow::Borrowed(numpy_as_slice_f64(&leg2_open)),
+        high: Cow::Borrowed(numpy_as_slice_f64(&leg2_high)),
+        low: Cow::Borrowed(numpy_as_slice_f64(&leg2_low)),
+        close: Cow::Borrowed(numpy_as_slice_f64(&leg2_close)),
+        volume: Cow::Borrowed(numpy_as_slice_f64(&leg2_volume)),
     };
 
     let dir = parse_direction(direction)?;
@@ -1570,6 +1747,180 @@ pub fn batch_spread_backtest(
     Ok(results.into_iter().map(|(id, result)| (id, convert_result(result))).collect())
 }
 
+/// One signal set for [`batch_single_backtest`].
+///
+/// Eagerly copies its arrays under the GIL at construction, so the item holds
+/// no GIL-bound types and the batch loop can release the GIL (same pattern as
+/// [`PyBatchSpreadItem`]).
+#[pyclass(name = "BatchSingleItem")]
+#[derive(Clone)]
+pub struct PyBatchSingleItem {
+    /// Caller's label for this run; returned alongside its result.
+    #[pyo3(get, set)]
+    pub item_id: String,
+    pub entries: Vec<bool>,
+    pub exits: Vec<bool>,
+    pub position_sizes: Option<Vec<f64>>,
+    #[pyo3(get, set)]
+    pub direction: i32,
+    #[pyo3(get, set)]
+    pub weight: f64,
+    #[pyo3(get, set)]
+    pub symbol: String,
+    /// Per-item config override. `None` uses the batch-level config.
+    pub config: Option<PyBacktestConfig>,
+    pub instrument_config: Option<PyInstrumentConfig>,
+}
+
+#[pymethods]
+impl PyBatchSingleItem {
+    #[new]
+    #[pyo3(signature = (item_id, entries, exits, direction=1, weight=1.0, symbol="UNKNOWN",
+        config=None, position_sizes=None, instrument_config=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        item_id: String,
+        entries: PyReadonlyArray1<bool>,
+        exits: PyReadonlyArray1<bool>,
+        direction: i32,
+        weight: f64,
+        symbol: &str,
+        config: Option<&PyBacktestConfig>,
+        position_sizes: Option<PyReadonlyArray1<f64>>,
+        instrument_config: Option<&PyInstrumentConfig>,
+    ) -> Self {
+        Self {
+            item_id,
+            entries: numpy_to_vec_bool(entries),
+            exits: numpy_to_vec_bool(exits),
+            position_sizes: position_sizes.map(numpy_to_vec_f64),
+            direction,
+            weight,
+            symbol: symbol.to_string(),
+            config: config.cloned(),
+            instrument_config: instrument_config.cloned(),
+        }
+    }
+}
+
+/// Run many single-instrument backtests over one price series, in parallel.
+///
+/// This is the parameter-sweep shape: the OHLCV arrays are converted **once**
+/// and shared by reference across Rayon threads, and each item carries only
+/// its own signals and optional config overrides. Calling
+/// [`run_single_backtest`] in a Python loop instead re-converts the same six
+/// price arrays on every call and runs on a single core.
+///
+/// Results are returned in input order and are bit-identical to running the
+/// same items serially -- each item gets its own engine and shares no mutable
+/// state. Returns a Vec of (item_id, PyBacktestResult) tuples.
+#[pyfunction]
+#[pyo3(signature = (timestamps, open, high, low, close, volume, items, config=None))]
+#[allow(clippy::too_many_arguments)]
+pub fn batch_single_backtest(
+    py: Python<'_>,
+    timestamps: PyReadonlyArray1<i64>,
+    open: PyReadonlyArray1<f64>,
+    high: PyReadonlyArray1<f64>,
+    low: PyReadonlyArray1<f64>,
+    close: PyReadonlyArray1<f64>,
+    volume: PyReadonlyArray1<f64>,
+    items: Vec<PyBatchSingleItem>,
+    config: Option<&PyBacktestConfig>,
+) -> PyResult<Vec<(String, PyBacktestResult)>> {
+    use rayon::prelude::*;
+
+    // Shared price data: converted once, under the GIL, then borrowed by every
+    // worker. This is the whole point of the batch entry point.
+    let ohlcv = OhlcvData {
+        timestamps: Cow::Borrowed(numpy_as_slice_i64(&timestamps)),
+        open: Cow::Borrowed(numpy_as_slice_f64(&open)),
+        high: Cow::Borrowed(numpy_as_slice_f64(&high)),
+        low: Cow::Borrowed(numpy_as_slice_f64(&low)),
+        close: Cow::Borrowed(numpy_as_slice_f64(&close)),
+        volume: Cow::Borrowed(numpy_as_slice_f64(&volume)),
+    };
+    let n = ohlcv.len();
+    let base_config = config.map(BacktestConfig::from).unwrap_or_default();
+
+    struct PreparedItem {
+        item_id: String,
+        signals: CompiledSignals,
+        config: BacktestConfig,
+        instrument_config: Option<InstrumentConfig>,
+    }
+
+    // Validate here, before the parallel region. A mismatched length or a bad
+    // direction must surface as a ValueError naming the item -- a panic on a
+    // Rayon worker crosses PyO3 as PanicException, which is neither catchable
+    // as ValueError nor traceable to the argument that was wrong.
+    let prepared: Vec<PreparedItem> = items
+        .into_iter()
+        .map(|item| {
+            if item.entries.len() != n || item.exits.len() != n {
+                return Err(PyValueError::new_err(format!(
+                    "item '{}': entries ({}) and exits ({}) must match the shared \
+                     price series length ({n})",
+                    item.item_id,
+                    item.entries.len(),
+                    item.exits.len()
+                )));
+            }
+            if let Some(sizes) = &item.position_sizes {
+                if sizes.len() != n {
+                    return Err(PyValueError::new_err(format!(
+                        "item '{}': position_sizes ({}) must match the shared \
+                         price series length ({n})",
+                        item.item_id,
+                        sizes.len()
+                    )));
+                }
+            }
+            let direction = Direction::from_int(item.direction).ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "item '{}': direction must be 1 (long) or -1 (short), got {}",
+                    item.item_id, item.direction
+                ))
+            })?;
+
+            Ok(PreparedItem {
+                item_id: item.item_id,
+                signals: CompiledSignals {
+                    symbol: item.symbol,
+                    entries: item.entries,
+                    exits: item.exits,
+                    position_sizes: item.position_sizes,
+                    direction,
+                    weight: item.weight,
+                },
+                config: item
+                    .config
+                    .as_ref()
+                    .map(BacktestConfig::from)
+                    .unwrap_or_else(|| base_config.clone()),
+                instrument_config: item.instrument_config.as_ref().map(InstrumentConfig::from),
+            })
+        })
+        .collect::<PyResult<_>>()?;
+
+    let results: Vec<(String, crate::core::types::BacktestResult)> = py.allow_threads(|| {
+        prepared
+            .into_par_iter()
+            .map(|item| {
+                let backtest = SingleBacktest::new(item.config);
+                let result = backtest.run_with_instrument_config(
+                    &ohlcv,
+                    &item.signals,
+                    item.instrument_config.as_ref(),
+                );
+                (item.item_id, result)
+            })
+            .collect()
+    });
+
+    Ok(results.into_iter().map(|(id, result)| (id, convert_result(result))).collect())
+}
+
 // The argument list IS the Python signature; collapsing it into a
 // struct would change the public API for no reader benefit.
 #[allow(clippy::too_many_arguments)]
@@ -1589,12 +1940,12 @@ pub fn run_multi_backtest<'py>(
     combine_mode: &str,
 ) -> PyResult<PyBacktestResult> {
     let ohlcv = OhlcvData {
-        timestamps: numpy_to_vec_i64(timestamps),
-        open: numpy_to_vec_f64(open),
-        high: numpy_to_vec_f64(high),
-        low: numpy_to_vec_f64(low),
-        close: numpy_to_vec_f64(close),
-        volume: numpy_to_vec_f64(volume),
+        timestamps: Cow::Borrowed(numpy_as_slice_i64(&timestamps)),
+        open: Cow::Borrowed(numpy_as_slice_f64(&open)),
+        high: Cow::Borrowed(numpy_as_slice_f64(&high)),
+        low: Cow::Borrowed(numpy_as_slice_f64(&low)),
+        close: Cow::Borrowed(numpy_as_slice_f64(&close)),
+        volume: Cow::Borrowed(numpy_as_slice_f64(&volume)),
     };
 
     let rust_strategies: Vec<CompiledSignals> = strategies
@@ -2289,6 +2640,10 @@ pub(crate) fn convert_trade(t: crate::core::types::Trade) -> PyTrade {
             ])
         }),
         exit_reason: format!("{:?}", t.exit_reason),
+        mae_price: t.mae_price,
+        mfe_price: t.mfe_price,
+        mae_pnl: t.mae_pnl,
+        mfe_pnl: t.mfe_pnl,
     }
 }
 
@@ -2303,6 +2658,8 @@ pub(crate) fn convert_result(result: crate::core::types::BacktestResult) -> PyBa
         max_drawdown_pct: result.metrics.max_drawdown_pct,
         max_drawdown_duration: result.metrics.max_drawdown_duration,
         max_drawdown_duration_secs: result.metrics.max_drawdown_duration_secs,
+        ulcer_index: result.metrics.ulcer_index,
+        time_under_water_pct: result.metrics.time_under_water_pct,
         win_rate_pct: result.metrics.win_rate_pct,
         profit_factor: finite(result.metrics.profit_factor),
         expectancy: result.metrics.expectancy,
@@ -2331,15 +2688,27 @@ pub(crate) fn convert_result(result: crate::core::types::BacktestResult) -> PyBa
         payoff_ratio: finite(result.metrics.payoff_ratio),
         recovery_factor: finite(result.metrics.recovery_factor),
         total_turnover: result.metrics.total_turnover,
+        return_skew: result.metrics.return_skew,
+        return_kurtosis: result.metrics.return_kurtosis,
+        tail_ratio: result.metrics.tail_ratio,
+        cost_to_gross_profit_pct: result.metrics.cost_to_gross_profit_pct,
+        breakeven_cost_multiple: result.metrics.breakeven_cost_multiple,
+        return_consistency_pct: result.metrics.return_consistency_pct,
+        avg_drawdown_pct: result.metrics.avg_drawdown_pct,
+        mae_mfe_coverage_pct: result.metrics.mae_mfe_coverage_pct,
+        avg_mae_pnl: result.metrics.avg_mae_pnl,
+        mfe_capture_ratio: result.metrics.mfe_capture_ratio,
     };
 
     let trades: Vec<PyTrade> = result.trades.into_iter().map(convert_trade).collect();
+    let orders: Vec<PyOrder> = result.orders.into_iter().map(convert_order).collect();
 
     PyBacktestResult {
         metrics,
         equity_curve: result.equity_curve,
         drawdown_curve: result.drawdown_curve,
         trades,
+        orders,
         returns: result.returns,
     }
 }

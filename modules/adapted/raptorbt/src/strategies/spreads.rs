@@ -15,6 +15,7 @@
 use crate::core::types::{BacktestMetrics, BacktestResult, Direction, ExitReason, Trade};
 use crate::execution::{indian_costs::FeeBreakdown, FeeModel};
 use crate::metrics::streaming::StreamingMetrics;
+use crate::portfolio::engine::compute_backtest_metrics_with_config;
 
 pub use super::spreads_config::{
     create_iron_condor_config, create_straddle_config, create_strangle_config,
@@ -476,12 +477,67 @@ impl SpreadBacktest {
             cash += pnl - trade.exit_fees;
             Self::record_trade(&mut metrics, &trade, &pos);
             trades.push(trade);
+
+            // The last equity sample was pushed before this close, so it does
+            // not carry the exit costs this trade just paid -- it said the
+            // account held 99,954.93 where the account actually held
+            // 99,953.68. The final value was previously passed to the metrics
+            // separately as `cash`, so the REPORTED return was right while the
+            // curve backing it was not; anyone integrating the curve got a
+            // different answer from `total_return_pct`.
+            //
+            // Overwriting the last sample rather than appending one keeps the
+            // curve the same length as the bar series, which every consumer
+            // indexes against.
+            if let Some(final_equity) = equity_curve.last_mut() {
+                *final_equity = cash;
+            }
+            // Recomputed against the running peak directly rather than through
+            // `update_equity`, which would advance `bars_since_peak` a second
+            // time for this same bar and lengthen the reported drawdown by one.
+            if let Some(final_dd) = drawdown_curve.last_mut() {
+                let peak = metrics.peak_equity().max(cash);
+                *final_dd = if peak > 0.0 { (peak - cash) / peak * 100.0 } else { 0.0 };
+            }
         }
 
-        // Finalize metrics
-        let final_metrics = metrics.finalize(self.config.base.initial_capital, cash, &returns);
+        // Metrics come from the shared estimator, the same one every other
+        // runner uses, and are fed the curves and trades this function has
+        // already built.
+        //
+        // Until 0.13.2 this path called `StreamingMetrics::finalize`, which
+        // takes only the return series -- while this very expression handed a
+        // real `drawdown_curve` and a real `trades` vector to the result. The
+        // consequence was a result that contradicted itself: 250 of 300
+        // samples underwater in its own drawdown curve, with
+        // `time_under_water_pct` reporting 0.0, and seven trades with
+        // `total_turnover` and `exposure_pct` reporting 0.0. Those were not
+        // "not measured"; they were computable from data sitting in the same
+        // struct.
+        //
+        // This also fixes annualization. The accumulator hardcodes 252
+        // periods/year, which assumes one bar is one trading day; a spread on
+        // minute bars was therefore annualized as if each minute were a day.
+        // The shared path resolves periods/year from the timestamps.
+        let final_metrics = compute_backtest_metrics_with_config(
+            &equity_curve,
+            &drawdown_curve,
+            &returns,
+            &trades,
+            timestamps,
+            &self.config.base,
+        );
 
-        BacktestResult { metrics: final_metrics, equity_curve, drawdown_curve, trades, returns }
+        // A spread result is synthesised from leg P&L; this path runs no
+        // order book, so there are no orders to report.
+        BacktestResult {
+            metrics: final_metrics,
+            equity_curve,
+            drawdown_curve,
+            trades,
+            returns,
+            orders: Vec::new(),
+        }
     }
 
     /// Check if max loss threshold is hit.
@@ -645,6 +701,13 @@ impl SpreadBacktest {
             exit_fees,
             fee_breakdown,
             exit_reason,
+            // This path synthesises the trade record rather than closing a
+            // tracked Position, so no bar-by-bar extremes exist for it.
+            // None means "not measured", never a zero excursion.
+            mae_price: None,
+            mfe_price: None,
+            mae_pnl: None,
+            mfe_pnl: None,
         }
     }
 
@@ -687,6 +750,9 @@ impl SpreadBacktest {
             drawdown_curve: vec![0.0; n],
             trades: Vec::new(),
             returns: vec![0.0; n],
+            // This path synthesises a result from leg P&L; it runs no
+            // order book, so there are no orders to report.
+            orders: Vec::new(),
         }
     }
 }
