@@ -1,5 +1,5 @@
 {
-  "current_index": 39,
+  "current_index": 40,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -317,9 +317,9 @@
       "name": "nse",
       "target": "anshulk/nse",
       "url": "https://github.com/anshulk/nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2231",
+      "merged": true
     },
     {
       "name": "nse-oi-visualizer",
