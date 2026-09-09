@@ -438,8 +438,8 @@
       "target": "ashokkumar3502/nse-quant-trading",
       "url": "https://github.com/ashokkumar3502/nse-quant-trading",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2246",
+      "merged": true
     },
     {
       "name": "rust-finance",
