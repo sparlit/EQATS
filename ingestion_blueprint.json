@@ -1,5 +1,5 @@
 {
-  "current_index": 132,
+  "current_index": 133,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1061,9 +1061,9 @@
       "name": "dingir-exchange",
       "target": "fluidex/dingir-exchange",
       "url": "https://github.com/fluidex/dingir-exchange",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2147",
+      "merged": true
     },
     {
       "name": "btrader",
