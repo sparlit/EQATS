@@ -1,5 +1,5 @@
 {
-  "current_index": 50,
+  "current_index": 51,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -405,9 +405,9 @@
       "name": "nse-sentiment-analyzer",
       "target": "ashayk003/nse-sentiment-analyzer",
       "url": "https://github.com/ashayk003/nse-sentiment-analyzer",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2242",
+      "merged": true
     },
     {
       "name": "nsedataanalytics",
