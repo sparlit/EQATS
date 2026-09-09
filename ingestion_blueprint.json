@@ -726,8 +726,8 @@
       "target": "chauhanramkeval-blip/nse-stock-bulk-deals-",
       "url": "https://github.com/chauhanramkeval-blip/nse-stock-bulk-deals-",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2278",
+      "merged": true
     },
     {
       "name": "nse-stock-market-bulk-deals-",
