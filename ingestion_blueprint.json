@@ -1254,8 +1254,8 @@
       "target": "hirawatt/bse_nse_announcement",
       "url": "https://github.com/hirawatt/bse_nse_announcement",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2174",
+      "merged": true
     },
     {
       "name": "indian-trading-skills",
