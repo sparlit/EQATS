@@ -950,8 +950,8 @@
       "target": "dkraj0612/nse-delivery-data",
       "url": "https://github.com/dkraj0612/nse-delivery-data",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2130",
+      "merged": true
     },
     {
       "name": "kalshi-rust",
