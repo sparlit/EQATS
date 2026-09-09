@@ -318,8 +318,8 @@
       "target": "anshulk/nse",
       "url": "https://github.com/anshulk/nse",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2231",
+      "merged": true
     },
     {
       "name": "nse-oi-visualizer",
