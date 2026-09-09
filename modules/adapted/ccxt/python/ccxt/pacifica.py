@@ -1231,7 +1231,7 @@ class pacifica(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: timestamp in ms of the latest candle to fetch. 'limit' is priority
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -1591,7 +1591,7 @@ class pacifica(Exchange, ImplicitAPI):
         :param str type: 'market' or 'limit'
         :param str side: 'buy' or 'sell'
         :param float amount: how much of currency you want to trade in units of base currency
-        :param float [price]: the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders, but can be used of Trigger Order.
+        :param float [price]: the price at which the order is to be fullfilled, in units of the quote currency, ignored in market orders, but can be used as limit_price of Trigger Order.
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param float [params.triggerPrice]: The price a trigger order is triggered at
         :param float [params.stopLossPrice]: the price that a stop loss order is triggered at(optional provide stopLossCloid)
@@ -3425,7 +3425,7 @@ class pacifica(Exchange, ImplicitAPI):
             self.id
             + " "
             + methodName
-            + '() requires address either as "exchange.walletAddress = ..." or or "address" in params'
+            + '() requires address either as "exchange.walletAddress = ..." or as parameter or "address" in params'
         )
 
     def handle_errors(

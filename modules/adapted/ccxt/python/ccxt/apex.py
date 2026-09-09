@@ -877,7 +877,7 @@ class apex(Exchange, ImplicitAPI):
         :param int [limit]: the maximum amount of candles to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: timestamp in ms of the latest candle to fetch
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -1368,7 +1368,7 @@ class apex(Exchange, ImplicitAPI):
         if seeds is None:
             raise ArgumentsRequired(
                 self.id
-                + ' the "seeds" key is required in the options to access private endpoints. You can find it in API Management > Omni Key, and then set it.options["seeds"] = XXXX'
+                + ' the "seeds" key is required in the options to access private endpoints. You can find it in API Management > Omni Key, and then set it as exchange.options["seeds"] = XXXX'
             )
         return seeds
 

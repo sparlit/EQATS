@@ -1213,7 +1213,7 @@ class bitvavo(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: the latest time in ms to fetch entries for
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -1357,7 +1357,8 @@ class bitvavo(Exchange, ImplicitAPI):
             raise ArgumentsRequired(self.id + " transfer() requires either fromAccount or toAccount to be master")
         if subaccountId is None:
             raise ArgumentsRequired(
-                self.id + " transfer() requires a subaccount id(provide it/toAccount or params.subaccountId)"
+                self.id
+                + " transfer() requires a subaccount id(provide it as fromAccount/toAccount or params.subaccountId)"
             )
         request = {
             "subaccountId": subaccountId,

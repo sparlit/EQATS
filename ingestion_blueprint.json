@@ -1,5 +1,5 @@
 {
-  "current_index": 87,
+  "current_index": 88,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -701,9 +701,9 @@
       "name": "ccxt",
       "target": "ccxt/ccxt",
       "url": "https://github.com/ccxt/ccxt",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "financial-info-extractor",
