@@ -982,8 +982,8 @@
       "target": "eggmasonvalue/mtfdb",
       "url": "https://github.com/eggmasonvalue/mtfdb",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2343",
+      "merged": true
     },
     {
       "name": "nse_52wk_screener",
