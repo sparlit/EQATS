@@ -6,8 +6,8 @@
       "target": "0b01/tectonicdb",
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2315",
+      "merged": true
     },
     {
       "name": "hyperliquid_rust_bot",
