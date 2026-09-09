@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 35
+Total Repositories: 411 | Current Index: 32
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -33,11 +33,11 @@ Total Repositories: 411 | Current Index: 35
 | 28 | alloc7260/nse | pending | None |
 | 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2366 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2367 |
-| 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2368 |
-| 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2370 |
+| 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2369 |
+| 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2375 |
 | 33 | amv-dev/yata | Processed | https://github.com/sparlit/EQATS/pull/2372 |
 | 34 | aneesh540/vse | Processed | https://github.com/sparlit/EQATS/pull/2373 |
-| 35 | animesh4002/ai-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/2374 |
+| 35 | animesh4002/ai-stock-screener | pending | None |
 | 36 | aniruddhsujish/nsetradeagents | pending | None |
 | 37 | anjulgarg/sharewatch | pending | None |
 | 38 | ankitchaudhary6886/nse-system | pending | None |
