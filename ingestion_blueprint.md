@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 6
+Total Repositories: 411 | Current Index: 26
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -7,8 +7,8 @@ Total Repositories: 411 | Current Index: 6
 | 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
 | 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2322 |
-| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | None |
-| 6 | 85599/banknifty-golden-ratio-strategy | Processed | None |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2325 |
+| 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
 | 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | pending | None |
@@ -26,9 +26,9 @@ Total Repositories: 411 | Current Index: 6
 | 21 | akashyadavv/algotradingnse | pending | None |
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2313 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2314 |
-| 24 | akshayz14/indian-stock-tracker | pending | None |
-| 25 | akt114/buynsell | pending | None |
-| 26 | alexwan/osengine | pending | None |
+| 24 | akshayz14/indian-stock-tracker | Completed | https://github.com/sparlit/EQATS/pull/2326 |
+| 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2328 |
+| 26 | alexwan/osengine | Processed | None |
 | 27 | algotrading-lab/ai-algotrading-agent | pending | None |
 | 28 | alloc7260/nse | pending | None |
 | 29 | alphabench/raptorbt | pending | None |
@@ -154,7 +154,7 @@ Total Repositories: 411 | Current Index: 6
 | 149 | hawkeyecoding/nse-oi-analysis | pending | None |
 | 150 | hemangjoshi37a/trendmaster | pending | None |
 | 151 | hemenkapadia/getbhavcopy | pending | None |
-| 152 | henry-richard7/nse-tool-stocks-aerial-view | Processed | https://github.com/sparlit/EQATS/pull/2169 |
+| 152 | henry-richard7/nse-tool-stocks-aerial-view | pending | None |
 | 153 | hermanodecastro/arbitrage-trading | pending | None |
 | 154 | hgsujay/nsedata | pending | None |
 | 155 | hi-imcodeman/stock-nse-india | pending | None |
