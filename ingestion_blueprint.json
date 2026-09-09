@@ -478,8 +478,8 @@
       "target": "atrybyme/open-interest-nse-live-analysis",
       "url": "https://github.com/atrybyme/open-interest-nse-live-analysis",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2251",
+      "merged": true
     },
     {
       "name": "time-series-forecast-nsepy",
