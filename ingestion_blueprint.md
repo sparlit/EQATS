@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 136
+Total Repositories: 411 | Current Index: 137
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -139,7 +139,7 @@ Total Repositories: 411 | Current Index: 136
 | 134 | gabriel-milan/btrader | Processed | https://github.com/sparlit/EQATS/pull/2148 |
 | 135 | gadiyar/nsebhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2149 |
 | 136 | ganeshbiyer/nse_historical_data | Processed | None |
-| 137 | georgiag7652/kronos-india | pending | None |
+| 137 | georgiag7652/kronos-india | Processed | https://github.com/sparlit/EQATS/pull/2151 |
 | 138 | get10101/10101 | pending | None |
 | 139 | ghostjat/shoonya-php | pending | None |
 | 140 | girishg4t/bhavcopy-downloader | pending | None |

@@ -1,5 +1,5 @@
 {
-  "current_index": 136,
+  "current_index": 137,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1093,9 +1093,9 @@
       "name": "kronos-india",
       "target": "georgiag7652/kronos-india",
       "url": "https://github.com/georgiag7652/kronos-india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2151",
+      "merged": true
     },
     {
       "name": "10101",
