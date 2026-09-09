@@ -502,8 +502,8 @@
       "target": "avhz/rustquant",
       "url": "https://github.com/avhz/rustquant",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2254",
+      "merged": true
     },
     {
       "name": "nse-bse-dashboard",
