@@ -1,5 +1,5 @@
 {
-  "current_index": 57,
+  "current_index": 58,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -461,9 +461,9 @@
       "name": "nse-var-dashboard",
       "target": "athreysethumadhavan-finance/nse-var-dashboard",
       "url": "https://github.com/athreysethumadhavan-finance/nse-var-dashboard",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2249",
+      "merged": true
     },
     {
       "name": "tradingview-mcp",
