@@ -1,5 +1,5 @@
 {
-  "current_index": 30,
+  "current_index": 31,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -245,9 +245,9 @@
       "name": "tickgrinder",
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2368",
+      "merged": true
     },
     {
       "name": "nse-swing-scanner",
