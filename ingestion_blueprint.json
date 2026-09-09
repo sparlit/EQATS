@@ -182,8 +182,8 @@
       "target": "akshayraje/get-nse-bhavcopy",
       "url": "https://github.com/akshayraje/get-nse-bhavcopy",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2214",
+      "merged": true
     },
     {
       "name": "indian-stock-tracker",
