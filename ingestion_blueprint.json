@@ -1,5 +1,5 @@
 {
-  "current_index": 159,
+  "current_index": 160,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1277,7 +1277,7 @@
       "name": "nse-historical-data",
       "target": "hotessy/nse-historical-data",
       "url": "https://github.com/hotessy/nse-historical-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
