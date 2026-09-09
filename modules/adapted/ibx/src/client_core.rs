@@ -1,0 +1,1947 @@
+//! Shared dispatch core for Rust and Python EClient implementations.
+//!
+//! `ClientCore` owns all subscription tracking state (reqId maps, change-detection
+//! snapshots, PnL/account subscriptions) and exposes "prepare" methods that return
+//! intermediate structs. Language-specific EClient adapters convert these into their
+//! respective callback formats (Rust `Wrapper` trait calls or PyO3 `call_method`).
+
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::Mutex;
+
+use crossbeam_channel::Sender;
+
+use crate::api::types::{
+    Contract as ApiContract, CommissionAndFeesReport as ApiCommissionAndFeesReport,
+    Execution as ApiExecution, ExecutionFilter,
+    Order as ApiOrder,
+    PRICE_SCALE_F,
+};
+use crate::bridge::SharedState;
+use crate::types::*;
+
+/// The only market data type the engine delivers (1 = realtime, ibx#234).
+const MDT_REALTIME: i32 = 1;
+
+// ── Tick type constants matching ibapi ──
+
+pub const TICK_BID: i32 = 1;
+pub const TICK_ASK: i32 = 2;
+pub const TICK_LAST: i32 = 4;
+pub const TICK_HIGH: i32 = 6;
+pub const TICK_LOW: i32 = 7;
+pub const TICK_CLOSE: i32 = 9;
+pub const TICK_OPEN: i32 = 14;
+pub const TICK_BID_SIZE: i32 = 0;
+pub const TICK_ASK_SIZE: i32 = 3;
+pub const TICK_LAST_SIZE: i32 = 5;
+pub const TICK_VOLUME: i32 = 8;
+pub const TICK_LAST_TIMESTAMP: i32 = 45;
+pub const TICK_BID_EXCHANGE: i32 = 32;
+pub const TICK_ASK_EXCHANGE: i32 = 33;
+pub const TICK_LAST_EXCHANGE: i32 = 84;
+
+// ── Shared account field definitions ──
+
+/// Account update fields: (tag_name, accessor). Used by both `update_account_value`
+/// and the subscription-gated account updates dispatch.
+pub const ACCOUNT_UPDATE_FIELDS: &[&str] = &[
+    "NetLiquidation",
+    "TotalCashValue",
+    "SettledCash",
+    "BuyingPower",
+    "EquityWithLoanValue",
+    "GrossPositionValue",
+    "InitMarginReq",
+    "MaintMarginReq",
+    "AvailableFunds",
+    "ExcessLiquidity",
+    "Cushion",
+    "SMA",
+    "UnrealizedPnL",
+    "RealizedPnL",
+    "AccruedCash",
+    "DailyPnL",
+];
+
+/// Extract the 16 price-scaled fields from AccountState in ACCOUNT_UPDATE_FIELDS order.
+#[inline]
+pub fn account_field_values(acct: &AccountState) -> [i64; 16] {
+    [
+        acct.net_liquidation,
+        acct.total_cash_value,
+        acct.settled_cash,
+        acct.buying_power,
+        acct.equity_with_loan,
+        acct.gross_position_value,
+        acct.init_margin_req,
+        acct.maint_margin_req,
+        acct.available_funds,
+        acct.excess_liquidity,
+        acct.cushion,
+        acct.sma,
+        acct.unrealized_pnl,
+        acct.realized_pnl,
+        acct.accrued_cash,
+        acct.daily_pnl,
+    ]
+}
+
+/// Account summary tags (numeric). Superset of update fields + extras.
+pub const ACCOUNT_SUMMARY_TAGS: &[&str] = &[
+    "NetLiquidation",
+    "TotalCashValue",
+    "SettledCash",
+    "BuyingPower",
+    "EquityWithLoanValue",
+    "GrossPositionValue",
+    "InitMarginReq",
+    "MaintMarginReq",
+    "AvailableFunds",
+    "ExcessLiquidity",
+    "Cushion",
+    "DayTradesRemaining",
+    "Leverage",
+    "UnrealizedPnL",
+    "RealizedPnL",
+    "DailyPnL",
+];
+
+/// Extract account summary values in ACCOUNT_SUMMARY_TAGS order.
+#[inline]
+pub fn account_summary_values(acct: &AccountState) -> [f64; 16] {
+    [
+        acct.net_liquidation as f64 / PRICE_SCALE_F,
+        acct.total_cash_value as f64 / PRICE_SCALE_F,
+        acct.settled_cash as f64 / PRICE_SCALE_F,
+        acct.buying_power as f64 / PRICE_SCALE_F,
+        acct.equity_with_loan as f64 / PRICE_SCALE_F,
+        acct.gross_position_value as f64 / PRICE_SCALE_F,
+        acct.init_margin_req as f64 / PRICE_SCALE_F,
+        acct.maint_margin_req as f64 / PRICE_SCALE_F,
+        acct.available_funds as f64 / PRICE_SCALE_F,
+        acct.excess_liquidity as f64 / PRICE_SCALE_F,
+        acct.cushion as f64 / PRICE_SCALE_F,
+        acct.day_trades_remaining as f64,
+        acct.leverage as f64 / PRICE_SCALE_F,
+        acct.unrealized_pnl as f64 / PRICE_SCALE_F,
+        acct.realized_pnl as f64 / PRICE_SCALE_F,
+        acct.daily_pnl as f64 / PRICE_SCALE_F,
+    ]
+}
+
+/// Render an exchange-code bitmask to a letter string using the smart components
+/// table. Each set bit at position N picks `smart_components[N].exchange_letter`.
+///
+/// Wire encoding pending live confirmation (deepentropy/ib-agent#120). Bit
+/// ordering and width are inferred from TWS-API parity expectations; the
+/// dispatch path tolerates an empty result if the mask layout differs.
+pub fn render_exchange_mask(mask: i64, shared: &SharedState) -> String {
+    if mask == 0 {
+        return String::new();
+    }
+    let components = shared.reference.smart_components();
+    let mut out = String::with_capacity(8);
+    let mut bits = mask as u64;
+    while bits != 0 {
+        let bit = bits.trailing_zeros() as i32;
+        bits &= bits - 1;
+        if let Some(c) = components.iter().find(|c| c.bit_number == bit) {
+            out.push_str(&c.exchange_letter);
+        }
+    }
+    out
+}
+
+// ── Intermediate dispatch structs ──
+
+/// A single tick event produced by quote change detection.
+pub struct TickEvent {
+    pub req_id: i64,
+    pub tick_type: i32,
+    pub value: f64,
+    /// true = tick_price, false = tick_size
+    pub is_price: bool,
+}
+
+/// Timestamp tick from quote polling.
+pub struct TimestampTick {
+    pub req_id: i64,
+    pub timestamp_ns: i64,
+}
+
+/// String-valued tick (e.g. exchange-code letters for tick_types 32/33/84).
+pub struct StringTickEvent {
+    pub req_id: i64,
+    pub tick_type: i32,
+    pub value: String,
+}
+
+/// Result of polling quotes for one instrument.
+pub struct QuotePollResult {
+    pub ticks: Vec<TickEvent>,
+    pub string_ticks: Vec<StringTickEvent>,
+    pub timestamp: Option<TimestampTick>,
+    /// true if any tick was delivered (for snapshot detection).
+    pub delivered: bool,
+}
+
+/// PnL update (account-level).
+pub struct PnlUpdate {
+    pub req_id: i64,
+    pub daily_pnl: f64,
+    pub unrealized_pnl: f64,
+    pub realized_pnl: f64,
+}
+
+/// PnL single update (per-position).
+pub struct PnlSingleUpdate {
+    pub req_id: i64,
+    pub pos: f64,
+    pub daily_pnl: f64,
+    pub unrealized_pnl: f64,
+    pub realized_pnl: f64,
+    pub value: f64,
+}
+
+/// A single changed account field.
+pub struct AccountFieldUpdate {
+    pub key: String,
+    pub value: String,
+    pub currency: String,
+}
+
+/// Batch of account update results.
+pub struct AccountUpdateBatch {
+    pub fields: Vec<AccountFieldUpdate>,
+    /// Whether any field was delivered (triggers account_download_end).
+    pub delivered: bool,
+}
+
+/// Prepared account summary response.
+pub struct AccountSummaryBatch {
+    pub req_id: i64,
+    pub entries: Vec<AccountSummaryEntry>,
+}
+
+pub struct AccountSummaryEntry {
+    pub tag: &'static str,
+    pub value: String,
+    pub currency: &'static str,
+}
+
+/// A single portfolio position update.
+pub struct PortfolioUpdateEntry {
+    pub con_id: i64,
+    pub position: f64,
+    pub avg_cost: f64,
+    pub market_price: f64,
+    pub market_value: f64,
+    pub unrealized_pnl: f64,
+    pub realized_pnl: f64,
+}
+
+/// True when `status` names an IB order state that is still working on the broker.
+/// Whitelist (rather than blacklist) so non-canonical or empty strings — and
+/// any future terminal states added by IB — are treated as "not open".
+#[inline]
+pub fn is_open_status(status: &str) -> bool {
+    matches!(
+        status,
+        "ApiPending"
+            | "PendingSubmit"
+            | "PendingCancel"
+            | "PreSubmitted"
+            | "Submitted"
+            | "PartiallyFilled"
+    )
+}
+
+/// Convert OrderStatus enum to ibapi-compatible string.
+#[inline]
+pub fn order_status_str(status: OrderStatus) -> &'static str {
+    match status {
+        OrderStatus::PendingSubmit => "PendingSubmit",
+        OrderStatus::PreSubmitted => "PreSubmitted",
+        OrderStatus::Submitted => "Submitted",
+        OrderStatus::PendingCancel => "PendingCancel",
+        OrderStatus::PendingReplace => "PendingCancel", // IB API has no PendingReplace string
+        OrderStatus::Filled => "Filled",
+        OrderStatus::PartiallyFilled => "PartiallyFilled",
+        OrderStatus::Cancelled => "Cancelled",
+        // ibapi has no "Rejected" status string — rejected orders surface as "Inactive"
+        // with the rejection reason carried separately on OrderState.completedStatus.
+        OrderStatus::Rejected => "Inactive",
+        OrderStatus::Inactive => "Inactive",
+        OrderStatus::Uncertain => "Unknown",
+    }
+}
+
+// ── Execution storage ──
+
+/// A stored execution + commission_and_fees pair for `req_executions` replay.
+/// Shared between Rust and Python adapters via `ClientCore`.
+pub struct StoredExecution {
+    pub req_id: i64,
+    pub contract: ApiContract,
+    pub execution: ApiExecution,
+    pub commission_and_fees: ApiCommissionAndFeesReport,
+}
+
+// ── Order tracking ──
+
+/// A locally tracked order for `req_open_orders` / dispatch status updates.
+#[derive(Clone)]
+pub struct TrackedOrder {
+    pub contract: ApiContract,
+    pub order: ApiOrder,
+    pub status: String,
+    pub filled: f64,
+    pub remaining: f64,
+    pub instrument: InstrumentId,
+}
+
+// ── ClientCore ──
+
+/// Shared subscription tracking and dispatch preparation logic.
+///
+/// Both Rust and Python EClient own a `ClientCore` and delegate state tracking
+/// and data preparation to it. Only the final callback invocation is language-specific.
+pub struct ClientCore {
+    // reqId <-> InstrumentId mapping
+    pub req_to_instrument: Mutex<HashMap<i64, InstrumentId>>,
+    pub instrument_to_req: Mutex<HashMap<InstrumentId, i64>>,
+    // con_id → InstrumentId for find_or_register_instrument lookup
+    pub con_id_to_instrument: Mutex<HashMap<i64, InstrumentId>>,
+    // Change detection for quote polling
+    pub last_quotes: Mutex<HashMap<InstrumentId, [i64; 15]>>,
+    // Snapshot req_ids — deliver first ticks then auto-cancel
+    pub snapshot_reqs: Mutex<HashSet<i64>>,
+
+    // PnL subscription state
+    pub pnl_req_id: Mutex<Option<i64>>,
+    pub pnl_single_reqs: Mutex<HashMap<i64, i64>>, // req_id → con_id
+    pub last_pnl: Mutex<[i64; 3]>, // [daily, unrealized, realized]
+    // Per-req_id change detection for pnl_single: [pos, daily, unrealized, realized, value] scaled.
+    pub last_pnl_single: Mutex<HashMap<i64, [i64; 5]>>,
+
+    // Account summary subscription state (req_id, tags)
+    pub account_summary_req: Mutex<Option<(i64, Vec<String>)>>,
+
+    // News bulletin subscription
+    pub bulletin_subscribed: AtomicBool,
+
+    // Account updates subscription
+    pub account_updates_subscribed: AtomicBool,
+    pub last_account: Mutex<Option<AccountState>>,
+    pub last_portfolio: Mutex<Option<Vec<PositionInfo>>>,
+
+    // Execution replay store
+    pub executions: Mutex<Vec<StoredExecution>>,
+
+    // Open order tracking
+    pub open_orders: Mutex<HashMap<u64, TrackedOrder>>,
+
+    // Market data type callback tracking
+    pub market_data_type: AtomicI32,
+    pub mdt_sent: Mutex<HashSet<i64>>,
+
+    // Historical data keepUpToDate: req_ids that have completed initial batch.
+    // Subsequent bars for these req_ids dispatch as historical_data_update.
+    pub hist_initial_complete: Mutex<HashSet<u32>>,
+
+    // News subscription state
+    pub news_providers: Mutex<String>,
+    pub news_instruments: Mutex<HashSet<InstrumentId>>,
+
+    // Contract cache for enrichment
+    pub contract_cache: Mutex<HashMap<i64, ApiContract>>,
+}
+
+impl ClientCore {
+    pub fn new() -> Self {
+        Self {
+            req_to_instrument: Mutex::new(HashMap::new()),
+            instrument_to_req: Mutex::new(HashMap::new()),
+            con_id_to_instrument: Mutex::new(HashMap::new()),
+            last_quotes: Mutex::new(HashMap::new()),
+            snapshot_reqs: Mutex::new(HashSet::new()),
+            pnl_req_id: Mutex::new(None),
+            pnl_single_reqs: Mutex::new(HashMap::new()),
+            last_pnl: Mutex::new([0; 3]),
+            last_pnl_single: Mutex::new(HashMap::new()),
+            account_summary_req: Mutex::new(None),
+            bulletin_subscribed: AtomicBool::new(false),
+            account_updates_subscribed: AtomicBool::new(false),
+            last_account: Mutex::new(None),
+            last_portfolio: Mutex::new(None),
+            executions: Mutex::new(Vec::new()),
+            open_orders: Mutex::new(HashMap::new()),
+            market_data_type: AtomicI32::new(1),
+            mdt_sent: Mutex::new(HashSet::new()),
+            hist_initial_complete: Mutex::new(HashSet::new()),
+            news_providers: Mutex::new("BRFG*BRFUPDN".into()),
+            news_instruments: Mutex::new(HashSet::new()),
+            contract_cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Clear all per-session state so the owning client can reconnect.
+    pub fn reset(&self) {
+        self.req_to_instrument.lock().unwrap().clear();
+        self.instrument_to_req.lock().unwrap().clear();
+        self.con_id_to_instrument.lock().unwrap().clear();
+        self.last_quotes.lock().unwrap().clear();
+        self.snapshot_reqs.lock().unwrap().clear();
+        *self.pnl_req_id.lock().unwrap() = None;
+        self.pnl_single_reqs.lock().unwrap().clear();
+        *self.last_pnl.lock().unwrap() = [0; 3];
+        self.last_pnl_single.lock().unwrap().clear();
+        *self.account_summary_req.lock().unwrap() = None;
+        self.bulletin_subscribed.store(false, Ordering::Relaxed);
+        self.account_updates_subscribed.store(false, Ordering::Relaxed);
+        *self.last_account.lock().unwrap() = None;
+        *self.last_portfolio.lock().unwrap() = None;
+        self.executions.lock().unwrap().clear();
+        self.open_orders.lock().unwrap().clear();
+        self.market_data_type.store(1, Ordering::Relaxed);
+        self.mdt_sent.lock().unwrap().clear();
+        self.hist_initial_complete.lock().unwrap().clear();
+        *self.news_providers.lock().unwrap() = "BRFG*BRFUPDN".into();
+        self.news_instruments.lock().unwrap().clear();
+        self.contract_cache.lock().unwrap().clear();
+    }
+
+    // ── Registration helpers ──
+
+    /// Registration reply timeout.
+    #[cfg(not(test))]
+    const REGISTRATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+    #[cfg(test)]
+    const REGISTRATION_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1);
+
+    /// Wait for the hot loop to process a registration command and return the
+    /// assigned ID. The engine replies Err when the instrument table is full
+    /// (ibx#233) — previously that condition killed the hot loop.
+    fn recv_registration(reply_rx: crossbeam_channel::Receiver<Result<InstrumentId, String>>) -> Result<InstrumentId, String> {
+        reply_rx.recv_timeout(Self::REGISTRATION_TIMEOUT)
+            .map_err(|_| "Registration timed out".to_string())?
+    }
+
+    /// Find instrument ID for a contract, registering if needed.
+    /// Returns `Err` if the control channel is closed.
+    pub fn find_or_register_instrument(
+        &self,
+        control_tx: &Sender<ControlCommand>,
+        con_id: i64,
+        symbol: &str,
+        exchange: &str,
+        sec_type: &str,
+    ) -> Result<InstrumentId, String> {
+        // Check if already mapped by con_id
+        {
+            let map = self.con_id_to_instrument.lock().unwrap();
+            if let Some(&iid) = map.get(&con_id) {
+                return Ok(iid);
+            }
+        }
+
+        // Register new — only allocates an InstrumentId slot, does not subscribe to market data.
+        let (reply_tx, reply_rx) = crossbeam_channel::bounded(1);
+        control_tx.send(ControlCommand::RegisterInstrument {
+            con_id, symbol: symbol.to_string(),
+            sec_type: sec_type.to_string(), exchange: exchange.to_string(),
+            reply_tx: Some(reply_tx),
+        }).map_err(|e| format!("Engine stopped: {}", e))?;
+
+        let id = Self::recv_registration(reply_rx)?;
+        self.con_id_to_instrument.lock().unwrap().insert(con_id, id);
+        Ok(id)
+    }
+
+    // ── Subscription management ──
+
+    /// Register a market data subscription mapping.
+    /// If `generic_tick_list` contains "292", also subscribes to per-contract news.
+    pub fn register_mkt_data(
+        &self,
+        _shared: &SharedState,
+        control_tx: &Sender<ControlCommand>,
+        req_id: i64,
+        con_id: i64,
+        symbol: &str,
+        exchange: &str,
+        sec_type: &str,
+        last_trade_date: &str,
+        strike: f64,
+        right: &str,
+        multiplier: &str,
+        snapshot: bool,
+        generic_tick_list: &str,
+        mode_9887: i32,
+    ) -> Result<InstrumentId, String> {
+        // News subscription if generic_tick_list contains 292
+        let wants_news = generic_tick_list.split(',')
+            .any(|t| t.trim() == "292" || t.trim() == "mdoff,292" || t.trim().ends_with("292"));
+        if wants_news {
+            let providers = self.news_providers.lock().unwrap().clone();
+            let _ = control_tx.send(ControlCommand::SubscribeNews {
+                con_id,
+                symbol: symbol.to_string(),
+                providers,
+                reply_tx: None,
+            });
+        }
+
+        // instrument_to_req maps ONE req_id per instrument: a second live
+        // subscription would clobber the first's reverse mapping and orphan
+        // it silently — no ticks, no error (ibx#233). Reject up front via
+        // the client-side conId cache, before anything reaches the engine.
+        {
+            let cache = self.con_id_to_instrument.lock().unwrap();
+            if let Some(&iid) = cache.get(&con_id) {
+                if let Some(&existing) = self.instrument_to_req.lock().unwrap().get(&iid) {
+                    if existing != req_id {
+                        return Err(format!(
+                            "contract (con_id {}) already has a live market-data \
+                             subscription under req_id {}: cancel it first or \
+                             reuse that req_id", con_id, existing,
+                        ));
+                    }
+                }
+            }
+        }
+
+        let (reply_tx, reply_rx) = crossbeam_channel::bounded(1);
+        control_tx.send(ControlCommand::RegisterInstrument {
+            con_id, symbol: symbol.to_string(),
+            sec_type: sec_type.to_string(), exchange: exchange.to_string(),
+            reply_tx: None,
+        }).map_err(|e| format!("Engine stopped: {}", e))?;
+        control_tx.send(ControlCommand::Subscribe {
+            con_id,
+            symbol: symbol.to_string(),
+            exchange: exchange.to_string(),
+            sec_type: sec_type.to_string(),
+            last_trade_date: last_trade_date.to_string(),
+            strike,
+            right: right.to_string(),
+            multiplier: multiplier.to_string(),
+            mode_9887,
+            reply_tx: Some(reply_tx),
+        }).map_err(|e| format!("Engine stopped: {}", e))?;
+
+        let instrument_id = Self::recv_registration(reply_rx)?;
+        self.con_id_to_instrument.lock().unwrap().insert(con_id, instrument_id);
+        self.req_to_instrument.lock().unwrap().insert(req_id, instrument_id);
+        self.instrument_to_req.lock().unwrap().insert(instrument_id, req_id);
+        if snapshot {
+            self.snapshot_reqs.lock().unwrap().insert(req_id);
+        }
+        if wants_news {
+            self.news_instruments.lock().unwrap().insert(instrument_id);
+        }
+        Ok(instrument_id)
+    }
+
+    /// Unregister a market data subscription.
+    /// Returns `(instrument_id, needs_news_unsub)`.
+    pub fn unregister_mkt_data(&self, req_id: i64) -> (Option<InstrumentId>, bool) {
+        if let Some(instrument) = self.req_to_instrument.lock().unwrap().remove(&req_id) {
+            self.instrument_to_req.lock().unwrap().remove(&instrument);
+            self.last_quotes.lock().unwrap().remove(&instrument);
+            self.mdt_sent.lock().unwrap().remove(&req_id);
+            let needs_news = self.news_instruments.lock().unwrap().remove(&instrument);
+            self.forget_instrument(instrument);
+            (Some(instrument), needs_news)
+        } else {
+            (None, false)
+        }
+    }
+
+    /// Drop the client-side conId cache entries for an instrument id. The
+    /// engine may reclaim and reuse the slot after an unsubscribe (ibx#233);
+    /// a stale cache entry would silently point the old conId at whatever
+    /// contract inherits the id. A later request for that conId simply
+    /// re-registers.
+    pub fn forget_instrument(&self, instrument: InstrumentId) {
+        self.con_id_to_instrument.lock().unwrap().retain(|_, iid| *iid != instrument);
+    }
+
+    pub fn set_news_providers(&self, providers: &str) {
+        *self.news_providers.lock().unwrap() = providers.to_string();
+    }
+
+    // ── Contract cache ──
+
+    /// Cache a contract for later enrichment.
+    pub fn cache_contract(&self, con_id: i64, contract: ApiContract) {
+        self.contract_cache.lock().unwrap().insert(con_id, contract);
+    }
+
+    /// Look up a contract: merge local cache with shared reference for richest data.
+    pub fn get_contract(&self, con_id: i64, shared: &SharedState) -> Option<ApiContract> {
+        let local = self.contract_cache.lock().unwrap().get(&con_id).cloned();
+        let shared_ref = shared.reference.get_contract(con_id);
+        match (local, shared_ref) {
+            (Some(mut l), Some(s)) => {
+                // Enrich local with shared reference fields (secdef has richer data)
+                if l.local_symbol.is_empty() { l.local_symbol = s.local_symbol; }
+                if l.trading_class.is_empty() { l.trading_class = s.trading_class; }
+                if l.primary_exchange.is_empty() { l.primary_exchange = s.primary_exchange; }
+                Some(l)
+            }
+            (Some(l), None) => Some(l),
+            (None, Some(s)) => Some(s),
+            (None, None) => None,
+        }
+    }
+
+    /// Register a TBT subscription mapping.
+    pub fn register_tbt(
+        &self,
+        _shared: &SharedState,
+        control_tx: &Sender<ControlCommand>,
+        req_id: i64,
+        con_id: i64,
+        symbol: &str,
+        tbt_type: TbtType,
+    ) -> Result<InstrumentId, String> {
+        let (reply_tx, reply_rx) = crossbeam_channel::bounded(1);
+        control_tx.send(ControlCommand::SubscribeTbt {
+            con_id,
+            symbol: symbol.to_string(),
+            tbt_type,
+            reply_tx: Some(reply_tx),
+        }).map_err(|e| format!("Engine stopped: {}", e))?;
+
+        let instrument_id = Self::recv_registration(reply_rx)?;
+        self.con_id_to_instrument.lock().unwrap().insert(con_id, instrument_id);
+        self.req_to_instrument.lock().unwrap().insert(req_id, instrument_id);
+        self.instrument_to_req.lock().unwrap().insert(instrument_id, req_id);
+        Ok(instrument_id)
+    }
+
+    /// Look up req_id for an instrument.
+    pub fn req_id_for_instrument(&self, instrument: InstrumentId) -> i64 {
+        self.instrument_to_req.lock().unwrap()
+            .get(&instrument).copied().unwrap_or(-1)
+    }
+
+    // ── PnL subscription management ──
+
+    pub fn subscribe_pnl(&self, req_id: i64) {
+        *self.pnl_req_id.lock().unwrap() = Some(req_id);
+    }
+
+    pub fn unsubscribe_pnl(&self, req_id: i64) {
+        let mut pnl = self.pnl_req_id.lock().unwrap();
+        if *pnl == Some(req_id) {
+            *pnl = None;
+        }
+    }
+
+    pub fn subscribe_pnl_single(&self, req_id: i64, con_id: i64) {
+        self.pnl_single_reqs.lock().unwrap().insert(req_id, con_id);
+    }
+
+    pub fn unsubscribe_pnl_single(&self, req_id: i64) {
+        self.pnl_single_reqs.lock().unwrap().remove(&req_id);
+        self.last_pnl_single.lock().unwrap().remove(&req_id);
+    }
+
+    // ── Account summary subscription management ──
+
+    pub fn subscribe_account_summary(&self, req_id: i64, tags: &str) {
+        let tag_list: Vec<String> = tags.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        *self.account_summary_req.lock().unwrap() = Some((req_id, tag_list));
+    }
+
+    pub fn unsubscribe_account_summary(&self, req_id: i64) {
+        let mut req = self.account_summary_req.lock().unwrap();
+        if req.as_ref().map(|(r, _)| *r) == Some(req_id) {
+            *req = None;
+        }
+    }
+
+    // ── Account updates subscription management ──
+
+    pub fn subscribe_account_updates(&self, subscribe: bool) {
+        self.account_updates_subscribed.store(subscribe, Ordering::Release);
+        if !subscribe {
+            *self.last_account.lock().unwrap() = None;
+            *self.last_portfolio.lock().unwrap() = None;
+        }
+    }
+
+    // ── Market data type tracking ──
+
+    /// Store the requested market data type. NOT sent to the gateway — the
+    /// engine has no wire path for it, so subscriptions always deliver
+    /// realtime data (ibx#234). Requesting anything else warns loudly
+    /// instead of pretending.
+    pub fn set_market_data_type(&self, mdt: i32) {
+        if mdt != MDT_REALTIME {
+            log::warn!(
+                "req_market_data_type({}) is not supported: the type is not \
+                 sent to the gateway and subscriptions remain realtime; \
+                 delayed tick variants are never emitted (ibx#234)",
+                mdt,
+            );
+        }
+        self.market_data_type.store(mdt, Ordering::Relaxed);
+    }
+
+    /// Check if the `market_data_type` callback should fire for this req_id.
+    /// Returns `Some(type)` on the first call per req_id that has data, `None`
+    /// thereafter. Always reports realtime — the DELIVERED type — rather than
+    /// echoing a requested type the engine never transmitted; the old echo
+    /// confirmed a state that did not exist (ibx#234).
+    pub fn check_mdt_needed(&self, req_id: i64, has_data: bool) -> Option<i32> {
+        if has_data && self.mdt_sent.lock().unwrap().insert(req_id) {
+            Some(MDT_REALTIME)
+        } else {
+            None
+        }
+    }
+
+    // ── Bulletin subscription management ──
+
+    pub fn subscribe_bulletins(&self) {
+        self.bulletin_subscribed.store(true, Ordering::Release);
+    }
+
+    pub fn unsubscribe_bulletins(&self) {
+        self.bulletin_subscribed.store(false, Ordering::Release);
+    }
+
+    pub fn bulletins_subscribed(&self) -> bool {
+        self.bulletin_subscribed.load(Ordering::Acquire)
+    }
+
+    // ── Execution replay store ──
+
+    /// Store an execution for later replay via `req_executions`.
+    pub fn push_execution(&self, req_id: i64, contract: ApiContract, execution: ApiExecution, commission_and_fees: ApiCommissionAndFeesReport) {
+        self.executions.lock().unwrap().push(StoredExecution {
+            req_id, contract, execution, commission_and_fees,
+        });
+    }
+
+    /// Return executions matching the given filter.
+    pub fn filter_executions(&self, filter: &ExecutionFilter) -> Vec<usize> {
+        let execs = self.executions.lock().unwrap();
+        execs.iter().enumerate().filter_map(|(i, se)| {
+            if !filter.symbol.is_empty() && !se.contract.symbol.eq_ignore_ascii_case(&filter.symbol) {
+                return None;
+            }
+            if !filter.sec_type.is_empty() && !se.contract.sec_type.eq_ignore_ascii_case(&filter.sec_type) {
+                return None;
+            }
+            if !filter.exchange.is_empty() && !se.execution.exchange.eq_ignore_ascii_case(&filter.exchange) {
+                return None;
+            }
+            if !filter.side.is_empty() && !se.execution.side.eq_ignore_ascii_case(&filter.side) {
+                return None;
+            }
+            if !filter.acct_code.is_empty() && !se.execution.acct_number.eq_ignore_ascii_case(&filter.acct_code) {
+                return None;
+            }
+            if filter.client_id != 0 && se.execution.client_id != filter.client_id {
+                return None;
+            }
+            Some(i)
+        }).collect()
+    }
+
+    // ── Open order tracking ──
+
+    /// Check if an order with this ID is currently tracked (for modify detection).
+    pub fn is_order_tracked(&self, order_id: u64) -> bool {
+        self.open_orders.lock().unwrap().contains_key(&order_id)
+    }
+
+    /// Track a newly placed order.
+    pub fn track_order(&self, order_id: u64, contract: ApiContract, order: ApiOrder, instrument: InstrumentId) {
+        let remaining = order.total_quantity;
+        self.open_orders.lock().unwrap().insert(order_id, TrackedOrder {
+            contract, order, status: "PendingSubmit".into(), filled: 0.0, remaining, instrument,
+        });
+    }
+
+    /// Update a tracked order after a fill. Removes the order if fully filled.
+    pub fn update_order_fill(&self, order_id: u64, status: &str, filled: f64, remaining: f64) {
+        let mut orders = self.open_orders.lock().unwrap();
+        if remaining == 0.0 {
+            orders.remove(&order_id);
+        } else if let Some(o) = orders.get_mut(&order_id) {
+            o.status = status.into();
+            o.filled = filled;
+            o.remaining = remaining;
+        }
+    }
+
+    /// Update a tracked order status from an order update event.
+    pub fn update_order_status(&self, order_id: u64, status: &str, filled: f64, remaining: f64) {
+        let mut orders = self.open_orders.lock().unwrap();
+        if let Some(o) = orders.get_mut(&order_id) {
+            o.status = status.into();
+            o.filled = filled;
+            o.remaining = remaining;
+        }
+    }
+
+    /// Collect open orders: merge local tracking with shared state.
+    /// Returns (order_id, contract, order, status, filled, remaining) for non-terminal orders.
+    pub fn collect_open_orders(&self, shared: &SharedState) -> Vec<(u64, TrackedOrder)> {
+        let mut result: Vec<(u64, TrackedOrder)> = Vec::new();
+
+        // Drain shared order cache first to enrich local tracking
+        let shared_orders = shared.orders.drain_open_orders();
+        {
+            let mut orders = self.open_orders.lock().unwrap();
+            for (oid, info) in &shared_orders {
+                if let Some(o) = orders.get_mut(oid) {
+                    if o.order.account.is_empty() {
+                        o.order.account = info.order.account.clone();
+                    }
+                    if o.order.perm_id == 0 {
+                        o.order.perm_id = info.order.perm_id;
+                    }
+                }
+            }
+        }
+
+        // Local tracked orders (non-terminal), enriched from secdef cache
+        {
+            let orders = self.open_orders.lock().unwrap();
+            for (&oid, o) in orders.iter() {
+                if is_open_status(&o.status) {
+                    let contract = if o.contract.con_id != 0 {
+                        self.get_contract(o.contract.con_id, shared).unwrap_or_else(|| o.contract.clone())
+                    } else {
+                        o.contract.clone()
+                    };
+                    result.push((oid, TrackedOrder {
+                        contract,
+                        order: o.order.clone(),
+                        status: o.status.clone(),
+                        filled: o.filled,
+                        remaining: o.remaining,
+                        instrument: o.instrument,
+                    }));
+                }
+            }
+        }
+
+        // Add shared-only entries not already present from local
+        for (oid, info) in shared_orders {
+            if !is_open_status(&info.order_state.status) {
+                continue;
+            }
+            if !result.iter().any(|(id, _)| *id == oid) {
+                let contract = if info.contract.con_id != 0 {
+                    shared.reference.get_contract(info.contract.con_id).unwrap_or(info.contract)
+                } else {
+                    info.contract
+                };
+                result.push((oid, TrackedOrder {
+                    contract,
+                    order: info.order,
+                    status: info.order_state.status.clone(),
+                    filled: 0.0,
+                    remaining: 0.0,
+                    instrument: 0,
+                }));
+            }
+        }
+
+        result
+    }
+
+    // ── Dispatch preparation methods ──
+
+    /// Poll quotes for a single instrument and return tick events.
+    /// Updates last_quotes internally.
+    pub fn poll_instrument_ticks(
+        &self,
+        shared: &SharedState,
+        iid: InstrumentId,
+        req_id: i64,
+    ) -> QuotePollResult {
+        let q = shared.market.quote(iid);
+        let fields = [
+            q.bid, q.ask, q.last, q.bid_size, q.ask_size, q.last_size,
+            q.high, q.low, q.volume, q.close, q.open, q.timestamp_ns as i64,
+            q.bid_exch_mask, q.ask_exch_mask, q.last_exch_mask,
+        ];
+
+        // Single lock acquisition for both read and write of last_quotes.
+        let mut map = self.last_quotes.lock().unwrap();
+        let last = map.get(&iid).copied().unwrap_or([0i64; 15]);
+
+        let mut ticks = Vec::new();
+        let mut delivered = false;
+
+        // Price ticks: (field_index, tick_type)
+        const PRICE_TICKS: &[(usize, i32)] = &[
+            (0, TICK_BID), (1, TICK_ASK), (2, TICK_LAST),
+            (6, TICK_HIGH), (7, TICK_LOW), (9, TICK_CLOSE), (10, TICK_OPEN),
+        ];
+        for &(idx, tt) in PRICE_TICKS {
+            if fields[idx] != last[idx] {
+                ticks.push(TickEvent {
+                    req_id, tick_type: tt,
+                    value: fields[idx] as f64 / PRICE_SCALE_F,
+                    is_price: true,
+                });
+                delivered = true;
+            }
+        }
+
+        // Size ticks: (field_index, tick_type)
+        const SIZE_TICKS: &[(usize, i32)] = &[
+            (3, TICK_BID_SIZE), (4, TICK_ASK_SIZE), (5, TICK_LAST_SIZE), (8, TICK_VOLUME),
+        ];
+        for &(idx, tt) in SIZE_TICKS {
+            if fields[idx] != last[idx] {
+                ticks.push(TickEvent {
+                    req_id, tick_type: tt,
+                    value: fields[idx] as f64 / QTY_SCALE as f64,
+                    is_price: false,
+                });
+                delivered = true;
+            }
+        }
+
+        // Timestamp tick
+        let timestamp = if fields[11] != last[11] && fields[11] != 0 {
+            Some(TimestampTick { req_id, timestamp_ns: fields[11] })
+        } else {
+            None
+        };
+
+        // Exchange-code string ticks: rendering is left to dispatch since it
+        // depends on shared.reference.smart_components(). Emit a delta record
+        // when the bitmask changes; dispatch resolves the letter string.
+        let mut string_ticks = Vec::new();
+        const EXCH_TICKS: &[(usize, i32)] = &[
+            (12, TICK_BID_EXCHANGE), (13, TICK_ASK_EXCHANGE), (14, TICK_LAST_EXCHANGE),
+        ];
+        for &(idx, tt) in EXCH_TICKS {
+            if fields[idx] != last[idx] {
+                let letters = render_exchange_mask(fields[idx], shared);
+                string_ticks.push(StringTickEvent {
+                    req_id, tick_type: tt, value: letters,
+                });
+                delivered = true;
+            }
+        }
+
+        map.insert(iid, fields);
+
+        QuotePollResult { ticks, string_ticks, timestamp, delivered }
+    }
+
+    /// Check and consume snapshot completion for a req_id.
+    /// Returns true if this was a snapshot that just completed.
+    pub fn check_snapshot_done(&self, req_id: i64, delivered: bool) -> bool {
+        delivered && self.snapshot_reqs.lock().unwrap().remove(&req_id)
+    }
+
+    /// Snapshot the current instrument→req_id mapping.
+    pub fn snapshot_instruments(&self) -> Vec<(InstrumentId, i64)> {
+        let map = self.instrument_to_req.lock().unwrap();
+        map.iter().map(|(&iid, &req_id)| (iid, req_id)).collect()
+    }
+
+    /// Poll PnL and return update if values changed.
+    /// Computes daily P&L client-side from midnight seeds + live quotes.
+    /// Formula: dailyPnL = Σ(qtyNow × priceNow - qtyMidnight × prevClose - moneyTraded)
+    /// For positions opened intraday (no seed), synthesizes
+    /// moneyTraded = qtyNow × avgCost so the formula collapses to unrealized P&L.
+    pub fn poll_pnl(&self, shared: &SharedState) -> Option<PnlUpdate> {
+        let req_id = (*self.pnl_req_id.lock().unwrap())?;
+
+        let seeds: HashMap<i64, MidnightSeed> = shared.portfolio.midnight_seeds()
+            .into_iter().map(|s| (s.con_id, s)).collect();
+        let positions = shared.portfolio.position_infos();
+
+        let mut con_ids: HashSet<i64> = seeds.keys().copied().collect();
+        for pi in &positions {
+            con_ids.insert(pi.con_id);
+        }
+        if con_ids.is_empty() {
+            return None;
+        }
+
+        let con_id_map = self.con_id_to_instrument.lock().unwrap();
+        let mut total_daily: f64 = 0.0;
+        let mut total_unrealized: f64 = 0.0;
+        let mut total_realized: f64 = 0.0;
+        let mut priced = 0usize;
+
+        for con_id in con_ids {
+            let seed = seeds.get(&con_id);
+            let pi = shared.portfolio.position_info(con_id);
+            let qty_now = pi.as_ref().map(|p| p.position).unwrap_or(0);
+            let avg_cost = pi.as_ref().map(|p| p.avg_cost).unwrap_or(0);
+            let qty_midnight = seed.map(|s| s.qty_midnight).unwrap_or(0);
+
+            total_realized += seed.map(|s| s.realized_pnl).unwrap_or(0.0);
+
+            let Some(&iid) = con_id_map.get(&con_id) else { continue; };
+            let q = shared.market.quote(iid);
+            let price_now = q.last;
+            let prev_close = q.close;
+
+            if price_now == 0 {
+                continue;
+            }
+            // Skip overnight positions without prev close (would give wrong result)
+            if prev_close == 0 && qty_midnight != 0 {
+                continue;
+            }
+
+            // moneyTradedSinceMidnight (wire 6822) is signed net cash: SELL
+            // positive, BUY negative (ib-agent#163). An intraday-only position
+            // has no seed row, so synthesize the opening trade's net cash:
+            // -qty*avgCost (cash paid to open a long, received to open a short).
+            let money_traded = match seed {
+                Some(s) => s.money_traded,
+                None => -(qty_now as f64 * avg_cost as f64 / PRICE_SCALE_F),
+            };
+
+            let mv_now = qty_now as f64 * price_now as f64 / PRICE_SCALE_F;
+            let mv_midnight = qty_midnight as f64 * prev_close as f64 / PRICE_SCALE_F;
+            // Daily P&L = value change since midnight plus today's net cash.
+            total_daily += mv_now - mv_midnight + money_traded;
+
+            if avg_cost != 0 {
+                total_unrealized += qty_now as f64 * (price_now - avg_cost) as f64 / PRICE_SCALE_F;
+            }
+            priced += 1;
+        }
+
+        // No position carried a live quote (a req_pnl-only client never populates
+        // con_id_to_instrument, so every position above hits `continue`). Fall back
+        // to the gateway's account-level P&L, which the gateway pushes independently
+        // of any market-data subscription. Without this the quote-derived totals stay
+        // [0,0,0] and no callback ever fires (ibx#239).
+        if priced == 0 {
+            let acct = shared.portfolio.account();
+            total_daily = acct.daily_pnl as f64 / PRICE_SCALE_F;
+            total_unrealized = acct.unrealized_pnl as f64 / PRICE_SCALE_F;
+            total_realized = acct.realized_pnl as f64 / PRICE_SCALE_F;
+        }
+
+        let pnl = [
+            (total_daily * PRICE_SCALE_F) as i64,
+            (total_unrealized * PRICE_SCALE_F) as i64,
+            (total_realized * PRICE_SCALE_F) as i64,
+        ];
+        let mut last = self.last_pnl.lock().unwrap();
+        if pnl == *last {
+            return None;
+        }
+        *last = pnl;
+        Some(PnlUpdate {
+            req_id,
+            daily_pnl: total_daily,
+            unrealized_pnl: total_unrealized,
+            realized_pnl: total_realized,
+        })
+    }
+
+    /// Poll per-position PnL and return updates whose values changed.
+    /// Routes the quote lookup by con_id (not first-non-zero across all subscriptions),
+    /// computes daily/realized from the matching midnight seed, and synthesizes
+    /// money_traded = qty_now × avg_cost for intraday-opened positions.
+    pub fn poll_pnl_single(&self, shared: &SharedState) -> Vec<PnlSingleUpdate> {
+        let reqs: Vec<(i64, i64)> = self.pnl_single_reqs.lock().unwrap()
+            .iter().map(|(&r, &c)| (r, c)).collect();
+        if reqs.is_empty() {
+            return Vec::new();
+        }
+
+        let seeds: HashMap<i64, MidnightSeed> = shared.portfolio.midnight_seeds()
+            .into_iter().map(|s| (s.con_id, s)).collect();
+        let con_id_map = self.con_id_to_instrument.lock().unwrap();
+        let mut last_cache = self.last_pnl_single.lock().unwrap();
+        let mut results = Vec::new();
+
+        for (req_id, con_id) in reqs {
+            let Some(pi) = shared.portfolio.position_info(con_id) else { continue; };
+            let qty_now = pi.position;
+            let avg_cost = pi.avg_cost;
+
+            let Some(&iid) = con_id_map.get(&con_id) else { continue; };
+            let q = shared.market.quote(iid);
+            let price_now = q.last;
+            if price_now == 0 {
+                continue;
+            }
+
+            let seed = seeds.get(&con_id);
+            let qty_midnight = seed.map(|s| s.qty_midnight).unwrap_or(0);
+            let prev_close = q.close;
+            if prev_close == 0 && qty_midnight != 0 {
+                continue;
+            }
+
+            // moneyTradedSinceMidnight (wire 6822) is signed net cash: SELL
+            // positive, BUY negative (ib-agent#163). Synthesize the opening
+            // trade's net cash for an intraday-only position (no seed row).
+            let money_traded = match seed {
+                Some(s) => s.money_traded,
+                None => -(qty_now as f64 * avg_cost as f64 / PRICE_SCALE_F),
+            };
+
+            let mv_now = qty_now as f64 * price_now as f64 / PRICE_SCALE_F;
+            let mv_midnight = qty_midnight as f64 * prev_close as f64 / PRICE_SCALE_F;
+            let daily = mv_now - mv_midnight + money_traded;
+            let unrealized = if avg_cost != 0 {
+                qty_now as f64 * (price_now - avg_cost) as f64 / PRICE_SCALE_F
+            } else { 0.0 };
+            let realized = seed.map(|s| s.realized_pnl).unwrap_or(0.0);
+            let value = mv_now;
+
+            let snapshot: [i64; 5] = [
+                qty_now,
+                (daily * PRICE_SCALE_F) as i64,
+                (unrealized * PRICE_SCALE_F) as i64,
+                (realized * PRICE_SCALE_F) as i64,
+                (value * PRICE_SCALE_F) as i64,
+            ];
+            if last_cache.get(&req_id) == Some(&snapshot) {
+                continue;
+            }
+            last_cache.insert(req_id, snapshot);
+
+            results.push(PnlSingleUpdate {
+                req_id,
+                pos: qty_now as f64,
+                daily_pnl: daily,
+                unrealized_pnl: unrealized,
+                realized_pnl: realized,
+                value,
+            });
+        }
+        results
+    }
+
+    /// Prepare account update fields (subscription-gated, change-detected).
+    pub fn prepare_account_updates(&self, shared: &SharedState) -> Option<AccountUpdateBatch> {
+        if !self.account_updates_subscribed.load(Ordering::Acquire) {
+            return None;
+        }
+        if !shared.portfolio.account_data_received() {
+            return None;
+        }
+
+        let acct = shared.portfolio.account();
+        let mut prev_guard = self.last_account.lock().unwrap();
+        let is_first = prev_guard.is_none();
+        let prev = prev_guard.unwrap_or_default();
+
+        let cur_vals = account_field_values(&acct);
+        let prev_vals = account_field_values(&prev);
+
+        let mut fields = Vec::new();
+        let mut delivered = false;
+
+        for (i, &key) in ACCOUNT_UPDATE_FIELDS.iter().enumerate() {
+            if is_first || cur_vals[i] != prev_vals[i] {
+                fields.push(AccountFieldUpdate {
+                    key: key.to_string(),
+                    value: format!("{:.2}", cur_vals[i] as f64 / PRICE_SCALE_F),
+                    currency: "USD".to_string(),
+                });
+                delivered = true;
+            }
+        }
+
+        // Integer fields
+        if is_first || acct.day_trades_remaining != prev.day_trades_remaining {
+            fields.push(AccountFieldUpdate {
+                key: "DayTradesRemaining".to_string(),
+                value: acct.day_trades_remaining.to_string(),
+                currency: String::new(),
+            });
+            delivered = true;
+        }
+        if is_first || acct.leverage != prev.leverage {
+            fields.push(AccountFieldUpdate {
+                key: "Leverage-S".to_string(),
+                value: format!("{:.4}", acct.leverage as f64 / PRICE_SCALE_F),
+                currency: String::new(),
+            });
+            delivered = true;
+        }
+
+        *prev_guard = Some(acct);
+
+        Some(AccountUpdateBatch { fields, delivered })
+    }
+
+    /// Prepare portfolio updates (position entries) for account streaming.
+    /// Returns changed/new position infos when account updates are subscribed.
+    pub fn prepare_portfolio_updates(&self, shared: &SharedState) -> Vec<PortfolioUpdateEntry> {
+        if !self.account_updates_subscribed.load(Ordering::Acquire) {
+            return Vec::new();
+        }
+        if !shared.portfolio.account_data_received() {
+            return Vec::new();
+        }
+
+        let current = shared.portfolio.position_infos();
+        let mut prev_guard = self.last_portfolio.lock().unwrap();
+        let is_first = prev_guard.is_none();
+
+        let to_entry = |pi: &PositionInfo| PortfolioUpdateEntry {
+            con_id: pi.con_id,
+            position: pi.position as f64,
+            avg_cost: pi.avg_cost as f64 / PRICE_SCALE_F,
+            market_price: pi.market_price as f64 / PRICE_SCALE_F,
+            market_value: pi.market_value as f64 / PRICE_SCALE_F,
+            unrealized_pnl: pi.unrealized_pnl as f64 / PRICE_SCALE_F,
+            realized_pnl: pi.realized_pnl as f64 / PRICE_SCALE_F,
+        };
+
+        let changed = if is_first {
+            current.iter().map(&to_entry).collect()
+        } else {
+            let prev = prev_guard.as_ref().unwrap();
+            // Marks are part of the row: a mark move (each account-updates
+            // snapshot) is a genuine update, so compare them too (ibx#238).
+            current.iter().filter(|pi| {
+                !prev.iter().any(|pp| pp.con_id == pi.con_id
+                    && pp.position == pi.position
+                    && pp.avg_cost == pi.avg_cost
+                    && pp.market_price == pi.market_price
+                    && pp.market_value == pi.market_value
+                    && pp.unrealized_pnl == pi.unrealized_pnl
+                    && pp.realized_pnl == pi.realized_pnl)
+            }).map(&to_entry).collect()
+        };
+
+        *prev_guard = Some(current);
+        changed
+    }
+
+    /// Prepare account summary response (one-shot, consumes the request).
+    pub fn prepare_account_summary(&self, shared: &SharedState, _account_id: &str) -> Option<AccountSummaryBatch> {
+        // Wait for gateway account data before delivering summary.
+        if !shared.portfolio.account_data_received() {
+            return None;
+        }
+        let req = self.account_summary_req.lock().unwrap().take();
+        let (req_id, tags) = req?;
+
+        let acct = shared.portfolio.account();
+        let values = account_summary_values(&acct);
+
+        let mut entries = Vec::new();
+        for (i, &tag) in ACCOUNT_SUMMARY_TAGS.iter().enumerate() {
+            if !tags.is_empty() && !tags.iter().any(|t| t == tag) {
+                continue;
+            }
+            entries.push(AccountSummaryEntry {
+                tag,
+                value: format!("{:.2}", values[i]),
+                currency: "USD",
+            });
+        }
+
+        Some(AccountSummaryBatch { req_id, entries })
+    }
+
+    // ── Order routing ──
+
+    /// Pre-validate order fields that don't depend on instrument ID.
+    /// Call this before `find_or_register_instrument` to fail fast.
+    pub fn validate_order(order: &ApiOrder) -> Result<(), String> {
+        order.side()?;
+
+        // transmit=false cannot be honoured: every order is sent to the
+        // broker immediately when place_order is called; there is no
+        // staging concept. Accepting it would send a "staged" bracket
+        // parent live on its own, so reject loudly at the call instead.
+        // See: https://github.com/deepentropy/ibx/issues/226
+        if !order.transmit {
+            return Err(
+                "transmit=false is not supported: orders are transmitted \
+                 immediately on place_order; there is no staging concept, so \
+                 the order would go live despite transmit=false. Place child \
+                 orders with parent_id/oca_group set and keep transmit=true \
+                 (the engine links them server-side)."
+                    .into(),
+            );
+        }
+
+        // An unrecognized tif would otherwise be sent as DAY silently.
+        match order.tif.as_str() {
+            "" | "DAY" | "GTC" | "IOC" | "FOK" | "OPG" | "GTD" | "DTC" | "AUC" => {}
+            other => {
+                return Err(format!(
+                    "Unsupported tif '{}': use DAY, GTC, IOC, FOK, OPG, GTD, DTC or AUC",
+                    other
+                ));
+            }
+        }
+
+        let order_type = order.order_type.to_uppercase();
+
+        // These order types carry a type-specific instruction in the same
+        // slot all-or-none uses, so the two cannot be combined.
+        if order.all_or_none && matches!(order_type.as_str(), "TRAIL" | "REL") {
+            return Err(format!(
+                "all_or_none is not supported with {} orders",
+                order.order_type
+            ));
+        }
+
+        if order.algo_strategy.eq_ignore_ascii_case("Adaptive") {
+            return Ok(());
+        }
+        if !order.algo_strategy.is_empty() {
+            crate::api::client::parse_algo_params(&order.algo_strategy, &order.algo_params)?;
+            return Ok(());
+        }
+        if order.what_if {
+            return Ok(());
+        }
+        match order_type.as_str() {
+            "MKT" | "LMT" | "STP" | "STP LMT" | "TRAIL" | "TRAIL LIMIT"
+            | "MOC" | "LOC" | "MIT" | "LIT" | "MTL" | "MKT PRT" | "STP PRT"
+            | "REL" | "PEG MKT" | "PEG MID" | "PEG MIDPT" | "MIDPX" | "MIDPRICE"
+            | "SNAP MKT" | "SNAP MID" | "SNAP MIDPT" | "SNAP PRI" | "SNAP PRIM"
+            | "BOX TOP" => {}
+            _ => return Err(format!("Unsupported order type: '{}'", order.order_type)),
+        }
+
+        // Reject orders that require aux_price when it is zero — prevents silent no-trigger bugs.
+        // See: https://github.com/deepentropy/ibx/issues/115
+        match order_type.as_str() {
+            "STP" | "STP PRT" | "MIT" if order.aux_price == 0.0 => {
+                return Err(format!(
+                    "{} order requires aux_price (stop/trigger price) but got 0.0 — \
+                     set aux_price to the desired trigger price, not lmt_price",
+                    order.order_type
+                ));
+            }
+            "STP LMT" | "LIT" if order.aux_price == 0.0 => {
+                return Err(format!(
+                    "{} order requires aux_price (stop/trigger price) but got 0.0",
+                    order.order_type
+                ));
+            }
+            "TRAIL" if order.trailing_percent == 0.0 && order.aux_price == 0.0 => {
+                return Err(
+                    "TRAIL order requires either trailing_percent or aux_price (trail amount) \
+                     but both are 0.0".into()
+                );
+            }
+            "TRAIL LIMIT" if order.aux_price == 0.0 => {
+                return Err(
+                    "TRAIL LIMIT order requires aux_price (trail amount) but got 0.0".into()
+                );
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    /// Validate historical-request arguments before anything reaches the
+    /// engine (ibx#232): an unrecognized bar_size previously fell back to
+    /// 5-minute bars silently (via TWO divergent tables), and an
+    /// unrecognized what_to_show fell back to TRADES. The caller gets a
+    /// synchronous Err at the call instead of plausible, wrong candles.
+    pub fn validate_historical_args(
+        bar_size: &str,
+        what_to_show: &str,
+        keep_up_to_date: bool,
+    ) -> Result<(), String> {
+        let bs = crate::control::historical::BarSize::from_api_str(bar_size)?;
+        crate::control::historical::BarDataType::from_api_str(what_to_show)?;
+        if keep_up_to_date && !bs.supports_keep_up_to_date() {
+            return Err(format!(
+                "bar_size '{}' is not supported with keep_up_to_date=true: \
+                 supported sizes are 1 secs, 5 secs, 5 mins, 1 hour, 1 day",
+                bar_size,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Reject orders whose contract is not a common stock.
+    ///
+    /// The outbound order encoding in `engine::hot_loop::order_builder` only
+    /// supports common stock, and the instrument registry drops
+    /// `sec_type`/`exchange`. A non-STK contract (OPT/FUT/BAG/…) would
+    /// therefore be sent as a stock order on the underlying symbol with no
+    /// error surfaced. Until non-STK encoding lands, reject those contracts
+    /// up front.
+    ///
+    /// An empty `sec_type` is treated as STK (the engine default), so existing
+    /// stock callers that omit the field are unaffected.
+    /// See: https://github.com/deepentropy/ibx/issues/202
+    pub fn validate_order_contract(sec_type: &str) -> Result<(), String> {
+        if sec_type.is_empty() || sec_type.eq_ignore_ascii_case("STK") {
+            return Ok(());
+        }
+        Err(format!(
+            "Unsupported contract sec_type '{}': only STK orders are supported. \
+             Non-STK contracts (OPT/FUT/BAG/…) are not yet wire-encoded and would \
+             otherwise be silently sent as a stock order on the underlying symbol. \
+             See https://github.com/deepentropy/ibx/issues/202",
+            sec_type
+        ))
+    }
+
+    /// Build an `OrderRequest` from an API `Order`, handling all order types.
+    /// This is the shared order-type match block used by both Rust and Python.
+    pub fn build_order_request(
+        order: &ApiOrder,
+        order_id: u64,
+        instrument: InstrumentId,
+    ) -> Result<ControlCommand, String> {
+        let side = order.side()?;
+        let qty = order.total_quantity as u32;
+        let order_type = order.order_type.to_uppercase();
+
+        // Adaptive orders (special-cased before generic algo)
+        if order.algo_strategy.eq_ignore_ascii_case("Adaptive") {
+            let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+            let priority_str = order.algo_params.iter()
+                .find(|tv| tv.tag == "adaptivePriority")
+                .map(|tv| tv.value.as_str())
+                .unwrap_or("Normal");
+            let priority = match priority_str {
+                "Patient" => AdaptivePriority::Patient,
+                "Urgent" => AdaptivePriority::Urgent,
+                _ => AdaptivePriority::Normal,
+            };
+            return Ok(ControlCommand::Order(OrderRequest::SubmitAdaptive {
+                order_id, instrument, side, qty, price, priority,
+            }));
+        }
+
+        // Algo orders
+        if !order.algo_strategy.is_empty() {
+            let algo = crate::api::client::parse_algo_params(&order.algo_strategy, &order.algo_params)?;
+            let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+            return Ok(ControlCommand::Order(OrderRequest::SubmitAlgo {
+                order_id, instrument, side, qty, price, algo,
+            }));
+        }
+
+        // What-if orders
+        if order.what_if {
+            let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+            return Ok(ControlCommand::Order(OrderRequest::SubmitWhatIf {
+                order_id, instrument, side, qty, price,
+            }));
+        }
+
+        // Adjustable stop: a base STP that converts to another order type when
+        // its trigger is reached. Signalled by a non-empty adjustedOrderType,
+        // which is empty on every ordinary order, so this affects nothing else.
+        // A Trail/TrailLimit conversion carries the trailing amount + unit
+        // (tags 6260/6269, ib-agent#167). (ibx#225)
+        if !order.adjusted_order_type.is_empty() {
+            let adjusted = match order.adjusted_order_type.to_uppercase().as_str() {
+                "STP" => AdjustedOrderType::Stop,
+                "STP LMT" => AdjustedOrderType::StopLimit,
+                "TRAIL" => AdjustedOrderType::Trail,
+                "TRAIL LIMIT" => AdjustedOrderType::TrailLimit,
+                other => return Err(format!("unknown adjustedOrderType '{}'", other)),
+            };
+            let scale = |v: f64| (v * PRICE_SCALE_F) as i64;
+            // adjusted_trailing_amount defaults to f64::MAX when unset.
+            let adj_trail = if order.adjusted_trailing_amount == f64::MAX {
+                0.0
+            } else {
+                order.adjusted_trailing_amount
+            };
+            return Ok(ControlCommand::Order(OrderRequest::SubmitAdjustableStop {
+                order_id, instrument, side, qty,
+                stop_price: scale(order.aux_price),
+                trigger_price: scale(order.trigger_price),
+                adjusted_order_type: adjusted,
+                adjusted_stop_price: scale(order.adjusted_stop_price),
+                adjusted_stop_limit_price: scale(order.adjusted_stop_limit_price),
+                adjusted_trailing_amount: scale(adj_trail),
+                adjustable_trailing_unit: order.adjustable_trailing_unit,
+            }));
+        }
+
+        // Every order type must carry extended attributes and a non-DAY tif
+        // when the caller sets them — dropping them silently produced
+        // unlinked, immediate-DAY bracket children (ibx#224). An empty tif
+        // is treated as DAY, matching the official API default.
+        let extended = order.has_extended_attrs()
+            || !matches!(order.tif.as_str(), "" | "DAY");
+        let ex = |kind: OrderKind| OrderRequest::SubmitEx {
+            order_id, instrument, side, qty,
+            kind,
+            tif: order.tif_byte(),
+            attrs: order.attrs(),
+        };
+
+        let req = match order_type.as_str() {
+            "MKT" => {
+                if extended { ex(OrderKind::Market) }
+                else { OrderRequest::SubmitMarket { order_id, instrument, side, qty } }
+            }
+            "LMT" => {
+                let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+                if extended {
+                    OrderRequest::SubmitLimitEx {
+                        order_id, instrument, side, qty, price,
+                        tif: order.tif_byte(),
+                        attrs: order.attrs(),
+                    }
+                } else {
+                    OrderRequest::SubmitLimit { order_id, instrument, side, qty, price }
+                }
+            }
+            "STP" => {
+                let stop = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::Stop { stop_price: stop }) }
+                else { OrderRequest::SubmitStop { order_id, instrument, side, qty, stop_price: stop } }
+            }
+            "STP LMT" => {
+                let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+                let stop = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::StopLimit { price, stop_price: stop }) }
+                else { OrderRequest::SubmitStopLimit { order_id, instrument, side, qty, price, stop_price: stop } }
+            }
+            "TRAIL" => {
+                // Optional initial stop trigger (tag 6117); default f64::MAX = unset.
+                let trail_stop = if order.trail_stop_price == f64::MAX { 0 } else { (order.trail_stop_price * PRICE_SCALE_F) as i64 };
+                if order.trailing_percent > 0.0 {
+                    let pct = (order.trailing_percent * 100.0) as u32;
+                    if extended {
+                        OrderRequest::SubmitTrailingStopPctEx {
+                            order_id, instrument, side, qty, trail_pct: pct,
+                            tif: order.tif_byte(),
+                            attrs: order.attrs(),
+                            trail_stop_price: trail_stop,
+                        }
+                    } else {
+                        OrderRequest::SubmitTrailingStopPct { order_id, instrument, side, qty, trail_pct: pct, trail_stop_price: trail_stop }
+                    }
+                } else {
+                    let trail = (order.aux_price * PRICE_SCALE_F) as i64;
+                    if extended { ex(OrderKind::TrailingStop { trail_amt: trail, trail_stop_price: trail_stop }) }
+                    else { OrderRequest::SubmitTrailingStop { order_id, instrument, side, qty, trail_amt: trail, trail_stop_price: trail_stop } }
+                }
+            }
+            "TRAIL LIMIT" => {
+                // Wire-side semantic is `LimitPriceOffset` (tag 6370), not an
+                // absolute limit price. Prefer `lmt_price_offset`; fall back
+                // to `lmt_price` for callers that haven't migrated.
+                let offset_f = if order.lmt_price_offset != f64::MAX {
+                    order.lmt_price_offset
+                } else {
+                    order.lmt_price
+                };
+                let lmt_offset = (offset_f * PRICE_SCALE_F) as i64;
+                let trail = (order.aux_price * PRICE_SCALE_F) as i64;
+                let trail_stop = if order.trail_stop_price == f64::MAX { 0 } else { (order.trail_stop_price * PRICE_SCALE_F) as i64 };
+                if extended { ex(OrderKind::TrailingStopLimit { lmt_offset, trail_amt: trail, trail_stop_price: trail_stop }) }
+                else { OrderRequest::SubmitTrailingStopLimit { order_id, instrument, side, qty, lmt_offset, trail_amt: trail, trail_stop_price: trail_stop } }
+            }
+            "MOC" => {
+                if extended { ex(OrderKind::Moc) }
+                else { OrderRequest::SubmitMoc { order_id, instrument, side, qty } }
+            }
+            "LOC" => {
+                let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::Loc { price }) }
+                else { OrderRequest::SubmitLoc { order_id, instrument, side, qty, price } }
+            }
+            "MIT" => {
+                let stop = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::Mit { stop_price: stop }) }
+                else { OrderRequest::SubmitMit { order_id, instrument, side, qty, stop_price: stop } }
+            }
+            "LIT" => {
+                let price = (order.lmt_price * PRICE_SCALE_F) as i64;
+                let stop = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::Lit { price, stop_price: stop }) }
+                else { OrderRequest::SubmitLit { order_id, instrument, side, qty, price, stop_price: stop } }
+            }
+            "MTL" | "BOX TOP" => {
+                if extended { ex(OrderKind::Mtl) }
+                else { OrderRequest::SubmitMtl { order_id, instrument, side, qty } }
+            }
+            "MKT PRT" => {
+                if extended { ex(OrderKind::MktPrt) }
+                else { OrderRequest::SubmitMktPrt { order_id, instrument, side, qty } }
+            }
+            "STP PRT" => {
+                let stop = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::StpPrt { stop_price: stop }) }
+                else { OrderRequest::SubmitStpPrt { order_id, instrument, side, qty, stop_price: stop } }
+            }
+            "REL" => {
+                let offset = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::Rel { offset }) }
+                else { OrderRequest::SubmitRel { order_id, instrument, side, qty, offset } }
+            }
+            "PEG MKT" => {
+                let offset = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::PegMkt { offset }) }
+                else { OrderRequest::SubmitPegMkt { order_id, instrument, side, qty, offset } }
+            }
+            "PEG MID" | "PEG MIDPT" => {
+                let offset = (order.aux_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::PegMid { offset }) }
+                else { OrderRequest::SubmitPegMid { order_id, instrument, side, qty, offset } }
+            }
+            "MIDPX" | "MIDPRICE" => {
+                let cap = (order.lmt_price * PRICE_SCALE_F) as i64;
+                if extended { ex(OrderKind::MidPrice { price_cap: cap }) }
+                else { OrderRequest::SubmitMidPrice { order_id, instrument, side, qty, price_cap: cap } }
+            }
+            "SNAP MKT" => {
+                if extended { ex(OrderKind::SnapMkt) }
+                else { OrderRequest::SubmitSnapMkt { order_id, instrument, side, qty } }
+            }
+            "SNAP MID" | "SNAP MIDPT" => {
+                if extended { ex(OrderKind::SnapMid) }
+                else { OrderRequest::SubmitSnapMid { order_id, instrument, side, qty } }
+            }
+            "SNAP PRI" | "SNAP PRIM" => {
+                if extended { ex(OrderKind::SnapPri) }
+                else { OrderRequest::SubmitSnapPri { order_id, instrument, side, qty } }
+            }
+            _ => return Err(format!("Unsupported order type: '{}'", order.order_type)),
+        };
+
+        Ok(ControlCommand::Order(req))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::SmartComponent;
+
+    fn shared_with_components(comps: Vec<(i32, &str)>) -> SharedState {
+        let s = SharedState::new();
+        s.reference.set_smart_components(
+            comps.into_iter().map(|(bit, letter)| SmartComponent {
+                bit_number: bit,
+                exchange: format!("EX{bit}"),
+                exchange_letter: letter.to_string(),
+            }).collect()
+        );
+        s
+    }
+
+    #[test]
+    fn render_exchange_mask_zero_is_empty() {
+        let s = shared_with_components(vec![(0, "Q"), (1, "N")]);
+        assert_eq!(render_exchange_mask(0, &s), "");
+    }
+
+    #[test]
+    fn render_exchange_mask_single_bit() {
+        let s = shared_with_components(vec![(0, "Q"), (1, "N"), (2, "P")]);
+        assert_eq!(render_exchange_mask(0b001, &s), "Q");
+        assert_eq!(render_exchange_mask(0b100, &s), "P");
+    }
+
+    #[test]
+    fn render_exchange_mask_multiple_bits() {
+        let s = shared_with_components(vec![
+            (0, "Q"), (1, "N"), (2, "P"), (3, "Z"),
+        ]);
+        // bits 0, 2, 3 set → letters in bit-order: Q, P, Z
+        assert_eq!(render_exchange_mask(0b1101, &s), "QPZ");
+    }
+
+    #[test]
+    fn render_exchange_mask_unknown_bit_skipped() {
+        let s = shared_with_components(vec![(0, "Q")]);
+        // bit 5 set, no component at bit 5 — skipped
+        assert_eq!(render_exchange_mask(0b100000, &s), "");
+    }
+
+    // ── poll_pnl regression tests (#166) ──
+
+    fn seed_pnl_position(
+        core: &ClientCore,
+        shared: &SharedState,
+        con_id: i64,
+        iid: InstrumentId,
+        position: i64,
+        avg_cost_dollars: f64,
+        last_dollars: f64,
+        close_dollars: f64,
+    ) {
+        core.con_id_to_instrument.lock().unwrap().insert(con_id, iid);
+        core.instrument_to_req.lock().unwrap().insert(iid, 1);
+        shared.portfolio.set_position_info(PositionInfo {
+            con_id,
+            position,
+            avg_cost: (avg_cost_dollars * PRICE_SCALE_F) as i64,
+            symbol: format!("SYM{con_id}"),
+            sec_type: "STK".into(),
+            currency: "USD".into(),
+            multiplier: String::new(),
+            ..Default::default()
+        });
+        let mut q = Quote::default();
+        q.last = (last_dollars * PRICE_SCALE_F) as i64;
+        q.close = (close_dollars * PRICE_SCALE_F) as i64;
+        shared.market.push_quote(iid, &q);
+    }
+
+    #[test]
+    fn poll_pnl_no_subscription_returns_none() {
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        assert!(core.poll_pnl(&shared).is_none());
+    }
+
+    #[test]
+    fn poll_pnl_intraday_opened_position_fires_callback() {
+        // #166: flat-at-midnight account opens an intraday position.
+        // Before fix: poll_pnl early-returned on empty seeds → no callback.
+        // After fix: position iterated, money_traded synthesized, daily P&L = unrealized.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        core.subscribe_pnl(42);
+
+        // 1 share bought at $735.00, now $735.07. No midnight seed (flat at midnight).
+        seed_pnl_position(&core, &shared, 756733, 0, 1, 735.00, 735.07, 0.0);
+
+        let update = core.poll_pnl(&shared).expect("callback must fire");
+        assert_eq!(update.req_id, 42);
+        assert!((update.daily_pnl - 0.07).abs() < 1e-6, "daily={}", update.daily_pnl);
+        assert!((update.unrealized_pnl - 0.07).abs() < 1e-6);
+        assert!((update.realized_pnl - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn poll_pnl_overnight_position_with_seed_unchanged() {
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        core.subscribe_pnl(99);
+
+        // Held 10 SPY through midnight: qty_midnight=10, prev_close=$730, avg_cost=$700.
+        // No fills today (money_traded=0). Current price $735.
+        seed_pnl_position(&core, &shared, 756733, 0, 10, 700.00, 735.00, 730.00);
+        shared.portfolio.set_midnight_seeds(vec![MidnightSeed {
+            con_id: 756733,
+            qty_midnight: 10,
+            money_traded: 0.0,
+            realized_pnl: 0.0,
+        }]);
+
+        let update = core.poll_pnl(&shared).expect("callback must fire");
+        // daily = 10×735 - 10×730 - 0 = 50
+        assert!((update.daily_pnl - 50.0).abs() < 1e-6, "daily={}", update.daily_pnl);
+        // unrealized = 10 × (735 - 700) = 350
+        assert!((update.unrealized_pnl - 350.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn poll_pnl_seeded_position_traded_intraday_uses_signed_net_cash() {
+        // ibx#221 / ib-agent#163: a position held at midnight AND traded intraday
+        // carries a non-zero moneyTradedSinceMidnight (6822), signed SELL+/BUY-.
+        // The daily formula must ADD it. Sold 3 of 10 at $110 (avg $100): the
+        // seed carries +330 net cash (sell proceeds) and +30 realized.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        core.subscribe_pnl(31);
+
+        // Now holding 7 (was 10 at midnight), avg $100, last $110, prev close $100.
+        seed_pnl_position(&core, &shared, 1, 0, 7, 100.00, 110.00, 100.00);
+        shared.portfolio.set_midnight_seeds(vec![MidnightSeed {
+            con_id: 1,
+            qty_midnight: 10,
+            money_traded: 330.0,   // +330 = sold 3 @ $110 (wire sign, SELL positive)
+            realized_pnl: 30.0,
+        }]);
+
+        let update = core.poll_pnl(&shared).expect("callback must fire");
+        // daily = 7×110 - 10×100 + 330 = 100 (70 remaining unrealized + 30 realized)
+        assert!((update.daily_pnl - 100.0).abs() < 1e-6, "daily={}", update.daily_pnl);
+        // unrealized = 7 × (110 - 100) = 70
+        assert!((update.unrealized_pnl - 70.0).abs() < 1e-6, "unreal={}", update.unrealized_pnl);
+        assert!((update.realized_pnl - 30.0).abs() < 1e-6, "real={}", update.realized_pnl);
+    }
+
+    #[test]
+    fn poll_pnl_change_detection_suppresses_duplicate() {
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        core.subscribe_pnl(7);
+        seed_pnl_position(&core, &shared, 1, 0, 1, 100.0, 101.0, 0.0);
+        assert!(core.poll_pnl(&shared).is_some());
+        // Same inputs → no callback.
+        assert!(core.poll_pnl(&shared).is_none());
+    }
+
+    #[test]
+    fn poll_pnl_falls_back_to_account_level_without_market_data() {
+        // #239: a req_pnl-only client never subscribes to market data, so no
+        // position has a live quote (con_id_to_instrument is empty and every
+        // position hits `continue`). poll_pnl must then emit the gateway's
+        // account-level P&L instead of returning None forever.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        core.subscribe_pnl(21);
+
+        // Open position, but NO instrument mapping and NO quote pushed.
+        shared.portfolio.set_position_info(PositionInfo {
+            con_id: 756733,
+            position: 10,
+            avg_cost: (700.00 * PRICE_SCALE_F) as i64,
+            symbol: "SPY".into(),
+            sec_type: "STK".into(),
+            currency: "USD".into(),
+            multiplier: String::new(),
+            ..Default::default()
+        });
+
+        // Gateway-pushed account-level P&L (from the DailyPnL/UnrealizedPnL/
+        // RealizedPnL account-value keys).
+        let mut acct = AccountState::default();
+        acct.daily_pnl = (12.50 * PRICE_SCALE_F) as i64;
+        acct.unrealized_pnl = (35.00 * PRICE_SCALE_F) as i64;
+        acct.realized_pnl = (4.00 * PRICE_SCALE_F) as i64;
+        shared.portfolio.set_account(&acct);
+
+        let update = core.poll_pnl(&shared).expect("callback must fire from account-level P&L");
+        assert_eq!(update.req_id, 21);
+        assert!((update.daily_pnl - 12.50).abs() < 1e-6, "daily={}", update.daily_pnl);
+        assert!((update.unrealized_pnl - 35.00).abs() < 1e-6, "unreal={}", update.unrealized_pnl);
+        assert!((update.realized_pnl - 4.00).abs() < 1e-6, "real={}", update.realized_pnl);
+    }
+
+    #[test]
+    fn poll_pnl_prefers_quotes_over_account_level_when_priced() {
+        // When market data IS subscribed, the per-position quote synthesis wins;
+        // the account-level fallback must not override it.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        core.subscribe_pnl(22);
+
+        // Priced position: 1 share, avg 100, last 101 → daily/unrealized = 1.00.
+        seed_pnl_position(&core, &shared, 1, 0, 1, 100.0, 101.0, 0.0);
+
+        // Divergent account-level values that must be ignored while priced.
+        let mut acct = AccountState::default();
+        acct.daily_pnl = (999.0 * PRICE_SCALE_F) as i64;
+        acct.unrealized_pnl = (999.0 * PRICE_SCALE_F) as i64;
+        shared.portfolio.set_account(&acct);
+
+        let update = core.poll_pnl(&shared).expect("callback must fire");
+        assert!((update.daily_pnl - 1.0).abs() < 1e-6, "daily={}", update.daily_pnl);
+        assert!((update.unrealized_pnl - 1.0).abs() < 1e-6, "unreal={}", update.unrealized_pnl);
+    }
+
+    // ── poll_pnl_single regression tests (#168) ──
+
+    #[test]
+    fn poll_pnl_single_routes_quote_by_con_id() {
+        // #168 (bug 3): two subscribed instruments, different prices — each req_id
+        // must see the price of its own con_id, not the first non-zero quote.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+
+        seed_pnl_position(&core, &shared, 111, 0, 1, 100.0, 105.0, 0.0);  // SPY
+        seed_pnl_position(&core, &shared, 222, 1, 1, 200.0, 210.0, 0.0);  // QQQ
+
+        core.subscribe_pnl_single(50, 111);
+        core.subscribe_pnl_single(51, 222);
+
+        let updates = core.poll_pnl_single(&shared);
+        assert_eq!(updates.len(), 2);
+
+        let spy = updates.iter().find(|u| u.req_id == 50).expect("SPY update");
+        let qqq = updates.iter().find(|u| u.req_id == 51).expect("QQQ update");
+        // Unrealized = qty × (last - avg_cost). SPY: 1×(105-100)=5; QQQ: 1×(210-200)=10.
+        assert!((spy.unrealized_pnl - 5.0).abs() < 1e-6);
+        assert!((qqq.unrealized_pnl - 10.0).abs() < 1e-6);
+        // Value = qty × last. SPY: 105; QQQ: 210.
+        assert!((spy.value - 105.0).abs() < 1e-6);
+        assert!((qqq.value - 210.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn poll_pnl_single_intraday_opened_position() {
+        // #168 (bug 1): daily_pnl must be computed, not hardcoded 0.
+        // No seed → money_traded synthesized, daily collapses to unrealized.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        seed_pnl_position(&core, &shared, 756733, 0, 1, 735.00, 735.07, 0.0);
+        core.subscribe_pnl_single(42, 756733);
+
+        let updates = core.poll_pnl_single(&shared);
+        assert_eq!(updates.len(), 1);
+        let u = &updates[0];
+        assert_eq!(u.req_id, 42);
+        assert!((u.daily_pnl - 0.07).abs() < 1e-6, "daily={}", u.daily_pnl);
+        assert!((u.unrealized_pnl - 0.07).abs() < 1e-6);
+        assert!((u.realized_pnl - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn poll_pnl_single_overnight_position_with_seed() {
+        // #168 (bug 2): realized_pnl must come from the seed, not hardcoded 0.
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        seed_pnl_position(&core, &shared, 756733, 0, 10, 700.00, 735.00, 730.00);
+        shared.portfolio.set_midnight_seeds(vec![MidnightSeed {
+            con_id: 756733,
+            qty_midnight: 10,
+            money_traded: 0.0,
+            realized_pnl: 12.34,
+        }]);
+        core.subscribe_pnl_single(99, 756733);
+
+        let updates = core.poll_pnl_single(&shared);
+        assert_eq!(updates.len(), 1);
+        let u = &updates[0];
+        // daily = 10×735 − 10×730 − 0 = 50
+        assert!((u.daily_pnl - 50.0).abs() < 1e-6);
+        // unrealized = 10 × (735 − 700) = 350
+        assert!((u.unrealized_pnl - 350.0).abs() < 1e-6);
+        assert!((u.realized_pnl - 12.34).abs() < 1e-6);
+    }
+
+    #[test]
+    fn poll_pnl_single_change_detection_suppresses_duplicate() {
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        seed_pnl_position(&core, &shared, 1, 0, 1, 100.0, 101.0, 0.0);
+        core.subscribe_pnl_single(7, 1);
+        assert_eq!(core.poll_pnl_single(&shared).len(), 1);
+        // Same inputs → no emit.
+        assert!(core.poll_pnl_single(&shared).is_empty());
+    }
+
+    #[test]
+    fn poll_pnl_single_unsubscribe_clears_cache() {
+        let core = ClientCore::new();
+        let shared = SharedState::new();
+        seed_pnl_position(&core, &shared, 1, 0, 1, 100.0, 101.0, 0.0);
+        core.subscribe_pnl_single(7, 1);
+        let _ = core.poll_pnl_single(&shared);
+        core.unsubscribe_pnl_single(7);
+        // Re-subscribing with same req_id must re-emit (cache cleared on unsubscribe).
+        core.subscribe_pnl_single(7, 1);
+        assert_eq!(core.poll_pnl_single(&shared).len(), 1);
+    }
+}

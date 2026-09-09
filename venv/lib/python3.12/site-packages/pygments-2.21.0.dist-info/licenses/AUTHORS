@@ -123,7 +123,7 @@ Other contributors, listed alphabetically, are:
 * Brian R. Jackson -- Tea lexer
 * Alex Jeffery, ChromaWay AB -- Rell lexer
 * Christian Jann -- ShellSession lexer
-* Jonas Camillus Jeppesen -- Line numbers and line highlighting for 
+* Jonas Camillus Jeppesen -- Line numbers and line highlighting for
   RTF-formatter
 * Dennis Kaarsemaker -- sources.list lexer
 * Dmitri Kabak -- Inferno Limbo lexer

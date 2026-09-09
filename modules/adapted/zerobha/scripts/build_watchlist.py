@@ -1,0 +1,269 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+#!/usr/bin/env python3
+"""
+Build Watchlist Pipeline.
+
+Chains sector momentum analysis with stock selection to produce a filtered
+watchlist CSV for the ORB trading strategy.
+
+Pipeline:
+  1. Run sector momentum analyzer -> identify top sectors (LEADING/IMPROVING)
+  2. Map sectors to Nifty 500 industries
+  3. Filter stocks to those industries, calculate beta + RS
+  4. Rank and output final watchlist CSV
+
+Usage:
+  python scripts/build_watchlist.py
+  python scripts/build_watchlist.py --top-sectors 3 --min-beta 1.2 --limit 30
+  python scripts/build_watchlist.py --output my_watchlist.csv
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+from datetime import datetime
+
+import pandas as pd
+
+# Add scripts dir to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sector_momentum_analyzer import (
+    NSE_SECTORS,
+    SECTOR_INDUSTRY_MAP,
+    calculate_sector_momentum,
+)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Build trading watchlist from sector momentum + high beta analysis")
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        default="ind_nifty500list.csv",
+        help="Nifty 500 CSV with Symbol and Industry columns",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="watchlist.csv",
+        help="Final watchlist output CSV",
+    )
+    parser.add_argument(
+        "--top-sectors",
+        type=int,
+        default=10,
+        help="Number of top sectors to pick (default: 10)",
+    )
+    parser.add_argument(
+        "--min-beta",
+        type=float,
+        default=1.0,
+        help="Minimum beta threshold (default: 1.0)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Max stocks in final watchlist (default: 50)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=os.cpu_count(),
+        help="Parallel workers for stock data download",
+    )
+    parser.add_argument(
+        "--sector-output",
+        type=str,
+        default="top_sectors.csv",
+        help="Sector analysis output CSV",
+    )
+    parser.add_argument(
+        "--include-all-if-no-leaders",
+        action="store_true",
+        help="Fall back to top sectors by composite score if no LEADING/IMPROVING found",
+    )
+    parser.add_argument(
+        "--allow-unfiltered",
+        action="store_true",
+        help="Allow building the watchlist without an industry filter when no selected sector has an industry mapping",
+    )
+    parser.add_argument(
+        "--as-of-date",
+        type=str,
+        default=None,
+        help="As-of date for sector momentum analysis (YYYY-MM-DD, default: today); useful for backtesting or historical watchlist generation",
+    )
+    args = parser.parse_args()
+
+    print(f"{'=' * 70}")
+    print("BUILD WATCHLIST PIPELINE")
+    print(f"{'=' * 70}")
+
+    # Fail fast before any network calls
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    find_beta_script = os.path.join(script_dir, "find_high_beta.py")
+
+    if not os.path.exists(args.symbols):
+        print(f"ERROR: Symbols file not found: {args.symbols}")
+        sys.exit(1)
+    if not os.path.exists(find_beta_script):
+        print(f"ERROR: Script not found: {find_beta_script}")
+        sys.exit(1)
+
+    # Step 1: Sector momentum analysis
+    print("\n[Step 1/3] Running sector momentum analysis...")
+    as_of_date = datetime.today() if not args.as_of_date else datetime.strptime(args.as_of_date, "%Y-%m-%d")
+    sector_report = calculate_sector_momentum(NSE_SECTORS, as_of_date=as_of_date)
+
+    if sector_report.empty:
+        print("ERROR: Sector analysis failed. Check internet connection.")
+        sys.exit(1)
+
+    sector_report.to_csv(args.sector_output, index=False)
+    print(f"  Saved sector report to {args.sector_output}")
+
+    # Step 2: Pick top sectors and map to industries
+    print("\n[Step 2/3] Selecting top sectors...")
+
+    # Prefer LEADING and IMPROVING quadrants
+    actionable = sector_report[sector_report["Quadrant"].isin(["LEADING", "IMPROVING"])].head(args.top_sectors)
+
+    if actionable.empty:
+        if args.include_all_if_no_leaders:
+            print("  WARNING: No LEADING/IMPROVING sectors - weak market regime.")
+            print("  Falling back to top sectors by composite score.")
+            print("  Consider reducing position size or skipping the session.")
+            actionable = sector_report.head(args.top_sectors)
+        else:
+            print("  No LEADING/IMPROVING sectors found. Not building a watchlist.")
+            print("  Use --include-all-if-no-leaders to fall back to top sectors by score.")
+            sys.exit(2)
+
+    selected_sectors = actionable["Sector"].tolist()
+    print(f"  Selected sectors: {selected_sectors}")
+
+    # Map to Nifty 500 industry names
+    industries = set()
+    for sector in selected_sectors:
+        mapped = SECTOR_INDUSTRY_MAP.get(sector)
+        if not mapped:
+            print(f"  WARNING: No industry mapping for '{sector}' - sector skipped.")
+            continue
+        industries.update(mapped)
+
+    if not industries:
+        if args.allow_unfiltered:
+            print("  WARNING: No industries mapped for any selected sector.")
+            print("  Building UNFILTERED watchlist from all industries (--allow-unfiltered).")
+            industries = None
+        else:
+            print("  ERROR: None of the selected sectors map to industries.")
+            print("  Add mappings to SECTOR_INDUSTRY_MAP or pass --allow-unfiltered.")
+            sys.exit(2)
+
+    # Validate mapped industries against the symbols file: find_high_beta
+    # matches the Industry column exactly, so a name drift would silently
+    # filter out everything
+    if industries:
+        symbols_df = pd.read_csv(args.symbols)
+        if "Industry" in symbols_df.columns:
+            available = set(symbols_df["Industry"].astype(str).str.strip())
+            matched = {i for i in industries if i in available}
+            missing = sorted(industries - matched)
+            if missing:
+                print(f"  WARNING: Industries not found in {args.symbols}: {missing}")
+            if not matched:
+                print(
+                    "  ERROR: No mapped industry matches the symbols file. "
+                    "Check SECTOR_INDUSTRY_MAP names against the Industry column."
+                )
+                sys.exit(2)
+            industries = matched
+        print(f"  Mapped industries: {sorted(industries)}")
+
+    # Step 3: Run find_high_beta with sector filter
+    print("\n[Step 3/3] Finding high-beta stocks in selected sectors...")
+
+    cmd = [
+        sys.executable,
+        find_beta_script,
+        "--symbols",
+        args.symbols,
+        "--output",
+        args.output,
+        "--workers",
+        str(args.workers),
+        "--min-beta",
+        str(args.min_beta),
+        "--limit",
+        str(args.limit),
+        "--end-date",
+        as_of_date.strftime("%Y-%m-%d"),
+    ]
+
+    if industries:
+        cmd.extend(["--sectors", ",".join(sorted(industries))])
+
+    result = subprocess.run(cmd, capture_output=False)
+
+    if result.returncode != 0:
+        print("ERROR: Stock analysis failed.")
+        sys.exit(1)
+
+    # Summary
+    print(f"\n{'=' * 70}")
+    print("PIPELINE COMPLETE")
+    print(f"{'=' * 70}")
+
+    if os.path.exists(args.output):
+        df = pd.read_csv(args.output)
+
+        # Stamp the generation date (appended last so column-0 symbol
+        # readers are unaffected) for post-trade review
+        if "as_of" not in df.columns:
+            df["as_of"] = as_of_date.strftime("%Y-%m-%d")
+            df.to_csv(args.output, index=False)
+
+        print(f"  Watchlist: {args.output} ({len(df)} stocks)")
+        print(f"  Sectors:   {args.sector_output}")
+
+        if not df.empty:
+            print("\n  Top 10 stocks:")
+            for _, row in df.head(10).iterrows():
+                industry = row.get("industry", "")
+                rs = row.get("rs_1m")
+                rs_str = f"  RS: {rs:+.2f}%" if pd.notna(rs) else ""
+                print(f"    {row['symbol']:<20s} beta={row['beta']:.2f}  {industry}{rs_str}")
+
+    # Display sector context
+    print("\n  Sector context:")
+    for _, row in actionable.iterrows():
+        print(f"    {row['Sector']:<20s} {row['Quadrant']:<11s} Composite={row['Composite']:+.2f}")
+
+
+if __name__ == "__main__":
+    main()
