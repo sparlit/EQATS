@@ -7,7 +7,7 @@ Total Repositories: 411 | Current Index: 5
 | 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2317 |
 | 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/2320 |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2322 |
-| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2324 |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | None |
 | 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
 | 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
@@ -174,7 +174,7 @@ Total Repositories: 411 | Current Index: 5
 | 169 | ishaan3h/india-sector-screener | pending | None |
 | 170 | itsnrk1/nse-scanner | pending | None |
 | 171 | jandginvestment/cci20-sma20-strategy | pending | None |
-| 172 | jayeshsrathod/nse-scanner | pending | None |
+| 172 | jayeshsrathod/nse-scanner | Completed | https://github.com/sparlit/EQATS/pull/2191 |
 | 173 | jensnesten/rust_bt | pending | None |
 | 174 | jerryshell/midas | pending | None |
 | 175 | jinit24/nsedownload | pending | None |
