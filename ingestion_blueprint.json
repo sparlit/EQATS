@@ -422,8 +422,8 @@
       "target": "ashishkumar30/stock_market_live_trading_using_ai",
       "url": "https://github.com/ashishkumar30/stock_market_live_trading_using_ai",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2244",
+      "merged": true
     },
     {
       "name": "options-oi",
