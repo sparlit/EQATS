@@ -336,6 +336,17 @@ impl StreamingMetrics {
         self.current_drawdown
     }
 
+    /// The running high-water mark of equity.
+    ///
+    /// Exposed so a caller that adjusts its final equity sample can recompute
+    /// that sample's drawdown against the same peak, without calling
+    /// `update_equity` again -- which would advance `bars_since_peak` a second
+    /// time for one bar.
+    #[inline]
+    pub fn peak_equity(&self) -> f64 {
+        self.peak_equity
+    }
+
     /// Get maximum drawdown percentage.
     #[inline]
     pub fn max_drawdown_pct(&self) -> f64 {
@@ -409,6 +420,11 @@ impl StreamingMetrics {
                 return_metrics.update(r);
             }
         }
+
+        // Shape comes from the shared estimator, over the same series this
+        // accumulator was fed, so it agrees with the array path exactly.
+        let (_, _, _, skew, kurtosis) =
+            crate::portfolio::engine::risk_metrics_with_moments(returns, 252.0, 0.0);
 
         let total_return_pct = if initial_capital > 0.0 {
             (final_value - initial_capital) / initial_capital * 100.0
@@ -550,6 +566,12 @@ impl StreamingMetrics {
             // place a drawdown or a trade in wall-clock time. None is the
             // honest answer; a caller falls back to the bar counts.
             max_drawdown_duration_secs: None,
+            // The accumulator keeps a running peak but no drawdown history, so
+            // it cannot compute an RMS or count underwater samples. 0.0 means
+            // "not measured here" -- callers with a drawdown curve get the real
+            // figures from PortfolioEngine::calculate_metrics.
+            ulcer_index: 0.0,
+            time_under_water_pct: 0.0,
             win_rate_pct,
             profit_factor,
             expectancy,
@@ -581,6 +603,37 @@ impl StreamingMetrics {
             // it cannot compute turnover. 0.0 means "not measured here" —
             // callers with a trade list use trade_stats::total_turnover.
             total_turnover: 0.0,
+            // This path DOES see the full return series, so the shape of the
+            // return distribution is real here, not "not measured".
+            return_skew: skew,
+            return_kurtosis: kurtosis,
+            tail_ratio: crate::portfolio::engine::tail_ratio_of(returns),
+            return_consistency_pct: crate::portfolio::engine::return_consistency_of(returns),
+            // These need a drawdown curve or a trade list, and this signature
+            // receives neither -- only `returns`.
+            //
+            // That is a limitation of this path, NOT of the data: the sole
+            // caller (`SpreadBacktest::run_with_opens`) builds both a real
+            // drawdown curve and a real trade list, puts them in the
+            // `BacktestResult` it returns, and passes neither here. So a
+            // spread result can report 379 underwater samples in its own
+            // `drawdown_curve` while `time_under_water_pct` reads 0.0, and
+            // carry three trades while `total_turnover` reads 0.0. The fix is
+            // for that caller to use `compute_backtest_metrics_with_config`
+            // like every other runner, which would also stop annualizing
+            // minute bars at 252 -- a real change to published Sharpe, so it
+            // needs its own commit and fixture regeneration rather than
+            // riding along here.
+            //
+            // Until then `None` at least says "not measured" rather than
+            // asserting a zero, which is what `ulcer_index`'s bare `f64` was
+            // forced into doing.
+            avg_drawdown_pct: None,
+            cost_to_gross_profit_pct: None,
+            breakeven_cost_multiple: None,
+            mae_mfe_coverage_pct: None,
+            avg_mae_pnl: None,
+            mfe_capture_ratio: None,
         }
     }
 

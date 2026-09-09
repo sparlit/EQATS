@@ -127,7 +127,13 @@ impl PortfolioEngine {
         let effective_target =
             inst_config.and_then(|ic| ic.target.as_ref()).unwrap_or(&self.config.target);
 
-        // Pre-calculate ATR for ATR-based stops
+        // Pre-calculate ATR for ATR-based stops.
+        //
+        // `None` when no stop or target is ATR-based, rather than a zero-filled
+        // array: the run then reads 0.0 per bar from the `map_or` below instead
+        // of from `n` f64s nothing ever wrote a real value into. On a 25M-bar
+        // run that array was 200 MB, allocated and written on every run that
+        // does not use an ATR stop -- which is most of them.
         let atr_values = if matches!(effective_stop, StopConfig::Atr { .. })
             || matches!(effective_target, TargetConfig::Atr { .. })
         {
@@ -138,9 +144,13 @@ impl PortfolioEngine {
                     _ => 14,
                 },
             };
-            atr(&ohlcv.high, &ohlcv.low, &ohlcv.close, period).unwrap_or_else(|_| vec![0.0; n])
+            // A failed ATR still yields zeros rather than aborting the run --
+            // the golden `atr_stop_rr_target` fixture encodes that behaviour.
+            Some(
+                atr(&ohlcv.high, &ohlcv.low, &ohlcv.close, period).unwrap_or_else(|_| vec![0.0; n]),
+            )
         } else {
-            vec![0.0; n]
+            None
         };
 
         // Main simulation loop — the per-bar body lives in EngineKernel::step
@@ -159,7 +169,7 @@ impl PortfolioEngine {
             let input = StepInput {
                 entry: entries[i],
                 exit: exits[i],
-                atr: atr_values.get(i).copied().unwrap_or(0.0),
+                atr: atr_values.as_ref().map_or(0.0, |a| a.get(i).copied().unwrap_or(0.0)),
                 size_mult: signals.position_sizes.as_ref().map(|sizes| sizes[i]),
                 ..StepInput::default()
             };
@@ -187,7 +197,52 @@ impl PortfolioEngine {
         let end_value = *equity_curve.last().unwrap_or(&start_value);
 
         let total_return_pct = (end_value - start_value) / start_value * 100.0;
-        let max_drawdown_pct = drawdown_curve.iter().fold(0.0f64, |a, &b| a.max(b));
+
+        // Every drawdown figure below folds the SAME streamed curve, in one
+        // pass, deliberately not `metrics::drawdown::*`. Those helpers rebuild
+        // the curve with `calculate_drawdown_curve`, which seeds its peak from
+        // `equity_curve[0]`; the streamed curve in `portfolio::runner` seeds
+        // `peak_equity` from `config.initial_capital`. When the first equity
+        // sample differs from initial capital the two curves disagree, and a
+        // caller would see an ulcer — or an average drawdown — describing a
+        // curve that no other reported drawdown figure describes. Do not
+        // "simplify" these into the helpers.
+        //
+        // `> 0.0` is the underwater test throughout, matching
+        // `calculate_max_drawdown_duration`, so "under water" means one thing
+        // in this file.
+        let mut max_drawdown_pct = 0.0f64;
+        let mut sum_sq_dd = 0.0;
+        let mut underwater_samples: usize = 0;
+        let mut underwater_sum = 0.0;
+        for &d in drawdown_curve {
+            max_drawdown_pct = max_drawdown_pct.max(d);
+            sum_sq_dd += d * d;
+            if d > 0.0 {
+                underwater_samples += 1;
+                underwater_sum += d;
+            }
+        }
+
+        let ulcer_index = if drawdown_curve.is_empty() {
+            0.0
+        } else {
+            (sum_sq_dd / drawdown_curve.len() as f64).sqrt()
+        };
+
+        let time_under_water_pct = if drawdown_curve.is_empty() {
+            0.0
+        } else {
+            underwater_samples as f64 / drawdown_curve.len() as f64 * 100.0
+        };
+
+        // Conditional on being underwater — see the field docs. A run that
+        // never fell reports None, not 0.0.
+        let avg_drawdown_pct = if underwater_samples > 0 {
+            Some(underwater_sum / underwater_samples as f64)
+        } else {
+            None
+        };
 
         // Calculate max drawdown duration
         let max_drawdown_duration = self.calculate_max_drawdown_duration(drawdown_curve);
@@ -403,8 +458,8 @@ impl PortfolioEngine {
                 annualization::LEGACY_PERIODS_SINGLE,
             )
         };
-        let (sharpe_ratio, sortino_ratio, omega_ratio) =
-            self.calculate_risk_metrics(returns, periods_per_year, self.config.risk_free_rate);
+        let (sharpe_ratio, sortino_ratio, omega_ratio, return_skew, return_kurtosis) =
+            risk_metrics_with_moments(returns, periods_per_year, self.config.risk_free_rate);
 
         // Calmar ratio: total return / max drawdown, both as percentages.
         //
@@ -451,6 +506,31 @@ impl PortfolioEngine {
             0.0
         };
 
+        let tail_ratio = tail_ratio_of(returns);
+        let return_consistency_pct = return_consistency_of(returns);
+
+        // Cost diagnostics. `Trade::pnl` is already net of that trade's costs,
+        // so the winners' gross profit adds the fees back — dividing costs by
+        // a figure they had already been subtracted from would understate the
+        // drag. Verified against the invariant `mae_pnl <= pnl + fees <= mfe_pnl`.
+        let cost_to_gross_profit_pct = {
+            let gross_before_costs: f64 =
+                closed_trades.iter().filter(|t| t.pnl > 0.0).map(|t| t.pnl + t.fees).sum();
+            if gross_before_costs > 0.0 {
+                Some(total_fees_paid / gross_before_costs * 100.0)
+            } else {
+                None
+            }
+        };
+        let breakeven_cost_multiple = if total_fees_paid > 0.0 && net_profit > 0.0 {
+            Some(net_profit / total_fees_paid)
+        } else {
+            None
+        };
+
+        let (mae_mfe_coverage_pct, avg_mae_pnl, mfe_capture_ratio) =
+            excursion_aggregates(&closed_trades);
+
         BacktestMetrics {
             total_return_pct,
             sharpe_ratio,
@@ -460,6 +540,8 @@ impl PortfolioEngine {
             max_drawdown_pct,
             max_drawdown_duration,
             max_drawdown_duration_secs: self.max_drawdown_duration_secs(drawdown_curve, timestamps),
+            ulcer_index,
+            time_under_water_pct,
             win_rate_pct,
             profit_factor,
             expectancy,
@@ -488,6 +570,16 @@ impl PortfolioEngine {
             payoff_ratio,
             recovery_factor,
             total_turnover: crate::metrics::trade_stats::total_turnover(trades),
+            return_skew,
+            return_kurtosis,
+            tail_ratio,
+            cost_to_gross_profit_pct,
+            breakeven_cost_multiple,
+            return_consistency_pct,
+            avg_drawdown_pct,
+            mae_mfe_coverage_pct,
+            avg_mae_pnl,
+            mfe_capture_ratio,
         }
     }
 
@@ -573,23 +665,182 @@ impl PortfolioEngine {
 
         (max_wins, max_losses)
     }
+}
 
-    /// Calculate risk-adjusted metrics from portfolio returns.
-    ///
-    /// Thin wrapper over [`risk_metrics`] so every runner shares one estimator.
-    fn calculate_risk_metrics(
-        &self,
-        returns: &[f64],
-        periods_per_year: f64,
-        risk_free_rate: f64,
-    ) -> (f64, f64, f64) {
-        risk_metrics(returns, periods_per_year, risk_free_rate)
+/// Shape of the per-bar return distribution: `(skew, excess kurtosis)`, from
+/// central moments already accumulated by [`risk_metrics`].
+///
+/// Takes the moment sums rather than the series because the caller has just
+/// walked it: the mean, the NaN filter and the squared-deviation sum are all
+/// shared, so recomputing them here would be two more passes over a
+/// million-element array for two scalars.
+///
+/// Both are sample bias-corrected, matching `scipy.stats` with `bias=False`;
+/// kurtosis is **excess** (Gaussian 0.0). `None` where the sample is too small
+/// for the correction to be defined — three for skew, four for kurtosis — or
+/// where the series has no dispersion to describe.
+pub(crate) fn return_shape_from_moments(
+    n: usize,
+    sum_sq_dev: f64,
+    sum_cube_dev: f64,
+    sum_quad_dev: f64,
+) -> (Option<f64>, Option<f64>) {
+    if n < 3 {
+        return (None, None);
     }
+    let count = n as f64;
+
+    let m2 = sum_sq_dev / count;
+    let m3 = sum_cube_dev / count;
+    let m4 = sum_quad_dev / count;
+
+    if m2 <= 0.0 {
+        return (None, None);
+    }
+
+    // g1 -> G1: the sample-skewness correction.
+    let g1 = m3 / m2.powf(1.5);
+    let skew = g1 * (count * (count - 1.0)).sqrt() / (count - 2.0);
+
+    let kurtosis = if n < 4 {
+        None
+    } else {
+        // g2 -> G2, the bias-corrected excess kurtosis.
+        let g2 = m4 / (m2 * m2) - 3.0;
+        Some(((count + 1.0) * g2 + 6.0) * (count - 1.0) / ((count - 2.0) * (count - 3.0)))
+    };
+
+    (Some(skew), kurtosis)
+}
+
+/// `|p95| / |p5|` of the per-bar returns, at linear-interpolation percentiles.
+///
+/// Sorting a copy is the one superlinear step in the metrics pass, and it is
+/// over bars, so it is cheap next to the run that produced them. `None` below
+/// 20 samples, or when the left tail sits exactly at zero.
+pub(crate) fn tail_ratio_of(returns: &[f64]) -> Option<f64> {
+    let mut valid: Vec<f64> = returns.iter().copied().filter(|r| !r.is_nan()).collect();
+    if valid.len() < 20 {
+        return None;
+    }
+
+    // Four order statistics, not a sorted array. `select_nth_unstable` places
+    // the k-th element and partitions around it in O(n); a full sort is
+    // O(n log n) and cost 47 ms of a 1.875M-bar run to read four values.
+    //
+    // Selecting the upper index first leaves everything <= it on the left, so
+    // the lower index can then be selected within that prefix alone -- the two
+    // selections do not disturb each other's results.
+    //
+    // Same numbers as sorting: linear-interpolation percentiles matching
+    // NumPy's default, pinned against it in test_diagnostic_metrics.
+    let last = valid.len() - 1;
+    let cmp = |a: &f64, b: &f64| a.partial_cmp(b).expect("NaN filtered above");
+
+    // Resolve one percentile as (value at floor(pos), value at ceil(pos)).
+    fn pair<F>(data: &mut [f64], pos: f64, cmp: &F) -> (f64, f64)
+    where
+        F: Fn(&f64, &f64) -> std::cmp::Ordering,
+    {
+        let lo = pos.floor() as usize;
+        let hi = pos.ceil() as usize;
+        if lo == hi {
+            let (_, &mut at, _) = data.select_nth_unstable_by(lo, cmp);
+            return (at, at);
+        }
+        // Place `hi` first; everything <= data[hi] is now in data[..hi].
+        let (left_part, &mut upper, _) = data.select_nth_unstable_by(hi, cmp);
+        let (_, &mut lower, _) = left_part.select_nth_unstable_by(lo, cmp);
+        (lower, upper)
+    }
+
+    let p5 = 0.05 * last as f64;
+    let p95 = 0.95 * last as f64;
+
+    let (lo5, hi5) = pair(&mut valid, p5, &cmp);
+    let left = (lo5 + (hi5 - lo5) * (p5 - p5.floor())).abs();
+    if left <= 0.0 {
+        return None;
+    }
+
+    let (lo95, hi95) = pair(&mut valid, p95, &cmp);
+    let right = (lo95 + (hi95 - lo95) * (p95 - p95.floor())).abs();
+    Some(right / left)
+}
+
+/// Share of *moving* bars that moved up, as a percentage.
+///
+/// Flat bars are excluded rather than counted as losses: a strategy that is
+/// out of the market most of the time would otherwise be scored mostly on
+/// bars it had no position in. `None` when nothing moved.
+pub(crate) fn return_consistency_of(returns: &[f64]) -> Option<f64> {
+    let mut moving: usize = 0;
+    let mut up: usize = 0;
+    for &r in returns {
+        if r.is_nan() || r == 0.0 {
+            continue;
+        }
+        moving += 1;
+        if r > 0.0 {
+            up += 1;
+        }
+    }
+    if moving == 0 {
+        return None;
+    }
+    Some(up as f64 / moving as f64 * 100.0)
+}
+
+/// Excursion aggregates: `(coverage %, mean MAE, MFE capture ratio)`.
+///
+/// MAE/MFE are `None` on trades synthesized rather than closed from a tracked
+/// position (spread, basket and pairs legs). Those are excluded and the
+/// coverage figure says how many were, rather than the averages silently
+/// describing a subset — `None` there means *not measured*, never zero.
+///
+/// Capture is a ratio of sums over winners only, with a gross numerator. See
+/// the field docs on [`BacktestMetrics::mfe_capture_ratio`] for why each of
+/// those three choices is load-bearing.
+fn excursion_aggregates(closed: &[&Trade]) -> (Option<f64>, Option<f64>, Option<f64>) {
+    if closed.is_empty() {
+        return (None, None, None);
+    }
+
+    let mut measured: usize = 0;
+    let mut mae_sum = 0.0;
+    let mut winner_gross = 0.0;
+    let mut winner_mfe = 0.0;
+    let mut winners: usize = 0;
+
+    for t in closed {
+        let (Some(mae), Some(mfe)) = (t.mae_pnl, t.mfe_pnl) else {
+            continue;
+        };
+        measured += 1;
+        mae_sum += mae;
+        if t.pnl > 0.0 {
+            winners += 1;
+            winner_gross += t.pnl + t.fees;
+            winner_mfe += mfe;
+        }
+    }
+
+    let coverage = Some(measured as f64 / closed.len() as f64 * 100.0);
+    if measured == 0 {
+        return (coverage, None, None);
+    }
+
+    let capture =
+        if winners > 0 && winner_mfe > 0.0 { Some(winner_gross / winner_mfe) } else { None };
+
+    (coverage, Some(mae_sum / measured as f64), capture)
 }
 
 /// Risk-adjusted metrics from a series of **per-bar** portfolio returns.
 ///
-/// Returns `(sharpe, sortino, omega)`.
+/// Returns `(sharpe, sortino, omega)`. Use [`risk_metrics_with_moments`] when
+/// the caller also wants the distribution shape: it shares this function's
+/// single walk of the series rather than adding two more.
 ///
 /// All runners must feed this the per-bar return series, not per-trade returns.
 /// Through 0.4.1 the basket/pairs/options/multi paths annualized *trade*
@@ -602,24 +853,83 @@ pub fn risk_metrics(
     periods_per_year: f64,
     risk_free_rate: f64,
 ) -> (f64, f64, f64) {
+    let (sharpe, sortino, omega, _, _) =
+        risk_metrics_with_moments(returns, periods_per_year, risk_free_rate);
+    (sharpe, sortino, omega)
+}
+
+/// [`risk_metrics`] plus the distribution shape, from one walk of the series.
+///
+/// Returns `(sharpe, sortino, omega, skew, excess kurtosis)`. The ratios are
+/// bit-identical to `risk_metrics`; the two extra values come from central
+/// moments accumulated in the same loop that computes the variance.
+pub fn risk_metrics_with_moments(
+    returns: &[f64],
+    periods_per_year: f64,
+    risk_free_rate: f64,
+) -> (f64, f64, f64, Option<f64>, Option<f64>) {
     if returns.len() < 2 {
-        return (0.0, 0.0, 1.0);
+        return (0.0, 0.0, 1.0, None, None);
     }
 
-    // Filter out NaN values
-    let valid_returns: Vec<f64> = returns.iter().filter(|r| !r.is_nan()).copied().collect();
-
-    if valid_returns.len() < 2 {
-        return (0.0, 0.0, 1.0);
+    // NaN is skipped inline rather than collected into a filtered Vec. The
+    // arithmetic below is unchanged -- same values, same summation order, so
+    // the results are bit-identical -- but two n-length allocations go away
+    // (this one and the downside filter), which on a 1.875M-bar run was 30 MB
+    // of transient heap to produce three scalars.
+    //
+    // Two passes over the slice, deliberately: the variance is taken about a
+    // known mean. Folding it into a single sum-of-squares pass would change
+    // the floating-point result, which the golden corpus pins.
+    let mut count: usize = 0;
+    let mut sum = 0.0;
+    for &r in returns {
+        if !r.is_nan() {
+            count += 1;
+            sum += r;
+        }
     }
 
-    let n_valid = valid_returns.len() as f64;
+    if count < 2 {
+        return (0.0, 0.0, 1.0, None, None);
+    }
 
-    // Calculate mean return
-    let mean = valid_returns.iter().sum::<f64>() / n_valid;
+    let n_valid = count as f64;
+    let mean = sum / n_valid;
 
-    // Calculate standard deviation
-    let variance = valid_returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (n_valid - 1.0);
+    // Second pass carries every remaining accumulator: the deviation sum for
+    // the variance, the downside sum of squares for Sortino, and the signed
+    // sums for Omega.
+    let mut sq_dev = 0.0;
+    let mut downside_sq = 0.0;
+    let mut sum_positive = 0.0;
+    let mut sum_negative = 0.0;
+    let mut has_downside = false;
+    // The third and fourth central moments ride along: `return_shape` needs
+    // the same mean over the same NaN-filtered values, and walking a
+    // million-element array twice more to get them cost ~28 ms of a 1.875M-bar
+    // run. Two multiplies per element here instead.
+    let mut m3 = 0.0;
+    let mut m4 = 0.0;
+    for &r in returns {
+        if r.is_nan() {
+            continue;
+        }
+        let d = r - mean;
+        let d2 = d * d;
+        sq_dev += d2;
+        m3 += d2 * d;
+        m4 += d2 * d2;
+        if r > 0.0 {
+            sum_positive += r;
+        } else if r < 0.0 {
+            downside_sq += r.powi(2);
+            has_downside = true;
+            sum_negative += r.abs();
+        }
+    }
+
+    let variance = sq_dev / (n_valid - 1.0);
     let std_dev = variance.sqrt();
 
     // Excess return over the per-period risk-free rate.
@@ -633,10 +943,8 @@ pub fn risk_metrics(
         if std_dev > 0.0 { (excess_mean / std_dev) * periods_per_year.sqrt() } else { 0.0 };
 
     // Sortino Ratio - uses downside deviation (only negative returns)
-    let downside_returns: Vec<f64> = valid_returns.iter().filter(|&&r| r < 0.0).copied().collect();
-
-    let downside_variance = if !downside_returns.is_empty() {
-        downside_returns.iter().map(|r| r.powi(2)).sum::<f64>() / n_valid // Divide by total count, not downside count
+    let downside_variance = if has_downside {
+        downside_sq / n_valid // Divide by total count, not downside count
     } else {
         0.0
     };
@@ -651,10 +959,7 @@ pub fn risk_metrics(
     };
 
     // Omega Ratio = sum of returns above threshold / |sum of returns below threshold|
-    // With threshold = 0
-    let sum_positive: f64 = valid_returns.iter().filter(|&&r| r > 0.0).sum();
-    let sum_negative: f64 = valid_returns.iter().filter(|&&r| r < 0.0).map(|r| r.abs()).sum();
-
+    // With threshold = 0. Both sums are accumulated in the pass above.
     let omega_ratio = if sum_negative > 0.0 {
         sum_positive / sum_negative
     } else if sum_positive > 0.0 {
@@ -663,7 +968,9 @@ pub fn risk_metrics(
         1.0
     };
 
-    (sharpe_ratio, sortino_ratio, omega_ratio)
+    let (skew, kurtosis) = return_shape_from_moments(count, sq_dev, m3, m4);
+
+    (sharpe_ratio, sortino_ratio, omega_ratio, skew, kurtosis)
 }
 
 /// Compute `BacktestMetrics` from pre-built curves and trade list.
@@ -718,26 +1025,30 @@ mod tests {
     use super::*;
     use crate::core::types::Direction;
 
-    fn sample_ohlcv() -> OhlcvData {
+    fn sample_ohlcv() -> OhlcvData<'static> {
         OhlcvData {
             timestamps: (0..20).map(|i| i as i64).collect(),
             open: vec![
                 100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 104.0, 103.0, 102.0, 101.0, 100.0, 101.0,
                 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0,
-            ],
+            ]
+            .into(),
             high: vec![
                 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 105.0, 104.0, 103.0, 102.0, 101.0, 102.0,
                 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0,
-            ],
+            ]
+            .into(),
             low: vec![
                 99.0, 100.0, 101.0, 102.0, 103.0, 104.0, 103.0, 102.0, 101.0, 100.0, 99.0, 100.0,
                 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0,
-            ],
+            ]
+            .into(),
             close: vec![
                 100.5, 101.5, 102.5, 103.5, 104.5, 105.0, 104.0, 103.0, 102.0, 101.0, 100.5, 101.5,
                 102.5, 103.5, 104.5, 105.5, 106.5, 107.5, 108.5, 109.5,
-            ],
-            volume: vec![1000.0; 20],
+            ]
+            .into(),
+            volume: vec![1000.0; 20].into(),
         }
     }
 
@@ -847,6 +1158,105 @@ mod tests {
     /// holding periods of *concurrent* positions against one equity curve
     /// reported 123.5% on a real run.
     #[test]
+    fn ulcer_describes_the_same_curve_as_max_drawdown() {
+        // The invariant that must survive refactoring. `calculate_metrics` folds
+        // the STREAMED drawdown curve, whose peak is seeded from
+        // `config.initial_capital` (runner.rs). The convenience helper
+        // `metrics::drawdown::ulcer_index(equity)` rebuilds a curve seeded from
+        // `equity[0]` instead. Here the run opens BELOW initial capital, so the
+        // two disagree -- and the reported ulcer must match the curve every
+        // other reported drawdown figure describes.
+        let engine =
+            PortfolioEngine::new(BacktestConfig { initial_capital: 100.0, ..Default::default() });
+
+        // Equity opens at 90 (already 10% under the 100 the run was funded
+        // with) and recovers. Streamed curve: [10, 5, 0]. Helper's curve,
+        // seeded from equity[0]=90: [0, 0, 0].
+        let equity_curve = vec![90.0, 95.0, 100.0];
+        let drawdown_curve = vec![10.0, 5.0, 0.0];
+        let timestamps: Vec<i64> = vec![0, 1, 2];
+
+        let metrics = engine.calculate_metrics(
+            &equity_curve,
+            &drawdown_curve,
+            &[0.0, 0.0555, 0.0526],
+            &[],
+            &timestamps,
+            &StreamingMetrics::new(),
+        );
+
+        let expected = ((100.0f64 + 25.0 + 0.0) / 3.0).sqrt();
+        assert!(
+            (metrics.ulcer_index - expected).abs() < 1e-12,
+            "ulcer must fold the streamed curve, got {}",
+            metrics.ulcer_index
+        );
+
+        // The helper answers a different question on this run. If this ever
+        // stops differing, the test has lost its teeth -- rebuild the case.
+        assert!(
+            (crate::metrics::drawdown::ulcer_index(&equity_curve) - metrics.ulcer_index).abs()
+                > 1e-6,
+            "the two curves must genuinely disagree for this test to mean anything"
+        );
+
+        // Two of three samples are under water.
+        assert!((metrics.time_under_water_pct - 200.0 / 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn time_under_water_counts_samples_not_drawdown_spans() {
+        let engine =
+            PortfolioEngine::new(BacktestConfig { initial_capital: 100.0, ..Default::default() });
+
+        // A high-water plateau followed by one dip. `drawdown_periods` would
+        // report a span of 4 here (see its own test); counting samples gives
+        // the true answer, 1 of 6.
+        let equity_curve = vec![100.0, 110.0, 110.0, 110.0, 105.0, 120.0];
+        let drawdown_curve = vec![0.0, 0.0, 0.0, 0.0, 4.545454545454546, 0.0];
+        let timestamps: Vec<i64> = (0..6).collect();
+
+        let metrics = engine.calculate_metrics(
+            &equity_curve,
+            &drawdown_curve,
+            &[0.0; 6],
+            &[],
+            &timestamps,
+            &StreamingMetrics::new(),
+        );
+
+        assert!((metrics.time_under_water_pct - 100.0 / 6.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn time_under_water_spans_the_full_range_from_never_to_always() {
+        let engine =
+            PortfolioEngine::new(BacktestConfig { initial_capital: 100.0, ..Default::default() });
+        let ts: Vec<i64> = (0..4).collect();
+
+        let rising = engine.calculate_metrics(
+            &[100.0, 101.0, 102.0, 103.0],
+            &[0.0, 0.0, 0.0, 0.0],
+            &[0.0; 4],
+            &[],
+            &ts,
+            &StreamingMetrics::new(),
+        );
+        assert_eq!(rising.time_under_water_pct, 0.0);
+        assert_eq!(rising.ulcer_index, 0.0);
+
+        let falling = engine.calculate_metrics(
+            &[99.0, 98.0, 97.0, 96.0],
+            &[1.0, 2.0, 3.0, 4.0],
+            &[0.0; 4],
+            &[],
+            &ts,
+            &StreamingMetrics::new(),
+        );
+        assert_eq!(falling.time_under_water_pct, 100.0);
+    }
+
+    #[test]
     fn exposure_never_exceeds_one_hundred_percent() {
         fn trade_over(id: u64, entry_idx: usize, exit_idx: usize) -> Trade {
             Trade {
@@ -867,6 +1277,10 @@ mod tests {
                 exit_fees: 0.0,
                 fee_breakdown: None,
                 exit_reason: ExitReason::Signal,
+                mae_price: None,
+                mfe_price: None,
+                mae_pnl: None,
+                mfe_pnl: None,
             }
         }
 
@@ -986,6 +1400,10 @@ mod tests {
             exit_fees: 0.0,
             fee_breakdown: None,
             exit_reason: ExitReason::Signal,
+            mae_price: None,
+            mfe_price: None,
+            mae_pnl: None,
+            mfe_pnl: None,
         };
 
         let timestamps: Vec<i64> = (0..10).map(|i| i as i64 * ONE_SEC).collect();
@@ -1025,7 +1443,7 @@ mod tests {
         };
 
         let mut ohlcv = sample_ohlcv();
-        ohlcv.timestamps = vec![0; 20];
+        ohlcv.timestamps = vec![0i64; 20].into();
 
         let engine = PortfolioEngine::new(config);
         let result = engine.run_single(&ohlcv, &sample_signals());
@@ -1076,8 +1494,8 @@ mod tests {
         // Create data where stop would be hit
         let mut ohlcv = sample_ohlcv();
         // Add a big drop after entry
-        ohlcv.low[3] = 95.0; // Big drop
-        ohlcv.close[3] = 96.0;
+        ohlcv.low.to_mut()[3] = 95.0; // Big drop
+        ohlcv.close.to_mut()[3] = 96.0;
 
         let signals = sample_signals();
         let result = engine.run_single(&ohlcv, &signals);

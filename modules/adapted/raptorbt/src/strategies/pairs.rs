@@ -145,6 +145,13 @@ impl PairsBacktest {
                         exit_fees: fees / 2.0,
                         fee_breakdown: None,
                         exit_reason: ExitReason::Signal,
+                        // This path synthesises the trade record rather than closing a
+                        // tracked Position, so no bar-by-bar extremes exist for it.
+                        // None means "not measured", never a zero excursion.
+                        mae_price: None,
+                        mfe_price: None,
+                        mae_pnl: None,
+                        mfe_pnl: None,
                     });
 
                     trade_counter += 1;
@@ -167,6 +174,13 @@ impl PairsBacktest {
                         exit_fees: fees / 2.0,
                         fee_breakdown: None,
                         exit_reason: ExitReason::Signal,
+                        // This path synthesises the trade record rather than closing a
+                        // tracked Position, so no bar-by-bar extremes exist for it.
+                        // None means "not measured", never a zero excursion.
+                        mae_price: None,
+                        mfe_price: None,
+                        mae_pnl: None,
+                        mfe_pnl: None,
                     });
 
                     trade_counter += 1;
@@ -283,6 +297,13 @@ impl PairsBacktest {
                 exit_fees: fees,
                 fee_breakdown: None,
                 exit_reason: ExitReason::EndOfData,
+                // This path synthesises the trade record rather than closing a
+                // tracked Position, so no bar-by-bar extremes exist for it.
+                // None means "not measured", never a zero excursion.
+                mae_price: None,
+                mfe_price: None,
+                mae_pnl: None,
+                mfe_pnl: None,
             });
         }
 
@@ -291,7 +312,7 @@ impl PairsBacktest {
             &equity_curve,
             &drawdown_curve,
             &returns,
-            leg1_ohlcv.timestamps.as_slice(),
+            &leg1_ohlcv.timestamps[..],
             &trades,
         );
 
@@ -452,7 +473,7 @@ struct PairsPosition {
 mod tests {
     use super::*;
 
-    fn sample_pairs_data() -> (OhlcvData, OhlcvData, CompiledSignals) {
+    fn sample_pairs_data() -> (OhlcvData<'static>, OhlcvData<'static>, CompiledSignals) {
         let n = 20;
 
         // Leg 1: Trending up
@@ -462,7 +483,7 @@ mod tests {
             high: (101..101 + n).map(|x| x as f64).collect(),
             low: (99..99 + n).map(|x| x as f64).collect(),
             close: (100..100 + n).map(|x| x as f64 + 0.5).collect(),
-            volume: vec![1000.0; n],
+            volume: vec![1000.0; n].into(),
         };
 
         // Leg 2: Correlated but with different magnitude
@@ -472,7 +493,7 @@ mod tests {
             high: (51..51 + n).map(|x| x as f64).collect(),
             low: (49..49 + n).map(|x| x as f64).collect(),
             close: (50..50 + n).map(|x| x as f64 + 0.2).collect(),
-            volume: vec![2000.0; n],
+            volume: vec![2000.0; n].into(),
         };
 
         let mut entries = vec![false; n];
