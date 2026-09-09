@@ -1,5 +1,5 @@
 {
-  "current_index": 95,
+  "current_index": 96,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -765,9 +765,9 @@
       "name": "indian-stock-market-api",
       "target": "clayborninconsistent906/indian-stock-market-api",
       "url": "https://github.com/clayborninconsistent906/indian-stock-market-api",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2283",
+      "merged": true
     },
     {
       "name": "nse-ohlc-scraper-plotter",
