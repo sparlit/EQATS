@@ -1,5 +1,5 @@
 {
-  "current_index": 25,
+  "current_index": 26,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -205,9 +205,9 @@
       "name": "osengine",
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2362",
+      "merged": true
     },
     {
       "name": "ai-algotrading-agent",
