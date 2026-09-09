@@ -1222,8 +1222,8 @@
       "target": "hermanodecastro/arbitrage-trading",
       "url": "https://github.com/hermanodecastro/arbitrage-trading",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2170",
+      "merged": true
     },
     {
       "name": "nsedata",
