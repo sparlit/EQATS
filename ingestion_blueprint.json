@@ -206,8 +206,8 @@
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2330",
+      "merged": true
     },
     {
       "name": "ai-algotrading-agent",
