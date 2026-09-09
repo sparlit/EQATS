@@ -1,10 +1,10 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 1
+Total Repositories: 411 | Current Index: 2
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
 | 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2286 |
-| 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
+| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2287 |
 | 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | pending | None |
