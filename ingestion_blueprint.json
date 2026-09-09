@@ -1206,8 +1206,8 @@
       "target": "hemenkapadia/getbhavcopy",
       "url": "https://github.com/hemenkapadia/getbhavcopy",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2167",
+      "merged": true
     },
     {
       "name": "nse-tool-stocks-aerial-view",
