@@ -623,7 +623,7 @@
       "url": "https://github.com/bitbytelabio/tradingview-rs",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "netstrat",
