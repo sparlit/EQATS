@@ -33,7 +33,7 @@ Total Repositories: 411 | Current Index: 31
 | 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2219 |
 | 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2220 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2221 |
-| 31 | ameobea/tickgrinder | Processed | None |
+| 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2222 |
 | 32 | amitashwinibhagat/nse-swing-scanner | pending | None |
 | 33 | amv-dev/yata | pending | None |
 | 34 | aneesh540/vse | pending | None |
