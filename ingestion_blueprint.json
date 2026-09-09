@@ -1,5 +1,5 @@
 {
-  "current_index": 92,
+  "current_index": 93,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -741,9 +741,9 @@
       "name": "nsedatabase",
       "target": "chinmayhundekari/nsedatabase",
       "url": "https://github.com/chinmayhundekari/nsedatabase",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2280",
+      "merged": true
     },
     {
       "name": "nse-bse-arbitrage-bot",
