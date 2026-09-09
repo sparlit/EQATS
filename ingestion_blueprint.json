@@ -358,8 +358,8 @@
       "target": "api-evangelist/nse-india",
       "url": "https://github.com/api-evangelist/nse-india",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2236",
+      "merged": true
     },
     {
       "name": "algo-trade",
