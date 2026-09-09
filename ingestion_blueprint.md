@@ -1,14 +1,14 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 6
+Total Repositories: 411 | Current Index: 1
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
-| 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2286 |
-| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2288 |
-| 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/2290 |
-| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2292 |
-| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2294 |
-| 6 | 85599/banknifty-golden-ratio-strategy | Processed | https://github.com/sparlit/EQATS/pull/2296 |
+| 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2315 |
+| 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
+| 3 | 0xramm/indian-stock-market-api | pending | None |
+| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | pending | None |
+| 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
 | 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | pending | None |
@@ -21,8 +21,8 @@ Total Repositories: 411 | Current Index: 6
 | 16 | agrawalarnav129-ui/jarvis-trading | pending | None |
 | 17 | ai4finance-foundation/finrl-trading | pending | None |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |
-| 19 | ajeeshworkspace/indian-trading-skills | pending | None |
-| 20 | akashnag/scripwatch | pending | None |
+| 19 | ajeeshworkspace/indian-trading-skills | Completed | https://github.com/sparlit/EQATS/pull/2310 |
+| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2311 |
 | 21 | akashyadavv/algotradingnse | pending | None |
 | 22 | akshaypawar7/wods | pending | None |
 | 23 | akshayraje/get-nse-bhavcopy | pending | None |
