@@ -1102,8 +1102,8 @@
       "target": "get10101/10101",
       "url": "https://github.com/get10101/10101",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2152",
+      "merged": true
     },
     {
       "name": "shoonya-php",
