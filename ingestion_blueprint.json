@@ -510,8 +510,8 @@
       "target": "avin1311/nse-bse-dashboard",
       "url": "https://github.com/avin1311/nse-bse-dashboard",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2255",
+      "merged": true
     },
     {
       "name": "nse-closing-stock-price-prediction-using-lstm",

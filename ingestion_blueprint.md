@@ -66,7 +66,7 @@ Total Repositories: 411 | Current Index: 64
 | 61 | atul-anand-jha/time-series-forecast-nsepy | Processed | https://github.com/sparlit/EQATS/pull/2252 |
 | 62 | augmentalphawealth/sectoral-breadth-dashboard | Completed | https://github.com/sparlit/EQATS/pull/2253 |
 | 63 | avhz/rustquant | Processed | https://github.com/sparlit/EQATS/pull/2254 |
-| 64 | avin1311/nse-bse-dashboard | Processed | None |
+| 64 | avin1311/nse-bse-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2255 |
 | 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | pending | None |
 | 66 | ayushmaanbhav/stockmart | pending | None |
 | 67 | azhagesan-dev/orderflowmap | pending | None |
