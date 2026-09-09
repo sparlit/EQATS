@@ -1,5 +1,5 @@
 {
-  "current_index": 23,
+  "current_index": 24,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -189,9 +189,9 @@
       "name": "indian-stock-tracker",
       "target": "akshayz14/indian-stock-tracker",
       "url": "https://github.com/akshayz14/indian-stock-tracker",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2360",
+      "merged": true
     },
     {
       "name": "buynsell",

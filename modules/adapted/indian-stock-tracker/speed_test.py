@@ -19,19 +19,3 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-import time
-
-import flask_app
-
-app = flask_app.app
-app.config["TESTING"] = True
-c = app.test_client()
-
-print("Testing main route 3 times...")
-for i in range(3):
-    start = time.time()
-    r = c.get("/")
-    elapsed = time.time() - start
-    print(f"  Request {i + 1}: {r.status_code} in {elapsed:.3f}s")
