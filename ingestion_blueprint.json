@@ -966,8 +966,8 @@
       "target": "edison7009/echobird",
       "url": "https://github.com/edison7009/echobird",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2323",
+      "merged": true
     },
     {
       "name": "pybroker",
