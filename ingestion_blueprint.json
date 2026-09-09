@@ -670,8 +670,8 @@
       "target": "buzzsubash/algo_trading_strategies_india",
       "url": "https://github.com/buzzsubash/algo_trading_strategies_india",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2272",
+      "merged": true
     },
     {
       "name": "in-stock-screener",
