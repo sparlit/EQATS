@@ -1,5 +1,5 @@
 {
-  "current_index": 30,
+  "current_index": 31,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -245,7 +245,7 @@
       "name": "tickgrinder",
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
