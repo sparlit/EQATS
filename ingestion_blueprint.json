@@ -1,5 +1,5 @@
 {
-  "current_index": 6,
+  "current_index": 7,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -53,9 +53,9 @@
       "name": "option_chain_analysis",
       "target": "aadityatamrakar/option_chain_analysis",
       "url": "https://github.com/aadityatamrakar/option_chain_analysis",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2197",
+      "merged": true
     },
     {
       "name": "ai-trader",
