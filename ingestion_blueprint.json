@@ -53,137 +53,137 @@
       "name": "option_chain_analysis",
       "target": "aadityatamrakar/option_chain_analysis",
       "url": "https://github.com/aadityatamrakar/option_chain_analysis",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2297",
+      "merged": true
     },
     {
       "name": "ai-trader",
       "target": "aaryansinha16/ai-trader",
       "url": "https://github.com/aaryansinha16/ai-trader",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2298",
+      "merged": true
     },
     {
       "name": "ai-for-finance-stocks-real-time-analysis-",
       "target": "abhiwalia15/ai-for-finance-stocks-real-time-analysis-",
       "url": "https://github.com/abhiwalia15/ai-for-finance-stocks-real-time-analysis-",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2299",
+      "merged": true
     },
     {
       "name": "indian-share-market",
       "target": "abuhurairalakdawala/indian-share-market",
       "url": "https://github.com/abuhurairalakdawala/indian-share-market",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2300",
+      "merged": true
     },
     {
       "name": "devsecops-full-integration-chain",
       "target": "adavarski/devsecops-full-integration-chain",
       "url": "https://github.com/adavarski/devsecops-full-integration-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2301",
+      "merged": true
     },
     {
       "name": "holiday-calendar.github.io",
       "target": "adityazerodha/holiday-calendar.github.io",
       "url": "https://github.com/adityazerodha/holiday-calendar.github.io",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2302",
+      "merged": true
     },
     {
       "name": "nsepython",
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2303",
+      "merged": true
     },
     {
       "name": "nsepythonserver",
       "target": "aeron7/nsepythonserver",
       "url": "https://github.com/aeron7/nsepythonserver",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2304",
+      "merged": true
     },
     {
       "name": "dprc-autotrader-v2",
       "target": "affaan-m/dprc-autotrader-v2",
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2305",
+      "merged": true
     },
     {
       "name": "jarvis-trading",
       "target": "agrawalarnav129-ui/jarvis-trading",
       "url": "https://github.com/agrawalarnav129-ui/jarvis-trading",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2306",
+      "merged": true
     },
     {
       "name": "finrl-trading",
       "target": "ai4finance-foundation/finrl-trading",
       "url": "https://github.com/ai4finance-foundation/finrl-trading",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2307",
+      "merged": true
     },
     {
       "name": "ngrcoydisclosures",
       "target": "ajakaiye33/ngrcoydisclosures",
       "url": "https://github.com/ajakaiye33/ngrcoydisclosures",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2308",
+      "merged": true
     },
     {
       "name": "indian-trading-skills",
       "target": "ajeeshworkspace/indian-trading-skills",
       "url": "https://github.com/ajeeshworkspace/indian-trading-skills",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2310",
+      "merged": true
     },
     {
       "name": "scripwatch",
       "target": "akashnag/scripwatch",
       "url": "https://github.com/akashnag/scripwatch",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2311",
+      "merged": true
     },
     {
       "name": "algotradingnse",
       "target": "akashyadavv/algotradingnse",
       "url": "https://github.com/akashyadavv/algotradingnse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2312",
+      "merged": true
     },
     {
       "name": "wods",
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2313",
+      "merged": true
     },
     {
       "name": "get-nse-bhavcopy",
       "target": "akshayraje/get-nse-bhavcopy",
       "url": "https://github.com/akshayraje/get-nse-bhavcopy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2314",
+      "merged": true
     },
     {
       "name": "indian-stock-tracker",

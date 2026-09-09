@@ -340,36 +340,113 @@ class AutonomousRepoIntegrator:
             f.write(content)
 
     def _auto_fix_llm_fallback(self, file_path: Path, error_logs: str):
-        """LLM-Assisted Auto-Repair Fallback.
-
-        If LLM_API_KEY environment variable is present, dispatches the error traceback
-        and code snippet to generate a surgical syntactical patch.
+        """Dispatches code repair across LLM Multi-Provider Fallback Cascade:
+        1. Google Jules / Gemini API (Default)
+        2. ChatGPT / OpenAI API (Primary Fallback)
+        3. Nvidia NIM LLM model nvidia/nemotron-3-ultra-550b-a55b (Secondary Fallback)
+        4. OpenRouter Free Models (Third Fallback)
         """
-        api_key = os.getenv("LLM_API_KEY")
-        if not api_key:
-            return
+        import urllib.request
 
-        try:
-            from openai import OpenAI
-            client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=api_key)
-            code = file_path.read_text(encoding="utf-8")
+        code = file_path.read_text(encoding="utf-8", errors="ignore")
+        prompt = f"Fix Python syntax/type/assertion errors in this code:\n\n```python\n{code[:3000]}\n```\n\nERROR LOG:\n{error_logs[:1500]}\n\nReturn ONLY valid Python code without Markdown explanations."
 
-            prompt = f"Fix Python syntax/type errors in this code:\n\n```python\n{code[:2000]}\n```\n\nERROR LOG:\n{error_logs[:1000]}\n\nReturn ONLY valid Python code."
-            response = client.chat.completions.create(
-                model="meta/llama-3.3-70b-instruct",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=2048,
-                temperature=0.1,
-            )
-            fixed_code = response.choices[0].message.content.strip()
-            fixed_code = re.sub(r"^```python\n?", "", fixed_code)
-            fixed_code = re.sub(r"\n?```$", "", fixed_code)
+        # 1. Google Jules / Gemini API (Default)
+        jules_key = os.getenv("GOOGLE_JULES_API_KEY") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("LLM_API_KEY")
+        if jules_key:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={jules_key}"
+                data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 1 (Google Jules/Gemini): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 1 (Google Jules/Gemini) fallback triggered: {e}")
 
-            if len(fixed_code) > 20:
-                file_path.write_text(fixed_code, encoding="utf-8")
-                print(f"  [+] LLM Auto-Repair patch applied to {file_path.name}")
-        except Exception as llm_err:
-            print(f"  [-] LLM Auto-Repair skipped: {llm_err}")
+        # 2. ChatGPT / OpenAI API (Primary Fallback)
+        openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("CHATGPT_API_KEY")
+        if openai_key:
+            try:
+                url = "https://api.openai.com/v1/chat/completions"
+                data = json.dumps({
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openai_key}",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["choices"][0]["message"]["content"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 2 (ChatGPT/OpenAI): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 2 (ChatGPT/OpenAI) fallback triggered: {e}")
+
+        # 3. Nvidia NIM LLM model nvidia/nemotron-3-ultra-550b-a55b (Secondary Fallback)
+        nvidia_key = os.getenv("NVIDIA_NIM_API_KEY") or os.getenv("NVIDIA_API_KEY")
+        if nvidia_key:
+            try:
+                url = "https://integrate.api.nvidia.com/v1/chat/completions"
+                data = json.dumps({
+                    "model": "nvidia/nemotron-3-ultra-550b-a55b",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {nvidia_key}",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["choices"][0]["message"]["content"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 3 (Nvidia NIM Nemotron): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 3 (Nvidia NIM Nemotron) fallback triggered: {e}")
+
+        # 4. OpenRouter Free Models (Third Fallback)
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key:
+            try:
+                url = "https://openrouter.ai/api/v1/chat/completions"
+                data = json.dumps({
+                    "model": "google/gemini-2.0-flash-exp:free",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openrouter_key}",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["choices"][0]["message"]["content"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 4 (OpenRouter Free Model): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 4 (OpenRouter Free Model) fallback triggered: {e}")
 
     def execute_auto_pr_and_merge_loop(self, target: dict[str, str], branch_name: str) -> tuple[bool, str | None]:
         """Commits changes, pushes branch to remote, opens Pull Request via gh CLI or REST API,
