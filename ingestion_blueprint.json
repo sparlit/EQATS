@@ -1174,8 +1174,8 @@
       "target": "harshadannina/statistical-arbitrage-model",
       "url": "https://github.com/harshadannina/statistical-arbitrage-model",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2162",
+      "merged": true
     },
     {
       "name": "stockchain",
