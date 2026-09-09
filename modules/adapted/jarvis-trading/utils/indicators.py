@@ -72,36 +72,10 @@ def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 
 def macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
-    """Return MACD line and signal line."""
+    """Return MACD line, signal line, and histogram."""
     fast_ema = ema(series, fast)
     slow_ema = ema(series, slow)
     macd_line = fast_ema - slow_ema
-    signal_line = macd_line.ewm(span=signal, adjust=False).mean()
+    signal_line = ema(macd_line, signal)
     histogram = macd_line - signal_line
     return pd.DataFrame({"macd": macd_line, "signal": signal_line, "histogram": histogram})
-
-
-def adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """Calculate the Average Directional Index."""
-    return adx_full(df, period)["adx"]
-
-
-def adx_full(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
-    """Return ADX, DI+, and DI- as a DataFrame with columns adx, di_plus, di_minus."""
-    validate_dataframe(df, ["high", "low", "close"])
-    up_move = df["high"].diff()
-    down_move = df["low"].diff().abs()
-    plus_dm = pd.Series(0.0, index=df.index)
-    minus_dm = pd.Series(0.0, index=df.index)
-    plus_dm[(up_move > down_move) & (up_move > 0)] = up_move
-    minus_dm[(down_move > up_move) & (down_move > 0)] = down_move
-    tr = pd.concat(
-        [df["high"] - df["low"], (df["high"] - df["close"].shift()).abs(), (df["low"] - df["close"].shift()).abs()],
-        axis=1,
-    ).max(axis=1)
-    atr_series = tr.ewm(span=period, adjust=False, min_periods=period).mean()
-    plus_di = 100 * (plus_dm.ewm(span=period, adjust=False, min_periods=period).mean() / atr_series)
-    minus_di = 100 * (minus_dm.ewm(span=period, adjust=False, min_periods=period).mean() / atr_series)
-    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
-    adx_series = dx.ewm(span=period, adjust=False, min_periods=period).mean()
-    return pd.DataFrame({"adx": adx_series, "di_plus": plus_di, "di_minus": minus_di})
