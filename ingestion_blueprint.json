@@ -1,5 +1,5 @@
 {
-  "current_index": 129,
+  "current_index": 130,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1037,7 +1037,7 @@
       "name": "nse-preopen-data",
       "target": "ferozmd53/nse-preopen-data",
       "url": "https://github.com/ferozmd53/nse-preopen-data",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
