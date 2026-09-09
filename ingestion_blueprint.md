@@ -79,7 +79,7 @@ Total Repositories: 411 | Current Index: 77
 | 74 | bennythadikaran/eod2_data | Processed | https://github.com/sparlit/EQATS/pull/2264 |
 | 75 | bennythadikaran/nseindiaapi | Completed | https://github.com/sparlit/EQATS/pull/2265 |
 | 76 | bhala-srinivash/nse-trading-skills | Processed | https://github.com/sparlit/EQATS/pull/2266 |
-| 77 | bhumi008007/stock_prediction | Processed | None |
+| 77 | bhumi008007/stock_prediction | Processed | https://github.com/sparlit/EQATS/pull/2267 |
 | 78 | bitbytelabio/tradingview-rs | pending | None |
 | 79 | blitzarx1/netstrat | pending | None |
 | 80 | bohr1005/xcrypto | pending | None |
