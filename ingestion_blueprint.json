@@ -1078,8 +1078,8 @@
       "target": "gadiyar/nsebhavcopy",
       "url": "https://github.com/gadiyar/nsebhavcopy",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2149",
+      "merged": true
     },
     {
       "name": "nse_historical_data",
