@@ -1,5 +1,5 @@
 {
-  "current_index": 53,
+  "current_index": 54,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -429,9 +429,9 @@
       "name": "options-oi",
       "target": "ashok-kollipara/options-oi",
       "url": "https://github.com/ashok-kollipara/options-oi",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2245",
+      "merged": true
     },
     {
       "name": "nse-quant-trading",
