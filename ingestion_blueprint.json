@@ -1,5 +1,5 @@
 {
-  "current_index": 167,
+  "current_index": 168,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1341,7 +1341,7 @@
       "name": "coinbase-pro-rs",
       "target": "inv2004/coinbase-pro-rs",
       "url": "https://github.com/inv2004/coinbase-pro-rs",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
