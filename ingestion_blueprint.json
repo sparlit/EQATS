@@ -1,5 +1,5 @@
 {
-  "current_index": 145,
+  "current_index": 146,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1165,9 +1165,9 @@
       "name": "prediction-markets-trading-bot-toolkits",
       "target": "harrieronchain/prediction-markets-trading-bot-toolkits",
       "url": "https://github.com/harrieronchain/prediction-markets-trading-bot-toolkits",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2161",
+      "merged": true
     },
     {
       "name": "statistical-arbitrage-model",
