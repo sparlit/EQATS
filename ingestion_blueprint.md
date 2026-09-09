@@ -63,7 +63,7 @@ Total Repositories: 411 | Current Index: 61
 | 58 | athreysethumadhavan-finance/nse-var-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2249 |
 | 59 | atilaahmettaner/tradingview-mcp | Completed | https://github.com/sparlit/EQATS/pull/2250 |
 | 60 | atrybyme/open-interest-nse-live-analysis | Completed | https://github.com/sparlit/EQATS/pull/2251 |
-| 61 | atul-anand-jha/time-series-forecast-nsepy | Processed | None |
+| 61 | atul-anand-jha/time-series-forecast-nsepy | Processed | https://github.com/sparlit/EQATS/pull/2252 |
 | 62 | augmentalphawealth/sectoral-breadth-dashboard | pending | None |
 | 63 | avhz/rustquant | pending | None |
 | 64 | avin1311/nse-bse-dashboard | pending | None |
