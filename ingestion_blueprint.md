@@ -122,7 +122,7 @@ Total Repositories: 411 | Current Index: 120
 | 117 | devanshx9x/portfolio-monte-carlo | Processed | None |
 | 118 | dhruvan246/stocks-dashboard | Completed | None |
 | 119 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/2130 |
-| 120 | dpeachpeach/kalshi-rust | Processed | None |
+| 120 | dpeachpeach/kalshi-rust | Processed | https://github.com/sparlit/EQATS/pull/2133 |
 | 121 | edison7009/echobird | pending | None |
 | 122 | edtechre/pybroker | pending | None |
 | 123 | eggmasonvalue/mtfdb | pending | None |
