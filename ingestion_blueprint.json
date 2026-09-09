@@ -190,8 +190,8 @@
       "target": "akshayz14/indian-stock-tracker",
       "url": "https://github.com/akshayz14/indian-stock-tracker",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2326",
+      "merged": true
     },
     {
       "name": "buynsell",

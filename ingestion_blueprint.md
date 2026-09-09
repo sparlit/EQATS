@@ -26,7 +26,7 @@ Total Repositories: 411 | Current Index: 24
 | 21 | akashyadavv/algotradingnse | Processed | https://github.com/sparlit/EQATS/pull/2312 |
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2313 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2314 |
-| 24 | akshayz14/indian-stock-tracker | Completed | None |
+| 24 | akshayz14/indian-stock-tracker | Completed | https://github.com/sparlit/EQATS/pull/2326 |
 | 25 | akt114/buynsell | pending | None |
 | 26 | alexwan/osengine | pending | None |
 | 27 | algotrading-lab/ai-algotrading-agent | pending | None |
