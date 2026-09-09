@@ -598,8 +598,8 @@
       "target": "bennythadikaran/nseindiaapi",
       "url": "https://github.com/bennythadikaran/nseindiaapi",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2265",
+      "merged": true
     },
     {
       "name": "nse-trading-skills",
