@@ -1,5 +1,5 @@
 {
-  "current_index": 11,
+  "current_index": 12,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -93,9 +93,9 @@
       "name": "holiday-calendar.github.io",
       "target": "adityazerodha/holiday-calendar.github.io",
       "url": "https://github.com/adityazerodha/holiday-calendar.github.io",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2348",
+      "merged": true
     },
     {
       "name": "nsepython",
