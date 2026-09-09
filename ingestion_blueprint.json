@@ -1,5 +1,5 @@
 {
-  "current_index": 19,
+  "current_index": 20,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -157,9 +157,9 @@
       "name": "scripwatch",
       "target": "akashnag/scripwatch",
       "url": "https://github.com/akashnag/scripwatch",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2211",
+      "merged": true
     },
     {
       "name": "algotradingnse",
