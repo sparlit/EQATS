@@ -1,5 +1,5 @@
 {
-  "current_index": 61,
+  "current_index": 62,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -493,9 +493,9 @@
       "name": "sectoral-breadth-dashboard",
       "target": "augmentalphawealth/sectoral-breadth-dashboard",
       "url": "https://github.com/augmentalphawealth/sectoral-breadth-dashboard",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2253",
+      "merged": true
     },
     {
       "name": "rustquant",
