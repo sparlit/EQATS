@@ -1,5 +1,5 @@
 {
-  "current_index": 9,
+  "current_index": 10,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -77,9 +77,9 @@
       "name": "indian-share-market",
       "target": "abuhurairalakdawala/indian-share-market",
       "url": "https://github.com/abuhurairalakdawala/indian-share-market",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2200",
+      "merged": true
     },
     {
       "name": "devsecops-full-integration-chain",
