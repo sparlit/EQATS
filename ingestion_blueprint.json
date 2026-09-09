@@ -998,8 +998,8 @@
       "target": "ekanshsinghal/indian-stock-market",
       "url": "https://github.com/ekanshsinghal/indian-stock-market",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2346",
+      "merged": true
     },
     {
       "name": "rust-trade",
