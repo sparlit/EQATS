@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 105
+Total Repositories: 411 | Current Index: 106
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -108,7 +108,7 @@ Total Repositories: 411 | Current Index: 105
 | 103 | d-e-s-o/apcacli | Processed | None |
 | 104 | dallyshalla/tropix | Processed | None |
 | 105 | day0market/geger | Processed | None |
-| 106 | daydy-dev/moon-dev-ai-agents-for-trading | pending | None |
+| 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | None |
 | 107 | debaonline4u/nse-data | pending | None |
 | 108 | debopam-d/project-nifty | pending | None |
 | 109 | deepentropy/ibx | pending | None |
