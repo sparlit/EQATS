@@ -1,5 +1,5 @@
 {
-  "current_index": 168,
+  "current_index": 169,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1349,9 +1349,9 @@
       "name": "india-sector-screener",
       "target": "ishaan3h/india-sector-screener",
       "url": "https://github.com/ishaan3h/india-sector-screener",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2186",
+      "merged": true
     },
     {
       "name": "nse-scanner",
