@@ -45,6 +45,7 @@ from asyncio import Future as asyncioFuture
 from typing import Dict
 
 from aiohttp import WSMsgType
+
 from ccxt import Exchange, NetworkError, RequestTimeout
 from ccxt.async_support.base.ws.functions import gunzip, inflate, is_json_encoded_object
 from ccxt.async_support.base.ws.future import Future

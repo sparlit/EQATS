@@ -44,13 +44,13 @@ from plotly.subplots import make_subplots
 
 # Import project modules
 try:
-    from ..backtest.backtest_engine import BacktestConfig, BacktestEngine
-    from ..config.settings import get_config
-    from ..data.data_store import get_data_store
-    from ..strategies.base_strategy import StrategyConfig, create_strategy
-    from ..trading.alpaca_manager import create_alpaca_account_from_env
-    from ..trading.trade_executor import ExecutionConfig, TradeExecutor
-    from ..utils.logging_utils import setup_logging
+    from src.backtest.backtest_engine import BacktestConfig, BacktestEngine
+    from src.config.settings import get_config
+    from src.data.data_store import get_data_store
+    from src.strategies.base_strategy import StrategyConfig, create_strategy
+    from src.trading.alpaca_manager import create_alpaca_account_from_env
+    from src.trading.trade_executor import ExecutionConfig, TradeExecutor
+    from src.utils.logging_utils import setup_logging
 except ImportError:
     # Fallback for direct module testing
     from backtest.backtest_engine import BacktestConfig, BacktestEngine
@@ -195,7 +195,7 @@ def show_data_management():
             if st.button("Fetch S&P 500 Components"):
                 with st.spinner("Fetching data..."):
                     try:
-                        from ..data.data_fetcher import fetch_sp500_tickers
+                        from src.data.data_fetcher import fetch_sp500_tickers
 
                         tickers = fetch_sp500_tickers()
                         st.success(f"Successfully fetched {len(tickers)} tickers")
@@ -206,7 +206,7 @@ def show_data_management():
             if st.button("Fetch Fundamental Data"):
                 with st.spinner("Fetching fundamental data..."):
                     try:
-                        from ..data.data_fetcher import fetch_fundamental_data
+                        from src.data.data_fetcher import fetch_fundamental_data
 
                         fundamentals = fetch_fundamental_data(["AAPL", "MSFT", "GOOGL"], "2020-01-01", "2023-12-31")
                         st.success(f"Successfully fetched {len(fundamentals)} records")
@@ -227,7 +227,7 @@ def show_data_management():
         if st.button("Process Raw Data"):
             with st.spinner("Processing data..."):
                 try:
-                    from ..data.data_processor import process_fundamentals, process_prices
+                    from src.data.data_processor import process_fundamentals, process_prices
 
                     # Process sample data
                     fundamentals = process_fundamentals("./data/fundamentals.csv")
@@ -243,7 +243,7 @@ def show_data_management():
         if st.button("Generate ML Dataset"):
             with st.spinner("Creating ML dataset..."):
                 try:
-                    from ..data.data_processor import create_ml_dataset
+                    from src.data.data_processor import create_ml_dataset
 
                     X, y = create_ml_dataset("./data/fundamentals.csv", "./data/prices.csv")
                     st.success("ML dataset created")
@@ -402,7 +402,7 @@ def show_live_trading():
             if st.button("Refresh Portfolio"):
                 with st.spinner("Loading portfolio..."):
                     try:
-                        from ..trading.alpaca_manager import AlpacaManager
+                        from src.trading.alpaca_manager import AlpacaManager
 
                         manager = AlpacaManager([account])
 
@@ -452,7 +452,7 @@ def show_live_trading():
                 submitted = st.form_submit_button("Place Order")
                 if submitted:
                     try:
-                        from ..trading.alpaca_manager import AlpacaManager, OrderRequest
+                        from src.trading.alpaca_manager import AlpacaManager, OrderRequest
 
                         manager = AlpacaManager([account])
 
@@ -473,8 +473,8 @@ def show_live_trading():
             if st.button("Execute Sample Strategy"):
                 with st.spinner("Executing strategy..."):
                     try:
-                        from ..strategies.base_strategy import EqualWeightStrategy, StrategyConfig
-                        from ..trading.trade_executor import TradeExecutor
+                        from src.strategies.base_strategy import EqualWeightStrategy, StrategyConfig
+                        from src.trading.trade_executor import TradeExecutor
 
                         manager = AlpacaManager([account])
                         executor = TradeExecutor(manager)

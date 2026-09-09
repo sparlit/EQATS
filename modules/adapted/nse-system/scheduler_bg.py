@@ -110,6 +110,28 @@ def _retrain_job():
         print(f"[SCHEDULER] retrain failed: {e}")
 
 
+def _validate_mc_job():
+    print("[SCHEDULER] weekly monte-carlo started")
+    try:
+        import validate
+
+        validate.run_mode("mc")
+        print("[SCHEDULER] monte-carlo complete")
+    except Exception as e:
+        print(f"[SCHEDULER] monte-carlo failed: {e}")
+
+
+def _validate_wf_job():
+    print("[SCHEDULER] monthly walk-forward started")
+    try:
+        import validate
+
+        validate.run_mode("wf")
+        print("[SCHEDULER] walk-forward complete")
+    except Exception as e:
+        print(f"[SCHEDULER] walk-forward failed: {e}")
+
+
 def _drift_check():
     try:
         import db
@@ -171,10 +193,20 @@ def start():
         id="meta_retrain",
         replace_existing=True,
     )
+    _scheduler.add_job(
+        _validate_mc_job,
+        CronTrigger(day_of_week="mon", hour=8, minute=0, timezone=IST),
+        id="validate_mc",
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        _validate_wf_job, CronTrigger(day=1, hour=10, minute=0, timezone=IST), id="validate_wf", replace_existing=True
+    )
     _scheduler.start()
     print(
         "[SCHEDULER] started — dq@15:30, daily@15:45, swing@16:15, "
-        "inst@16:45, macro@17:30, fund@Sat08:00, retrain@Sat09:00 IST"
+        "inst@16:45, macro@17:30, fund@Sat08:00, retrain@Sat09:00, "
+        "mc@Mon08:00, wf@1st10:00 IST"
     )
 
 

@@ -21,12 +21,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-"""Telegram alerts for swing setups — delegates to telegram_alerts."""
+"""Telegram alerts for swing setups — text first, chart snapshot second.
+Chart layer is optional: if it fails, the text alert still goes out."""
 import os
 
 
 def send(text):
-    # Primary: existing telegram_alerts (hardcoded bot + data/tg_secret.txt)
+    # Primary: existing telegram_alerts (secret file / env)
     try:
         import telegram_alerts
 
@@ -34,7 +35,6 @@ def send(text):
         return True
     except Exception as e:
         print(f"[ALERT] telegram_alerts failed: {e}")
-
     # Fallback: env-based
     try:
         import requests
@@ -65,7 +65,19 @@ def notify_setup(st):
         f"Risk {risk:.1f}% · PB {st.pullback_depth * 100:.0f}%\n"
         f"Shape {st.shape_score}/100 · Zone {st.ema_proximity}"
     )
-    return send(text)
+    ok = send(text)
+    try:
+        import chart_img
+        import telegram_alerts
+
+        path = chart_img.render(
+            st.symbol, setup={"trigger": st.entry_price, "stop": st.stop_loss, "target": st.target_price}
+        )
+        if path:
+            telegram_alerts.send_photo(path, caption=f"📊 {st.symbol} setup chart")
+    except Exception as e:
+        print(f"[ALERT] chart snapshot skipped: {e}")
+    return ok
 
 
 if __name__ == "__main__":
