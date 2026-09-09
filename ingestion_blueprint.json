@@ -1,5 +1,5 @@
 {
-  "current_index": 13,
+  "current_index": 14,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -109,9 +109,9 @@
       "name": "nsepythonserver",
       "target": "aeron7/nsepythonserver",
       "url": "https://github.com/aeron7/nsepythonserver",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2350",
+      "merged": true
     },
     {
       "name": "dprc-autotrader-v2",
