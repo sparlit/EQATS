@@ -1358,8 +1358,8 @@
       "target": "itsnrk1/nse-scanner",
       "url": "https://github.com/itsnrk1/nse-scanner",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2187",
+      "merged": true
     },
     {
       "name": "cci20-sma20-strategy",
