@@ -302,8 +302,8 @@
       "target": "ankitchaudhary6886/nse-system",
       "url": "https://github.com/ankitchaudhary6886/nse-system",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2229",
+      "merged": true
     },
     {
       "name": "nse_scrapper",
