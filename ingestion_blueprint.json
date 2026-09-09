@@ -1,5 +1,5 @@
 {
-  "current_index": 38,
+  "current_index": 39,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -309,9 +309,9 @@
       "name": "nse_scrapper",
       "target": "ankitsny/nse_scrapper",
       "url": "https://github.com/ankitsny/nse_scrapper",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2230",
+      "merged": true
     },
     {
       "name": "nse",
