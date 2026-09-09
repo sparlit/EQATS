@@ -1,5 +1,5 @@
 {
-  "current_index": 44,
+  "current_index": 45,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -357,9 +357,9 @@
       "name": "nse-india",
       "target": "api-evangelist/nse-india",
       "url": "https://github.com/api-evangelist/nse-india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2236",
+      "merged": true
     },
     {
       "name": "algo-trade",
