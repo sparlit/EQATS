@@ -1,5 +1,5 @@
 {
-  "current_index": 153,
+  "current_index": 154,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1229,7 +1229,7 @@
       "name": "nsedata",
       "target": "hgsujay/nsedata",
       "url": "https://github.com/hgsujay/nsedata",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
