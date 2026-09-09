@@ -1142,8 +1142,8 @@
       "target": "gomitechnology-source/nsebank_hft",
       "url": "https://github.com/gomitechnology-source/nsebank_hft",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2157",
+      "merged": true
     },
     {
       "name": "nse-bse-news-scanner",

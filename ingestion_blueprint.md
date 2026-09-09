@@ -145,7 +145,7 @@ Total Repositories: 411 | Current Index: 143
 | 140 | girishg4t/bhavcopy-downloader | Processed | https://github.com/sparlit/EQATS/pull/2154 |
 | 141 | girishg4t/nse-bse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2155 |
 | 142 | girishkumardv/live-nse-bse-mcp | Completed | https://github.com/sparlit/EQATS/pull/2156 |
-| 143 | gomitechnology-source/nsebank_hft | Completed | None |
+| 143 | gomitechnology-source/nsebank_hft | Completed | https://github.com/sparlit/EQATS/pull/2157 |
 | 144 | groverjikaladka/nse-bse-news-scanner | pending | None |
 | 145 | gurudayal37/nse-data-syncer | pending | None |
 | 146 | harrieronchain/prediction-markets-trading-bot-toolkits | pending | None |
