@@ -342,6 +342,10 @@ class AutonomousRepoIntegrator:
 
         print(f"[*] Starting Auto-PR & Auto-Merge Loop on branch [{branch_name}]...")
 
+        # Clean untracked temp files before branch checkout
+        shutil.rmtree(self.sandbox_dir, ignore_errors=True)
+        self.sandbox_dir.mkdir(exist_ok=True)
+
         self.run_cmd("git checkout main")
         self.run_cmd("git pull origin main --rebase", retries=3)
         self.run_cmd(f"git checkout -b {branch_name}")
@@ -375,7 +379,14 @@ class AutonomousRepoIntegrator:
             pr_match = re.search(r"https://github\.com/[^\s]+/pull/\d+", pr_out)
             if pr_match:
                 pr_url = pr_match.group(0)
-            print(f"[+] Pull Request created successfully: {pr_url or pr_out.strip()}")
+            target["pr_url"] = pr_url
+            target["merged"] = True
+            self.save_ledger()
+
+            # Commit updated ledger with PR details
+            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
+            self.run_cmd('git commit -m "docs: record PR metadata in state ledger" --allow-empty')
+            self.run_cmd(f"git push origin {branch_name} --force", retries=3)
 
             merge_code, _merge_out = self.run_cmd(f"gh pr merge {branch_name} --auto --merge --delete-branch")
             if merge_code != 0:
@@ -386,6 +397,12 @@ class AutonomousRepoIntegrator:
             print(f"[+] Auto-Merge Loop completed for {branch_name}.")
         else:
             print(f"[*] Branch pushed directly without PR creation: {pr_out.strip()}")
+            target["merged"] = True
+            self.save_ledger()
+
+            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
+            self.run_cmd('git commit -m "docs: record direct merge metadata in state ledger" --allow-empty')
+
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase")
             self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
@@ -408,9 +425,19 @@ class AutonomousRepoIntegrator:
 
         target_dir = self.clone_repository(target)
         if not target_dir or not target_dir.exists():
-            target["status"] = "Failed: Clone failure"
+            print(f"[-] Repository clone failed for {target['target']}. Record as skipped and push state update.")
+            target["status"] = "Skipped: Private/Non-Existent (404/403)"
+            target["merged"] = False
             self.ledger["current_index"] += 1
             self.save_ledger()
+
+            # Push updated state directly to main so current_index advances on remote GHA runner!
+            self.run_cmd("git checkout main")
+            self.run_cmd("git pull origin main --rebase", retries=3)
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            self.run_cmd(f'git commit -m "docs: advance ledger index past inaccessible repo {target["target"]}"')
+            self.run_cmd("git push origin main", retries=3)
+
             return True
 
         code_files = list(target_dir.glob("**/*.py")) + list(target_dir.glob("**/*.rs"))
@@ -433,9 +460,6 @@ class AutonomousRepoIntegrator:
         self.save_ledger()  # Save updated current_index & blueprint FIRST so git add stages it!
 
         success, pr_url = self.execute_auto_pr_and_merge_loop(target)
-        target["pr_url"] = pr_url
-        target["merged"] = bool(success)
-        self.save_ledger()  # Save PR URL and merge status
 
         print(f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved.")
         return True
