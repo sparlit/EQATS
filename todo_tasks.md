@@ -36,28 +36,36 @@
 ### 🚀 REVENUE STABILITY, LOSS REDUCTION & SYSTEMIC RISK ENGINEERING TASKS
 
 #### 1. Capital Preservation & Drawdown Circuit Breakers (Loss Reduction)
-- [ ] **Dynamic Portfolio VaR/CVaR Circuit Breakers (`src/institutional_integrations/nse_var_dashboard_engine.py`)**
+- [x] **Dynamic Portfolio VaR/CVaR Circuit Breakers (`src/institutional_integrations/nse_var_dashboard_engine.py`)**
   - Integrate real-time Parametric and Cornish-Fisher VaR & Expected Shortfall tail-risk bounds to freeze new entries if portfolio daily drawdown approaches 2.0%.
-- [ ] **L2/L5 Orderbook Depth & Slippage Impact Guards (`src/institutional_integrations/orderflowmap_engine.py`)**
+- [x] **L2/L5 Orderbook Depth & Slippage Impact Guards (`src/institutional_integrations/orderflowmap_engine.py`)**
   - Evaluate L2/L5 bid-ask queue imbalance and volume depth before order execution to reject entries where spread > 0.10 INR.
-- [ ] **Prematket IEP Gap & IST Session Guards (`src/institutional_integrations/nse_options_data_collector_engine.py`)**
+- [x] **Premarket IEP Gap & IST Session Guards (`src/institutional_integrations/nse_options_data_collector_engine.py`)**
   - Validate premarket Indicative Equilibrium Price (IEP) gap percentages to prevent overnight gap-down traps.
 
 #### 2. Delta-Neutral Income Generation & Yield Capture
-- [ ] **Delta-Neutral Option Theta Time Decay Engine (`src/institutional_integrations/rust_finance_engine.py`)**
+- [x] **Delta-Neutral Option Theta Time Decay Engine (`src/institutional_integrations/rust_finance_engine.py`)**
   - Combine option chain Open Interest (OI) Max Pain strike calculations and Black-76 Greeks to automatically frame short strangle / iron condor option write strategies.
-- [ ] **Sector Rotation & Trend Alignment Filter (`src/institutional_integrations/sectoral_breadth_engine.py`)**
+- [x] **Sector Rotation & Trend Alignment Filter (`src/institutional_integrations/sectoral_breadth_engine.py`)**
   - Enforce Sector Relative Strength (RS) leadership gatekeepers and GMMA moving average alignment before initiating equity swing trades.
-- [ ] **Dual-Exchange Arbitrage Spread Engine (`src/institutional_integrations/nse_bse_dashboard_engine.py`)**
+- [x] **Dual-Exchange Arbitrage Spread Engine (`src/institutional_integrations/nse_bse_dashboard_engine.py`)**
   - Monitor real-time quote feeds between NSE and BSE to execute risk-free price spread arbitrage when spread exceeds transaction costs.
 
 #### 3. Infrastructure Multi-Broker Failover & Execution Optimization
-- [ ] **Multi-Broker Gateway Auto-Failover Router (`src/institutional_integrations/algo_trade_aravin_engine.py`)**
+- [x] **Multi-Broker Gateway Auto-Failover Router (`src/institutional_integrations/algo_trade_aravin_engine.py`)**
   - Route execution payloads across Finvasia Shoonya, Upstox, Zerodha Kite, and AngelOne SmartAPI with automated sub-millisecond failover.
-- [ ] **TWAP / Micro-Iceberg Order Slicer (`src/institutional_integrations/rust_matching_engine.py`)**
+- [x] **TWAP / Micro-Iceberg Order Slicer (`src/institutional_integrations/rust_matching_engine.py`)**
   - Slice large orders into time-weighted micro-iceberg blocks to prevent market impact and HFT front-running.
-- [ ] **Performance Telemetry & Automated Strategy Demotion (`src/institutional_integrations/barter_rs_engine.py`)**
+- [x] **Performance Telemetry & Automated Strategy Demotion (`src/institutional_integrations/barter_rs_engine.py`)**
   - Demote or pause strategies dynamically whose rolling Profit Factor falls below 1.2 or Sharpe ratio falls below 1.0.
+
+#### 4. High-Frequency Microstructure & Half-Kelly Position Sizing
+- [x] **Volume Imbalance Delta (VID) Entry Trigger & Spoofing Filter (`src/institutional_integrations/shoonya_option_chain_engine.py`)**
+  - Calculate top-5 bid vs ask volume depth ratios to block long entries into heavy institutional sell walls and phantom liquidity.
+- [x] **Dual-Timeframe Trend Co-Integration & Dynamic ATR Stop Loss (`src/institutional_integrations/nse_swing_scanner_engine.py`)**
+  - Enforce 5m + 1d multi-timeframe trend alignment and VIX-normalized ATR stop loss bounds to prevent false breakouts.
+- [x] **Half-Kelly Fixed-Fractional Position Allocator (`src/institutional_integrations/indian_trading_skills_engine.py`)**
+  - Compute optimal capital allocation per trade using the Half-Kelly formula based on rolling 30-trade win rate and profit/loss ratio.
 
 ---
 

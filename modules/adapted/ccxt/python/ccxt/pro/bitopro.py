@@ -396,7 +396,7 @@ class bitopro(ccxt.async_support.bitopro):
         result["timestamp"] = timestamp
         result["datetime"] = self.iso8601(
             timestamp
-        )  # we shouldn't set "datetime" string provided by server, values are obviously wrong offset from UTC
+        )  # we shouldn't set "datetime" string provided by server, as those values are obviously wrong offset from UTC
         self.tickers[symbol] = result
         client.resolve(result, messageHash)
 

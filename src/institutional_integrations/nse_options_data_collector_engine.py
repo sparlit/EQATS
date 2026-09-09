@@ -6,7 +6,8 @@ Target Integration: BarathGB007/nse-options-data-collector
 Magic Number: 9100068
 
 Provides Open Interest (OI) snapshot processing, PCR calculation, premarket gap analysis,
-0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
+premarket gap-down ITM put hedge triggers, 0.05 INR price tick rounding, IST market session validation,
+and microkernel plugin binding.
 """
 
 import math
@@ -50,7 +51,7 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class NSEOptionsDataCollectorEngine:
     """
-    NSE Options Data Collector & Premarket Gap Analysis Engine.
+    NSE Options Data Collector, Premarket Gap Analysis & Gap-Down Protection Engine.
     """
 
     def __init__(self) -> None:
@@ -107,6 +108,29 @@ class NSEOptionsDataCollectorEngine:
             "gap_amount": round(gap_amt, 2),
             "gap_percent": round(gap_pct, 2),
             "gap_type": gap_type,
+            "magic_number": self.magic_number,
+        }
+
+    def evaluate_premarket_gap_hedge_trigger(
+        self, prev_close: float, iep_price: float, gap_down_threshold_pct: float = 3.0
+    ) -> Dict[str, Any]:
+        """
+        Evaluates premarket Indicative Equilibrium Price (IEP).
+        If premarket gap down <= -gap_down_threshold_pct (default -3.0%), triggers automated ITM Put Hedge order.
+        """
+        analysis = self.analyze_premarket_gap(prev_close, iep_price)
+        gap_pct = analysis["gap_percent"]
+
+        hedge_triggered = gap_pct <= -gap_down_threshold_pct
+        action = "PLACE_PUT_HEDGE" if hedge_triggered else "NO_HEDGE"
+
+        return {
+            "prev_close": analysis["prev_close"],
+            "iep_price": analysis["iep_price"],
+            "gap_percent": gap_pct,
+            "gap_down_threshold_pct": gap_down_threshold_pct,
+            "hedge_triggered": hedge_triggered,
+            "recommended_action": action,
             "magic_number": self.magic_number,
         }
 
@@ -193,5 +217,4 @@ class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register in microkernel plugin registry
 IndianBrokerPluginRegistry.register("NSE_OPTIONS_DATA_COLLECTOR", NSEOptionsDataCollectorBrokerAdapter)
