@@ -718,8 +718,8 @@
       "target": "chartiny/nse-daily-volatility-reports",
       "url": "https://github.com/chartiny/nse-daily-volatility-reports",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2277",
+      "merged": true
     },
     {
       "name": "nse-stock-bulk-deals-",
