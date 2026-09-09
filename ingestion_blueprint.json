@@ -1,5 +1,5 @@
 {
-  "current_index": 83,
+  "current_index": 84,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -669,9 +669,9 @@
       "name": "algo_trading_strategies_india",
       "target": "buzzsubash/algo_trading_strategies_india",
       "url": "https://github.com/buzzsubash/algo_trading_strategies_india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2272",
+      "merged": true
     },
     {
       "name": "in-stock-screener",
