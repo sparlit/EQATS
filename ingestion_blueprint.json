@@ -1214,8 +1214,8 @@
       "target": "henry-richard7/nse-tool-stocks-aerial-view",
       "url": "https://github.com/henry-richard7/nse-tool-stocks-aerial-view",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2169",
+      "merged": true
     },
     {
       "name": "arbitrage-trading",
