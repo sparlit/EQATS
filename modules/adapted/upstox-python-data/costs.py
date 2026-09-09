@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 Trading costs calculator — NSE F&O charges as of April 2026.
 
@@ -5,16 +28,15 @@ Computes brokerage, STT, exchange txn, SEBI fee, stamp duty, GST
 for a round-trip options trade. All rates in one place for easy updates.
 """
 
-BROKERAGE_PER_ORDER   = 20.0        # Flat Rs 20 per executed order
-STT_OPTIONS_SELL_PCT  = 0.15        # 0.15% on sell-side premium
-EXCHANGE_TXN_PCT      = 0.03503     # Rs 35.03 per lakh = 0.03503%
-SEBI_FEE_PCT          = 0.0001      # Rs 10 per crore = 0.0001%
-STAMP_DUTY_BUY_PCT    = 0.003       # 0.003% on buy-side premium
-GST_PCT               = 18.0        # 18% on (brokerage + exchange txn)
+BROKERAGE_PER_ORDER = 20.0  # Flat Rs 20 per executed order
+STT_OPTIONS_SELL_PCT = 0.15  # 0.15% on sell-side premium
+EXCHANGE_TXN_PCT = 0.03503  # Rs 35.03 per lakh = 0.03503%
+SEBI_FEE_PCT = 0.0001  # Rs 10 per crore = 0.0001%
+STAMP_DUTY_BUY_PCT = 0.003  # 0.003% on buy-side premium
+GST_PCT = 18.0  # 18% on (brokerage + exchange txn)
 
 
-def compute_trade_costs(entry_price: float, exit_price: float,
-                        total_qty: int, action: str = "BUY") -> dict:
+def compute_trade_costs(entry_price: float, exit_price: float, total_qty: int, action: str = "BUY") -> dict:
     """
     Compute all charges for a completed round-trip options trade.
 
@@ -25,11 +47,11 @@ def compute_trade_costs(entry_price: float, exit_price: float,
         action:      "BUY" = bought first then sold, "SELL" = sold first then bought back
     """
     if action == "BUY":
-        buy_premium  = entry_price * total_qty
+        buy_premium = entry_price * total_qty
         sell_premium = exit_price * total_qty
     else:
         sell_premium = entry_price * total_qty
-        buy_premium  = exit_price * total_qty
+        buy_premium = exit_price * total_qty
 
     brokerage = BROKERAGE_PER_ORDER * 2
     stt = sell_premium * STT_OPTIONS_SELL_PCT / 100
@@ -41,17 +63,16 @@ def compute_trade_costs(entry_price: float, exit_price: float,
     total = brokerage + stt + exchange_txn + sebi_fee + stamp_duty + gst
 
     return {
-        "brokerage":    round(brokerage, 2),
-        "stt":          round(stt, 2),
+        "brokerage": round(brokerage, 2),
+        "stt": round(stt, 2),
         "exchange_txn": round(exchange_txn, 2),
-        "sebi_fee":     round(sebi_fee, 2),
-        "stamp_duty":   round(stamp_duty, 2),
-        "gst":          round(gst, 2),
-        "total":        round(total, 2),
+        "sebi_fee": round(sebi_fee, 2),
+        "stamp_duty": round(stamp_duty, 2),
+        "gst": round(gst, 2),
+        "total": round(total, 2),
     }
 
 
-def total_costs(entry_price: float, exit_price: float,
-                total_qty: int, action: str = "BUY") -> float:
+def total_costs(entry_price: float, exit_price: float, total_qty: int, action: str = "BUY") -> float:
     """Shortcut — returns just the total cost as a float."""
     return compute_trade_costs(entry_price, exit_price, total_qty, action)["total"]

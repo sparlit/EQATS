@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 AXIOM Scheduler — APScheduler background worker.
 Runs:
@@ -8,14 +33,13 @@ Runs:
   15:35 IST  — Post-market checklist PDF + email + Telegram
 Start with: python scheduler.py
 """
-from __future__ import annotations
 
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 from loguru import logger
@@ -74,21 +98,24 @@ def is_market_day() -> bool:
 # 08:30 AM — MORNING BRIEFING
 # ─────────────────────────────────────────────────────────────────
 
+
 def run_morning_briefing() -> None:
     if not is_market_day():
         return
     logger.info("=== MORNING BRIEFING PIPELINE START ===")
     try:
         universe = load_universe()
-        regime   = classify_regime()
-        context  = build_briefing_context()
-        context.update({
-            "symbol_count":    len(universe),
-            "watchlist_count": min(10, len(universe)),
-            "regime":          regime.regime,
-            "nifty_close":     regime.nifty_close,
-            "adx":             regime.adx_value,
-        })
+        regime = classify_regime()
+        context = build_briefing_context()
+        context.update(
+            {
+                "symbol_count": len(universe),
+                "watchlist_count": min(10, len(universe)),
+                "regime": regime.regime,
+                "nifty_close": regime.nifty_close,
+                "adx": regime.adx_value,
+            }
+        )
 
         try:
             screener_df = run_screener(None)
@@ -102,6 +129,7 @@ def run_morning_briefing() -> None:
                 # scanner has something to scan (DB is ephemeral on CI runners)
                 try:
                     from storage.watchlist_csv import save_watchlist_from_screener
+
                     save_watchlist_from_screener(screener_df, max_symbols=15)
                 except Exception as exc:
                     logger.warning("Watchlist CSV save skipped: {}", exc)
@@ -122,7 +150,9 @@ def run_morning_briefing() -> None:
         # Telegram — briefing text + regime + PDF document
         send_briefing(briefing_text, date_str)
         send_regime_alert(regime.regime, regime.nifty_close, regime.adx_value)
-        ok, err = send_document(pdf_path, caption=f"📊 <b>AXIOM Morning Briefing — {date_str}</b> | Regime: {regime.regime}")
+        ok, err = send_document(
+            pdf_path, caption=f"📊 <b>AXIOM Morning Briefing — {date_str}</b> | Regime: {regime.regime}"
+        )
         if ok:
             logger.success("Morning briefing PDF sent to Telegram: {}", pdf_path.name)
         else:
@@ -131,7 +161,7 @@ def run_morning_briefing() -> None:
         # Telegram — top picks summary
         if context.get("top_picks"):
             picks_lines = "\n".join(
-                f"  {p['symbol']} — Score {p.get('score','?')} [{p.get('grade','?')}] ₹{p.get('close','?')}"
+                f"  {p['symbol']} — Score {p.get('score', '?')} [{p.get('grade', '?')}] ₹{p.get('close', '?')}"
                 for p in context["top_picks"]
             )
             send_message(f"<b>AXIOM Top Picks</b>\n{picks_lines}")
@@ -145,6 +175,7 @@ def run_morning_briefing() -> None:
 # 09:15 AM — PRE-MARKET TASK LIST
 # ─────────────────────────────────────────────────────────────────
 
+
 def run_premarket_tasks() -> None:
     if not is_market_day():
         return
@@ -152,14 +183,16 @@ def run_premarket_tasks() -> None:
     try:
         regime = classify_regime()
         universe = load_universe()
-        checklist = generate_task_list({
-            "session":       "pre-market",
-            "symbol_count":  len(universe),
-            "market":        "NSE",
-            "time":          "09:15 IST",
-            "regime":        regime.regime,
-            "nifty_close":   regime.nifty_close,
-        })
+        checklist = generate_task_list(
+            {
+                "session": "pre-market",
+                "symbol_count": len(universe),
+                "market": "NSE",
+                "time": "09:15 IST",
+                "regime": regime.regime,
+                "nifty_close": regime.nifty_close,
+            }
+        )
 
         # PDF
         date_str = datetime.now(IST).date().strftime("%d %b %Y")
@@ -169,8 +202,7 @@ def run_premarket_tasks() -> None:
         # Telegram — text + PDF document
         send_message(
             f"<b>AXIOM Pre-Market Checklist — {date_str}</b>\n"
-            f"Regime: <b>{regime.regime}</b> · Nifty: {regime.nifty_close:,.0f}\n\n"
-            + checklist[:2000]
+            f"Regime: <b>{regime.regime}</b> · Nifty: {regime.nifty_close:,.0f}\n\n" + checklist[:2000]
         )
         ok, err = send_document(pdf_path, caption=f"📋 <b>AXIOM Pre-Market Checklist — {date_str}</b>")
         logger.success("Pre-market tasks sent") if ok else logger.error("Pre-market PDF Telegram send failed: {}", err)
@@ -182,18 +214,21 @@ def run_premarket_tasks() -> None:
 # 15:35 PM — POST-MARKET CHECKLIST
 # ─────────────────────────────────────────────────────────────────
 
+
 def run_post_market_summary() -> None:
     if not is_market_day():
         return
     logger.info("=== POST-MARKET SUMMARY PIPELINE START ===")
     try:
         universe = load_universe()
-        checklist = generate_task_list({
-            "session":      "post-market",
-            "symbol_count": len(universe),
-            "market":       "NSE",
-            "time":         "15:35 IST",
-        })
+        checklist = generate_task_list(
+            {
+                "session": "post-market",
+                "symbol_count": len(universe),
+                "market": "NSE",
+                "time": "15:35 IST",
+            }
+        )
 
         # PDF
         date_str = datetime.now(IST).date().strftime("%d %b %Y")
@@ -201,10 +236,7 @@ def run_post_market_summary() -> None:
         generate_text_report("AXIOM Post-Market Checklist", checklist, pdf_path)
 
         # Telegram — text + PDF document
-        send_message(
-            f"<b>AXIOM Post-Market Checklist — {date_str}</b>\n\n"
-            + checklist[:2000]
-        )
+        send_message(f"<b>AXIOM Post-Market Checklist — {date_str}</b>\n\n" + checklist[:2000])
         ok, err = send_document(pdf_path, caption=f"📋 <b>AXIOM Post-Market Checklist — {date_str}</b>")
         if not ok:
             logger.error("Post-market PDF Telegram send failed: {}", err)
@@ -253,10 +285,7 @@ def _run_midday_summary() -> None:
             f"  {sym} — {', '.join(d['signals'])} | ₹{d.get('close', 0):,.0f} RSI:{d.get('rsi', '?')} ADX:{d.get('adx', '?')}"
             for sym, d in hits.items()
         )
-        send_message(
-            f"<b>AXIOM Midday Signal Summary — {now_str}</b>\n"
-            f"{len(hits)} active signal(s):\n{lines}"
-        )
+        send_message(f"<b>AXIOM Midday Signal Summary — {now_str}</b>\n{len(hits)} active signal(s):\n{lines}")
     else:
         send_message(f"<b>AXIOM Midday — {now_str}</b>\nNo active signals on watchlist.")
 
@@ -265,18 +294,21 @@ def _run_midday_summary() -> None:
 # SCHEDULER ENTRY POINT
 # ─────────────────────────────────────────────────────────────────
 
+
 def start_scheduler() -> None:
     scheduler = BlockingScheduler(timezone=IST)
 
     scheduler.add_job(
         run_morning_briefing,
         CronTrigger(day_of_week="mon-fri", hour=8, minute=30, timezone=IST),
-        id="morning_briefing", replace_existing=True,
+        id="morning_briefing",
+        replace_existing=True,
     )
     scheduler.add_job(
         run_premarket_tasks,
         CronTrigger(day_of_week="mon-fri", hour=9, minute=15, timezone=IST),
-        id="premarket_tasks", replace_existing=True,
+        id="premarket_tasks",
+        replace_existing=True,
     )
     scheduler.add_job(
         _run_intraday_scan,
@@ -286,17 +318,20 @@ def start_scheduler() -> None:
             minute="30,35,40,45,50,55,0,5,10,15",
             timezone=IST,
         ),
-        id="intraday_monitor", replace_existing=True,
+        id="intraday_monitor",
+        replace_existing=True,
     )
     scheduler.add_job(
         _run_midday_summary,
         CronTrigger(day_of_week="mon-fri", hour=13, minute=0, timezone=IST),
-        id="midday_summary", replace_existing=True,
+        id="midday_summary",
+        replace_existing=True,
     )
     scheduler.add_job(
         run_post_market_summary,
         CronTrigger(day_of_week="mon-fri", hour=15, minute=35, timezone=IST),
-        id="post_market_summary", replace_existing=True,
+        id="post_market_summary",
+        replace_existing=True,
     )
 
     logger.info("AXIOM Scheduler started")

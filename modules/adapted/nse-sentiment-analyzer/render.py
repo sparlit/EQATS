@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """Pure HTML/CSS dashboard renderer for NSE Sentiment Analyzer.
 
 Replaces Streamlit display widgets with a custom premium template
@@ -17,38 +40,63 @@ logger = logging.getLogger(__name__)
 # ─── Bayesian source calibration ───
 # Shows per-source Beta distributions from user voting data.
 # Loaded once per dashboard render — no DB impact per ticker.
-from indicators import detect_volume_spike
 from persistence import load_source_accuracy
+
+from indicators import detect_volume_spike
 
 # ─── Inline SVG icons (Lucide, MIT-licensed, stroke-based) ───
 # Inline SVGs avoid a 100KB+ icon library for ~15 icons
 _ICON: dict[str, str] = {}
 
+
 def _svg(path: str, view_box: str = "0 0 24 24") -> str:
     """Build a 16x16 inline SVG icon with currentColor stroke."""
     return f'<svg class="icon" width="16" height="16" viewBox="{view_box}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{path}</svg>'
 
+
 _ICON["trending_up"] = _svg('<path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/>')
-_ICON["newspaper"] = _svg('<path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/>')
+_ICON["newspaper"] = _svg(
+    '<path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/>'
+)
 _ICON["bar_chart"] = _svg('<path d="M5 21v-6"/><path d="M12 21V3"/><path d="M19 21V9"/>')
-_ICON["file_text"] = _svg('<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>')
-_ICON["bank"] = _svg('<path d="M10 18v-7"/><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/>')
-_ICON["signal"] = _svg('<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/>')
-_ICON["target"] = _svg('<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>')
+_ICON["file_text"] = _svg(
+    '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>'
+)
+_ICON["bank"] = _svg(
+    '<path d="M10 18v-7"/><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/>'
+)
+_ICON["signal"] = _svg(
+    '<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/>'
+)
+_ICON["target"] = _svg(
+    '<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>'
+)
 _ICON["check"] = _svg('<path d="M20 6 9 17l-5-5"/>')
-_ICON["alert"] = _svg('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>')
+_ICON["alert"] = _svg(
+    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+)
 _ICON["minus"] = _svg('<path d="M5 12h14"/>')
 _ICON["dot_green"] = _svg('<circle cx="12" cy="12" r="4" fill="#22b573" stroke="none"/>')
 _ICON["dot_red"] = _svg('<circle cx="12" cy="12" r="4" fill="#f85149" stroke="none"/>')
 _ICON["dot_grey"] = _svg('<circle cx="12" cy="12" r="4" fill="#8891a0" stroke="none"/>')
 _ICON["arrow_up"] = _svg('<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>')
 _ICON["arrow_down"] = _svg('<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>')
-_ICON["wifi"] = _svg('<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>')
-_ICON["layout"] = _svg('<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>')
+_ICON["wifi"] = _svg(
+    '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>'
+)
+_ICON["layout"] = _svg(
+    '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>'
+)
 # Signal indicator icons (colored filled circles with symbol — larger than dots)
-_ICON["bullish"] = _svg('<circle cx="12" cy="12" r="10" fill="#22b573" stroke="none"/><path d="M12 7 8 15h8z" fill="#f0f0f0" stroke="none"/>')
-_ICON["bearish"] = _svg('<circle cx="12" cy="12" r="10" fill="#f85149" stroke="none"/><path d="M8 9h8l-4 8z" fill="#f0f0f0" stroke="none"/>')
-_ICON["neutral"] = _svg('<circle cx="12" cy="12" r="10" fill="#8891a0" stroke="none"/><path d="M7 12h10" stroke="#f0f0f0" stroke-width="2.5" stroke-linecap="round" fill="none"/>')
+_ICON["bullish"] = _svg(
+    '<circle cx="12" cy="12" r="10" fill="#22b573" stroke="none"/><path d="M12 7 8 15h8z" fill="#f0f0f0" stroke="none"/>'
+)
+_ICON["bearish"] = _svg(
+    '<circle cx="12" cy="12" r="10" fill="#f85149" stroke="none"/><path d="M8 9h8l-4 8z" fill="#f0f0f0" stroke="none"/>'
+)
+_ICON["neutral"] = _svg(
+    '<circle cx="12" cy="12" r="10" fill="#8891a0" stroke="none"/><path d="M7 12h10" stroke="#f0f0f0" stroke-width="2.5" stroke-linecap="round" fill="none"/>'
+)
 
 # Dashboard CSS — loaded once at module init
 _DASHBOARD_CSS = (Path(__file__).parent / "static" / "dashboard.css").read_text(encoding="utf-8")
@@ -59,7 +107,7 @@ _sparkline_counter = itertools.count()
 
 def get_signal_icon(emoji: str) -> str:
     """Return the 16x16 Lucide SVG icon for a signal emoji string.
-    
+
     Used by app.py for Streamlit-native rendering (outside the iframe).
     Maps emoji strings (🟢/🔴/⚪) to their SVG counterparts.
     """
@@ -91,14 +139,15 @@ def _pct(v: float) -> float:
 
 def _session_quality_badge() -> str:
     """Return a session quality warning badge based on current IST.
-    
+
     Returns empty string during optimal trading windows.
     """
     from datetime import datetime, timedelta, timezone
+
     ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     h, m = ist.hour, ist.minute
     mins_since_open = (h - 9) * 60 + (m - 15)  # market opens 9:15 IST
-    
+
     if 135 <= mins_since_open < 225:  # 11:30-13:00 lunch lull
         return '<span class="session-badge warn"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Lunch lull — sentiment less reliable</span>'
     if mins_since_open < 15:  # 9:15-9:30 opening volatility
@@ -119,9 +168,9 @@ def fmt_price(val: object) -> str:
 def fmt_vol(val: object) -> str:
     if _is_valid_num(val):
         if val >= 1e7:
-            return f"{val/1e7:.1f}Cr"
+            return f"{val / 1e7:.1f}Cr"
         if val >= 1e5:
-            return f"{val/1e5:.1f}L"
+            return f"{val / 1e5:.1f}L"
         return f"{val:,.0f}"
     return "N/A"
 
@@ -136,9 +185,9 @@ def fmt_delta(val: object) -> str:
 def fmt_large(val: object) -> str:
     if _is_valid_num(val):
         if val >= 1e7:
-            return f"\u20b9{val/1e7:.1f}Cr"
+            return f"\u20b9{val / 1e7:.1f}Cr"
         if val >= 1e5:
-            return f"\u20b9{val/1e5:.1f}L"
+            return f"\u20b9{val / 1e5:.1f}L"
         return f"\u20b9{val:,.0f}"
     return "N/A"
 
@@ -168,7 +217,7 @@ def fmt_de(de_val: object, sector: str | None = None) -> str:
     else:
         badge = '<span class="stat-badge ok">Low</span>'
 
-    return f'{de_val:.2f} {badge}'
+    return f"{de_val:.2f} {badge}"
 
 
 def get_sentiment_svg(compound: float) -> str:
@@ -217,7 +266,7 @@ def render_sparkline(values: list[float], width: int = 160, height: int = 32, co
             <stop offset="100%" stop-color="{color}" stop-opacity="0.8"/>
         </linearGradient>
     </defs>
-    <polyline points="{' '.join(points)}" fill="none" stroke="url(#{grad_id})"
+    <polyline points="{" ".join(points)}" fill="none" stroke="url(#{grad_id})"
     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>"""
 
@@ -245,16 +294,16 @@ def _render_cascade_html(cascade_effects: list[dict[str, Any]] | None) -> str:
             ticker_color = "#22b573" if ti < 0 else "#f85149"
             affected_rows += f"""
             <div class="cascade-ticker{searched_cls}">
-                <span class="cascade-sym">{h(a['ticker'])}</span>
-                <span class="cascade-co">{h(a['company'])}</span>
-                <span class="cascade-why">{h(a['reason'])}</span>
+                <span class="cascade-sym">{h(a["ticker"])}</span>
+                <span class="cascade-co">{h(a["company"])}</span>
+                <span class="cascade-why">{h(a["reason"])}</span>
                 <span class="cascade-ti" style="color:{ticker_color}">{ticker_label}</span>
             </div>"""
         driver_rows += f"""
         <div class="cascade-driver">
             <div class="cascade-header">
                 <span class="cascade-name">{icon} {h(driver)}</span>
-                <span class="cascade-count">{n_articles} article{'s' if n_articles > 1 else ''}</span>
+                <span class="cascade-count">{n_articles} article{"s" if n_articles > 1 else ""}</span>
             </div>
             <div class="cascade-tickers">
                 {affected_rows}
@@ -283,11 +332,7 @@ def _render_pivot_html(pivot_data: dict[str, Any] | None) -> str:
         parts.append(f'<span style="color:#22b573">R1 {fmt_price(r1)}</span>')
     if not parts:
         return ""
-    return (
-        '<div style="margin-top:0.5rem;font-size:0.8rem;color:#8891a0;">'
-        + " · ".join(parts)
-        + "</div>"
-    )
+    return '<div style="margin-top:0.5rem;font-size:0.8rem;color:#8891a0;">' + " · ".join(parts) + "</div>"
 
 
 def _build_chart_script(ohlcv_json: str | None, nonce: str) -> str:
@@ -297,13 +342,14 @@ def _build_chart_script(ohlcv_json: str | None, nonce: str) -> str:
     if not ohlcv_json or ohlcv_json == "[]":
         return ""
     import json as _json
+
     _ohlc = _json.loads(ohlcv_json) if isinstance(ohlcv_json, str) else ohlcv_json
     _bb_upper, _bb_lower, _sma200 = "[]", "[]", "[]"
     if len(_ohlc) >= 20:
         _closes = [d["close"] for d in _ohlc]
         _bb_u, _bb_l = [], []
         for i in range(19, len(_closes)):
-            _window = _closes[i-19:i+1]
+            _window = _closes[i - 19 : i + 1]
             _mean = sum(_window) / 20
             _var = sum((x - _mean) ** 2 for x in _window) / 20
             _std = math.sqrt(_var)
@@ -315,7 +361,7 @@ def _build_chart_script(ohlcv_json: str | None, nonce: str) -> str:
         _closes_200 = [d["close"] for d in _ohlc]
         _sma = []
         for i in range(199, len(_closes_200)):
-            _sma.append({"time": _ohlc[i]["time"], "value": round(sum(_closes_200[i-199:i+1]) / 200, 2)})
+            _sma.append({"time": _ohlc[i]["time"], "value": round(sum(_closes_200[i - 199 : i + 1]) / 200, 2)})
         _sma200 = _json.dumps(_sma)
 
     _bb_upper_s = _json.dumps(_bb_upper) if isinstance(_bb_upper, (list, dict)) else _bb_upper
@@ -399,9 +445,23 @@ def _build_chart_script(ohlcv_json: str | None, nonce: str) -> str:
 </script>"""
 
 
-def _card_price(company_name: str, ticker: str, proximity_class: str, proximity_msg: str, circuit_html: str,
-                price: Any, change_val: Any, change_pct: Any, vwap_html: str, day_range: str,
-                vol_spike_html: str, volume: str, vol_quality_html: str, pe_str: str, stats_rows: str) -> str:
+def _card_price(
+    company_name: str,
+    ticker: str,
+    proximity_class: str,
+    proximity_msg: str,
+    circuit_html: str,
+    price: Any,
+    change_val: Any,
+    change_pct: Any,
+    vwap_html: str,
+    day_range: str,
+    vol_spike_html: str,
+    volume: str,
+    vol_quality_html: str,
+    pe_str: str,
+    stats_rows: str,
+) -> str:
     """Render the price card card as an HTML string."""
     return f"""<!-- ═══ PRICE CARD ═══ -->
     <div class="card">
@@ -410,7 +470,7 @@ def _card_price(company_name: str, ticker: str, proximity_class: str, proximity_
             <div>
                 <div class="company-name">{h(company_name)}</div>
                 <div class="company-ticker">{h(ticker)} · NSE</div>
-                {f'<span class="prox-badge {proximity_class}">{h(proximity_msg)}</span>' if proximity_msg else ''}
+                {f'<span class="prox-badge {proximity_class}">{h(proximity_msg)}</span>' if proximity_msg else ""}
                 {circuit_html}
             </div>
         </div>
@@ -418,7 +478,7 @@ def _card_price(company_name: str, ticker: str, proximity_class: str, proximity_
             <div class="price-cell">
                 <div class="label">{h(ticker[:6])}</div>
                 <div class="value price-main">{fmt_price(price)}</div>
-                <div class="delta {'up' if _is_valid_num(change_val) and change_val >= 0 else 'down' if _is_valid_num(change_val) else 'neutral'}" style="margin-bottom:0.15rem">{fmt_delta(change_val) if _is_valid_num(change_val) else "N/A"} ({fmt_delta(change_pct) if _is_valid_num(change_pct) else "N/A"}%)</div>
+                <div class="delta {"up" if _is_valid_num(change_val) and change_val >= 0 else "down" if _is_valid_num(change_val) else "neutral"}" style="margin-bottom:0.15rem">{fmt_delta(change_val) if _is_valid_num(change_val) else "N/A"} ({fmt_delta(change_pct) if _is_valid_num(change_pct) else "N/A"}%)</div>
                 {vwap_html}
             </div>
             <div class="price-cell">
@@ -441,11 +501,24 @@ def _card_price(company_name: str, ticker: str, proximity_class: str, proximity_
     </div>"""
 
 
-def _card_sentiment(news_items: list[dict[str, Any]], source_breakdown: list[dict[str, Any]],
-                    primary_emoji_svg: str, primary_signal: str, sent_class: str, rec_icon: str,
-                    rec_text: str, rec_detail: str, confidence_pct: float, ss_html: str,
-                    pos_pct: float, neu_pct: float, neg_pct: float, badge_section: str,
-                    source_health: str, session_badge: str) -> str:
+def _card_sentiment(
+    news_items: list[dict[str, Any]],
+    source_breakdown: list[dict[str, Any]],
+    primary_emoji_svg: str,
+    primary_signal: str,
+    sent_class: str,
+    rec_icon: str,
+    rec_text: str,
+    rec_detail: str,
+    confidence_pct: float,
+    ss_html: str,
+    pos_pct: float,
+    neu_pct: float,
+    neg_pct: float,
+    badge_section: str,
+    source_health: str,
+    session_badge: str,
+) -> str:
     """Render the sentiment card card as an HTML string."""
     return f"""<!-- ═══ SENTIMENT CARD ═══ -->
     <div class="card">
@@ -485,7 +558,7 @@ def _card_news(news_items: list[dict[str, Any]], news_html: str) -> str:
     return f"""<!-- ═══ NEWS HEADLINES ═══ -->
     <div class="card">
         <div class="card-title">{_ICON["file_text"]} Recent News ({len(news_items)} articles)</div>
-        {news_html if news_html else '<div class="ss-comp-label" style="padding:0.75rem 0;color:#8891a0">No articles found for this ticker</div>'}
+        {news_html or '<div class="ss-comp-label" style="padding:0.75rem 0;color:#8891a0">No articles found for this ticker</div>'}
     </div>"""
 
 
@@ -646,7 +719,7 @@ def render_dashboard(
             vol_quality_html = '<span class="session-badge warn"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg> Volume is 0 — check data quality</span>'
         elif avg_vol_50 and avg_vol_50 > 0 and vol_now < avg_vol_50 * 0.1:
             vol_quality_html = '<span class="session-badge info"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg> Suspiciously low volume</span>'
-        spike_result = detect_volume_spike(vol_now, cast(float, avg_vol_50), threshold=1.5)
+        spike_result = detect_volume_spike(vol_now, cast("float", avg_vol_50), threshold=1.5)
         if spike_result["spike"]:
             ratio = spike_result["ratio"]
             if ratio >= 3:
@@ -664,13 +737,13 @@ def render_dashboard(
         _up_icon = _ICON["arrow_up"]
         _down_icon = _ICON["arrow_down"]
         if ti.get("sma50_cross") == "bullish":
-            cross_50_html = '<span class="cross-badge bullish">' + _up_icon + ' SMA50 bullish crossover</span>'
+            cross_50_html = '<span class="cross-badge bullish">' + _up_icon + " SMA50 bullish crossover</span>"
         elif ti.get("sma50_cross") == "bearish":
-            cross_50_html = '<span class="cross-badge bearish">' + _down_icon + ' SMA50 bearish crossover</span>'
+            cross_50_html = '<span class="cross-badge bearish">' + _down_icon + " SMA50 bearish crossover</span>"
         if ti.get("sma200_cross") == "bullish":
-            cross_200_html = '<span class="cross-badge bullish">' + _up_icon + ' SMA200 bullish crossover</span>'
+            cross_200_html = '<span class="cross-badge bullish">' + _up_icon + " SMA200 bullish crossover</span>"
         elif ti.get("sma200_cross") == "bearish":
-            cross_200_html = '<span class="cross-badge bearish">' + _down_icon + ' SMA200 bearish crossover</span>'
+            cross_200_html = '<span class="cross-badge bearish">' + _down_icon + " SMA200 bearish crossover</span>"
 
     # Track record accuracy
     acc_html = ""
@@ -687,7 +760,7 @@ def render_dashboard(
         <div class="acc-circle {bar_c}">{acc_pct:.0f}%</div>
         <div>
             <div class="acc-num">{correct}/{total} accurate</div>
-            <div class="acc-desc">Track record across {total} past signal{'s' if total != 1 else ''}</div>
+            <div class="acc-desc">Track record across {total} past signal{"s" if total != 1 else ""}</div>
         </div>
     </div>
 </div>"""
@@ -737,17 +810,17 @@ def render_dashboard(
         fii_html = f"""<div class="card">
     <div class="card-title">{_ICON["bank"]} Institutional Flow ({fi.get("date", "Latest")})</div>
     <div class="fii-grid">
-        <div class="fii-item {'bearish' if fi['fii_net'] < 0 else ''}">
+        <div class="fii-item {"bearish" if fi["fii_net"] < 0 else ""}">
             <div class="fii-label">FII / FPI</div>
-            <div class="fii-value">₹{fi['fii_net']:,.0f} Cr</div>
-            <div class="fii-sub">{fi['fii_action']}</div>
+            <div class="fii-value">₹{fi["fii_net"]:,.0f} Cr</div>
+            <div class="fii-sub">{fi["fii_action"]}</div>
         </div>
-        <div class="fii-item {'bearish' if fi['dii_net'] < 0 else ''}">
+        <div class="fii-item {"bearish" if fi["dii_net"] < 0 else ""}">
             <div class="fii-label">DII</div>
-            <div class="fii-value">₹{fi['dii_net']:,.0f} Cr</div>
-            <div class="fii-sub">{fi['dii_action']}</div>
+            <div class="fii-value">₹{fi["dii_net"]:,.0f} Cr</div>
+            <div class="fii-sub">{fi["dii_action"]}</div>
         </div>
-        <div class="fii-item {'bearish' if comb < 0 else ''}">
+        <div class="fii-item {"bearish" if comb < 0 else ""}">
             <div class="fii-label">Combined Net</div>
             <div class="fii-value">₹{comb:,.0f} Cr</div>
             <div class="fii-sub">{fii_icon} {fii_stance}</div>
@@ -767,13 +840,33 @@ def render_dashboard(
         sma200 = ti.get("sma_200")
         _up_dot = _ICON["dot_green"]
         _down_dot = _ICON["dot_red"]
-        above_50 = _up_dot if (sma50 is not None and close > sma50) else _down_dot if (sma50 is not None and close < sma50) else "\u2014"
-        above_200 = _up_dot if (sma200 is not None and close > sma200) else _down_dot if (sma200 is not None and close < sma200) else "\u2014"
+        above_50 = (
+            _up_dot
+            if (sma50 is not None and close > sma50)
+            else _down_dot
+            if (sma50 is not None and close < sma50)
+            else "\u2014"
+        )
+        above_200 = (
+            _up_dot
+            if (sma200 is not None and close > sma200)
+            else _down_dot
+            if (sma200 is not None and close < sma200)
+            else "\u2014"
+        )
         macd_hist = ti["macd_hist"]
         macd_label = _up_dot + " Bullish" if macd_hist > 0 else _down_dot + " Bearish"
         adx = ti.get("adx")
-        adx_label = f"Trending (ADX {adx:.0f})" if (adx is not None and adx >= 25) else "Ranging" if (adx is not None and adx < 25) else "N/A"
-        ti_preview = f"RSI {rsi:.1f} ({rsi_label}) \u00b7 SMA50 {above_50} \u00b7 SMA200 {above_200} \u00b7 MACD {macd_label}"
+        adx_label = (
+            f"Trending (ADX {adx:.0f})"
+            if (adx is not None and adx >= 25)
+            else "Ranging"
+            if (adx is not None and adx < 25)
+            else "N/A"
+        )
+        ti_preview = (
+            f"RSI {rsi:.1f} ({rsi_label}) \u00b7 SMA50 {above_50} \u00b7 SMA200 {above_200} \u00b7 MACD {macd_label}"
+        )
         if adx is not None:
             ti_preview += f" \u00b7 ADX {adx:.1f} ({'Strong' if adx >= 25 else 'Weak'})"
         ti_rows = f"""
@@ -816,7 +909,7 @@ def render_dashboard(
             b_emoji = _src_dot_grey
         badge_html += (
             f'<span class="source-badge {b_class}">'
-            f'{b_emoji} {src["source"]}'
+            f"{b_emoji} {src['source']}"
             f' <span class="badge-meta">w={src["weight"]:.1f} \u00b7 {src["count"]} art.</span>'
             f"</span> "
         )
@@ -880,7 +973,7 @@ def render_dashboard(
 
     # News items
     news_html = ""
-    for item, scores in zip(news_items, headline_scores):
+    for item, scores in zip(news_items, headline_scores, strict=False):
         emoji = get_sentiment_svg(scores["compound"])
         if scores["compound"] >= 0.3:
             s_label = "Positive"
@@ -913,8 +1006,8 @@ def render_dashboard(
             <div class="news-emoji">{emoji}</div>
             <div class="news-content">
                 <div class="news-title">{title_html}</div>
-                <div class="news-meta">{' · '.join(meta_parts)} {port_badge}<span class="sentiment-tag {s_class}">{s_label}</span></div>
-                {'<div class="news-body">' + body + '</div>' if body else ''}
+                <div class="news-meta">{" · ".join(meta_parts)} {port_badge}<span class="sentiment-tag {s_class}">{s_label}</span></div>
+                {'<div class="news-body">' + body + "</div>" if body else ""}
             </div>
         </div>"""
 
