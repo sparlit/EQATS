@@ -1,5 +1,5 @@
 {
-  "current_index": 156,
+  "current_index": 157,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1253,9 +1253,9 @@
       "name": "bse_nse_announcement",
       "target": "hirawatt/bse_nse_announcement",
       "url": "https://github.com/hirawatt/bse_nse_announcement",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2174",
+      "merged": true
     },
     {
       "name": "indian-trading-skills",
