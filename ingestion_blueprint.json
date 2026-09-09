@@ -1,5 +1,5 @@
 {
-  "current_index": 70,
+  "current_index": 71,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -565,9 +565,9 @@
       "name": "bhavfno",
       "target": "beinghorizontal/bhavfno",
       "url": "https://github.com/beinghorizontal/bhavfno",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2262",
+      "merged": true
     },
     {
       "name": "advanced-nse-momentum-terminal",
