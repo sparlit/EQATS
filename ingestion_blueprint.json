@@ -1,5 +1,5 @@
 {
-  "current_index": 75,
+  "current_index": 76,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -605,9 +605,9 @@
       "name": "nse-trading-skills",
       "target": "bhala-srinivash/nse-trading-skills",
       "url": "https://github.com/bhala-srinivash/nse-trading-skills",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2266",
+      "merged": true
     },
     {
       "name": "stock_prediction",
