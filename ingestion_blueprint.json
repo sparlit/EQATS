@@ -1,5 +1,5 @@
 {
-  "current_index": 41,
+  "current_index": 42,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -333,9 +333,9 @@
       "name": "rust-trading-engine",
       "target": "anthdm/rust-trading-engine",
       "url": "https://github.com/anthdm/rust-trading-engine",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2233",
+      "merged": true
     },
     {
       "name": "kite-option-chain",
