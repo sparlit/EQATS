@@ -130,7 +130,7 @@ Total Repositories: 411 | Current Index: 128
 | 125 | ekanshsinghal/indian-stock-market | Completed | https://github.com/sparlit/EQATS/pull/2138 |
 | 126 | erio-harrison/rust-trade | Processed | https://github.com/sparlit/EQATS/pull/2139 |
 | 127 | featherenvy/botvana | Processed | https://github.com/sparlit/EQATS/pull/2140 |
-| 128 | feroz-ghub-26/nse-sharia-news-feed | Completed | None |
+| 128 | feroz-ghub-26/nse-sharia-news-feed | Completed | https://github.com/sparlit/EQATS/pull/2141 |
 | 129 | feroze/yfinance-stock-history | pending | None |
 | 130 | ferozmd53/nse-preopen-data | pending | None |
 | 131 | ferrumfix/ferrumfix | pending | None |

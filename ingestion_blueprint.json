@@ -1022,8 +1022,8 @@
       "target": "feroz-ghub-26/nse-sharia-news-feed",
       "url": "https://github.com/feroz-ghub-26/nse-sharia-news-feed",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2141",
+      "merged": true
     },
     {
       "name": "yfinance-stock-history",
