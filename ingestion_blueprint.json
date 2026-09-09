@@ -1,5 +1,5 @@
 {
-  "current_index": 5,
+  "current_index": 6,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -45,7 +45,7 @@
       "name": "banknifty-golden-ratio-strategy",
       "target": "85599/banknifty-golden-ratio-strategy",
       "url": "https://github.com/85599/banknifty-golden-ratio-strategy",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
@@ -525,9 +525,9 @@
       "name": "stockmart",
       "target": "ayushmaanbhav/stockmart",
       "url": "https://github.com/ayushmaanbhav/stockmart",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2258",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "orderflowmap",
