@@ -1,5 +1,5 @@
 {
-  "current_index": 4,
+  "current_index": 5,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -37,9 +37,9 @@
       "name": "hyperliquid-trading-bot-rust",
       "target": "0xtan1319/hyperliquid-trading-bot-rust",
       "url": "https://github.com/0xtan1319/hyperliquid-trading-bot-rust",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2293",
+      "merged": true
     },
     {
       "name": "banknifty-golden-ratio-strategy",
