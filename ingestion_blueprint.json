@@ -1,5 +1,5 @@
 {
-  "current_index": 157,
+  "current_index": 158,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1261,9 +1261,9 @@
       "name": "indian-trading-skills",
       "target": "hmerro3/indian-trading-skills",
       "url": "https://github.com/hmerro3/indian-trading-skills",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2175",
+      "merged": true
     },
     {
       "name": "india-trade-cli",
