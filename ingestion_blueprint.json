@@ -1,5 +1,5 @@
 {
-  "current_index": 1,
+  "current_index": 2,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -13,9 +13,9 @@
       "name": "hyperliquid_rust_bot",
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2334",
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
