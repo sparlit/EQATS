@@ -1,5 +1,5 @@
 {
-  "current_index": 81,
+  "current_index": 82,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -653,7 +653,7 @@
       "name": "nse-bse-api",
       "target": "bshada/nse-bse-api",
       "url": "https://github.com/bshada/nse-bse-api",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
