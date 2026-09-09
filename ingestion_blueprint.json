@@ -710,8 +710,8 @@
       "target": "chaitanyarahalkar/financial-info-extractor",
       "url": "https://github.com/chaitanyarahalkar/financial-info-extractor",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2276",
+      "merged": true
     },
     {
       "name": "nse-daily-volatility-reports",
