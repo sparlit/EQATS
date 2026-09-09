@@ -1126,8 +1126,8 @@
       "target": "girishg4t/nse-bse-bhavcopy",
       "url": "https://github.com/girishg4t/nse-bse-bhavcopy",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2155",
+      "merged": true
     },
     {
       "name": "live-nse-bse-mcp",
