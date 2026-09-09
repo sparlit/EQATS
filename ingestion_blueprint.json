@@ -1,5 +1,5 @@
 {
-  "current_index": 166,
+  "current_index": 167,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1333,9 +1333,9 @@
       "name": "hypersdk",
       "target": "infinitefield/hypersdk",
       "url": "https://github.com/infinitefield/hypersdk",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2184",
+      "merged": true
     },
     {
       "name": "coinbase-pro-rs",
