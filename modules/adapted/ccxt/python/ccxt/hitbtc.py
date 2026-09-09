@@ -1050,7 +1050,7 @@ class hitbtc(Exchange, ImplicitAPI):
             networkCode = self.network_id_to_code(networkId, code)
             networkCode = (
                 networkCode.upper() if (networkCode is not None) else code
-            )  # is white label, ensure we safeguard from possible bugs
+            )  # as hitbtc is white label, ensure we safeguard from possible bugs
             if networkCode is not None:
                 networks[networkCode] = {
                     "info": rawNetwork,
@@ -1513,7 +1513,7 @@ class hitbtc(Exchange, ImplicitAPI):
                 "cost": feeCostString,
                 "currency": feeCurrencyCode,
             }
-        # we use clientOrderId order id with self exchange intentionally
+        # we use clientOrderId as the order id with self exchange intentionally
         # because most of their endpoints will require clientOrderId
         # explained here: https://github.com/ccxt/ccxt/issues/5674
         orderId = self.safe_string_2(trade, "clientOrderId", "client_order_id")
@@ -1907,7 +1907,7 @@ class hitbtc(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: timestamp in ms of the latest funding rate
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -2137,7 +2137,7 @@ class hitbtc(Exchange, ImplicitAPI):
         if symbol is not None:
             market = self.market(symbol)
         request = {
-            "order_id": id,  # exchange assigned order id to the client order id
+            "order_id": id,  # exchange assigned order id as oppose to the client order id
         }
         marketType = None
         marginMode = None
@@ -2618,7 +2618,7 @@ class hitbtc(Exchange, ImplicitAPI):
         #     }
         #
         id = self.safe_string(order, "client_order_id")
-        # we use clientOrderId order id with self exchange intentionally
+        # we use clientOrderId as the order id with self exchange intentionally
         # because most of their endpoints will require clientOrderId
         # explained here: https://github.com/ccxt/ccxt/issues/5674
         side = self.safe_string(order, "side")
@@ -2818,7 +2818,7 @@ class hitbtc(Exchange, ImplicitAPI):
         fromNetwork = self.safe_string(networks, fromNetwork)  # handle ETH>ERC20 alias
         toNetwork = self.safe_string(networks, toNetwork)  # handle ETH>ERC20 alias
         if fromNetwork == toNetwork:
-            raise BadRequest(self.id + " convertCurrencyNetwork() fromNetwork cannot be the same")
+            raise BadRequest(self.id + " convertCurrencyNetwork() fromNetwork cannot be the same as toNetwork")
         if (fromNetwork is None) or (toNetwork is None):
             keys = list(networks.keys())
             raise ArgumentsRequired(

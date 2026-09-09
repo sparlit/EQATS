@@ -1488,7 +1488,7 @@ class mexc(Exchange, ImplicitAPI):
         #                 "contractSize":0.0001,
         #                 "minLeverage":1,
         #                 "maxLeverage":125,
-        #                 "priceScale":2,  # seems useless atm,'s just how UI shows the price, i.e. 29583.50 for BTC/USDT:USDT, while price ticksize is 0.5
+        #                 "priceScale":2,  # seems useless atm, as it's just how UI shows the price, i.e. 29583.50 for BTC/USDT:USDT, while price ticksize is 0.5
         #                 "volScale":0,  # probably: contract amount precision
         #                 "amountScale":4,  # probably: quote currency precision
         #                 "priceUnit":0.5,  # price tick size
@@ -1924,7 +1924,7 @@ class mexc(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.until]: timestamp in ms of the latest candle to fetch
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [availble parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -3663,7 +3663,7 @@ class mexc(Exchange, ImplicitAPI):
         #         "price": "2.9",  # not present in stop-market, but in stop-limit order
         #         "executeCycle": "87600",
         #         "trend": "1",
-        #          # below keys are same regular order structure
+        #          # below keys are same as in regular order structure
         #         "symbol": "STEPN_USDT",
         #         "leverage": "20",
         #         "side": "1",
@@ -3755,7 +3755,7 @@ class mexc(Exchange, ImplicitAPI):
             "MARKET": "market",
             "LIMIT": "limit",
             "LIMIT_MAKER": "limit",
-            # on spot, during submission below types are used only accepted order
+            # on spot, during submission below types are used only accepted as limit order
             "IMMEDIATE_OR_CANCEL": "limit",
             "FILL_OR_KILL": "limit",
         }
