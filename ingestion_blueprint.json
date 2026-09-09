@@ -1,5 +1,5 @@
 {
-  "current_index": 23,
+  "current_index": 6,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -46,7 +46,7 @@
       "target": "85599/banknifty-golden-ratio-strategy",
       "url": "https://github.com/85599/banknifty-golden-ratio-strategy",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2295",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2296",
       "merged": true
     },
     {
