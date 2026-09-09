@@ -518,8 +518,8 @@
       "target": "avirichie/nse-closing-stock-price-prediction-using-lstm",
       "url": "https://github.com/avirichie/nse-closing-stock-price-prediction-using-lstm",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2256",
+      "merged": true
     },
     {
       "name": "stockmart",
