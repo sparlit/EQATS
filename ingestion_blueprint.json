@@ -943,7 +943,7 @@
       "url": "https://github.com/dhruvan246/stocks-dashboard",
       "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-delivery-data",
