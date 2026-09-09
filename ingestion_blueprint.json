@@ -1,5 +1,5 @@
 {
-  "current_index": 66,
+  "current_index": 67,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -533,9 +533,9 @@
       "name": "orderflowmap",
       "target": "azhagesan-dev/orderflowmap",
       "url": "https://github.com/azhagesan-dev/orderflowmap",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2259",
+      "merged": true
     },
     {
       "name": "nse-options-data-collector",
