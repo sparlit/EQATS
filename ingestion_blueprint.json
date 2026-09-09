@@ -1,5 +1,5 @@
 {
-  "current_index": 148,
+  "current_index": 149,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1189,9 +1189,9 @@
       "name": "nse-oi-analysis",
       "target": "hawkeyecoding/nse-oi-analysis",
       "url": "https://github.com/hawkeyecoding/nse-oi-analysis",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2165",
+      "merged": true
     },
     {
       "name": "trendmaster",
