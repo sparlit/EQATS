@@ -19,31 +19,3 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-import time
-
-import flask_app
-
-app = flask_app.app
-app.config["TESTING"] = True
-c = app.test_client()
-
-# Test main route
-start = time.time()
-r = c.get("/")
-elapsed = time.time() - start
-html = r.data.decode()
-print("Main route:", r.status_code, "in", f"{elapsed:.3f}s")
-
-# Test all API endpoints
-endpoints = [
-    "/api/dashboard/gainers",
-    "/api/dashboard/losers",
-    "/api/dashboard/chart-data",
-    "/api/dashboard/sector-performance",
-    "/api/dashboard/watchlist",
-]
-for ep in endpoints:
-    r = c.get(ep)
-    print(ep, "->", r.status_code)
