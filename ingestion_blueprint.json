@@ -1,5 +1,5 @@
 {
-  "current_index": 3,
+  "current_index": 4,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -29,9 +29,9 @@
       "name": "stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
       "target": "0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
       "url": "https://github.com/0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2321",
+      "merged": true
     },
     {
       "name": "hyperliquid-trading-bot-rust",
