@@ -166,7 +166,7 @@ Total Repositories: 411 | Current Index: 164
 | 161 | huseinzol05/stock-prediction-models | Processed | https://github.com/sparlit/EQATS/pull/2178 |
 | 162 | hyphenos/tickdownload | Processed | https://github.com/sparlit/EQATS/pull/2179 |
 | 163 | ibm/nse-observer | Processed | https://github.com/sparlit/EQATS/pull/2180 |
-| 164 | imanojkumar/nse-india-all-stocks-tickers-data | Processed | None |
+| 164 | imanojkumar/nse-india-all-stocks-tickers-data | Processed | https://github.com/sparlit/EQATS/pull/2181 |
 | 165 | indianfoods-automation/nse | pending | None |
 | 166 | indra5196/nsestockanalyser | pending | None |
 | 167 | infinitefield/hypersdk | pending | None |
