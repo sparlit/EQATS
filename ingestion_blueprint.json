@@ -1,5 +1,5 @@
 {
-  "current_index": 74,
+  "current_index": 75,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -597,9 +597,9 @@
       "name": "nseindiaapi",
       "target": "bennythadikaran/nseindiaapi",
       "url": "https://github.com/bennythadikaran/nseindiaapi",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2265",
+      "merged": true
     },
     {
       "name": "nse-trading-skills",
