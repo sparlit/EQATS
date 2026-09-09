@@ -1118,8 +1118,8 @@
       "target": "girishg4t/bhavcopy-downloader",
       "url": "https://github.com/girishg4t/bhavcopy-downloader",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2154",
+      "merged": true
     },
     {
       "name": "nse-bse-bhavcopy",
