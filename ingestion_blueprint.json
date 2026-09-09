@@ -1054,8 +1054,8 @@
       "target": "finstacklabs/finstack-mcp",
       "url": "https://github.com/finstacklabs/finstack-mcp",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2146",
+      "merged": true
     },
     {
       "name": "dingir-exchange",
