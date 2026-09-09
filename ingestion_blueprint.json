@@ -1286,8 +1286,8 @@
       "target": "huseinzol05/stock-prediction-models",
       "url": "https://github.com/huseinzol05/stock-prediction-models",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2178",
+      "merged": true
     },
     {
       "name": "tickdownload",
