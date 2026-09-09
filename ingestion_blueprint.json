@@ -1,5 +1,5 @@
 {
-  "current_index": 7,
+  "current_index": 8,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -61,9 +61,9 @@
       "name": "ai-trader",
       "target": "aaryansinha16/ai-trader",
       "url": "https://github.com/aaryansinha16/ai-trader",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2198",
+      "merged": true
     },
     {
       "name": "ai-for-finance-stocks-real-time-analysis-",
