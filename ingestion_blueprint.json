@@ -1,5 +1,5 @@
 {
-  "current_index": 146,
+  "current_index": 147,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1173,9 +1173,9 @@
       "name": "statistical-arbitrage-model",
       "target": "harshadannina/statistical-arbitrage-model",
       "url": "https://github.com/harshadannina/statistical-arbitrage-model",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2162",
+      "merged": true
     },
     {
       "name": "stockchain",
