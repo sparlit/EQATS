@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 64
+Total Repositories: 411 | Current Index: 65
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -67,7 +67,7 @@ Total Repositories: 411 | Current Index: 64
 | 62 | augmentalphawealth/sectoral-breadth-dashboard | Completed | https://github.com/sparlit/EQATS/pull/2253 |
 | 63 | avhz/rustquant | Processed | https://github.com/sparlit/EQATS/pull/2254 |
 | 64 | avin1311/nse-bse-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2255 |
-| 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | pending | None |
+| 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | Processed | None |
 | 66 | ayushmaanbhav/stockmart | pending | None |
 | 67 | azhagesan-dev/orderflowmap | pending | None |
 | 68 | barathgb007/nse-options-data-collector | pending | None |
