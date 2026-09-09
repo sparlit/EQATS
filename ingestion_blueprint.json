@@ -1,5 +1,5 @@
 {
-  "current_index": 17,
+  "current_index": 18,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -141,9 +141,9 @@
       "name": "ngrcoydisclosures",
       "target": "ajakaiye33/ngrcoydisclosures",
       "url": "https://github.com/ajakaiye33/ngrcoydisclosures",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2308",
+      "merged": true
     },
     {
       "name": "indian-trading-skills",
