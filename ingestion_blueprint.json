@@ -1,5 +1,5 @@
 {
-  "current_index": 37,
+  "current_index": 38,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -301,9 +301,9 @@
       "name": "nse-system",
       "target": "ankitchaudhary6886/nse-system",
       "url": "https://github.com/ankitchaudhary6886/nse-system",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2229",
+      "merged": true
     },
     {
       "name": "nse_scrapper",
