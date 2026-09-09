@@ -766,8 +766,8 @@
       "target": "clayborninconsistent906/indian-stock-market-api",
       "url": "https://github.com/clayborninconsistent906/indian-stock-market-api",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2283",
+      "merged": true
     },
     {
       "name": "nse-ohlc-scraper-plotter",
