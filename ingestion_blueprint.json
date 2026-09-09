@@ -246,8 +246,8 @@
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2368",
+      "merged": true
     },
     {
       "name": "nse-swing-scanner",
