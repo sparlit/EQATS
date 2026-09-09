@@ -1,5 +1,5 @@
 {
-  "current_index": 27,
+  "current_index": 28,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -221,9 +221,9 @@
       "name": "nse",
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2219",
+      "merged": true
     },
     {
       "name": "raptorbt",
