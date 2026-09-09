@@ -1,5 +1,5 @@
 {
-  "current_index": 96,
+  "current_index": 97,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -773,9 +773,9 @@
       "name": "nse-ohlc-scraper-plotter",
       "target": "codegallivant/nse-ohlc-scraper-plotter",
       "url": "https://github.com/codegallivant/nse-ohlc-scraper-plotter",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2284",
+      "merged": true
     },
     {
       "name": "polymarket-trading-bot-rust",
