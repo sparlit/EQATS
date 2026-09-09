@@ -35,7 +35,7 @@ class AutoPRHealer:
         """Auto-resolves git merge or rebase conflicts non-interactively by accepting current changes as default."""
         print("[*] Auto-resolving merge conflicts (accepting current changes as default)...")
 
-        # 1. Clean residual conflict markers from source files prioritizing current changes
+        # 1. Clean residual conflict markers from source files prioritizing current changes (pre-======= block)
         for p in self.root_dir.glob("**/*.py"):
             if p.exists() and not any(part.startswith(".") for part in p.parts):
                 try:
@@ -44,21 +44,25 @@ class AutoPRHealer:
                         lines = content.splitlines()
                         cleaned = []
                         in_conflict = False
-                        current_block = []
+                        ours_block = []
+                        past_separator = False
 
                         for line in lines:
                             if line.startswith("<<<<<<<"):
                                 in_conflict = True
-                                current_block = []
+                                ours_block = []
+                                past_separator = False
                             elif line.startswith("======="):
-                                current_block = []
+                                past_separator = True
                             elif line.startswith(">>>>>>>"):
                                 in_conflict = False
-                                cleaned.extend(current_block)
-                                current_block = []
+                                cleaned.extend(ours_block)
+                                ours_block = []
+                                past_separator = False
                             else:
                                 if in_conflict:
-                                    current_block.append(line)
+                                    if not past_separator:
+                                        ours_block.append(line)
                                 else:
                                     cleaned.append(line)
 
@@ -67,10 +71,10 @@ class AutoPRHealer:
                     pass
 
         # 2. Checkout current changes for remaining unresolved unparsed files
-        self.run_cmd("git checkout --theirs .")
+        self.run_cmd("git checkout --ours .")
         self.run_cmd("git add .")
 
-        reb_code, _ = self.run_cmd("GIT_EDITOR=true git rebase --continue")
+        reb_code, _ = self.run_cmd("git rebase --continue", env_vars={"GIT_EDITOR": "true"})
         if reb_code != 0:
             self.run_cmd("git commit --no-edit")
         return True
@@ -184,11 +188,14 @@ class AutoPRHealer:
 
         return False
 
-    def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0) -> tuple[int, str]:
-        """Executes shell command with built-in retry logic."""
+    def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0, env_vars: dict[str, str] | None = None) -> tuple[int, str]:
+        """Executes shell command with built-in retry logic and cross-platform environment variables."""
+        env = os.environ.copy()
+        if env_vars:
+            env.update(env_vars)
         for attempt in range(1, retries + 1):
             try:
-                res = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False)
+                res = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, env=env, check=False)
                 if res.returncode == 0 or attempt == retries:
                     return (res.returncode, res.stdout + "\n" + res.stderr)
                 time.sleep(delay)
