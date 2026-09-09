@@ -1,5 +1,5 @@
 {
-  "current_index": 45,
+  "current_index": 46,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -365,9 +365,9 @@
       "name": "algo-trade",
       "target": "aravin/algo-trade",
       "url": "https://github.com/aravin/algo-trade",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2237",
+      "merged": true
     },
     {
       "name": "nse-data",
