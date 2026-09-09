@@ -34,7 +34,7 @@ Total Repositories: 411 | Current Index: 32
 | 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2366 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2367 |
 | 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2368 |
-| 32 | amitashwinibhagat/nse-swing-scanner | Completed | None |
+| 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2370 |
 | 33 | amv-dev/yata | pending | None |
 | 34 | aneesh540/vse | pending | None |
 | 35 | animesh4002/ai-stock-screener | pending | None |
