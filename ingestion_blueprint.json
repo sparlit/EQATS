@@ -542,8 +542,8 @@
       "target": "barathgb007/nse-options-data-collector",
       "url": "https://github.com/barathgb007/nse-options-data-collector",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2260",
+      "merged": true
     },
     {
       "name": "upstox-python-data",
