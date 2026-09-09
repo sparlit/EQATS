@@ -1,5 +1,5 @@
 {
-  "current_index": 163,
+  "current_index": 164,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1309,7 +1309,7 @@
       "name": "nse-india-all-stocks-tickers-data",
       "target": "imanojkumar/nse-india-all-stocks-tickers-data",
       "url": "https://github.com/imanojkumar/nse-india-all-stocks-tickers-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
