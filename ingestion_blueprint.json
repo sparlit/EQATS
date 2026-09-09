@@ -238,8 +238,8 @@
       "target": "althk/zerobha",
       "url": "https://github.com/althk/zerobha",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2221",
+      "merged": true
     },
     {
       "name": "tickgrinder",
