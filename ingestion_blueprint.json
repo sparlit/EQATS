@@ -974,8 +974,8 @@
       "target": "edtechre/pybroker",
       "url": "https://github.com/edtechre/pybroker",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2135",
+      "merged": true
     },
     {
       "name": "mtfdb",
