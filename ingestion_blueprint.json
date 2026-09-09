@@ -1,5 +1,5 @@
 {
-  "current_index": 64,
+  "current_index": 65,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -517,9 +517,9 @@
       "name": "nse-closing-stock-price-prediction-using-lstm",
       "target": "avirichie/nse-closing-stock-price-prediction-using-lstm",
       "url": "https://github.com/avirichie/nse-closing-stock-price-prediction-using-lstm",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2256",
+      "merged": true
     },
     {
       "name": "stockmart",
