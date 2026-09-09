@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 7
+Total Repositories: 411 | Current Index: 26
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -8,8 +8,8 @@ Total Repositories: 411 | Current Index: 7
 | 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2322 |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2325 |
-| 6 | 85599/banknifty-golden-ratio-strategy | Processed | None |
-| 7 | aadityatamrakar/option_chain_analysis | Processed | https://github.com/sparlit/EQATS/pull/2329 |
+| 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
+| 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | pending | None |
 | 10 | abuhurairalakdawala/indian-share-market | pending | None |
@@ -28,7 +28,7 @@ Total Repositories: 411 | Current Index: 7
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2314 |
 | 24 | akshayz14/indian-stock-tracker | Completed | https://github.com/sparlit/EQATS/pull/2326 |
 | 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2328 |
-| 26 | alexwan/osengine | pending | None |
+| 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2330 |
 | 27 | algotrading-lab/ai-algotrading-agent | pending | None |
 | 28 | alloc7260/nse | pending | None |
 | 29 | alphabench/raptorbt | pending | None |
