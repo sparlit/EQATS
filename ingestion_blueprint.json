@@ -1,5 +1,5 @@
 {
-  "current_index": 55,
+  "current_index": 56,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -445,9 +445,9 @@
       "name": "rust-finance",
       "target": "ashutosh0x/rust-finance",
       "url": "https://github.com/ashutosh0x/rust-finance",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2247",
+      "merged": true
     },
     {
       "name": "live-nse-stock",
