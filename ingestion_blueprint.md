@@ -30,7 +30,7 @@ Total Repositories: 411 | Current Index: 28
 | 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2216 |
 | 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2217 |
 | 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2218 |
-| 28 | alloc7260/nse | Processed | None |
+| 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2219 |
 | 29 | alphabench/raptorbt | pending | None |
 | 30 | althk/zerobha | pending | None |
 | 31 | ameobea/tickgrinder | pending | None |

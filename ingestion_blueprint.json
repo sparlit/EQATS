@@ -222,8 +222,8 @@
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2219",
+      "merged": true
     },
     {
       "name": "raptorbt",
