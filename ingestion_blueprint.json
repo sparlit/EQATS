@@ -1,5 +1,5 @@
 {
-  "current_index": 40,
+  "current_index": 41,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -325,9 +325,9 @@
       "name": "nse-oi-visualizer",
       "target": "anshuthopsee/nse-oi-visualizer",
       "url": "https://github.com/anshuthopsee/nse-oi-visualizer",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2232",
+      "merged": true
     },
     {
       "name": "rust-trading-engine",
