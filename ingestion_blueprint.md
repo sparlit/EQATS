@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 80
+Total Repositories: 411 | Current Index: 81
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -83,7 +83,7 @@ Total Repositories: 411 | Current Index: 80
 | 78 | bitbytelabio/tradingview-rs | Processed | None |
 | 79 | blitzarx1/netstrat | Processed | None |
 | 80 | bohr1005/xcrypto | Processed | https://github.com/sparlit/EQATS/pull/2268 |
-| 81 | braverock/nse | pending | None |
+| 81 | braverock/nse | Processed | None |
 | 82 | bshada/nse-bse-api | pending | None |
 | 83 | bshada/nse-bse-mcp | pending | None |
 | 84 | buzzsubash/algo_trading_strategies_india | pending | None |
