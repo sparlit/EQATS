@@ -68,7 +68,7 @@ Total Repositories: 411 | Current Index: 26
 | 63 | avhz/rustquant | pending | None |
 | 64 | avin1311/nse-bse-dashboard | pending | None |
 | 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | pending | None |
-| 66 | ayushmaanbhav/stockmart | Processed | https://github.com/sparlit/EQATS/pull/2258 |
+| 66 | ayushmaanbhav/stockmart | pending | None |
 | 67 | azhagesan-dev/orderflowmap | pending | None |
 | 68 | barathgb007/nse-options-data-collector | pending | None |
 | 69 | barathgb007/upstox-python-data | pending | None |
