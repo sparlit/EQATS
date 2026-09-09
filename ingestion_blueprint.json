@@ -1,5 +1,5 @@
 {
-  "current_index": 161,
+  "current_index": 162,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1293,9 +1293,9 @@
       "name": "tickdownload",
       "target": "hyphenos/tickdownload",
       "url": "https://github.com/hyphenos/tickdownload",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2179",
+      "merged": true
     },
     {
       "name": "nse-observer",
