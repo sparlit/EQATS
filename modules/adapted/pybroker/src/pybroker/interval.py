@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 from numba import njit
 from numpy.typing import NDArray
+
 from pybroker.common import BarData, DataCol, IndicatorSymbol, to_seconds
 
 _BASE_TIMEFRAME_TOLERANCE_SECONDS = 1.0

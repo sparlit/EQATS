@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from joblib import delayed
 from numpy.typing import NDArray
+
 from pybroker import vect
 from pybroker.cache import CacheDateFields, IndicatorCacheKey
 from pybroker.common import BarData, DataCol, IndicatorSymbol

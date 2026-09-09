@@ -1,11 +1,11 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 24
+Total Repositories: 411 | Current Index: 122
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
 | 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2315 |
-| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2317 |
-| 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/2320 |
+| 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
+| 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2322 |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2325 |
 | 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
@@ -26,7 +26,7 @@ Total Repositories: 411 | Current Index: 24
 | 21 | akashyadavv/algotradingnse | pending | None |
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2313 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2314 |
-| 24 | akshayz14/indian-stock-tracker | Completed | https://github.com/sparlit/EQATS/pull/2326 |
+| 24 | akshayz14/indian-stock-tracker | pending | None |
 | 25 | akt114/buynsell | pending | None |
 | 26 | alexwan/osengine | pending | None |
 | 27 | algotrading-lab/ai-algotrading-agent | pending | None |
@@ -68,7 +68,7 @@ Total Repositories: 411 | Current Index: 24
 | 63 | avhz/rustquant | pending | None |
 | 64 | avin1311/nse-bse-dashboard | pending | None |
 | 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | pending | None |
-| 66 | ayushmaanbhav/stockmart | pending | None |
+| 66 | ayushmaanbhav/stockmart | Processed | https://github.com/sparlit/EQATS/pull/2258 |
 | 67 | azhagesan-dev/orderflowmap | pending | None |
 | 68 | barathgb007/nse-options-data-collector | pending | None |
 | 69 | barathgb007/upstox-python-data | pending | None |
@@ -124,7 +124,7 @@ Total Repositories: 411 | Current Index: 24
 | 119 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/2132 |
 | 120 | dpeachpeach/kalshi-rust | Processed | https://github.com/sparlit/EQATS/pull/2318 |
 | 121 | edison7009/echobird | Completed | https://github.com/sparlit/EQATS/pull/2323 |
-| 122 | edtechre/pybroker | pending | None |
+| 122 | edtechre/pybroker | Completed | None |
 | 123 | eggmasonvalue/mtfdb | pending | None |
 | 124 | ej9909-create/nse_52wk_screener | pending | None |
 | 125 | ekanshsinghal/indian-stock-market | pending | None |
