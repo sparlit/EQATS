@@ -1,5 +1,5 @@
 {
-  "current_index": 119,
+  "current_index": 120,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -957,9 +957,9 @@
       "name": "kalshi-rust",
       "target": "dpeachpeach/kalshi-rust",
       "url": "https://github.com/dpeachpeach/kalshi-rust",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2133",
+      "merged": true
     },
     {
       "name": "echobird",
