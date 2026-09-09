@@ -774,8 +774,8 @@
       "target": "codegallivant/nse-ohlc-scraper-plotter",
       "url": "https://github.com/codegallivant/nse-ohlc-scraper-plotter",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2284",
+      "merged": true
     },
     {
       "name": "polymarket-trading-bot-rust",
