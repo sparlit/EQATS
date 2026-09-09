@@ -1246,8 +1246,8 @@
       "target": "himanshumohanty-git24/rakshaquant",
       "url": "https://github.com/himanshumohanty-git24/rakshaquant",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2173",
+      "merged": true
     },
     {
       "name": "bse_nse_announcement",
