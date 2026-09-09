@@ -566,8 +566,8 @@
       "target": "beinghorizontal/bhavfno",
       "url": "https://github.com/beinghorizontal/bhavfno",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2262",
+      "merged": true
     },
     {
       "name": "advanced-nse-momentum-terminal",
