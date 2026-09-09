@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 Optimized + corrected backtester.
 - Precomputed indicators (no per-day recomputation)
@@ -5,16 +28,17 @@ Optimized + corrected backtester.
 - Pending buy-stop orders (enter at trigger, not close)
 - PDL stop + 5% rule enforced
 """
+import time
 from dataclasses import dataclass, field
 from typing import List
-import time
+
+import db
 import numpy as np
 import pandas as pd
 import yfinance as yf
-
-import db
 from regime import MarketRegime
 from setup import SetupDetector
+
 
 @dataclass
 class Trade:
@@ -30,9 +54,10 @@ class Trade:
     holding_days: int
     exit_reason: str
 
+
 @dataclass
 class BacktestResult:
-    trades: List[Trade] = field(default_factory=list)
+    trades: list[Trade] = field(default_factory=list)
     initial_capital: float = 1_000_000
     slippage_pct: float = 0.001
     commission_pct: float = 0.0005
@@ -40,13 +65,16 @@ class BacktestResult:
     max_pending_orders: int = 20
 
     @property
-    def total_trades(self): return len(self.trades)
+    def total_trades(self):
+        return len(self.trades)
 
     @property
-    def wins(self): return sum(1 for t in self.trades if t.pnl_pct > 0)
+    def wins(self):
+        return sum(1 for t in self.trades if t.pnl_pct > 0)
 
     @property
-    def losses(self): return sum(1 for t in self.trades if t.pnl_pct <= 0)
+    def losses(self):
+        return sum(1 for t in self.trades if t.pnl_pct <= 0)
 
     @property
     def win_rate(self):
@@ -76,27 +104,24 @@ class BacktestResult:
     def max_drawdown(self):
         if not self.trades:
             return 0.0
-        eq = np.array([self.initial_capital] +
-                      [self.initial_capital * (1 + t.pnl_pct)
-                       for t in self.trades])
+        eq = np.array([self.initial_capital] + [self.initial_capital * (1 + t.pnl_pct) for t in self.trades])
         peak = np.maximum.accumulate(eq)
         return float(np.max((peak - eq) / peak))
 
     @property
     def avg_holding_days(self):
-        return float(np.mean([t.holding_days for t in self.trades])) \
-            if self.trades else 0.0
+        return float(np.mean([t.holding_days for t in self.trades])) if self.trades else 0.0
 
     @property
     def total_return(self):
         r = 1.0
         for t in self.trades:
-            r *= (1 + t.pnl_pct)
+            r *= 1 + t.pnl_pct
         return r - 1.0 if self.trades else 0.0
 
     def summary(self):
         return (
-            f"\n{'='*60}\n  BACKTEST SUMMARY\n{'='*60}\n"
+            f"\n{'=' * 60}\n  BACKTEST SUMMARY\n{'=' * 60}\n"
             f"  Total trades      : {self.total_trades}\n"
             f"  Wins / Losses     : {self.wins} / {self.losses}\n"
             f"  Win Rate          : {self.win_rate:.1%}\n"
@@ -107,7 +132,9 @@ class BacktestResult:
             f"  Total Return      : {self.total_return:+.2%}\n"
             f"  Max Drawdown      : {self.max_drawdown:.2%}\n"
             f"  Avg Holding Days  : {self.avg_holding_days:.1f}\n"
-            f"{'='*60}")
+            f"{'=' * 60}"
+        )
+
 
 def _naive_index(df):
     try:
@@ -115,6 +142,7 @@ def _naive_index(df):
     except Exception:
         df.index = pd.to_datetime(df.index)
     return df
+
 
 class Backtester:
     HOLD_DAYS_MAX = 30
@@ -132,11 +160,12 @@ class Backtester:
         rows = conn.execute(
             "SELECT date, open, high, low, close, volume "
             "FROM prices_daily WHERE symbol=? AND date>=? "
-            "AND date<=? ORDER BY date", (db_sym, start, end)).fetchall()
+            "AND date<=? ORDER BY date",
+            (db_sym, start, end),
+        ).fetchall()
         conn.close()
         if len(rows) >= 260:
-            df = pd.DataFrame(list(rows), columns=["date", "Open",
-                              "High", "Low", "Close", "Volume"])
+            df = pd.DataFrame(list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"])
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date")
             for col in ["Open", "High", "Low", "Close", "Volume"]:
@@ -145,10 +174,8 @@ class Backtester:
             return df.dropna(subset=["Open", "High", "Low", "Close"])
         try:
             time.sleep(0.25)
-            d = yf.Ticker(sym).history(start=start, end=end,
-                                       auto_adjust=True)
-            return _naive_index(d) if d is not None and len(d) > 260 \
-                else None
+            d = yf.Ticker(sym).history(start=start, end=end, auto_adjust=True)
+            return _naive_index(d) if d is not None and len(d) > 260 else None
         except Exception:
             return None
 
@@ -161,12 +188,21 @@ class Backtester:
         e200 = pd.Series(c).ewm(span=200, adjust=False).mean().values
         vs20 = pd.Series(v).rolling(20).mean().values
         hh252 = pd.Series(h).rolling(252).max().values
-        expl = (v > 2.5 * pd.Series(v).rolling(50).mean().values)
-        volok = pd.Series(expl.astype(float)).rolling(60).max().shift(1)\
-            .fillna(0).values
+        expl = v > 2.5 * pd.Series(v).rolling(50).mean().values
+        volok = pd.Series(expl.astype(float)).rolling(60).max().shift(1).fillna(0).values
         pos = {d: i for i, d in enumerate(dfr.index)}
-        return dict(c=c, h=h, l=l, v=v, e200=e200, vs20=vs20,
-                    hh252=hh252, volok=volok, pos=pos, idx=dfr.index)
+        return {
+            "c": c,
+            "h": h,
+            "l": l,
+            "v": v,
+            "e200": e200,
+            "vs20": vs20,
+            "hh252": hh252,
+            "volok": volok,
+            "pos": pos,
+            "idx": dfr.index,
+        }
 
     def run(self, symbols, start, end):
         days = (pd.Timestamp(end) - pd.Timestamp(start)).days + 30
@@ -202,36 +238,60 @@ class Backtester:
                 row = data[sym].loc[date]
                 held = (date - pos["entry_date"]).days
                 if row["Low"] <= pos["stop"]:
-                    ex = pos["stop"] * (1 - self.result.slippage_pct
-                                        - self.result.commission_pct)
-                    self.result.trades.append(Trade(
-                        sym, str(pos["entry_date"].date()),
-                        str(date.date()), "LONG", pos["entry_price"],
-                        ex, pos["stop"], pos["target"],
-                        (ex - pos["entry_price"]) / pos["entry_price"],
-                        held, "STOP"))
+                    ex = pos["stop"] * (1 - self.result.slippage_pct - self.result.commission_pct)
+                    self.result.trades.append(
+                        Trade(
+                            sym,
+                            str(pos["entry_date"].date()),
+                            str(date.date()),
+                            "LONG",
+                            pos["entry_price"],
+                            ex,
+                            pos["stop"],
+                            pos["target"],
+                            (ex - pos["entry_price"]) / pos["entry_price"],
+                            held,
+                            "STOP",
+                        )
+                    )
                     to_close.append(sym)
                     continue
                 if row["High"] >= pos["target"]:
-                    ex = pos["target"] * (1 - self.result.slippage_pct
-                                          - self.result.commission_pct)
-                    self.result.trades.append(Trade(
-                        sym, str(pos["entry_date"].date()),
-                        str(date.date()), "LONG", pos["entry_price"],
-                        ex, pos["stop"], pos["target"],
-                        (ex - pos["entry_price"]) / pos["entry_price"],
-                        held, "TARGET"))
+                    ex = pos["target"] * (1 - self.result.slippage_pct - self.result.commission_pct)
+                    self.result.trades.append(
+                        Trade(
+                            sym,
+                            str(pos["entry_date"].date()),
+                            str(date.date()),
+                            "LONG",
+                            pos["entry_price"],
+                            ex,
+                            pos["stop"],
+                            pos["target"],
+                            (ex - pos["entry_price"]) / pos["entry_price"],
+                            held,
+                            "TARGET",
+                        )
+                    )
                     to_close.append(sym)
                     continue
                 if held >= self.HOLD_DAYS_MAX:
-                    ex = row["Close"] * (1 - self.result.slippage_pct
-                                         - self.result.commission_pct)
-                    self.result.trades.append(Trade(
-                        sym, str(pos["entry_date"].date()),
-                        str(date.date()), "LONG", pos["entry_price"],
-                        ex, pos["stop"], pos["target"],
-                        (ex - pos["entry_price"]) / pos["entry_price"],
-                        held, "TIME_STOP"))
+                    ex = row["Close"] * (1 - self.result.slippage_pct - self.result.commission_pct)
+                    self.result.trades.append(
+                        Trade(
+                            sym,
+                            str(pos["entry_date"].date()),
+                            str(date.date()),
+                            "LONG",
+                            pos["entry_price"],
+                            ex,
+                            pos["stop"],
+                            pos["target"],
+                            (ex - pos["entry_price"]) / pos["entry_price"],
+                            held,
+                            "TIME_STOP",
+                        )
+                    )
                     to_close.append(sym)
             for sym in to_close:
                 open_positions.pop(sym, None)
@@ -248,14 +308,14 @@ class Backtester:
                     continue
                 row = data[sym].loc[date]
                 if row["High"] >= od["trigger"]:
-                    fill = od["trigger"] * (1 + self.result.slippage_pct
-                                            + self.result.commission_pct)
+                    fill = od["trigger"] * (1 + self.result.slippage_pct + self.result.commission_pct)
                     if od["stop"] < fill:
                         open_positions[sym] = {
-                            "entry_date": date, "entry_price": fill,
+                            "entry_date": date,
+                            "entry_price": fill,
                             "stop": od["stop"],
-                            "target": fill + self.TARGET_R *
-                            (fill - od["stop"])}
+                            "target": fill + self.TARGET_R * (fill - od["stop"]),
+                        }
                     to_rm.append(sym)
                 else:
                     pending_orders[sym]["bars"] += 1
@@ -290,9 +350,9 @@ class Backtester:
                     continue
                 prefilter_hits += 1
                 df_slice = pd.DataFrame(
-                    {"Close": c[:i + 1], "High": h[:i + 1],
-                     "Low": l[:i + 1], "Volume": v[:i + 1]},
-                    index=p["idx"][:i + 1])
+                    {"Close": c[: i + 1], "High": h[: i + 1], "Low": l[: i + 1], "Volume": v[: i + 1]},
+                    index=p["idx"][: i + 1],
+                )
                 st = SetupDetector.detect(df_slice, sym)
                 if not st.triggered:
                     continue
@@ -300,9 +360,7 @@ class Backtester:
                 risk_pct = (trig - st.stop_loss) / trig
                 if risk_pct <= 0 or risk_pct > 0.05:
                     continue
-                pending_orders[sym] = {"signal_date": date,
-                                       "trigger": trig,
-                                       "stop": st.stop_loss, "bars": 0}
+                pending_orders[sym] = {"signal_date": date, "trigger": trig, "stop": st.stop_loss, "bars": 0}
                 if len(pending_orders) >= self.result.max_pending_orders:
                     break
 
@@ -310,14 +368,22 @@ class Backtester:
             if data[sym].empty:
                 continue
             ld = data[sym].index[-1]
-            ex = data[sym].iloc[-1]["Close"] * (
-                1 - self.result.slippage_pct - self.result.commission_pct)
-            self.result.trades.append(Trade(
-                sym, str(pos["entry_date"].date()), str(ld.date()),
-                "LONG", pos["entry_price"], ex, pos["stop"],
-                pos["target"],
-                (ex - pos["entry_price"]) / pos["entry_price"],
-                (ld - pos["entry_date"]).days, "EOD_CLOSE"))
+            ex = data[sym].iloc[-1]["Close"] * (1 - self.result.slippage_pct - self.result.commission_pct)
+            self.result.trades.append(
+                Trade(
+                    sym,
+                    str(pos["entry_date"].date()),
+                    str(ld.date()),
+                    "LONG",
+                    pos["entry_price"],
+                    ex,
+                    pos["stop"],
+                    pos["target"],
+                    (ex - pos["entry_price"]) / pos["entry_price"],
+                    (ld - pos["entry_date"]).days,
+                    "EOD_CLOSE",
+                )
+            )
 
         print(f"   prefilter hits: {prefilter_hits}")
         return self.result

@@ -1,8 +1,33 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import datetime as dt
 import sys
 import time
-import datetime as dt
-import yfinance as yf
+
 import db
+import yfinance as yf
+
 
 def series(df, label):
     if df is None or label not in df.index:
@@ -10,11 +35,13 @@ def series(df, label):
     s = df.loc[label].dropna()
     return s if len(s) > 0 else None
 
+
 def latest(s):
     return float(s.iloc[0])
 
+
 def cagr(s, max_years=3):
-    vals = s.iloc[:max_years + 1].dropna()
+    vals = s.iloc[: max_years + 1].dropna()
     if len(vals) < 2:
         return None
     first, last = float(vals.iloc[-1]), float(vals.iloc[0])
@@ -22,6 +49,7 @@ def cagr(s, max_years=3):
     if first <= 0 or last <= 0:
         return None
     return ((last / first) ** (1.0 / years) - 1.0) * 100.0
+
 
 def fetch_one(conn, sym, name, sector):
     tk = yf.Ticker(sym + ".NS")
@@ -65,32 +93,38 @@ def fetch_one(conn, sym, name, sector):
 
     mcap = info.get("marketCap")
     row = (
-        sym, name, sector,
+        sym,
+        name,
+        sector,
         info.get("currentPrice") or info.get("regularMarketPrice"),
         None if mcap is None else mcap / 1e7,
-        info.get("trailingPE"), info.get("priceToBook"),
-        roe, roce, de, ic, om, nm,
+        info.get("trailingPE"),
+        info.get("priceToBook"),
+        roe,
+        roce,
+        de,
+        ic,
+        om,
+        nm,
         cagr(rev) if rev is not None else None,
         cagr(ni) if ni is not None else None,
-        None, None, None,
-        None if info.get("dividendYield") is None
-        else info.get("dividendYield") * 100.0,
-        1 if (ocf is not None and latest(ocf) > 0)
-        else (0 if ocf is not None else None),
+        None,
+        None,
+        None,
+        None if info.get("dividendYield") is None else info.get("dividendYield") * 100.0,
+        1 if (ocf is not None and latest(ocf) > 0) else (0 if ocf is not None else None),
         "calc:" + dt.datetime.now().isoformat(),
     )
     conn.execute("DELETE FROM fundamentals WHERE symbol=?", (sym,))
-    conn.execute(
-        "INSERT INTO fundamentals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+    conn.execute("INSERT INTO fundamentals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
     conn.commit()
     return True
 
+
 def run(force=False):
     conn = db.get_conn()
-    have = {r[0] for r in conn.execute(
-        "SELECT symbol FROM fundamentals WHERE uploaded_at LIKE 'calc:%'")}
-    stocks = conn.execute(
-        "SELECT symbol,name,sector FROM stocks WHERE active=1 ORDER BY symbol").fetchall()
+    have = {r[0] for r in conn.execute("SELECT symbol FROM fundamentals WHERE uploaded_at LIKE 'calc:%'")}
+    stocks = conn.execute("SELECT symbol,name,sector FROM stocks WHERE active=1 ORDER BY symbol").fetchall()
     total = len(stocks)
     failed = []
     for i, (sym, name, sector) in enumerate(stocks, 1):
@@ -104,16 +138,16 @@ def run(force=False):
                 ok = True
                 break
             except Exception as e:
-                print(f"[{i}/{total}] {sym} attempt {attempt+1} failed: {type(e).__name__}")
+                print(f"[{i}/{total}] {sym} attempt {attempt + 1} failed: {type(e).__name__}")
                 time.sleep(5 * (attempt + 1))
         if not ok:
             failed.append(sym)
         time.sleep(0.5)
-    print("FAILED:", failed if failed else "none")
-    n = conn.execute(
-        "SELECT COUNT(*) FROM fundamentals WHERE uploaded_at LIKE 'calc:%'").fetchone()[0]
+    print("FAILED:", failed or "none")
+    n = conn.execute("SELECT COUNT(*) FROM fundamentals WHERE uploaded_at LIKE 'calc:%'").fetchone()[0]
     print(f"Computed fundamentals stored: {n} stocks")
     conn.close()
+
 
 if len(sys.argv) > 1 and sys.argv[1] == "run":
     run()
