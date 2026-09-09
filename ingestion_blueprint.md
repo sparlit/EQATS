@@ -37,7 +37,7 @@ Total Repositories: 411 | Current Index: 35
 | 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2223 |
 | 33 | amv-dev/yata | Processed | https://github.com/sparlit/EQATS/pull/2224 |
 | 34 | aneesh540/vse | Processed | https://github.com/sparlit/EQATS/pull/2225 |
-| 35 | animesh4002/ai-stock-screener | Completed | None |
+| 35 | animesh4002/ai-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/2226 |
 | 36 | aniruddhsujish/nsetradeagents | pending | None |
 | 37 | anjulgarg/sharewatch | pending | None |
 | 38 | ankitchaudhary6886/nse-system | pending | None |

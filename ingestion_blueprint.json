@@ -278,8 +278,8 @@
       "target": "animesh4002/ai-stock-screener",
       "url": "https://github.com/animesh4002/ai-stock-screener",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2226",
+      "merged": true
     },
     {
       "name": "nsetradeagents",
