@@ -1294,8 +1294,8 @@
       "target": "hyphenos/tickdownload",
       "url": "https://github.com/hyphenos/tickdownload",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2179",
+      "merged": true
     },
     {
       "name": "nse-observer",
