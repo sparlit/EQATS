@@ -1,5 +1,5 @@
 {
-  "current_index": 104,
+  "current_index": 105,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -837,7 +837,7 @@
       "name": "geger",
       "target": "day0market/geger",
       "url": "https://github.com/day0market/geger",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
