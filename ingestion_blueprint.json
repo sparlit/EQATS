@@ -1,5 +1,5 @@
 {
-  "current_index": 29,
+  "current_index": 30,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -237,9 +237,9 @@
       "name": "zerobha",
       "target": "althk/zerobha",
       "url": "https://github.com/althk/zerobha",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2367",
+      "merged": true
     },
     {
       "name": "tickgrinder",
