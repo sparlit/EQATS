@@ -758,8 +758,8 @@
       "target": "chulilee/interchangabletrade-protocol",
       "url": "https://github.com/chulilee/interchangabletrade-protocol",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2282",
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
