@@ -1,5 +1,5 @@
 {
-  "current_index": 80,
+  "current_index": 81,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -645,9 +645,9 @@
       "name": "nse",
       "target": "braverock/nse",
       "url": "https://github.com/braverock/nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2269",
+      "merged": true
     },
     {
       "name": "nse-bse-api",
