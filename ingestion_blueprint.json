@@ -1,5 +1,5 @@
 {
-  "current_index": 131,
+  "current_index": 132,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1053,9 +1053,9 @@
       "name": "finstack-mcp",
       "target": "finstacklabs/finstack-mcp",
       "url": "https://github.com/finstacklabs/finstack-mcp",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2146",
+      "merged": true
     },
     {
       "name": "dingir-exchange",
