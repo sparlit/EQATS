@@ -703,7 +703,7 @@
       "url": "https://github.com/ccxt/ccxt",
       "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "financial-info-extractor",
