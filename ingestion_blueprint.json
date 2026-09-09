@@ -1350,8 +1350,8 @@
       "target": "ishaan3h/india-sector-screener",
       "url": "https://github.com/ishaan3h/india-sector-screener",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2186",
+      "merged": true
     },
     {
       "name": "nse-scanner",
