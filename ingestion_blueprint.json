@@ -1,5 +1,5 @@
 {
-  "current_index": 115,
+  "current_index": 116,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -925,7 +925,7 @@
       "name": "top-gainers-and-losers-nse",
       "target": "devangmukherjee/top-gainers-and-losers-nse",
       "url": "https://github.com/devangmukherjee/top-gainers-and-losers-nse",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
