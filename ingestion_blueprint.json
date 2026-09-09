@@ -1,5 +1,5 @@
 {
-  "current_index": 126,
+  "current_index": 127,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1013,9 +1013,9 @@
       "name": "botvana",
       "target": "featherenvy/botvana",
       "url": "https://github.com/featherenvy/botvana",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2140",
+      "merged": true
     },
     {
       "name": "nse-sharia-news-feed",
