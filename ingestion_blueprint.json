@@ -1,5 +1,5 @@
 {
-  "current_index": 124,
+  "current_index": 125,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -997,9 +997,9 @@
       "name": "indian-stock-market",
       "target": "ekanshsinghal/indian-stock-market",
       "url": "https://github.com/ekanshsinghal/indian-stock-market",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2346",
+      "merged": true
     },
     {
       "name": "rust-trade",
