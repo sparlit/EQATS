@@ -398,8 +398,8 @@
       "target": "asavinov/intelligent-trading-bot",
       "url": "https://github.com/asavinov/intelligent-trading-bot",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2241",
+      "merged": true
     },
     {
       "name": "nse-sentiment-analyzer",
