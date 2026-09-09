@@ -374,8 +374,8 @@
       "target": "aravin/nse-data",
       "url": "https://github.com/aravin/nse-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2238",
+      "merged": true
     },
     {
       "name": "nse-live_testing",
