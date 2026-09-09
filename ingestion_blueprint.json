@@ -78,8 +78,8 @@
       "target": "abuhurairalakdawala/indian-share-market",
       "url": "https://github.com/abuhurairalakdawala/indian-share-market",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2200",
+      "merged": true
     },
     {
       "name": "devsecops-full-integration-chain",
