@@ -1087,7 +1087,7 @@
       "url": "https://github.com/ganeshbiyer/nse_historical_data",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "kronos-india",
