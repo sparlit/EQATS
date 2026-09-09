@@ -1046,8 +1046,8 @@
       "target": "ferrumfix/ferrumfix",
       "url": "https://github.com/ferrumfix/ferrumfix",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2145",
+      "merged": true
     },
     {
       "name": "finstack-mcp",

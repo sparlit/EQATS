@@ -133,7 +133,7 @@ Total Repositories: 411 | Current Index: 131
 | 128 | feroz-ghub-26/nse-sharia-news-feed | Completed | https://github.com/sparlit/EQATS/pull/2141 |
 | 129 | feroze/yfinance-stock-history | Completed | https://github.com/sparlit/EQATS/pull/2142 |
 | 130 | ferozmd53/nse-preopen-data | Completed | https://github.com/sparlit/EQATS/pull/2143 |
-| 131 | ferrumfix/ferrumfix | Processed | None |
+| 131 | ferrumfix/ferrumfix | Processed | https://github.com/sparlit/EQATS/pull/2145 |
 | 132 | finstacklabs/finstack-mcp | pending | None |
 | 133 | fluidex/dingir-exchange | pending | None |
 | 134 | gabriel-milan/btrader | pending | None |
