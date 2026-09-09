@@ -138,7 +138,7 @@ Total Repositories: 411 | Current Index: 136
 | 133 | fluidex/dingir-exchange | Processed | https://github.com/sparlit/EQATS/pull/2147 |
 | 134 | gabriel-milan/btrader | Processed | https://github.com/sparlit/EQATS/pull/2148 |
 | 135 | gadiyar/nsebhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2149 |
-| 136 | ganeshbiyer/nse_historical_data | Processed | None |
+| 136 | ganeshbiyer/nse_historical_data | Processed | https://github.com/sparlit/EQATS/pull/2158 |
 | 137 | georgiag7652/kronos-india | pending | None |
 | 138 | get10101/10101 | pending | None |
 | 139 | ghostjat/shoonya-php | pending | None |
