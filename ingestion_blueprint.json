@@ -1,5 +1,5 @@
 {
-  "current_index": 167,
+  "current_index": 168,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1341,9 +1341,9 @@
       "name": "coinbase-pro-rs",
       "target": "inv2004/coinbase-pro-rs",
       "url": "https://github.com/inv2004/coinbase-pro-rs",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2185",
+      "merged": true
     },
     {
       "name": "india-sector-screener",
