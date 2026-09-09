@@ -1,5 +1,5 @@
 {
-  "current_index": 85,
+  "current_index": 86,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -685,9 +685,9 @@
       "name": "nse-support-tools",
       "target": "c3point/nse-support-tools",
       "url": "https://github.com/c3point/nse-support-tools",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2274",
+      "merged": true
     },
     {
       "name": "rotala",
