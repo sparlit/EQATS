@@ -1,5 +1,5 @@
 {
-  "current_index": 117,
+  "current_index": 118,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -941,9 +941,9 @@
       "name": "stocks-dashboard",
       "target": "dhruvan246/stocks-dashboard",
       "url": "https://github.com/dhruvan246/stocks-dashboard",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-delivery-data",
