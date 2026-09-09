@@ -1,5 +1,5 @@
 {
-  "current_index": 99,
+  "current_index": 100,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -797,7 +797,7 @@
       "name": "coinsignal",
       "target": "crypto-crawler/coinsignal",
       "url": "https://github.com/crypto-crawler/coinsignal",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
