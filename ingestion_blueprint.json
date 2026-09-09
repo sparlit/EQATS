@@ -102,8 +102,8 @@
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2303",
+      "merged": true
     },
     {
       "name": "nsepythonserver",
