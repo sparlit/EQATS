@@ -550,8 +550,8 @@
       "target": "barathgb007/upstox-python-data",
       "url": "https://github.com/barathgb007/upstox-python-data",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2261",
+      "merged": true
     },
     {
       "name": "barter-rs",

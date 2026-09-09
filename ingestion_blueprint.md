@@ -71,7 +71,7 @@ Total Repositories: 411 | Current Index: 69
 | 66 | ayushmaanbhav/stockmart | Processed | https://github.com/sparlit/EQATS/pull/2257 |
 | 67 | azhagesan-dev/orderflowmap | Processed | https://github.com/sparlit/EQATS/pull/2259 |
 | 68 | barathgb007/nse-options-data-collector | Completed | https://github.com/sparlit/EQATS/pull/2260 |
-| 69 | barathgb007/upstox-python-data | Completed | None |
+| 69 | barathgb007/upstox-python-data | Completed | https://github.com/sparlit/EQATS/pull/2261 |
 | 70 | barter-rs/barter-rs | pending | None |
 | 71 | beinghorizontal/bhavfno | pending | None |
 | 72 | benimward9621/advanced-nse-momentum-terminal | pending | None |
