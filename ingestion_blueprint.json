@@ -1,5 +1,5 @@
 {
-  "current_index": 77,
+  "current_index": 78,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -621,9 +621,9 @@
       "name": "tradingview-rs",
       "target": "bitbytelabio/tradingview-rs",
       "url": "https://github.com/bitbytelabio/tradingview-rs",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "netstrat",
