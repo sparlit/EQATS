@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 114
+Total Repositories: 411 | Current Index: 115
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -117,7 +117,7 @@ Total Repositories: 411 | Current Index: 114
 | 112 | deshpanda/nse-screener | Completed | None |
 | 113 | deshpanda/nse-screener-data | Processed | None |
 | 114 | deshwalmahesh/nse-stock-scanner | Completed | None |
-| 115 | devagam/chartink-to-tradingview-extension | pending | None |
+| 115 | devagam/chartink-to-tradingview-extension | Processed | None |
 | 116 | devangmukherjee/top-gainers-and-losers-nse | pending | None |
 | 117 | devanshx9x/portfolio-monte-carlo | pending | None |
 | 118 | dhruvan246/stocks-dashboard | pending | None |

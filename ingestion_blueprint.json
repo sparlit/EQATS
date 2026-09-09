@@ -1,5 +1,5 @@
 {
-  "current_index": 114,
+  "current_index": 115,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -917,7 +917,7 @@
       "name": "chartink-to-tradingview-extension",
       "target": "devagam/chartink-to-tradingview-extension",
       "url": "https://github.com/devagam/chartink-to-tradingview-extension",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
