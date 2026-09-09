@@ -326,8 +326,8 @@
       "target": "anshuthopsee/nse-oi-visualizer",
       "url": "https://github.com/anshuthopsee/nse-oi-visualizer",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2232",
+      "merged": true
     },
     {
       "name": "rust-trading-engine",
