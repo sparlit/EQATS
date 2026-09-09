@@ -750,8 +750,8 @@
       "target": "chinthan-11/nse-bse-arbitrage-bot",
       "url": "https://github.com/chinthan-11/nse-bse-arbitrage-bot",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2281",
+      "merged": true
     },
     {
       "name": "interchangabletrade-protocol",
