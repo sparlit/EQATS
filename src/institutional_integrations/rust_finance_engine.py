@@ -5,7 +5,8 @@ Rust Finance Analytics & Risk Engine (Ashutosh0x/rust-finance Adaptation)
 Target Integration: Ashutosh0x/rust-finance
 Magic Number: 9100056
 
-Provides Black-Scholes analytical option pricing, Monte Carlo Value-at-Risk (VaR) calculation,
+Provides Black-Scholes analytical option pricing, Delta/Gamma/Theta/Vega Greeks calculation,
+Delta-Neutral Short Strangle framing, Gamma Scalping Delta Rebalancing, Monte Carlo Value-at-Risk (VaR),
 0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
 """
 
@@ -50,7 +51,8 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class RustFinanceEngine:
     """
-    High-Performance Institutional Analytics & Quantitative Risk Engine.
+    High-Performance Institutional Analytics, Option Greeks, Delta-Neutral Income Generation,
+    and Gamma Scalping Delta Rebalancing Engine.
     """
 
     def __init__(self, risk_free_rate: float = 0.07) -> None:
@@ -59,6 +61,9 @@ class RustFinanceEngine:
 
     def _norm_cdf(self, x: float) -> float:
         return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+
+    def _norm_pdf(self, x: float) -> float:
+        return math.exp(-0.5 * x**2) / math.sqrt(2.0 * math.pi)
 
     def calculate_black_scholes(
         self,
@@ -69,24 +74,94 @@ class RustFinanceEngine:
         option_type: str = "CALL",
     ) -> Dict[str, float]:
         """
-        Analytical Black-Scholes option pricing and Delta Greek.
+        Analytical Black-Scholes option pricing and Greeks (Delta, Gamma, Theta, Vega).
         """
         if spot <= 0 or strike <= 0 or time_to_expiry <= 0 or volatility <= 0:
-            return {"price": 0.0, "delta": 0.0}
+            return {"price": 0.0, "delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0}
 
         d1 = (math.log(spot / strike) + (self.rf_rate + 0.5 * volatility**2) * time_to_expiry) / (
             volatility * math.sqrt(time_to_expiry)
         )
         d2 = d1 - volatility * math.sqrt(time_to_expiry)
 
+        gamma = self._norm_pdf(d1) / (spot * volatility * math.sqrt(time_to_expiry))
+        vega = spot * self._norm_pdf(d1) * math.sqrt(time_to_expiry) / 100.0
+
         if option_type.upper() == "CALL":
             price = spot * self._norm_cdf(d1) - strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(d2)
             delta = self._norm_cdf(d1)
+            theta = (
+                - (spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
+                - self.rf_rate * strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(d2)
+            ) / 365.0
         else:
             price = strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(-d2) - spot * self._norm_cdf(-d1)
             delta = self._norm_cdf(d1) - 1.0
+            theta = (
+                - (spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
+                + self.rf_rate * strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(-d2)
+            ) / 365.0
 
-        return {"price": round_tick_005(price), "delta": round(delta, 4)}
+        return {
+            "price": round_tick_005(price),
+            "delta": round(delta, 4),
+            "gamma": round(gamma, 6),
+            "theta": round(theta, 4),
+            "vega": round(vega, 4),
+            "magic_number": float(self.magic_number),
+        }
+
+    def calculate_gamma_scalping_rebalance(
+        self, portfolio_delta: float, delta_threshold: float = 0.20, lot_size: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Calculates underlying futures/micro-lot rebalancing order to maintain Delta Neutrality (Delta = 0).
+        Triggers rebalancing when absolute net portfolio delta exceeds delta_threshold (default 0.20).
+        """
+        rebalance_needed = abs(portfolio_delta) >= delta_threshold
+
+        if not rebalance_needed:
+            return {
+                "rebalance_needed": False,
+                "current_portfolio_delta": round(portfolio_delta, 4),
+                "action": "HOLD_DELTA",
+                "rebalance_qty": 0,
+                "magic_number": self.magic_number,
+            }
+
+        rebalance_qty = int(round(abs(portfolio_delta) * lot_size))
+        action = "SELL_FUTURES" if portfolio_delta > 0 else "BUY_FUTURES"
+
+        return {
+            "rebalance_needed": True,
+            "current_portfolio_delta": round(portfolio_delta, 4),
+            "rebalance_qty": rebalance_qty,
+            "action": action,
+            "magic_number": self.magic_number,
+        }
+
+    def frame_delta_neutral_strangle(
+        self, spot: float, volatility: float, time_to_expiry: float, target_delta: float = 0.15
+    ) -> Dict[str, Any]:
+        call_strike = round_tick_005(spot * (1.0 + target_delta * volatility * math.sqrt(time_to_expiry)))
+        put_strike = round_tick_005(spot * (1.0 - target_delta * volatility * math.sqrt(time_to_expiry)))
+
+        call_greeks = self.calculate_black_scholes(spot, call_strike, time_to_expiry, volatility, "CALL")
+        put_greeks = self.calculate_black_scholes(spot, put_strike, time_to_expiry, volatility, "PUT")
+
+        net_delta = round(call_greeks["delta"] + put_greeks["delta"], 4)
+        daily_theta_income = round(abs(call_greeks["theta"]) + abs(put_greeks["theta"]), 2)
+
+        return {
+            "call_strike": call_strike,
+            "put_strike": put_strike,
+            "call_price": call_greeks["price"],
+            "put_price": put_greeks["price"],
+            "net_delta": net_delta,
+            "daily_theta_income": round_tick_005(daily_theta_income),
+            "strategy": "DELTA_NEUTRAL_STRANGLE",
+            "magic_number": self.magic_number,
+        }
 
     def calculate_value_at_risk(
         self,
@@ -95,20 +170,12 @@ class RustFinanceEngine:
         confidence_level: float = 0.99,
         time_horizon_days: int = 1,
     ) -> float:
-        """
-        Parametric Value-at-Risk (VaR) calculation for portfolio risk bounds.
-        """
-        # Z-score for 99% -> 2.326, 95% -> 1.645
         z_score = 2.326 if confidence_level >= 0.99 else 1.645
         var_amount = portfolio_value * z_score * daily_volatility * math.sqrt(time_horizon_days)
         return round_tick_005(var_amount)
 
 
 class RustFinanceBrokerAdapter(SEBIBrokerAdapter):
-    """
-    SEBI Broker Adapter wrapper for Rust Finance Engine.
-    """
-
     def __init__(self, broker_name: str = "RUST_FINANCE") -> None:
         super().__init__()
         self.broker_name = broker_name
@@ -186,5 +253,4 @@ class RustFinanceBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register in microkernel plugin registry
 IndianBrokerPluginRegistry.register("RUST_FINANCE", RustFinanceBrokerAdapter)
