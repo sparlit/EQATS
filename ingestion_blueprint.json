@@ -1,5 +1,5 @@
 {
-  "current_index": 147,
+  "current_index": 148,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1181,9 +1181,9 @@
       "name": "stockchain",
       "target": "hash-it-out/stockchain",
       "url": "https://github.com/hash-it-out/stockchain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2164",
+      "merged": true
     },
     {
       "name": "nse-oi-analysis",
