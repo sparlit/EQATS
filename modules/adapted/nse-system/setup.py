@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 Hiren Gabani Master Pullback — OFFICIAL v3 + shape score.
 6-point checklist + mother-candle trigger + PDL stop + 5% rule
@@ -5,8 +28,10 @@ Hiren Gabani Master Pullback — OFFICIAL v3 + shape score.
 """
 from dataclasses import dataclass, field
 from typing import List
+
 import numpy as np
 import pandas as pd
+
 
 @dataclass
 class Setup:
@@ -24,7 +49,8 @@ class Setup:
     impulse_pct: float
     ema_proximity: str
     shape_score: int = 0
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
+
 
 class SetupDetector:
     IMPULSE_LOOKBACK = 90
@@ -57,8 +83,7 @@ class SetupDetector:
             res = cls._eval(df.iloc[:n], symbol)
             if res is not None:
                 return res
-        return Setup(symbol, False, "", 0, 0, 0, 0, 0, 0, 0, 0, "",
-                     ["no completed pattern in last 3 sessions"])
+        return Setup(symbol, False, "", 0, 0, 0, 0, 0, 0, 0, 0, "", ["no completed pattern in last 3 sessions"])
 
     @classmethod
     def _eval(cls, df: pd.DataFrame, symbol: str):
@@ -73,23 +98,20 @@ class SetupDetector:
 
         trs = []
         for i in range(1, len(c)):
-            trs.append(max(h[i] - l[i], abs(h[i] - c[i - 1]),
-                           abs(l[i] - c[i - 1])))
+            trs.append(max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1])))
         atr14 = float(np.mean(trs[-14:])) if len(trs) >= 14 else None
 
         # --- 1. Impulse 25-50%, clean above 10 EMA ---
         impulse_end_idx = -cls.PB_LOOKBACK
-        seg = h[impulse_end_idx - cls.IMPULSE_LOOKBACK:impulse_end_idx]
+        seg = h[impulse_end_idx - cls.IMPULSE_LOOKBACK : impulse_end_idx]
         swing_high = float(np.max(seg))
-        swing_high_idx = (int(np.argmax(seg)) + impulse_end_idx
-                          - cls.IMPULSE_LOOKBACK)
-        swing_low_before = float(np.min(
-            l[max(0, swing_high_idx - 40):swing_high_idx + 1]))
+        swing_high_idx = int(np.argmax(seg)) + impulse_end_idx - cls.IMPULSE_LOOKBACK
+        swing_low_before = float(np.min(l[max(0, swing_high_idx - 40) : swing_high_idx + 1]))
         impulse_pct = (swing_high - swing_low_before) / swing_low_before
         if not (cls.IMPULSE_MIN_PCT <= impulse_pct <= cls.IMPULSE_MAX_PCT):
             return None
-        ic = c[swing_high_idx:impulse_end_idx + 1]
-        ie = ema10[swing_high_idx:impulse_end_idx + 1]
+        ic = c[swing_high_idx : impulse_end_idx + 1]
+        ie = ema10[swing_high_idx : impulse_end_idx + 1]
         if int(np.sum(ic < ie)) > max(2, int(0.25 * len(ic))):
             return None
 
@@ -124,25 +146,21 @@ class SetupDetector:
         # --- 4. Tighten at 10/20 EMA ---
         near10 = abs(current_low - ema10[-1]) / ema10[-1] <= cls.EMA_TOUCH_MULT
         near20 = abs(current_low - ema20[-1]) / ema20[-1] <= cls.EMA_TOUCH_MULT
-        in_zone = (current_low <= ema10[-1] * 1.02 and
-                   current_low >= ema20[-1] * 0.98)
+        in_zone = current_low <= ema10[-1] * 1.02 and current_low >= ema20[-1] * 0.98
         if not (near10 or near20 or in_zone):
             return None
-        ema_proximity = "EMA10" if near10 else ("EMA20" if near20
-                                                else "ZONE")
+        ema_proximity = "EMA10" if near10 else ("EMA20" if near20 else "ZONE")
 
         # --- 5. Volume dry-up ---
         vol_now = vol_sma20[-1]
         avg3 = float(np.mean(v[-3:]))
-        if np.isnan(vol_now) or not (avg3 < 0.8 * vol_now or
-                                     v[-1] < 0.7 * vol_now):
+        if np.isnan(vol_now) or not (avg3 < 0.8 * vol_now or v[-1] < 0.7 * vol_now):
             return None
 
         # --- 6. Mother candle: tight cluster OR inside bar ---
         def is_tight(i):
             inside = h[i] < h[i - 1] and l[i] > l[i - 1]
-            narrow = (atr14 is not None and
-                      (h[i] - l[i]) <= cls.TIGHT_ATR_MULT * atr14)
+            narrow = atr14 is not None and (h[i] - l[i]) <= cls.TIGHT_ATR_MULT * atr14
             return inside or narrow
 
         inside_last = bool(h[-1] < h[-2] and l[-1] > l[-2])
@@ -171,12 +189,12 @@ class SetupDetector:
 
         risk = entry_price - stop_loss
         return Setup(
-            symbol=symbol, triggered=True,
+            symbol=symbol,
+            triggered=True,
             signal_date=str(df.index[-1].date()),
             entry_price=round(entry_price, 2),
             stop_loss=round(stop_loss, 2),
-            target_price=round(entry_price +
-                               cls.TARGET_R_MULTIPLE * risk, 2),
+            target_price=round(entry_price + cls.TARGET_R_MULTIPLE * risk, 2),
             risk_reward=cls.TARGET_R_MULTIPLE,
             pullback_depth=round(pb_depth, 3),
             pullback_days=int(pb_days),
@@ -185,5 +203,5 @@ class SetupDetector:
             impulse_pct=round(impulse_pct, 3),
             ema_proximity=ema_proximity,
             shape_score=shape,
-            reasons=["OFFICIAL v3: pattern within last 3 sessions, "
-                     "SL=PDL, risk<=5%"])
+            reasons=[("OFFICIAL v3: pattern within last 3 sessions, SL=PDL, risk<=5%")],
+        )
