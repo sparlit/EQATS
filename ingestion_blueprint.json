@@ -1,5 +1,5 @@
 {
-  "current_index": 122,
+  "current_index": 11,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -85,7 +85,7 @@
       "name": "devsecops-full-integration-chain",
       "target": "adavarski/devsecops-full-integration-chain",
       "url": "https://github.com/adavarski/devsecops-full-integration-chain",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
@@ -973,7 +973,7 @@
       "name": "pybroker",
       "target": "edtechre/pybroker",
       "url": "https://github.com/edtechre/pybroker",
-      "status": "Completed",
+      "status": "pending",
       "pr_url": null,
       "merged": false
     },
