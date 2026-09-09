@@ -638,8 +638,8 @@
       "target": "bohr1005/xcrypto",
       "url": "https://github.com/bohr1005/xcrypto",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2268",
+      "merged": true
     },
     {
       "name": "nse",
