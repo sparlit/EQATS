@@ -662,8 +662,8 @@
       "target": "bshada/nse-bse-mcp",
       "url": "https://github.com/bshada/nse-bse-mcp",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2271",
+      "merged": true
     },
     {
       "name": "algo_trading_strategies_india",

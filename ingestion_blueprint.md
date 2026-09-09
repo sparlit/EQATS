@@ -85,7 +85,7 @@ Total Repositories: 411 | Current Index: 83
 | 80 | bohr1005/xcrypto | Processed | https://github.com/sparlit/EQATS/pull/2268 |
 | 81 | braverock/nse | Processed | https://github.com/sparlit/EQATS/pull/2269 |
 | 82 | bshada/nse-bse-api | Processed | https://github.com/sparlit/EQATS/pull/2270 |
-| 83 | bshada/nse-bse-mcp | Processed | None |
+| 83 | bshada/nse-bse-mcp | Processed | https://github.com/sparlit/EQATS/pull/2271 |
 | 84 | buzzsubash/algo_trading_strategies_india | pending | None |
 | 85 | c3point/in-stock-screener | pending | None |
 | 86 | c3point/nse-support-tools | pending | None |
