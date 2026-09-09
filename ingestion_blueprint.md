@@ -1,13 +1,13 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 26
+Total Repositories: 411 | Current Index: 0
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
-| 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2315 |
+| 1 | 0b01/tectonicdb | pending | None |
 | 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
 | 3 | 0xramm/indian-stock-market-api | pending | None |
-| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2322 |
-| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2325 |
+| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | pending | None |
 | 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
 | 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
@@ -21,14 +21,14 @@ Total Repositories: 411 | Current Index: 26
 | 16 | agrawalarnav129-ui/jarvis-trading | pending | None |
 | 17 | ai4finance-foundation/finrl-trading | pending | None |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |
-| 19 | ajeeshworkspace/indian-trading-skills | Completed | https://github.com/sparlit/EQATS/pull/2310 |
-| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2311 |
+| 19 | ajeeshworkspace/indian-trading-skills | pending | None |
+| 20 | akashnag/scripwatch | pending | None |
 | 21 | akashyadavv/algotradingnse | pending | None |
-| 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2313 |
-| 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2314 |
-| 24 | akshayz14/indian-stock-tracker | Completed | https://github.com/sparlit/EQATS/pull/2326 |
-| 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2328 |
-| 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2330 |
+| 22 | akshaypawar7/wods | pending | None |
+| 23 | akshayraje/get-nse-bhavcopy | pending | None |
+| 24 | akshayz14/indian-stock-tracker | pending | None |
+| 25 | akt114/buynsell | pending | None |
+| 26 | alexwan/osengine | pending | None |
 | 27 | algotrading-lab/ai-algotrading-agent | pending | None |
 | 28 | alloc7260/nse | pending | None |
 | 29 | alphabench/raptorbt | pending | None |
@@ -121,9 +121,9 @@ Total Repositories: 411 | Current Index: 26
 | 116 | devangmukherjee/top-gainers-and-losers-nse | pending | None |
 | 117 | devanshx9x/portfolio-monte-carlo | pending | None |
 | 118 | dhruvan246/stocks-dashboard | pending | None |
-| 119 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/2132 |
-| 120 | dpeachpeach/kalshi-rust | Processed | https://github.com/sparlit/EQATS/pull/2318 |
-| 121 | edison7009/echobird | Completed | https://github.com/sparlit/EQATS/pull/2323 |
+| 119 | dkraj0612/nse-delivery-data | pending | None |
+| 120 | dpeachpeach/kalshi-rust | pending | None |
+| 121 | edison7009/echobird | pending | None |
 | 122 | edtechre/pybroker | pending | None |
 | 123 | eggmasonvalue/mtfdb | pending | None |
 | 124 | ej9909-create/nse_52wk_screener | pending | None |
@@ -138,7 +138,7 @@ Total Repositories: 411 | Current Index: 26
 | 133 | fluidex/dingir-exchange | pending | None |
 | 134 | gabriel-milan/btrader | pending | None |
 | 135 | gadiyar/nsebhavcopy | pending | None |
-| 136 | ganeshbiyer/nse_historical_data | Processed | https://github.com/sparlit/EQATS/pull/2158 |
+| 136 | ganeshbiyer/nse_historical_data | pending | None |
 | 137 | georgiag7652/kronos-india | pending | None |
 | 138 | get10101/10101 | pending | None |
 | 139 | ghostjat/shoonya-php | pending | None |
@@ -174,7 +174,7 @@ Total Repositories: 411 | Current Index: 26
 | 169 | ishaan3h/india-sector-screener | pending | None |
 | 170 | itsnrk1/nse-scanner | pending | None |
 | 171 | jandginvestment/cci20-sma20-strategy | pending | None |
-| 172 | jayeshsrathod/nse-scanner | Completed | https://github.com/sparlit/EQATS/pull/2191 |
+| 172 | jayeshsrathod/nse-scanner | pending | None |
 | 173 | jensnesten/rust_bt | pending | None |
 | 174 | jerryshell/midas | pending | None |
 | 175 | jinit24/nsedownload | pending | None |
