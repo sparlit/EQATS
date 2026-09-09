@@ -1,5 +1,5 @@
 {
-  "current_index": 125,
+  "current_index": 11,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -85,9 +85,9 @@
       "name": "devsecops-full-integration-chain",
       "target": "adavarski/devsecops-full-integration-chain",
       "url": "https://github.com/adavarski/devsecops-full-integration-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2345",
+      "merged": true
     },
     {
       "name": "holiday-calendar.github.io",
@@ -973,7 +973,7 @@
       "name": "pybroker",
       "target": "edtechre/pybroker",
       "url": "https://github.com/edtechre/pybroker",
-      "status": "Completed",
+      "status": "pending",
       "pr_url": null,
       "merged": false
     },
