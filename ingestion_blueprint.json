@@ -1,5 +1,5 @@
 {
-  "current_index": 119,
+  "current_index": 2,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -13,7 +13,7 @@
       "name": "hyperliquid_rust_bot",
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
@@ -949,9 +949,9 @@
       "name": "nse-delivery-data",
       "target": "dkraj0612/nse-delivery-data",
       "url": "https://github.com/dkraj0612/nse-delivery-data",
-      "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2132",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "kalshi-rust",
