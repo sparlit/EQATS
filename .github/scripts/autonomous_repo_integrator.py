@@ -5,14 +5,20 @@ Processes repositories sequentially from repositories.txt / repo_list.md.
 
 Features:
 - Sequential 1-by-1 ingestion across 411 repositories.
-- Multi-tier Self-Healing Loop (Syntax repair, Ruff lint auto-fix, Mypy typing auto-fix, Pytest/Cargo test auto-fix).
-- Hardened Auto-PR and Auto-Merge GitHub Branch Loop with state ledger persistence
+- Multi-tier Self-Healing Loop:
+  * AST Syntax Repair
+  * Ruff Linter & Formatter (--fix --unsafe-fixes)
+  * Mypy Typing Annotation Repair
+  * Pytest / Cargo Verification
+  * LLM-Assisted AST Code Patch Fallback (OpenAI / NIM endpoint integration)
+- Hardened Auto-PR and Auto-Merge GitHub Branch Loop
 - Cross-platform support (Windows 11 Pro CMD/PowerShell & Linux/macOS POSIX)
 - Resilient JSON/Markdown state ledger persistence
 """
 
 import ast
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -236,6 +242,7 @@ class AutonomousRepoIntegrator:
         2. Ruff linter & format auto-fix
         3. Mypy type annotation auto-fix
         4. Pytest verification (exit code 0 or 5 for NO_TESTS_COLLECTED is considered success)
+        5. LLM-Assisted AST Repair Fallback (if LLM_API_KEY is available)
         Returns True if code passes checks, False otherwise.
         """
         print(f"[*] Initiating Self-Healing Loop for {file_path.name}...")
@@ -272,6 +279,8 @@ class AutonomousRepoIntegrator:
                     return True
                 print("  [-] Test verification failed. Applying auto-repair...")
                 self._auto_fix_test_failures(file_path, test_out)
+                # LLM Fallback Repair option
+                self._auto_fix_llm_fallback(file_path, test_out)
             elif file_path.suffix == ".rs":
                 exit_code, _rust_out = self.run_cmd("cargo check", cwd=file_path.parent)
                 if exit_code == 0:
@@ -330,6 +339,38 @@ class AutonomousRepoIntegrator:
         with file_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
+    def _auto_fix_llm_fallback(self, file_path: Path, error_logs: str):
+        """
+        LLM-Assisted Auto-Repair Fallback.
+        If LLM_API_KEY environment variable is present, dispatches the error traceback
+        and code snippet to generate a surgical syntactical patch.
+        """
+        api_key = os.getenv("LLM_API_KEY")
+        if not api_key:
+            return
+
+        try:
+            from openai import OpenAI
+            client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=api_key)
+            code = file_path.read_text(encoding="utf-8")
+
+            prompt = f"Fix Python syntax/type errors in this code:\n\n```python\n{code[:2000]}\n```\n\nERROR LOG:\n{error_logs[:1000]}\n\nReturn ONLY valid Python code."
+            response = client.chat.completions.create(
+                model="meta/llama-3.3-70b-instruct",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2048,
+                temperature=0.1
+            )
+            fixed_code = response.choices[0].message.content.strip()
+            fixed_code = re.sub(r"^```python\n?", "", fixed_code)
+            fixed_code = re.sub(r"\n?```$", "", fixed_code)
+
+            if len(fixed_code) > 20:
+                file_path.write_text(fixed_code, encoding="utf-8")
+                print(f"  [+] LLM Auto-Repair patch applied to {file_path.name}")
+        except Exception as llm_err:
+            print(f"  [-] LLM Auto-Repair skipped: {llm_err}")
+
     def execute_auto_pr_and_merge_loop(self, target: dict[str, str]) -> tuple[bool, str | None]:
         """Creates feature branch `integrate/<clean_repo_name>`, commits changes,
 
@@ -383,7 +424,6 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            # Commit updated ledger with PR details
             self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
             self.run_cmd('git commit -m "docs: record PR metadata in state ledger" --allow-empty')
             self.run_cmd(f"git push origin {branch_name} --force", retries=3)
@@ -431,7 +471,6 @@ class AutonomousRepoIntegrator:
             self.ledger["current_index"] += 1
             self.save_ledger()
 
-            # Push updated state directly to main so current_index advances on remote GHA runner!
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase", retries=3)
             self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
@@ -457,7 +496,7 @@ class AutonomousRepoIntegrator:
 
         target["status"] = "Completed" if integrated_count > 0 else "Processed"
         self.ledger["current_index"] += 1
-        self.save_ledger()  # Save updated current_index & blueprint FIRST so git add stages it!
+        self.save_ledger()
 
         success, pr_url = self.execute_auto_pr_and_merge_loop(target)
 
