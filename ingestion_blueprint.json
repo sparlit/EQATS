@@ -1278,8 +1278,8 @@
       "target": "hotessy/nse-historical-data",
       "url": "https://github.com/hotessy/nse-historical-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2177",
+      "merged": true
     },
     {
       "name": "stock-prediction-models",
