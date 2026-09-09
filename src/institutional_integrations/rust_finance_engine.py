@@ -6,7 +6,7 @@ Target Integration: Ashutosh0x/rust-finance
 Magic Number: 9100056
 
 Provides Black-Scholes analytical option pricing, Delta/Gamma/Theta/Vega Greeks calculation,
-Delta-Neutral Short Strangle / Iron Condor theta decay strategy framing, Monte Carlo Value-at-Risk (VaR),
+Delta-Neutral Short Strangle framing, Gamma Scalping Delta Rebalancing, Monte Carlo Value-at-Risk (VaR),
 0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
 """
 
@@ -51,7 +51,8 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class RustFinanceEngine:
     """
-    High-Performance Institutional Analytics, Option Greeks, and Delta-Neutral Income Generation Engine.
+    High-Performance Institutional Analytics, Option Greeks, Delta-Neutral Income Generation,
+    and Gamma Scalping Delta Rebalancing Engine.
     """
 
     def __init__(self, risk_free_rate: float = 0.07) -> None:
@@ -110,12 +111,38 @@ class RustFinanceEngine:
             "magic_number": float(self.magic_number),
         }
 
+    def calculate_gamma_scalping_rebalance(
+        self, portfolio_delta: float, delta_threshold: float = 0.20, lot_size: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Calculates underlying futures/micro-lot rebalancing order to maintain Delta Neutrality (Delta = 0).
+        Triggers rebalancing when absolute net portfolio delta exceeds delta_threshold (default 0.20).
+        """
+        rebalance_needed = abs(portfolio_delta) >= delta_threshold
+
+        if not rebalance_needed:
+            return {
+                "rebalance_needed": False,
+                "current_portfolio_delta": round(portfolio_delta, 4),
+                "action": "HOLD_DELTA",
+                "rebalance_qty": 0,
+                "magic_number": self.magic_number,
+            }
+
+        rebalance_qty = int(round(abs(portfolio_delta) * lot_size))
+        action = "SELL_FUTURES" if portfolio_delta > 0 else "BUY_FUTURES"
+
+        return {
+            "rebalance_needed": True,
+            "current_portfolio_delta": round(portfolio_delta, 4),
+            "rebalance_qty": rebalance_qty,
+            "action": action,
+            "magic_number": self.magic_number,
+        }
+
     def frame_delta_neutral_strangle(
         self, spot: float, volatility: float, time_to_expiry: float, target_delta: float = 0.15
     ) -> Dict[str, Any]:
-        """
-        Calculates optimal Call and Put strikes to construct a Delta-Neutral Short Strangle to capture Option Theta Time Decay.
-        """
         call_strike = round_tick_005(spot * (1.0 + target_delta * volatility * math.sqrt(time_to_expiry)))
         put_strike = round_tick_005(spot * (1.0 - target_delta * volatility * math.sqrt(time_to_expiry)))
 
@@ -143,19 +170,12 @@ class RustFinanceEngine:
         confidence_level: float = 0.99,
         time_horizon_days: int = 1,
     ) -> float:
-        """
-        Parametric Value-at-Risk (VaR) calculation for portfolio risk bounds.
-        """
         z_score = 2.326 if confidence_level >= 0.99 else 1.645
         var_amount = portfolio_value * z_score * daily_volatility * math.sqrt(time_horizon_days)
         return round_tick_005(var_amount)
 
 
 class RustFinanceBrokerAdapter(SEBIBrokerAdapter):
-    """
-    SEBI Broker Adapter wrapper for Rust Finance Engine.
-    """
-
     def __init__(self, broker_name: str = "RUST_FINANCE") -> None:
         super().__init__()
         self.broker_name = broker_name

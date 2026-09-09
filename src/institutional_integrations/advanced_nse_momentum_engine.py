@@ -6,7 +6,8 @@ Target Integration: benimward9621/advanced-nse-momentum-terminal
 Magic Number: 9100072
 
 Provides Relative Strength (RS) momentum scoring, volatility-adjusted trend evaluation,
-sector rotation screening, 0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
+Sector Relative Strength Ranking Matrix, 0.05 INR price tick rounding, IST market session validation,
+and microkernel plugin binding.
 """
 
 import math
@@ -50,12 +51,32 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class AdvancedNSEMomentumEngine:
     """
-    Relative Strength Momentum & Volatility-Adjusted Trend Engine.
+    Relative Strength Momentum, Volatility-Adjusted Trend & Sector RS Ranking Engine.
     """
 
     def __init__(self, rs_benchmark_symbol: str = "NIFTY50") -> None:
         self.benchmark_symbol = rs_benchmark_symbol
         self.magic_number = MAGIC_NUMBER_ADVANCED_NSE_MOMENTUM
+
+    def rank_sector_relative_strength_matrix(
+        self, sector_returns: Dict[str, float], benchmark_return: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Ranks all sector indices by Relative Strength (RS) score relative to benchmark (e.g. NIFTY 50).
+        Only top performing sector indices get approved for stock entry filtering.
+        """
+        ranked_sectors = []
+        for sector_name, ret in sector_returns.items():
+            rs_score = round(ret - benchmark_return, 2)
+            ranked_sectors.append({
+                "sector": sector_name.upper().strip(),
+                "sector_return": round(ret, 2),
+                "benchmark_return": round(benchmark_return, 2),
+                "rs_score": rs_score,
+                "is_approved_leadership": rs_score >= 1.0,
+            })
+
+        return sorted(ranked_sectors, key=lambda x: x["rs_score"], reverse=True)
 
     def calculate_relative_strength(self, stock_prices: List[float], benchmark_prices: List[float]) -> Dict[str, Any]:
         """
@@ -196,5 +217,4 @@ class AdvancedNSEMomentumBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register in microkernel plugin registry
 IndianBrokerPluginRegistry.register("ADVANCED_NSE_MOMENTUM", AdvancedNSEMomentumBrokerAdapter)
