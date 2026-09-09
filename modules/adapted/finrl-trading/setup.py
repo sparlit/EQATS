@@ -6,7 +6,12 @@ import pytz
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    else:
+        if dt.tzinfo is None:
+            dt = ist.localize(dt)
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -81,59 +86,5 @@ setup(
     keywords="quantitative trading machine learning reinforcement learning alpaca finance",
     python_requires=">=3.11",
     install_requires=read_requirements(),
-    extras_require={
-        "dev": [
-            "pytest>=7.4.0",
-            "pytest-cov>=4.1.0",
-            "pytest-asyncio>=0.21.0",
-            "black>=23.0.0",
-            "flake8>=6.1.0",
-            "mypy>=1.7.0",
-            "pre-commit>=3.5.0",
-        ],
-        "docs": [
-            "sphinx>=7.2.0",
-            "sphinx-rtd-theme>=1.3.0",
-            "myst-parser>=2.0.0",
-        ],
-        "web": [
-            "streamlit>=1.28.0",
-            "plotly>=5.15.0",
-            "seaborn>=0.12.0",
-        ],
-        "ml": [
-            "torch>=2.0.0",
-            "gymnasium>=0.29.0",
-            "stable-baselines3>=2.1.0",
-            "xgboost>=2.0.0",
-            "lightgbm>=4.1.0",
-        ],
-        "database": [
-            "psycopg2-binary>=2.9.0",
-            "sqlalchemy>=2.0.0",
-        ],
-        "all": [
-            "torch>=2.0.0",
-            "gymnasium>=0.29.0",
-            "stable-baselines3>=2.1.0",
-            "xgboost>=2.0.0",
-            "lightgbm>=4.1.0",
-            "psycopg2-binary>=2.9.0",
-            "sphinx>=7.2.0",
-            "sphinx-rtd-theme>=1.3.0",
-        ],
-    },
-    entry_points={
-        "console_scripts": [
-            "finrl=src.main:main",
-            "finrl-dashboard=src.main:main_dashboard",
-            "finrl-backtest=src.main:main_backtest",
-            "finrl-trade=src.main:main_trade",
-        ],
-    },
-    include_package_data=True,
-    zip_safe=False,
-    data_files=[
-        ("config", ["requirements.txt"]),
-    ],
+    extras_require={},
 )

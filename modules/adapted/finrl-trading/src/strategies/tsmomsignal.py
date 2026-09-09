@@ -1,12 +1,23 @@
 import datetime
+import os
+from collections.abc import Iterable
+from typing import Dict, Optional
 
+import pandas as pd
 import pytz
+from strategies.base_signal import BaseSignalEngine
+from strategies.strategylogger import StrategyLogger
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    else:
+        if dt.tzinfo is None:
+            dt = ist.localize(dt)
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -21,15 +32,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import os
-from collections.abc import Iterable
-from typing import Dict, Optional
-
-import pandas as pd
-from strategies.base_signal import BaseSignalEngine
-from strategies.strategylogger import StrategyLogger
-
-
 class TSMOMSignalEngine(BaseSignalEngine):
     """
     TS-MOM (Moskowitz et al., 2012)
@@ -41,21 +43,19 @@ class TSMOMSignalEngine(BaseSignalEngine):
 
     def __init__(
         self,
-        strategy_name="tsmom",
-        col_map=None,
-        universe_mgr=None,
-        logger=None,
-        chunk_size=200000,
-        multi_file=True,
-        lookback_months=12,  # lookback 按月
-        neutral_band=0.10,  # 信号区间
-        # === NEW: 信号时间区间 ===
-        signal_start_date=None,
-        signal_end_date=None,
-        data_start_date=None,
-        data_end_date=None,
+        strategy_name: str = "tsmom",
+        col_map: dict | None = None,
+        universe_mgr: object | None = None,
+        logger: StrategyLogger | None = None,
+        chunk_size: int = 200000,
+        multi_file: bool = True,
+        lookback_months: int = 12,
+        neutral_band: float = 0.10,
+        signal_start_date: str | None = None,
+        signal_end_date: str | None = None,
+        data_start_date: str | None = None,
+        data_end_date: str | None = None,
     ):
-        # === FIX: 你原来 super 传参错位置，这里纠正 ===
         super().__init__(
             strategy_name=strategy_name,
             col_map=col_map,
@@ -63,7 +63,6 @@ class TSMOMSignalEngine(BaseSignalEngine):
             logger=logger,
             chunk_size=chunk_size,
             multi_file=multi_file,
-            # === NEW: 信号时间区间传入基类 ===
             signal_start_date=signal_start_date,
             signal_end_date=signal_end_date,
             data_start_date=data_start_date,
@@ -73,11 +72,9 @@ class TSMOMSignalEngine(BaseSignalEngine):
         self.lookback_months = lookback_months
         self.neutral_band = neutral_band
 
-        # === NEW: data_end_date 默认等于 signal_end_date ===
         if self.data_end_date is None:
             self.data_end_date = self.signal_end_date
 
-        # === NEW: logger record ===
         if self.logger:
             self.logger.log_error(
                 f"[TSMOM INIT] signal=[{self.signal_start_date} ~ {self.signal_end_date}], "
@@ -85,49 +82,5 @@ class TSMOMSignalEngine(BaseSignalEngine):
                 f"lookback_months={self.lookback_months}"
             )
 
-    # =====================================================
-    # === NEW: 告诉 BaseSignalEngine 我是月度频率 (M) ===
-    # =====================================================
-    def get_signal_frequency(self):
+    def get_signal_frequency(self) -> str:
         return "M"
-
-    # =====================================================
-    # 单股票的月度信号生成
-    # =====================================================
-    def generate_signal_one_ticker(self, df):
-
-        # === NEW: 数据时间过滤 (data_start / data_end) ===
-        if self.data_start_date is not None:
-            df = df[df["date"] >= self.data_start_date]
-        if self.data_end_date is not None:
-            df = df[df["date"] <= self.data_end_date]
-
-        df = df.sort_values("date").copy()
-
-        # ========================
-        # ① 按月取最后一天价格
-        # ========================
-        df_m = df.resample("M", on="date").last()[["close"]].dropna()
-
-        # ========================
-        # ② 计算 12 个月动量
-        # ========================
-        df_m["ret_12m"] = df_m["close"].shift(1) / df_m["close"].shift(self.lookback_months) - 1
-
-        # ========================
-        # ③ 生成月度信号
-        # ========================
-        sig = pd.Series(0, index=df_m.index)
-
-        sig[df_m["ret_12m"] > +self.neutral_band] = 1
-        sig[df_m["ret_12m"] < -self.neutral_band] = -1
-
-        sig.index.name = "date"
-
-        # === NEW: 信号窗口过滤 ===
-        if self.signal_start_date is not None:
-            sig = sig[sig.index >= self.signal_start_date]
-        if self.signal_end_date is not None:
-            sig = sig[sig.index <= self.signal_end_date]
-
-        return sig
