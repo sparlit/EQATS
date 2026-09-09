@@ -1,5 +1,5 @@
 {
-  "current_index": 108,
+  "current_index": 109,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -869,7 +869,7 @@
       "name": "ibx",
       "target": "deepentropy/ibx",
       "url": "https://github.com/deepentropy/ibx",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
