@@ -1,5 +1,5 @@
 {
-  "current_index": 73,
+  "current_index": 74,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -589,9 +589,9 @@
       "name": "eod2_data",
       "target": "bennythadikaran/eod2_data",
       "url": "https://github.com/bennythadikaran/eod2_data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2264",
+      "merged": true
     },
     {
       "name": "nseindiaapi",
