@@ -981,25 +981,25 @@
       "name": "mtfdb",
       "target": "eggmasonvalue/mtfdb",
       "url": "https://github.com/eggmasonvalue/mtfdb",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2343",
+      "merged": true
     },
     {
       "name": "nse_52wk_screener",
       "target": "ej9909-create/nse_52wk_screener",
       "url": "https://github.com/ej9909-create/nse_52wk_screener",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2344",
+      "merged": true
     },
     {
       "name": "indian-stock-market",
       "target": "ekanshsinghal/indian-stock-market",
       "url": "https://github.com/ekanshsinghal/indian-stock-market",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2346",
+      "merged": true
     },
     {
       "name": "rust-trade",
