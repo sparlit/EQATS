@@ -1,5 +1,5 @@
 {
-  "current_index": 16,
+  "current_index": 17,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -133,9 +133,9 @@
       "name": "finrl-trading",
       "target": "ai4finance-foundation/finrl-trading",
       "url": "https://github.com/ai4finance-foundation/finrl-trading",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2353",
+      "merged": true
     },
     {
       "name": "ngrcoydisclosures",
