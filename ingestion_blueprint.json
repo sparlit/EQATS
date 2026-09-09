@@ -294,8 +294,8 @@
       "target": "anjulgarg/sharewatch",
       "url": "https://github.com/anjulgarg/sharewatch",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2228",
+      "merged": true
     },
     {
       "name": "nse-system",
