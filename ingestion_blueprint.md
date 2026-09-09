@@ -1,15 +1,21 @@
-## Repo 018. AI4Finance-Foundation/FinRL-Trading
-- **Repository URL:** `https://github.com/AI4Finance-Foundation/FinRL-Trading`
-- **Magic Number:** `9100033`
-- **Architecture & System Design:** Deep Reinforcement Learning (DRL) stock portfolio allocation, time-series momentum signals, GICS sector rotation, and automated trade execution workflows.
-- **Categorization:**
-  - **Data Engines:** `src/data/data_fetcher.py`, `src/data/data_processor.py`, fundamental data & historical S&P 500 fetchers.
-  - **Signal & Execution Logic:** `src/strategies/rl_model.py`, `src/strategies/fundamental_portfolio_drl.py`, `src/strategies/adaptive_rotation/` multi-asset group strength & market regime engine.
-  - **Risk Engineering:** `src/strategies/adaptive_rotation/risk_manager.py`, PyPortfolioOpt efficient frontier risk bounds, draw-down guards.
-- **EQATS Integration Module:** `src/institutional_integrations/finrl_trading_engine.py`
-  - Registered in `IndianBrokerPluginRegistry` as `FINRL_TRADING`.
-  - Feature scoring, continuous action state space mapping, 0.05 INR tick size rounding, and IST market session validation.
+# EQATS Master Institutional Repository Ingestion Blueprint
 
+## Protocol & Procedure for Handling Missing, Private, or Non-Existent Repositories
+When processing the 411 repository matrix sequentially, the autonomous integration engine (`autonomous_repo_integrator.py`) applies the following deterministic protocol:
+
+1. **Automated Discovery & Retries:**
+   - Performs shallow clone (`git clone --depth=1 https://github.com/<owner>/<repo>`).
+   - If git returns non-zero, executes up to 3 automated retries with exponential backoff (2s, 4s, 8s) to filter out transient network errors.
+2. **Error Classification:**
+   - **404 / Non-Existent:** Logged when repository is deleted or name changed.
+   - **401/403 / Private:** Logged when repository access requires private SSH/OAuth keys.
+3. **Ledger Persistence & Non-Blocking Advancement:**
+   - Marks target status as `"Skipped: Private/Non-Existent (404/403)"` in `ingestion_blueprint.json` and `ingestion_blueprint.md`.
+   - Increments `current_index` (`current_index += 1`).
+   - Calls `save_ledger()` to persist state to Git.
+   - Automatically dispatches `trigger_loop.py` to process the next repository in sequence without pipeline termination.
+
+---
 
 ## Repo 018. AI4Finance-Foundation/FinRL-Trading
 - **Repository URL:** `https://github.com/AI4Finance-Foundation/FinRL-Trading`
@@ -73,7 +79,7 @@
 - **Architecture & System Design:** Comprehensive multi-factor stock screening and market regime gatekeeper system combining fundamental band scoring (`scoring.py`), benchmark EMA(10) regime detection (`regime.py`), sector relative strength ranking (`sector_gate.py`), and institutional accumulation tracking (`institutional.py`).
 - **Categorization:**
   - **Data Engines:** `db.py` SQLite tables, `universe.py`, `fundamentals_compute.py`, `ingest_prices.py`.
-  - **Signal & Execution Logic:** `scoring.py` ROCE/profit/PEG scoring bands, `regime.py` top-down market gatekeeper, `sector_gate.py` leadership sector filter.
+  - **Signal & Execution Logic:** `scoring.py` ROCE/profit/PEG scoring bands, `regime.py` top-down market gatekeeper, `sector.gate.py` leadership sector filter.
   - **Risk Engineering:** Regime-based entry prohibition in bearish trends, 0.05 INR price tick rounding, IST trading session validation.
 - **EQATS Integration Module:** `src/institutional_integrations/nse_system_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `NSE_SYSTEM`.
@@ -418,22 +424,3 @@
   - **Risk Engineering:** 0.05 INR price tick rounding, IST trading session validation, closed session order rejection.
 - **EQATS Integration Module:** `src/institutional_integrations/braverock_nse_engine.py`
   - Registered in `IndianBrokerPluginRegistry` as `BRAVEROCK_NSE`.
-| 11 | adavarski/DevSecOps-full-integration-chain | https://github.com/sparlit/EQATS/pull/567 | https://github.com/sparlit/EQATS/issues/568 | 2026-09-06T08:19:19.746Z |
-| 15 | affaan-m/dprc-autotrader-v2 | https://github.com/sparlit/EQATS/pull/573 | https://github.com/sparlit/EQATS/issues/574 | 2026-09-06T08:23:01.232Z |
-| 17 | AI4Finance-Foundation/FinRL-Trading | https://github.com/sparlit/EQATS/pull/575 | https://github.com/sparlit/EQATS/issues/576 | 2026-09-06T08:29:04.271Z |
-| 22 | akshaypawar7/WODS | https://github.com/sparlit/EQATS/pull/581 | https://github.com/sparlit/EQATS/issues/582 | 2026-09-06T08:41:50.098Z |
-| 24 | akshayz14/indian-stock-tracker | https://github.com/sparlit/EQATS/pull/586 | https://github.com/sparlit/EQATS/issues/587 | 2026-09-06T08:44:15.146Z |
-| 26 | AlexWan/OsEngine | https://github.com/sparlit/EQATS/pull/590 | https://github.com/sparlit/EQATS/issues/591 | 2026-09-06T08:46:38.805Z |
-| 27 | algotrading-lab/ai-algotrading-agent | https://github.com/sparlit/EQATS/pull/592 | https://github.com/sparlit/EQATS/issues/593 | 2026-09-06T08:48:40.345Z |
-| 31 | Ameobea/tickgrinder | https://github.com/sparlit/EQATS/pull/596 | https://github.com/sparlit/EQATS/issues/597 | 2026-09-06T08:52:59.618Z |
-| 31 | Ameobea/tickgrinder |  | https://github.com/sparlit/EQATS/issues/600 | 2026-09-06T08:53:58.016Z |
-| 32 | amitashwinibhagat/nse-swing-scanner | https://github.com/sparlit/EQATS/pull/601 | https://github.com/sparlit/EQATS/issues/602 | 2026-09-06T08:55:46.395Z |
-| 34 | Aneesh540/VSE | https://github.com/sparlit/EQATS/pull/605 | https://github.com/sparlit/EQATS/issues/606 | 2026-09-06T08:57:51.161Z |
-| 34 | Aneesh540/VSE |  | https://github.com/sparlit/EQATS/issues/608 | 2026-09-06T08:59:11.156Z |
-| 40 | anshulk/nse | https://github.com/sparlit/EQATS/pull/620 | https://github.com/sparlit/EQATS/issues/621 | 2026-09-06T09:03:31.507Z |
-| 42 | anthdm/rust-trading-engine | https://github.com/sparlit/EQATS/pull/625 | https://github.com/sparlit/EQATS/issues/626 | 2026-09-06T09:06:06.244Z |
-| 66 | ayushmaanbhav/StockMart | https://github.com/sparlit/EQATS/pull/697 | https://github.com/sparlit/EQATS/issues/698 | 2026-09-06T09:38:19.258Z |
-| 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/721 | 2026-09-06T09:48:13.699Z |
-| 66 | ayushmaanbhav/StockMart |  | https://github.com/sparlit/EQATS/issues/728 | 2026-09-06T09:50:31.289Z |
-| 159 | hopit-ai/india-trade-cli | https://github.com/sparlit/EQATS/pull/1113 | https://github.com/sparlit/EQATS/issues/1114 | 2026-09-06T11:41:42.364Z |
-| 159 | hopit-ai/india-trade-cli |  | https://github.com/sparlit/EQATS/issues/1121 | 2026-09-06T11:43:07.372Z |
