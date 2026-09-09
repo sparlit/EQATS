@@ -1,5 +1,5 @@
 {
-  "current_index": 169,
+  "current_index": 170,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1357,7 +1357,7 @@
       "name": "nse-scanner",
       "target": "itsnrk1/nse-scanner",
       "url": "https://github.com/itsnrk1/nse-scanner",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
