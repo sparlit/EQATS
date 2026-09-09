@@ -1150,8 +1150,8 @@
       "target": "groverjikaladka/nse-bse-news-scanner",
       "url": "https://github.com/groverjikaladka/nse-bse-news-scanner",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2159",
+      "merged": true
     },
     {
       "name": "nse-data-syncer",
