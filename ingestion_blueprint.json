@@ -1,5 +1,5 @@
 {
-  "current_index": 56,
+  "current_index": 57,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -453,9 +453,9 @@
       "name": "live-nse-stock",
       "target": "ashwanthkumar/live-nse-stock",
       "url": "https://github.com/ashwanthkumar/live-nse-stock",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2248",
+      "merged": true
     },
     {
       "name": "nse-var-dashboard",
