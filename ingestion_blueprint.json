@@ -1,5 +1,5 @@
 {
-  "current_index": 22,
+  "current_index": 23,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -181,9 +181,9 @@
       "name": "get-nse-bhavcopy",
       "target": "akshayraje/get-nse-bhavcopy",
       "url": "https://github.com/akshayraje/get-nse-bhavcopy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2314",
+      "merged": true
     },
     {
       "name": "indian-stock-tracker",
