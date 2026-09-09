@@ -262,8 +262,8 @@
       "target": "amv-dev/yata",
       "url": "https://github.com/amv-dev/yata",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2224",
+      "merged": true
     },
     {
       "name": "vse",
