@@ -1342,8 +1342,8 @@
       "target": "inv2004/coinbase-pro-rs",
       "url": "https://github.com/inv2004/coinbase-pro-rs",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2185",
+      "merged": true
     },
     {
       "name": "india-sector-screener",

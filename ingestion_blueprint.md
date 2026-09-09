@@ -170,7 +170,7 @@ Total Repositories: 411 | Current Index: 168
 | 165 | indianfoods-automation/nse | Completed | https://github.com/sparlit/EQATS/pull/2182 |
 | 166 | indra5196/nsestockanalyser | Processed | https://github.com/sparlit/EQATS/pull/2183 |
 | 167 | infinitefield/hypersdk | Processed | https://github.com/sparlit/EQATS/pull/2184 |
-| 168 | inv2004/coinbase-pro-rs | Processed | None |
+| 168 | inv2004/coinbase-pro-rs | Processed | https://github.com/sparlit/EQATS/pull/2185 |
 | 169 | ishaan3h/india-sector-screener | pending | None |
 | 170 | itsnrk1/nse-scanner | pending | None |
 | 171 | jandginvestment/cci20-sma20-strategy | pending | None |
