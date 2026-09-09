@@ -1182,8 +1182,8 @@
       "target": "hash-it-out/stockchain",
       "url": "https://github.com/hash-it-out/stockchain",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2164",
+      "merged": true
     },
     {
       "name": "nse-oi-analysis",
