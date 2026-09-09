@@ -51,7 +51,7 @@ Total Repositories: 411 | Current Index: 49
 | 46 | aravin/algo-trade | Processed | https://github.com/sparlit/EQATS/pull/2237 |
 | 47 | aravin/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2238 |
 | 48 | arishhassan/nse-live_testing | Processed | https://github.com/sparlit/EQATS/pull/2239 |
-| 49 | arvchahal/kalshi-rs | Processed | None |
+| 49 | arvchahal/kalshi-rs | Processed | https://github.com/sparlit/EQATS/pull/2240 |
 | 50 | asavinov/intelligent-trading-bot | pending | None |
 | 51 | ashayk003/nse-sentiment-analyzer | pending | None |
 | 52 | ashgen/nsedataanalytics | pending | None |

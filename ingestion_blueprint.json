@@ -390,8 +390,8 @@
       "target": "arvchahal/kalshi-rs",
       "url": "https://github.com/arvchahal/kalshi-rs",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2240",
+      "merged": true
     },
     {
       "name": "intelligent-trading-bot",
