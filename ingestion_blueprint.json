@@ -1,5 +1,5 @@
 {
-  "current_index": 62,
+  "current_index": 63,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -501,9 +501,9 @@
       "name": "rustquant",
       "target": "avhz/rustquant",
       "url": "https://github.com/avhz/rustquant",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2254",
+      "merged": true
     },
     {
       "name": "nse-bse-dashboard",
