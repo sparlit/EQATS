@@ -1,5 +1,5 @@
 {
-  "current_index": 130,
+  "current_index": 131,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1045,7 +1045,7 @@
       "name": "ferrumfix",
       "target": "ferrumfix/ferrumfix",
       "url": "https://github.com/ferrumfix/ferrumfix",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
