@@ -1,5 +1,5 @@
 {
-  "current_index": 130,
+  "current_index": 135,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1045,41 +1045,41 @@
       "name": "ferrumfix",
       "target": "ferrumfix/ferrumfix",
       "url": "https://github.com/ferrumfix/ferrumfix",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2145",
+      "merged": true
     },
     {
       "name": "finstack-mcp",
       "target": "finstacklabs/finstack-mcp",
       "url": "https://github.com/finstacklabs/finstack-mcp",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2146",
+      "merged": true
     },
     {
       "name": "dingir-exchange",
       "target": "fluidex/dingir-exchange",
       "url": "https://github.com/fluidex/dingir-exchange",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2147",
+      "merged": true
     },
     {
       "name": "btrader",
       "target": "gabriel-milan/btrader",
       "url": "https://github.com/gabriel-milan/btrader",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2148",
+      "merged": true
     },
     {
       "name": "nsebhavcopy",
       "target": "gadiyar/nsebhavcopy",
       "url": "https://github.com/gadiyar/nsebhavcopy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2149",
+      "merged": true
     },
     {
       "name": "nse_historical_data",
