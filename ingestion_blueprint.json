@@ -230,8 +230,8 @@
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2220",
+      "merged": true
     },
     {
       "name": "zerobha",
