@@ -1,5 +1,5 @@
 {
-  "current_index": 36,
+  "current_index": 37,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -293,9 +293,9 @@
       "name": "sharewatch",
       "target": "anjulgarg/sharewatch",
       "url": "https://github.com/anjulgarg/sharewatch",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2228",
+      "merged": true
     },
     {
       "name": "nse-system",
