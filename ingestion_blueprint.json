@@ -1070,8 +1070,8 @@
       "target": "gabriel-milan/btrader",
       "url": "https://github.com/gabriel-milan/btrader",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2148",
+      "merged": true
     },
     {
       "name": "nsebhavcopy",
