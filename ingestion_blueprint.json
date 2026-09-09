@@ -470,8 +470,8 @@
       "target": "atilaahmettaner/tradingview-mcp",
       "url": "https://github.com/atilaahmettaner/tradingview-mcp",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2250",
+      "merged": true
     },
     {
       "name": "open-interest-nse-live-analysis",
