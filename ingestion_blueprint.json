@@ -1,5 +1,5 @@
 {
-  "current_index": 2,
+  "current_index": 3,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -21,9 +21,9 @@
       "name": "indian-stock-market-api",
       "target": "0xramm/indian-stock-market-api",
       "url": "https://github.com/0xramm/indian-stock-market-api",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2193",
+      "merged": true
     },
     {
       "name": "stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
