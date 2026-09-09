@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 5
+Total Repositories: 411 | Current Index: 121
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -121,9 +121,9 @@ Total Repositories: 411 | Current Index: 5
 | 116 | devangmukherjee/top-gainers-and-losers-nse | pending | None |
 | 117 | devanshx9x/portfolio-monte-carlo | pending | None |
 | 118 | dhruvan246/stocks-dashboard | pending | None |
-| 119 | dkraj0612/nse-delivery-data | pending | None |
-| 120 | dpeachpeach/kalshi-rust | pending | None |
-| 121 | edison7009/echobird | pending | None |
+| 119 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/2132 |
+| 120 | dpeachpeach/kalshi-rust | Processed | https://github.com/sparlit/EQATS/pull/2318 |
+| 121 | edison7009/echobird | Completed | https://github.com/sparlit/EQATS/pull/2323 |
 | 122 | edtechre/pybroker | pending | None |
 | 123 | eggmasonvalue/mtfdb | pending | None |
 | 124 | ej9909-create/nse_52wk_screener | pending | None |
@@ -138,7 +138,7 @@ Total Repositories: 411 | Current Index: 5
 | 133 | fluidex/dingir-exchange | pending | None |
 | 134 | gabriel-milan/btrader | pending | None |
 | 135 | gadiyar/nsebhavcopy | pending | None |
-| 136 | ganeshbiyer/nse_historical_data | pending | None |
+| 136 | ganeshbiyer/nse_historical_data | Processed | https://github.com/sparlit/EQATS/pull/2158 |
 | 137 | georgiag7652/kronos-india | pending | None |
 | 138 | get10101/10101 | pending | None |
 | 139 | ghostjat/shoonya-php | pending | None |
@@ -154,7 +154,7 @@ Total Repositories: 411 | Current Index: 5
 | 149 | hawkeyecoding/nse-oi-analysis | pending | None |
 | 150 | hemangjoshi37a/trendmaster | pending | None |
 | 151 | hemenkapadia/getbhavcopy | pending | None |
-| 152 | henry-richard7/nse-tool-stocks-aerial-view | Processed | https://github.com/sparlit/EQATS/pull/2169 |
+| 152 | henry-richard7/nse-tool-stocks-aerial-view | pending | None |
 | 153 | hermanodecastro/arbitrage-trading | pending | None |
 | 154 | hgsujay/nsedata | pending | None |
 | 155 | hi-imcodeman/stock-nse-india | pending | None |
