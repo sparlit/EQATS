@@ -1,5 +1,5 @@
 {
-  "current_index": 143,
+  "current_index": 144,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1149,9 +1149,9 @@
       "name": "nse-bse-news-scanner",
       "target": "groverjikaladka/nse-bse-news-scanner",
       "url": "https://github.com/groverjikaladka/nse-bse-news-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2159",
+      "merged": true
     },
     {
       "name": "nse-data-syncer",
