@@ -1,5 +1,5 @@
 {
-  "current_index": 59,
+  "current_index": 60,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -477,9 +477,9 @@
       "name": "open-interest-nse-live-analysis",
       "target": "atrybyme/open-interest-nse-live-analysis",
       "url": "https://github.com/atrybyme/open-interest-nse-live-analysis",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2251",
+      "merged": true
     },
     {
       "name": "time-series-forecast-nsepy",
