@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 data_pipeline.py
 ================
@@ -13,7 +38,6 @@ Pipeline steps
 6. Save raw → data/raw/, processed → data/processed/.
 """
 
-from __future__ import annotations
 
 import logging
 import os
@@ -29,13 +53,14 @@ logger = logging.getLogger(__name__)
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 TRADING_DAYS_PER_YEAR: int = 252
-MIN_HISTORY_DAYS: int = 252 * 3          # at least 3 years for reliable estimates
+MIN_HISTORY_DAYS: int = 252 * 3  # at least 3 years for reliable estimates
 SPLIT_ARTIFACT_THRESHOLD: float = 0.25  # flag if |log-return| > 25 % in a single day
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
-def run_pipeline(cfg: dict) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, float]]:
+
+def run_pipeline(cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, float]]:
     """
     Execute the full data pipeline and return processed data plus GBM parameters.
 
@@ -88,6 +113,7 @@ def run_pipeline(cfg: dict) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, float
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
+
 def _fetch_data(ticker: str, period: str, local_csv: str) -> pd.DataFrame:
     """
     Download OHLC data from yfinance; fall back to local CSV on failure.
@@ -111,7 +137,8 @@ def _fetch_data(ticker: str, period: str, local_csv: str) -> pd.DataFrame:
     try:
         df = yf.download(ticker, period=period, auto_adjust=True, progress=False)
         if df is None or df.empty:
-            raise ValueError("yfinance returned empty DataFrame")
+            msg = "yfinance returned empty DataFrame"
+            raise ValueError(msg)
         # Flatten MultiIndex columns if present
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
@@ -128,7 +155,8 @@ def _fetch_data(ticker: str, period: str, local_csv: str) -> pd.DataFrame:
                 "Only %d rows fetched — falling back to local CSV for supplemental data.",
                 len(df),
             )
-            raise ValueError("Insufficient history from API")
+            msg = "Insufficient history from API"
+            raise ValueError(msg)
         return df[["Open", "High", "Low", "Close", "Volume"]].copy()
 
     except Exception as exc:
@@ -157,13 +185,14 @@ def _load_local_csv(path: str) -> pd.DataFrame:
     """
     csv_path = Path(path)
     if not csv_path.exists():
-        raise FileNotFoundError(f"Local CSV not found: {csv_path}")
+        msg = f"Local CSV not found: {csv_path}"
+        raise FileNotFoundError(msg)
 
     df = pd.read_csv(csv_path, thousands=",")
     df.columns = df.columns.str.strip()
 
     # Normalise column names from Investing.com / NSE export formats
-    rename_map: Dict[str, str] = {
+    rename_map: dict[str, str] = {
         "Date": "Date",
         "Price": "Close",
         "Open": "Open",
@@ -203,6 +232,7 @@ def _load_local_csv(path: str) -> pd.DataFrame:
 
 def _parse_volume(series: pd.Series) -> pd.Series:
     """Convert volume strings like '165.02M' or '1.2B' to floats."""
+
     def _parse_one(val: str) -> float:
         if pd.isna(val):
             return np.nan
@@ -335,11 +365,10 @@ def _compute_features(df: pd.DataFrame) -> pd.DataFrame:
     out["rolling_vol_60"] = out["log_return"].rolling(60).std() * np.sqrt(TRADING_DAYS_PER_YEAR)
     out["rolling_vol_90"] = out["log_return"].rolling(90).std() * np.sqrt(TRADING_DAYS_PER_YEAR)
     out["cum_return"] = (1 + out["log_return"]).cumprod() - 1
-    out = out.dropna(subset=["log_return"])
-    return out
+    return out.dropna(subset=["log_return"])
 
 
-def _extract_gbm_params(df: pd.DataFrame, cfg: dict) -> Dict[str, float]:
+def _extract_gbm_params(df: pd.DataFrame, cfg: dict) -> dict[str, float]:
     """
     Compute and return auditable GBM parameters from historical data.
 
@@ -384,21 +413,26 @@ def _extract_gbm_params(df: pd.DataFrame, cfg: dict) -> Dict[str, float]:
     }
 
 
-def _log_gbm_params(params: Dict[str, float]) -> None:
+def _log_gbm_params(params: dict[str, float]) -> None:
     """Log all GBM parameters for run auditability."""
     logger.info("=" * 60)
     logger.info("  GBM PARAMETER AUDIT LOG")
     logger.info("=" * 60)
-    logger.info("  Data range         : %s → %s  (%d trading days)",
-                params["date_start"], params["date_end"], params["n_historical_days"])
+    logger.info(
+        "  Data range         : %s → %s  (%d trading days)",
+        params["date_start"],
+        params["date_end"],
+        params["n_historical_days"],
+    )
     logger.info("  S0 (latest close)  : %.2f", params["S0"])
     logger.info("  Mean daily return  : %.6f", params["mean_daily_return"])
     logger.info("  Daily volatility σ : %.6f", params["sigma_daily"])
     logger.info("  Annual drift  μ    : %.4f  (%.2f%%/yr)", params["mu_annual"], params["mu_annual"] * 100)
     logger.info("  Annual vol    σ    : %.4f  (%.2f%%/yr)", params["sigma_annual"], params["sigma_annual"] * 100)
     logger.info("  Time step Δt       : %.6f  (1/252 trading year)", params["dt"])
-    logger.info("  Horizons (days)    : 1m=%d  3m=%d  1y=%d",
-                params["n_steps_1m"], params["n_steps_3m"], params["n_steps_1y"])
+    logger.info(
+        "  Horizons (days)    : 1m=%d  3m=%d  1y=%d", params["n_steps_1m"], params["n_steps_3m"], params["n_steps_1y"]
+    )
     logger.info("  Simulated paths N  : %d", params["n_paths"])
     logger.info("  Historical skewness: %.4f", params["skewness"])
     logger.info("  Excess kurtosis    : %.4f", params["excess_kurtosis"])

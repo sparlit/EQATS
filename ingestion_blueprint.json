@@ -1,5 +1,5 @@
 {
-  "current_index": 142,
+  "current_index": 143,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1141,9 +1141,9 @@
       "name": "nsebank_hft",
       "target": "gomitechnology-source/nsebank_hft",
       "url": "https://github.com/gomitechnology-source/nsebank_hft",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2157",
+      "merged": true
     },
     {
       "name": "nse-bse-news-scanner",
