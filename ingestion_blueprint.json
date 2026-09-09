@@ -1373,9 +1373,9 @@
       "name": "nse-scanner",
       "target": "jayeshsrathod/nse-scanner",
       "url": "https://github.com/jayeshsrathod/nse-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2191",
+      "merged": true
     },
     {
       "name": "rust_bt",
