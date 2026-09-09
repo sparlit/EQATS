@@ -1,0 +1,55 @@
+name: EQATS Auto-PR & Failed Merge Healing Loop
+
+on:
+  schedule:
+    - cron: '30 */4 * * *' # Runs every 4 hours
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  heal-and-merge-prs:
+    runs-on: ubuntu-latest
+    env:
+      UNSAFE_PYO3_BUILD_FREE_THREADED: 1
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout Root Workspace
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Dedicated Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Tooling Matrix
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest pytest-xdist requests pytz
+
+      - name: Execute Auto-PR & Failed Merge Healing Engine
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GOOGLE_JULES_API_KEY: ${{ secrets.GOOGLE_JULES_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CHATGPT_API_KEY: ${{ secrets.CHATGPT_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          echo "[+] Starting Auto-PR & Failed Merge Healing Engine..."
+          python3 .github/scripts/auto_pr_healer.py

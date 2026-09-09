@@ -2097,6 +2097,45 @@ class BaseExchange:
 
     @staticmethod
     def round_timeframe(timeframe, timestamp, direction=ROUND_DOWN):
+        try:
+            amount = float(timeframe[:-1])
+        except ValueError:
+            amount = 0
+        unit = timeframe[-1] if len(timeframe) else ""
+        is_integer_amount = amount == int(amount)
+        if unit in ("w", "M", "y") and amount >= 1 and is_integer_amount:
+            amount = int(amount)
+            date = datetime.datetime.fromtimestamp(timestamp / 1000, datetime.UTC)
+            if unit == "w":
+                monday = date - datetime.timedelta(
+                    days=date.weekday(),
+                    hours=date.hour,
+                    minutes=date.minute,
+                    seconds=date.second,
+                    microseconds=date.microsecond,
+                )
+                epoch_monday = datetime.datetime(1970, 1, 5, tzinfo=datetime.UTC)
+                weeks_since_epoch_monday = (monday - epoch_monday).days // 7
+                rounded = epoch_monday + datetime.timedelta(weeks=(weeks_since_epoch_monday // amount) * amount)
+                if direction == ROUND_UP:
+                    rounded += datetime.timedelta(weeks=amount)
+            elif unit == "M":
+                months_since_year_zero = date.year * 12 + date.month - 1
+                rounded_months = (months_since_year_zero // amount) * amount
+                year = rounded_months // 12
+                month = rounded_months % 12 + 1
+                rounded = datetime.datetime(year, month, 1, tzinfo=datetime.UTC)
+                if direction == ROUND_UP:
+                    month = month + amount
+                    year = year + (month - 1) // 12
+                    month = (month - 1) % 12 + 1
+                    rounded = datetime.datetime(year, month, 1, tzinfo=datetime.UTC)
+            else:
+                year = (date.year // amount) * amount
+                rounded = datetime.datetime(year, 1, 1, tzinfo=datetime.UTC)
+                if direction == ROUND_UP:
+                    rounded = rounded.replace(year=year + amount)
+            return int(rounded.timestamp() * 1000)
         ms = Exchange.parse_timeframe(timeframe) * 1000
         # Get offset based on timeframe in milliseconds
         offset = timestamp % ms
@@ -4097,8 +4136,8 @@ class BaseExchange:
 
     def parse_to_int(self, number: object):
         # Solve Common intmisuse ex: int((since / str(1000)))
-        # using a number which is not valid in ts
-        # numberToString is typed under strictNullChecks; cast to string
+        # using a number as parameter which is not valid in ts
+        # numberToString is typed as nullable under strictNullChecks; cast to string
         # the cast is erased at transpile-time, so output matches every target language, rather than
         # branching to a bare `NaN` literal, which has no symbol in Go/Java/C#
         stringifiedNumber = self.number_to_string(number)
@@ -4308,9 +4347,9 @@ class BaseExchange:
             return defaultValue  # unsupported paramName, check "exchange.features" for details')
         dictionary = self.safe_dict(methodDict, parentKey)
         if dictionary is None:
-            # if the value is not dictionary but a scalar value(or None), return
+            # if the value is not dictionary but a scalar value(or None), return as is
             return methodDict[parentKey]
-        # return, when calling without subKey eg: featureValueByType('spot', None, 'createOrder', 'stopLoss')
+        # return as is, when calling without subKey eg: featureValueByType('spot', None, 'createOrder', 'stopLoss')
         if subKey is None:
             return methodDict[parentKey]
         # raise an exception for unsupported subKey
@@ -4747,8 +4786,8 @@ class BaseExchange:
         return balance
 
     def safe_order(self, order: dict, market: Market = None):
-        # parses numbers
-        # * it is important pass the trades rawTrades
+        # parses numbers as strings
+        # * it is important pass the trades as unparsed rawTrades
         if order is None:
             order = {}
         amount = self.omit_zero(self.safe_string(order, "amount"))
@@ -4779,14 +4818,14 @@ class BaseExchange:
         if parseFilled or parseCost or shouldParseFees:
             rawTrades = self.safe_value(order, "trades", trades)
             # oldNumber = self.number
-            # we parse trades here!
+            # we parse trades as strings here!
             # i don't think self is needed anymore
             # self.number = str
             firstTrade = self.safe_value(rawTrades, 0)
             # parse trades if they haven't already been parsed
             tradesAreParsed = (firstTrade is not None) and ("info" in firstTrade) and ("id" in firstTrade)
             trades = self.parse_trades(rawTrades, market) if not tradesAreParsed else rawTrades
-            # self.number = oldNumber; why parse trades if you read the value using `safeString` ?
+            # self.number = oldNumber; why parse trades as strings if you read the value using `safeString` ?
             tradesLength = 0
             isArray = isinstance(trades, list)
             if isArray:
@@ -5180,7 +5219,7 @@ class BaseExchange:
                 fee = reducedFees[0]
             elif reducedLength == 0:
                 fee = None
-        # in case `fee & fees` are None, set `fees` array
+        # in case `fee & fees` are None, set `fees` as empty array
         if fee is None:
             fee = {
                 "cost": None,
@@ -5286,7 +5325,7 @@ class BaseExchange:
                 rate = self.safe_string(fee, "rate")
                 cost = self.safe_string(fee, "cost")
                 if cost is None:
-                    # omit None cost, does not make sense, however, don't omit '0' costs, still make sense
+                    # omit None cost, as it does not make sense, however, don't omit '0' costs, as they still make sense
                     continue
                 if feeCurrencyCode not in reduced:
                     reduced[feeCurrencyCode] = {}
@@ -5876,7 +5915,7 @@ class BaseExchange:
                 raise NotSupported(
                     self.id + " - " + networkCode + " network did not return any result for " + currencyCode
                 )
-            # if networkCode was provided by user, we should check it after response, referenced exchange doesn't support network-code during request
+            # if networkCode was provided by user, we should check it after response, as the referenced exchange doesn't support network-code during request
             networkIdOrCode = (
                 networkCode if isIndexedByUnifiedNetworkCode else self.network_code_to_id(networkCode, currencyCode)
             )
@@ -6016,7 +6055,7 @@ class BaseExchange:
         #
         percentage = self.safe_value(position, "percentage")
         if (percentage is None) and (unrealizedPnlString is not None) and (initialMarginString is not None):
-            # was done in all implementations( aax, btcex, bybit, deribit, gate, kucoinfutures, phemex )
+            # as it was done in all implementations( aax, btcex, bybit, deribit, gate, kucoinfutures, phemex )
             percentageString = Precise.string_mul(
                 Precise.string_div(unrealizedPnlString, initialMarginString, 4), "100"
             )
@@ -6742,7 +6781,7 @@ class BaseExchange:
                :param Market market:
                :param dict params:
                :param str [params.type]: type assigned by user
-               :param str [params.defaultType]: same.type
+               :param str [params.defaultType]: same as params.type
                :param str [defaultValue]: assigned programatically in the method calling handleMarketTypeAndParams
                :returns [str, dict]: the market type and params with type and defaultType omitted
         """
@@ -6801,7 +6840,7 @@ class BaseExchange:
         """
         @ignore
                :param dict [params]: extra parameters specific to the exchange API endpoint
-               :returns Array: the marginMode in lowercase by params["marginMode"], params["defaultMarginMode"] self.options["marginMode"] or self.options["defaultMarginMode"]
+               :returns Array: the marginMode in lowercase as specified by params["marginMode"], params["defaultMarginMode"] self.options["marginMode"] or self.options["defaultMarginMode"]
         """
         if params is None:
             params = {}
@@ -7794,7 +7833,7 @@ class BaseExchange:
         :param int [since]: timestamp in ms of the earliest candle to fetch
         :param int [limit]: the maximum amount of candles to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns float[][]: A list of candles ordered, open, high, low, close, None
+        :returns float[][]: A list of candles ordered as timestamp, open, high, low, close, None
         """
         if params is None:
             params = {}
@@ -7813,7 +7852,7 @@ class BaseExchange:
                :param int [since]: timestamp in ms of the earliest candle to fetch
                :param int [limit]: the maximum amount of candles to fetch
                :param dict [params]: extra parameters specific to the exchange API endpoint
-        @returns {} A list of candles ordered, open, high, low, close, None
+        @returns {} A list of candles ordered as timestamp, open, high, low, close, None
         """
         if params is None:
             params = {}
@@ -7834,7 +7873,7 @@ class BaseExchange:
         :param int [since]: timestamp in ms of the earliest candle to fetch
         :param int [limit]: the maximum amount of candles to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns float[][]: A list of candles ordered, open, high, low, close, None
+        :returns float[][]: A list of candles ordered as timestamp, open, high, low, close, None
         """
         if params is None:
             params = {}
@@ -8777,7 +8816,7 @@ class BaseExchange:
         :param str symbol: unified symbol of the market to fetch OHLCV data for
         :param str timeframe: the length of time each candle represents
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}

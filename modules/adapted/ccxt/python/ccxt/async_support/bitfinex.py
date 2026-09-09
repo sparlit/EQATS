@@ -465,7 +465,7 @@ class bitfinex(Exchange, ImplicitAPI):
                     },
                     # convert 'market' to 'EXCHANGE MARKET'
                     # convert 'limit' 'EXCHANGE LIMIT'
-                    # everything else remains
+                    # everything else remains as is
                     "orderTypes": {
                         "market": "EXCHANGE MARKET",
                         "limit": "EXCHANGE LIMIT",
@@ -1164,7 +1164,7 @@ class bitfinex(Exchange, ImplicitAPI):
         error = self.safe_string(response, 0)
         if error == "error":
             message = self.safe_string(response, 2, "")
-            # same message v1
+            # same message as in v1
             self.throw_exactly_matched_exception(self.exceptions["exact"], message, self.id + " " + message)
             raise ExchangeError(self.id + " " + message)
         return self.parse_transfer({"result": response}, currency)
@@ -1630,7 +1630,7 @@ class bitfinex(Exchange, ImplicitAPI):
         :param int [since]: timestamp in ms of the earliest candle to fetch
         :param int [limit]: the maximum amount of candles to fetch, default 100 max 10000
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         :param int [params.until]: timestamp in ms of the latest candle to fetch
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [available parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
         """
@@ -1834,7 +1834,7 @@ class bitfinex(Exchange, ImplicitAPI):
             orderType = "TRAILING STOP"
             request["price_trailing"] = trailingAmount
         elif triggerPrice is not None:
-            # request['price'] is taken for stop orders
+            # request['price'] is taken as triggerPrice for stop orders
             request["price"] = self.price_to_precision(symbol, triggerPrice)
             if type == "limit":
                 orderType = "STOP LIMIT"
@@ -2938,7 +2938,7 @@ class bitfinex(Exchange, ImplicitAPI):
         if statusMessage == "error":
             feedback = self.id + " " + response
             message = self.safe_string(response, 2, "")
-            # same message v1
+            # same message as in v1
             self.throw_exactly_matched_exception(self.exceptions["exact"], message, feedback)
             self.throw_broadly_matched_exception(self.exceptions["broad"], message, feedback)
             raise ExchangeError(feedback)  # unknown message
@@ -3625,10 +3625,10 @@ class bitfinex(Exchange, ImplicitAPI):
 
         :param str symbol: unified CCXT market symbol
         :param str timeframe: the time period of each row of data, not used by bitfinex
-        :param int [since]: the time in ms of the earliest record to retrieve unix timestamp
+        :param int [since]: the time in ms of the earliest record to retrieve as a unix timestamp
         :param int [limit]: the number of records in the response
         :param dict [params]: exchange specific parameters
-        :param int [params.until]: the time in ms of the latest record to retrieve unix timestamp
+        :param int [params.until]: the time in ms of the latest record to retrieve as a unix timestamp
         :param boolean [params.paginate]: default False, when True will automatically paginate by calling self endpoint multiple times. See in the docs all the [available parameters](https://github.com/ccxt/ccxt/wiki/Manual#pagination-params)
         :returns: An array of `open interest structures <https://docs.ccxt.com/?id=open-interest-structure>`
         """
@@ -4027,7 +4027,7 @@ class bitfinex(Exchange, ImplicitAPI):
         if trailingAmount is not None:
             request["price_trailing"] = trailingAmount
         elif triggerPrice is not None:
-            # request['price'] is taken for stop orders
+            # request['price'] is taken as triggerPrice for stop orders
             request["price"] = self.price_to_precision(symbol, triggerPrice)
             if type == "limit":
                 request["price_aux_limit"] = self.price_to_precision(symbol, price)

@@ -499,7 +499,7 @@ class apex(ccxt.async_support.apex):
         :param int [since]: timestamp in ms of the earliest candle to fetch
         :param int [limit]: the maximum amount of candles to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -519,7 +519,7 @@ class apex(ccxt.async_support.apex):
         :param int [since]: timestamp in ms of the earliest candle to fetch
         :param int [limit]: the maximum amount of candles to fetch
         :param dict [params]: extra parameters specific to the exchange API endpoint
-        :returns dict: A list of candles ordered, open, high, low, close, volume
+        :returns dict: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}
@@ -803,7 +803,7 @@ class apex(ccxt.async_support.apex):
             self.spawn(self.load_positions_snapshot, client, messageHash)
 
     async def load_positions_snapshot(self, client: Client, messageHash: object):
-        # one ws channel gives positions for all types, for snapshot must load all positions
+        # as only one ws channel gives positions for all types, for snapshot must load all positions
         fetchFunctions = [
             self.fetch_positions(),
         ]
@@ -968,7 +968,7 @@ class apex(ccxt.async_support.apex):
                 ret_msg = self.safe_string(message, "ret_msg")
                 request = self.safe_value(message, "request", {})
                 op = self.safe_string(request, "op")
-                # Benign re-subscribe notice(same shape 90008 /
+                # Benign re-subscribe notice(same shape as bitmart 90008 /
                 # krakenfutures "Already subscribed"): the original subscription
                 # is still active and delivering data on self socket. Without
                 # self short-circuit the catch-clause's `client.reject(error,
