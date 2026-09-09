@@ -1326,8 +1326,8 @@
       "target": "indra5196/nsestockanalyser",
       "url": "https://github.com/indra5196/nsestockanalyser",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2183",
+      "merged": true
     },
     {
       "name": "hypersdk",
