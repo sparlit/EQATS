@@ -1,5 +1,5 @@
 {
-  "current_index": 118,
+  "current_index": 119,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -949,7 +949,7 @@
       "name": "nse-delivery-data",
       "target": "dkraj0612/nse-delivery-data",
       "url": "https://github.com/dkraj0612/nse-delivery-data",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
