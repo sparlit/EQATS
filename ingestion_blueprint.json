@@ -1,5 +1,5 @@
 {
-  "current_index": 150,
+  "current_index": 151,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1205,7 +1205,7 @@
       "name": "getbhavcopy",
       "target": "hemenkapadia/getbhavcopy",
       "url": "https://github.com/hemenkapadia/getbhavcopy",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
