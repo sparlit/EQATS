@@ -121,7 +121,7 @@ Total Repositories: 411 | Current Index: 119
 | 116 | devangmukherjee/top-gainers-and-losers-nse | Processed | None |
 | 117 | devanshx9x/portfolio-monte-carlo | Processed | None |
 | 118 | dhruvan246/stocks-dashboard | Completed | None |
-| 119 | dkraj0612/nse-delivery-data | Completed | None |
+| 119 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/2132 |
 | 120 | dpeachpeach/kalshi-rust | pending | None |
 | 121 | edison7009/echobird | pending | None |
 | 122 | edtechre/pybroker | pending | None |
