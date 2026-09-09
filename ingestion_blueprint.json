@@ -1062,8 +1062,8 @@
       "target": "fluidex/dingir-exchange",
       "url": "https://github.com/fluidex/dingir-exchange",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2147",
+      "merged": true
     },
     {
       "name": "btrader",
