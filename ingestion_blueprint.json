@@ -270,8 +270,8 @@
       "target": "aneesh540/vse",
       "url": "https://github.com/aneesh540/vse",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2225",
+      "merged": true
     },
     {
       "name": "ai-stock-screener",
