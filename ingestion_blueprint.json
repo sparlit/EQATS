@@ -1,5 +1,5 @@
 {
-  "current_index": 125,
+  "current_index": 126,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1005,9 +1005,9 @@
       "name": "rust-trade",
       "target": "erio-harrison/rust-trade",
       "url": "https://github.com/erio-harrison/rust-trade",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2139",
+      "merged": true
     },
     {
       "name": "botvana",
