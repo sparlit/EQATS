@@ -1,5 +1,5 @@
 {
-  "current_index": 21,
+  "current_index": 22,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -173,9 +173,9 @@
       "name": "wods",
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2213",
+      "merged": true
     },
     {
       "name": "get-nse-bhavcopy",
