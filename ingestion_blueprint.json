@@ -1,5 +1,5 @@
 {
-  "current_index": 140,
+  "current_index": 141,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1125,7 +1125,7 @@
       "name": "nse-bse-bhavcopy",
       "target": "girishg4t/nse-bse-bhavcopy",
       "url": "https://github.com/girishg4t/nse-bse-bhavcopy",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
