@@ -1,5 +1,5 @@
 {
-  "current_index": 86,
+  "current_index": 87,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -693,9 +693,9 @@
       "name": "rotala",
       "target": "calumrussell/rotala",
       "url": "https://github.com/calumrussell/rotala",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2275",
+      "merged": true
     },
     {
       "name": "ccxt",
