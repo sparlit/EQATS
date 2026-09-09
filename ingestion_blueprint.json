@@ -1,5 +1,5 @@
 {
-  "current_index": 159,
+  "current_index": 160,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1277,9 +1277,9 @@
       "name": "nse-historical-data",
       "target": "hotessy/nse-historical-data",
       "url": "https://github.com/hotessy/nse-historical-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2177",
+      "merged": true
     },
     {
       "name": "stock-prediction-models",
