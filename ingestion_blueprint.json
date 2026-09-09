@@ -958,8 +958,8 @@
       "target": "dpeachpeach/kalshi-rust",
       "url": "https://github.com/dpeachpeach/kalshi-rust",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2318",
+      "merged": true
     },
     {
       "name": "echobird",
