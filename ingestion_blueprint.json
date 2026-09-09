@@ -1,5 +1,5 @@
 {
-  "current_index": 122,
+  "current_index": 123,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -981,9 +981,9 @@
       "name": "mtfdb",
       "target": "eggmasonvalue/mtfdb",
       "url": "https://github.com/eggmasonvalue/mtfdb",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2136",
+      "merged": true
     },
     {
       "name": "nse_52wk_screener",
