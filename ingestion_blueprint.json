@@ -1,5 +1,5 @@
 {
-  "current_index": 71,
+  "current_index": 72,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -573,9 +573,9 @@
       "name": "advanced-nse-momentum-terminal",
       "target": "benimward9621/advanced-nse-momentum-terminal",
       "url": "https://github.com/benimward9621/advanced-nse-momentum-terminal",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "eod2",
