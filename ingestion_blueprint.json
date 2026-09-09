@@ -1270,8 +1270,8 @@
       "target": "hopit-ai/india-trade-cli",
       "url": "https://github.com/hopit-ai/india-trade-cli",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2176",
+      "merged": true
     },
     {
       "name": "nse-historical-data",
