@@ -197,9 +197,9 @@
       "name": "buynsell",
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2328",
+      "merged": true
     },
     {
       "name": "osengine",

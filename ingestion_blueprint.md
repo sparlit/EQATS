@@ -4,8 +4,8 @@ Total Repositories: 411 | Current Index: 6
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
 | 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2315 |
-| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2317 |
-| 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/2320 |
+| 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
+| 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2322 |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | None |
 | 6 | 85599/banknifty-golden-ratio-strategy | Processed | None |
@@ -68,7 +68,7 @@ Total Repositories: 411 | Current Index: 6
 | 63 | avhz/rustquant | pending | None |
 | 64 | avin1311/nse-bse-dashboard | pending | None |
 | 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | pending | None |
-| 66 | ayushmaanbhav/stockmart | pending | None |
+| 66 | ayushmaanbhav/stockmart | Processed | https://github.com/sparlit/EQATS/pull/2258 |
 | 67 | azhagesan-dev/orderflowmap | pending | None |
 | 68 | barathgb007/nse-options-data-collector | pending | None |
 | 69 | barathgb007/upstox-python-data | pending | None |
