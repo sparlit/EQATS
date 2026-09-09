@@ -20,6 +20,7 @@ import ast
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -279,7 +280,6 @@ class AutonomousRepoIntegrator:
                     return True
                 print("  [-] Test verification failed. Applying auto-repair...")
                 self._auto_fix_test_failures(file_path, test_out)
-                # LLM Fallback Repair option
                 self._auto_fix_llm_fallback(file_path, test_out)
             elif file_path.suffix == ".rs":
                 exit_code, _rust_out = self.run_cmd("cargo check", cwd=file_path.parent)
@@ -340,8 +340,8 @@ class AutonomousRepoIntegrator:
             f.write(content)
 
     def _auto_fix_llm_fallback(self, file_path: Path, error_logs: str):
-        """
-        LLM-Assisted Auto-Repair Fallback.
+        """LLM-Assisted Auto-Repair Fallback.
+
         If LLM_API_KEY environment variable is present, dispatches the error traceback
         and code snippet to generate a surgical syntactical patch.
         """
@@ -359,7 +359,7 @@ class AutonomousRepoIntegrator:
                 model="meta/llama-3.3-70b-instruct",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=2048,
-                temperature=0.1
+                temperature=0.1,
             )
             fixed_code = response.choices[0].message.content.strip()
             fixed_code = re.sub(r"^```python\n?", "", fixed_code)
@@ -371,25 +371,13 @@ class AutonomousRepoIntegrator:
         except Exception as llm_err:
             print(f"  [-] LLM Auto-Repair skipped: {llm_err}")
 
-    def execute_auto_pr_and_merge_loop(self, target: dict[str, str]) -> tuple[bool, str | None]:
-        """Creates feature branch `integrate/<clean_repo_name>`, commits changes,
+    def execute_auto_pr_and_merge_loop(self, target: dict[str, str], branch_name: str) -> tuple[bool, str | None]:
+        """Commits changes, pushes branch to remote, opens Pull Request via gh CLI or REST API,
 
-        pushes branch to remote, opens Pull Request via gh CLI or REST API,
         auto-fixes rebase/merge conflicts, and automatically merges PR into main.
         Cross-platform compatible with Windows CMD, PowerShell, and POSIX Bash.
         """
-        repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
-        branch_name = f"integrate/{repo_name_clean}"
-
         print(f"[*] Starting Auto-PR & Auto-Merge Loop on branch [{branch_name}]...")
-
-        # Clean untracked temp files before branch checkout
-        shutil.rmtree(self.sandbox_dir, ignore_errors=True)
-        self.sandbox_dir.mkdir(exist_ok=True)
-
-        self.run_cmd("git checkout main")
-        self.run_cmd("git pull origin main --rebase", retries=3)
-        self.run_cmd(f"git checkout -b {branch_name}")
 
         self.run_cmd('git config user.name "EQATS Autonomous Integrator"')
         self.run_cmd('git config user.email "integrator@eqats.internal"')
@@ -402,8 +390,8 @@ class AutonomousRepoIntegrator:
             self.run_cmd(f"git branch -D {branch_name}")
             return (True, None)
 
-        commit_msg = f"EQATS Auto-Integration and Self-Healing: Integrated {target['target']}"
-        self.run_cmd(f'git commit -m "{commit_msg}"')
+        commit_msg = shlex.quote(f"EQATS Auto-Integration and Self-Healing: Integrated {target['target']}")
+        self.run_cmd(f"git commit -m {commit_msg}")
 
         push_code, push_out = self.run_cmd(f"git push origin {branch_name} --force", retries=3)
         if push_code != 0:
@@ -411,10 +399,10 @@ class AutonomousRepoIntegrator:
             self.run_cmd("git checkout main")
             return (False, None)
 
-        pr_title = f"Integration: {target['target']}"
-        pr_body = f"Autonomous institutional integration and self-healing pass for {target['url']}."
+        pr_title = shlex.quote(f"Integration: {target['target']}")
+        pr_body = shlex.quote(f"Autonomous institutional integration and self-healing pass for {target['url']}.")
 
-        pr_code, pr_out = self.run_cmd(f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch_name} --base main')
+        pr_code, pr_out = self.run_cmd(f"gh pr create --title {pr_title} --body {pr_body} --head {branch_name} --base main")
         pr_url = None
         if pr_code == 0:
             pr_match = re.search(r"https://github\.com/[^\s]+/pull/\d+", pr_out)
@@ -424,15 +412,17 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
-            self.run_cmd('git commit -m "docs: record PR metadata in state ledger" --allow-empty')
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            meta_msg = shlex.quote("docs: record PR metadata in state ledger")
+            self.run_cmd(f"git commit -m {meta_msg} --allow-empty")
             self.run_cmd(f"git push origin {branch_name} --force", retries=3)
 
             merge_code, _merge_out = self.run_cmd(f"gh pr merge {branch_name} --auto --merge --delete-branch")
             if merge_code != 0:
                 self.run_cmd("git checkout main")
                 self.run_cmd("git pull origin main --rebase")
-                self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"')
+                merge_msg = shlex.quote(f"Auto-merge PR for {target['target']}")
+                self.run_cmd(f"git merge {branch_name} --no-ff -m {merge_msg}")
                 self.run_cmd("git push origin main", retries=3)
             print(f"[+] Auto-Merge Loop completed for {branch_name}.")
         else:
@@ -440,12 +430,14 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
-            self.run_cmd('git commit -m "docs: record direct merge metadata in state ledger" --allow-empty')
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            direct_msg = shlex.quote("docs: record direct merge metadata in state ledger")
+            self.run_cmd(f"git commit -m {direct_msg} --allow-empty")
 
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase")
-            self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
+            branch_msg = shlex.quote(f"Auto-merge branch for {target['target']}")
+            self.run_cmd(f"git merge {branch_name} --no-ff -m {branch_msg}")
             self.run_cmd("git push origin main", retries=3)
 
         self.run_cmd("git checkout main")
@@ -463,6 +455,14 @@ class AutonomousRepoIntegrator:
         print(f"PROCESSING REPOSITORY [{index + 1}/{len(self.ledger['repositories'])}]: {target['target']}")
         print("=======================================================")
 
+        # FIRST: Checkout or create feature branch BEFORE adapting files or cloning!
+        repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
+        branch_name = f"integrate/{repo_name_clean}"
+
+        self.run_cmd("git checkout main")
+        self.run_cmd("git pull origin main --rebase", retries=3)
+        self.run_cmd(f"git checkout -b {branch_name}")
+
         target_dir = self.clone_repository(target)
         if not target_dir or not target_dir.exists():
             print(f"[-] Repository clone failed for {target['target']}. Record as skipped and push state update.")
@@ -471,10 +471,12 @@ class AutonomousRepoIntegrator:
             self.ledger["current_index"] += 1
             self.save_ledger()
 
+            # Push updated state directly to main on remote
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase", retries=3)
             self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
-            self.run_cmd(f'git commit -m "docs: advance ledger index past inaccessible repo {target["target"]}"')
+            skip_msg = shlex.quote(f"docs: advance ledger index past inaccessible repo {target['target']}")
+            self.run_cmd(f"git commit -m {skip_msg}")
             self.run_cmd("git push origin main", retries=3)
 
             return True
@@ -498,7 +500,7 @@ class AutonomousRepoIntegrator:
         self.ledger["current_index"] += 1
         self.save_ledger()
 
-        success, pr_url = self.execute_auto_pr_and_merge_loop(target)
+        success, pr_url = self.execute_auto_pr_and_merge_loop(target, branch_name)
 
         print(f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved.")
         return True
