@@ -1,5 +1,5 @@
 {
-  "current_index": 10,
+  "current_index": 122,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -973,7 +973,7 @@
       "name": "pybroker",
       "target": "edtechre/pybroker",
       "url": "https://github.com/edtechre/pybroker",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
