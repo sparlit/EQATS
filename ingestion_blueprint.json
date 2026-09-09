@@ -1,5 +1,5 @@
 {
-  "current_index": 33,
+  "current_index": 34,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -269,9 +269,9 @@
       "name": "vse",
       "target": "aneesh540/vse",
       "url": "https://github.com/aneesh540/vse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2225",
+      "merged": true
     },
     {
       "name": "ai-stock-screener",
