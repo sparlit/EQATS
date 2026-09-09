@@ -1,5 +1,5 @@
 {
-  "current_index": 31,
+  "current_index": 32,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -253,9 +253,9 @@
       "name": "nse-swing-scanner",
       "target": "amitashwinibhagat/nse-swing-scanner",
       "url": "https://github.com/amitashwinibhagat/nse-swing-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2223",
+      "merged": true
     },
     {
       "name": "yata",
