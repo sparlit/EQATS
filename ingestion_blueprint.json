@@ -1006,8 +1006,8 @@
       "target": "erio-harrison/rust-trade",
       "url": "https://github.com/erio-harrison/rust-trade",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2347",
+      "merged": true
     },
     {
       "name": "botvana",
