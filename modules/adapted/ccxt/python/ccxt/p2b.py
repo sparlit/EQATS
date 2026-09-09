@@ -801,7 +801,7 @@ class p2b(Exchange, ImplicitAPI):
         :param int [limit]: 1-500, default=50
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param int [params.offset]: default=0, with self value the last candles are returned
-        :returns int[][]: A list of candles ordered, open, high, low, close, volume
+        :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
             params = {}

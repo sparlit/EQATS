@@ -5,15 +5,22 @@ Processes repositories sequentially from repositories.txt / repo_list.md.
 
 Features:
 - Sequential 1-by-1 ingestion across 411 repositories.
-- Multi-tier Self-Healing Loop (Syntax repair, Ruff lint auto-fix, Mypy typing auto-fix, Pytest/Cargo test auto-fix).
-- Hardened Auto-PR and Auto-Merge GitHub Branch Loop with state ledger persistence
+- Multi-tier Self-Healing Loop:
+  * AST Syntax Repair
+  * Ruff Linter & Formatter (--fix --unsafe-fixes)
+  * Mypy Typing Annotation Repair
+  * Pytest / Cargo Verification
+  * LLM-Assisted AST Code Patch Fallback (OpenAI / NIM endpoint integration)
+- Hardened Auto-PR and Auto-Merge GitHub Branch Loop
 - Cross-platform support (Windows 11 Pro CMD/PowerShell & Linux/macOS POSIX)
 - Resilient JSON/Markdown state ledger persistence
 """
 
 import ast
 import json
+import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -236,6 +243,7 @@ class AutonomousRepoIntegrator:
         2. Ruff linter & format auto-fix
         3. Mypy type annotation auto-fix
         4. Pytest verification (exit code 0 or 5 for NO_TESTS_COLLECTED is considered success)
+        5. LLM-Assisted AST Repair Fallback (if LLM_API_KEY is available)
         Returns True if code passes checks, False otherwise.
         """
         print(f"[*] Initiating Self-Healing Loop for {file_path.name}...")
@@ -272,6 +280,7 @@ class AutonomousRepoIntegrator:
                     return True
                 print("  [-] Test verification failed. Applying auto-repair...")
                 self._auto_fix_test_failures(file_path, test_out)
+                self._auto_fix_llm_fallback(file_path, test_out)
             elif file_path.suffix == ".rs":
                 exit_code, _rust_out = self.run_cmd("cargo check", cwd=file_path.parent)
                 if exit_code == 0:
@@ -330,25 +339,122 @@ class AutonomousRepoIntegrator:
         with file_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
-    def execute_auto_pr_and_merge_loop(self, target: dict[str, str]) -> tuple[bool, str | None]:
-        """Creates feature branch `integrate/<clean_repo_name>`, commits changes,
+    def _auto_fix_llm_fallback(self, file_path: Path, error_logs: str):
+        """Dispatches code repair across LLM Multi-Provider Fallback Cascade:
+        1. Google Jules / Gemini API (Default)
+        2. ChatGPT / OpenAI API (Primary Fallback)
+        3. Nvidia NIM LLM model nvidia/nemotron-3-ultra-550b-a55b (Secondary Fallback)
+        4. OpenRouter Free Models (Third Fallback)
+        """
+        import urllib.request
 
-        pushes branch to remote, opens Pull Request via gh CLI or REST API,
+        code = file_path.read_text(encoding="utf-8", errors="ignore")
+        prompt = f"Fix Python syntax/type/assertion errors in this code:\n\n```python\n{code[:3000]}\n```\n\nERROR LOG:\n{error_logs[:1500]}\n\nReturn ONLY valid Python code without Markdown explanations."
+
+        # 1. Google Jules / Gemini API (Default)
+        jules_key = os.getenv("GOOGLE_JULES_API_KEY") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or os.getenv("LLM_API_KEY")
+        if jules_key:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={jules_key}"
+                data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 1 (Google Jules/Gemini): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 1 (Google Jules/Gemini) fallback triggered: {e}")
+
+        # 2. ChatGPT / OpenAI API (Primary Fallback)
+        openai_key = os.getenv("OPENAI_API_KEY") or os.getenv("CHATGPT_API_KEY")
+        if openai_key:
+            try:
+                url = "https://api.openai.com/v1/chat/completions"
+                data = json.dumps({
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openai_key}",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["choices"][0]["message"]["content"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 2 (ChatGPT/OpenAI): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 2 (ChatGPT/OpenAI) fallback triggered: {e}")
+
+        # 3. Nvidia NIM LLM model nvidia/nemotron-3-ultra-550b-a55b (Secondary Fallback)
+        nvidia_key = os.getenv("NVIDIA_NIM_API_KEY") or os.getenv("NVIDIA_API_KEY")
+        if nvidia_key:
+            try:
+                url = "https://integrate.api.nvidia.com/v1/chat/completions"
+                data = json.dumps({
+                    "model": "nvidia/nemotron-3-ultra-550b-a55b",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {nvidia_key}",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["choices"][0]["message"]["content"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 3 (Nvidia NIM Nemotron): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 3 (Nvidia NIM Nemotron) fallback triggered: {e}")
+
+        # 4. OpenRouter Free Models (Third Fallback)
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key:
+            try:
+                url = "https://openrouter.ai/api/v1/chat/completions"
+                data = json.dumps({
+                    "model": "google/gemini-2.0-flash-exp:free",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                }).encode("utf-8")
+                req = urllib.request.Request(url, data=data, headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {openrouter_key}",
+                })
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["choices"][0]["message"]["content"]
+                    cleaned = re.sub(r"^```python\n?", "", text.strip(), flags=re.MULTILINE)
+                    cleaned = re.sub(r"\n?```$", "", cleaned.strip(), flags=re.MULTILINE)
+                    if len(cleaned) > 20:
+                        file_path.write_text(cleaned, encoding="utf-8")
+                        print(f"  [+] Code repaired via Provider 4 (OpenRouter Free Model): {file_path.name}")
+                        return
+            except Exception as e:
+                print(f"  [-] Provider 4 (OpenRouter Free Model) fallback triggered: {e}")
+
+    def execute_auto_pr_and_merge_loop(self, target: dict[str, str], branch_name: str) -> tuple[bool, str | None]:
+        """Commits changes, pushes branch to remote, opens Pull Request via gh CLI or REST API,
+
         auto-fixes rebase/merge conflicts, and automatically merges PR into main.
         Cross-platform compatible with Windows CMD, PowerShell, and POSIX Bash.
         """
-        repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
-        branch_name = f"integrate/{repo_name_clean}"
-
         print(f"[*] Starting Auto-PR & Auto-Merge Loop on branch [{branch_name}]...")
-
-        # Clean untracked temp files before branch checkout
-        shutil.rmtree(self.sandbox_dir, ignore_errors=True)
-        self.sandbox_dir.mkdir(exist_ok=True)
-
-        self.run_cmd("git checkout main")
-        self.run_cmd("git pull origin main --rebase", retries=3)
-        self.run_cmd(f"git checkout -b {branch_name}")
 
         self.run_cmd('git config user.name "EQATS Autonomous Integrator"')
         self.run_cmd('git config user.email "integrator@eqats.internal"')
@@ -361,8 +467,8 @@ class AutonomousRepoIntegrator:
             self.run_cmd(f"git branch -D {branch_name}")
             return (True, None)
 
-        commit_msg = f"EQATS Auto-Integration and Self-Healing: Integrated {target['target']}"
-        self.run_cmd(f'git commit -m "{commit_msg}"')
+        commit_msg = shlex.quote(f"EQATS Auto-Integration and Self-Healing: Integrated {target['target']}")
+        self.run_cmd(f"git commit -m {commit_msg}")
 
         push_code, push_out = self.run_cmd(f"git push origin {branch_name} --force", retries=3)
         if push_code != 0:
@@ -370,10 +476,10 @@ class AutonomousRepoIntegrator:
             self.run_cmd("git checkout main")
             return (False, None)
 
-        pr_title = f"Integration: {target['target']}"
-        pr_body = f"Autonomous institutional integration and self-healing pass for {target['url']}."
+        pr_title = shlex.quote(f"Integration: {target['target']}")
+        pr_body = shlex.quote(f"Autonomous institutional integration and self-healing pass for {target['url']}.")
 
-        pr_code, pr_out = self.run_cmd(f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch_name} --base main')
+        pr_code, pr_out = self.run_cmd(f"gh pr create --title {pr_title} --body {pr_body} --head {branch_name} --base main")
         pr_url = None
         if pr_code == 0:
             pr_match = re.search(r"https://github\.com/[^\s]+/pull/\d+", pr_out)
@@ -383,16 +489,17 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            # Commit updated ledger with PR details
-            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
-            self.run_cmd('git commit -m "docs: record PR metadata in state ledger" --allow-empty')
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            meta_msg = shlex.quote("docs: record PR metadata in state ledger")
+            self.run_cmd(f"git commit -m {meta_msg} --allow-empty")
             self.run_cmd(f"git push origin {branch_name} --force", retries=3)
 
             merge_code, _merge_out = self.run_cmd(f"gh pr merge {branch_name} --auto --merge --delete-branch")
             if merge_code != 0:
                 self.run_cmd("git checkout main")
                 self.run_cmd("git pull origin main --rebase")
-                self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"')
+                merge_msg = shlex.quote(f"Auto-merge PR for {target['target']}")
+                self.run_cmd(f"git merge {branch_name} --no-ff -m {merge_msg}")
                 self.run_cmd("git push origin main", retries=3)
             print(f"[+] Auto-Merge Loop completed for {branch_name}.")
         else:
@@ -400,12 +507,14 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
-            self.run_cmd('git commit -m "docs: record direct merge metadata in state ledger" --allow-empty')
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            direct_msg = shlex.quote("docs: record direct merge metadata in state ledger")
+            self.run_cmd(f"git commit -m {direct_msg} --allow-empty")
 
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase")
-            self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
+            branch_msg = shlex.quote(f"Auto-merge branch for {target['target']}")
+            self.run_cmd(f"git merge {branch_name} --no-ff -m {branch_msg}")
             self.run_cmd("git push origin main", retries=3)
 
         self.run_cmd("git checkout main")
@@ -423,6 +532,14 @@ class AutonomousRepoIntegrator:
         print(f"PROCESSING REPOSITORY [{index + 1}/{len(self.ledger['repositories'])}]: {target['target']}")
         print("=======================================================")
 
+        # FIRST: Checkout or create feature branch BEFORE adapting files or cloning!
+        repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
+        branch_name = f"integrate/{repo_name_clean}"
+
+        self.run_cmd("git checkout main")
+        self.run_cmd("git pull origin main --rebase", retries=3)
+        self.run_cmd(f"git checkout -b {branch_name}")
+
         target_dir = self.clone_repository(target)
         if not target_dir or not target_dir.exists():
             print(f"[-] Repository clone failed for {target['target']}. Record as skipped and push state update.")
@@ -431,11 +548,12 @@ class AutonomousRepoIntegrator:
             self.ledger["current_index"] += 1
             self.save_ledger()
 
-            # Push updated state directly to main so current_index advances on remote GHA runner!
+            # Push updated state directly to main on remote
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase", retries=3)
             self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
-            self.run_cmd(f'git commit -m "docs: advance ledger index past inaccessible repo {target["target"]}"')
+            skip_msg = shlex.quote(f"docs: advance ledger index past inaccessible repo {target['target']}")
+            self.run_cmd(f"git commit -m {skip_msg}")
             self.run_cmd("git push origin main", retries=3)
 
             return True
@@ -457,9 +575,9 @@ class AutonomousRepoIntegrator:
 
         target["status"] = "Completed" if integrated_count > 0 else "Processed"
         self.ledger["current_index"] += 1
-        self.save_ledger()  # Save updated current_index & blueprint FIRST so git add stages it!
+        self.save_ledger()
 
-        success, pr_url = self.execute_auto_pr_and_merge_loop(target)
+        success, pr_url = self.execute_auto_pr_and_merge_loop(target, branch_name)
 
         print(f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved.")
         return True
