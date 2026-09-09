@@ -1030,8 +1030,8 @@
       "target": "feroze/yfinance-stock-history",
       "url": "https://github.com/feroze/yfinance-stock-history",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2142",
+      "merged": true
     },
     {
       "name": "nse-preopen-data",
