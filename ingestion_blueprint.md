@@ -17,7 +17,7 @@ Total Repositories: 411 | Current Index: 15
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | https://github.com/sparlit/EQATS/pull/2203 |
 | 13 | aeron7/nsepython | Processed | https://github.com/sparlit/EQATS/pull/2204 |
 | 14 | aeron7/nsepythonserver | Processed | https://github.com/sparlit/EQATS/pull/2205 |
-| 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
+| 15 | affaan-m/dprc-autotrader-v2 | Processed | https://github.com/sparlit/EQATS/pull/2206 |
 | 16 | agrawalarnav129-ui/jarvis-trading | pending | None |
 | 17 | ai4finance-foundation/finrl-trading | pending | None |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |
