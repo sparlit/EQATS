@@ -990,8 +990,8 @@
       "target": "ej9909-create/nse_52wk_screener",
       "url": "https://github.com/ej9909-create/nse_52wk_screener",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2137",
+      "merged": true
     },
     {
       "name": "indian-stock-market",
