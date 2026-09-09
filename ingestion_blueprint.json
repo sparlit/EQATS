@@ -534,8 +534,8 @@
       "target": "azhagesan-dev/orderflowmap",
       "url": "https://github.com/azhagesan-dev/orderflowmap",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2259",
+      "merged": true
     },
     {
       "name": "nse-options-data-collector",
