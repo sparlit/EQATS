@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 140
+Total Repositories: 411 | Current Index: 141
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -143,7 +143,7 @@ Total Repositories: 411 | Current Index: 140
 | 138 | get10101/10101 | Processed | https://github.com/sparlit/EQATS/pull/2152 |
 | 139 | ghostjat/shoonya-php | Processed | https://github.com/sparlit/EQATS/pull/2153 |
 | 140 | girishg4t/bhavcopy-downloader | Processed | https://github.com/sparlit/EQATS/pull/2154 |
-| 141 | girishg4t/nse-bse-bhavcopy | pending | None |
+| 141 | girishg4t/nse-bse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2155 |
 | 142 | girishkumardv/live-nse-bse-mcp | pending | None |
 | 143 | gomitechnology-source/nsebank_hft | pending | None |
 | 144 | groverjikaladka/nse-bse-news-scanner | pending | None |
