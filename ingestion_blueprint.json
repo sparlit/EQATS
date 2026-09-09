@@ -1,5 +1,5 @@
 {
-  "current_index": 121,
+  "current_index": 122,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -973,9 +973,9 @@
       "name": "pybroker",
       "target": "edtechre/pybroker",
       "url": "https://github.com/edtechre/pybroker",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2135",
+      "merged": true
     },
     {
       "name": "mtfdb",
