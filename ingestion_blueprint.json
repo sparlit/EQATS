@@ -1,5 +1,5 @@
 {
-  "current_index": 42,
+  "current_index": 43,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -341,9 +341,9 @@
       "name": "kite-option-chain",
       "target": "anurag-roy/kite-option-chain",
       "url": "https://github.com/anurag-roy/kite-option-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2234",
+      "merged": true
     },
     {
       "name": "shoonya-option-chain",
