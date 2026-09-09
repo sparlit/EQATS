@@ -21,8 +21,8 @@ Total Repositories: 411 | Current Index: 122
 | 16 | agrawalarnav129-ui/jarvis-trading | pending | None |
 | 17 | ai4finance-foundation/finrl-trading | pending | None |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |
-| 19 | ajeeshworkspace/indian-trading-skills | Completed | https://github.com/sparlit/EQATS/pull/2310 |
-| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2311 |
+| 19 | ajeeshworkspace/indian-trading-skills | pending | None |
+| 20 | akashnag/scripwatch | pending | None |
 | 21 | akashyadavv/algotradingnse | pending | None |
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2313 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2314 |
@@ -138,7 +138,7 @@ Total Repositories: 411 | Current Index: 122
 | 133 | fluidex/dingir-exchange | pending | None |
 | 134 | gabriel-milan/btrader | pending | None |
 | 135 | gadiyar/nsebhavcopy | pending | None |
-| 136 | ganeshbiyer/nse_historical_data | Processed | https://github.com/sparlit/EQATS/pull/2158 |
+| 136 | ganeshbiyer/nse_historical_data | pending | None |
 | 137 | georgiag7652/kronos-india | pending | None |
 | 138 | get10101/10101 | pending | None |
 | 139 | ghostjat/shoonya-php | pending | None |
@@ -174,7 +174,7 @@ Total Repositories: 411 | Current Index: 122
 | 169 | ishaan3h/india-sector-screener | pending | None |
 | 170 | itsnrk1/nse-scanner | pending | None |
 | 171 | jandginvestment/cci20-sma20-strategy | pending | None |
-| 172 | jayeshsrathod/nse-scanner | Completed | https://github.com/sparlit/EQATS/pull/2191 |
+| 172 | jayeshsrathod/nse-scanner | pending | None |
 | 173 | jensnesten/rust_bt | pending | None |
 | 174 | jerryshell/midas | pending | None |
 | 175 | jinit24/nsedownload | pending | None |
