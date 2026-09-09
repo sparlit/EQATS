@@ -214,8 +214,8 @@
       "target": "algotrading-lab/ai-algotrading-agent",
       "url": "https://github.com/algotrading-lab/ai-algotrading-agent",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2363",
+      "merged": true
     },
     {
       "name": "nse",
