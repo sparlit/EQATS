@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 162
+Total Repositories: 411 | Current Index: 163
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -165,7 +165,7 @@ Total Repositories: 411 | Current Index: 162
 | 160 | hotessy/nse-historical-data | Processed | https://github.com/sparlit/EQATS/pull/2177 |
 | 161 | huseinzol05/stock-prediction-models | Processed | https://github.com/sparlit/EQATS/pull/2178 |
 | 162 | hyphenos/tickdownload | Processed | https://github.com/sparlit/EQATS/pull/2179 |
-| 163 | ibm/nse-observer | pending | None |
+| 163 | ibm/nse-observer | Processed | None |
 | 164 | imanojkumar/nse-india-all-stocks-tickers-data | pending | None |
 | 165 | indianfoods-automation/nse | pending | None |
 | 166 | indra5196/nsestockanalyser | pending | None |
