@@ -1,5 +1,5 @@
 {
-  "current_index": 155,
+  "current_index": 156,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1245,9 +1245,9 @@
       "name": "rakshaquant",
       "target": "himanshumohanty-git24/rakshaquant",
       "url": "https://github.com/himanshumohanty-git24/rakshaquant",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2173",
+      "merged": true
     },
     {
       "name": "bse_nse_announcement",
