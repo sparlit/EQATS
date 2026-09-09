@@ -686,8 +686,8 @@
       "target": "c3point/nse-support-tools",
       "url": "https://github.com/c3point/nse-support-tools",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2274",
+      "merged": true
     },
     {
       "name": "rotala",
