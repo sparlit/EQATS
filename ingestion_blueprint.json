@@ -1014,8 +1014,8 @@
       "target": "featherenvy/botvana",
       "url": "https://github.com/featherenvy/botvana",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2140",
+      "merged": true
     },
     {
       "name": "nse-sharia-news-feed",
