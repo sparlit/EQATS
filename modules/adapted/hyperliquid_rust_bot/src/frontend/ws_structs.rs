@@ -1,0 +1,195 @@
+use std::sync::Arc;
+
+use crate::backtest::{BacktestProgress, BacktestResult};
+use crate::{
+    AssetMargin, EngineView, IndexId, MarginAllocation, MarketState, OpenPositionLocal, Price,
+    TradeInfo, Value,
+};
+use hyperliquid_rust_sdk::AssetMeta;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddMarketInfo {
+    pub asset: String,
+    pub margin_alloc: MarginAllocation,
+    pub lev: usize,
+    pub strategy_id: Option<Uuid>,
+    pub config: Option<Vec<IndexId>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketInfo {
+    pub asset: String,
+    pub lev: usize,
+    pub strategy_name: String,
+    pub price: f64,
+    pub margin: f64,
+    pub pnl: f64,
+    pub is_paused: bool,
+    pub indicators: Vec<IndicatorData>,
+    pub position: Option<OpenPositionLocal>,
+    pub engine_state: EngineView,
+}
+
+impl From<&MarketState> for MarketInfo {
+    fn from(s: &MarketState) -> Self {
+        MarketInfo {
+            asset: s.asset.clone(),
+            lev: s.lev,
+            price: 0.0,
+            strategy_name: s.strategy_name.clone(),
+            margin: s.margin,
+            pnl: s.pnl,
+            is_paused: s.is_paused,
+            indicators: Vec::new(),
+            position: s.position,
+            engine_state: s.engine_state,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct IndicatorData {
+    pub id: IndexId,
+    pub value: Option<Value>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EditMarketInfo {
+    Lev(usize),
+    Trade(TradeInfo),
+    OpenPosition(Option<OpenPositionLocal>),
+    EngineState(EngineView),
+    Paused(bool),
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MarketStream {
+    Price {
+        asset: Arc<str>,
+        #[serde(with = "PriceDef")]
+        price: Price,
+    },
+    Indicators {
+        asset: Arc<str>,
+        data: Vec<IndicatorData>,
+    },
+}
+
+#[derive(Serialize)]
+#[serde(remote = "Price", rename_all = "camelCase")]
+struct PriceDef {
+    open: f64,
+    high: f64,
+    low: f64,
+    close: f64,
+    open_time: u64,
+    close_time: u64,
+    vlm: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BacktestProgressUpdate {
+    pub run_id: String,
+    pub progress: BacktestProgress,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BacktestResultUpdate {
+    pub run_id: String,
+    pub result: BacktestResult,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserSession {
+    pub markets: Vec<MarketInfo>,
+    pub universe: Vec<AssetMeta>,
+    pub agent_approved: bool,
+    pub builder_approved: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateFrontend {
+    PreconfirmMarket(String),
+    ConfirmMarket(MarketInfo),
+    CancelMarket(String),
+    UpdateTotalMargin(f64),
+    UpdateMarketMargin(AssetMargin),
+    MarketStream(MarketStream),
+    MarketInfoEdit((String, EditMarketInfo)),
+    UserError(String),
+    BacktestProgress(BacktestProgressUpdate),
+    BacktestResult(Box<BacktestResultUpdate>),
+    LoadSession(UserSession),
+    Status(BackendStatus),
+    StrategyLog(ScriptLog),
+    NeedsApiKey(bool),
+    NeedsBuilderApproval(bool),
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptLog {
+    pub asset: Arc<str>,
+    pub msg: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackendStatus {
+    Online,
+    Offline,
+    Shutdown,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn market_price_stream_serializes_the_full_candle() {
+        let update = UpdateFrontend::MarketStream(MarketStream::Price {
+            asset: Arc::from("BTC"),
+            price: Price {
+                open: 100.0,
+                high: 102.0,
+                low: 99.0,
+                close: 101.0,
+                open_time: 60_000,
+                close_time: 119_999,
+                vlm: 42.5,
+            },
+        });
+
+        assert_eq!(
+            serde_json::to_value(update).unwrap(),
+            json!({
+                "marketStream": {
+                    "price": {
+                        "asset": "BTC",
+                        "price": {
+                            "open": 100.0,
+                            "high": 102.0,
+                            "low": 99.0,
+                            "close": 101.0,
+                            "openTime": 60_000,
+                            "closeTime": 119_999,
+                            "vlm": 42.5
+                        }
+                    }
+                }
+            })
+        );
+    }
+}
