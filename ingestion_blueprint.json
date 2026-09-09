@@ -1,5 +1,5 @@
 {
-  "current_index": 60,
+  "current_index": 61,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -485,9 +485,9 @@
       "name": "time-series-forecast-nsepy",
       "target": "atul-anand-jha/time-series-forecast-nsepy",
       "url": "https://github.com/atul-anand-jha/time-series-forecast-nsepy",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2252",
+      "merged": true
     },
     {
       "name": "sectoral-breadth-dashboard",
