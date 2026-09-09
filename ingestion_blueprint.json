@@ -1,5 +1,5 @@
 {
-  "current_index": 144,
+  "current_index": 145,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1157,7 +1157,7 @@
       "name": "nse-data-syncer",
       "target": "gurudayal37/nse-data-syncer",
       "url": "https://github.com/gurudayal37/nse-data-syncer",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
