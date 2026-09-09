@@ -1,5 +1,5 @@
 {
-  "current_index": 94,
+  "current_index": 95,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -757,9 +757,9 @@
       "name": "interchangabletrade-protocol",
       "target": "chulilee/interchangabletrade-protocol",
       "url": "https://github.com/chulilee/interchangabletrade-protocol",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2282",
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
