@@ -1,39 +1,10 @@
 import datetime
-from typing import Optional
 
-try:
-    import pytz
-except ImportError:
-    pytz = None
-
-try:
-    import numpy as np
-except ImportError:
-    np = None
-
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-
-try:
-    import pandas_market_calendars as mcal
-except ImportError:
-    mcal = None
-
-try:
-    from strategies.strategylogger import StrategyLogger
-except ImportError:
-    StrategyLogger = None
-
-import random
+import pytz
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    if pytz is None:
-        msg = "pytz is required for timezone handling"
-        raise ImportError(msg)
     ist = pytz.timezone("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
@@ -48,6 +19,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
+
+
+import random
+
+import numpy as np
+import pandas as pd
+import pandas_market_calendars as mcal
+from strategies.strategylogger import StrategyLogger
 
 
 class UniverseManager:
@@ -70,26 +49,18 @@ class UniverseManager:
         backtest_end=None,
     ):
         self.logger = logger
-        if pd is not None:
-            self.trading_calendar = pd.DatetimeIndex(sorted(trading_calendar))
-        else:
-            self.trading_calendar = sorted(trading_calendar)
+        self.trading_calendar = pd.DatetimeIndex(sorted(trading_calendar))
 
         # === save backtest start and end ===
-        if pd is not None:
-            self.backtest_start = pd.to_datetime(backtest_start) if backtest_start else None
-            self.backtest_end = pd.to_datetime(backtest_end) if backtest_end else None
-        else:
-            self.backtest_start = backtest_start
-            self.backtest_end = backtest_end
+        self.backtest_start = pd.to_datetime(backtest_start) if backtest_start else None
+        self.backtest_end = pd.to_datetime(backtest_end) if backtest_end else None
 
         # -----------------------------
         # map column names
         # -----------------------------
         df = stock_selection_df.copy()
         df = df.rename(columns={col_map["tic_name"]: "tic_name", col_map["trade_date"]: "trade_date"})
-        if pd is not None:
-            df["trade_date"] = pd.to_datetime(df["trade_date"])
+        df["trade_date"] = pd.to_datetime(df["trade_date"])
 
         # === select backtest period ===
         if self.backtest_start is not None:
@@ -118,13 +89,96 @@ class UniverseManager:
                 f"backtest=[{self.backtest_start} ~ {self.backtest_end}]"
             )
 
+    # ============================================================
+    # Internal Helpers
+    # ============================================================
+
+    def _next_trade_date(self, date):
+        date = pd.Timestamp(date)
+        pos = self.trading_calendar.searchsorted(date, side="right")
+        if pos >= len(self.trading_calendar):
+            return None
+        return self.trading_calendar[pos]
+
     def _build_universe(self, df):
-        """Build daily universe dataframe. To be implemented."""
-        return df
+        df = df.copy()
+        df["activate_date"] = df["trade_date"].apply(self._next_trade_date)
+        df = df.dropna(subset=["activate_date"])
+
+        df = df.sort_values(["trade_date", "tic_name"])
+        quarters = df.groupby("trade_date")
+
+        trade_dates = sorted(df["trade_date"].unique())
+        activate_dates = [self._next_trade_date(d) for d in trade_dates]
+
+        deactivate_map = {}
+        for i in range(len(activate_dates) - 1):
+            deactivate_map[activate_dates[i]] = activate_dates[i + 1]
+
+        max_date = self.trading_calendar.max() + pd.Timedelta(days=1)
+        deactivate_map[activate_dates[-1]] = max_date
+
+        # ⬇ build daily universe
+        records = []
+
+        for trade_date, group in quarters:
+            act_date = self._next_trade_date(trade_date)
+            deact_date = deactivate_map[act_date]
+
+            tics = group["tic_name"].tolist()
+            mask = (self.trading_calendar >= act_date) & (self.trading_calendar < deact_date)
+            active_days = self.trading_calendar[mask]
+
+            for d in active_days:
+                for tic in tics:
+                    records.append({"date": d, "tic_name": tic, "in_universe": 1})
+
+        return pd.DataFrame(records).drop_duplicates(["date", "tic_name"]).sort_values(["date", "tic_name"])
 
     def _build_fast_index(self, universe_df):
-        """Build fast lookup index. To be implemented."""
-        return {}
+        fast = {}
+        for date, grp in universe_df.groupby("date"):
+            fast[pd.Timestamp(date)] = set(grp["tic_name"].tolist())
+        return fast
 
-    # ======
-    # Additional methods would go here
+    # ============================================================
+    # Public API
+    # ============================================================
+
+    def is_in_universe(self, tic_name, date):
+        date = pd.Timestamp(date)
+        tics = self.universe_map.get(date)
+        if tics is None:
+            return False
+        return tic_name in tics
+
+    def get_universe(self, date):
+        date = pd.Timestamp(date)
+        return self.universe_map.get(date, set())
+
+    # ============================================================
+    # Universe Logging (IN / OUT)
+    # ============================================================
+
+    def log_universe_events_for_date(self, date):
+        """
+        仅记录股票池的 IN / OUT（Execution 决定 close-only）
+        """
+        if self.logger is None:
+            return
+
+        date = pd.Timestamp(date)
+        today_u = self.get_universe(date)
+
+        added = today_u - self.prev_universe
+        removed = self.prev_universe - today_u
+
+        # --- modified: use logger's compatible signature ---
+        for tic in sorted(added):
+            self.logger.log_universe(date=date, symbol=tic, in_universe=1, close_only=False, has_position=False)
+
+        for tic in sorted(removed):
+            self.logger.log_universe(date=date, symbol=tic, in_universe=0, close_only=False, has_position=False)
+        # --- end of modification ---
+
+        self.prev_universe = today_u.copy()
