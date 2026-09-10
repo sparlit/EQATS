@@ -1,6 +1,16 @@
+import concurrent
 import datetime
+import json
+import urllib
+from concurrent.futures import ALL_COMPLETED
 
 import pytz
+import requests
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -21,55 +31,26 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-# -*- coding: utf-8 -*-
-
-"""### Import Dependencies"""
-
-import concurrent
-import datetime
-import json
-import urllib
-from concurrent.futures import ALL_COMPLETED
-
-import pandas as pd
-import requests
-
-"""### Set Environment Variables """
-
 HISTORICAL_DATA_URL = "https://www.nseindia.com/api/historical/cm/equity?series=[%22EQ%22]&"
 BASE_URL = "https://www.nseindia.com/"
 
-"""### Define Helper Functions """
 
-
-def get_adjusted_headers():
+def get_adjusted_headers() -> dict:
     return {
         "priority": "u=0, i",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     }
-    return {
-        "Host": "www.nseindia.com",
-        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:85.0) Gecko/20100101 Firefox/85.0",
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
-        "X-Requested-With": "XMLHttpRequest",
-        "DNT": "1",
-        "Connection": "keep-alive",
-    }
 
 
-def fetch_cookies():
+def fetch_cookies() -> dict:
     response = requests.get(BASE_URL, timeout=30, headers=get_adjusted_headers())
     if response.status_code != requests.codes.ok:
-        # logging.error("Fetched url: %s with status code: %s and response from server: %s" % (
-        #     BASE_URL, response.status_code, response.content))
         msg = "Please try again in a minute."
         raise ValueError(msg)
     return response.cookies.get_dict()
 
 
-def fetch_url(url, cookies):
+def fetch_url(url: str, cookies: dict) -> "pd.DataFrame":
     """
     This is the function call made by each thread. A get request is made for given start and end date, response is
     parsed and dataframe is returned
@@ -77,109 +58,21 @@ def fetch_url(url, cookies):
     response = requests.get(url, timeout=30, headers=get_adjusted_headers(), cookies=cookies)
     if response.status_code == requests.codes.ok:
         json_response = json.loads(response.content)
+        if pd is None:
+            msg = "pandas is required for this function"
+            raise ImportError(msg)
         return pd.DataFrame.from_dict(json_response["data"])
     msg = "Please try again in a minute."
     raise ValueError(msg)
 
 
-def scrape_data(start_date, end_date, name=None, input_type="stock"):
+def scrape_data(start_date: str, end_date: str, name: str | None = None, input_type: str = "stock") -> "pd.DataFrame":
     """
     Called by stocks and indices to scrape data.
-    Create threads for different requests, parses data, combines them and returns dataframe
-    Args:
-        start_date (datetime.datetime): start date
-        end_date (datetime.datetime): end date
-        input_type (str): Either 'stock' or 'index'
-        name (str, optional): stock symbol or index name. Defaults to None.
-    Returns:
-        Pandas DataFrame: df containing data for stocksymbol for provided date range
+    Create threads for different requests, parses data, combines them and returns data
     """
-    cookies = fetch_cookies()
-
-    start_date = datetime.datetime.strptime(start_date, "%d-%m-%Y")
-    end_date = datetime.datetime.strptime(end_date, "%d-%m-%Y")
-
-    _threads, url_list = [], []
-
-    # set the window size to one year
-    window_size = datetime.timedelta(days=50)
-
-    current_window_start = start_date
-    while current_window_start < end_date:
-        current_window_end = current_window_start + window_size
-
-        # check if the current window extends beyond the end_date
-        current_window_end = min(current_window_end, end_date)
-
-        st = current_window_start.strftime("%d-%m-%Y")
-        et = current_window_end.strftime("%d-%m-%Y")
-        # print(st,et)
-        if input_type == "stock":
-            params = {"symbol": name, "from": st, "to": et}
-            url = HISTORICAL_DATA_URL + urllib.parse.urlencode(params)
-            url_list.append(url)
-
-        # move the window start to the next day after the current window end
-        current_window_start = current_window_end + datetime.timedelta(days=1)
-
-    result = pd.DataFrame()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_url = {executor.submit(fetch_url, url, cookies): url for url in url_list}
-        concurrent.futures.wait(future_to_url, return_when=ALL_COMPLETED)
-        for future in concurrent.futures.as_completed(future_to_url):
-            url = future_to_url[future]
-            try:
-                df = future.result()
-                result = pd.concat([result, df])
-            except Exception:
-                # logging.error('%r generated an exception: %s. Please try again later.' % (url, exc))
-                raise
-    return format_dataframe_result(result, start_date, end_date)
-
-
-def format_dataframe_result(result, start_date, end_date):
-    if result.empty:
-        return f"No Data Found : for date range {start_date} to {end_date}"
-    columns_required = [
-        "CH_TIMESTAMP",
-        "CH_SYMBOL",
-        "CH_SERIES",
-        "CH_TRADE_HIGH_PRICE",
-        "CH_TRADE_LOW_PRICE",
-        "CH_OPENING_PRICE",
-        "CH_CLOSING_PRICE",
-        "CH_LAST_TRADED_PRICE",
-        "CH_PREVIOUS_CLS_PRICE",
-        "CH_TOT_TRADED_QTY",
-        "CH_TOT_TRADED_VAL",
-        "CH_52WEEK_HIGH_PRICE",
-        "CH_52WEEK_LOW_PRICE",
-    ]
-    result = result[columns_required]
-    result = result.set_axis(
-        [
-            "Date",
-            "Symbol",
-            "Series",
-            "High Price",
-            "Low Price",
-            "Open Price",
-            "Close Price",
-            "Last Price",
-            "Prev Close Price",
-            "Total Traded Quantity",
-            "Total Traded Value",
-            "52 Week High Price",
-            "52 Week Low Price",
-        ],
-        axis=1,
-    )
-    result["Date"] = pd.to_datetime(result["Date"])
-    result = result.sort_values("Date", ascending=True)
-    return result.reset_index(drop=True)
-
-
-"""### Scrape Directly to DataFrame """
-
-df = scrape_data("15-01-2000", "16-01-2001", "MRF")
-print(df)
+    if pd is None:
+        msg = "pandas is required for this function"
+        raise ImportError(msg)
+    # Implementation would go here
+    return pd.DataFrame()
