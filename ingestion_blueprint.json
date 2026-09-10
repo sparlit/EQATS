@@ -1,5 +1,5 @@
 {
-  "current_index": 14,
+  "current_index": 15,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -117,9 +117,9 @@
       "name": "dprc-autotrader-v2",
       "target": "affaan-m/dprc-autotrader-v2",
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2399",
+      "merged": true
     },
     {
       "name": "jarvis-trading",
