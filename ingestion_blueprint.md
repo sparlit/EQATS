@@ -1,9 +1,9 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 0
+Total Repositories: 411 | Current Index: 1
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
-| 1 | 0b01/tectonicdb | pending | None |
+| 1 | 0b01/tectonicdb | Processed | None |
 | 2 | 0xnosystem/hyperliquid_rust_bot | pending | None |
 | 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
@@ -38,7 +38,7 @@ Total Repositories: 411 | Current Index: 0
 | 33 | amv-dev/yata | pending | None |
 | 34 | aneesh540/vse | pending | None |
 | 35 | animesh4002/ai-stock-screener | pending | None |
-| 36 | aniruddhsujish/nsetradeagents | pending | None |
+| 36 | aniruddhsujish/nsetradeagents | Completed | https://github.com/sparlit/EQATS/pull/2380 |
 | 37 | anjulgarg/sharewatch | pending | None |
 | 38 | ankitchaudhary6886/nse-system | pending | None |
 | 39 | ankitsny/nse_scrapper | pending | None |
