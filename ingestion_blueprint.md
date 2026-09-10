@@ -47,7 +47,7 @@ Total Repositories: 411 | Current Index: 45
 | 42 | anthdm/rust-trading-engine | Processed | https://github.com/sparlit/EQATS/pull/2445 |
 | 43 | anurag-roy/kite-option-chain | Processed | https://github.com/sparlit/EQATS/pull/2446 |
 | 44 | anurag-roy/shoonya-option-chain | Processed | https://github.com/sparlit/EQATS/pull/2447 |
-| 45 | api-evangelist/nse-india | Processed | None |
+| 45 | api-evangelist/nse-india | Processed | https://github.com/sparlit/EQATS/pull/2448 |
 | 46 | aravin/algo-trade | pending | None |
 | 47 | aravin/nse-data | pending | None |
 | 48 | arishhassan/nse-live_testing | pending | None |
