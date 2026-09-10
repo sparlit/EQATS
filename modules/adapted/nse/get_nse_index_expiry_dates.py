@@ -1,22 +1,47 @@
-import requests
 import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import datetime
+
 import pandas as pd
+import requests
 
 headers = {
-            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8,en-GB;q=0.7",
-            "cache-control": "max-age=0",
-            "priority": "u=0, i",
-            "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "document",
-            "sec-fetch-mode": "navigate",
-            "sec-fetch-site": "none",
-            "sec-fetch-user": "?1",
-            "upgrade-insecure-requests": "1",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0"
-        }
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "accept-language": "en-US,en;q=0.9,en-IN;q=0.8,en-GB;q=0.7",
+    "cache-control": "max-age=0",
+    "priority": "u=0, i",
+    "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "none",
+    "sec-fetch-user": "?1",
+    "upgrade-insecure-requests": "1",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+}
+
 
 def nsefetch(payload):
     try:
@@ -28,34 +53,39 @@ def nsefetch(payload):
         output = {}
     return output
 
+
 def fnolist():
-    positions = nsefetch('https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O')
-    nselist=['NIFTY','NIFTYIT','BANKNIFTY']
-    i=0
-    for x in range(i, len(positions['data'])):
-        nselist=nselist+[positions['data'][x]['symbol']]
+    positions = nsefetch("https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O")
+    nselist = ["NIFTY", "NIFTYIT", "BANKNIFTY"]
+    i = 0
+    for x in range(i, len(positions["data"])):
+        nselist = [*nselist, positions["data"][x]["symbol"]]
     return nselist
 
-def nsesymbolpurify(symbol):
-    symbol = symbol.replace('&','%26')
-    return symbol
 
-def nse_quote(symbol,section=""):
+def nsesymbolpurify(symbol):
+    return symbol.replace("&", "%26")
+
+
+def nse_quote(symbol, section=""):
     symbol = nsesymbolpurify(symbol)
-    if(section==""):
+    if section == "":
         if any(x in symbol for x in fnolist()):
-            payload = nsefetch('https://www.nseindia.com/api/quote-derivative?symbol='+symbol)
+            payload = nsefetch("https://www.nseindia.com/api/quote-derivative?symbol=" + symbol)
         else:
-            payload = nsefetch('https://www.nseindia.com/api/quote-equity?symbol='+symbol)
+            payload = nsefetch("https://www.nseindia.com/api/quote-equity?symbol=" + symbol)
         return payload
+    return None
+
 
 def expiry_list(symbol):
     payload = nse_quote(symbol)
-    dates=list(set((payload["expiryDates"])))
-    dates.sort(key = lambda date: datetime.datetime.strptime(date, '%d-%b-%Y'))
+    dates = list(set(payload["expiryDates"]))
+    dates.sort(key=lambda date: datetime.datetime.strptime(date, "%d-%b-%Y"))
     return dates
 
-print(expiry_list("NIFTY")[0]) # nearest expiry
+
+print(expiry_list("NIFTY")[0])  # nearest expiry
 
 # ---------------------OR----------------------
 

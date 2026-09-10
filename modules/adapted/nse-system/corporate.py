@@ -1,32 +1,53 @@
-import sys
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 import datetime as dt
-import yfinance as yf
+import sys
+
 import db
+import yfinance as yf
 
 BANK_KEYS = ["BANK", "FINANC", "NBFC"]
 
 TAG_RULES = [
-    ("RESULTS", ["results", "profit", "loss", "earnings",
-                 "quarter", "revenue"]),
+    ("RESULTS", ["results", "profit", "loss", "earnings", "quarter", "revenue"]),
     ("DIVIDEND", ["dividend"]),
     ("BUYBACK/SPLIT/BONUS", ["buyback", "bonus", "split"]),
-    ("DEALS/STAKE", ["block deal", "bulk deal", "stake",
-                     "acquisition", "merger"]),
+    ("DEALS/STAKE", ["block deal", "bulk deal", "stake", "acquisition", "merger"]),
     ("ORDERS/CONTRACTS", ["order", "contract", "bagged", "deal win"]),
-    ("REGULATORY/RED", ["sebi", "probe", "penalty", "fraud",
-                        "notice", "default", "allegation"]),
+    ("REGULATORY/RED", ["sebi", "probe", "penalty", "fraud", "notice", "default", "allegation"]),
 ]
+
 
 def ensure(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS corp_calendar(
         symbol TEXT, event_date TEXT, kind TEXT, detail TEXT)""")
 
+
 def is_financial(sector):
     s = (sector or "").upper()
-    for k in BANK_KEYS:
-        if k in s:
-            return True
-    return False
+    return any(k in s for k in BANK_KEYS)
+
 
 def fetch_calendar(symbol):
     conn = db.get_conn()
@@ -39,9 +60,7 @@ def fetch_calendar(symbol):
         if ed is not None and len(ed) > 0:
             for idx in ed.index:
                 d = str(idx)[:10]
-                conn.execute(
-                    "INSERT INTO corp_calendar VALUES (?,?,?,?)",
-                    (symbol, d, "RESULTS", "earnings date"))
+                conn.execute("INSERT INTO corp_calendar VALUES (?,?,?,?)", (symbol, d, "RESULTS", "earnings date"))
                 n += 1
     except Exception as e:
         print("earnings dates failed:", e)
@@ -54,13 +73,11 @@ def fetch_calendar(symbol):
                 spl = r.get("Stock Splits")
                 if div is not None and div == div and div != 0:
                     conn.execute(
-                        "INSERT INTO corp_calendar VALUES (?,?,?,?)",
-                        (symbol, d, "DIVIDEND", f"Rs {round(div,2)}"))
+                        "INSERT INTO corp_calendar VALUES (?,?,?,?)", (symbol, d, "DIVIDEND", f"Rs {round(div, 2)}")
+                    )
                     n += 1
                 if spl is not None and spl == spl and spl != 0:
-                    conn.execute(
-                        "INSERT INTO corp_calendar VALUES (?,?,?,?)",
-                        (symbol, d, "SPLIT", f"ratio {spl}"))
+                    conn.execute("INSERT INTO corp_calendar VALUES (?,?,?,?)", (symbol, d, "SPLIT", f"ratio {spl}"))
                     n += 1
     except Exception as e:
         print("actions failed:", e)
@@ -68,28 +85,27 @@ def fetch_calendar(symbol):
     conn.close()
     return n
 
+
 def tag_headlines(conn, symbol):
     rows = conn.execute(
-        "SELECT title, age_days, label FROM sentiment_headlines "
-        "WHERE symbol=? ORDER BY age_days", (symbol,)).fetchall()
+        "SELECT title, age_days, label FROM sentiment_headlines WHERE symbol=? ORDER BY age_days", (symbol,)
+    ).fetchall()
     out = []
     for title, age, label in rows:
         t = title.lower()
-        tags = [name for name, keys in TAG_RULES
-                if any(k in t for k in keys)]
+        tags = [name for name, keys in TAG_RULES if any(k in t for k in keys)]
         out.append((title, age, label, tags))
     return out
+
 
 def red_flags(conn, symbol):
     flags = []
     cols = [c[1] for c in conn.execute("PRAGMA table_info(fundamentals)")]
-    row = conn.execute(
-        "SELECT * FROM fundamentals WHERE symbol=?", (symbol,)).fetchone()
-    sec = conn.execute(
-        "SELECT sector FROM stocks WHERE symbol=?", (symbol,)).fetchone()
+    row = conn.execute("SELECT * FROM fundamentals WHERE symbol=?", (symbol,)).fetchone()
+    sec = conn.execute("SELECT sector FROM stocks WHERE symbol=?", (symbol,)).fetchone()
     sector = sec[0] if sec else None
     if row:
-        m = dict(zip(cols, row))
+        m = dict(zip(cols, row, strict=False))
         de = m.get("debt_to_equity")
         if de is not None and de > 1.5 and not is_financial(sector):
             flags.append(f"HIGH DEBT: D/E {de:.2f}")
@@ -99,9 +115,8 @@ def red_flags(conn, symbol):
         if m.get("cfo_positive") == 0:
             flags.append("NEGATIVE OPERATING CASH FLOW")
     neg = conn.execute(
-        "SELECT COUNT(*) FROM sentiment_headlines "
-        "WHERE symbol=? AND label='negative' AND age_days<=7",
-        (symbol,)).fetchone()[0]
+        "SELECT COUNT(*) FROM sentiment_headlines WHERE symbol=? AND label='negative' AND age_days<=7", (symbol,)
+    ).fetchone()[0]
     if neg >= 2:
         flags.append(f"{neg} NEGATIVE NEWS IN 7 DAYS")
     today = dt.date.today()
@@ -109,14 +124,13 @@ def red_flags(conn, symbol):
         "SELECT event_date FROM corp_calendar "
         "WHERE symbol=? AND kind='RESULTS' AND event_date>=? "
         "AND event_date<=? ORDER BY event_date LIMIT 1",
-        (symbol, today.isoformat(),
-         (today + dt.timedelta(days=7)).isoformat())).fetchone()
+        (symbol, today.isoformat(), (today + dt.timedelta(days=7)).isoformat()),
+    ).fetchone()
     if soon:
         flags.append(f"RESULTS ON {soon[0]} (event risk)")
     t = conn.execute(
-        "SELECT above200, rsi FROM technicals_daily "
-        "WHERE symbol=? ORDER BY date DESC LIMIT 1",
-        (symbol,)).fetchone()
+        "SELECT above200, rsi FROM technicals_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (symbol,)
+    ).fetchone()
     if t:
         if t[0] == 0:
             flags.append("BELOW 200-DAY AVERAGE")
@@ -126,14 +140,16 @@ def red_flags(conn, symbol):
             flags.append(f"OVERSOLD RSI {t[1]:.0f}")
     return flags
 
+
 def report(symbol):
     conn = db.get_conn()
     print("UPCOMING CORPORATE EVENTS:")
     for r in conn.execute(
-            "SELECT event_date, kind, detail FROM corp_calendar "
-            "WHERE symbol=? AND event_date>=? "
-            "ORDER BY event_date LIMIT 8",
-            (symbol, dt.date.today().isoformat())):
+        "SELECT event_date, kind, detail FROM corp_calendar "
+        "WHERE symbol=? AND event_date>=? "
+        "ORDER BY event_date LIMIT 8",
+        (symbol, dt.date.today().isoformat()),
+    ):
         print("  ", r)
     print("TAGGED HEADLINES:")
     for title, age, label, tags in tag_headlines(conn, symbol)[:8]:
@@ -146,6 +162,7 @@ def report(symbol):
     else:
         print("   none")
     conn.close()
+
 
 if len(sys.argv) > 2 and sys.argv[1] == "run":
     for s in sys.argv[2:]:

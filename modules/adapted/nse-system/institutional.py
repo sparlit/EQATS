@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 A2 — Institutional footprint.
 - accumulation_score: up-volume share over last 20d (reliable proxy).
@@ -5,12 +28,15 @@ A2 — Institutional footprint.
 Stored in institutional(symbol,date,accum,delivery_pct).
 """
 import datetime as dt
+
 import db
+
 
 def _ensure(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS institutional(
         symbol TEXT, date TEXT, accum REAL, delivery_pct REAL,
         UNIQUE(symbol, date))""")
+
 
 def accumulation_score(symbol, conn=None):
     own = False
@@ -18,8 +44,8 @@ def accumulation_score(symbol, conn=None):
         conn = db.get_conn()
         own = True
     rows = conn.execute(
-        "SELECT close, volume FROM prices_daily WHERE symbol=? "
-        "ORDER BY date DESC LIMIT 21", (symbol,)).fetchall()
+        "SELECT close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 21", (symbol,)
+    ).fetchall()
     if own:
         conn.close()
     if len(rows) < 10:
@@ -27,7 +53,7 @@ def accumulation_score(symbol, conn=None):
     rows = list(reversed(rows))
     up = dn = 0.0
     for i in range(1, len(rows)):
-        pc, pv = rows[i - 1]
+        pc, _pv = rows[i - 1]
         c, v = rows[i]
         if c > pc:
             up += v
@@ -38,16 +64,16 @@ def accumulation_score(symbol, conn=None):
         return None
     return round(up / tot, 3)
 
+
 def fetch_delivery_nse(symbol):
     """Best-effort NSE delivery %. Returns None if blocked."""
     try:
         import requests
+
         d = dt.date.today()
         for fmt in ("%d%m%Y",):
-            url = ("https://archives.nseindia.com/products/content/"
-                   f"sec_bhavdata_full_{d.strftime(fmt)}.csv")
-            r = requests.get(url, timeout=10, headers={
-                "User-Agent": "Mozilla/5.0"})
+            url = f"https://archives.nseindia.com/products/content/sec_bhavdata_full_{d.strftime(fmt)}.csv"
+            r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
             if r.status_code != 200:
                 continue
             for line in r.text.splitlines():
@@ -64,13 +90,17 @@ def fetch_delivery_nse(symbol):
     except Exception:
         return None
 
+
 def refresh(limit=300, use_nse=False):
     conn = db.get_conn()
     _ensure(conn)
-    syms = [r[0] for r in conn.execute(
-        "SELECT symbol FROM universe_broad "
-        "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-        "ORDER BY mcap_cr DESC LIMIT ?", (limit,))]
+    syms = [
+        r[0]
+        for r in conn.execute(
+            "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN 1000 AND 8000 ORDER BY mcap_cr DESC LIMIT ?",
+            (limit,),
+        )
+    ]
     today = dt.date.today().isoformat()
     n = 0
     for sym in syms:
@@ -79,13 +109,15 @@ def refresh(limit=300, use_nse=False):
             continue
         deliv = fetch_delivery_nse(sym) if use_nse else None
         conn.execute(
-            "INSERT OR REPLACE INTO institutional(symbol,date,accum,"
-            "delivery_pct) VALUES(?,?,?,?)", (sym, today, acc, deliv))
+            "INSERT OR REPLACE INTO institutional(symbol,date,accum,delivery_pct) VALUES(?,?,?,?)",
+            (sym, today, acc, deliv),
+        )
         n += 1
     conn.commit()
     conn.close()
     print(f"[INST] refreshed {n} symbols")
     return n
+
 
 def top_accumulation(n=10, min_accum=0.6):
     conn = db.get_conn()
@@ -94,10 +126,11 @@ def top_accumulation(n=10, min_accum=0.6):
         "SELECT symbol, accum, delivery_pct FROM institutional "
         "WHERE date=(SELECT MAX(date) FROM institutional) "
         "AND accum>=? ORDER BY accum DESC LIMIT ?",
-        (min_accum, n)).fetchall()
+        (min_accum, n),
+    ).fetchall()
     conn.close()
-    return [{"symbol": s, "accum": a, "delivery_pct": d}
-            for s, a, d in rows]
+    return [{"symbol": s, "accum": a, "delivery_pct": d} for s, a, d in rows]
+
 
 if __name__ == "__main__":
     refresh()

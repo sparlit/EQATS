@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 NIFTY 50 Market Data Service.
 
@@ -13,15 +38,13 @@ Cache-first strategy:
   4. If yfinance fails, return the most recent valid cached data.
   5. If neither has data, raise a clear exception.
 """
-from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import yfinance as yf
-
 from models import MarketIndexPrice, get_session
 
 logger = logging.getLogger(__name__)
@@ -29,7 +52,7 @@ logger = logging.getLogger(__name__)
 NIFTY_SYMBOL = "^NSEI"
 NIFTY_NAME = "NIFTY 50"
 
-RANGE_CONFIG: Dict[str, Dict[str, str]] = {
+RANGE_CONFIG: dict[str, dict[str, str]] = {
     "1D": {"period": "1d", "interval": "5m"},
     "1W": {"period": "5d", "interval": "15m"},
     "1M": {"period": "1mo", "interval": "1d"},
@@ -37,7 +60,7 @@ RANGE_CONFIG: Dict[str, Dict[str, str]] = {
     "1Y": {"period": "1y", "interval": "1d"},
 }
 
-CACHE_TTL: Dict[str, int] = {
+CACHE_TTL: dict[str, int] = {
     "1D": 300,
     "1W": 900,
     "1M": 3600,
@@ -48,6 +71,7 @@ CACHE_TTL: Dict[str, int] = {
 
 class Range(str):
     """Supported NIFTY 50 time-range values."""
+
     D1 = "1D"
     W1 = "1W"
     M1 = "1M"
@@ -55,13 +79,14 @@ class Range(str):
     Y1 = "1Y"
 
     @classmethod
-    def values(cls) -> List[str]:
+    def values(cls) -> list[str]:
         return [cls.D1, cls.W1, cls.M1, cls.M3, cls.Y1]
 
 
 @dataclass
 class NiftyDataPoint:
     """A single NIFTY 50 data point for the chart."""
+
     timestamp: str
     value: float
 
@@ -69,29 +94,30 @@ class NiftyDataPoint:
 @dataclass
 class NiftyDataResult:
     """Result container for NIFTY 50 data requests."""
+
     symbol: str = NIFTY_SYMBOL
     name: str = NIFTY_NAME
     range: str = "1D"
-    data: List[Dict[str, Any]] = field(default_factory=list)
+    data: list[dict[str, Any]] = field(default_factory=list)
     source: str = "cache"
     cached: bool = False
     stale: bool = False
-    last_updated: Optional[str] = None
+    last_updated: str | None = None
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-def _df_to_series(df) -> List[Dict[str, Any]]:
+def _df_to_series(df) -> list[dict[str, Any]]:
     """Convert a yfinance DataFrame to a list of {timestamp, value} dicts."""
     if df is None or df.empty:
         return []
 
-    records: List[Dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     for idx, row in df.iterrows():
         ts = idx
-        if hasattr(ts, 'tz') and ts.tz is not None:
+        if hasattr(ts, "tz") and ts.tz is not None:
             ts_kolkata = ts.astimezone(timezone(timedelta(hours=5, minutes=30)))
         else:
             ts_kolkata = ts.replace(tzinfo=timezone(timedelta(hours=5, minutes=30)))
@@ -100,17 +126,19 @@ def _df_to_series(df) -> List[Dict[str, Any]]:
         if close_val is None or (isinstance(close_val, float) and close_val != close_val):
             continue
 
-        records.append({
-            "timestamp": ts_kolkata.isoformat(),
-            "value": round(float(close_val), 2),
-        })
+        records.append(
+            {
+                "timestamp": ts_kolkata.isoformat(),
+                "value": round(float(close_val), 2),
+            }
+        )
 
     return records
 
 
-def _validate_series(series: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _validate_series(series: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Remove invalid data points (NaN, None, zero values)."""
-    valid: List[Dict[str, Any]] = []
+    valid: list[dict[str, Any]] = []
     for point in series:
         val = point.get("value")
         ts = point.get("timestamp")
@@ -119,7 +147,7 @@ def _validate_series(series: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return valid
 
 
-def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
+def _get_cached_from_db(symbol: str, interval: str) -> dict[str, Any] | None:
     """Retrieve the most recent cached data from the database."""
     session = get_session()
     try:
@@ -135,21 +163,21 @@ def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
         if not rows:
             return None
 
-        records: Dict[str, Dict[str, Any]] = {}
+        records: dict[str, dict[str, Any]] = {}
         last_updated = None
         for row in rows:
-            ts_iso = row.timestamp.isoformat() if hasattr(row.timestamp, 'isoformat') else str(row.timestamp)
+            ts_iso = row.timestamp.isoformat() if hasattr(row.timestamp, "isoformat") else str(row.timestamp)
             if ts_iso not in records:
                 records[ts_iso] = {
                     "timestamp": ts_iso,
                     "value": round(float(row.close), 2) if row.close else None,
                 }
             # Use created_at (when we cached the row) for freshness checks
-            row_created = getattr(row, 'created_at', None)
+            row_created = getattr(row, "created_at", None)
             if row_created is not None:
                 if isinstance(row_created, str):
                     try:
-                        row_created = datetime.fromisoformat(row_created.replace("Z", "+00:00"))
+                        row_created = datetime.fromisoformat(row_created)
                     except (ValueError, TypeError):
                         row_created = None
                 if last_updated is None or (row_created is not None and row_created > last_updated):
@@ -169,7 +197,7 @@ def _get_cached_from_db(symbol: str, interval: str) -> Optional[Dict[str, Any]]:
         session.close()
 
 
-def _save_to_db(symbol: str, interval: str, series: List[Dict[str, Any]]) -> None:
+def _save_to_db(symbol: str, interval: str, series: list[dict[str, Any]]) -> None:
     """Save fetched data points to the database cache.
 
     Uses no_autoflush to prevent the session from flushing pending
@@ -188,10 +216,10 @@ def _save_to_db(symbol: str, interval: str, series: List[Dict[str, Any]]) -> Non
                 if not ts_str:
                     continue
                 try:
-                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    ts = datetime.fromisoformat(ts_str)
                     # Normalize: convert to UTC and strip tzinfo for SQLite compat
                     if ts.tzinfo is not None:
-                        ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+                        ts = ts.astimezone(UTC).replace(tzinfo=None)
                     val = point.get("value")
                     if val is not None and val == val and val > 0:
                         parsed.append((ts, val))
@@ -212,7 +240,7 @@ def _save_to_db(symbol: str, interval: str, series: List[Dict[str, Any]]) -> Non
                 )
                 .all()
             )
-            existing_ts_set = set(r[0] for r in existing_rows)
+            existing_ts_set = {r[0] for r in existing_rows}
 
             new_count = 0
             for ts, val in parsed:
@@ -235,13 +263,13 @@ def _save_to_db(symbol: str, interval: str, series: List[Dict[str, Any]]) -> Non
                 session.commit()
                 logger.info(f"Cached {new_count} new data points for {symbol} ({interval})")
     except Exception as e:
-        logger.error(f"Failed to save to cache DB: {e}")
+        logger.exception(f"Failed to save to cache DB: {e}")
         session.rollback()
     finally:
         session.close()
 
 
-def _is_cache_fresh(cached_result: Optional[Dict[str, Any]], range_key: str) -> bool:
+def _is_cache_fresh(cached_result: dict[str, Any] | None, range_key: str) -> bool:
     """Check if cached data is fresh enough for the requested range."""
     if cached_result is None:
         return False
@@ -251,9 +279,9 @@ def _is_cache_fresh(cached_result: Optional[Dict[str, Any]], range_key: str) -> 
         return False
 
     try:
-        last_updated = datetime.fromisoformat(last_updated_str.replace("Z", "+00:00"))
+        last_updated = datetime.fromisoformat(last_updated_str)
         if last_updated.tzinfo is None:
-            last_updated = last_updated.replace(tzinfo=timezone.utc)
+            last_updated = last_updated.replace(tzinfo=UTC)
     except (ValueError, TypeError):
         return False
 
@@ -271,7 +299,8 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
         RuntimeError: If both yfinance and cache fail.
     """
     if range_key not in RANGE_CONFIG:
-        raise ValueError(f"Invalid range '{range_key}'. Supported: {list(RANGE_CONFIG.keys())}")
+        msg = f"Invalid range '{range_key}'. Supported: {list(RANGE_CONFIG.keys())}"
+        raise ValueError(msg)
 
     config = RANGE_CONFIG[range_key]
     period = config["period"]
@@ -307,7 +336,8 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
                 result.stale = True
                 result.last_updated = cached.get("last_updated")
                 return result
-            raise RuntimeError(f"No data available for {NIFTY_SYMBOL}")
+            msg = f"No data available for {NIFTY_SYMBOL}"
+            raise RuntimeError(msg)
 
         series = _df_to_series(df)
         series = _validate_series(series)
@@ -321,7 +351,8 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
                 result.stale = True
                 result.last_updated = cached.get("last_updated")
                 return result
-            raise RuntimeError(f"No valid data points for {NIFTY_SYMBOL}")
+            msg = f"No valid data points for {NIFTY_SYMBOL}"
+            raise RuntimeError(msg)
 
         _save_to_db(NIFTY_SYMBOL, interval, series)
 
@@ -335,7 +366,7 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
         return result
 
     except Exception as e:
-        logger.error(f"yfinance fetch failed for {NIFTY_SYMBOL}: {e}")
+        logger.exception(f"yfinance fetch failed for {NIFTY_SYMBOL}: {e}")
         if cached and cached.get("data"):
             result.data = cached["data"]
             result.source = "cache"
@@ -343,10 +374,11 @@ def fetch_nifty_data(range_key: str = "1D") -> NiftyDataResult:
             result.stale = True
             result.last_updated = cached.get("last_updated")
             return result
-        raise RuntimeError(f"Failed to fetch NIFTY 50 data: {e}")
+        msg = f"Failed to fetch NIFTY 50 data: {e}"
+        raise RuntimeError(msg)
 
 
-def get_nifty_data(range_key: str = "1D") -> Dict[str, Any]:
+def get_nifty_data(range_key: str = "1D") -> dict[str, Any]:
     """
     Public wrapper that returns a JSON-serializable dict.
     Called by Flask routes.
@@ -378,7 +410,7 @@ def get_nifty_data(range_key: str = "1D") -> Dict[str, Any]:
             "message": str(e),
         }
     except Exception as e:
-        logger.error(f"Unexpected error fetching NIFTY data: {e}")
+        logger.exception(f"Unexpected error fetching NIFTY data: {e}")
         return {
             "symbol": NIFTY_SYMBOL,
             "name": NIFTY_NAME,

@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 Technical indicators for NSE Sentiment Analyzer.
 RSI(14), SMA 50/200, MACD(12,26,9) from 1yr daily data.
@@ -15,12 +38,10 @@ logger = logging.getLogger(__name__)
 
 def _wilders_smooth(series: pd.Series, period: int = 14) -> pd.Series:
     """Wilder's smoothing (exponential moving alpha=1/period)."""
-    return series.ewm(alpha=1/period, adjust=False).mean()
+    return series.ewm(alpha=1 / period, adjust=False).mean()
 
 
-def detect_volume_spike(
-    current_vol: float, avg_vol: float, threshold: float = 2.0
-) -> dict[str, float | bool]:
+def detect_volume_spike(current_vol: float, avg_vol: float, threshold: float = 2.0) -> dict[str, float | bool]:
     """Compare current volume to average. Returns {spike: bool, ratio: float}."""
     ratio = 0.0
     if avg_vol and current_vol and avg_vol > 0 and current_vol > 0:
@@ -28,14 +49,13 @@ def detect_volume_spike(
     return {"spike": ratio >= threshold, "ratio": round(ratio, 2)}
 
 
-def get_technical_indicators(
-    ticker: str, hist: pd.DataFrame | None = None
-) -> dict[str, Any] | None:
+def get_technical_indicators(ticker: str, hist: pd.DataFrame | None = None) -> dict[str, Any] | None:
     """Compute RSI, SMA, MACD from 1yr daily data. Accepts pre-fetched hist to avoid duplicate yfinance calls."""
     try:
         # Use supplied hist, or check data_fetcher's in-memory cache, or fetch fresh
         if hist is None:
             from data_fetcher import get_cached_history
+
             hist = get_cached_history(ticker)
         if hist is None:
             # Fallback: own yfinance fetch with retry, trying .NS → .BO → bare
@@ -48,12 +68,14 @@ def get_technical_indicators(
                             break
                     except Exception as e:
                         logger.debug("Indicator history retry %s failed: %s", attempt, e)
-                        time.sleep(2 ** attempt + 1)
+                        time.sleep(2**attempt + 1)
                         continue
                 if hist is not None and not hist.empty:
                     break
 
-        if hist is None or hist.empty or len(hist) < 26:  # 26 = minimum for MACD(12,26,9); RSI(14) works too; SMAs return NaN naturally
+        if (
+            hist is None or hist.empty or len(hist) < 26
+        ):  # 26 = minimum for MACD(12,26,9); RSI(14) works too; SMAs return NaN naturally
             return None
         close = hist["Close"]
 
@@ -64,7 +86,7 @@ def get_technical_indicators(
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         # Guard: if gain=loss=0 (flat), RSI=NaN → neutral 50; if loss=0 → RSI=100
-        rsi = rsi.replace([float('inf'), float('-inf')], 100.0).fillna(50.0)
+        rsi = rsi.replace([float("inf"), float("-inf")], 100.0).fillna(50.0)
 
         # SMA 50 & 200
         sma_50 = close.rolling(50).mean()
@@ -114,11 +136,14 @@ def get_technical_indicators(
             minus_dm[mask_down] = down_move[mask_down]
             # True Range
             prev_close = close.shift(1)
-            tr = pd.concat([
-                (high - low).abs(),
-                (high - prev_close).abs(),
-                (low - prev_close).abs(),
-            ], axis=1).max(axis=1)
+            tr = pd.concat(
+                [
+                    (high - low).abs(),
+                    (high - prev_close).abs(),
+                    (low - prev_close).abs(),
+                ],
+                axis=1,
+            ).max(axis=1)
             # Wilder's smoothing (period=14)
             atr = _wilders_smooth(tr)
             s_plus_dm = _wilders_smooth(plus_dm)
@@ -127,7 +152,7 @@ def get_technical_indicators(
             plus_di = 100 * s_plus_dm / atr
             minus_di = 100 * s_minus_dm / atr
             # DX
-            dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, float('nan'))
+            dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, float("nan"))
             # ADX = smoothed DX
             adx_val = _wilders_smooth(dx)
             adx = float(adx_val.iloc[-1]) if not pd.isna(adx_val.iloc[-1]) else None
