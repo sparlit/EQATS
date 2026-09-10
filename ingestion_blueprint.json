@@ -1,5 +1,5 @@
 {
-  "current_index": 20,
+  "current_index": 21,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -166,7 +166,7 @@
       "target": "akashyadavv/algotradingnse",
       "url": "https://github.com/akashyadavv/algotradingnse",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2413",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2424",
       "merged": true
     },
     {
