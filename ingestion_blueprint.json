@@ -1,5 +1,5 @@
 {
-  "current_index": 10,
+  "current_index": 11,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -85,7 +85,7 @@
       "name": "devsecops-full-integration-chain",
       "target": "adavarski/devsecops-full-integration-chain",
       "url": "https://github.com/adavarski/devsecops-full-integration-chain",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
