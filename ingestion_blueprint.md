@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 17
+Total Repositories: 411 | Current Index: 18
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -20,17 +20,17 @@ Total Repositories: 411 | Current Index: 17
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | https://github.com/sparlit/EQATS/pull/2406 |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | https://github.com/sparlit/EQATS/pull/2408 |
 | 17 | ai4finance-foundation/finrl-trading | Completed | https://github.com/sparlit/EQATS/pull/2411 |
-| 18 | ajakaiye33/ngrcoydisclosures | pending | None |
-| 19 | ajeeshworkspace/indian-trading-skills | pending | None |
-| 20 | akashnag/scripwatch | pending | None |
-| 21 | akashyadavv/algotradingnse | pending | None |
-| 22 | akshaypawar7/wods | pending | None |
-| 23 | akshayraje/get-nse-bhavcopy | pending | None |
-| 24 | akshayz14/indian-stock-tracker | pending | None |
-| 25 | akt114/buynsell | pending | None |
-| 26 | alexwan/osengine | pending | None |
-| 27 | algotrading-lab/ai-algotrading-agent | pending | None |
-| 28 | alloc7260/nse | pending | None |
+| 18 | ajakaiye33/ngrcoydisclosures | Processed | https://github.com/sparlit/EQATS/pull/2421 |
+| 19 | ajeeshworkspace/indian-trading-skills | Completed | https://github.com/sparlit/EQATS/pull/2410 |
+| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2412 |
+| 21 | akashyadavv/algotradingnse | Processed | https://github.com/sparlit/EQATS/pull/2413 |
+| 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2414 |
+| 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2415 |
+| 24 | akshayz14/indian-stock-tracker | Completed | https://github.com/sparlit/EQATS/pull/2416 |
+| 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2417 |
+| 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2418 |
+| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2419 |
+| 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2420 |
 | 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2366 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2367 |
 | 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2369 |
