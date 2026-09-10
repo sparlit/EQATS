@@ -77,53 +77,21 @@ def _fetch_csv(urls: tuple, timeout: int) -> pd.DataFrame:
             resp.raise_for_status()
             df = pd.read_csv(io.StringIO(resp.text))
             df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-            df = df.rename(
+            return df.rename(
                 columns={
                     "company_name": "company_name",
-                    "industry": "industry",
-                    "symbol": "symbol",
-                    "series": "series",
-                    "isin_code": "isin",
                 }
             )
-            df["yf_ticker"] = df["symbol"].astype(str).str.strip() + ".NS"
-            return df[["company_name", "industry", "symbol", "series", "isin", "yf_ticker"]]
         except Exception as e:
             last_err = e
             continue
-    msg = f"Failed to fetch NSE index list from {urls}. Last error: {last_err}"
-    raise RuntimeError(msg)
+    raise last_err or RuntimeError("Failed to fetch CSV from all URLs")
 
 
-def fetch_nifty500(timeout: int = 15) -> pd.DataFrame:
-    """Fetch the Nifty 500 constituents (top 500 by free-float market cap)."""
-    return _fetch_csv(NIFTY_INDEX_URLS[500], timeout)
-
-
-def fetch_nifty200(timeout: int = 15) -> pd.DataFrame:
-    """Fetch the Nifty 200 constituents (top 200 by free-float market cap)."""
-    return _fetch_csv(NIFTY_INDEX_URLS[200], timeout)
-
-
-def fetch_nifty100(timeout: int = 15) -> pd.DataFrame:
-    """Fetch the Nifty 100 constituents (top 100 by free-float market cap)."""
-    return _fetch_csv(NIFTY_INDEX_URLS[100], timeout)
-
-
-def fetch_universe(top_n: int = 500, timeout: int = 15) -> pd.DataFrame:
-    """
-    Fetch an NSE index constituent list for the requested top-N-by-market-cap tier.
-
-    Valid `top_n` values: 100, 200, 500. Anything else falls back to 500.
-
-    Returns a DataFrame with columns: company_name, industry, symbol, series, isin, yf_ticker
-    """
-    if top_n not in NIFTY_INDEX_URLS:
-        top_n = 500
-    return _fetch_csv(NIFTY_INDEX_URLS[top_n], timeout)
-
-
-if __name__ == "__main__":
-    for n in (100, 200, 500):
-        u = fetch_universe(top_n=n)
-        print(f"Nifty {n}: {len(u)} constituents (first: {u['symbol'].iloc[0]})")
+def fetch_nifty_universe(index_size: int = 500, timeout: int = 10) -> pd.DataFrame:
+    """Fetch Nifty index constituents (100, 200, or 500)."""
+    if index_size not in NIFTY_INDEX_URLS:
+        msg = f"Unsupported index size: {index_size}. Choose from {list(NIFTY_INDEX_URLS.keys())}"
+        raise ValueError(msg)
+    urls = NIFTY_INDEX_URLS[index_size]
+    return _fetch_csv(urls, timeout)
