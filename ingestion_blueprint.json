@@ -1,5 +1,5 @@
 {
-  "current_index": 27,
+  "current_index": 29,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -230,7 +230,7 @@
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2366",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2430",
       "merged": true
     },
     {
