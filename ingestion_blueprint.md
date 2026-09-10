@@ -23,7 +23,7 @@ Total Repositories: 411 | Current Index: 21
 | 18 | ajakaiye33/ngrcoydisclosures | Processed | https://github.com/sparlit/EQATS/pull/2409 |
 | 19 | ajeeshworkspace/indian-trading-skills | Completed | https://github.com/sparlit/EQATS/pull/2410 |
 | 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2412 |
-| 21 | akashyadavv/algotradingnse | Processed | None |
+| 21 | akashyadavv/algotradingnse | Processed | https://github.com/sparlit/EQATS/pull/2413 |
 | 22 | akshaypawar7/wods | pending | None |
 | 23 | akshayraje/get-nse-bhavcopy | pending | None |
 | 24 | akshayz14/indian-stock-tracker | pending | None |
