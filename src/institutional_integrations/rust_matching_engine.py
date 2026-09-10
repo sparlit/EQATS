@@ -2,7 +2,8 @@
 Rust High-Performance Orderbook Matching Engine Integration Module
 ==================================================================
 Adapts price-time priority L2 limit order book matching engine, bid/ask limit queues,
-market order fill execution algorithms, and multi-market pair routing from `anthdm/rust-trading-engine`.
+TWAP/VWAP algorithmic order slicing, market order fill execution algorithms,
+and multi-market pair routing from `anthdm/rust-trading-engine`.
 
 Magic Number: 9100044
 """
@@ -53,7 +54,7 @@ class LimitOrder:
 
     def __init__(self, order_id: str, side: str, price: float, size: float) -> None:
         self.order_id = order_id
-        self.side = side.upper()  # "BID" or "ASK"
+        self.side = side.upper()
         self.price = round_tick_005(price)
         self.size = float(size)
         self.filled_size = 0.0
@@ -69,7 +70,7 @@ class LimitOrder:
 
 class OrderbookL2:
     """
-    Price-Time Priority L2 Orderbook Matching Core.
+    Price-Time Priority L2 Orderbook Matching Core & TWAP Slicer.
     Maintains sorted price-level queues for bids and asks, executing matches for incoming orders.
     """
 
@@ -78,6 +79,37 @@ class OrderbookL2:
         self.magic_number = MAGIC_NUMBER_RUST_MATCHING_ENGINE
         self.bids: Dict[float, List[LimitOrder]] = {}
         self.asks: Dict[float, List[LimitOrder]] = {}
+
+    def slice_order_twap(
+        self, total_quantity: int, num_slices: int = 5, total_duration_seconds: int = 60
+    ) -> Dict[str, Any]:
+        """
+        Slices a large order into time-weighted average price (TWAP) micro-child slices to prevent market impact.
+        """
+        if total_quantity <= 0 or num_slices <= 0:
+            return {"slices": [], "total_quantity": 0, "slice_quantity": 0}
+
+        base_slice_qty = total_quantity // num_slices
+        remainder = total_quantity % num_slices
+        interval_seconds = round(total_duration_seconds / num_slices, 2)
+
+        slices = []
+        for i in range(num_slices):
+            qty = base_slice_qty + (1 if i < remainder else 0)
+            slices.append({
+                "slice_index": i + 1,
+                "slice_quantity": qty,
+                "delay_seconds": round(i * interval_seconds, 2),
+            })
+
+        return {
+            "symbol": self.symbol,
+            "total_quantity": total_quantity,
+            "num_slices": num_slices,
+            "interval_seconds": interval_seconds,
+            "slices": slices,
+            "magic_number": self.magic_number,
+        }
 
     def place_limit_order(self, side: str, price: float, size: float) -> Dict[str, Any]:
         """
@@ -92,7 +124,6 @@ class OrderbookL2:
         fills: List[Dict[str, Any]] = []
 
         if side_upper == "BID":
-            # Match against asks starting at lowest ask
             sorted_ask_prices = sorted(self.asks.keys())
             for ask_p in sorted_ask_prices:
                 if ask_p > rounded_price or new_order.is_filled():
@@ -116,12 +147,10 @@ class OrderbookL2:
                 if not queue:
                     del self.asks[ask_p]
 
-            # Append remaining un-filled quantity to bids
             if not new_order.is_filled():
                 self.bids.setdefault(rounded_price, []).append(new_order)
 
         elif side_upper == "ASK":
-            # Match against bids starting at highest bid
             sorted_bid_prices = sorted(self.bids.keys(), reverse=True)
             for bid_p in sorted_bid_prices:
                 if bid_p < rounded_price or new_order.is_filled():
@@ -295,5 +324,4 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register plugin in IndianBrokerPluginRegistry on import
 IndianBrokerPluginRegistry.register("RUST_MATCHING_ENGINE", RustMatchingEngineBrokerAdapter)

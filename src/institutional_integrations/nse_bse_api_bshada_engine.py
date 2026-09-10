@@ -1,9 +1,9 @@
 """
-NSE-BSE API Engine (Repo 085 Adaptation)
-=========================================
+NSE-BSE API Engine & Smart Order Router (Repo 085 Adaptation)
+=========================================================
 Adapted from bshada/nse-bse-api under Magic Number 9100082.
-Provides dual-exchange market data fetching, quote parsing, option chain strike matrix
-processing, top gainers/losers classification, and multi-broker routing.
+Provides dual-exchange market data fetching, quote parsing, Multi-Exchange Smart Order Routing (SOR),
+option chain strike matrix processing, top gainers/losers classification, and multi-broker routing.
 """
 
 from dataclasses import dataclass, field
@@ -52,17 +52,65 @@ class DualExchangeQuote:
 
 class NSEBSEApiEngine:
     """
-    NSE & BSE API client engine adapted from bshada/nse-bse-api.
-    Parses dual-exchange stock quotes, computes price spreads, option chain PCRs,
-    and classifies top gainers/losers across Indian equity markets.
+    NSE & BSE API client engine & Smart Order Router (SOR).
+    Parses dual-exchange stock quotes, routes orders to the exchange with best price execution,
+    computes price spreads, option chain PCRs, and classifies top gainers/losers.
     """
 
     def __init__(self, name: str = "NSEBSEApiEngine") -> None:
         self.name = name
         self.magic_number = MAGIC_NUMBER
 
+    def route_smart_order_sor(
+        self, symbol: str, side: str, quantity: int, nse_bid: float, nse_ask: float, bse_bid: float, bse_ask: float
+    ) -> Dict[str, Any]:
+        """
+        Multi-Exchange Smart Order Router (SOR).
+        For BUY orders: routes to whichever exchange offers the lowest ask price.
+        For SELL orders: routes to whichever exchange offers the highest bid price.
+        Calculates total price improvement savings achieved.
+        """
+        symbol_clean = symbol.upper().strip()
+        side_clean = side.upper().strip()
+
+        nse_bid = round_tick_005(nse_bid)
+        nse_ask = round_tick_005(nse_ask)
+        bse_bid = round_tick_005(bse_bid)
+        bse_ask = round_tick_005(bse_ask)
+
+        if side_clean == "BUY":
+            if bse_ask < nse_ask and bse_ask > 0.0:
+                selected_exchange = "BSE"
+                execution_price = bse_ask
+                price_improvement_per_share = round(nse_ask - bse_ask, 2)
+            else:
+                selected_exchange = "NSE"
+                execution_price = nse_ask
+                price_improvement_per_share = round(max(0.0, bse_ask - nse_ask), 2)
+        else:
+            if bse_bid > nse_bid:
+                selected_exchange = "BSE"
+                execution_price = bse_bid
+                price_improvement_per_share = round(bse_bid - nse_bid, 2)
+            else:
+                selected_exchange = "NSE"
+                execution_price = nse_bid
+                price_improvement_per_share = round(max(0.0, nse_bid - bse_bid), 2)
+
+        total_savings = round(price_improvement_per_share * quantity, 2)
+
+        return {
+            "symbol": symbol_clean,
+            "side": side_clean,
+            "quantity": quantity,
+            "selected_exchange": selected_exchange,
+            "execution_price": execution_price,
+            "price_improvement_per_share": price_improvement_per_share,
+            "total_savings_inr": total_savings,
+            "magic_number": self.magic_number,
+        }
+
     def parse_quote_payload(self, raw_data: Dict[str, Any]) -> DualExchangeQuote:
-        """Parses dual-exchange quote payload."""
         symbol = raw_data.get("symbol", "UNKNOWN")
         nse_price = round_tick_005(float(raw_data.get("nse_price", 0.0)))
         bse_price = round_tick_005(float(raw_data.get("bse_price", 0.0)))
@@ -80,7 +128,6 @@ class NSEBSEApiEngine:
         )
 
     def analyze_option_chain(self, option_data: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calculates Put-Call Ratio (PCR) and Max Pain strike from option chain matrix."""
         if not option_data:
             return {"pcr": 1.0, "max_pain_strike": 0.0, "total_ce_oi": 0, "total_pe_oi": 0}
 
@@ -89,7 +136,6 @@ class NSEBSEApiEngine:
 
         pcr = round(total_pe_oi / max(1, total_ce_oi), 4)
 
-        # Max Pain calculation
         min_pain = float("inf")
         max_pain_strike = 0.0
 
@@ -116,7 +162,6 @@ class NSEBSEApiEngine:
         }
 
     def classify_market_movers(self, stock_list: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-        """Classifies stocks into top gainers and top losers."""
         sorted_stocks = sorted(stock_list, key=lambda x: float(x.get("pChange", 0.0)), reverse=True)
         return {
             "top_gainers": sorted_stocks[:5],
@@ -125,8 +170,6 @@ class NSEBSEApiEngine:
 
 
 class NSEBSEApiBrokerAdapter(SEBIBrokerAdapter):
-    """SEBI Broker adapter for NSE-BSE API Engine."""
-
     def __init__(
         self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
     ) -> None:
@@ -213,5 +256,4 @@ class NSEBSEApiBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register adapter into IndianBrokerPluginRegistry
 IndianBrokerPluginRegistry.register("NSE_BSE_API_BSHADA", NSEBSEApiBrokerAdapter)
