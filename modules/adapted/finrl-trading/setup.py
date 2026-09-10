@@ -34,13 +34,13 @@ from setuptools import find_packages, setup
 
 # Read README
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 
 # Read core requirements
 def read_requirements():
     requirements = []
-    with open("requirements.txt") as f:
+    with open("requirements.txt", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#") and not line.startswith("tensorflow") and not line.startswith("torch"):
@@ -88,6 +88,7 @@ setup(
             "pytest-asyncio>=0.21.0",
             "black>=23.0.0",
             "flake8>=6.1.0",
+            "ruff>=0.1.0",
             "mypy>=1.7.0",
             "pre-commit>=3.5.0",
         ],
