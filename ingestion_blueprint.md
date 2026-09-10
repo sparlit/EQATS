@@ -12,7 +12,7 @@ Total Repositories: 411 | Current Index: 10
 | 7 | aadityatamrakar/option_chain_analysis | Processed | https://github.com/sparlit/EQATS/pull/2387 |
 | 8 | aaryansinha16/ai-trader | Completed | https://github.com/sparlit/EQATS/pull/2390 |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | Completed | https://github.com/sparlit/EQATS/pull/2394 |
-| 10 | abuhurairalakdawala/indian-share-market | Processed | https://github.com/sparlit/EQATS/pull/2393 |
+| 10 | abuhurairalakdawala/indian-share-market | Processed | https://github.com/sparlit/EQATS/pull/2400 |
 | 11 | adavarski/devsecops-full-integration-chain | Completed | https://github.com/sparlit/EQATS/pull/2395 |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | https://github.com/sparlit/EQATS/pull/2396 |
 | 13 | aeron7/nsepython | Processed | https://github.com/sparlit/EQATS/pull/2397 |
