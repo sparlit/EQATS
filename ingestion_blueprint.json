@@ -1,5 +1,5 @@
 {
-  "current_index": 4,
+  "current_index": 5,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -37,7 +37,7 @@
       "name": "hyperliquid-trading-bot-rust",
       "target": "0xtan1319/hyperliquid-trading-bot-rust",
       "url": "https://github.com/0xtan1319/hyperliquid-trading-bot-rust",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
