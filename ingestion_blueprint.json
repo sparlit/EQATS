@@ -1,5 +1,5 @@
 {
-  "current_index": 14,
+  "current_index": 15,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -118,7 +118,7 @@
       "target": "affaan-m/dprc-autotrader-v2",
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2399",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2406",
       "merged": true
     },
     {
