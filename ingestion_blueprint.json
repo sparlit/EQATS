@@ -1,5 +1,5 @@
 {
-  "current_index": 17,
+  "current_index": 18,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -141,7 +141,7 @@
       "name": "ngrcoydisclosures",
       "target": "ajakaiye33/ngrcoydisclosures",
       "url": "https://github.com/ajakaiye33/ngrcoydisclosures",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
