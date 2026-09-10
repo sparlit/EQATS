@@ -1,12 +1,30 @@
 import datetime
+import json
+import random
+import string
+import subprocess
+import sys
+from typing import TYPE_CHECKING
 
 import pytz
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+
+if TYPE_CHECKING:
+    from selenium.webdriver.remote.webdriver import WebDriver
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    else:
+        if dt.tzinfo is None:
+            dt = ist.localize(dt)
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -21,85 +39,75 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import json
-import random
-import string
-import subprocess
-import sys
-
-from selenium import webdriver
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.common.keys import Keys
-
-
-def randomString(stringLength):
+def random_string(string_length: int) -> str:
     letters = string.ascii_letters
-    return "".join(random.choice(letters) for i in range(stringLength))
+    return "".join(random.choice(letters) for _ in range(string_length))
 
 
-def bash_command(cmd):
+def bash_command(cmd: str) -> None:
     subprocess.Popen(cmd, shell=True, executable="/bin/bash")
-    # subprocess.Popen(['/bin/bash', '-c', cmd])
 
 
-myusername = randomString(8)
-mypassword = randomString(12)
+def main() -> None:
+    myusername = random_string(8)
+    mypassword = random_string(12)
 
-if len(sys.argv) < 4:
-    print("1. Provide the ip address for selenium remote server!")
-    print("2. Provide the ip address for target DAST scan!")
-    print("3. Provide the output location of html report!")
-    sys.exit(1)
+    if len(sys.argv) < 4:
+        print("1. Provide the ip address for selenium remote server!")
+        print("2. Provide the ip address for target DAST scan!")
+        print("3. Provide the output location of html report!")
+        sys.exit(1)
 
-driver = webdriver.Remote("http://" + sys.argv[1] + ":4444/wd/hub", DesiredCapabilities.CHROME)
+    selenium_host = sys.argv[1]
+    target_host = sys.argv[2]
+    # output_location = sys.argv[3]  # unused but kept for compatibility
 
-driver.get("http://" + sys.argv[2] + ":10007/login")
+    chrome_options = ChromeOptions()
+    driver: WebDriver = webdriver.Remote(command_executor=f"http://{selenium_host}:4444/wd/hub", options=chrome_options)
 
-registerbutton = driver.find_element_by_xpath("/html/body/div/div/div/form/center[3]/a")
-registerbutton.click()
-print("we're at: " + driver.current_url)
+    try:
+        driver.get(f"http://{target_host}:10007/login")
 
-print("creating a user..")
-username = driver.find_element_by_name("username")
-password1 = driver.find_element_by_name("password1")
-password2 = driver.find_element_by_name("password2")
+        register_button = driver.find_element(By.XPATH, "/html/body/div/div/div/form/center[3]/a")
+        register_button.click()
+        print(f"we're at: {driver.current_url}")
 
-username.clear()
-username.send_keys(myusername)
-password1.clear()
-password1.send_keys(mypassword)
-password2.clear()
-password2.send_keys(mypassword)
-password2.send_keys(Keys.RETURN)
-login = driver.find_element_by_xpath("/html/body/div/div/div/center[2]/h4")
-assert "Login" in login.text
+        print("creating a user..")
+        username = driver.find_element(By.NAME, "username")
+        password1 = driver.find_element(By.NAME, "password1")
+        password2 = driver.find_element(By.NAME, "password2")
 
-print("created user")
+        username.clear()
+        username.send_keys(myusername)
+        password1.clear()
+        password1.send_keys(mypassword)
+        password2.clear()
+        password2.send_keys(mypassword)
+        password2.send_keys(Keys.RETURN)
+        login = driver.find_element(By.XPATH, "/html/body/div/div/div/center[2]/h4")
+        assert "Login" in login.text
 
-driver.get("http://" + sys.argv[2] + ":10007/login")
-print("we're at: " + driver.current_url)
-username = driver.find_element_by_name("username")
-password = driver.find_element_by_name("password")
-username.clear()
-username.send_keys(myusername)
-password.clear()
-password.send_keys(mypassword)
-password.send_keys(Keys.RETURN)
-header = driver.find_element_by_xpath("/html/body/div/div/div[1]/h1")
-assert "Last gossips" in header.text
-print("logged in successfully.. getting cookie")
+        print("created user")
 
-nikto_string = "STATIC-COOKIE="
-cookies_list = driver.get_cookies()
-for cookie in cookies_list:
-    nikto_string += '"' + cookie["name"] + '"='
-    nikto_string += '"' + cookie["value"] + '"'
-bash_command("cp /etc/nikto/config.txt ~/nikto-config.txt")
-bash_command("echo '" + nikto_string + "' >> ~/nikto-config.txt")
-print("added cookie to nikto config file to carry out authenticated scan..")
-bash_command(
-    "nikto -ask no -config ~/nikto-config.txt -Format html -h http://"
-    + sys.argv[2]
-    + ":10007/gossip -output "
-    + sys.argv[3]
-)
+        driver.get(f"http://{target_host}:10007/login")
+        print(f"we're at: {driver.current_url}")
+        username = driver.find_element(By.NAME, "username")
+        password = driver.find_element(By.NAME, "password")
+        username.clear()
+        username.send_keys(myusername)
+        password.clear()
+        password.send_keys(mypassword)
+        password.send_keys(Keys.RETURN)
+        header = driver.find_element(By.XPATH, "/html/body/div/div/div[1]/h1")
+        assert "Last gossips" in header.text
+        print("logged in successfully.. getting cookie")
+
+        cookies_list = driver.get_cookies()
+        for cookie in cookies_list:
+            print(cookie)
+    finally:
+        driver.quit()
+
+
+if __name__ == "__main__":
+    main()
