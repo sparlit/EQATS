@@ -1,5 +1,5 @@
 {
-  "current_index": 43,
+  "current_index": 44,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -349,7 +349,7 @@
       "name": "shoonya-option-chain",
       "target": "anurag-roy/shoonya-option-chain",
       "url": "https://github.com/anurag-roy/shoonya-option-chain",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
