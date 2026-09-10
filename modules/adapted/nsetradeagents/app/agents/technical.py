@@ -21,12 +21,16 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import structlog
+try:
+    import structlog
+except ImportError:
+    structlog = None
+
 from app.core.config import settings
 from app.utils.indicators import compute_indicators
 from app.utils.market_data import extract_ticker_df, safe_yf_download
 
-logger = structlog.get_logger()
+logger = structlog.get_logger() if structlog else None
 
 
 def _compute_signal(ind: dict) -> str:
@@ -97,48 +101,5 @@ def _compute_summary(ind: dict, signal: str, strength: int) -> str:
     momentum_5d = ind.get("momentum_5d", 0)
     return (
         f"{signal} (strength {strength}): RSI {rsi:.1f}, MACD {macd_trend}, "
-        f"volume {volume_ratio:.1f}x, 5d momentum {momentum_5d:.1f}%"
+        f"VolRatio {volume_ratio:.2f}, Mom5d {momentum_5d:.1f}%"
     )
-
-
-def run_technical_analysis(
-    ticker: str,
-    ticker_df=None,
-) -> dict:
-    """Compute indicators for a ticker and derive its signal, strength and summary.
-
-    Pass `ticker_df` to reuse an already-downloaded frame. Needs at least 50
-    bars; below that it returns a HOLD with empty indicators.
-
-    Returns {signal, strength, summary, indicators}.
-    """
-    logger.info("technical_start", ticker=ticker)
-
-    df = ticker_df if ticker_df is not None else safe_yf_download(ticker, period="12mo")
-
-    if df is None or len(df) < 50:
-        logger.warning("technical_no_data", ticker=ticker)
-        return {
-            "signal": "HOLD",
-            "strength": 0,
-            "summary": "Insufficient price data",
-            "indicators": {},
-        }
-
-    extracted = extract_ticker_df(df, ticker)
-    if extracted is not None:
-        df = extracted
-    df = df.dropna(subset=["Close", "Volume"])
-    ind = compute_indicators(df)
-
-    signal = _compute_signal(ind)
-    strength = _compute_strength(ind)
-    summary = _compute_summary(ind, signal, strength)
-
-    logger.info("technical_done", ticker=ticker, signal=signal, strength=strength)
-    return {
-        "signal": signal,
-        "strength": strength,
-        "summary": summary,
-        "indicators": ind,
-    }
