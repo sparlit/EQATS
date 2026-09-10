@@ -1,5 +1,5 @@
 {
-  "current_index": 32,
+  "current_index": 33,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -262,7 +262,7 @@
       "target": "amv-dev/yata",
       "url": "https://github.com/amv-dev/yata",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2372",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2376",
       "merged": true
     },
     {
