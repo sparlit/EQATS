@@ -1,11 +1,11 @@
 name: EQATS Auto-PR & Failed Merge Healing Loop
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    - cron: '30 */4 * * *' # Runs every 4 hours
+    - cron: '*/30 * * * *' # Runs every 30 minutes continuously
   workflow_dispatch:
-  pull_request:
-    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write

@@ -3,9 +3,9 @@ name: Autonomous Repository Integration & Self-Healing Factory Engine
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '*/30 * * * *' # Runs every 30 minutes continuously
+  workflow_dispatch:
 
 permissions:
   contents: write
