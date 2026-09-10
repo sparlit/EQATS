@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 44
+Total Repositories: 411 | Current Index: 45
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -47,7 +47,7 @@ Total Repositories: 411 | Current Index: 44
 | 42 | anthdm/rust-trading-engine | Processed | None |
 | 43 | anurag-roy/kite-option-chain | Processed | None |
 | 44 | anurag-roy/shoonya-option-chain | Processed | None |
-| 45 | api-evangelist/nse-india | pending | None |
+| 45 | api-evangelist/nse-india | Processed | None |
 | 46 | aravin/algo-trade | pending | None |
 | 47 | aravin/nse-data | pending | None |
 | 48 | arishhassan/nse-live_testing | pending | None |
