@@ -1,5 +1,5 @@
 {
-  "current_index": 35,
+  "current_index": 36,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -286,7 +286,7 @@
       "target": "aniruddhsujish/nsetradeagents",
       "url": "https://github.com/aniruddhsujish/nsetradeagents",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2388",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2439",
       "merged": true
     },
     {

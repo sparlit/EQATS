@@ -1,18 +1,6 @@
 import datetime
-import logging
 
 import pytz
-
-try:
-    import structlog
-
-    logger = structlog.get_logger()
-except ImportError:
-    logger = logging.getLogger(__name__)
-
-from app.core.config import settings
-
-FINANCIAL_SECTORS = {"Financial Services", "Banking"}
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -31,6 +19,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
+
+
+import structlog
+from app.core.config import settings
+
+logger = structlog.get_logger()
+
+FINANCIAL_SECTORS = {"Financial Services", "Banking"}
 
 
 def run_fundamental_check(ticker: str, ticker_info: dict | None) -> dict:
@@ -78,13 +74,17 @@ def run_fundamental_check(ticker: str, ticker_info: dict | None) -> dict:
     if rev_growth is not None and rev_growth < settings.max_revenue_decline_pct:
         flags.append(f"declining revenue ({rev_growth:.1%} YoY)")
 
-    # P/E - flag only, don't block
+    # P/E - flag extreme overvaluation only
     pe = ticker_info.get("trailingPE")
     if pe is not None and pe > settings.max_pe_ratio:
-        flags.append(f"high P/E ({pe:.1f}x)")
+        flags.append(f"stretched valuation (P/E {pe:.0f}x)")
 
     approved = len(block_reasons) == 0
-    notes = "; ".join(flags) if flags else "All fundamental checks passed"
+    notes = "Flags: " + " | ".join(flags) if flags else "clean"
 
-    logger.info("fundamental_complete", ticker=ticker, approved=approved, blocks=len(block_reasons), flags=len(flags))
+    if approved:
+        logger.info("fundamental_approved", ticker=ticker, notes=notes)
+    else:
+        logger.info("fundamental_blocked", ticker=ticker, reasons=block_reasons)
+
     return {"approved": approved, "block_reasons": block_reasons, "notes": notes}
