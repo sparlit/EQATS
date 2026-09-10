@@ -1,17 +1,8 @@
 from __future__ import annotations
 
 import datetime
-import json
-import re
 
 import pytz
-
-try:
-    from loguru import logger
-except ImportError:
-    import logging
-
-    logger = logging.getLogger(__name__)
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -37,6 +28,11 @@ AI news-sentiment — scores the live headline feed bullish/bearish for Indian
 equities (via Groq) into a market meter + per-stock tags. Turns the news column
 into signal. Reuses data.news_feed + ai.brain.
 """
+
+import json
+import re
+
+from loguru import logger
 
 _SYS = (
     "You are a markets sentiment classifier for NSE / Indian equities. For each "
@@ -85,21 +81,35 @@ def analyze_news_sentiment(limit: int = 40) -> dict:
         o = by_i.get(i, {})
         s = o.get("s") if o.get("s") in ("bull", "bear", "neutral") else "neutral"
         counts[s] += 1
-        tickers = [str(t).upper().replace(".NS", "") for t in o.get("t", []) if t]
-        headlines.append({"title": it.get("title", ""), "sentiment": s, "tickers": tickers})
-        for sym in tickers:
-            if sym not in by_symbol:
-                by_symbol[sym] = {"bull": 0, "bear": 0, "neutral": 0, "headlines": []}
-            by_symbol[sym][s] += 1
-            by_symbol[sym]["headlines"].append(it.get("title", ""))
+        tickers = [str(t).upper().replace(".NS", "") for t in (o.get("t") or []) if t]
+        headlines.append(
+            {
+                "title": it.get("title", ""),
+                "link": it.get("link", ""),
+                "source": it.get("source", ""),
+                "published_str": it.get("published_str", ""),
+                "sentiment": s,
+                "tickers": tickers,
+            }
+        )
+        for tk in tickers:
+            slot = by_symbol.setdefault(tk, {"bull": 0, "bear": 0, "neutral": 0})
+            slot[s] += 1
 
-    total = counts["bull"] + counts["bear"] + counts["neutral"]
-    score = round((counts["bull"] - counts["bear"]) / total * 100, 1) if total else 0
-    label = "Bullish" if score > 20 else "Bearish" if score < -20 else "Neutral"
-
+    total = max(len(items), 1)
+    score = round((counts["bull"] - counts["bear"]) / total * 100)
+    label = "Bullish" if score >= 15 else "Bearish" if score <= -15 else "Neutral"
+    sym_out = {
+        k: {
+            "score": v["bull"] - v["bear"],
+            "n": v["bull"] + v["bear"] + v["neutral"],
+            "label": "bull" if v["bull"] > v["bear"] else "bear" if v["bear"] > v["bull"] else "neutral",
+        }
+        for k, v in by_symbol.items()
+    }
     return {
         "available": True,
         "headlines": headlines,
-        "by_symbol": by_symbol,
+        "by_symbol": sym_out,
         "market": {"score": score, "label": label, **counts},
     }
