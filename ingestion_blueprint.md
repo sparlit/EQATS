@@ -49,7 +49,7 @@ Total Repositories: 411 | Current Index: 47
 | 44 | anurag-roy/shoonya-option-chain | Processed | https://github.com/sparlit/EQATS/pull/2447 |
 | 45 | api-evangelist/nse-india | Processed | https://github.com/sparlit/EQATS/pull/2448 |
 | 46 | aravin/algo-trade | Processed | https://github.com/sparlit/EQATS/pull/2449 |
-| 47 | aravin/nse-data | Processed | None |
+| 47 | aravin/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2450 |
 | 48 | arishhassan/nse-live_testing | pending | None |
 | 49 | arvchahal/kalshi-rs | pending | None |
 | 50 | asavinov/intelligent-trading-bot | pending | None |
