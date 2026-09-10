@@ -1,9 +1,6 @@
 import datetime
-import json
 
-import pandas as pd
 import pytz
-import requests
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -24,11 +21,25 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+# -*- coding: utf-8 -*-
+
+"""### Import Dependencies"""
+
+import datetime
+import json
+
+import pandas as pd
+import requests
+
+"""### Set Environment Variables """
+
 BASE_URL = "https://www.niftyindices.com/"
 HISTORICAL_DATA_URL = "https://www.niftyindices.com/Backpage.aspx/getHistoricaldatatabletoString"
 
+"""### Define Helper Functions """
 
-def get_adjusted_headers() -> dict:
+
+def get_adjusted_headers():
     return {
         "Content-Type": "application/json; charset=UTF-8",
         "Origin": "https://www.niftyindices.com",
@@ -37,47 +48,47 @@ def get_adjusted_headers() -> dict:
     }
 
 
-def fetch_cookies() -> dict:
+def fetch_cookies():
     response = requests.get(BASE_URL, timeout=30, headers=get_adjusted_headers())
     if response.status_code != requests.codes.ok:
+        # logging.error("Fetched url: %s with status code: %s and response from server: %s" % (
+        #     BASE_URL, response.status_code, response.content))
         msg = "Please try again in a minute."
         raise ValueError(msg)
     return response.cookies.get_dict()
 
 
-def scrape_data(start_date: str, end_date: str, name: str, input_type: str = "index") -> pd.DataFrame:
+def scrape_data(start_date, end_date, name, input_type="index"):
     """
     Called by stocks and indices to scrape data.
     Create threads for different requests, parses data, combines them and returns dataframe
     Args:
-        start_date (str): start date in format "%d-%m-%Y"
-        end_date (str): end date in format "%d-%m-%Y"
+        start_date (datetime.datetime): start date
+        end_date (datetime.datetime): end date
         input_type (str): Either 'stock' or 'index'
-        name (str): stock symbol or index name
+        name (str, optional): stock symbol or index name. Defaults to None.
     Returns:
         Pandas DataFrame: df containing data for stocksymbol for provided date range
     """
-    cookies = fetch_cookies()
+    # cookies = fetch_cookies()
 
-    start_dt = datetime.datetime.strptime(start_date, "%d-%m-%Y")
-    end_dt = datetime.datetime.strptime(end_date, "%d-%m-%Y")
+    start_date = datetime.datetime.strptime(start_date, "%d-%m-%Y")
+    end_date = datetime.datetime.strptime(end_date, "%d-%m-%Y")
 
     pld = {
         "name": name,
-        "startDate": start_dt.strftime("%d-%b-%Y"),
-        "endDate": end_dt.strftime("%d-%b-%Y"),
+        "startDate": start_date.strftime("%d-%b-%Y"),
+        "endDate": end_date.strftime("%d-%b-%Y"),
         "indexName": name,
     }
 
     payload = {"cinfo": str(pld)}
-    response = requests.request(
-        "POST",
-        HISTORICAL_DATA_URL,
-        json=payload,
-        timeout=30,
-        headers=get_adjusted_headers(),
-        cookies=cookies,
-    )
-    response.raise_for_status()
-    data = response.json()
-    return pd.DataFrame(data)
+    response = requests.request("POST", HISTORICAL_DATA_URL, json=payload, timeout=30, headers=get_adjusted_headers())
+    if response.status_code == requests.codes.ok:
+        return pd.DataFrame(eval(json.loads(response.text)["d"]))
+    return None
+
+
+"""### Scrape Directly to DataFrame """
+
+print(scrape_data("01-01-2023", "20-05-2023", "NIFTY 50"))
