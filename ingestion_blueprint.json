@@ -62,8 +62,8 @@
       "target": "aaryansinha16/ai-trader",
       "url": "https://github.com/aaryansinha16/ai-trader",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2390",
+      "merged": true
     },
     {
       "name": "ai-for-finance-stocks-real-time-analysis-",
