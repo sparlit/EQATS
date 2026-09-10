@@ -1,5 +1,5 @@
 {
-  "current_index": 16,
+  "current_index": 14,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -110,7 +110,7 @@
       "target": "aeron7/nsepythonserver",
       "url": "https://github.com/aeron7/nsepythonserver",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2398",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2405",
       "merged": true
     },
     {
