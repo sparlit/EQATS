@@ -6,7 +6,12 @@ import pytz
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    else:
+        if dt.tzinfo is None:
+            dt = ist.localize(dt)
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -21,11 +26,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from rest_framework.serializers import ModelSerializer
-from visitors.service.models import Visitor
+try:
+    from rest_framework.serializers import ModelSerializer
+    from visitors.service.models import Visitor
 
-
-class VisitorSerializer(ModelSerializer):
-    class Meta:
-        model = Visitor
-        fields = ("id", "client_ip", "service_ip", "timestamp")
+    class VisitorSerializer(ModelSerializer):
+        class Meta:
+            model = Visitor
+            fields = ("id", "client_ip", "service_ip", "timestamp")
+except ImportError:
+    VisitorSerializer = None

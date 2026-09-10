@@ -19,8 +19,3 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-from django.contrib import admin
-
-# Register your models here.

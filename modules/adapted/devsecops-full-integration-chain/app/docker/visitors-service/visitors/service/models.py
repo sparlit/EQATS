@@ -6,7 +6,12 @@ import pytz
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    elif dt.tzinfo is None:
+        now = ist.localize(dt)
+    else:
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -21,13 +26,31 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from django.db import models
+try:
+    from django.db import models
+except ImportError:
+    models = None
 
 
-class Visitor(models.Model):
-    service_ip = models.CharField(max_length=16)
-    client_ip = models.CharField(max_length=16)
-    timestamp = models.DateTimeField(auto_now_add=True)
+if models is not None:
 
-    def __str__(self):
-        return f"Client IP [{self.client_ip}] Timestamp [{self.timestamp}]"
+    class Visitor(models.Model):
+        service_ip = models.CharField(max_length=16)
+        client_ip = models.CharField(max_length=16)
+        timestamp = models.DateTimeField(auto_now_add=True)
+
+        def __str__(self):
+            return f"Client IP [{self.client_ip}] Timestamp [{self.timestamp}]"
+
+else:
+
+    class Visitor:
+        """Placeholder when Django is not available."""
+
+        def __init__(self, service_ip: str, client_ip: str, timestamp: datetime.datetime):
+            self.service_ip = service_ip
+            self.client_ip = client_ip
+            self.timestamp = timestamp
+
+        def __str__(self):
+            return f"Client IP [{self.client_ip}] Timestamp [{self.timestamp}]"
