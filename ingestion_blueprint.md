@@ -60,7 +60,7 @@ Total Repositories: 411 | Current Index: 58
 | 55 | ashokkumar3502/nse-quant-trading | Processed | https://github.com/sparlit/EQATS/pull/2458 |
 | 56 | ashutosh0x/rust-finance | Processed | https://github.com/sparlit/EQATS/pull/2459 |
 | 57 | ashwanthkumar/live-nse-stock | Processed | https://github.com/sparlit/EQATS/pull/2460 |
-| 58 | athreysethumadhavan-finance/nse-var-dashboard | Processed | None |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2461 |
 | 59 | atilaahmettaner/tradingview-mcp | pending | None |
 | 60 | atrybyme/open-interest-nse-live-analysis | pending | None |
 | 61 | atul-anand-jha/time-series-forecast-nsepy | pending | None |
