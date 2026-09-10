@@ -8,7 +8,7 @@ Total Repositories: 411 | Current Index: 6
 | 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/2383 |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2384 |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2385 |
-| 6 | 85599/banknifty-golden-ratio-strategy | Processed | None |
+| 6 | 85599/banknifty-golden-ratio-strategy | Processed | https://github.com/sparlit/EQATS/pull/2386 |
 | 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | pending | None |
