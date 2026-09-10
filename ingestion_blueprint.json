@@ -110,7 +110,7 @@
       "target": "aeron7/nsepythonserver",
       "url": "https://github.com/aeron7/nsepythonserver",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2398",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2405",
       "merged": true
     },
     {
@@ -118,7 +118,7 @@
       "target": "affaan-m/dprc-autotrader-v2",
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2399",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2406",
       "merged": true
     },
     {
@@ -126,7 +126,7 @@
       "target": "agrawalarnav129-ui/jarvis-trading",
       "url": "https://github.com/agrawalarnav129-ui/jarvis-trading",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2401",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2408",
       "merged": true
     },
     {
