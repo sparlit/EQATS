@@ -1,5 +1,5 @@
 {
-  "current_index": 46,
+  "current_index": 47,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -373,7 +373,7 @@
       "name": "nse-data",
       "target": "aravin/nse-data",
       "url": "https://github.com/aravin/nse-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
