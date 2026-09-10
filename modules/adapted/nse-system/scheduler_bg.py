@@ -21,7 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-"""Background scheduler — dq + daily + swing + macro + institutional + weekly jobs."""
+"""Background scheduler — dq + daily + swing + macro + validation + patterns."""
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -87,6 +87,17 @@ def _macro_job():
         print(f"[SCHEDULER] macro fetch failed: {e}")
 
 
+def _pattern_job():
+    print("[SCHEDULER] pattern scan started")
+    try:
+        import patterns
+
+        patterns.run()
+        print("[SCHEDULER] pattern scan complete")
+    except Exception as e:
+        print(f"[SCHEDULER] pattern scan failed: {e}")
+
+
 def _fundamentals_job():
     print("[SCHEDULER] weekly fundamentals refresh started")
     try:
@@ -141,13 +152,16 @@ def _drift_check():
             "SELECT outcome FROM swing_signals WHERE outcome IN ('WIN','LOSS') ORDER BY signal_date DESC LIMIT 40"
         ).fetchall()
         conn.close()
+
         if len(rows) < 15:
             print("[DRIFT] not enough graded trades yet")
             return
+
         wins = sum(1 for r in rows if r[0] == "WIN")
         live_wr = wins / len(rows)
+
         if live_wr < 0.35:
-            msg = f"[DRIFT] ⚠️ live win-rate {live_wr:.0%} over last {len(rows)} graded — review setup quality"
+            msg = f"[DRIFT] live win-rate {live_wr:.0%} over last {len(rows)} graded — review setup quality"
             print(msg)
             try:
                 import swing_alerts
@@ -157,61 +171,102 @@ def _drift_check():
                 pass
         else:
             print(f"[DRIFT] ok — live win-rate {live_wr:.0%} ({len(rows)} graded)")
+
     except Exception as e:
         print(f"[DRIFT] check skipped: {e}")
 
 
 def start():
     global _scheduler
+
     if _scheduler is not None:
         return
+
     _scheduler = BackgroundScheduler(timezone=IST)
+
     _scheduler.add_job(
-        _data_quality_job, CronTrigger(hour=15, minute=30, timezone=IST), id="data_quality", replace_existing=True
+        _data_quality_job,
+        CronTrigger(hour=15, minute=30, timezone=IST),
+        id="data_quality",
+        replace_existing=True,
     )
+
     _scheduler.add_job(
-        _daily_job, CronTrigger(hour=15, minute=45, timezone=IST), id="daily_update", replace_existing=True
+        _daily_job,
+        CronTrigger(hour=15, minute=45, timezone=IST),
+        id="daily_update",
+        replace_existing=True,
     )
+
     _scheduler.add_job(
-        _swing_job, CronTrigger(hour=16, minute=15, timezone=IST), id="swing_scan", replace_existing=True
+        _swing_job,
+        CronTrigger(hour=16, minute=15, timezone=IST),
+        id="swing_scan",
+        replace_existing=True,
     )
+
     _scheduler.add_job(
-        _institutional_job, CronTrigger(hour=16, minute=45, timezone=IST), id="institutional", replace_existing=True
+        _institutional_job,
+        CronTrigger(hour=16, minute=45, timezone=IST),
+        id="institutional",
+        replace_existing=True,
     )
+
     _scheduler.add_job(
-        _macro_job, CronTrigger(hour=17, minute=30, timezone=IST), id="macro_flow", replace_existing=True
+        _macro_job,
+        CronTrigger(hour=17, minute=30, timezone=IST),
+        id="macro_flow",
+        replace_existing=True,
     )
+
+    _scheduler.add_job(
+        _pattern_job,
+        CronTrigger(hour=18, minute=5, timezone=IST),
+        id="pattern_scan",
+        replace_existing=True,
+    )
+
     _scheduler.add_job(
         _fundamentals_job,
         CronTrigger(day_of_week="sat", hour=8, minute=0, timezone=IST),
         id="fundamentals_refresh",
         replace_existing=True,
     )
+
     _scheduler.add_job(
         _retrain_job,
         CronTrigger(day_of_week="sat", hour=9, minute=0, timezone=IST),
         id="meta_retrain",
         replace_existing=True,
     )
+
     _scheduler.add_job(
         _validate_mc_job,
         CronTrigger(day_of_week="mon", hour=8, minute=0, timezone=IST),
         id="validate_mc",
         replace_existing=True,
     )
+
     _scheduler.add_job(
-        _validate_wf_job, CronTrigger(day=1, hour=10, minute=0, timezone=IST), id="validate_wf", replace_existing=True
+        _validate_wf_job,
+        CronTrigger(day=1, hour=10, minute=0, timezone=IST),
+        id="validate_wf",
+        replace_existing=True,
     )
+
     _scheduler.start()
+
     print(
         "[SCHEDULER] started — dq@15:30, daily@15:45, swing@16:15, "
-        "inst@16:45, macro@17:30, fund@Sat08:00, retrain@Sat09:00, "
+        "inst@16:45, macro@17:30, patterns@18:05, "
+        "fund@Sat08:00, retrain@Sat09:00, "
         "mc@Mon08:00, wf@1st10:00 IST"
     )
 
 
 def stop():
     global _scheduler
+
     if _scheduler:
         _scheduler.shutdown(wait=False)
         _scheduler = None
