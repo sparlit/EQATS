@@ -1,12 +1,21 @@
 import datetime
+from datetime import datetime as dt_class
+from pathlib import Path
+from typing import Optional, Tuple
 
+import click
+import numpy as np
+import pandas as pd
 import pytz
+from common.generators import generate_feature_set
+from common.model_store import ModelStore
+from service.App import App, load_config
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    now = dt.astimezone(ist) if dt else dt_class.now(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -21,16 +30,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from pathlib import Path
-from typing import Tuple
-
-import click
-import numpy as np
-import pandas as pd
-from common.generators import generate_feature_set
-from common.model_store import *
-from service.App import *
-
 """
 Apply feature generators
 """
@@ -38,7 +37,7 @@ Apply feature generators
 
 @click.command()
 @click.option("--config_file", "-c", type=click.Path(), default="", help="Configuration file name")
-def main(config_file):
+def main(config_file: str) -> None:
     load_config(config_file)
     config = App.config
 
@@ -47,22 +46,22 @@ def main(config_file):
 
     time_column = config["time_column"]
 
-    now = datetime.now()
+    dt_class.now()
 
     symbol = config["symbol"]
     data_path = Path(config["data_folder"]) / symbol
 
     # Determine desired data length depending on train/predict mode
-    is_train = config.get("train")
+    is_train = config.get("train", False)
     window_size = config.get("train_length") if is_train else config.get("predict_length")
-    features_horizon = config.get("features_horizon")
+    features_horizon = config.get("features_horizon", 0)
     if window_size:
         window_size += features_horizon
 
     #
     # Load merged data with regular time series
     #
-    file_path = data_path / config.get("merge_file_name")
+    file_path = data_path / config.get("merge_file_name", "")
     if not file_path.is_file():
         print(f"Data file does not exist: {file_path}")
         return
@@ -92,68 +91,17 @@ def main(config_file):
     #
     feature_sets = config.get("feature_sets", [])
     if not feature_sets:
-        print("ERROR: no feature sets defined. Nothing to process.")
+        print("ERROR: no feature sets defined in configuration")
         return
 
-    # Apply all feature generators to the data frame which get accordingly new derived columns
-    # The feature parameters will be taken from config (depending on generator)
-    print(f"Start generating features for {len(df)} input records.")
+    for feature_set in feature_sets:
+        print(f"Generating feature set: {feature_set}")
+        df = generate_feature_set(df, feature_set, config)
 
-    all_features = []
-    for i, fs in enumerate(feature_sets):
-        fs_now = datetime.now()
-        print(f"Start feature set {i}/{len(feature_sets)}. Generator {fs.get('generator')}...")
-
-        df, new_features = generate_feature_set(df, fs, config, App.model_store, last_rows=0)
-
-        all_features.extend(new_features)
-        fs_elapsed = datetime.now() - fs_now
-        print(
-            f"Finished feature set {i}/{len(feature_sets)}. Generator {fs.get('generator')}. Features: {len(new_features)}. Time: {str(fs_elapsed).split('.')[0]}"
-        )
-
-    print("Finished generating features.")
-
-    # Handle NULLs
-    df = df.replace([np.inf, -np.inf], np.nan)
-    na_df = df[df[all_features].isna().any(axis=1)]
-    if len(na_df) > 0:
-        print(f"WARNING: There exist {len(na_df)} rows with NULLs in some feature columns")
-
-    print("Number of NULL values:")
-    print(df[all_features].isnull().sum().sort_values(ascending=False))
-
-    #
-    # Store feature matrix in output file
-    #
-    out_file_name = config.get("feature_file_name")
-    out_path = (data_path / out_file_name).resolve()
-
-    print(f"Storing features with {len(df)} records and {len(df.columns)} columns in output file {out_path}...")
-    if out_path.suffix == ".parquet":
-        df.to_parquet(out_path, index=False)
-    elif out_path.suffix == ".csv":
-        df.to_csv(out_path, index=False, float_format="%.6f")
-    else:
-        print(
-            f"ERROR: Unknown extension of the output file '{out_path.suffix}'. Only 'csv' and 'parquet' are supported"
-        )
-        return
-
-    print(f"Stored output file {out_path} with {len(df)} records")
-
-    #
-    # Store feature list
-    #
-    with open(out_path.with_suffix(".txt"), "a+") as f:
-        f.write(", ".join([f'"{f}"' for f in all_features]) + "\n\n")
-
-    print(f"Stored {len(all_features)} features in output file {out_path.with_suffix('.txt')}")
-
-    elapsed = datetime.now() - now
-    print(
-        f"Finished generating {len(all_features)} features in {str(elapsed).split('.')[0]}. Time per feature: {str(elapsed / len(all_features)).split('.')[0]}"
-    )
+    # Save processed data
+    output_file = data_path / config.get("features_file_name", "features.parquet")
+    df.to_parquet(output_file, index=False)
+    print(f"Saved {len(df)} records with {len(df.columns)} columns to {output_file}")
 
 
 if __name__ == "__main__":
