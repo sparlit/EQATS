@@ -6,7 +6,12 @@ import pytz
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    else:
+        if dt.tzinfo is None:
+            dt = ist.localize(dt)
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -21,12 +26,18 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import datetime
+# The following code uses deprecated APIs and is kept for reference only.
+# Consider using yfinance and plotly.graph_objects for modern implementations.
+"""
+import pandas as pd
+import yfinance as yf
+import plotly.graph_objects as go
 
-import pandas.io.data as web
-import plotly.plotly as py
-from plotly.tools import FigureFactory as FF
-
-df = web.DataReader("aapl", "yahoo", datetime(2007, 10, 1), datetime(2009, 4, 1))
-fig = FF.create_candlestick(df.Open, df.High, df.Low, df.Close, dates=df.index)
-py.plot(fig, filename="finanimporce/aapl-candlestick", validate=True)
+df = yf.download("AAPL", start="2007-10-01", end="2009-04-01")
+fig = go.Figure(data=[go.Candlestick(x=df.index,
+                open=df['Open'],
+                high=df['High'],
+                low=df['Low'],
+                close=df['Close'])])
+fig.show()
+"""
