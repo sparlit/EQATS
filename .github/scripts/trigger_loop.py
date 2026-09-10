@@ -1,132 +1,103 @@
 #!/usr/bin/env python3
 """
 EQATS Automated Workflow Cascade Dispatcher
-Direct HTTP Client Tunneling Core - Absolute Invalidation of SSL Match Constraints
+Direct HTTP Client Tunneling Core
+Dispatches workflow dispatch triggers to continue autonomous integration loop.
 """
 
-import os
-import json
 import http.client
+import json
+import os
+from pathlib import Path
+import ssl
 import sys
 import time
-import socket
-import ssl
 
-def resolve_via_public_dns(hostname="api.github.com"):
-    """Queries public Anycast DNS servers over raw UDP to bypass dead system resolvers."""
-    public_dns_ips = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
-    dns_query_packet = (
-        b"\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
-        b"\x03api\x06github\x03com\x00\x00\x01\x00\x01"
-    )
-    
-    for dns_server in public_dns_ips:
+
+def _send_workflow_dispatch(repo: str, token: str, wf: str, payload_data: bytes):
+    endpoint_path = f"/repos/{repo}/actions/workflows/{wf}/dispatches"
+    retry_delay = 3
+
+    for attempt in range(1, 4):
+        conn = None
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(2.0)
-            sock.sendto(dns_query_packet, (dns_server, 53))
-            data, _ = sock.recvfrom(512)
-            sock.close()
-            
-            if len(data) >= 16:
-                ip_bytes = data[-4:]
-                resolved_ip = f"{ip_bytes[0]}.{ip_bytes[1]}.{ip_bytes[2]}.{ip_bytes[3]}"
-                socket.inet_aton(resolved_ip)
-                print(f"[+] Application-Level DNS Success via {dns_server}: {resolved_ip}")
-                return resolved_ip
-        except Exception:
-            continue
-            
-    print("[*] Public resolvers timed out. Deploying default hardcoded operational Anycast route...")
-    return "140.82.113.6"
+            ssl_context = ssl.create_default_context()
+            conn = http.client.HTTPSConnection(
+                host="api.github.com",
+                port=443,
+                context=ssl_context,
+                timeout=10,
+            )
+
+            conn.request(
+                method="POST",
+                url=endpoint_path,
+                body=payload_data,
+                headers={
+                    "Authorization": f"token {token}",
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json",
+                    "User-Agent": "EQATS-Ingestion-Engine",
+                },
+            )
+
+            response = conn.getresponse()
+            status = response.status
+
+            if 200 <= status <= 299:
+                print(f"[+] Automation cascade payload successfully processed for {wf}.")
+                break
+            print(f"[-] Received status code {status} for {wf}.")
+        except Exception as net_err:
+            print(f"[-] Connection anomaly on attempt {attempt}: {net_err}")
+        finally:
+            if conn:
+                conn.close()
+
+        time.sleep(retry_delay)
+
 
 def dispatch_next_cycle():
-    blueprint_path = "ingestion_blueprint.json"
-    
+    blueprint_path = Path("ingestion_blueprint.json")
+
+    if not blueprint_path.exists():
+        print("[-] Error: Ingestion blueprint file does not exist.")
+        sys.exit(1)
+
     try:
-        with open(blueprint_path, 'r', encoding='utf-8') as f:
+        with blueprint_path.open("r", encoding="utf-8") as f:
             blueprint = json.load(f)
-        current = blueprint['current_index']
-        total = len(blueprint['repositories'])
+        current = blueprint.get("current_index", 0)
+        total = len(blueprint.get("repositories", []))
     except Exception as e:
         print(f"[-] Error reading blueprint matrix: {e}")
         sys.exit(1)
-        
+
     if total == 0:
         print("[-] Error: Ingestion blueprint contains zero target repositories.")
         sys.exit(1)
-        
+
     if current < total:
         print(f"[+] Progress Matrix Index: ({current} / {total}). Triggering subsequent pipeline cascade...")
-        
-        token = os.environ.get('GITHUB_TOKEN')
-        repo = os.environ.get('GITHUB_REPOSITORY')
-        
+
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        repo = os.environ.get("GITHUB_REPOSITORY")
+
         if not token or not repo:
-            print("[-] Error: Missing structural environment variables (GITHUB_TOKEN or GITHUB_REPOSITORY).")
-            sys.exit(1)
+            print("[-] Environment variables missing (GITHUB_TOKEN or GITHUB_REPOSITORY). Skipping REST trigger.")
+            return
 
-        endpoint_path = f"/repos/{repo}/actions/workflows/eqats-ingestion-loop.yml/dispatches"
-        payload_data = json.dumps({'ref': 'main'}).encode('utf-8')
-        
-        retry_delay = 5
-        attempt = 1
-        
-        while True:
-            conn = None
-            try:
-                target_ip = resolve_via_public_dns("api.github.com")
-                print(f"[*] Tunneling request directly to Anycast IP Destination: {target_ip}")
-                
-                # FIXED: Force unverified context generation to ignore the '://github.com' verification mismatch
-                ssl_context = ssl._create_unverified_context()
-                
-                conn = http.client.HTTPSConnection(
-                    host="api.github.com",
-                    port=443,
-                    context=ssl_context,
-                    timeout=10
-                )
-                
-                def forced_ip_connect():
-                    conn.sock = socket.create_connection((target_ip, 443), conn.timeout, conn.source_address)
-                    conn.sock = ssl_context.wrap_socket(conn.sock, server_hostname="api.github.com")
-                conn.connect = forced_ip_connect
+        workflows = [
+            "autonomous-repo-integration.yml",
+        ]
 
-                print(f"[*] Dispatching REST trigger API payload via low-level connection core (Attempt {attempt})...")
-                
-                conn.request(
-                    method="POST",
-                    url=endpoint_path,
-                    body=payload_data,
-                    headers={
-                        'Authorization': f'token {token}',
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json',
-                        'User-Agent': 'EQATS-Ingestion-Engine'
-                    }
-                )
-                
-                response = conn.getresponse()
-                status = response.status
-                
-                if 200 <= status <= 299:
-                    print("[+] Automation cascade payload successfully processed by GitHub REST core.")
-                    return
-                else:
-                    print(f"[-] Received unexpected status code: {status}. Retrying...")
-            except Exception as net_err:
-                print(f"[-] Network connection anomaly detected: {net_err}")
-                print(f"[*] Retrying cascade sequence automatically in {retry_delay} seconds...")
-            finally:
-                if conn:
-                    conn.close()
-            
-            time.sleep(retry_delay)
-            retry_delay = min(retry_delay + 2, 15)
-            attempt += 1
+        payload_data = json.dumps({"ref": "main"}).encode("utf-8")
+
+        for wf in workflows:
+            _send_workflow_dispatch(repo, token, wf, payload_data)
     else:
-        print(f"[+] SUCCESS: The factory has processed all {total} repositories with zero stubs remaining.")
+        print(f"[+] SUCCESS: All {total} repositories processed.")
+
 
 if __name__ == "__main__":
     dispatch_next_cycle()
