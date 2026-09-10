@@ -15,7 +15,7 @@ Total Repositories: 411 | Current Index: 13
 | 10 | abuhurairalakdawala/indian-share-market | Processed | https://github.com/sparlit/EQATS/pull/2393 |
 | 11 | adavarski/devsecops-full-integration-chain | Completed | https://github.com/sparlit/EQATS/pull/2395 |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | https://github.com/sparlit/EQATS/pull/2396 |
-| 13 | aeron7/nsepython | Processed | None |
+| 13 | aeron7/nsepython | Processed | https://github.com/sparlit/EQATS/pull/2397 |
 | 14 | aeron7/nsepythonserver | pending | None |
 | 15 | affaan-m/dprc-autotrader-v2 | pending | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | pending | None |
