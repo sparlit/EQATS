@@ -8,7 +8,12 @@ import pytz
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    elif dt.tzinfo is None:
+        now = ist.localize(dt)
+    else:
+        now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -23,11 +28,17 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None  # type: ignore
 
 
 def generate_weekly_review(trades: pd.DataFrame) -> dict[str, float]:
     """Generate a weekly review summary from trade history."""
+    if pd is None:
+        msg = "pandas is required for generate_weekly_review"
+        raise ImportError(msg)
     if trades.empty:
         return {
             "total_trades": 0,
@@ -41,14 +52,17 @@ def generate_weekly_review(trades: pd.DataFrame) -> dict[str, float]:
 
     trades = trades.copy()
     trades["pnl"] = pd.to_numeric(trades["pnl"], errors="coerce").fillna(0.0)
-    trades["holding_period"] = pd.to_numeric(trades.get("holding_period", pd.Series(dtype="float64")), errors="coerce")
+    if "holding_period" in trades.columns:
+        trades["holding_period"] = pd.to_numeric(trades["holding_period"], errors="coerce")
+    else:
+        trades["holding_period"] = pd.NA
     total_trades = len(trades)
     wins = int((trades["pnl"] > 0).sum())
     losses = int((trades["pnl"] <= 0).sum())
     win_rate = float(wins / total_trades * 100) if total_trades else 0.0
     total_pnl = float(trades["pnl"].sum())
     avg_pnl = float(trades["pnl"].mean()) if total_trades else 0.0
-    avg_holding = float(trades["holding_period"].dropna().mean()) if "holding_period" in trades.columns else 0.0
+    avg_holding = float(trades["holding_period"].dropna().mean()) if trades["holding_period"].notna().any() else 0.0
 
     return {
         "total_trades": total_trades,

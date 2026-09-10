@@ -23,9 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from data.fetcher import fetch_symbol_history
-
-
 def main() -> None:
     """Tool entrypoint for data fetch operations."""
     msg = "Use data.fetcher.fetch_symbol_history directly."
