@@ -1,23 +1,14 @@
 from __future__ import annotations
 
 import datetime
-import html
-import logging
-import re
-from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timezone
-from xml.etree import ElementTree as ET
 
 import pytz
-import requests
-
-logger = logging.getLogger(__name__)
 
 
-def is_ist_market_session_active(dt: datetime | None = None) -> bool:
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.now(ist)
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -39,6 +30,15 @@ No API key needed. Parses RSS 2.0 with the stdlib (xml.etree). Each source
 fails independently so one bad feed never blanks the whole panel. All
 timestamps are normalized to naive UTC so sorting never mixes aware/naive.
 """
+
+import html
+import re
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timezone
+from xml.etree import ElementTree as ET
+
+import requests
+from loguru import logger
 
 # (name, url, region) — free RSS feeds, markets/business focused
 RSS_SOURCES = [
@@ -72,24 +72,68 @@ def _clean(text: str) -> str:
 
 
 def _parse_pubdate(raw: str) -> datetime | None:
-    """Parse an RSS pubDate → naive UTC datetime (so all items sort together."""
-    if not raw:
-        return None
-    # Try common RSS date formats
-    formats = [
-        "%a, %d %b %Y %H:%M:%S %z",
-        "%a, %d %b %Y %H:%M:%S %Z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%d %H:%M:%S",
-    ]
-    for fmt in formats:
+    """Parse an RSS pubDate → naive UTC datetime (so all items sort together)."""
+    for fmt in ("%a, %d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S"):
         try:
             dt = datetime.strptime(raw.strip(), fmt)
             if dt.tzinfo is not None:
                 dt = dt.astimezone(UTC).replace(tzinfo=None)
             return dt
-        except ValueError:
+        except (ValueError, AttributeError):
             continue
-    logger.warning("Failed to parse pubDate: %s", raw)
     return None
+
+
+def _fetch_feed(name: str, url: str, region: str, limit: int = 8) -> list[dict]:
+    try:
+        r = requests.get(url, headers=_HEADERS, timeout=10)
+        r.raise_for_status()
+        root = ET.fromstring(r.content)
+        items = []
+        for item in root.iter("item"):
+            title = _clean(item.findtext("title", ""))
+            link = (item.findtext("link", "") or "").strip()
+            pub = item.findtext("pubDate", "") or ""
+            if not title:
+                continue
+            dt = _parse_pubdate(pub)
+            items.append(
+                {
+                    "title": title,
+                    "link": link,
+                    "source": name,
+                    "region": region,
+                    "published": dt,
+                    "published_str": dt.strftime("%d %b %H:%M") if dt else "",
+                }
+            )
+            if len(items) >= limit:
+                break
+        return items
+    except Exception as exc:
+        logger.debug("News feed failed ({}): {}", name, exc)
+        return []
+
+
+def fetch_market_news(max_items: int = 30) -> list[dict]:
+    """
+    Aggregate latest market headlines across all sources (parallel), newest first.
+    Returns list of {title, link, source, region, published, published_str}.
+    """
+    with ThreadPoolExecutor(max_workers=len(RSS_SOURCES)) as ex:
+        chunks = list(ex.map(lambda s: _fetch_feed(*s), RSS_SOURCES))
+    all_items: list[dict] = [it for chunk in chunks for it in chunk]
+
+    # Sort newest-first; items without a date sink to the bottom but stay visible
+    all_items.sort(key=lambda x: x["published"] or datetime.min, reverse=True)
+    # De-dup by title
+    seen, deduped = set(), []
+    for it in all_items:
+        key = it["title"].lower()[:80]
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(it)
+    if not deduped:
+        logger.warning("All news feeds returned empty")
+    return deduped[:max_items]
