@@ -39,13 +39,13 @@ from setuptools import find_packages, setup
 
 # Read README
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 
 # Read core requirements
 def read_requirements():
     requirements = []
-    with open("requirements.txt") as f:
+    with open("requirements.txt", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#") and not line.startswith("tensorflow") and not line.startswith("torch"):
@@ -86,5 +86,19 @@ setup(
     keywords="quantitative trading machine learning reinforcement learning alpaca finance",
     python_requires=">=3.11",
     install_requires=read_requirements(),
-    extras_require={},
+    extras_require={
+        "dev": [
+            "pytest>=7.0",
+            "pytest-asyncio>=0.21",
+            "pytest-cov>=4.0",
+            "black>=23.0",
+            "ruff>=0.1.0",
+            "mypy>=1.0",
+        ],
+        "docs": [
+            "sphinx>=6.0",
+            "sphinx-rtd-theme>=1.2",
+            "myst-parser>=1.0",
+        ],
+    },
 )
