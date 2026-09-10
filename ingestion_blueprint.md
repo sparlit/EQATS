@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 28
+Total Repositories: 411 | Current Index: 30
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -30,9 +30,9 @@ Total Repositories: 411 | Current Index: 28
 | 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2428 |
 | 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2429 |
 | 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2431 |
-| 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2432 |
-| 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2366 |
-| 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2367 |
+| 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2420 |
+| 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2430 |
+| 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2433 |
 | 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2369 |
 | 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2375 |
 | 33 | amv-dev/yata | Processed | https://github.com/sparlit/EQATS/pull/2376 |
