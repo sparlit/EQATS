@@ -1,5 +1,5 @@
 {
-  "current_index": 36,
+  "current_index": 0,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -229,57 +229,57 @@
       "name": "raptorbt",
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2366",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "zerobha",
       "target": "althk/zerobha",
       "url": "https://github.com/althk/zerobha",
-      "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2367",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "tickgrinder",
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2369",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "nse-swing-scanner",
       "target": "amitashwinibhagat/nse-swing-scanner",
       "url": "https://github.com/amitashwinibhagat/nse-swing-scanner",
-      "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2375",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "yata",
       "target": "amv-dev/yata",
       "url": "https://github.com/amv-dev/yata",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2376",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "vse",
       "target": "aneesh540/vse",
       "url": "https://github.com/aneesh540/vse",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2377",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "ai-stock-screener",
       "target": "animesh4002/ai-stock-screener",
       "url": "https://github.com/animesh4002/ai-stock-screener",
-      "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2378",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "nsetradeagents",
