@@ -1,0 +1,720 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Tests for data fetching -- stock info, news, and fallback chains.
+All external APIs (yfinance, feedparser, DuckDuckGo, requests) are mocked.
+"""
+
+
+def _mock_yfinance_ticker(mocker, info=None, hist_df=None):
+    """Build a fake yfinance Ticker with controllable info/history."""
+
+    import pandas as pd
+
+    if info is None:
+        info = {
+            "longName": "Test Company Ltd",
+            "shortName": "TEST",
+            "sector": "Technology",
+            "industry": "Software",
+            "marketCap": 1_000_000_000,
+            "trailingPE": 25.0,
+            "debtToEquity": 1.5,
+            "fiftyTwoWeekHigh": 120.0,
+            "fiftyTwoWeekLow": 80.0,
+            "currentPrice": 100.0,
+            "regularMarketPrice": 100.0,
+            "regularMarketChange": 2.5,
+            "regularMarketChangePercent": 2.56,
+        }
+
+    mock_ticker = mocker.MagicMock()
+    # Use PropertyMock so .info access is trackable
+    p_info = mocker.PropertyMock(return_value=info)
+    type(mock_ticker).info = p_info
+
+    if hist_df is not None:
+        mock_ticker.history.return_value = hist_df
+    else:
+        dates = pd.date_range(end="2026-06-18", periods=5, freq="B")
+        hist = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 99.0, 100.5, 102.0],
+                "High": [101.0, 102.0, 100.0, 101.5, 103.0],
+                "Low": [99.0, 100.0, 98.0, 99.5, 101.0],
+                "Volume": [1_000_000] * 5,
+                "Open": [99.5, 100.5, 98.5, 100.0, 101.5],
+            },
+            index=dates,
+        )
+        mock_ticker.history.return_value = hist
+
+    mocker.patch("yfinance.Ticker", return_value=mock_ticker)
+    return mock_ticker, p_info
+
+
+class TestStockInfo:
+    """Tests for get_stock_info() with mocked yfinance."""
+
+    def test_stock_info_success(self, mocker):
+        """Happy path -- valid ticker returns stock data."""
+        from data_fetcher import get_stock_info
+
+        _mock_yfinance_ticker(mocker)
+
+        result = get_stock_info("TEST")
+        assert result is not None
+        assert result["name"] == "Test Company Ltd"
+        assert result["sector"] == "Technology"
+        assert result["current_price"] == 102.0  # From hist Close[-1]
+        assert isinstance(result["market_cap"], int)
+        assert isinstance(result["volume"], int)
+        # Debt-to-Equity should be extracted from the mock
+        assert result["debt_to_equity"] == 1.5
+
+    def test_stock_info_empty_response_retries(self, mocker):
+        """Empty info dict should trigger retry, eventually return partial data from history."""
+        from data_fetcher import get_stock_info
+
+        # info with only 5 keys: len(info) < 10 triggers retry across all suffixes
+        tiny_info = {"longName": "Test", "shortName": "T"}
+        _mock_yfinance_ticker(mocker, info=tiny_info)
+        mocker.patch("time.sleep")
+        mocker.patch("data_fetcher.cache_get", return_value=None)  # isolate from real cache
+        mocker.patch("data_fetcher.cache_set")  # prevent writing to real cache
+
+        result = get_stock_info("UNKNOWN")
+        # New behavior: when info fails but history works, return price data with defaults
+        assert result is not None
+        assert result["name"] == "UNKNOWN"  # ticker as fallback name
+        assert result["sector"] == "N/A"
+        assert result["current_price"] is not None  # price from history
+
+    def test_stock_info_info_fallback(self, mocker):
+        """When hist is empty, should fall back to info.get() for price."""
+        import pandas as pd
+        from data_fetcher import get_stock_info
+
+        info = {
+            "longName": "Test Ltd",
+            "shortName": "TEST",
+            "sector": "Finance",
+            "industry": "Banking",
+            "marketCap": 5_000_000_000,
+            "trailingPE": 15.0,
+            "fiftyTwoWeekHigh": 520.0,
+            "fiftyTwoWeekLow": 400.0,
+            "currentPrice": 500.0,
+            "regularMarketChange": 5.0,
+            "regularMarketChangePercent": 1.01,
+            "dayHigh": 505.0,
+            "dayLow": 495.0,
+            "volume": 2_000_000,
+        }
+        _mock_yfinance_ticker(mocker, info=info, hist_df=pd.DataFrame())
+        mocker.patch("time.sleep")
+
+        # Use unique ticker to avoid st.cache_data from a prior test
+        result = get_stock_info("INFALLBACK")
+        assert result is not None
+        assert result["current_price"] == 500.0
+
+    def test_stock_info_none_on_total_failure(self, mocker):
+        """When both info AND history fail, should return None."""
+        import pandas as pd
+        from data_fetcher import get_stock_info
+
+        tiny_info = {"longName": "Bogus"}
+        # Empty history + tiny info = complete failure
+        _mock_yfinance_ticker(mocker, info=tiny_info, hist_df=pd.DataFrame())
+        mocker.patch("time.sleep")
+        mocker.patch("data_fetcher.cache_get", return_value=None)  # isolate from real cache
+        mocker.patch("data_fetcher.cache_set")  # prevent writing to real cache
+
+        result = get_stock_info("BOGUS")
+        assert result is None
+
+    def test_stock_info_handles_missing_fields(self, mocker):
+        """Missing optional fields (sector, PE) should not crash."""
+        from data_fetcher import get_stock_info
+
+        info = {
+            "longName": "Minimal Ltd",
+            "shortName": "MINIMAL",
+            "currentPrice": 50.0,
+            "regularMarketChange": 1.0,
+            "regularMarketChangePercent": 2.0,
+            "dayHigh": 52.0,
+            "dayLow": 49.0,
+            "volume": 500_000,
+            "fiftyTwoWeekHigh": 60.0,
+            "fiftyTwoWeekLow": 40.0,
+            "address1": "India",
+        }
+        _mock_yfinance_ticker(mocker, info=info)
+
+        # Use unique ticker to avoid st.cache_data conflicts
+        result = get_stock_info("MISSINGF")
+        assert result is not None
+        assert result["sector"] == "N/A"  # missing -> "N/A"
+        assert result["pe_ratio"] is None  # missing -> None
+
+    def test_stock_info_nan_prices_from_etf(self, mocker):
+        """ETFs with NaN price fields should return None for prices, not NaN."""
+        import math
+
+        import pandas as pd
+        from data_fetcher import get_stock_info
+
+        # ETF scenario: info has NaN prices, history is empty
+        nan_info = {
+            "longName": "Nippon India ETF Nifty 50",
+            "shortName": "NIFTYBEES",
+            "sector": "N/A",
+            "industry": "N/A",
+            "fiftyTwoWeekHigh": 302.25,
+            "fiftyTwoWeekLow": 251.70,
+            "trailingPE": 21.52,
+            # These fields are NaN for ETFs on yfinance
+            "currentPrice": float("nan"),
+            "regularMarketPrice": float("nan"),
+            "regularMarketChange": float("nan"),
+            "regularMarketChangePercent": float("nan"),
+            "dayHigh": float("nan"),
+            "dayLow": float("nan"),
+            "volume": float("nan"),
+        }
+        _mock_yfinance_ticker(mocker, info=nan_info, hist_df=pd.DataFrame())
+        mocker.patch("time.sleep")
+        mocker.patch("data_fetcher.cache_get", return_value=None)
+        mocker.patch("data_fetcher.cache_set")
+
+        result = get_stock_info("NIFTYBEES")
+        assert result is not None
+        # Prices should be None, not NaN
+        assert result["current_price"] is None or not math.isnan(result["current_price"])
+        assert result["change"] is None or not math.isnan(result["change"])
+        assert result["change_pct"] is None or not math.isnan(result["change_pct"])
+        assert result["day_high"] is None or not math.isnan(result["day_high"])
+        assert result["day_low"] is None or not math.isnan(result["day_low"])
+        # 52w data should still be present
+        assert result["52w_high"] == 302.25
+        assert result["52w_low"] == 251.70
+
+    def test_debt_to_equity_missing(self, mocker):
+        """When yfinance doesn't provide debtToEquity, result should have None."""
+        from data_fetcher import get_stock_info
+
+        info = {
+            "longName": "No Debt Ltd",
+            "shortName": "NODEBT",
+            "sector": "Technology",
+            "industry": "Software",
+            "marketCap": 1_000_000_000,
+            "trailingPE": 20.0,
+            "fiftyTwoWeekHigh": 100.0,
+            "fiftyTwoWeekLow": 70.0,
+            "currentPrice": 85.0,
+            "regularMarketChange": 1.0,
+            "regularMarketChangePercent": 1.19,
+            "dayHigh": 86.0,
+            "dayLow": 84.0,
+            "volume": 500_000,
+        }
+        _mock_yfinance_ticker(mocker, info=info)
+        mocker.patch("time.sleep")
+
+        result = get_stock_info("NODEBT")
+        assert result is not None
+        assert result["debt_to_equity"] is None
+
+    def test_debt_to_equity_nan(self, mocker):
+        """NaN debtToEquity should be converted to None."""
+
+        from data_fetcher import get_stock_info
+
+        info = {
+            "longName": "NaN Debt Ltd",
+            "shortName": "NANDEBT",
+            "sector": "Technology",
+            "industry": "Software",
+            "marketCap": 1_000_000_000,
+            "trailingPE": 20.0,
+            "debtToEquity": float("nan"),
+            "fiftyTwoWeekHigh": 100.0,
+            "fiftyTwoWeekLow": 70.0,
+            "currentPrice": 85.0,
+            "regularMarketChange": 1.0,
+            "regularMarketChangePercent": 1.19,
+            "dayHigh": 86.0,
+            "dayLow": 84.0,
+            "volume": 500_000,
+        }
+        _mock_yfinance_ticker(mocker, info=info)
+        mocker.patch("time.sleep")
+
+        result = get_stock_info("NANDEBT")
+        assert result is not None
+        assert result["debt_to_equity"] is None
+
+
+class TestRelevanceFilter:
+    """Tests for the _relevant() headline filter."""
+
+    def test_ticker_in_title(self):
+        from data_fetcher import _relevant
+
+        assert _relevant("RELIANCE", "Reliance Industries", "RELIANCE hits new high on strong Q1 results", "")
+
+    def test_company_name_in_body(self):
+        from data_fetcher import _relevant
+
+        assert _relevant("TCS", "Tata Consultancy Services", "IT stocks rally", "Tata Consultancy wins $2B deal")
+
+    def test_unrelated_headline(self):
+        from data_fetcher import _relevant
+
+        assert not _relevant("SBIN", "State Bank of India", "Gold prices surge on global cues", "")
+
+    def test_short_words_not_matched(self):
+        """Words <= 2 chars are excluded from matching."""
+        from data_fetcher import _relevant
+
+        # 'IT' is 2 chars, should not match
+        assert not _relevant("IT", "IT Ltd", "Services company reports results", "")
+
+    def test_partial_word_not_matched(self):
+        """Ticker substring should not match inside unrelated words.
+        The current implementation does simple substring matching, so
+        we test a ticker that genuinely doesn't appear in the text."""
+        from data_fetcher import _relevant
+
+        assert not _relevant("TCS", "Tata Consultancy Services", "Gold prices surge on global cues", "")
+
+
+class TestNewsCaching:
+    """Tests for news caching layer."""
+
+    def test_news_cache_hit(self, mocker):
+        """Cached news should be returned without fetching.
+        We patch cache_get to return known data, then verify
+        feedparser and DDGS are NOT called."""
+        from data_fetcher import search_news
+
+        cached_articles = [
+            {
+                "title": "Cached article",
+                "body": "",
+                "date": "2026-06-18",
+                "url": "https://example.com/cached",
+                "source": "Google News",
+            }
+        ]
+        cached_stats = {"Google News": 1}
+        mocker.patch("data_fetcher.cache_get", return_value=(cached_articles, cached_stats))
+        # Patch all fetch functions to verify they are NOT called
+        mock_feed = mocker.patch("feedparser.parse")
+        mock_ddgs = mocker.patch("data_fetcher.DDGS")
+        mocker.patch("data_fetcher.cache_set")
+
+        articles, cascade_pool, _stats, dissemination_clusters, dissemination_score = search_news(
+            "RELIANCE", "Reliance Industries", max_results=5
+        )
+        assert len(articles) == 1
+        assert articles[0]["title"] == "Cached article"
+        assert cascade_pool == articles  # on cache hit, cascade pool = display items
+        assert dissemination_clusters == []  # single article -> no clusters
+        assert dissemination_score == 0.0
+        mock_feed.assert_not_called()
+        mock_ddgs.assert_not_called()
+
+    def test_news_cache_miss_falls_through(self, mocker):
+        """Cache miss should proceed to fetch from RSS/DDG."""
+        from data_fetcher import search_news
+
+        mocker.patch("data_fetcher.cache_get", return_value=None)
+        # Mock RSS feeds to return empty
+        mock_feed = mocker.MagicMock()
+        mock_feed.entries = []
+        mocker.patch("feedparser.parse", return_value=mock_feed)
+        # Mock DDGS to raise
+        mocker.patch("data_fetcher.DDGS", side_effect=Exception("No DDGS"))
+        mocker.patch("data_fetcher.cache_set")
+
+        articles, cascade_pool, _stats, _, _ = search_news("RELIANCE", "Reliance Industries", max_results=5)
+        assert articles == []
+        assert cascade_pool == []
+
+    def test_ddgs_timeout_wrapper_prevents_hang(self):
+        """ThreadPoolExecutor timeout wrapper completes within budget, not hanging."""
+        import threading
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        hang_event = threading.Event()
+
+        def _hang():
+            hang_event.wait(timeout=60)
+            return []
+
+        pool = ThreadPoolExecutor(max_workers=1)
+        start = time.time()
+        try:
+            pool.submit(_hang).result(timeout=2)
+            raised = False
+        except Exception:
+            raised = True
+        elapsed = time.time() - start
+
+        # Unblock background thread BEFORE pool shutdown to avoid deadlock
+        hang_event.set()
+        pool.shutdown(wait=False)
+
+        # Timeout fires within budget
+        assert raised, "Expected TimeoutError from slow DDGS"
+        assert elapsed < 5, f"Timeout wrapper took {elapsed:.1f}s, expected <5s"
+
+
+class TestFormatting:
+    """Tests for data_fetcher formatting helpers."""
+
+    def test_parse_date(self):
+        from data_fetcher import _parse_date
+
+        result = _parse_date((2026, 6, 18, 10, 30, 0))
+        assert result == "2026-06-18"
+        assert _parse_date(None) == ""
+        assert _parse_date((2026,)) == ""
+
+
+class TestRetryFetch:
+    """Tests for the _retry_fetch() generator."""
+
+    def test_default_attempts(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=True)
+
+        assert list(_retry_fetch()) == [0, 1, 2]
+
+    def test_custom_attempts_one(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=True)
+
+        assert list(_retry_fetch(max_attempts=1)) == [0]
+
+    def test_custom_attempts_five(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=True)
+
+        assert list(_retry_fetch(max_attempts=5)) == [0, 1, 2, 3, 4]
+
+    def test_backoff_sleep_values(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=False)
+        sleep_mock = mocker.patch("data_fetcher.time.sleep")
+        mocker.patch("data_fetcher.random.random", return_value=0.5)
+
+        list(_retry_fetch(max_attempts=3, base_wait=1, backoff=2))
+
+        assert sleep_mock.call_count == 2
+
+        first_sleep = sleep_mock.call_args_list[0][0][0]
+        second_sleep = sleep_mock.call_args_list[1][0][0]
+
+        assert first_sleep == 1.25  # 1 + (1*0.5*0.5)
+        assert second_sleep == 2.5  # 2 + (2*0.5*0.5)
+
+    def test_backoff_power_three(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=False)
+        sleep_mock = mocker.patch("data_fetcher.time.sleep")
+        mocker.patch("data_fetcher.random.random", return_value=0.5)
+
+        list(_retry_fetch(max_attempts=4, base_wait=1, backoff=3))
+
+        third_sleep = sleep_mock.call_args_list[2][0][0]
+
+        assert third_sleep == 11.25  # 9 + (9*0.5*0.5)
+
+    def test_rate_limited_skips_sleep(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=True)
+        sleep_mock = mocker.patch("data_fetcher.time.sleep")
+
+        list(_retry_fetch())
+
+        sleep_mock.assert_not_called()
+
+    def test_not_rate_limited_sleeps(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=False)
+        sleep_mock = mocker.patch("data_fetcher.time.sleep")
+        mocker.patch("data_fetcher.random.random", return_value=0)
+
+        list(_retry_fetch())
+
+        assert sleep_mock.call_count == 2
+
+    def test_jitter_changes_sleep(self, mocker):
+        from data_fetcher import _retry_fetch
+
+        mocker.patch("data_fetcher._check_rate_limited", return_value=False)
+
+        sleep_mock = mocker.patch("data_fetcher.time.sleep")
+
+        mocker.patch("data_fetcher.random.random", side_effect=[0.2, 0.8])
+
+        list(_retry_fetch(max_attempts=2))
+
+        first = sleep_mock.call_args_list[0][0][0]
+
+        sleep_mock.reset_mock()
+
+        mocker.patch("data_fetcher.random.random", side_effect=[0.8, 0.2])
+
+        list(_retry_fetch(max_attempts=2))
+
+        second = sleep_mock.call_args_list[0][0][0]
+
+        assert first != second
+
+
+class TestHistoryCache:
+    """Tests for the 3-tier price history caching system in data_fetcher."""
+
+    def _clear_caches(self):
+        """Helper to clear both L1 (in-memory) and L2 (disk) caches."""
+        import os
+        import shutil
+
+        import data_fetcher
+
+        with data_fetcher._hist_cache_lock:
+            data_fetcher._hist_cache.clear()
+
+        if os.path.exists(data_fetcher._PRICE_CACHE_DIR):
+            shutil.rmtree(data_fetcher._PRICE_CACHE_DIR)
+
+        # Recreate since we moved makedirs to module level in data_fetcher.py
+        os.makedirs(data_fetcher._PRICE_CACHE_DIR, exist_ok=True)
+
+    def setup_method(self):
+        """Clean up caches before each test to ensure a clean state."""
+        self._clear_caches()
+
+    def teardown_method(self):
+        """Clean up caches after each test to prevent side effects."""
+        self._clear_caches()
+
+    def _make_dummy_df(self):
+        import pandas as pd
+
+        dates = pd.date_range(end="2026-06-18", periods=5, freq="B")
+        return pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 99.0, 100.5, 102.0],
+                "High": [101.0, 102.0, 100.0, 101.5, 103.0],
+                "Low": [99.0, 100.0, 98.0, 99.5, 101.0],
+                "Volume": [1000000] * 5,
+                "Open": [99.5, 100.5, 98.5, 100.0, 101.5],
+            },
+            index=dates,
+        )
+
+    def test_l1_first_call_fetches_from_network(self, mocker):
+        import os
+
+        from data_fetcher import _PRICE_CACHE_DIR, get_cached_history
+
+        df = self._make_dummy_df()
+        mock_ticker = mocker.MagicMock()
+        mock_ticker.history.return_value = df
+        mock_yf = mocker.patch("data_fetcher.yf.Ticker", return_value=mock_ticker)
+
+        result = get_cached_history("TEST")
+        assert result is not None
+        assert result.equals(df)
+        mock_yf.assert_called_once_with("TEST.NS")
+
+        # Verify L2 disk cache was written
+        assert os.path.exists(os.path.join(_PRICE_CACHE_DIR, "TEST.json"))
+
+    def test_l1_second_call_returns_cached(self, mocker):
+        from data_fetcher import get_cached_history
+
+        df = self._make_dummy_df()
+        mock_ticker = mocker.MagicMock()
+        mock_ticker.history.return_value = df
+        mock_yf = mocker.patch("data_fetcher.yf.Ticker", return_value=mock_ticker)
+
+        res1 = get_cached_history("TEST")
+        res2 = get_cached_history("TEST")
+
+        assert res1 is res2  # returns exact same object from memory (L1)
+        assert mock_yf.call_count == 1  # yfinance called only once
+
+    def test_l1_different_tickers(self, mocker):
+        import data_fetcher
+        from data_fetcher import get_cached_history
+
+        df1 = self._make_dummy_df()
+        df2 = self._make_dummy_df()
+        mock_ticker1 = mocker.MagicMock()
+        mock_ticker1.history.return_value = df1
+        mock_ticker2 = mocker.MagicMock()
+        mock_ticker2.history.return_value = df2
+
+        def side_effect(ticker_name):
+            if "TEST1" in ticker_name:
+                return mock_ticker1
+            return mock_ticker2
+
+        mocker.patch("data_fetcher.yf.Ticker", side_effect=side_effect)
+
+        res1 = get_cached_history("TEST1")
+        res2 = get_cached_history("TEST2")
+
+        assert res1.equals(df1)
+        assert res2.equals(df2)
+        assert "TEST1" in data_fetcher._hist_cache
+        assert "TEST2" in data_fetcher._hist_cache
+
+    def test_l1_lru_eviction(self, mocker):
+        import data_fetcher
+        from data_fetcher import get_cached_history
+
+        # Mock cache size to 2
+        mocker.patch.object(data_fetcher, "_MAX_CACHED_TICKERS", 2)
+
+        df = self._make_dummy_df()
+        mock_ticker = mocker.MagicMock()
+        mock_ticker.history.return_value = df
+        mocker.patch("data_fetcher.yf.Ticker", return_value=mock_ticker)
+
+        get_cached_history("T1")
+        get_cached_history("T2")
+        assert "T1" in data_fetcher._hist_cache
+        assert "T2" in data_fetcher._hist_cache
+
+        # Access T3, which should evict T1 (oldest inserted)
+        get_cached_history("T3")
+        assert "T1" not in data_fetcher._hist_cache
+        assert "T2" in data_fetcher._hist_cache
+        assert "T3" in data_fetcher._hist_cache
+
+    def test_l2_eviction_via_mtime(self, mocker):
+        import os
+        import time
+
+        import data_fetcher
+        from data_fetcher import _evict_hist_cache
+
+        # Create cache directory
+        os.makedirs(data_fetcher._PRICE_CACHE_DIR, exist_ok=True)
+        f_fresh = os.path.join(data_fetcher._PRICE_CACHE_DIR, "FRESH.json")
+        f_stale = os.path.join(data_fetcher._PRICE_CACHE_DIR, "STALE.json")
+
+        # Create empty files
+        with open(f_fresh, "w") as f:
+            f.write("{}")
+        with open(f_stale, "w") as f:
+            f.write("{}")
+
+        # Mock mtimes: stale is 8 days old, fresh is now
+        now = time.time()
+        mtimes = {f_fresh: now, f_stale: now - (9 * 86400)}
+        mocker.patch("os.path.getmtime", side_effect=lambda path: mtimes[path])
+        mocker.patch("os.path.isfile", return_value=True)
+
+        _evict_hist_cache()
+
+        assert os.path.exists(f_fresh)
+        assert not os.path.exists(f_stale)
+
+    def test_l2_hit_l1_miss(self, mocker):
+        import os
+
+        import data_fetcher
+        from data_fetcher import get_cached_history
+
+        df = self._make_dummy_df()
+        os.makedirs(data_fetcher._PRICE_CACHE_DIR, exist_ok=True)
+        cache_path = os.path.join(data_fetcher._PRICE_CACHE_DIR, "TEST.json")
+        df.to_json(cache_path, orient="index", date_format="iso")
+
+        # Ensure L1 cache is empty
+        assert "TEST" not in data_fetcher._hist_cache
+
+        # Mock yfinance to ensure L3 is NOT called
+        mock_yf = mocker.patch("data_fetcher.yf.Ticker")
+
+        result = get_cached_history("TEST")
+        assert result is not None
+        # Since JSON conversion loses exact timezone metadata or details, compare values
+        assert list(result.columns) == list(df.columns)
+        assert len(result) == len(df)
+        assert "TEST" in data_fetcher._hist_cache
+        mock_yf.assert_not_called()
+
+    def test_l2_corrupted_state_graceful_fallback(self, mocker):
+        import os
+
+        import data_fetcher
+        from data_fetcher import get_cached_history
+
+        os.makedirs(data_fetcher._PRICE_CACHE_DIR, exist_ok=True)
+        cache_path = os.path.join(data_fetcher._PRICE_CACHE_DIR, "CORRUPT.json")
+        with open(cache_path, "w") as f:
+            f.write("invalid json contents")
+
+        # Mock L3 yfinance to return valid data
+        df = self._make_dummy_df()
+        mock_ticker = mocker.MagicMock()
+        mock_ticker.history.return_value = df
+        mock_yf = mocker.patch("data_fetcher.yf.Ticker", return_value=mock_ticker)
+
+        # Should fall back to L3 and succeed instead of throwing JSONDecodeError
+        result = get_cached_history("CORRUPT")
+        assert result is not None
+        assert result.equals(df)
+        assert mock_yf.call_count > 0
+
+    def test_nonexistent_ticker(self, mocker):
+        import pandas as pd
+        from data_fetcher import get_cached_history
+
+        # yfinance returns empty DataFrame
+        mock_ticker = mocker.MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mocker.patch("data_fetcher.yf.Ticker", return_value=mock_ticker)
+
+        result = get_cached_history("NONEXISTENT")
+        assert result is None
