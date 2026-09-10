@@ -1,0 +1,353 @@
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
+
+use rustc_hash::FxHasher;
+use std::hash::BuildHasherDefault;
+
+use kwant::indicators::*;
+
+use crate::{IndicatorData, IndicatorKind, Side, TimeFrame};
+use log::warn;
+
+use serde::Deserialize;
+
+#[derive(Debug, Copy, Clone)]
+pub struct ExecParams {
+    pub margin: f64,
+    pub lev: usize,
+    pub open_pos: Option<OpenPosInfo>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct OpenPosInfo {
+    pub side: Side,
+    pub size: f64,
+    pub entry_px: f64,
+    pub open_time: u64,
+}
+
+impl ExecParams {
+    pub fn new(margin: f64, lev: usize) -> Self {
+        Self {
+            margin,
+            lev,
+            open_pos: None,
+        }
+    }
+
+    pub fn free_margin(&self) -> f64 {
+        if self.lev == 0 {
+            return 0.0;
+        }
+
+        if let Some(open) = self.open_pos {
+            self.margin - ((open.entry_px * open.size) / self.lev as f64)
+        } else {
+            self.margin
+        }
+    }
+
+    pub fn get_max_open_size(&self, ref_px: f64) -> f64 {
+        if self.lev == 0 || !ref_px.is_finite() || ref_px <= 0.0 {
+            return 0.0;
+        }
+
+        self.free_margin() * self.lev as f64 / ref_px
+    }
+}
+
+pub enum ExecParam {
+    Margin(f64),
+    Lev(usize),
+    OpenPosition(Option<OpenPosInfo>),
+}
+
+#[derive(Debug)]
+pub struct Handler {
+    pub indicator: Box<dyn Indicator>,
+    pub is_active: bool,
+    pub closed: bool,
+}
+
+impl Handler {
+    pub fn new(indicator: IndicatorKind) -> Handler {
+        Handler {
+            indicator: match_kind(indicator),
+            is_active: true,
+            closed: false,
+        }
+    }
+
+    #[inline]
+    fn toggle(&mut self) -> bool {
+        self.is_active = !self.is_active;
+        self.is_active
+    }
+
+    #[inline]
+    pub fn update_before_close(&mut self, price: Price) {
+        self.indicator.update_before_close(price);
+        self.closed = false
+    }
+
+    pub fn update_after_close(&mut self, price: Price) {
+        self.indicator.update_after_close(price);
+        self.closed = true;
+    }
+
+    #[inline]
+    pub fn get_value(&self) -> Option<Value> {
+        self.indicator.get_last()
+    }
+
+    pub fn load<'a, I: IntoIterator<Item = &'a Price>>(&mut self, price_data: I) {
+        let data_vec: Vec<Price> = price_data.into_iter().copied().collect();
+        self.load_slice(data_vec.as_slice());
+    }
+
+    pub fn load_slice(&mut self, price_data: &[Price]) {
+        self.indicator.load(price_data);
+    }
+
+    pub fn reset(&mut self) {
+        self.indicator.reset();
+    }
+}
+
+pub type IndexId = (Arc<str>, IndicatorKind, TimeFrame);
+pub type AssetTimeFrame = (Arc<str>, TimeFrame);
+
+fn match_kind(kind: IndicatorKind) -> Box<dyn Indicator> {
+    match kind {
+        IndicatorKind::Rsi(periods) => Box::new(Rsi::new(periods, periods, None, None, None)),
+        IndicatorKind::SmaOnRsi {
+            periods,
+            smoothing_length,
+        } => Box::new(SmaRsi::new(periods, smoothing_length)),
+        IndicatorKind::StochRsi {
+            periods,
+            k_smoothing,
+            d_smoothing,
+        } => Box::new(StochasticRsi::new(periods, k_smoothing, d_smoothing)),
+        IndicatorKind::Adx { periods, di_length } => Box::new(Adx::new(periods, di_length)),
+        IndicatorKind::Atr(periods) => Box::new(Atr::new(periods)),
+        IndicatorKind::Ema(periods) => Box::new(Ema::new(periods)),
+        IndicatorKind::Dema(periods) => Box::new(Dema::new(periods)),
+        IndicatorKind::Tema(periods) => Box::new(Tema::new(periods)),
+        IndicatorKind::Obv => Box::new(Obv::new()),
+        IndicatorKind::VwapDeviation(periods) => Box::new(VwapDeviation::new(periods)),
+        IndicatorKind::Cci(periods) => Box::new(Cci::new(periods)),
+        IndicatorKind::Ichimoku {
+            tenkan,
+            kijun,
+            senkou_b,
+        } => Box::new(Ichimoku::new(tenkan, kijun, senkou_b)),
+        IndicatorKind::EmaCross { short, long } => Box::new(EmaCross::new(short, long)),
+        IndicatorKind::Macd { fast, slow, signal } => Box::new(Macd::new(fast, slow, signal)),
+        IndicatorKind::Sma(periods) => Box::new(Sma::new(periods)),
+        IndicatorKind::Roc(periods) => Box::new(Roc::new(periods)),
+        IndicatorKind::BollingerBands {
+            periods,
+            std_multiplier_x100,
+        } => Box::new(BollingerBands::new(
+            periods,
+            std_multiplier_x100 as f64 / 100.0,
+        )),
+        IndicatorKind::VolMa(periods) => Box::new(VolumeMa::new(periods)),
+        IndicatorKind::HistVolatility(periods) => Box::new(HistVolatility::new(periods)),
+    }
+}
+
+#[derive(Debug)]
+pub struct Tracker {
+    pub indicators: HashMap<IndicatorKind, Handler, BuildHasherDefault<FxHasher>>,
+    asset: Arc<str>,
+    tf: TimeFrame,
+    prev_close: Option<u64>,
+    next_close: Option<u64>,
+}
+
+impl Tracker {
+    pub fn new(asset: Arc<str>, tf: TimeFrame) -> Self {
+        Tracker {
+            indicators: HashMap::default(),
+            asset,
+            tf,
+            prev_close: None,
+            next_close: None,
+        }
+    }
+
+    pub fn digest(&mut self, price: Price) {
+        let ts = price.close_time;
+        let tf_ms = self.tf.to_millis();
+
+        let mut next = match self.next_close {
+            Some(n) => n,
+            None => {
+                self.update_indicators_before_close(price);
+                self.next_close = Some(ts);
+                return;
+            }
+        };
+        if ts > next {
+            while ts >= next {
+                self.prev_close = Some(next);
+                next += tf_ms;
+            }
+            self.next_close = Some(next);
+            self.update_indicators_after_close(price);
+        } else {
+            self.update_indicators_before_close(price);
+        }
+    }
+
+    pub(super) fn digest_bulk(&mut self, prices: &[Price]) {
+        for &p in prices {
+            self.digest(p);
+        }
+    }
+
+    fn update_indicators_after_close(&mut self, price: Price) {
+        for handler in &mut self.indicators.values_mut() {
+            handler.update_after_close(price);
+        }
+    }
+
+    #[inline]
+    fn update_indicators_before_close(&mut self, price: Price) {
+        for handler in &mut self.indicators.values_mut() {
+            handler.update_before_close(price);
+        }
+    }
+
+    pub fn load<I: IntoIterator<Item = Price>>(&mut self, price_data: I) {
+        let buffer: Vec<Price> = price_data.into_iter().collect();
+        if buffer.is_empty() {
+            warn!("LOAD BUFFER IS EMPTY!!!");
+            return;
+        }
+        let Some(last) = buffer.last() else {
+            warn!("LOAD BUFFER IS EMPTY!!!");
+            return;
+        };
+        let slice = buffer.as_slice();
+
+        for handler in self.indicators.values_mut() {
+            handler.load_slice(slice);
+        }
+
+        let tf_ms = self.tf.to_millis();
+        let prev_close = (last.close_time / tf_ms) * tf_ms;
+        self.prev_close = Some(prev_close);
+        self.next_close = Some(prev_close + tf_ms);
+    }
+
+    pub fn add_indicator(&mut self, kind: IndicatorKind) {
+        if self.indicators.contains_key(&kind) {
+            return;
+        }
+        self.indicators.insert(kind, Handler::new(kind));
+    }
+
+    pub fn remove_indicator(&mut self, kind: IndicatorKind) {
+        self.indicators.remove(&kind);
+    }
+
+    pub fn toggle_indicator(&mut self, kind: IndicatorKind) {
+        if let Some(handler) = self.indicators.get_mut(&kind) {
+            let _ = handler.toggle();
+        }
+    }
+
+    pub fn get_active_values(&self) -> ValuesMap {
+        let mut values: ValuesMap = HashMap::with_capacity_and_hasher(
+            self.indicators.len(),
+            BuildHasherDefault::<FxHasher>::default(),
+        );
+        for (kind, handler) in self.indicators.iter() {
+            if let Some(value) = handler.get_value() {
+                let tv = TimedValue {
+                    value,
+                    on_close: handler.closed,
+                    ts: self.prev_close.unwrap_or(0),
+                };
+                values.insert((Arc::clone(&self.asset), *kind, self.tf), tv);
+            }
+        }
+        values
+    }
+
+    pub fn get_indicators_data(&self) -> Vec<IndicatorData> {
+        let mut values = Vec::with_capacity(self.indicators.len());
+        for (kind, handler) in self.indicators.iter() {
+            values.push(IndicatorData {
+                id: (Arc::clone(&self.asset), *kind, self.tf),
+                value: handler.get_value(),
+            });
+        }
+        values
+    }
+
+    pub fn reset(&mut self) {
+        for handler in self.indicators.values_mut() {
+            handler.reset();
+        }
+        self.prev_close = None;
+        self.next_close = None;
+    }
+}
+
+pub type TimeFrameData = HashMap<TimeFrame, Vec<Price>, BuildHasherDefault<FxHasher>>;
+pub type AssetTimeFrameData = HashMap<AssetTimeFrame, Vec<Price>, BuildHasherDefault<FxHasher>>;
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Entry {
+    pub id: IndexId,
+    pub edit: EditType,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum EditType {
+    Add,
+    Remove,
+}
+
+pub type ValuesMap = HashMap<IndexId, TimedValue, BuildHasherDefault<FxHasher>>;
+
+#[derive(Debug, Copy, Clone)]
+pub struct TimedValue {
+    pub value: Value,
+    pub on_close: bool,
+    pub ts: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exec_params_zero_leverage_does_not_divide_by_zero() {
+        let mut params = ExecParams::new(100.0, 0);
+        params.open_pos = Some(OpenPosInfo {
+            side: Side::Long,
+            size: 1.0,
+            entry_px: 100.0,
+            open_time: 1,
+        });
+
+        assert_eq!(params.free_margin(), 0.0);
+        assert_eq!(params.get_max_open_size(100.0), 0.0);
+    }
+
+    #[test]
+    fn exec_params_rejects_bad_reference_price_for_max_size() {
+        let params = ExecParams::new(100.0, 2);
+
+        assert_eq!(params.get_max_open_size(0.0), 0.0);
+        assert_eq!(params.get_max_open_size(f64::NAN), 0.0);
+    }
+}

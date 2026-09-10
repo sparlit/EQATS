@@ -1,0 +1,87 @@
+
+import datetime
+import pytz
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone('Asia/Kolkata')
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+from config import get_symbols
+import config 
+import MySQLdb
+import pandas as pd
+import datetime as dt
+def divide_into_tables():
+    symbols=get_symbols()
+    sql='select INSTRUMENT, SYMBOL, EXPIRY_DT, STRIKE_PR, OPTION_TYP, OPEN, HIGH, LOW, CLOSE, SETTLE_PR, CONTRACTS, VAL_INLAKH, OPEN_INT, CHG_IN_OI, TIMESTAMP, MONTH_CODE from fut_opt_hist where symbol="%s"'
+    
+    for symbol in symbols.symbol:
+        db=MySQLdb.connect(config.host,config.user,config.password,'NSE')
+        data=pd.read_sql_query(sql%symbol,db)
+        try:
+            data.to_sql(symbol,db ,flavor='mysql', if_exists='replace', chunksize=200)
+        except ValueError:
+            print symbol
+            continue    
+        db.close()    
+def update_month_code():
+    symbols=get_symbols()
+    sql='update %s a,(select EXPIRY_DT,TIMESTAMP from fut_opt_hist where INSTRUMENT="FUTIDX"  group by TIMESTAMP order by TIMESTAMP,EXPIRY_DT ) b\
+                            set a.MONTH_CODE="1M" where\
+                            a.EXPIRY_DT=b.EXPIRY_DT and a.TIMESTAMP=b.TIMESTAMP'
+    for symbol in symbols.symbol:
+        print symbol
+        db=MySQLdb.connect(config.host,config.user,config.password,'NSE')
+        cursor=db.cursor()
+        try:
+            cursor.execute(sql%(symbol))
+        except :
+            
+            pass 
+        finally:
+            db.commit()
+            db.close()    
+def create_fut_history():
+    db=MySQLdb.connect(config.host,config.user,config.password,'NSE')
+    
+    try:
+        for symbol in get_symbols():
+            if symbol in config.symbols_table_not_created:
+                continue
+            print "Creating Future History for Symbol:"+symbol
+            data=pd.read_sql('select symbol,open,high,low,close,CONTRACTS,OPEN_INT,TIMESTAMP from %s where OPTION_TYP="XX" and MONTH_CODE="1M" '%symbol,db)
+            data.to_sql('FUT_HIST',db ,flavor='mysql', if_exists='append', chunksize=200)
+    except:
+        pass
+    finally:
+        db.close()
+def create_fut_today():
+    db=MySQLdb.connect(config.host,config.user,config.password,'NSE')
+    date=dt.date.today().__str__()
+    try:
+        print "Updating the Future History Table"
+        data=pd.read_sql('select symbol,open,high,low,close,CONTRACTS,OPEN_INT,TIMESTAMP from fut_opt_last where OPTION_TYP="XX" and expiry_dt=(select max(expiry) \
+        from (select min(EXPIRY_DT) as expiry from fut_opt_last group by symbol) a)',db)
+        data.to_sql('FUT_HIST',db ,flavor='mysql', if_exists='append', chunksize=200)
+    except:
+        pass
+    finally:
+        db.close()
+                
+if __name__=='__main__':
+    #divide_into_tables()
+    #update_month_code()
+    create_fut_today()

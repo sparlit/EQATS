@@ -1,0 +1,998 @@
+//! Constrained portfolio optimizer: long-only by default, long/short by
+//! explicit configuration.
+//!
+//! Long-only mode (`short_cap == 0`, the default) solves, over weights `w`
+//! (fraction of portfolio value per asset):
+//!
+//! ```text
+//! maximize   alpha'w  -  risk_aversion * w' Sigma w  -  turnover_penalty * ||w - w_current||_1
+//! subject to sum(w) + cash = 1,   0 <= cash <= cash_max
+//!            0 <= w_i <= position_cap
+//!            sum_{i in sector k} w_i <= sector_caps[k]
+//! ```
+//!
+//! Long/short mode (`short_cap > 0`) widens the box and swaps the budget
+//! vocabulary from cash to exposure:
+//!
+//! ```text
+//! subject to net_min <= sum(w) <= net_max          (net exposure)
+//!            -short_cap <= w_i <= position_cap
+//!            sum_i |w_i| <= gross_max              (gross exposure)
+//!            sum_{i in sector k} |w_i| <= sector_caps[k]
+//! ```
+//!
+//! Gross exposure and the gross sector caps need `|w_i|`, which is not
+//! linear, so long/short mode adds auxiliary variables `u_i >= |w_i|` (the
+//! same epigraph trick the turnover term uses). Those variables and every
+//! row that references them exist ONLY when `short_cap > 0` -- a long-only
+//! run poses the byte-identical problem it always has, so long-only output
+//! is unchanged by this extension (pinned by test). Sector caps are GROSS
+//! in long/short mode by design: a cap is about concentration -- the size
+//! of the bets in a sector -- not their direction; for a long-only book
+//! gross and signed sums coincide, so the semantics agree across modes.
+//!
+//! Solved via the Clarabel interior-point solver (the L1 term is reformulated
+//! exactly with auxiliary variables `t_i >= |w_i - w_current_i|`).
+//! Interior-point over a hand-rolled projected gradient is deliberate: the
+//! feasible set has no closed-form projection, and Clarabel certifies
+//! infeasibility / non-convergence as a hard status -- which is what lets
+//! this function refuse instead of returning a plausible but uncertified
+//! iterate.
+//!
+//! The no-trade band and minimum trade value are non-convex, so they are
+//! applied *post-solve*: small diffs snap back to the current weight and the
+//! residual goes to explicit cash -- never rescaled across other names, which
+//! could breach a cap. Snapping is therefore re-checked against the
+//! constraints it can violate, and every breach errors with the arithmetic
+//! rather than clamping:
+//!
+//! - cash outside [0, cash_max], or net exposure outside [net_min, net_max]
+//!   in long/short mode;
+//! - a snapped weight above `position_cap` or below `-short_cap`, a sector
+//!   total above its cap, or gross above `gross_max` (added 2026-08-18 --
+//!   previously only the budget was re-checked, and a 0.02 band was measured
+//!   returning 0.0980 against an 8% cap).
+//!
+//! All of these apply to a PARTIAL snap only. When every diff snaps away the
+//! status-quo book stands, and a book that already exists is feasible by
+//! definition -- the caps bind a proposed target, not a holding already owned.
+
+use clarabel::algebra::CscMatrix;
+use clarabel::solver::{
+    DefaultSettingsBuilder, DefaultSolver, IPSolver, NonnegativeConeT, SolverStatus, SupportedConeT,
+};
+
+use super::covariance::RiskModel;
+use super::errors::PortfolioMathError;
+
+/// Constraint and objective configuration for one optimization.
+#[derive(Debug, Clone)]
+pub struct OptimizerConfig {
+    /// Lambda on the w'Sigma w term. Must be > 0.
+    pub risk_aversion: f64,
+    /// Gamma on the L1 turnover term. Must be >= 0.
+    pub turnover_penalty: f64,
+    /// Per-asset weight cap in (0, 1].
+    pub position_cap: f64,
+    /// Sector index per asset (0-based into `sector_caps`).
+    pub sector_ids: Vec<usize>,
+    /// Weight cap per sector.
+    pub sector_caps: Vec<f64>,
+    /// Post-solve: |delta_w| below this snaps to the current weight.
+    pub no_trade_band: f64,
+    /// Post-solve: trades below this rupee value snap to the current weight.
+    pub min_trade_value: f64,
+    /// Portfolio value in rupees (used only with `min_trade_value`).
+    pub portfolio_value: f64,
+    /// Maximum cash fraction in [0, 1). Governs LONG-ONLY mode; ignored in
+    /// long/short mode, where `net_min`/`net_max` own the budget.
+    pub cash_max: f64,
+    /// Solver iteration cap.
+    pub max_iter: u32,
+    /// Solver feasibility/gap tolerance.
+    pub tolerance: f64,
+    /// Per-asset SHORT bound in [0, 1]: `w_i >= -short_cap`. 0.0 (the
+    /// default) is long-only mode — the box, budget rows and problem shape
+    /// are exactly the historical ones.
+    pub short_cap: f64,
+    /// Gross-exposure budget `sum(|w_i|) <= gross_max`. Long/short mode
+    /// only; > 0 required there.
+    pub gross_max: f64,
+    /// Net-exposure bounds `net_min <= sum(w) <= net_max`. Long/short mode
+    /// only (long-only derives them from `cash_max`).
+    pub net_min: f64,
+    pub net_max: f64,
+}
+
+/// Result of one optimization.
+#[derive(Debug, Clone)]
+pub struct OptimizationResult {
+    /// Final weights after post-solve snapping.
+    pub weights: Vec<f64>,
+    /// Final weight changes (weights - w_current).
+    pub trades: Vec<f64>,
+    /// Which assets were snapped back to their current weight.
+    pub snapped: Vec<bool>,
+    /// Final cash fraction, defined as `1 - sum(w)` (net-based; in a
+    /// long/short book this includes short proceeds and can exceed the
+    /// long-only cash_max — read `gross_exposure`/`net_exposure` there).
+    pub cash: f64,
+    /// `sum(|w_i|)` of the final weights.
+    pub gross_exposure: f64,
+    /// `sum(w_i)` of the final weights.
+    pub net_exposure: f64,
+    /// One-way turnover: 0.5 * sum(|trades|).
+    pub turnover: f64,
+    /// Solver objective value (pre-snap, minimization form).
+    pub objective: f64,
+    /// Annualized volatility of the final weights under the model.
+    pub vol_annualized: f64,
+    /// Clarabel termination status, for the audit trail.
+    pub solver_status: String,
+    /// Interior-point iterations used.
+    pub iterations: u32,
+}
+
+fn validate(
+    model: &RiskModel,
+    alpha: &[f64],
+    w_current: &[f64],
+    cfg: &OptimizerConfig,
+) -> Result<(), PortfolioMathError> {
+    let n = model.n_assets;
+    if alpha.len() != n || w_current.len() != n {
+        return Err(PortfolioMathError::ShapeMismatch(format!(
+            "model has {n} assets; alpha has {}, w_current has {}",
+            alpha.len(),
+            w_current.len()
+        )));
+    }
+    for (i, v) in alpha.iter().enumerate() {
+        if !v.is_finite() {
+            return Err(PortfolioMathError::NonFinite { row: 0, col: i });
+        }
+    }
+    let ls = cfg.short_cap > 0.0;
+    let mut w_sum = 0.0;
+    for (i, v) in w_current.iter().enumerate() {
+        if !v.is_finite() {
+            return Err(PortfolioMathError::NonFinite { row: 1, col: i });
+        }
+        // A negative current weight is only meaningful when shorting is
+        // configured; in long-only mode it is bad input, not a book.
+        if !ls && *v < -1e-12 {
+            return Err(PortfolioMathError::DegenerateInput(format!(
+                "w_current[{i}] = {v} is negative; this optimizer is \
+                 long-only unless short_cap > 0"
+            )));
+        }
+        w_sum += v;
+    }
+    if !ls && w_sum > 1.0 + 1e-6 {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "w_current sums to {w_sum:.6}, which exceeds 1"
+        )));
+    }
+    if !(cfg.short_cap.is_finite() && (0.0..=1.0).contains(&cfg.short_cap)) {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "short_cap must be in [0, 1], got {}",
+            cfg.short_cap
+        )));
+    }
+    if ls {
+        if !(cfg.gross_max.is_finite() && cfg.gross_max > 0.0) {
+            return Err(PortfolioMathError::DegenerateInput(format!(
+                "gross_max must be > 0 in long/short mode, got {}",
+                cfg.gross_max
+            )));
+        }
+        if !(cfg.net_min.is_finite() && cfg.net_max.is_finite() && cfg.net_min <= cfg.net_max) {
+            return Err(PortfolioMathError::DegenerateInput(format!(
+                "net bounds must be finite with net_min <= net_max, got \
+                 [{}, {}]",
+                cfg.net_min, cfg.net_max
+            )));
+        }
+        // |net| <= gross always holds, so a net bound outside the gross
+        // budget can never be met.
+        if cfg.net_min > cfg.gross_max + 1e-12 || cfg.net_max < -cfg.gross_max - 1e-12 {
+            return Err(PortfolioMathError::Infeasible(format!(
+                "net bounds [{}, {}] lie outside the gross budget {}",
+                cfg.net_min, cfg.net_max, cfg.gross_max
+            )));
+        }
+    }
+    if !(cfg.risk_aversion.is_finite() && cfg.risk_aversion > 0.0) {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "risk_aversion must be > 0, got {}",
+            cfg.risk_aversion
+        )));
+    }
+    if !(cfg.turnover_penalty.is_finite() && cfg.turnover_penalty >= 0.0) {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "turnover_penalty must be >= 0, got {}",
+            cfg.turnover_penalty
+        )));
+    }
+    if !(cfg.position_cap > 0.0 && cfg.position_cap <= 1.0) {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "position_cap must be in (0, 1], got {}",
+            cfg.position_cap
+        )));
+    }
+    if !(0.0..1.0).contains(&cfg.cash_max) {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "cash_max must be in [0, 1), got {}",
+            cfg.cash_max
+        )));
+    }
+    if cfg.no_trade_band < 0.0 || cfg.min_trade_value < 0.0 {
+        return Err(PortfolioMathError::DegenerateInput(
+            "no_trade_band and min_trade_value must be >= 0".into(),
+        ));
+    }
+    if cfg.min_trade_value > 0.0 && !(cfg.portfolio_value.is_finite() && cfg.portfolio_value > 0.0)
+    {
+        return Err(PortfolioMathError::DegenerateInput(format!(
+            "min_trade_value set but portfolio_value is {}",
+            cfg.portfolio_value
+        )));
+    }
+    if cfg.sector_ids.len() != n {
+        return Err(PortfolioMathError::ShapeMismatch(format!(
+            "{} sector_ids for {n} assets",
+            cfg.sector_ids.len()
+        )));
+    }
+    let n_sectors = cfg.sector_caps.len();
+    for (i, &s) in cfg.sector_ids.iter().enumerate() {
+        if s >= n_sectors {
+            return Err(PortfolioMathError::ShapeMismatch(format!(
+                "sector_ids[{i}] = {s} out of range for {n_sectors} sector_caps"
+            )));
+        }
+    }
+    for (k, &c) in cfg.sector_caps.iter().enumerate() {
+        if !(c.is_finite() && c > 0.0) {
+            return Err(PortfolioMathError::DegenerateInput(format!(
+                "sector_caps[{k}] must be > 0, got {c}"
+            )));
+        }
+    }
+
+    // Feasibility arithmetic before handing Clarabel an impossible problem:
+    // the caps must admit at least the required net investment. In
+    // long/short mode the requirement is net_min and only the LONG side can
+    // supply positive net, so the same long-side arithmetic applies (the
+    // remainder — gross interplay, per-name geometry — is Clarabel's to
+    // certify, and it refuses with a hard status rather than guessing).
+    let required = if ls { cfg.net_min } else { 1.0 - cfg.cash_max };
+    if cfg.position_cap * n as f64 + 1e-12 < required {
+        return Err(PortfolioMathError::Infeasible(format!(
+            "position_cap {} x {n} assets = {:.4} cannot reach required investment {:.4}",
+            cfg.position_cap,
+            cfg.position_cap * n as f64,
+            required
+        )));
+    }
+    let mut sector_counts = vec![0usize; n_sectors];
+    for &s in &cfg.sector_ids {
+        sector_counts[s] += 1;
+    }
+    let reachable: f64 = (0..n_sectors)
+        .map(|k| cfg.sector_caps[k].min(cfg.position_cap * sector_counts[k] as f64))
+        .sum();
+    if reachable + 1e-12 < required {
+        return Err(PortfolioMathError::Infeasible(format!(
+            "sector caps admit at most {reachable:.4} invested, below required {required:.4}"
+        )));
+    }
+    Ok(())
+}
+
+/// Optimize a book seeded from current holdings: long-only by default,
+/// long/short when `cfg.short_cap > 0`.
+pub fn optimize_book(
+    model: &RiskModel,
+    alpha: &[f64],
+    w_current: &[f64],
+    cfg: &OptimizerConfig,
+) -> Result<OptimizationResult, PortfolioMathError> {
+    validate(model, alpha, w_current, cfg)?;
+    let n = model.n_assets;
+    let n_sectors = cfg.sector_caps.len();
+    let ls = cfg.short_cap > 0.0;
+    // Variables: [w; t] long-only, [w; t; u] long/short (u_i >= |w_i|).
+    // The u block exists ONLY in long/short mode so the long-only problem
+    // is byte-identical to what it has always been.
+    let nv = if ls { 3 * n } else { 2 * n };
+    // Net-exposure bounds: explicit in long/short mode, derived from
+    // cash_max in long-only mode (same b values as the historical rows).
+    let (net_lo, net_hi) = if ls { (cfg.net_min, cfg.net_max) } else { (1.0 - cfg.cash_max, 1.0) };
+
+    // P (upper triangle only): 2 * risk_aversion * Sigma on the w block.
+    let mut p_i = Vec::new();
+    let mut p_j = Vec::new();
+    let mut p_v = Vec::new();
+    for i in 0..n {
+        for j in i..n {
+            let v = 2.0 * cfg.risk_aversion * model.cov[i * n + j];
+            if v != 0.0 {
+                p_i.push(i);
+                p_j.push(j);
+                p_v.push(v);
+            }
+        }
+    }
+    let p = CscMatrix::new_from_triplets(nv, nv, p_i, p_j, p_v);
+
+    // q: minimize -alpha'w + gamma * sum(t).
+    let mut q = vec![0.0; nv];
+    for i in 0..n {
+        q[i] = -alpha[i];
+        q[n + i] = cfg.turnover_penalty;
+    }
+
+    // Inequality rows (Ax <= b), all in the nonnegative cone.
+    let m = 2 + n + n + n_sectors + 2 * n + if ls { 2 * n + 1 } else { 0 };
+    let mut a_i = Vec::new();
+    let mut a_j = Vec::new();
+    let mut a_v = Vec::new();
+    let mut b = Vec::with_capacity(m);
+    let mut row = 0usize;
+
+    // sum(w) <= net_hi  (long-only: <= 1)
+    for i in 0..n {
+        a_i.push(row);
+        a_j.push(i);
+        a_v.push(1.0);
+    }
+    b.push(net_hi);
+    row += 1;
+    // -sum(w) <= -net_lo  (long-only: sum(w) >= 1 - cash_max)
+    for i in 0..n {
+        a_i.push(row);
+        a_j.push(i);
+        a_v.push(-1.0);
+    }
+    b.push(-net_lo);
+    row += 1;
+    // -w_i <= short_cap  (long-only: short_cap = 0, i.e. w_i >= 0)
+    for i in 0..n {
+        a_i.push(row);
+        a_j.push(i);
+        a_v.push(-1.0);
+        b.push(cfg.short_cap);
+        row += 1;
+    }
+    // w_i <= position_cap
+    for i in 0..n {
+        a_i.push(row);
+        a_j.push(i);
+        a_v.push(1.0);
+        b.push(cfg.position_cap);
+        row += 1;
+    }
+    // Sector caps: on the signed sums in long-only mode (where they equal
+    // the gross sums), on the GROSS sums (u_i) in long/short mode — a cap
+    // bounds the size of a sector's bets, not their direction.
+    for k in 0..n_sectors {
+        for i in 0..n {
+            if cfg.sector_ids[i] == k {
+                a_i.push(row);
+                a_j.push(if ls { 2 * n + i } else { i });
+                a_v.push(1.0);
+            }
+        }
+        b.push(cfg.sector_caps[k]);
+        row += 1;
+    }
+    // w_i - t_i <= w_current_i   and   -w_i - t_i <= -w_current_i
+    for (i, &w_cur_i) in w_current.iter().enumerate().take(n) {
+        a_i.push(row);
+        a_j.push(i);
+        a_v.push(1.0);
+        a_i.push(row);
+        a_j.push(n + i);
+        a_v.push(-1.0);
+        b.push(w_cur_i);
+        row += 1;
+    }
+    for (i, &w_cur_i) in w_current.iter().enumerate().take(n) {
+        a_i.push(row);
+        a_j.push(i);
+        a_v.push(-1.0);
+        a_i.push(row);
+        a_j.push(n + i);
+        a_v.push(-1.0);
+        b.push(-w_cur_i);
+        row += 1;
+    }
+    if ls {
+        // u_i >= |w_i|:  w_i - u_i <= 0  and  -w_i - u_i <= 0. The u block
+        // has no objective term, so at the optimum each u_i settles at
+        // whichever bound binds — |w_i| when the gross budget or a sector
+        // cap is tight, and never below it.
+        for i in 0..n {
+            a_i.push(row);
+            a_j.push(i);
+            a_v.push(1.0);
+            a_i.push(row);
+            a_j.push(2 * n + i);
+            a_v.push(-1.0);
+            b.push(0.0);
+            row += 1;
+        }
+        for i in 0..n {
+            a_i.push(row);
+            a_j.push(i);
+            a_v.push(-1.0);
+            a_i.push(row);
+            a_j.push(2 * n + i);
+            a_v.push(-1.0);
+            b.push(0.0);
+            row += 1;
+        }
+        // sum(u) <= gross_max
+        for i in 0..n {
+            a_i.push(row);
+            a_j.push(2 * n + i);
+            a_v.push(1.0);
+        }
+        b.push(cfg.gross_max);
+        row += 1;
+    }
+    debug_assert_eq!(row, m);
+    let a = CscMatrix::new_from_triplets(m, nv, a_i, a_j, a_v);
+    let cones: Vec<SupportedConeT<f64>> = vec![NonnegativeConeT(m)];
+
+    let settings = DefaultSettingsBuilder::default()
+        .verbose(false)
+        .max_iter(cfg.max_iter)
+        .tol_gap_abs(cfg.tolerance)
+        .tol_gap_rel(cfg.tolerance)
+        .tol_feas(cfg.tolerance)
+        .build()
+        .map_err(|e| PortfolioMathError::SolverFailed(format!("settings: {e}")))?;
+
+    let mut solver = DefaultSolver::new(&p, &q, &a, &b, &cones, settings)
+        .map_err(|e| PortfolioMathError::SolverFailed(format!("setup: {e:?}")))?;
+    solver.solve();
+
+    let status = solver.solution.status;
+    match status {
+        SolverStatus::Solved => {}
+        SolverStatus::PrimalInfeasible | SolverStatus::AlmostPrimalInfeasible => {
+            return Err(PortfolioMathError::Infeasible(format!(
+                "solver certified primal infeasibility ({status:?})"
+            )));
+        }
+        other => {
+            return Err(PortfolioMathError::SolverFailed(format!(
+                "status {other:?} after {} iterations",
+                solver.info.iterations
+            )));
+        }
+    }
+
+    let mut weights: Vec<f64> = solver.solution.x[..n].to_vec();
+    // Interior-point solutions sit strictly inside the cone; clean sub-tolerance
+    // negatives introduced by the solver itself (not by input data).
+    for w in weights.iter_mut() {
+        if *w < 0.0 && *w > -1e-9 {
+            *w = 0.0;
+        }
+    }
+
+    // Post-solve non-convex filters: snap small diffs back to current.
+    let mut snapped = vec![false; n];
+    for i in 0..n {
+        let delta = weights[i] - w_current[i];
+        let below_band = delta.abs() < cfg.no_trade_band;
+        let below_value =
+            cfg.min_trade_value > 0.0 && delta.abs() * cfg.portfolio_value < cfg.min_trade_value;
+        if (below_band || below_value) && delta != 0.0 {
+            weights[i] = w_current[i];
+            snapped[i] = true;
+        }
+    }
+
+    let invested: f64 = weights.iter().sum();
+    let mut cash = 1.0 - invested;
+    let eps = (10.0 * cfg.tolerance).max(1e-9);
+    let no_trade = weights.iter().zip(w_current.iter()).all(|(w, c)| (w - c).abs() < eps);
+
+    // A snap restores `w_current[i]`, which the solver's box never bounded --
+    // so snapping can hand back a book breaching a cap the caller treats as
+    // hard. The module header admits this ("could breach a cap") and only the
+    // BUDGET was ever checked afterwards; measured with no_trade_band = 0.02
+    // the largest weight reached 0.0980 against an 8% cap, 22.5% over, with
+    // no error. Refuse with the arithmetic, exactly as the budget guards
+    // below do, rather than clamping -- clamping would silently re-open the
+    // stranded-weight problem those guards exist to catch.
+    //
+    // Only a weight the SNAP moved is checked. A live book may legitimately
+    // sit above the cap today (the cap binds the target, not the holding you
+    // already own), and `w_current` is feasible by definition -- flagging it
+    // would refuse every rebalance of a concentrated book, which is the one
+    // case that most needs rebalancing.
+    // `!no_trade` for the same reason the budget guards below carry it: when
+    // EVERY diff snapped away the status-quo book stands, and a book that
+    // already exists is feasible by definition -- a live holding may sit
+    // above the cap today (the cap binds the target, not what you already
+    // own). Only a PARTIAL snap, which produced a book nobody chose, is
+    // checked.
+    for i in 0..n {
+        if no_trade || !snapped[i] {
+            continue;
+        }
+        let w = weights[i];
+        if w > cfg.position_cap + eps {
+            return Err(PortfolioMathError::Infeasible(format!(
+                "post-snap weight {w:.6} on asset {i} exceeds position_cap                  {:.6}; the no-trade band snapped a trade that was reducing                  it -- lower the band, raise the cap, or accept the trades",
+                cfg.position_cap
+            )));
+        }
+        if ls && w < -cfg.short_cap - eps {
+            return Err(PortfolioMathError::Infeasible(format!(
+                "post-snap weight {w:.6} on asset {i} breaches short_cap                  -{:.6}; the no-trade band snapped a covering trade -- lower                  the band, raise the cap, or accept the trades",
+                cfg.short_cap
+            )));
+        }
+    }
+    if !no_trade && snapped.iter().any(|&s| s) {
+        // Sector and gross budgets are sums, so one snapped name can push a
+        // total over even when every individual weight is inside its cap.
+        let mut sector_totals = vec![0.0_f64; cfg.sector_caps.len()];
+        for i in 0..n {
+            let contrib = if ls { weights[i].abs() } else { weights[i] };
+            sector_totals[cfg.sector_ids[i]] += contrib;
+        }
+        for (k, total) in sector_totals.iter().enumerate() {
+            if *total > cfg.sector_caps[k] + eps {
+                return Err(PortfolioMathError::Infeasible(format!(
+                    "post-snap sector {k} exposure {total:.6} exceeds its cap                      {:.6}; snapping stranded weight in the sector -- lower                      the band, raise the cap, or accept the trades",
+                    cfg.sector_caps[k]
+                )));
+            }
+        }
+        if ls {
+            let gross: f64 = weights.iter().map(|w| w.abs()).sum();
+            if gross > cfg.gross_max + eps {
+                return Err(PortfolioMathError::Infeasible(format!(
+                    "post-snap gross exposure {gross:.6} exceeds gross_max                      {:.6}; snapping stranded weight -- lower the band, raise                      the budget, or accept the trades",
+                    cfg.gross_max
+                )));
+            }
+        }
+    }
+    if no_trade {
+        // Every diff snapped away: the status-quo book stands. Its cash is
+        // whatever it already is -- the budget bounds govern PROPOSED
+        // books, not the pre-existing one (a book that exists is feasible
+        // by definition). "No trade worth making" is a result, not an error.
+        weights.copy_from_slice(w_current);
+        cash = if ls {
+            1.0 - w_current.iter().sum::<f64>()
+        } else {
+            (1.0 - w_current.iter().sum::<f64>()).clamp(0.0, 1.0)
+        };
+    } else if ls {
+        // A PARTIAL snap that strands net exposure outside its bounds is a
+        // broken half-rebalance: refuse with the arithmetic rather than
+        // reporting a book the constraints forbid.
+        let net = invested;
+        if net < net_lo - eps || net > net_hi + eps {
+            return Err(PortfolioMathError::Infeasible(format!(
+                "post-snap net exposure {net:.6} outside [{net_lo:.6}, {net_hi:.6}]; \
+                 snapping stranded weight -- widen the net bounds, lower the \
+                 band, or accept the trades"
+            )));
+        }
+    } else {
+        // A PARTIAL snap that strands cash outside the bound is a genuinely
+        // broken half-rebalance: refuse with the arithmetic. Sub-tolerance
+        // overshoot is solver noise, not stranded weight.
+        if cash < -eps || cash > cfg.cash_max + eps {
+            return Err(PortfolioMathError::Infeasible(format!(
+                "post-snap cash {cash:.6} outside [0, {:.6}]; snapping stranded \
+                 {:.6} of weight -- widen cash_max, lower the band, or accept the trades",
+                cfg.cash_max,
+                if cash < 0.0 { cash } else { cash - cfg.cash_max }
+            )));
+        }
+        cash = cash.clamp(0.0, cfg.cash_max);
+    }
+
+    let trades: Vec<f64> = weights.iter().zip(w_current.iter()).map(|(w, c)| w - c).collect();
+    let turnover = 0.5 * trades.iter().map(|t| t.abs()).sum::<f64>();
+
+    // Annualized vol of the final book.
+    let variance: f64 = model
+        .cov
+        .chunks_exact(n)
+        .zip(weights.iter())
+        .map(|(row, wi)| wi * row.iter().zip(weights.iter()).map(|(c, wj)| c * wj).sum::<f64>())
+        .sum();
+    let vol_annualized = variance.max(0.0).sqrt() * model.periods_per_year.sqrt();
+
+    let gross_exposure: f64 = weights.iter().map(|w| w.abs()).sum();
+    let net_exposure: f64 = weights.iter().sum();
+
+    Ok(OptimizationResult {
+        weights,
+        trades,
+        snapped,
+        cash,
+        gross_exposure,
+        net_exposure,
+        turnover,
+        objective: solver.solution.obj_val,
+        vol_annualized,
+        solver_status: format!("{status:?}"),
+        iterations: solver.info.iterations,
+    })
+}
+
+/// Historical name, kept so existing callers keep compiling. Long-only in
+/// name only when the config says so — the config is the authority.
+pub fn optimize_long_only(
+    model: &RiskModel,
+    alpha: &[f64],
+    w_current: &[f64],
+    cfg: &OptimizerConfig,
+) -> Result<OptimizationResult, PortfolioMathError> {
+    optimize_book(model, alpha, w_current, cfg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn model(cov: Vec<f64>, n: usize) -> RiskModel {
+        RiskModel {
+            cov,
+            n_assets: n,
+            asset_ids: (0..n).map(|i| format!("A{i}")).collect(),
+            periods_per_year: 252.0,
+            shrinkage_intensity: 0.1,
+            n_obs: 500,
+        }
+    }
+
+    fn base_cfg(n: usize) -> OptimizerConfig {
+        OptimizerConfig {
+            risk_aversion: 1.0,
+            turnover_penalty: 0.0,
+            position_cap: 1.0,
+            sector_ids: vec![0; n],
+            sector_caps: vec![1.0],
+            no_trade_band: 0.0,
+            min_trade_value: 0.0,
+            portfolio_value: 1_000_000.0,
+            cash_max: 0.0,
+            max_iter: 200,
+            tolerance: 1e-9,
+            short_cap: 0.0,
+            gross_max: 1.0,
+            net_min: 0.0,
+            net_max: 0.0,
+        }
+    }
+
+    fn ls_cfg(n: usize) -> OptimizerConfig {
+        OptimizerConfig {
+            short_cap: 0.5,
+            gross_max: 2.0,
+            net_min: -1.0,
+            net_max: 1.0,
+            ..base_cfg(n)
+        }
+    }
+
+    #[test]
+    fn two_asset_unconstrained_matches_closed_form() {
+        // Equal alphas, uncorrelated assets, no caps binding, fully invested:
+        // with sum(w)=1, minimizing w'Sigma w gives the inverse-variance split
+        // w1 = s2/(s1+s2).
+        let m = model(vec![0.04, 0.0, 0.0, 0.08], 2);
+        let cfg = OptimizerConfig { risk_aversion: 10.0, ..base_cfg(2) };
+        let r = optimize_long_only(&m, &[0.0, 0.0], &[0.5, 0.5], &cfg).unwrap();
+        let expect_w0 = 0.08 / (0.04 + 0.08);
+        assert!((r.weights[0] - expect_w0).abs() < 1e-4, "{:?}", r.weights);
+        assert!((r.weights[0] + r.weights[1] - 1.0).abs() < 1e-6);
+        assert!((r.cash).abs() < 1e-6);
+    }
+
+    #[test]
+    fn position_cap_binds() {
+        // Asset 0 has huge alpha; cap forces the excess into asset 1 and 2.
+        let m = model(vec![0.04, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.04], 3);
+        let mut cfg = base_cfg(3);
+        cfg.position_cap = 0.4;
+        let r = optimize_long_only(&m, &[10.0, 0.0, 0.0], &[1.0 / 3.0; 3], &cfg).unwrap();
+        assert!((r.weights[0] - 0.4).abs() < 1e-5, "{:?}", r.weights);
+    }
+
+    #[test]
+    fn sector_cap_binds() {
+        // Assets 0,1 share sector 0 capped at 0.5; asset 2 alone in sector 1.
+        let m = model(vec![0.04, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.04], 3);
+        let mut cfg = base_cfg(3);
+        cfg.sector_ids = vec![0, 0, 1];
+        cfg.sector_caps = vec![0.5, 1.0];
+        let r = optimize_long_only(&m, &[5.0, 5.0, 0.0], &[1.0 / 3.0; 3], &cfg).unwrap();
+        assert!(r.weights[0] + r.weights[1] <= 0.5 + 1e-6, "{:?}", r.weights);
+        assert!((r.weights[2] - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn huge_turnover_penalty_freezes_book() {
+        let m = model(vec![0.04, 0.01, 0.01, 0.08], 2);
+        let mut cfg = base_cfg(2);
+        cfg.turnover_penalty = 1e6;
+        let w_cur = [0.7, 0.3];
+        let r = optimize_long_only(&m, &[0.5, -0.5], &w_cur, &cfg).unwrap();
+        assert!(r.turnover < 1e-6, "turnover {}", r.turnover);
+        assert!((r.weights[0] - 0.7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn turnover_monotone_in_penalty() {
+        let m = model(vec![0.04, 0.01, 0.01, 0.08], 2);
+        let w_cur = [0.9, 0.1];
+        let alpha = [0.0, 0.5];
+        let mut prev = f64::INFINITY;
+        for gamma in [0.0, 0.01, 0.1, 1.0] {
+            let mut cfg = base_cfg(2);
+            cfg.turnover_penalty = gamma;
+            let r = optimize_long_only(&m, &alpha, &w_cur, &cfg).unwrap();
+            assert!(
+                r.turnover <= prev + 1e-9,
+                "turnover not monotone: {} then {} at gamma={gamma}",
+                prev,
+                r.turnover
+            );
+            prev = r.turnover;
+        }
+    }
+
+    #[test]
+    fn no_trade_band_snaps_small_diff() {
+        // Fully invested (cash_max = 0) so the zero-alpha optimum is exactly
+        // 50/50; current is 50.5/49.5 -- inside the band.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.no_trade_band = 0.02;
+        let r = optimize_long_only(&m, &[0.0, 0.0], &[0.505, 0.495], &cfg).unwrap();
+        assert!(r.snapped[0] && r.snapped[1], "{:?}", r.snapped);
+        assert_eq!(r.weights, vec![0.505, 0.495]);
+        assert_eq!(r.turnover, 0.0);
+    }
+
+    #[test]
+    fn post_snap_cap_breach_is_refused_not_returned() {
+        // The defect this guards: snapping restores w_current[i], which the
+        // solver's box never bounded, so a book can come back OVER a cap the
+        // mandate treats as hard -- and before 2026-08-18 nothing checked.
+        //
+        // Fully invested (cash_max = 0), so the zero-alpha optimum is 50/50
+        // and the cap is 0.49. Current is 0.505/0.495: the optimizer wants to
+        // trim asset 0 by 0.005 to reach its cap, but that trade is inside
+        // the 0.02 band, so it snaps back to 0.505 -- over the cap, and
+        // before 2026-08-18 returned without complaint.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.position_cap = 0.49;
+        cfg.no_trade_band = 0.02;
+        let err = optimize_long_only(&m, &[0.0, 0.0], &[0.505, 0.495], &cfg)
+            .expect_err("an over-cap post-snap book must be refused");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("position_cap"),
+            "the refusal must name the breached cap and the arithmetic: {msg}"
+        );
+    }
+
+    #[test]
+    fn a_status_quo_book_over_the_cap_is_not_refused() {
+        // The counterpart, and the reason the guard checks only SNAPPED
+        // weights. A live book may legitimately exceed the cap today -- the
+        // cap binds the target, not a holding already owned. Refusing here
+        // would block every rebalance of a concentrated book, which is
+        // precisely the book that needs one.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.position_cap = 0.08;
+        cfg.min_trade_value = 5_000.0;
+        cfg.portfolio_value = 400.0; // every possible trade is below the floor
+        cfg.cash_max = 0.99;
+        let w_cur = [0.50, 0.05]; // 50% in one name, far over the 8% cap
+        let r = optimize_long_only(&m, &[0.5, 0.5], &w_cur, &cfg)
+            .expect("a pre-existing concentrated book is feasible by definition");
+        assert_eq!(r.weights, w_cur.to_vec());
+        assert_eq!(r.turnover, 0.0);
+    }
+
+    #[test]
+    fn an_unbreached_snap_still_succeeds() {
+        // Positive control: a guard that refused unconditionally would leave
+        // the test above green while breaking every banded rebalance.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.position_cap = 0.60;
+        cfg.no_trade_band = 0.02;
+        let r = optimize_long_only(&m, &[0.0, 0.0], &[0.505, 0.495], &cfg)
+            .expect("a snap that breaches nothing must be returned");
+        assert_eq!(r.weights, vec![0.505, 0.495]);
+    }
+
+    #[test]
+    fn all_trades_snapped_returns_status_quo_not_infeasible() {
+        // A tiny book where every model buy is below min_trade_value: the
+        // result is the CURRENT book (turnover 0), even though its cash
+        // fraction exceeds cash_max -- the bound governs proposed books.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.cash_max = 0.05;
+        cfg.min_trade_value = 5_000.0;
+        cfg.portfolio_value = 400.0; // every possible trade is < Rs 5,000
+        let w_cur = [0.10, 0.05]; // 85% effectively uninvested
+        let r = optimize_long_only(&m, &[0.5, 0.5], &w_cur, &cfg).unwrap();
+        assert_eq!(r.weights, w_cur.to_vec());
+        assert_eq!(r.turnover, 0.0);
+        assert!((r.cash - 0.85).abs() < 1e-9);
+    }
+
+    #[test]
+    fn min_trade_value_filters_small_trade() {
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.min_trade_value = 5_000.0;
+        cfg.portfolio_value = 100_000.0; // 5% of book is the floor
+        let r = optimize_long_only(&m, &[0.0, 0.0], &[0.52, 0.48], &cfg).unwrap();
+        // The 2% rebalance trade is worth 2000 < 5000: snapped.
+        assert!(r.snapped[0] && r.snapped[1]);
+        assert_eq!(r.turnover, 0.0);
+    }
+
+    #[test]
+    fn infeasible_caps_refused_before_solving() {
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let mut cfg = base_cfg(2);
+        cfg.position_cap = 0.3; // 2 x 0.3 = 0.6 < 1.0 required
+        let err = optimize_long_only(&m, &[0.0, 0.0], &[0.5, 0.5], &cfg).unwrap_err();
+        assert!(matches!(err, PortfolioMathError::Infeasible(_)), "{err}");
+    }
+
+    #[test]
+    fn deterministic_across_runs() {
+        let m = model(vec![0.04, 0.01, 0.01, 0.08], 2);
+        let cfg = OptimizerConfig { turnover_penalty: 0.05, ..base_cfg(2) };
+        let a = optimize_long_only(&m, &[0.3, 0.1], &[0.6, 0.4], &cfg).unwrap();
+        let b = optimize_long_only(&m, &[0.3, 0.1], &[0.6, 0.4], &cfg).unwrap();
+        assert_eq!(a.weights, b.weights);
+        assert_eq!(a.objective, b.objective);
+        assert_eq!(a.iterations, b.iterations);
+    }
+
+    #[test]
+    fn refuses_nan_alpha_and_overweight_current() {
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let cfg = base_cfg(2);
+        assert!(optimize_long_only(&m, &[f64::NAN, 0.0], &[0.5, 0.5], &cfg).is_err());
+        assert!(optimize_long_only(&m, &[0.0, 0.0], &[0.9, 0.9], &cfg).is_err());
+        assert!(optimize_long_only(&m, &[0.0, 0.0], &[-0.1, 0.5], &cfg).is_err());
+    }
+
+    // ── Long/short mode (short_cap > 0) ─────────────────────────────────
+
+    #[test]
+    fn short_cap_zero_is_inert_golden_equivalence() {
+        // The long/short fields must change NOTHING while short_cap == 0:
+        // identical weights, objective and iteration count whatever the
+        // other new fields say. This is the backward-compatibility contract
+        // of the release.
+        let m = model(vec![0.04, 0.01, 0.01, 0.08], 2);
+        let old = OptimizerConfig { turnover_penalty: 0.05, ..base_cfg(2) };
+        let with_inert_fields =
+            OptimizerConfig { gross_max: 5.0, net_min: -3.0, net_max: 3.0, ..old.clone() };
+        let a = optimize_book(&m, &[0.3, 0.1], &[0.6, 0.4], &old).unwrap();
+        let b = optimize_book(&m, &[0.3, 0.1], &[0.6, 0.4], &with_inert_fields).unwrap();
+        assert_eq!(a.weights, b.weights);
+        assert_eq!(a.objective, b.objective);
+        assert_eq!(a.iterations, b.iterations);
+    }
+
+    #[test]
+    fn negative_alpha_opens_a_short_within_its_cap() {
+        // Strongly negative alpha on asset 1: the optimizer shorts it, but
+        // never past short_cap; net stays within its bounds.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let cfg = OptimizerConfig { short_cap: 0.3, ..ls_cfg(2) };
+        let r = optimize_book(&m, &[0.5, -5.0], &[0.0, 0.0], &cfg).unwrap();
+        assert!(r.weights[1] < -1e-4, "expected a short, got {:?}", r.weights);
+        assert!(r.weights[1] >= -0.3 - 1e-6, "{:?}", r.weights);
+        assert!(r.net_exposure <= 1.0 + 1e-6 && r.net_exposure >= -1.0 - 1e-6);
+        assert!((r.gross_exposure - r.weights.iter().map(|w| w.abs()).sum::<f64>()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gross_budget_binds() {
+        // Two huge opposite alphas, symmetric variances: unconstrained the
+        // book wants +cap/-cap = gross 1.0; a 0.5 gross budget must bind.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let cfg = OptimizerConfig {
+            short_cap: 0.5,
+            position_cap: 0.5,
+            gross_max: 0.5,
+            net_min: -0.5,
+            net_max: 0.5,
+            ..ls_cfg(2)
+        };
+        let r = optimize_book(&m, &[5.0, -5.0], &[0.0, 0.0], &cfg).unwrap();
+        assert!(r.gross_exposure <= 0.5 + 1e-5, "gross {} exceeds budget", r.gross_exposure);
+        assert!(r.gross_exposure > 0.45, "budget should be ~fully used: {}", r.gross_exposure);
+        assert!(r.weights[0] > 0.0 && r.weights[1] < 0.0, "{:?}", r.weights);
+    }
+
+    #[test]
+    fn net_bounds_bind_market_neutral() {
+        // net_min = net_max = 0 pins a dollar-neutral book: longs equal
+        // shorts to within tolerance, whatever the alphas say.
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let cfg = OptimizerConfig { net_min: 0.0, net_max: 0.0, ..ls_cfg(2) };
+        let r = optimize_book(&m, &[3.0, -1.0], &[0.0, 0.0], &cfg).unwrap();
+        assert!(r.net_exposure.abs() < 1e-5, "net {} not neutral", r.net_exposure);
+        assert!(r.weights[0] > 1e-3 && r.weights[1] < -1e-3, "{:?}", r.weights);
+    }
+
+    #[test]
+    fn sector_caps_are_gross_in_ls_mode() {
+        // Assets 0,1 share sector 0 capped at 0.3. Opposite alphas pull one
+        // long, one short: the SIGNED sum would be near zero, but the GROSS
+        // sum must respect the cap — a cap is about concentration, not
+        // direction.
+        let m = model(vec![0.04, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.04], 3);
+        let cfg =
+            OptimizerConfig { sector_ids: vec![0, 0, 1], sector_caps: vec![0.3, 1.0], ..ls_cfg(3) };
+        let r = optimize_book(&m, &[5.0, -5.0, 0.1], &[0.0; 3], &cfg).unwrap();
+        let sector0_gross = r.weights[0].abs() + r.weights[1].abs();
+        assert!(sector0_gross <= 0.3 + 1e-5, "gross sector sum {sector0_gross} breaches cap");
+        assert!(r.weights[0] > 0.0 && r.weights[1] < 0.0, "{:?}", r.weights);
+    }
+
+    #[test]
+    fn a_short_current_book_is_accepted_in_ls_mode_only() {
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let w_cur = [0.4, -0.2];
+        assert!(optimize_book(&m, &[0.0, 0.0], &w_cur, &base_cfg(2)).is_err());
+        let r = optimize_book(&m, &[0.0, 0.0], &w_cur, &ls_cfg(2)).unwrap();
+        assert!(r.solver_status.contains("Solved"));
+    }
+
+    #[test]
+    fn net_bounds_outside_gross_budget_are_refused() {
+        let m = model(vec![0.04, 0.0, 0.0, 0.04], 2);
+        let cfg = OptimizerConfig {
+            gross_max: 0.5,
+            net_min: 0.8, // |net| <= gross can never reach 0.8
+            net_max: 1.0,
+            ..ls_cfg(2)
+        };
+        let err = optimize_book(&m, &[0.0, 0.0], &[0.0, 0.0], &cfg).unwrap_err();
+        assert!(matches!(err, PortfolioMathError::Infeasible(_)), "{err}");
+    }
+
+    #[test]
+    fn ls_turnover_penalty_still_freezes_a_short_book() {
+        // The turnover epigraph is sign-agnostic: a huge penalty freezes a
+        // book that is already short.
+        let m = model(vec![0.04, 0.01, 0.01, 0.08], 2);
+        let cfg = OptimizerConfig { turnover_penalty: 1e6, ..ls_cfg(2) };
+        let w_cur = [0.5, -0.3];
+        let r = optimize_book(&m, &[1.0, 1.0], &w_cur, &cfg).unwrap();
+        assert!(r.turnover < 1e-6, "turnover {}", r.turnover);
+        assert!((r.weights[1] + 0.3).abs() < 1e-6, "{:?}", r.weights);
+    }
+}

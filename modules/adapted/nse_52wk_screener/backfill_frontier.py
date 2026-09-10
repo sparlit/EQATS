@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 ONE-TIME frontier backfill.
 
@@ -13,37 +36,41 @@ import os
 import sys
 import time
 
-for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
-           "NUMEXPR_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+for _v in (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+):
     os.environ.setdefault(_v, "1")
-
-import pandas as pd
-import yfinance as yf
 
 import frontier as F
 import nse_screener as s
+import pandas as pd
+import yfinance as yf
 
 BATCH = 50
 THREADS = 6
 AVG_VOL_DAYS = 20
-MIN_DAYS = 200          # need enough history to be meaningful
+MIN_DAYS = 200  # need enough history to be meaningful
 
 
 def main():
     uni = s.load_universe()
-    names = dict(zip(uni["Symbol"], uni["Company"]))
+    names = dict(zip(uni["Symbol"], uni["Company"], strict=False))
     tickers = [sym + ".NS" for sym in uni["Symbol"]]
     total = len(tickers)
     rows: list[dict] = []
     done = 0
-    print(f"backfilling frontier for {total} stocks (period=max, adjusted)…",
-          flush=True)
+    print(f"backfilling frontier for {total} stocks (period=max, adjusted)…", flush=True)
 
     for i in range(0, total, BATCH):
-        chunk = tickers[i:i + BATCH]
+        chunk = tickers[i : i + BATCH]
         try:
-            data = yf.download(chunk, period="max", auto_adjust=False,
-                               group_by="ticker", threads=THREADS, progress=False)
+            data = yf.download(
+                chunk, period="max", auto_adjust=False, group_by="ticker", threads=THREADS, progress=False
+            )
         except Exception as e:
             print(f"  batch {i} error: {e}", flush=True)
             data = None
@@ -69,16 +96,18 @@ def main():
                     continue
                 ath_p, ath_d = F.ath(fr)
                 vol = sub["Volume"].dropna() if "Volume" in sub.columns else pd.Series(dtype=float)
-                rows.append({
-                    "Symbol": sym,
-                    "Company": names.get(sym, ""),
-                    "LastClose": round(float(close.iloc[-1]), 2),
-                    "AvgVol20d": int(vol.tail(AVG_VOL_DAYS).mean()) if not vol.empty else 0,
-                    "LastDate": close.index[-1].date().isoformat(),
-                    "HighATH": ath_p,
-                    "HighATHDate": ath_d,
-                    "Frontier": F.encode_frontier(fr),
-                })
+                rows.append(
+                    {
+                        "Symbol": sym,
+                        "Company": names.get(sym, ""),
+                        "LastClose": round(float(close.iloc[-1]), 2),
+                        "AvgVol20d": int(vol.tail(AVG_VOL_DAYS).mean()) if not vol.empty else 0,
+                        "LastDate": close.index[-1].date().isoformat(),
+                        "HighATH": ath_p,
+                        "HighATHDate": ath_d,
+                        "Frontier": F.encode_frontier(fr),
+                    }
+                )
         del data
         gc.collect()
         done += len(chunk)
@@ -88,7 +117,7 @@ def main():
     if not rows:
         print("ERROR: nothing fetched", file=sys.stderr)
         sys.exit(1)
-    snap = s.merge_reference(pd.DataFrame(rows))   # snapshot doubles as the store
+    snap = s.merge_reference(pd.DataFrame(rows))  # snapshot doubles as the store
     snap.to_csv(s.SNAPSHOT_PATH, index=False)
     print(f"DONE: wrote {len(snap)} rows to {s.SNAPSHOT_PATH}", flush=True)
 

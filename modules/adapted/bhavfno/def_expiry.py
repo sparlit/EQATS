@@ -1,13 +1,40 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 import calendar
+
 import pandas as pd
 
-def expiry(year, root='path'):
-    df_holidays = pd.read_csv(root + 'indian_holidays.csv')
-    df_holidays['date'] = pd.to_datetime(df_holidays['date'], format='%Y-%m-%d',infer_datetime_format=True).dt.strftime('%d-%m-%Y')
-    "Last Thu of the Month is a holiday. The list is manually created. Checked till 2015, if you want to add the support beyond 2015 then add the dates in 'holiday_list', also if possible share "
-    holiday_list = df_holidays['date'].tolist()
 
-    expiry_list = ['Empty']  # since list starts from 0 this is a hacky way to align expiry_list[1] = first month
+def expiry(year, root="path"):
+    df_holidays = pd.read_csv(root + "indian_holidays.csv")
+    df_holidays["date"] = pd.to_datetime(
+        df_holidays["date"], format="%Y-%m-%d", infer_datetime_format=True
+    ).dt.strftime("%d-%m-%Y")
+    "Last Thu of the Month is a holiday. The list is manually created. Checked till 2015, if you want to add the support beyond 2015 then add the dates in 'holiday_list', also if possible share "
+    holiday_list = df_holidays["date"].tolist()
+
+    expiry_list = ["Empty"]  # since list starts from 0 this is a hacky way to align expiry_list[1] = first month
     for n in range(1, 13):
         month = n
         last_day = calendar.monthrange(year, month)[1]
@@ -32,4 +59,4 @@ def expiry(year, root='path'):
                 expiry = (date2) + "-" + (month_1) + "-" + str(year)
         # print(expiry)
         expiry_list.append(expiry)
-    return (expiry_list)
+    return expiry_list

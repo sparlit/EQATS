@@ -31,14 +31,14 @@ cdef extern from "numpy/random/distributions.h":
     double random_standard_uniform(bitgen_t *bitgen_state) nogil
     void random_standard_uniform_fill(bitgen_t* bitgen_state, npy_intp cnt, double *out) nogil
     void random_standard_uniform_fill_f(bitgen_t *bitgen_state, npy_intp cnt, float *out) nogil
-    
+
     double random_standard_exponential(bitgen_t *bitgen_state) nogil
     float random_standard_exponential_f(bitgen_t *bitgen_state) nogil
     void random_standard_exponential_fill(bitgen_t *bitgen_state, npy_intp cnt, double *out) nogil
     void random_standard_exponential_fill_f(bitgen_t *bitgen_state, npy_intp cnt, float *out) nogil
     void random_standard_exponential_inv_fill(bitgen_t *bitgen_state, npy_intp cnt, double *out) nogil
     void random_standard_exponential_inv_fill_f(bitgen_t *bitgen_state, npy_intp cnt, float *out) nogil
-    
+
     double random_standard_normal(bitgen_t* bitgen_state) nogil
     float random_standard_normal_f(bitgen_t *bitgen_state) nogil
     void random_standard_normal_fill(bitgen_t *bitgen_state, npy_intp count, double *out) nogil
@@ -116,4 +116,3 @@ cdef extern from "numpy/random/distributions.h":
                                size_t num_colors, int64_t *colors,
                                int64_t nsample,
                                size_t num_variates, int64_t *variates) nogil
-
