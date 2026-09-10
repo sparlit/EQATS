@@ -6,7 +6,13 @@ import pytz
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if dt is None:
+        now = datetime.datetime.now(ist)
+    else:
+        if dt.tzinfo is None:
+            now = ist.localize(dt)
+        else:
+            now = dt.astimezone(ist)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -29,7 +35,12 @@ import yfinance as yf
 _OHLCV_FIELDS = frozenset({"Close", "Open", "High", "Low", "Volume", "Adj Close"})
 
 
-def safe_yf_download(ticker, period: str | None = None, interval: str = "1d", **kwargs) -> pd.DataFrame:
+def safe_yf_download(
+    ticker: str | list[str],
+    period: str | None = None,
+    interval: str = "1d",
+    **kwargs,
+) -> pd.DataFrame:
     """Download prices from yfinance with its warnings and progress bar silenced.
 
     Always uses adjusted prices. Accepts one ticker or a list.
