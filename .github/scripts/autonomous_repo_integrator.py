@@ -154,11 +154,16 @@ class AutonomousRepoIntegrator:
         with self.markdown_blueprint.open("w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
 
-    def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0) -> tuple[int, str]:
-        """Executes a shell command with built-in auto-retry loop for network or transient events."""
+    def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0, env_vars: dict[str, str] | None = None) -> tuple[int, str]:
+        """Executes a shell command with built-in auto-retry loop and non-interactive Git environment."""
+        env = os.environ.copy()
+        env["GIT_TERMINAL_PROMPT"] = "0"  # Prevent git from prompting for credentials on non-existent or private repos
+        if env_vars:
+            env.update(env_vars)
+
         for attempt in range(1, retries + 1):
             try:
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False)
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, env=env, check=False)
                 if result.returncode == 0 or attempt == retries:
                     return (result.returncode, result.stdout + "\n" + result.stderr)
                 time.sleep(delay)
@@ -169,18 +174,30 @@ class AutonomousRepoIntegrator:
         return (1, "Command failed after retries")
 
     def clone_repository(self, target: dict[str, str]) -> Path | None:
-        """Clones a single target repository with retry logic."""
+        """Clones a single target repository using token auth fallback and non-interactive prompt disabled."""
         repo_name = target["name"]
-        repo_url = target["url"]
         target_dir = self.sandbox_dir / repo_name
 
         if target_dir.exists():
             shutil.rmtree(target_dir, ignore_errors=True)
 
-        print(f"[+] Cloning [{target['target']}] into sandbox...")
-        code, out = self.run_cmd(f"git clone --depth=1 {repo_url} {target_dir}", retries=3)
+        token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+        if token and "x-access-token" not in target["url"]:
+            authenticated_url = f"https://x-access-token:{token}@github.com/{target['target']}"
+        else:
+            authenticated_url = target["url"]
+
+        print(f"[+] Cloning [{target['target']}] non-interactively into sandbox...")
+        code, out = self.run_cmd(f"git clone --depth=1 {authenticated_url} {target_dir}", retries=2)
         if code != 0:
-            print(f"[-] Failed to clone {repo_url}: {out}")
+            # Fallback without token authentication
+            code, out = self.run_cmd(f"git clone --depth=1 {target['url']} {target_dir}", retries=1)
+
+        if code != 0:
+            sanitized_out = out
+            if token:
+                sanitized_out = sanitized_out.replace(token, "***")
+            print(f"[-] Repository clone failed for {target['target']} (404/403 or inaccessible): {sanitized_out.strip()}")
             return None
         return target_dir
 
@@ -512,7 +529,7 @@ class AutonomousRepoIntegrator:
 
         self.run_cmd("git checkout main")
         self.run_cmd("git pull origin main --rebase", retries=3)
-        self.run_cmd(f"git checkout -b {branch_name}")
+        self.run_cmd(f"git checkout -B {branch_name}")
 
         target_dir = self.clone_repository(target)
         if not target_dir or not target_dir.exists():

@@ -32,11 +32,12 @@ class AutoPRHealer:
         self.py_exec = sys.executable
 
     def auto_resolve_merge_conflicts(self) -> bool:
-        """Auto-resolves git merge or rebase conflicts non-interactively by accepting current changes as default."""
+        """Auto-resolves git merge or rebase conflicts non-interactively across code and json/md tracking ledgers by accepting current changes as default."""
         print("[*] Auto-resolving merge conflicts (accepting current changes as default)...")
 
-        # 1. Clean residual conflict markers from source files prioritizing current changes (pre-======= block)
-        for p in self.root_dir.glob("**/*.py"):
+        # 1. Clean residual conflict markers from Python, JSON, Markdown, and TXT files prioritizing current changes
+        target_files = list(self.root_dir.glob("**/*.py")) + list(self.root_dir.glob("**/*.json")) + list(self.root_dir.glob("**/*.md")) + list(self.root_dir.glob("**/*.txt"))
+        for p in target_files:
             if p.exists() and not any(part.startswith(".") for part in p.parts):
                 try:
                     content = p.read_text(encoding="utf-8", errors="ignore")
@@ -52,9 +53,9 @@ class AutoPRHealer:
                                 in_conflict = True
                                 ours_block = []
                                 past_separator = False
-                            elif line.startswith("======="):
+                            elif in_conflict and line.startswith("======="):
                                 past_separator = True
-                            elif line.startswith(">>>>>>>"):
+                            elif in_conflict and line.startswith(">>>>>>>"):
                                 in_conflict = False
                                 cleaned.extend(ours_block)
                                 ours_block = []
