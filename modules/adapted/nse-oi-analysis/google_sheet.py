@@ -1,11 +1,34 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 #!/usr/bin/env python3
 
-from datetime import datetime
+import logging
 import time
+from datetime import datetime
 
 import gspread
 import pandas as pd
-import logging
 from gspread.models import Cell
 
 logging.basicConfig(level="INFO")
@@ -18,12 +41,11 @@ def next_available_row(worksheet):
 
 
 def get_sheet():
-    gc = gspread.service_account(filename='/googleshet_token.json')
-    sheet = gc.open_by_key("<SHEET_IT>")
-    return sheet
+    gc = gspread.service_account(filename="/googleshet_token.json")
+    return gc.open_by_key("<SHEET_IT>")
 
 
-title_row = ['Date Time', 'Spot', 'Spot_Diff', 'Call OI - C', 'Put OI - C', 'Difference']
+title_row = ["Date Time", "Spot", "Spot_Diff", "Call OI - C", "Put OI - C", "Difference"]
 
 
 def insert_record(sheet_name, spot, call_oi_change, put_oi_change):
@@ -38,10 +60,16 @@ def insert_record(sheet_name, spot, call_oi_change, put_oi_change):
     new_row_no = int(next_available_row(ws))
     date_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     # DateTime	Spot	Spot_Diff	Call OI change	Put OI change	Diff (Call - Put)   Call OI Delta Put OI Delta
-    record = [date_time, str(spot), f'=MIN(B{new_row_no}-B{new_row_no - 1})', str(call_oi_change), str(put_oi_change),
-              str(put_oi_change - call_oi_change)]
+    record = [
+        date_time,
+        str(spot),
+        f"=MIN(B{new_row_no}-B{new_row_no - 1})",
+        str(call_oi_change),
+        str(put_oi_change),
+        str(put_oi_change - call_oi_change),
+    ]
     # print(record)
-    ws.append_row(record, value_input_option='USER_ENTERED')
+    ws.append_row(record, value_input_option="USER_ENTERED")
 
 
 def read_row_values(sheet_name, column_name, symbol, row_data):
@@ -59,26 +87,29 @@ def read_row_values(sheet_name, column_name, symbol, row_data):
 
     # print(f"Column value: {row_values[col_index]}")
     if row_values[col_index] == row_data[0]:
-        if symbol == 'NIFTY' and row_values[col_index + 1] == "":
-            cells = [Cell(row=row_index, col=2, value=row_data[1]),
-                     Cell(row=row_index, col=3, value=row_data[2]),
-                     Cell(row=row_index, col=4, value=row_data[3])]
+        if symbol == "NIFTY" and row_values[col_index + 1] == "":
+            cells = [
+                Cell(row=row_index, col=2, value=row_data[1]),
+                Cell(row=row_index, col=3, value=row_data[2]),
+                Cell(row=row_index, col=4, value=row_data[3]),
+            ]
             ws.update_cells(cells)
             return -1
-        elif symbol == 'BANKNIFTY' and len(row_values) < 5:
-            cells = [Cell(row=row_index, col=5, value=row_data[1]),
-                     Cell(row=row_index, col=6, value=row_data[2]),
-                     Cell(row=row_index, col=7, value=row_data[3])]
+        if symbol == "BANKNIFTY" and len(row_values) < 5:
+            cells = [
+                Cell(row=row_index, col=5, value=row_data[1]),
+                Cell(row=row_index, col=6, value=row_data[2]),
+                Cell(row=row_index, col=7, value=row_data[3]),
+            ]
             ws.update_cells(cells)
             return -1
         return row_values
-    else:
-        if symbol == 'BANKNIFTY':
-            row_data.insert(1, "")
-            row_data.insert(2, "")
-            row_data.insert(3, "")
-        ws.append_row(row_data)
-        return -1
+    if symbol == "BANKNIFTY":
+        row_data.insert(1, "")
+        row_data.insert(2, "")
+        row_data.insert(3, "")
+    ws.append_row(row_data)
+    return -1
 
 
 def create_new_worksheet(sheet_name):
@@ -90,5 +121,4 @@ def create_new_worksheet(sheet_name):
 def read_sheet_into_df(sheet_name):
     ws = get_sheet().worksheet(sheet_name)
     # Read excel worksheet and put into dataframe.
-    dataframe = pd.DataFrame(ws.get_all_records())
-    return dataframe
+    return pd.DataFrame(ws.get_all_records())

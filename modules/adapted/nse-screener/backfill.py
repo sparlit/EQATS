@@ -1,3 +1,26 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """Backfill bhavcopy history.
 
     python backfill.py --days 420                       # trailing window
@@ -11,8 +34,9 @@ import argparse
 import time
 from datetime import date, timedelta
 
-import config
 from ingest import bhavcopy, bhavcopy_old
+
+import config
 
 FULL_FORMAT_FROM = date(2020, 1, 1)
 
@@ -39,9 +63,8 @@ def main(start: date, end: date) -> None:
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--days", type=int, default=None)
-    p.add_argument("--start", type=lambda s: date.fromisoformat(s))
-    p.add_argument("--end", type=lambda s: date.fromisoformat(s),
-                   default=date.today())
+    p.add_argument("--start", type=date.fromisoformat)
+    p.add_argument("--end", type=date.fromisoformat, default=date.today())
     a = p.parse_args()
     if not a.days and not a.start:
         p.error("give --days or --start")
