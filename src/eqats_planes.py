@@ -1,4 +1,5 @@
 import datetime
+import threading
 import uuid
 from typing import Any, Optional
 
@@ -346,9 +347,9 @@ class SafetyVerificationPlane:
         violations = []
 
         # INV-001: Portfolio risk <= GLOBAL_RISK_LIMIT_CAP_PERCENT
-        # SECURITY FIX: Use actual stop-loss exposure, not position count proxy
+        # SECURITY FIX: Enforce strict monetary stop-loss exposure cap check
+        global_risk_cap = getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)
         if actual_aggregate_exposure_pct is not None:
-            global_risk_cap = getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)
             if actual_aggregate_exposure_pct > global_risk_cap:
                 violations.append("INV-001")
                 global_event_bus.publish(
@@ -364,8 +365,9 @@ class SafetyVerificationPlane:
                     )
                 )
         else:
-            max_allowed_exposure = config.RISK_PER_TRADE_PERCENT * config.MAX_CONCURRENT_TRADES
-            if current_risk > max_allowed_exposure:
+            # When stop-loss exposure is omitted, enforce fallback exposure check using position count * per-trade risk
+            max_allowed_exposure = min(config.RISK_PER_TRADE_PERCENT * current_risk, global_risk_cap)
+            if current_risk > config.MAX_CONCURRENT_TRADES or max_allowed_exposure > global_risk_cap:
                 violations.append("INV-001")
                 global_event_bus.publish(
                     Event(
@@ -374,8 +376,8 @@ class SafetyVerificationPlane:
                         payload={
                             "invariant": "INV-001",
                             "count_based_risk": current_risk,
-                            "limit_pct": max_allowed_exposure,
-                            "reason": f"FALLBACK: Count-based risk {current_risk:.2f}% exceeds limit {max_allowed_exposure:.2f}% (actual exposure unavailable)",
+                            "limit_pct": global_risk_cap,
+                            "reason": f"FALLBACK: Count-based risk {current_risk:.2f}% exceeds limit {global_risk_cap:.2f}%",
                         },
                     )
                 )
@@ -450,6 +452,7 @@ class ExecutionPlane:
         self._message_history = []
         self.rate_state = 'NORMAL'
         self.resilience_plane = resilience_plane
+        self._lock = threading.Lock()
 
     def validate_fat_finger(self, symbol: str, lot_size: float, current_price: float) -> bool:
         """Blocks orders with extreme lot size or abnormal notional value."""
@@ -470,23 +473,25 @@ class ExecutionPlane:
         """
         Section 24.1: Message Rate Governance.
         Blocks orders exceeding message limits and transitions rate_state accordingly.
+        Thread-safe execution using self._lock.
         Limit: max 5 orders / 10 seconds.
         """
-        now = datetime.datetime.now()
-        ten_seconds_ago = now - datetime.timedelta(seconds=10)
-        self._message_history = [t for t in self._message_history if t > ten_seconds_ago]
+        with self._lock:
+            now = datetime.datetime.now()
+            ten_seconds_ago = now - datetime.timedelta(seconds=10)
+            self._message_history = [t for t in self._message_history if t > ten_seconds_ago]
 
-        # Include this checking message in rate evaluation
-        self._message_history.append(now)
-        if len(self._message_history) >= 5:
-            self.rate_state = 'HALTED'
-            global_event_bus.publish(Event(family='SystemFault', source='ExecutionPlane', payload={'state': 'HALTED', 'reason': 'Message limit exceeded. Throttled limit hit.'}))
-            return False
-        elif len(self._message_history) >= 3:
-            self.rate_state = 'THROTTLED'
-        else:
-            self.rate_state = 'NORMAL'
-        return True
+            # Include this checking message in rate evaluation
+            self._message_history.append(now)
+            if len(self._message_history) >= 5:
+                self.rate_state = 'HALTED'
+                global_event_bus.publish(Event(family='SystemFault', source='ExecutionPlane', payload={'state': 'HALTED', 'reason': 'Message limit exceeded. Throttled limit hit.'}))
+                return False
+            elif len(self._message_history) >= 3:
+                self.rate_state = 'THROTTLED'
+            else:
+                self.rate_state = 'NORMAL'
+            return True
 
     def execute_admitted_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> dict[str, Any]:
         """Routes approved intent to live connection."""

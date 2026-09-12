@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 backtest.py — Walk-Forward Validation
 ======================================
@@ -16,15 +41,18 @@ Methodology
 2. Report coverage across all windows (should ≈ 90% if well-calibrated).
 """
 
-from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 import numpy as np
-import pandas as pd
 
 from .data_pipeline import _compute_features, _extract_gbm_params
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +62,7 @@ def run_walkforward(
     cfg: dict,
     simulator_fn: Callable,
     model_name: str = "GBM",
-) -> Dict:
+) -> dict:
     """
     Execute walk-forward validation for a given simulator function.
 
@@ -72,7 +100,7 @@ def run_walkforward(
 
     # Determine window positions
     # Walk backwards from the end: last test ends at df[-1], test starts at df[-1-test_window]
-    window_results: List[Dict] = []
+    window_results: list[dict] = []
 
     for i in range(n_windows):
         # Test period ends at this index
@@ -84,7 +112,7 @@ def run_walkforward(
             logger.warning("Window %d: not enough training data (%d days). Skipping.", i, train_end_idx)
             continue
 
-        train_df = df.iloc[:train_end_idx + 1]
+        train_df = df.iloc[: train_end_idx + 1]
         actual_price_at_test_start = float(train_df["Close"].iloc[-1])
         actual_price_at_test_end = float(df["Close"].iloc[test_end_idx])
 
@@ -113,22 +141,29 @@ def run_walkforward(
         actual_return = (actual_price_at_test_end / actual_price_at_test_start) - 1.0
         mean_sim_return = float(np.mean(terminal_prices / actual_price_at_test_start - 1.0))
 
-        window_results.append({
-            "window": i,
-            "train_end_date": str(train_df.index[-1].date()),
-            "test_end_date": str(df.index[test_end_idx].date()),
-            "actual_price_start": actual_price_at_test_start,
-            "actual_price_end": actual_price_at_test_end,
-            "actual_return_pct": actual_return * 100,
-            "simulated_mean_return_pct": mean_sim_return * 100,
-            "sim_p5": p5,
-            "sim_p95": p95,
-            "actual_in_90pct_band": in_band,
-        })
+        window_results.append(
+            {
+                "window": i,
+                "train_end_date": str(train_df.index[-1].date()),
+                "test_end_date": str(df.index[test_end_idx].date()),
+                "actual_price_start": actual_price_at_test_start,
+                "actual_price_end": actual_price_at_test_end,
+                "actual_return_pct": actual_return * 100,
+                "simulated_mean_return_pct": mean_sim_return * 100,
+                "sim_p5": p5,
+                "sim_p95": p95,
+                "actual_in_90pct_band": in_band,
+            }
+        )
 
         logger.info(
             "[%s] Window %d: actual=%.0f  p5=%.0f  p95=%.0f  in_band=%s",
-            model_name, i, actual_price_at_test_end, p5, p95, in_band,
+            model_name,
+            i,
+            actual_price_at_test_end,
+            p5,
+            p95,
+            in_band,
         )
 
     if not window_results:
@@ -136,11 +171,7 @@ def run_walkforward(
         return {"coverage_90": np.nan, "windows": [], "summary": "Insufficient data."}
 
     coverage = float(np.mean([w["actual_in_90pct_band"] for w in window_results]))
-    summary = (
-        f"{model_name}: {len(window_results)} windows, "
-        f"90%-band coverage = {coverage:.1%} "
-        f"(target ≈ 90%)"
-    )
+    summary = f"{model_name}: {len(window_results)} windows, 90%-band coverage = {coverage:.1%} (target ≈ 90%)"
     logger.info("[%s] Walk-forward result: %s", model_name, summary)
 
     return {

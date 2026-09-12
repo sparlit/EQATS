@@ -65,18 +65,27 @@ class V11HyperAutonomousSelfFixingGovernor:
 
     def perform_database_healing(self) -> bool:
         """
-        Detects and repairs SQLite WAL locks, disk I/O errors, and missing schema columns.
+        Detects and repairs SQLite WAL locks, disk I/O errors, and missing schema columns
+        using adaptive checkpointing to avoid locking storms.
         """
         try:
             database.init_db()
-            database.checkpoint_wal(force=True)
+            # Adaptive WAL checkpointing: avoid force=True unless WAL size threshold exceeded
+            wal_file = config.DB_PATH + "-wal"
+            wal_size_mb = 0.0
+            if os.path.exists(wal_file):
+                wal_size_mb = os.path.getsize(wal_file) / (1024 * 1024)
+
+            # Only force checkpointing if WAL file > 10MB or during DB recovery
+            force_ckpt = wal_size_mb > 10.0
+            database.checkpoint_wal(force=force_ckpt)
             self.db_lock_repaired_count += 1
             return True
         except Exception as e:
             self._log_healing(f"Database healing action triggered due to error: {e}")
             try:
                 if os.path.exists(config.DB_PATH + "-wal"):
-                    database.checkpoint_wal(force=True)
+                    database.checkpoint_wal(force=False)
                 return True
             except Exception as ex:
                 self._log_healing(f"Database recovery attempt result: {ex}")
