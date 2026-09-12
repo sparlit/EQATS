@@ -1,23 +1,6 @@
 import datetime
-import hashlib
-import json
-import pathlib
-import platform
-import resource
-import sys
-import time
 
 import pytz
-
-try:
-    import numpy as np
-except ImportError:
-    np = None
-
-try:
-    import raptorbt as r
-except ImportError:
-    r = None
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -36,20 +19,3 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-def _ticks(n, seed=11):
-    if np is None:
-        msg = "numpy is required for _ticks"
-        raise RuntimeError(msg)
-    rng = np.random.default_rng(seed)
-    logp = np.clip(np.cumsum(rng.normal(0, 0.00005, n)), -0.5, 0.5) + np.log(1000.0)
-    ltp = np.exp(logp)
-    half = ltp * 0.00025
-    bq = np.abs(rng.normal(500, 150, n))
-    sq = np.abs(rng.normal(500, 150, n))
-    return ltp, half, bq, sq
-
-
-if __name__ == "__main__":
-    pass
