@@ -138,3 +138,14 @@ def test_self_healing_handles_no_tests_collected(temp_integrator_env):
 def test_trigger_loop_execution(temp_integrator_env):
     _integrator, _temp_dir = temp_integrator_env
     dispatch_next_cycle()
+
+
+def test_is_repository_accessible_dead_repo(temp_integrator_env):
+    integrator, _temp_dir = temp_integrator_env
+    target_dead = {
+        "name": "nonexistent_repo_xyz_123",
+        "target": "nonexistent_owner_xyz_123/nonexistent_repo_xyz_123",
+        "url": "https://github.com/nonexistent_owner_xyz_123/nonexistent_repo_xyz_123",
+    }
+    accessible = integrator.is_repository_accessible(target_dead)
+    assert accessible is False
