@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 28
+Total Repositories: 411 | Current Index: 29
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -15,7 +15,7 @@ Total Repositories: 411 | Current Index: 28
 | 10 | abuhurairalakdawala/indian-share-market | Processed | None |
 | 11 | adavarski/devsecops-full-integration-chain | Completed | None |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | None |
-| 13 | aeron7/nsepython | Completed | None |
+| 13 | aeron7/nsepython | Processed | None |
 | 14 | aeron7/nsepythonserver | Processed | None |
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | None |
@@ -31,7 +31,7 @@ Total Repositories: 411 | Current Index: 28
 | 26 | alexwan/osengine | Processed | None |
 | 27 | algotrading-lab/ai-algotrading-agent | Completed | None |
 | 28 | alloc7260/nse | Processed | None |
-| 29 | alphabench/raptorbt | pending | None |
+| 29 | alphabench/raptorbt | Completed | None |
 | 30 | althk/zerobha | pending | None |
 | 31 | ameobea/tickgrinder | pending | None |
 | 32 | amitashwinibhagat/nse-swing-scanner | pending | None |

@@ -1,5 +1,5 @@
 {
-  "current_index": 28,
+  "current_index": 29,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -101,7 +101,7 @@
       "name": "nsepython",
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
-      "status": "Completed",
+      "status": "Processed",
       "pr_url": null,
       "merged": true
     },
@@ -229,9 +229,9 @@
       "name": "raptorbt",
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "zerobha",
