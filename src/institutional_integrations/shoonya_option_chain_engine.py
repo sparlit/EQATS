@@ -1,13 +1,13 @@
 """
-NSE Options Data Collector Engine (BarathGB007/nse-options-data-collector Adaptation)
-===================================================================================
+Shoonya Option Chain & Microstructure Depth Engine (anurag-roy/shoonya-option-chain Adaptation)
+=============================================================================================
 
-Target Integration: BarathGB007/nse-options-data-collector
-Magic Number: 9100068
+Target Integration: anurag-roy/shoonya-option-chain
+Magic Number: 9100045
 
-Provides Open Interest (OI) snapshot processing, PCR calculation, premarket gap analysis,
-premarket gap-down ITM put hedge triggers, 0.05 INR price tick rounding, IST market session validation,
-and microkernel plugin binding.
+Provides Shoonya Finvasia 5-level market depth bid/ask queue parser, Volume Imbalance Delta (VID)
+entry triggers, Order Cancellation Rate & Phantom Liquidity / Spoofing Filters, 0.05 INR price tick rounding,
+IST market session validation, and microkernel plugin binding.
 """
 
 import math
@@ -24,7 +24,7 @@ from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
 )
 
-MAGIC_NUMBER_NSE_OPTIONS_DATA_COLLECTOR: int = 9100068
+MAGIC_NUMBER_SHOONYA_OPTION_CHAIN: int = 9100045
 
 
 def round_tick_005(price: float) -> float:
@@ -49,101 +49,73 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
     return start_time <= now_dt <= end_time
 
 
-class NSEOptionsDataCollectorEngine:
+class ShoonyaOptionChainEngine:
     """
-    NSE Options Data Collector, Premarket Gap Analysis & Gap-Down Protection Engine.
+    Shoonya Finvasia 5-Level Market Depth, Volume Imbalance Delta (VID),
+    and Phantom Liquidity / Spoofing Filter Engine.
     """
 
-    def __init__(self) -> None:
-        self.magic_number = MAGIC_NUMBER_NSE_OPTIONS_DATA_COLLECTOR
+    def __init__(self, max_imbalance_ratio: float = 3.0, max_cancellation_rate_pct: float = 80.0) -> None:
+        self.max_imbalance_ratio = max_imbalance_ratio
+        self.max_cancellation_rate_pct = max_cancellation_rate_pct
+        self.magic_number = MAGIC_NUMBER_SHOONYA_OPTION_CHAIN
 
-    def process_oi_snapshot(self, option_chain_records: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Parses option chain records to aggregate Total Call/Put OI and Put-Call Ratio (PCR).
-        """
-        total_call_oi = 0
-        total_put_oi = 0
-
-        for rec in option_chain_records:
-            total_call_oi += rec.get("call_oi", 0)
-            total_put_oi += rec.get("put_oi", 0)
-
-        pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 1.0
-
-        if pcr >= 1.20:
-            bias = "BULLISH_PCR"
-        elif pcr <= 0.80:
-            bias = "BEARISH_PCR"
-        else:
-            bias = "NEUTRAL"
-
-        return {
-            "total_call_oi": total_call_oi,
-            "total_put_oi": total_put_oi,
-            "pcr": pcr,
-            "bias": bias,
-            "magic_number": self.magic_number,
-        }
-
-    def analyze_premarket_gap(self, prev_close: float, iep_price: float) -> Dict[str, Any]:
-        """
-        Analyzes premarket Indicative Equilibrium Price (IEP) gap relative to previous close.
-        """
-        prev_close = round_tick_005(prev_close)
-        iep_price = round_tick_005(iep_price)
-
-        gap_amt = iep_price - prev_close
-        gap_pct = ((gap_amt) / prev_close) * 100.0 if prev_close > 0 else 0.0
-
-        if gap_pct >= 0.50:
-            gap_type = "GAP_UP"
-        elif gap_pct <= -0.50:
-            gap_type = "GAP_DOWN"
-        else:
-            gap_type = "FLAT_OPEN"
-
-        return {
-            "prev_close": prev_close,
-            "iep_price": iep_price,
-            "gap_amount": round(gap_amt, 2),
-            "gap_percent": round(gap_pct, 2),
-            "gap_type": gap_type,
-            "magic_number": self.magic_number,
-        }
-
-    def evaluate_premarket_gap_hedge_trigger(
-        self, prev_close: float, iep_price: float, gap_down_threshold_pct: float = 3.0
+    def calculate_volume_imbalance_delta(
+        self, bid_depth_volumes: List[int], ask_depth_volumes: List[int]
     ) -> Dict[str, Any]:
         """
-        Evaluates premarket Indicative Equilibrium Price (IEP).
-        If premarket gap down <= -gap_down_threshold_pct (default -3.0%), triggers automated ITM Put Hedge order.
+        Calculates Volume Imbalance Delta (VID) across 5-level market depth.
+        If ask_volume / bid_volume >= max_imbalance_ratio (e.g. 3.0x), blocks long entries into heavy sell walls.
         """
-        analysis = self.analyze_premarket_gap(prev_close, iep_price)
-        gap_pct = analysis["gap_percent"]
+        total_bid_vol = sum(bid_depth_volumes[:5]) if bid_depth_volumes else 0
+        total_ask_vol = sum(ask_depth_volumes[:5]) if ask_depth_volumes else 0
 
-        hedge_triggered = gap_pct <= -gap_down_threshold_pct
-        action = "PLACE_PUT_HEDGE" if hedge_triggered else "NO_HEDGE"
+        imbalance_ratio = round(total_ask_vol / total_bid_vol, 2) if total_bid_vol > 0 else 999.0
+        sell_wall_detected = imbalance_ratio >= self.max_imbalance_ratio
+        action = "BLOCK_LONG_ENTRY" if sell_wall_detected else "ALLOW_ENTRY"
 
         return {
-            "prev_close": analysis["prev_close"],
-            "iep_price": analysis["iep_price"],
-            "gap_percent": gap_pct,
-            "gap_down_threshold_pct": gap_down_threshold_pct,
-            "hedge_triggered": hedge_triggered,
-            "recommended_action": action,
+            "total_bid_volume": total_bid_vol,
+            "total_ask_volume": total_ask_vol,
+            "imbalance_ratio": imbalance_ratio,
+            "sell_wall_detected": sell_wall_detected,
+            "action": action,
+            "magic_number": self.magic_number,
+        }
+
+    def evaluate_order_cancellation_spoofing_filter(
+        self, orders_created: int, orders_cancelled: int
+    ) -> Dict[str, Any]:
+        """
+        Detects phantom liquidity / orderbook spoofing by tracking rapid cancellation rates.
+        If order cancellation rate >= 80%, flags spoofing and blocks execution.
+        """
+        if orders_created <= 0:
+            return {"spoofing_detected": False, "cancellation_rate_pct": 0.0, "action": "ALLOW_ORDER"}
+
+        cancel_rate_pct = (orders_cancelled / orders_created) * 100.0
+        spoofing_detected = cancel_rate_pct >= self.max_cancellation_rate_pct
+        action = "BLOCK_SPOOFED_LIQUIDITY" if spoofing_detected else "ALLOW_ORDER"
+
+        return {
+            "orders_created": orders_created,
+            "orders_cancelled": orders_cancelled,
+            "cancellation_rate_pct": round(cancel_rate_pct, 2),
+            "spoofing_detected": spoofing_detected,
+            "action": action,
             "magic_number": self.magic_number,
         }
 
 
-class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
+class ShoonyaOptionChainBrokerAdapter(SEBIBrokerAdapter):
     """
-    SEBI Broker Adapter wrapper for NSE Options Data Collector Engine.
+    SEBI Broker Adapter wrapper for Shoonya Option Chain Engine.
     """
 
-    def __init__(self, broker_name: str = "NSE_OPTIONS_DATA_COLLECTOR") -> None:
+    def __init__(self, broker_name: str = "SHOONYA_OPTION_CHAIN") -> None:
         super().__init__()
         self.broker_name = broker_name
-        self.engine = NSEOptionsDataCollectorEngine()
+        self.engine = ShoonyaOptionChainEngine()
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -180,7 +152,7 @@ class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
             )
 
         sanitized_price = round_tick_005(request.price)
-        ticket_id = f"ODC-{int(datetime.now().timestamp() * 1000)}"
+        ticket_id = f"SOC-{int(datetime.now().timestamp() * 1000)}"
 
         return SEBIOrderResponse(
             success=True,
@@ -217,4 +189,4 @@ class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-IndianBrokerPluginRegistry.register("NSE_OPTIONS_DATA_COLLECTOR", NSEOptionsDataCollectorBrokerAdapter)
+IndianBrokerPluginRegistry.register("SHOONYA_OPTION_CHAIN", ShoonyaOptionChainBrokerAdapter)
