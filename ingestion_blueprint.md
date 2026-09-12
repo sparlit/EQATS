@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 16
+Total Repositories: 411 | Current Index: 17
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -19,7 +19,7 @@ Total Repositories: 411 | Current Index: 16
 | 14 | aeron7/nsepythonserver | Processed | None |
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | None |
-| 17 | ai4finance-foundation/finrl-trading | pending | None |
+| 17 | ai4finance-foundation/finrl-trading | Completed | None |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |
 | 19 | ajeeshworkspace/indian-trading-skills | pending | None |
 | 20 | akashnag/scripwatch | pending | None |
