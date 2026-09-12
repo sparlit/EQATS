@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 20
+Total Repositories: 411 | Current Index: 21
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -15,7 +15,7 @@ Total Repositories: 411 | Current Index: 20
 | 10 | abuhurairalakdawala/indian-share-market | Processed | None |
 | 11 | adavarski/devsecops-full-integration-chain | Completed | None |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | None |
-| 13 | aeron7/nsepython | Processed | None |
+| 13 | aeron7/nsepython | Completed | None |
 | 14 | aeron7/nsepythonserver | Processed | None |
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | None |
@@ -23,7 +23,7 @@ Total Repositories: 411 | Current Index: 20
 | 18 | ajakaiye33/ngrcoydisclosures | Processed | None |
 | 19 | ajeeshworkspace/indian-trading-skills | Completed | None |
 | 20 | akashnag/scripwatch | Completed | None |
-| 21 | akashyadavv/algotradingnse | pending | None |
+| 21 | akashyadavv/algotradingnse | Processed | None |
 | 22 | akshaypawar7/wods | pending | None |
 | 23 | akshayraje/get-nse-bhavcopy | pending | None |
 | 24 | akshayz14/indian-stock-tracker | pending | None |

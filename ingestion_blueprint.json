@@ -1,5 +1,5 @@
 {
-  "current_index": 20,
+  "current_index": 21,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -101,7 +101,7 @@
       "name": "nsepython",
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
-      "status": "Processed",
+      "status": "Completed",
       "pr_url": null,
       "merged": true
     },
@@ -165,9 +165,9 @@
       "name": "algotradingnse",
       "target": "akashyadavv/algotradingnse",
       "url": "https://github.com/akashyadavv/algotradingnse",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "wods",
