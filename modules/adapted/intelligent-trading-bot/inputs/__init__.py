@@ -1,6 +1,15 @@
 import datetime
+from collections.abc import Callable
+from enum import Enum
+from typing import Any, Tuple
 
 import pytz
+
+
+class Venue(Enum):
+    BINANCE = "binance"
+    YAHOO = "yahoo"
+    MT5 = "mt5"
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -21,18 +30,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from common.types import Venue
-
-
-def get_collector_functions(venue: Venue):
-    if venue == venue.BINANCE:
+def get_collector_functions(venue: Venue) -> tuple[Callable[..., Any], Callable[..., Any]]:
+    if venue == Venue.BINANCE:
         from inputs.collector_binance import fetch_klines, health_check
 
         return fetch_klines, health_check
     if venue == Venue.YAHOO:
         msg = f"Collector functions not implemented for this venue: {venue}"
         raise NotImplementedError(msg)
-    if venue == venue.MT5:
+    if venue == Venue.MT5:
         from inputs.collector_mt5 import fetch_klines, health_check
 
         return fetch_klines, health_check
@@ -40,8 +46,8 @@ def get_collector_functions(venue: Venue):
     raise ValueError(msg)
 
 
-def get_download_functions(venue: Venue):
-    if venue == venue.BINANCE:
+def get_download_functions(venue: Venue) -> Callable[..., Any]:
+    if venue == Venue.BINANCE:
         from inputs.collector_binance import download_klines
 
         return download_klines
@@ -49,7 +55,7 @@ def get_download_functions(venue: Venue):
         from inputs.collector_yahoo import download_klines
 
         return download_klines
-    if venue == venue.MT5:
+    if venue == Venue.MT5:
         from inputs.collector_mt5 import download_klines
 
         return download_klines
