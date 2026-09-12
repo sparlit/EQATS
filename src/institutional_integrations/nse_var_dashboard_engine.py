@@ -6,8 +6,8 @@ Target Integration: athreysethumadhavan-finance/nse-var-dashboard
 Magic Number: 9100058
 
 Provides Historical, Parametric, and Cornish-Fisher Value-at-Risk (VaR) and Expected Shortfall (CVaR)
-portfolio tail risk calculations, 0.05 INR price tick rounding, IST market session validation,
-and microkernel plugin binding.
+portfolio tail risk calculations, dynamic 2.0% daily drawdown circuit breakers, 0.05 INR price tick rounding,
+IST market session validation, and microkernel plugin binding.
 """
 
 import math
@@ -51,11 +51,12 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class NSEVaRDashboardEngine:
     """
-    Institutional Value-at-Risk (VaR) & Conditional VaR (Expected Shortfall) Risk Engine.
+    Institutional Value-at-Risk (VaR), Expected Shortfall (CVaR), and Capital Preservation Engine.
     """
 
-    def __init__(self, confidence_level: float = 0.99) -> None:
+    def __init__(self, confidence_level: float = 0.99, max_drawdown_pct: float = 2.0) -> None:
         self.confidence_level = confidence_level
+        self.max_drawdown_pct = max_drawdown_pct
         self.magic_number = MAGIC_NUMBER_NSE_VAR_DASHBOARD
 
     def compute_historical_var(self, returns: List[float], portfolio_value: float) -> Dict[str, float]:
@@ -80,7 +81,7 @@ class NSEVaRDashboardEngine:
             "var_amount": round_tick_005(var_amount),
             "cvar_amount": round_tick_005(cvar_amount),
             "var_percent": round(var_ret * 100.0, 2),
-            "magic_number": self.magic_number,
+            "magic_number": float(self.magic_number),
         }
 
     def compute_parametric_var(self, portfolio_value: float, mean_return: float, std_dev: float) -> float:
@@ -92,16 +93,44 @@ class NSEVaRDashboardEngine:
         var_amount = portfolio_value * max(0.0, var_pct)
         return round_tick_005(var_amount)
 
+    def evaluate_drawdown_circuit_breaker(
+        self, current_portfolio_value: float, peak_portfolio_value: float, max_drawdown_limit_pct: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Evaluates dynamic capital preservation circuit breaker.
+        Triggers emergency halt on new entry orders if daily drawdown exceeds max_drawdown_limit_pct (default 2.0%).
+        """
+        limit_pct = max_drawdown_limit_pct if max_drawdown_limit_pct is not None else self.max_drawdown_pct
+        if peak_portfolio_value <= 0.0:
+            return {"circuit_breaker_triggered": False, "drawdown_pct": 0.0, "action": "ALLOW_ORDER"}
+
+        drawdown_amount = max(0.0, peak_portfolio_value - current_portfolio_value)
+        drawdown_pct = (drawdown_amount / peak_portfolio_value) * 100.0
+
+        triggered = drawdown_pct >= limit_pct
+        action = "HALT_NEW_ENTRIES" if triggered else "ALLOW_ORDER"
+
+        return {
+            "circuit_breaker_triggered": triggered,
+            "drawdown_pct": round(drawdown_pct, 2),
+            "drawdown_amount": round_tick_005(drawdown_amount),
+            "limit_pct": limit_pct,
+            "action": action,
+            "magic_number": self.magic_number,
+        }
+
 
 class NSEVaRDashboardBrokerAdapter(SEBIBrokerAdapter):
     """
-    SEBI Broker Adapter wrapper for NSE VaR Dashboard Engine.
+    SEBI Broker Adapter wrapper for NSE VaR Dashboard Engine with Drawdown Circuit Breaker Protection.
     """
 
     def __init__(self, broker_name: str = "NSE_VAR_DASHBOARD") -> None:
         super().__init__()
         self.broker_name = broker_name
         self.engine = NSEVaRDashboardEngine()
+        self.peak_equity: float = 1000000.0
+        self.current_equity: float = 1000000.0
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -137,6 +166,19 @@ class NSEVaRDashboardBrokerAdapter(SEBIBrokerAdapter):
                 error="Exchange trading session closed (IST market hours strictly enforced)",
             )
 
+        # Enforce Capital Preservation Circuit Breaker
+        risk = self.engine.evaluate_drawdown_circuit_breaker(self.current_equity, self.peak_equity)
+        if risk["circuit_breaker_triggered"]:
+            return SEBIOrderResponse(
+                success=False,
+                ticket="",
+                price=request.price,
+                status="REJECTED",
+                product=request.product,
+                exchange=request.exchange,
+                error=f"Drawdown Circuit Breaker Triggered ({risk['drawdown_pct']}% >= {risk['limit_pct']}%). Entry order rejected.",
+            )
+
         sanitized_price = round_tick_005(request.price)
         ticket_id = f"VAR-{int(datetime.now().timestamp() * 1000)}"
 
@@ -163,7 +205,7 @@ class NSEVaRDashboardBrokerAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> Dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
+        return {"balance": self.current_equity, "equity": self.current_equity, "currency": "INR", "is_demo": True}
 
     def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
         return []
@@ -175,5 +217,4 @@ class NSEVaRDashboardBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register in microkernel plugin registry
 IndianBrokerPluginRegistry.register("NSE_VAR_DASHBOARD", NSEVaRDashboardBrokerAdapter)
