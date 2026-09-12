@@ -17,8 +17,12 @@ def generate_dashboard():
         print("[-] Blueprint JSON file not found.")
         return
 
-    with blueprint_file.open("r", encoding="utf-8") as f:
-        ledger = json.load(f)
+    try:
+        with blueprint_file.open("r", encoding="utf-8", errors="ignore") as f:
+            ledger = json.load(f)
+    except Exception as e:
+        print(f"[-] Blueprint JSON parse error in generate_dashboard: {e}")
+        return
 
     repos = ledger.get("repositories", [])
     total = len(repos)
