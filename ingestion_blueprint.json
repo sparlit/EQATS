@@ -1,5 +1,5 @@
 {
-  "current_index": 22,
+  "current_index": 21,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -101,7 +101,7 @@
       "name": "nsepython",
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
-      "status": "Completed",
+      "status": "Processed",
       "pr_url": null,
       "merged": true
     },
@@ -173,9 +173,9 @@
       "name": "wods",
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
-      "status": "Processed",
+      "status": "pending",
       "pr_url": null,
-      "merged": true
+      "merged": false
     },
     {
       "name": "get-nse-bhavcopy",
