@@ -99,7 +99,7 @@ def clear_cache(cache_dir: str = DEFAULT_CACHE_DIR) -> int:
                 os.remove(os.path.join(cache_dir, name))
                 n += 1
             except OSError:
-                pass
+                return None
     return n
 
 
@@ -111,7 +111,7 @@ def delete_cache(key: str, cache_dir: str = DEFAULT_CACHE_DIR) -> bool:
             os.remove(path)
             return True
     except OSError:
-        pass
+        return None
     return False
 
 
@@ -156,5 +156,5 @@ def cached_call[T](
             except (OSError, TypeError):
                 # Cache write failure must not break the caller. On-disk cache
                 # is best-effort; the next call will simply recompute.
-                pass
+                return None
     return result

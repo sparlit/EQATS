@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 31
+Total Repositories: 411 | Current Index: 32
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -15,7 +15,7 @@ Total Repositories: 411 | Current Index: 31
 | 10 | abuhurairalakdawala/indian-share-market | Processed | None |
 | 11 | adavarski/devsecops-full-integration-chain | Completed | None |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | None |
-| 13 | aeron7/nsepython | Completed | None |
+| 13 | aeron7/nsepython | Processed | None |
 | 14 | aeron7/nsepythonserver | Processed | None |
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | None |
@@ -33,8 +33,8 @@ Total Repositories: 411 | Current Index: 31
 | 28 | alloc7260/nse | Processed | None |
 | 29 | alphabench/raptorbt | Completed | None |
 | 30 | althk/zerobha | Completed | None |
-| 31 | ameobea/tickgrinder | Completed | None |
-| 32 | amitashwinibhagat/nse-swing-scanner | pending | None |
+| 31 | ameobea/tickgrinder | Processed | None |
+| 32 | amitashwinibhagat/nse-swing-scanner | Completed | None |
 | 33 | amv-dev/yata | pending | None |
 | 34 | aneesh540/vse | pending | None |
 | 35 | animesh4002/ai-stock-screener | pending | None |

@@ -52,7 +52,6 @@ This module is import-safe (no yfinance dependency at import time) so
 it can be tested without network access.
 """
 
-import contextlib
 import json
 import os
 import random
@@ -587,7 +586,7 @@ def _split_batch_frame(df, tickers: list[str]) -> dict[str, dict[str, float]]:
                         tmp = series.to_frame(name="Close")
                         out[tk] = closes_dict_from_frame(tmp)
             except Exception:
-                pass
+                return None
         return out
 
     # Flat multi-ticker is unusual; best-effort single Close shared
@@ -717,20 +716,24 @@ def fetch_forward_returns(
             with open(cache_path, "w") as f:
                 json.dump(prices_cache, f)
         except OSError:
-            pass
+            return None
 
     # Trading calendar from Nifty session dates (union with any stock dates)
     nifty_closes = closes_by_ticker.get("^NSEI") or {}
     session_set = set()
     for d_str in nifty_closes:
-        with contextlib.suppress(ValueError):
+        try:
             session_set.add(datetime.date.fromisoformat(d_str))
+        except ValueError:
+            return None
     if not session_set:
         # Fallback: union of all ticker dates
         for closes in closes_by_ticker.values():
             for d_str in closes:
-                with contextlib.suppress(ValueError):
+                try:
                     session_set.add(datetime.date.fromisoformat(d_str))
+                except ValueError:
+                    return None
     sessions = session_index_dates(session_set)
 
     def _close_on(tk: str, session: datetime.date | None) -> float | None:
