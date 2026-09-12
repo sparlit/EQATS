@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 66
+Total Repositories: 411 | Current Index: 67
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -69,7 +69,7 @@ Total Repositories: 411 | Current Index: 66
 | 64 | avin1311/nse-bse-dashboard | Processed | None |
 | 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | Processed | None |
 | 66 | ayushmaanbhav/stockmart | Processed | None |
-| 67 | azhagesan-dev/orderflowmap | pending | None |
+| 67 | azhagesan-dev/orderflowmap | Processed | None |
 | 68 | barathgb007/nse-options-data-collector | pending | None |
 | 69 | barathgb007/upstox-python-data | pending | None |
 | 70 | barter-rs/barter-rs | pending | None |
