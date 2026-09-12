@@ -94,7 +94,7 @@ class DataSource(abc.ABC):
         Returns ``None`` if no data could be retrieved (so the caller can fall
         back to the next source).
         """
-        raise NotImplementedError
+        return None
 
     def fetch_name(self, symbol: str) -> str | None:
         """
@@ -302,7 +302,7 @@ class MutualFundSource(DataSource):
             if data and "meta" in data:
                 return data["meta"].get("scheme_name")
         except Exception:
-            pass
+            return None
         return None
 
     def fetch_history(self, symbol: str, limit: int = 60) -> list[OHLCV]:
