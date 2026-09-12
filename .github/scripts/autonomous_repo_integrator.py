@@ -173,6 +173,51 @@ class AutonomousRepoIntegrator:
                 time.sleep(delay)
         return (1, "Command failed after retries")
 
+    def is_repository_accessible(self, target: dict[str, str]) -> bool:
+        """Verifies whether repository target URL is reachable and accessible via HTTP HEAD/GET request
+
+        before spending CPU/time attempting branch checkout or sandbox git clone.
+        Returns True if reachable (HTTP 200/301/302), False if dead, deleted, or private (404/403).
+        """
+        import urllib.error
+        import urllib.request
+
+        url = target["url"]
+        print(f"[*] Pre-checking reachability for [{target['target']}] ({url})...")
+
+        token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+        headers = {
+            "User-Agent": "EQATS-Repository-Integrator/1.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            req = urllib.request.Request(url, headers=headers, method="HEAD")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status in (200, 301, 302):
+                    print(f"  [+] Repository [{target['target']}] is ACCESSIBLE (HTTP {resp.status}).")
+                    return True
+        except urllib.error.HTTPError as http_err:
+            if http_err.code in (404, 403, 410):
+                print(f"  [-] Repository [{target['target']}] is DEAD/INACCESSIBLE (HTTP {http_err.code}). Auto-skipping...")
+                return False
+            try:
+                req_get = urllib.request.Request(url, headers=headers, method="GET")
+                with urllib.request.urlopen(req_get, timeout=10) as resp_get:
+                    if resp_get.status in (200, 301, 302):
+                        return True
+            except Exception:
+                pass
+            print(f"  [-] Repository [{target['target']}] unreachable (HTTP {http_err.code}).")
+            return False
+        except Exception as err:
+            print(f"  [-] Reachability check failed for [{target['target']}]: {err}")
+            return False
+
+        return True
+
     def clone_repository(self, target: dict[str, str]) -> Path | None:
         """Clones a single target repository using token auth fallback and non-interactive prompt disabled."""
         repo_name = target["name"]
@@ -513,7 +558,7 @@ class AutonomousRepoIntegrator:
         return (True, "direct-main-commit")
 
     def process_single_repository(self, index: int) -> bool:
-        """Processes a single repository target end-to-end."""
+        """Processes a single repository target end-to-end with fast reachability verification."""
         if index >= len(self.ledger["repositories"]):
             print("[+] All repositories fully processed!")
             return False
@@ -522,6 +567,24 @@ class AutonomousRepoIntegrator:
         print("\n=======================================================")
         print(f"PROCESSING REPOSITORY [{index + 1}/{len(self.ledger['repositories'])}]: {target['target']}")
         print("=======================================================")
+
+        # Fast Reachability Pre-check: Skip dead / 404 / 403 repos immediately without branch checkout or clone
+        if not self.is_repository_accessible(target):
+            print(f"[-] Repository [{target['target']}] marked as dead and auto-skipped.")
+            target["status"] = "Skipped: Dead/Inaccessible (404/403)"
+            target["merged"] = False
+            self.ledger["current_index"] += 1
+            self.save_ledger()
+
+            # Push updated state ledger directly to main
+            self.run_cmd("git checkout main")
+            self.run_cmd("git pull origin main --rebase", retries=3)
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            skip_msg = shlex.quote(f"docs: auto-skip dead/inaccessible repo {target['target']}")
+            self.run_cmd(f"git commit -m {skip_msg}")
+            self.run_cmd("git push origin main", retries=3)
+
+            return True
 
         # FIRST: Checkout or create feature branch BEFORE adapting files or cloning!
         repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
