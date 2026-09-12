@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 15
+Total Repositories: 411 | Current Index: 14
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -16,8 +16,8 @@ Total Repositories: 411 | Current Index: 15
 | 11 | adavarski/devsecops-full-integration-chain | Completed | None |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | None |
 | 13 | aeron7/nsepython | Processed | None |
-| 14 | aeron7/nsepythonserver | Completed | None |
-| 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
+| 14 | aeron7/nsepythonserver | Processed | None |
+| 15 | affaan-m/dprc-autotrader-v2 | pending | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | pending | None |
 | 17 | ai4finance-foundation/finrl-trading | pending | None |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |

@@ -1,5 +1,5 @@
 {
-  "current_index": 15,
+  "current_index": 14,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -109,7 +109,7 @@
       "name": "nsepythonserver",
       "target": "aeron7/nsepythonserver",
       "url": "https://github.com/aeron7/nsepythonserver",
-      "status": "Completed",
+      "status": "Processed",
       "pr_url": null,
       "merged": true
     },
@@ -117,9 +117,9 @@
       "name": "dprc-autotrader-v2",
       "target": "affaan-m/dprc-autotrader-v2",
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
-      "status": "Processed",
+      "status": "pending",
       "pr_url": null,
-      "merged": true
+      "merged": false
     },
     {
       "name": "jarvis-trading",
