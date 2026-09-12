@@ -21,13 +21,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-"""Telegram alerts for swing setups — text first, chart snapshot second.
-Chart layer is optional: if it fails, the text alert still goes out."""
+"""Telegram alerts for swing setups — text + chart snapshot.
+v4: adds ALL-WEATHER setup alert (half size, DEFENSIVE regime)."""
 import os
 
 
 def send(text):
-    # Primary: existing telegram_alerts (secret file / env)
     try:
         import telegram_alerts
 
@@ -35,7 +34,6 @@ def send(text):
         return True
     except Exception as e:
         print(f"[ALERT] telegram_alerts failed: {e}")
-    # Fallback: env-based
     try:
         import requests
         from dotenv import load_dotenv
@@ -56,6 +54,17 @@ def send(text):
 
 
 def notify_setup(st):
+    try:
+        import fund_veto
+
+        bad, why = fund_veto.vetoed(st.symbol)
+        if bad:
+            send(f"🚫 FUND VETO {st.symbol} — setup suppressed\nreason: {why}\n(not tradeable under fundamental gate)")
+            print(f"[ALERT] {st.symbol} vetoed: {why}")
+            return False
+    except Exception as e:
+        print(f"[ALERT] veto check skipped: {e}")
+
     risk = ((st.entry_price - st.stop_loss) / st.entry_price) * 100 if st.entry_price else 0
     text = (
         f"🏄 NEW SETUP {st.symbol}\n"
@@ -77,6 +86,44 @@ def notify_setup(st):
             telegram_alerts.send_photo(path, caption=f"📊 {st.symbol} setup chart")
     except Exception as e:
         print(f"[ALERT] chart snapshot skipped: {e}")
+    return ok
+
+
+def notify_all_weather(sym, st):
+    """Alert for ALL-WEATHER setups (DEFENSIVE regime, half position size)."""
+    try:
+        import fund_veto
+
+        bad, why = fund_veto.vetoed(sym)
+        if bad:
+            send(f"🚫 AW VETO {sym} — {why}")
+            return False
+    except Exception:
+        pass
+
+    risk = st["risk_pct"] * 100
+    text = (
+        f"🌧️ ALL-WEATHER SETUP {sym}\n"
+        f"Pattern: {st['pattern']}\n"
+        f"Quality: {st.get('tier', 'UNK')}  "
+        f"(fund {st.get('fund_score') or '—'} · "
+        f"roce {st.get('roce') or '—'})\n"
+        f"Trigger  ₹{st['entry']}\n"
+        f"Stop     ₹{st['stop']}\n"
+        f"Target   ₹{st['target']} (2R)\n"
+        f"Risk {risk:.1f}%\n"
+        f"⚠️ DEFENSIVE regime — use HALF position size"
+    )
+    ok = send(text)
+    try:
+        import chart_img
+        import telegram_alerts
+
+        path = chart_img.render(sym, setup={"trigger": st["entry"], "stop": st["stop"], "target": st["target"]})
+        if path:
+            telegram_alerts.send_photo(path, caption=f"📊 {sym} ALL-WEATHER chart")
+    except Exception as e:
+        print(f"[ALERT] AW chart skipped: {e}")
     return ok
 
 

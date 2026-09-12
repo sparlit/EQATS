@@ -21,16 +21,26 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+"""
+Fundamentals fetcher (canonical) — TradingView India scanner.
+Free, no auth, batch fetch. Fills the `fundamentals` table.
+
+v2 (2026-09-12): canonical fetcher, uses log_utils, retries with backoff,
+batch commits, fills sector from stocks table.
+"""
 import datetime as dt
-import json
 import sys
 import time
 
 import db
 import requests
+from log_utils import get_logger
+
+log = get_logger("fundamentals")
 
 URL = "https://scanner.tradingview.com/india/scan"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+BATCH_SIZE = 100
 
 COLUMNS = [
     "name",
@@ -50,39 +60,68 @@ COLUMNS = [
 ]
 
 
-def fetch_batch(tickers):
+def _fetch_batch(tickers, retries=3):
     body = {"symbols": {"tickers": tickers}, "columns": COLUMNS}
-    r = requests.post(URL, headers=HEADERS, json=body, timeout=30)
-    r.raise_for_status()
-    return r.json().get("data", [])
+    last_err = None
+    for attempt in range(retries):
+        try:
+            r = requests.post(URL, headers=HEADERS, json=body, timeout=30)
+            r.raise_for_status()
+            return r.json().get("data", [])
+        except Exception as e:
+            last_err = e
+            wait = 2 * (attempt + 1)
+            log.warning(f"batch failed (attempt {attempt + 1}/{retries}): {e}; retrying in {wait}s")
+            time.sleep(wait)
+    log.error(f"batch failed permanently: {last_err}")
+    return []
 
 
-def run():
+def _sector_map(conn):
+    out = {}
+    for s, sec in conn.execute("SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL"):
+        out[s] = sec
+    return out
+
+
+def _upsert(conn, row):
+    conn.execute("INSERT OR REPLACE INTO fundamentals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row)
+
+
+def run(limit=None):
     conn = db.get_conn()
     symbols = [r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1 ORDER BY symbol")]
+    if limit:
+        symbols = symbols[:limit]
+    total = len(symbols)
+    log.info(f"fundamentals fetch: {total} symbols, batch={BATCH_SIZE}")
+
+    sectors = _sector_map(conn)
     now = "tv:" + dt.datetime.now().isoformat()
     saved = 0
-    for b in range(0, len(symbols), 100):
-        batch = symbols[b : b + 100]
-        try:
-            data = fetch_batch(["NSE:" + s for s in batch])
-        except Exception as e:
-            print(f"batch {b // 100 + 1} failed: {e}")
-            time.sleep(5)
+    ok_batches = 0
+    failed_batches = 0
+
+    for b in range(0, total, BATCH_SIZE):
+        batch = symbols[b : b + BATCH_SIZE]
+        tickers = ["NSE:" + s for s in batch]
+        data = _fetch_batch(tickers)
+        if not data:
+            failed_batches += 1
             continue
+        ok_batches += 1
         for item in data:
             sym = item["s"].replace("NSE:", "")
             d = item["d"]
             m = dict(zip(COLUMNS, d, strict=False))
             mcap = m.get("market_cap_basic")
             de = m.get("debt_to_equity_fq")
-            conn.execute("DELETE FROM fundamentals WHERE symbol=?", (sym,))
-            conn.execute(
-                "INSERT INTO fundamentals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            _upsert(
+                conn,
                 (
                     sym,
                     m.get("name"),
-                    None,
+                    sectors.get(sym),
                     m.get("close"),
                     None if mcap is None else mcap / 1e7,
                     m.get("price_earnings_ttm"),
@@ -97,31 +136,52 @@ def run():
                     m.get("net_income_growth_fy"),
                     None,
                     None,
-                    None,
+                    None,  # promoter, pledge, fii (not on TV)
                     m.get("dividend_yield_recent"),
-                    None,
+                    None,  # cfo_positive (not on TV)
                     now,
                 ),
             )
             saved += 1
-        print(f"batch {b // 100 + 1}: saved {saved} so far")
-        time.sleep(1)
+        conn.commit()
+        log.info(f"batch {b // BATCH_SIZE + 1}: saved {saved} so far")
 
-    print(f"Total fundamentals saved: {saved}")
-    print("SAMPLE FOR VERIFICATION:")
-    for sym in ["RELIANCE", "TCS", "HDFCBANK"]:
-        r = conn.execute("SELECT * FROM fundamentals WHERE symbol=?", (sym,)).fetchone()
-        if r:
-            print(
-                json.dumps(
-                    dict(zip([c[0] for c in conn.execute("PRAGMA table_info(fundamentals)")], r, strict=False)),
-                    indent=1,
-                    default=str,
-                )
-            )
-    conn.commit()
     conn.close()
+    log.info(f"fundamentals fetch complete: saved={saved} batches_ok={ok_batches} batches_failed={failed_batches}")
+    return saved
 
 
-if len(sys.argv) > 1 and sys.argv[1] == "run":
-    run()
+def show(n=10):
+    conn = db.get_conn()
+    rows = conn.execute(
+        "SELECT symbol, name, pe, roce, debt_to_equity, dividend_yield "
+        "FROM fundamentals WHERE uploaded_at LIKE 'tv:%' "
+        "ORDER BY symbol LIMIT ?",
+        (n,),
+    ).fetchall()
+    conn.close()
+    log.info(f"sample rows from fundamentals ({len(rows)}):")
+    for r in rows:
+        log.info(f"  {r}")
+
+
+def count():
+    conn = db.get_conn()
+    n = conn.execute("SELECT COUNT(*) FROM fundamentals WHERE uploaded_at LIKE 'tv:%'").fetchone()[0]
+    conn.close()
+    log.info(f"fundamentals rows tagged 'tv:': {n}")
+    return n
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
+    if cmd == "run":
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else None
+        run(limit=n)
+        count()
+    elif cmd == "sample":
+        run(limit=5)
+        show()
+    elif cmd == "show":
+        show()
+        count()
