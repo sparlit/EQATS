@@ -1,0 +1,5 @@
+{
+  "source": "yfinance:earnings",
+  "status": "missing",
+  "error": "No upcoming earnings date from yfinance"
+}

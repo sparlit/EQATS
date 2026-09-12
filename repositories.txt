@@ -96,7 +96,6 @@ chulilee/interchangabletrade-protocol
 clayborninconsistent906/indian-stock-market-api
 codegallivant/nse-ohlc-scraper-plotter
 conteurshadow/polymarket-trading-bot-rust
-crazygirl437/hyper-grid
 crypto-crawler/coinsignal
 cutupdev/solana-copytrading-bot
 cyberomin/nsefinance-python
@@ -409,3 +408,4 @@ yongkangc/lighter-rust
 yswa-var/rrg
 yusuf4030/the-data-analyst-toolkit
 yutiansut/qaaccount-rs
+Gercucho/Python-MT5-Hydra-Comander

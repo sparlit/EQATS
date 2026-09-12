@@ -8,4 +8,3 @@ cdef extern from "numpy/arrayobject.h":
     pass
 cdef extern from "numpy/arrayscalars.h":
     pass
-
