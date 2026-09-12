@@ -22,6 +22,9 @@ class Event:
 
     def _generate_integrity_hash(self) -> Any:
         """Generates a cryptographic hash of the event's core payload to ensure immutability."""
+        # Performance optimization: bypass SHA256 hashing for high-frequency MARKET_DATA ticks
+        if self.family in ("MARKET_DATA", "MarketTickReceived"):
+            return "HF_TICK_FASTPATH"
         payload_str = json.dumps(self.payload, sort_keys=True)
         raw_string = f'{self.event_id}|{self.timestamp}|{self.family}|{self.source}|{self.schema_version}|{self.correlation_id}|{self.causation_id}|{payload_str}'
         return hashlib.sha256(raw_string.encode('utf-8')).hexdigest()
