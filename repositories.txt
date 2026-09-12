@@ -69,6 +69,7 @@ barathgb007/nse-options-data-collector
 barathgb007/upstox-python-data
 barter-rs/barter-rs
 beinghorizontal/bhavfno
+benimward9621/advanced-nse-momentum-terminal
 bennythadikaran/eod2
 bennythadikaran/eod2_data
 bennythadikaran/nseindiaapi
