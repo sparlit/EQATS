@@ -2,7 +2,8 @@
 NSE System Multi-Factor & Market Regime Gatekeeper Engine
 =========================================================
 Adapts composite fundamental/technical scoring, market regime benchmark gatekeeper,
-sector momentum ranking, and institutional accumulation tracking from `ankitchaudhary6886/nse-system`.
+sector momentum ranking, dynamic volatility regime position sizing (INDIA VIX / ATR),
+and institutional accumulation tracking from `ankitchaudhary6886/nse-system`.
 
 Magic Number: 9100040
 """
@@ -49,14 +50,47 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class NSESystemEngine:
     """
-    NSE System Multi-Factor Composite Scoring & Top-Down Market Regime Gatekeeper.
-    Evaluates benchmark index EMA(10) regime trend, ranks sector relative strength, and
-    calculates composite fundamental/technical scores for stock selection.
+    NSE System Multi-Factor Composite Scoring, Top-Down Market Regime Gatekeeper,
+    and Dynamic Volatility Regime Position Sizer.
     """
 
     def __init__(self, top_n_sectors: int = 3) -> None:
         self.top_n_sectors = top_n_sectors
         self.magic_number = MAGIC_NUMBER_NSE_SYSTEM
+
+    def calculate_volatility_adjusted_position_size(
+        self, base_quantity: int, india_vix: float = 15.0, atr: float = 10.0, price: float = 500.0
+    ) -> Dict[str, Any]:
+        """
+        Dynamically adjusts position size based on INDIA VIX & Average True Range (ATR).
+        When VIX > 22 or ATR/Price > 3%, scales down quantity to reduce drawdown risk during high volatility.
+        """
+        if base_quantity <= 0 or price <= 0:
+            return {"adjusted_quantity": 0, "volatility_multiplier": 0.0, "regime": "HIGH_RISK_HALT"}
+
+        atr_pct = (atr / price) * 100.0 if price > 0 else 0.0
+
+        if india_vix >= 25.0 or atr_pct >= 4.0:
+            multiplier = 0.50
+            regime = "HIGH_VOLATILITY_DEFENSIVE"
+        elif india_vix >= 20.0 or atr_pct >= 2.5:
+            multiplier = 0.75
+            regime = "MODERATE_VOLATILITY"
+        else:
+            multiplier = 1.00
+            regime = "LOW_VOLATILITY_NORMAL"
+
+        adjusted_quantity = max(1, int(round(base_quantity * multiplier)))
+
+        return {
+            "base_quantity": base_quantity,
+            "adjusted_quantity": adjusted_quantity,
+            "volatility_multiplier": multiplier,
+            "india_vix": india_vix,
+            "atr_pct": round(atr_pct, 2),
+            "regime": regime,
+            "magic_number": self.magic_number,
+        }
 
     def evaluate_market_regime(
         self, benchmark_close: float, benchmark_ema10: float
@@ -73,22 +107,14 @@ class NSESystemEngine:
         }
 
     def compute_composite_score(self, metrics: Dict[str, float]) -> float:
-        """
-        Calculates composite score (0 to 100) based on ROCE, Profit Growth, PE vs Sector PE ratio,
-        and technical momentum.
-        """
         roce = metrics.get("roce", 10.0)
         profit_growth = metrics.get("profit_growth", 10.0)
-        pe_ratio = metrics.get("pe_ratio", 1.0)  # Stock PE / Sector PE
+        pe_ratio = metrics.get("pe_ratio", 1.0)
         rsi = metrics.get("rsi", 50.0)
 
-        # ROCE Score (0-30 pts)
         roce_score = min(30.0, max(0.0, (roce / 30.0) * 30.0))
-        # Profit Growth Score (0-30 pts)
         profit_score = min(30.0, max(0.0, (profit_growth / 25.0) * 30.0))
-        # PE Valuation Score (0-20 pts: lower ratio is better)
         pe_score = min(20.0, max(0.0, (2.0 - min(2.0, pe_ratio)) * 10.0))
-        # Technical RSI Score (0-20 pts: optimal range 50-70)
         rsi_score = min(20.0, max(0.0, (20.0 - abs(60.0 - rsi))))
 
         return round(roce_score + profit_score + pe_score + rsi_score, 2)
@@ -99,9 +125,6 @@ class NSESystemEngine:
         regime_bullish: bool = True,
         allowed_sectors: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Scans stock universe and filters top picks using market regime and sector momentum gatekeepers.
-        """
         if not regime_bullish:
             logger.info("Market regime is bearish. Blocking new long trade entries.")
             return []
@@ -132,10 +155,6 @@ class NSESystemEngine:
 
 
 class NSESystemBrokerAdapter(SEBIBrokerAdapter):
-    """
-    Broker Adapter plugin for NSE System Multi-Factor Engine.
-    """
-
     def __init__(self, broker_name: str = "NSESystemBroker") -> None:
         super().__init__()
         self.broker_name = broker_name
@@ -228,5 +247,4 @@ class NSESystemBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register plugin in IndianBrokerPluginRegistry on import
 IndianBrokerPluginRegistry.register("NSE_SYSTEM", NSESystemBrokerAdapter)
