@@ -23,7 +23,21 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-def main() -> None:
-    """Tool entrypoint for data fetch operations."""
-    msg = "Use data.fetcher.fetch_symbol_history directly."
-    raise NotImplementedError(msg)
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+def append_trade_log(trade: dict[str, Any]) -> None:
+    """Persist a trade journal entry to storage."""
+    from storage.db import append_trade
+
+    append_trade(trade)
+
+
+def load_trade_journal(limit: int = 100) -> pd.DataFrame:
+    """Load the trade journal as a DataFrame."""
+    from storage.db import get_trades_df
+
+    return get_trades_df(limit=limit)
