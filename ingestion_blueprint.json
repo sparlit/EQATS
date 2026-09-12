@@ -1,5 +1,5 @@
 {
-  "current_index": 23,
+  "current_index": 22,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -101,7 +101,7 @@
       "name": "nsepython",
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
-      "status": "Completed",
+      "status": "Processed",
       "pr_url": null,
       "merged": true
     },
@@ -181,9 +181,9 @@
       "name": "get-nse-bhavcopy",
       "target": "akshayraje/get-nse-bhavcopy",
       "url": "https://github.com/akshayraje/get-nse-bhavcopy",
-      "status": "Processed",
+      "status": "pending",
       "pr_url": null,
-      "merged": true
+      "merged": false
     },
     {
       "name": "indian-stock-tracker",
