@@ -215,10 +215,61 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   created_at TEXT, source TEXT, symbol TEXT, kind TEXT,
   price REAL, payload TEXT
 );
+
+-- ============================================================
+-- Research cache
+-- ============================================================
+CREATE TABLE IF NOT EXISTS research_cache (
+  symbol TEXT PRIMARY KEY, computed_at TEXT, payload TEXT
+);
+
+-- ============================================================
+-- Strategy runs
+-- ============================================================
+CREATE TABLE IF NOT EXISTS strategy_runs (
+  run_at TEXT PRIMARY KEY, target_r REAL, years REAL,
+  symbols INTEGER, max_pos INTEGER, trades INTEGER,
+  wins INTEGER, losses INTEGER, win_rate REAL,
+  avg_win REAL, avg_loss REAL, expectancy_r REAL,
+  pf REAL, total_return REAL, max_dd REAL,
+  holding_days REAL, verdict TEXT, payload TEXT
+);
 """
+
+
+# Column migrations. Each is (table, column, type). Applied idempotently
+# after SCHEMA, so existing DBs get new columns on next connection.
+MIGRATIONS = [
+    # Fundamentals — added 2026-09-12 to store TV fields we discovered
+    # in the probe (they exist even for symbols without a full report).
+    ("fundamentals", "beta_1y", "REAL"),
+    ("fundamentals", "eps_fy", "REAL"),
+    ("fundamentals", "book_value", "REAL"),
+    ("fundamentals", "ev_ebitda", "REAL"),
+    ("fundamentals", "fcf_fy", "REAL"),
+    ("fundamentals", "net_debt_fy", "REAL"),
+    ("fundamentals", "data_source", "TEXT"),
+]
+
+
+def _migrate(conn):
+    """Apply column additions idempotently. Safe on every connection."""
+    try:
+        for table, col, typ in MIGRATIONS:
+            try:
+                existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+                if col not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+            except Exception:
+                # Table may not exist yet on first run; SCHEMA just made it.
+                pass
+        conn.commit()
+    except Exception:
+        pass
 
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn

@@ -23,14 +23,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """
 Long-Term Value Radar — quality names in downturns, for accumulation.
-Authorized 2026-09-12 (Feature B).
-
-Finds stocks that are:
-  - Quality: high ROCE, low debt, promoter skin, positive cash flow
-  - Cheap:   >= 25% below 52w high AND PE below sector median
-
-Independent of swing system. Runs weekly. Alerts via Telegram.
-Stored in value_radar table.
+Authorized 2026-09-12 (Feature B). v3 (2026-09-12): uses canonical
+universe_helper for symbol list (ID7 consolidation).
 """
 import datetime as dt
 import json
@@ -38,32 +32,50 @@ import statistics
 import sys
 
 import db
+from universe_helper import band_universe
 
 
-# ---------- quality ----------
 def _quality_score(row):
-    """row = dict of fundamentals columns. Returns (score 0-100, notes)."""
     score = 0
     notes = []
-    if row.get("roce") is not None and row["roce"] >= 15:
-        score += 30
-        notes.append(f"ROCE {row['roce']:.0f}")
-    if row.get("debt_to_equity") is not None and row["debt_to_equity"] <= 1.0:
-        score += 20
-        notes.append(f"D/E {row['debt_to_equity']:.2f}")
-    if row.get("promoter_holding") is not None and row["promoter_holding"] >= 40:
-        score += 20
-        notes.append(f"Prom {row['promoter_holding']:.0f}%")
+    roce = row.get("roce")
+    if roce is not None:
+        if roce >= 15:
+            score += 30
+            notes.append(f"ROCE {roce:.0f}")
+        elif roce >= 10:
+            score += 15
+            notes.append(f"ROCE {roce:.0f}")
+    de = row.get("debt_to_equity")
+    if de is not None:
+        if de <= 1.0:
+            score += 20
+            notes.append(f"D/E {de:.2f}")
+        elif de <= 2.0:
+            score += 10
+            notes.append(f"D/E {de:.2f}")
+    prom = row.get("promoter_holding")
+    if prom is not None:
+        if prom >= 40:
+            score += 20
+            notes.append(f"Prom {prom:.0f}%")
+        elif prom >= 25:
+            score += 10
+            notes.append(f"Prom {prom:.0f}%")
     if row.get("cfo_positive") == 1:
         score += 15
         notes.append("CFO+")
-    if row.get("profit_growth_3y") is not None and row["profit_growth_3y"] >= 15:
-        score += 15
-        notes.append(f"Profit3Y {row['profit_growth_3y']:.0f}%")
+    pg = row.get("profit_growth_3y")
+    if pg is not None:
+        if pg >= 15:
+            score += 15
+            notes.append(f"Profit3Y {pg:.0f}%")
+        elif pg >= 8:
+            score += 8
+            notes.append(f"Profit3Y {pg:.0f}%")
     return score, notes
 
 
-# ---------- value ----------
 def _value_score(last, hi52, pe, sector_median_pe):
     score = 0
     notes = []
@@ -86,7 +98,6 @@ def _value_score(last, hi52, pe, sector_median_pe):
     return score, notes
 
 
-# ---------- sector medians ----------
 def _sector_pe_medians(conn):
     rows = conn.execute(
         "SELECT s.sector, f.pe FROM fundamentals f "
@@ -111,7 +122,7 @@ def _ensure(conn):
     """)
 
 
-def compute(conn=None, limit=700):
+def compute(conn=None, limit=1500):
     own = conn is None
     if own:
         conn = db.get_conn()
@@ -122,16 +133,7 @@ def compute(conn=None, limit=700):
     fund_cols = [r[1] for r in conn.execute("PRAGMA table_info(fundamentals)")]
     has_fund = bool(fund_cols)
 
-    syms = [
-        r[0]
-        for r in conn.execute(
-            "SELECT symbol FROM universe_broad "
-            "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-            "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-            "ORDER BY mcap_cr DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-    ]
+    syms = band_universe(conn, limit=limit)
 
     rows_out = []
     for sym in syms:
@@ -142,7 +144,6 @@ def compute(conn=None, limit=700):
             continue
         prows = list(reversed(prows))
         highs = [r[0] for r in prows if r[0] is not None]
-        [r[1] for r in prows if r[1] is not None]
         if len(highs) < 200:
             continue
         hi52 = max(highs[-252:])
@@ -166,15 +167,14 @@ def compute(conn=None, limit=700):
         sec_med = sector_med.get(sector)
         v_score, v_notes = _value_score(last, hi52, pe, sec_med)
 
-        # value is mandatory; quality is a bonus
         below = (hi52 - last) / hi52 if hi52 else 0
         if below < 0.25:
             continue
         composite = round(0.6 * v_score + 0.4 * q_score, 1)
 
-        if q_score >= 60 and v_score >= 60:
+        if q_score >= 50 and v_score >= 60:
             tier = "A"
-        elif composite >= 100:
+        elif composite >= 80:
             tier = "B"
         else:
             tier = "C"
@@ -197,7 +197,7 @@ def compute(conn=None, limit=700):
         )
 
     rows_out.sort(key=lambda r: -r["composite"])
-    rows_out = rows_out[:50]
+    rows_out = rows_out[:75]
 
     conn.execute("DELETE FROM value_radar WHERE date=?", (today,))
     for r in rows_out:
@@ -297,9 +297,9 @@ def report(n=25, send_tg=True):
         )
     if send_tg:
         try:
-            import telegram_alerts
+            from alerts import send
 
-            telegram_alerts.send(_fmt_tg(rows))
+            send(_fmt_tg(rows))
             print("[VR] telegram sent")
         except Exception as e:
             print(f"[VR] telegram skipped: {e}")
@@ -307,8 +307,6 @@ def report(n=25, send_tg=True):
 
 
 if __name__ == "__main__":
-    import sys
-
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
     if cmd == "run":
         compute()
