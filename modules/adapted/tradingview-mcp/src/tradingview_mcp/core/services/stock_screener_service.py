@@ -118,7 +118,7 @@ def _clean(value: Any) -> Any:
         if value != value:  # noqa: PLR0124 — NaN is the only x != x
             return None
     except Exception:
-        pass
+        return None
     return value
 
 
