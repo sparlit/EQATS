@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 23
+Total Repositories: 411 | Current Index: 21
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -24,8 +24,8 @@ Total Repositories: 411 | Current Index: 23
 | 19 | ajeeshworkspace/indian-trading-skills | Completed | None |
 | 20 | akashnag/scripwatch | Completed | None |
 | 21 | akashyadavv/algotradingnse | Processed | None |
-| 22 | akshaypawar7/wods | Processed | None |
-| 23 | akshayraje/get-nse-bhavcopy | Processed | None |
+| 22 | akshaypawar7/wods | pending | None |
+| 23 | akshayraje/get-nse-bhavcopy | pending | None |
 | 24 | akshayz14/indian-stock-tracker | pending | None |
 | 25 | akt114/buynsell | pending | None |
 | 26 | alexwan/osengine | pending | None |

@@ -1,5 +1,5 @@
 {
-  "current_index": 23,
+  "current_index": 21,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -173,17 +173,17 @@
       "name": "wods",
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
-      "status": "Processed",
+      "status": "pending",
       "pr_url": null,
-      "merged": true
+      "merged": false
     },
     {
       "name": "get-nse-bhavcopy",
       "target": "akshayraje/get-nse-bhavcopy",
       "url": "https://github.com/akshayraje/get-nse-bhavcopy",
-      "status": "Processed",
+      "status": "pending",
       "pr_url": null,
-      "merged": true
+      "merged": false
     },
     {
       "name": "indian-stock-tracker",
