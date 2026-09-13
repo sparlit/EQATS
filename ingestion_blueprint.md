@@ -15,7 +15,7 @@ Total Repositories: 411 | Current Index: 36
 | 10 | abuhurairalakdawala/indian-share-market | Processed | None |
 | 11 | adavarski/devsecops-full-integration-chain | Completed | None |
 | 12 | adityazerodha/holiday-calendar.github.io | Processed | None |
-| 13 | aeron7/nsepython | Processed | None |
+| 13 | aeron7/nsepython | Completed | None |
 | 14 | aeron7/nsepythonserver | Processed | None |
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | None |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | None |
@@ -33,7 +33,7 @@ Total Repositories: 411 | Current Index: 36
 | 28 | alloc7260/nse | Processed | None |
 | 29 | alphabench/raptorbt | Completed | None |
 | 30 | althk/zerobha | Completed | None |
-| 31 | ameobea/tickgrinder | Processed | None |
+| 31 | ameobea/tickgrinder | Completed | None |
 | 32 | amitashwinibhagat/nse-swing-scanner | Completed | None |
 | 33 | amv-dev/yata | Processed | None |
 | 34 | aneesh540/vse | Processed | None |
