@@ -1,5 +1,5 @@
 {
-  "current_index": 69,
+  "current_index": 70,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -557,9 +557,9 @@
       "name": "barter-rs",
       "target": "barter-rs/barter-rs",
       "url": "https://github.com/barter-rs/barter-rs",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "bhavfno",
