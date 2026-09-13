@@ -155,7 +155,7 @@ def compare(symbols, max_n=4):
                     r["live_stop"] = cs_setup.get("stop")
                     r["live_mother"] = cs_setup.get("mother_type")
         except Exception:
-            pass
+            return None
 
         rows.append(r)
 

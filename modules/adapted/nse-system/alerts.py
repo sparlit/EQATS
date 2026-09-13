@@ -120,7 +120,7 @@ def report():
             if sw:
                 lines.append("SWING: " + ", ".join(f"{k}={v}" for k, v in sw))
         except Exception:
-            pass
+            return
         send("\n".join(lines))
     except Exception as e:
         print(f"[ALERTS] report failed: {e}")
@@ -174,7 +174,7 @@ def notify_all_weather(sym, st):
             send(f"🚫 AW VETO {sym} — {why}")
             return False
     except Exception:
-        pass
+        return None
 
     risk = st["risk_pct"] * 100
     text = (

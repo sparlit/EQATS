@@ -40,7 +40,6 @@ Usage:
   python delivery.py accum [N]            -> show accumulation candidates
   python delivery.py symbol SYMBOL        -> delivery history for symbol
 """
-import contextlib
 import csv
 import datetime as dt
 import io
@@ -83,8 +82,10 @@ def _session():
         raise ImportError(msg)
     s = requests.Session()
     s.headers.update(HEADERS)
-    with contextlib.suppress(Exception):
+    try:
         s.get("https://www.nseindia.com/", timeout=10)
+    except Exception:
+        return None
     return s
 
 

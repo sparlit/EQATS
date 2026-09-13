@@ -45,7 +45,7 @@ def get_capital(conn=None):
         if r and r[0]:
             cap = float(r[0])
     except Exception:
-        pass
+        return None
     if own:
         conn.close()
     return cap
@@ -68,7 +68,7 @@ def _system_winrate(conn):
         if w + l >= 10:
             return round(w / (w + l), 3)
     except Exception:
-        pass
+        return None
     return None
 
 
@@ -120,7 +120,7 @@ def suggest(symbol, trigger=None, stop=None, capital=None, shape_score=None, con
         if symbol in pw:
             w, src = pw[symbol], "meta-model (daily cache)"
     except Exception:
-        pass
+        return None
     if w is None:
         wr = _system_winrate(conn)
         if wr is not None:

@@ -262,10 +262,10 @@ def _migrate(conn):
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
             except Exception:
                 # Table may not exist yet on first run; SCHEMA just made it.
-                pass
+                return
         conn.commit()
     except Exception:
-        pass
+        return
 
 
 def get_conn():
