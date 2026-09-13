@@ -1,5 +1,5 @@
 {
-  "current_index": 35,
+  "current_index": 36,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -101,7 +101,7 @@
       "name": "nsepython",
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
-      "status": "Completed",
+      "status": "Processed",
       "pr_url": null,
       "merged": true
     },
@@ -245,7 +245,7 @@
       "name": "tickgrinder",
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
-      "status": "Completed",
+      "status": "Processed",
       "pr_url": null,
       "merged": true
     },
@@ -285,9 +285,9 @@
       "name": "nsetradeagents",
       "target": "aniruddhsujish/nsetradeagents",
       "url": "https://github.com/aniruddhsujish/nsetradeagents",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "sharewatch",
