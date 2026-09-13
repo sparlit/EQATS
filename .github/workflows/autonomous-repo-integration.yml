@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '*/30 * * * *' # Runs every 30 minutes continuously
+    - cron: '*/15 * * * *' # Accelerate automation loop to every 15 minutes
   workflow_dispatch:
 
 permissions:
