@@ -1,228 +1,2951 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="5" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Scalper Brain Live Dashboard</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQATS Institutional Integration Dashboard</title>
     <style>
-      body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #0f172a;
-        color: #f1f5f9;
-        margin: 0;
-        padding: 20px;
-      }
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 2px solid #1e293b;
-        padding-bottom: 20px;
-        margin-bottom: 25px;
-      }
-      h1 {
-        margin: 0;
-        font-size: 24px;
-        color: #38bdf8;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .badge {
-        background-color: #22c55e;
-        color: #ffffff;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        font-size: 12px;
-        font-weight: bold;
-      }
-      .badge.sim {
-        background-color: #eab308;
-      }
-      .metrics-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 15px;
-        margin-bottom: 25px;
-      }
-      .card {
-        background-color: #1e293b;
-        border-radius: 8px;
-        padding: 15px 20px;
-        border: 1px solid #334155;
-      }
-      .card-label {
-        font-size: 13px;
-        color: #94a3b8;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 5px;
-      }
-      .card-val {
-        font-size: 24px;
-        font-weight: bold;
-        color: #f8fafc;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background-color: #1e293b;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid #334155;
-        margin-bottom: 25px;
-      }
-      th,
-      td {
-        padding: 12px 15px;
-        text-align: left;
-        border-bottom: 1px solid #334155;
-      }
-      th {
-        background-color: #0f172a;
-        color: #38bdf8;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      tr:last-child td {
-        border-bottom: none;
-      }
-      .status-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: bold;
-        text-transform: uppercase;
-      }
-      .status-badge.hold {
-        background-color: #475569;
-        color: #cbd5e1;
-      }
-      .status-badge.active {
-        background-color: #1d4ed8;
-        color: #ffffff;
-      }
-      .status-badge.buy {
-        background-color: #15803d;
-        color: #ffffff;
-      }
-      .status-badge.sell {
-        background-color: #b91c1c;
-        color: #ffffff;
-      }
-      .time-text {
-        font-size: 12px;
-        color: #64748b;
-        text-align: right;
-        margin-top: 10px;
-      }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #0d1117; color: #c9d1d9; margin: 0; padding: 24px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding-bottom: 16px; margin-bottom: 24px; }
+        .title { font-size: 24px; font-weight: bold; color: #58a6ff; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+        .stat-val { font-size: 28px; font-weight: bold; margin-top: 8px; }
+        .val-total { color: #58a6ff; }
+        .val-completed { color: #3fb950; }
+        .val-skipped { color: #d29922; }
+        .val-pending { color: #8b949e; }
+        .progress-bar-bg { background: #21262d; border-radius: 8px; height: 16px; width: 100%; overflow: hidden; margin-bottom: 24px; }
+        .progress-bar-fill { background: linear-gradient(90deg, #238636, #2ea043); height: 100%; width: 0.0%; transition: width 0.3s ease; }
+        table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 8px; overflow: hidden; border: 1px solid #30363d; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #30363d; font-size: 14px; }
+        th { background: #21262d; color: #8b949e; }
+        .status-completed { color: #3fb950; font-weight: bold; }
+        .status-skipped { color: #d29922; }
+        .status-pending { color: #8b949e; }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container">
-      <header>
-        <h1>🤖 SCALPER BRAIN <span class="badge sim">SIMULATION MODE</span></h1>
-        <div
-          style="
-            text-align: right;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            align-items: flex-end;
-          "
-        >
-          <span
-            class="status-badge active"
-            style="
-              background-color: #00ff00;
-              color: #000000;
-              font-family: monospace;
-              font-weight: bold;
-            "
-            >[ACTIVE] Crypto Markets</span
-          >
-          <span
-            class="status-badge hold"
-            style="
-              background-color: #555555;
-              color: #ffffff;
-              font-family: monospace;
-              font-weight: bold;
-            "
-            >[CLOSED <= 4H] None</span
-          >
-          <span
-            class="status-badge active"
-            style="
-              background-color: #ff9900;
-              color: #000000;
-              font-family: monospace;
-              font-weight: bold;
-            "
-            >[UPCOMING] None</span
-          >
+        <div class="header">
+            <div class="title">🚀 EQATS Institutional Integration Dashboard</div>
+            <div>Progress Pointer: <strong>0 / 411</strong></div>
         </div>
-      </header>
 
-      <div class="metrics-grid">
-        <div class="card">
-          <div class="card-label">Account Balance</div>
-          <div class="card-val">$10,000.00 USD</div>
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill"></div>
         </div>
-        <div class="card">
-          <div class="card-label">Account Equity</div>
-          <div class="card-val" style="color: #38bdf8">$10,000.00 USD</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Open Positions</div>
-          <div class="card-val">0 / 3</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Active Market Session</div>
-          <div class="card-val" style="color: #eab308; font-size: 20px">
-            Crypto Weekend Session (24/7)
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-label">Brain Performance Analytics</div>
-          <div class="card-val" style="font-size: 15px; color: #38bdf8">
-            Win Rate: 0.0% | Net Profit: 0.00 USD (0 Trades)
-          </div>
-        </div>
-      </div>
 
-      <h2 style="font-size: 18px; color: #38bdf8; margin-bottom: 15px">
-        🔍 Multi-Asset Cognitive Scan Summary
-      </h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Symbol</th>
-            <th>Current Price</th>
-            <th>EMA-200 (Trend)</th>
-            <th>Trend Bias</th>
-            <th>RSI Index</th>
-            <th>ATR Volatility</th>
-            <th>Input Weights (Avg)</th>
-            <th>Output Weights (Avg)</th>
-            <th>Neurons Activations</th>
-            <th>Current Status</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>Total Repositories</div>
+                <div class="stat-val val-total">411</div>
+            </div>
+            <div class="stat-card">
+                <div>Completed Integrations</div>
+                <div class="stat-val val-completed">0</div>
+            </div>
+            <div class="stat-card">
+                <div>Skipped / Non-Existent</div>
+                <div class="stat-val val-skipped">0</div>
+            </div>
+            <div class="stat-card">
+                <div>Pending Queue</div>
+                <div class="stat-val val-pending">411</div>
+            </div>
+        </div>
 
-      <div class="time-text">
-        Last Updated: 2026-08-22 01:05:58 (Dashboard auto-refreshes every 5
-        seconds)
-      </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Target Repository</th>
+                    <th>Status</th>
+                    <th>PR Link</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td>1</td>
+                    <td><strong>0b01/tectonicdb</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>2</td>
+                    <td><strong>0xnosystem/hyperliquid_rust_bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>3</td>
+                    <td><strong>0xramm/indian-stock-market-api</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>4</td>
+                    <td><strong>0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>5</td>
+                    <td><strong>0xtan1319/hyperliquid-trading-bot-rust</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>6</td>
+                    <td><strong>85599/banknifty-golden-ratio-strategy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>7</td>
+                    <td><strong>aadityatamrakar/option_chain_analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>8</td>
+                    <td><strong>aaryansinha16/ai-trader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>9</td>
+                    <td><strong>abhiwalia15/ai-for-finance-stocks-real-time-analysis-</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>10</td>
+                    <td><strong>abuhurairalakdawala/indian-share-market</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>11</td>
+                    <td><strong>adavarski/devsecops-full-integration-chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>12</td>
+                    <td><strong>adityazerodha/holiday-calendar.github.io</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>13</td>
+                    <td><strong>aeron7/nsepython</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>14</td>
+                    <td><strong>aeron7/nsepythonserver</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>15</td>
+                    <td><strong>affaan-m/dprc-autotrader-v2</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>16</td>
+                    <td><strong>agrawalarnav129-ui/jarvis-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>17</td>
+                    <td><strong>ai4finance-foundation/finrl-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>18</td>
+                    <td><strong>ajakaiye33/ngrcoydisclosures</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>19</td>
+                    <td><strong>ajeeshworkspace/indian-trading-skills</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>20</td>
+                    <td><strong>akashnag/scripwatch</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>21</td>
+                    <td><strong>akashyadavv/algotradingnse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>22</td>
+                    <td><strong>akshaypawar7/wods</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>23</td>
+                    <td><strong>akshayraje/get-nse-bhavcopy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>24</td>
+                    <td><strong>akshayz14/indian-stock-tracker</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>25</td>
+                    <td><strong>akt114/buynsell</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>26</td>
+                    <td><strong>alexwan/osengine</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>27</td>
+                    <td><strong>algotrading-lab/ai-algotrading-agent</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>28</td>
+                    <td><strong>alloc7260/nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>29</td>
+                    <td><strong>alphabench/raptorbt</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>30</td>
+                    <td><strong>althk/zerobha</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>31</td>
+                    <td><strong>ameobea/tickgrinder</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>32</td>
+                    <td><strong>amitashwinibhagat/nse-swing-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>33</td>
+                    <td><strong>amv-dev/yata</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>34</td>
+                    <td><strong>aneesh540/vse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>35</td>
+                    <td><strong>animesh4002/ai-stock-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>36</td>
+                    <td><strong>aniruddhsujish/nsetradeagents</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>37</td>
+                    <td><strong>anjulgarg/sharewatch</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>38</td>
+                    <td><strong>ankitchaudhary6886/nse-system</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>39</td>
+                    <td><strong>ankitsny/nse_scrapper</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>40</td>
+                    <td><strong>anshulk/nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>41</td>
+                    <td><strong>anshuthopsee/nse-oi-visualizer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>42</td>
+                    <td><strong>anthdm/rust-trading-engine</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>43</td>
+                    <td><strong>anurag-roy/kite-option-chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>44</td>
+                    <td><strong>anurag-roy/shoonya-option-chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>45</td>
+                    <td><strong>api-evangelist/nse-india</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>46</td>
+                    <td><strong>aravin/algo-trade</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>47</td>
+                    <td><strong>aravin/nse-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>48</td>
+                    <td><strong>arishhassan/nse-live_testing</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>49</td>
+                    <td><strong>arvchahal/kalshi-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>50</td>
+                    <td><strong>asavinov/intelligent-trading-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>51</td>
+                    <td><strong>ashayk003/nse-sentiment-analyzer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>52</td>
+                    <td><strong>ashgen/nsedataanalytics</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>53</td>
+                    <td><strong>ashishkumar30/stock_market_live_trading_using_ai</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>54</td>
+                    <td><strong>ashok-kollipara/options-oi</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>55</td>
+                    <td><strong>ashokkumar3502/nse-quant-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>56</td>
+                    <td><strong>ashutosh0x/rust-finance</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>57</td>
+                    <td><strong>ashwanthkumar/live-nse-stock</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>58</td>
+                    <td><strong>athreysethumadhavan-finance/nse-var-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>59</td>
+                    <td><strong>atilaahmettaner/tradingview-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>60</td>
+                    <td><strong>atrybyme/open-interest-nse-live-analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>61</td>
+                    <td><strong>atul-anand-jha/time-series-forecast-nsepy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>62</td>
+                    <td><strong>augmentalphawealth/sectoral-breadth-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>63</td>
+                    <td><strong>avhz/rustquant</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>64</td>
+                    <td><strong>avin1311/nse-bse-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>65</td>
+                    <td><strong>avirichie/nse-closing-stock-price-prediction-using-lstm</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>66</td>
+                    <td><strong>ayushmaanbhav/stockmart</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>67</td>
+                    <td><strong>azhagesan-dev/orderflowmap</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>68</td>
+                    <td><strong>barathgb007/nse-options-data-collector</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>69</td>
+                    <td><strong>barathgb007/upstox-python-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>70</td>
+                    <td><strong>barter-rs/barter-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>71</td>
+                    <td><strong>beinghorizontal/bhavfno</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>72</td>
+                    <td><strong>benimward9621/advanced-nse-momentum-terminal</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>73</td>
+                    <td><strong>bennythadikaran/eod2</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>74</td>
+                    <td><strong>bennythadikaran/eod2_data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>75</td>
+                    <td><strong>bennythadikaran/nseindiaapi</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>76</td>
+                    <td><strong>bhala-srinivash/nse-trading-skills</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>77</td>
+                    <td><strong>bhumi008007/stock_prediction</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>78</td>
+                    <td><strong>bitbytelabio/tradingview-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>79</td>
+                    <td><strong>blitzarx1/netstrat</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>80</td>
+                    <td><strong>bohr1005/xcrypto</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>81</td>
+                    <td><strong>braverock/nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>82</td>
+                    <td><strong>bshada/nse-bse-api</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>83</td>
+                    <td><strong>bshada/nse-bse-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>84</td>
+                    <td><strong>buzzsubash/algo_trading_strategies_india</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>85</td>
+                    <td><strong>c3point/in-stock-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>86</td>
+                    <td><strong>c3point/nse-support-tools</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>87</td>
+                    <td><strong>calumrussell/rotala</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>88</td>
+                    <td><strong>ccxt/ccxt</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>89</td>
+                    <td><strong>chaitanyarahalkar/financial-info-extractor</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>90</td>
+                    <td><strong>chartiny/nse-daily-volatility-reports</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>91</td>
+                    <td><strong>chauhanramkeval-blip/nse-stock-bulk-deals-</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>92</td>
+                    <td><strong>chauhanramkeval-blip/nse-stock-market-bulk-deals-</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>93</td>
+                    <td><strong>chinmayhundekari/nsedatabase</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>94</td>
+                    <td><strong>chinthan-11/nse-bse-arbitrage-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>95</td>
+                    <td><strong>chulilee/interchangabletrade-protocol</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>96</td>
+                    <td><strong>clayborninconsistent906/indian-stock-market-api</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>97</td>
+                    <td><strong>codegallivant/nse-ohlc-scraper-plotter</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>98</td>
+                    <td><strong>conteurshadow/polymarket-trading-bot-rust</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>99</td>
+                    <td><strong>crazygirl437/hyper-grid</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>100</td>
+                    <td><strong>crypto-crawler/coinsignal</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>101</td>
+                    <td><strong>cutupdev/solana-copytrading-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>102</td>
+                    <td><strong>cyberomin/nsefinance-python</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>103</td>
+                    <td><strong>d-e-s-o/apcacli</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>104</td>
+                    <td><strong>dallyshalla/tropix</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>105</td>
+                    <td><strong>day0market/geger</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>106</td>
+                    <td><strong>daydy-dev/moon-dev-ai-agents-for-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>107</td>
+                    <td><strong>debaonline4u/nse-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>108</td>
+                    <td><strong>debopam-d/project-nifty</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>109</td>
+                    <td><strong>deepentropy/ibx</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>110</td>
+                    <td><strong>degenapetrader/evpoly</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>111</td>
+                    <td><strong>degensugarboo/openbook</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>112</td>
+                    <td><strong>deshpanda/nse-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>113</td>
+                    <td><strong>deshpanda/nse-screener-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>114</td>
+                    <td><strong>deshwalmahesh/nse-stock-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>115</td>
+                    <td><strong>devagam/chartink-to-tradingview-extension</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>116</td>
+                    <td><strong>devangmukherjee/top-gainers-and-losers-nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>117</td>
+                    <td><strong>devanshx9x/portfolio-monte-carlo</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>118</td>
+                    <td><strong>dhruvan246/stocks-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>119</td>
+                    <td><strong>dkraj0612/nse-delivery-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>120</td>
+                    <td><strong>dpeachpeach/kalshi-rust</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>121</td>
+                    <td><strong>edison7009/echobird</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>122</td>
+                    <td><strong>edtechre/pybroker</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>123</td>
+                    <td><strong>eggmasonvalue/mtfdb</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>124</td>
+                    <td><strong>ej9909-create/nse_52wk_screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>125</td>
+                    <td><strong>ekanshsinghal/indian-stock-market</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>126</td>
+                    <td><strong>erio-harrison/rust-trade</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>127</td>
+                    <td><strong>featherenvy/botvana</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>128</td>
+                    <td><strong>feroz-ghub-26/nse-sharia-news-feed</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>129</td>
+                    <td><strong>feroze/yfinance-stock-history</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>130</td>
+                    <td><strong>ferozmd53/nse-preopen-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>131</td>
+                    <td><strong>ferrumfix/ferrumfix</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>132</td>
+                    <td><strong>finstacklabs/finstack-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>133</td>
+                    <td><strong>fluidex/dingir-exchange</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>134</td>
+                    <td><strong>gabriel-milan/btrader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>135</td>
+                    <td><strong>gadiyar/nsebhavcopy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>136</td>
+                    <td><strong>ganeshbiyer/nse_historical_data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>137</td>
+                    <td><strong>georgiag7652/kronos-india</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>138</td>
+                    <td><strong>get10101/10101</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>139</td>
+                    <td><strong>ghostjat/shoonya-php</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>140</td>
+                    <td><strong>girishg4t/bhavcopy-downloader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>141</td>
+                    <td><strong>girishg4t/nse-bse-bhavcopy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>142</td>
+                    <td><strong>girishkumardv/live-nse-bse-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>143</td>
+                    <td><strong>gomitechnology-source/nsebank_hft</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>144</td>
+                    <td><strong>groverjikaladka/nse-bse-news-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>145</td>
+                    <td><strong>gurudayal37/nse-data-syncer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>146</td>
+                    <td><strong>harrieronchain/prediction-markets-trading-bot-toolkits</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>147</td>
+                    <td><strong>harshadannina/statistical-arbitrage-model</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>148</td>
+                    <td><strong>hash-it-out/stockchain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>149</td>
+                    <td><strong>hawkeyecoding/nse-oi-analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>150</td>
+                    <td><strong>hemangjoshi37a/trendmaster</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>151</td>
+                    <td><strong>hemenkapadia/getbhavcopy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>152</td>
+                    <td><strong>henry-richard7/nse-tool-stocks-aerial-view</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>153</td>
+                    <td><strong>hermanodecastro/arbitrage-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>154</td>
+                    <td><strong>hgsujay/nsedata</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>155</td>
+                    <td><strong>hi-imcodeman/stock-nse-india</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>156</td>
+                    <td><strong>himanshumohanty-git24/rakshaquant</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>157</td>
+                    <td><strong>hirawatt/bse_nse_announcement</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>158</td>
+                    <td><strong>hmerro3/indian-trading-skills</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>159</td>
+                    <td><strong>hopit-ai/india-trade-cli</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>160</td>
+                    <td><strong>hotessy/nse-historical-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>161</td>
+                    <td><strong>huseinzol05/stock-prediction-models</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>162</td>
+                    <td><strong>hyphenos/tickdownload</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>163</td>
+                    <td><strong>ibm/nse-observer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>164</td>
+                    <td><strong>imanojkumar/nse-india-all-stocks-tickers-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>165</td>
+                    <td><strong>indianfoods-automation/nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>166</td>
+                    <td><strong>indra5196/nsestockanalyser</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>167</td>
+                    <td><strong>infinitefield/hypersdk</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>168</td>
+                    <td><strong>inv2004/coinbase-pro-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>169</td>
+                    <td><strong>ishaan3h/india-sector-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>170</td>
+                    <td><strong>itsnrk1/nse-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>171</td>
+                    <td><strong>jandginvestment/cci20-sma20-strategy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>172</td>
+                    <td><strong>jayeshsrathod/nse-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>173</td>
+                    <td><strong>jensnesten/rust_bt</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>174</td>
+                    <td><strong>jerryshell/midas</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>175</td>
+                    <td><strong>jinit24/nsedownload</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>176</td>
+                    <td><strong>joaquinbejar/optionstratlib</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>177</td>
+                    <td><strong>johnebe2020-trade/nse-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>178</td>
+                    <td><strong>joshiadvait8/nse-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>179</td>
+                    <td><strong>jugaad-py/master-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>180</td>
+                    <td><strong>julien-r44/cli-candlestick-chart</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>181</td>
+                    <td><strong>junbeoml22/trusted</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>182</td>
+                    <td><strong>kalyanm45/marketinsight</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>183</td>
+                    <td><strong>kalyanroyinfo/stock-research-assistant</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>184</td>
+                    <td><strong>karthik002002/stoklore</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>185</td>
+                    <td><strong>kbizme/nsemine</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>186</td>
+                    <td><strong>kenmwaura1/nse-stock-scraper</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>187</td>
+                    <td><strong>khakhasshi/optionworkstation</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>188</td>
+                    <td><strong>kishanlalchoudhary/nse-option-chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>189</td>
+                    <td><strong>kislayykumar/dailyvaultrates</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>190</td>
+                    <td><strong>kkirankumar1511/nse-momentum-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>191</td>
+                    <td><strong>kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>192</td>
+                    <td><strong>kostorub/backtest</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>193</td>
+                    <td><strong>krakenfx/kraken-cli</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>194</td>
+                    <td><strong>kuldeeepy/algo-trader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>195</td>
+                    <td><strong>kwoshvick/nse-stock-price-crawler</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>196</td>
+                    <td><strong>kwoshvick/nse-stock-price-prediction</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>197</td>
+                    <td><strong>kwoshvick/nse_sentiment_analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>198</td>
+                    <td><strong>lakshaysinghal/bhavcopy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>199</td>
+                    <td><strong>laminar-protocol/laminar-chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>200</td>
+                    <td><strong>lavakus/nse-intraday-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>201</td>
+                    <td><strong>lebedov/nseindia_lob</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>202</td>
+                    <td><strong>lebedov/nseindia_reformat</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>203</td>
+                    <td><strong>llc-993/matching-core</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>204</td>
+                    <td><strong>longbridge/longbridge-terminal</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>205</td>
+                    <td><strong>lqz13th/extrema_infra</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>206</td>
+                    <td><strong>maanavshah/stock-market-india</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>207</td>
+                    <td><strong>maheshcharig/financial-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>208</td>
+                    <td><strong>mailbagrahul/nseoptionalpha</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>209</td>
+                    <td><strong>manavgupta83/nse-factor-engine</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>210</td>
+                    <td><strong>mandarl/nsedata</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>211</td>
+                    <td><strong>manddar/open-interest-data-extractor</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>212</td>
+                    <td><strong>manishkr1754/nifty50_data_analysis_nsetools_nsepy_python</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>213</td>
+                    <td><strong>manishn32/option_chain_analyzer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>214</td>
+                    <td><strong>manitgupta/nse-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>215</td>
+                    <td><strong>mapsx/nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>216</td>
+                    <td><strong>marketcalls/openalgo</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>217</td>
+                    <td><strong>marketcalls/openchart</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>218</td>
+                    <td><strong>marketcalls/sector-rotation-map</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>219</td>
+                    <td><strong>mathiswellmann/lfest-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>220</td>
+                    <td><strong>mathiswellmann/trade_aggregation-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>221</td>
+                    <td><strong>maverick14303/stock-news-monitor</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>222</td>
+                    <td><strong>mchsl/tastytrade-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>223</td>
+                    <td><strong>me-imfhd/velocity</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>224</td>
+                    <td><strong>meanalgo/meanalgo.github.io</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>225</td>
+                    <td><strong>mechvec-debug/ai_driven_algorithmic_trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>226</td>
+                    <td><strong>meetnepali/market-platform</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>227</td>
+                    <td><strong>melognestudio/algomln</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>228</td>
+                    <td><strong>meticulouscraftman/tickerstore</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>229</td>
+                    <td><strong>mileswangs/pm-hftbacktest</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>230</td>
+                    <td><strong>mineralres/rust-share</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>231</td>
+                    <td><strong>mkshibu2/breadth-radar</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>232</td>
+                    <td><strong>mlfreerl/pynse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>233</td>
+                    <td><strong>monomadic/rust-trailer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>234</td>
+                    <td><strong>mortdeus/solana-copy-sniper-mev-trading-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>235</td>
+                    <td><strong>mrappipramod/nse-data-analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>236</td>
+                    <td><strong>mrimahajan/nse-market-app</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>237</td>
+                    <td><strong>mrinaljhunjhunwala-ui/nse-smart-investor</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>238</td>
+                    <td><strong>muepsilon/nsemodule</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>239</td>
+                    <td><strong>muokapwambua/nse-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>240</td>
+                    <td><strong>muthuvenki/stock</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>241</td>
+                    <td><strong>mutxri/mutxri-terminal</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>242</td>
+                    <td><strong>nabrahma/shortcircuit</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>243</td>
+                    <td><strong>nagarajugunda/nseindexoptionsdata</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>244</td>
+                    <td><strong>nash-io/openlimits</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>245</td>
+                    <td><strong>nautechsystems/nautilus_trader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>246</td>
+                    <td><strong>nawin383/nse-top500-realtime-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>247</td>
+                    <td><strong>nayakwadis/mftool</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>248</td>
+                    <td><strong>nayakwadis/nse-neuron</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>249</td>
+                    <td><strong>neha01/automate-scrap-nse-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>250</td>
+                    <td><strong>neilghosh/nse-historical-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>251</td>
+                    <td><strong>nethermindeth/hummingboss</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>252</td>
+                    <td><strong>ngm9/nsei_mcp_server</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>253</td>
+                    <td><strong>nickmccullum/algorithmic-trading-python</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>254</td>
+                    <td><strong>ninja-quant/ninjabook</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>255</td>
+                    <td><strong>nirholas/pump-fun-sdk</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>256</td>
+                    <td><strong>nitin-bhawarkar/nse_livedata_from_excel_extraction</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>257</td>
+                    <td><strong>nived15/nse-stock-fetcher</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>258</td>
+                    <td><strong>nkaz001/hftbacktest</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>259</td>
+                    <td><strong>nsedownload/nsedownload</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>260</td>
+                    <td><strong>nvegupta1/securitywisensedata</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>261</td>
+                    <td><strong>omerhalid/trading_engine_rust</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>262</td>
+                    <td><strong>opmashin/nse_eod</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>263</td>
+                    <td><strong>oscmcompany/fund</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>264</td>
+                    <td><strong>p0w/nse_indices</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>265</td>
+                    <td><strong>parmar-m/nse_trader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>266</td>
+                    <td><strong>parthsamani/nsestockf-oalert</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>267</td>
+                    <td><strong>patrick-weiss/portfoliosorts_nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>268</td>
+                    <td><strong>paul-folbrecht/algo-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>269</td>
+                    <td><strong>pawan941394/nse-option-chain---llm-project</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>270</td>
+                    <td><strong>pec-css/stock-watchlist</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>271</td>
+                    <td><strong>perunnial/tickertrackbot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>272</td>
+                    <td><strong>pishangujeniya/kite-helper</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>273</td>
+                    <td><strong>pishangujeniya/nse-stocks-data-scrapper</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>274</td>
+                    <td><strong>pkjmesra/nseta</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>275</td>
+                    <td><strong>pkjmesra/pknsetools</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>276</td>
+                    <td><strong>pkjmesra/pkscreener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>277</td>
+                    <td><strong>pmjangid90/stockmarket_project</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>278</td>
+                    <td><strong>pparesh25/nse_bse_downloader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>279</td>
+                    <td><strong>pradeepjindal/nse-ml-2021</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>280</td>
+                    <td><strong>pradyumnac/excel-tools-indian-stock-market</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>281</td>
+                    <td><strong>pramakrishn/express-option-chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>282</td>
+                    <td><strong>pranjal-joshi/screeni-py</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>283</td>
+                    <td><strong>prasad1612/nsekit-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>284</td>
+                    <td><strong>praveen-mannem/nse-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>285</td>
+                    <td><strong>pujanm/stockx</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>286</td>
+                    <td><strong>purefinance/mmb</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>287</td>
+                    <td><strong>quantconnect/lean.datasource.zerodha</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>288</td>
+                    <td><strong>quantmechanics/nse-premarket-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>289</td>
+                    <td><strong>quantxaashish/nse-alpha</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>290</td>
+                    <td><strong>rachnog/deep-trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>291</td>
+                    <td><strong>rahlumin/nseeod</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>292</td>
+                    <td><strong>rahulghuge94/trading_expiry</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>293</td>
+                    <td><strong>rajaramsrinivas/getnsestockprice</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>294</td>
+                    <td><strong>rajeshkolhe110/nse-clock-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>295</td>
+                    <td><strong>rajeshsivadasan/alice-blue-futures</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>296</td>
+                    <td><strong>rajeshsivadasan/alice-blue-options-buying</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>297</td>
+                    <td><strong>rajmaurya0904/bhav</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>298</td>
+                    <td><strong>ramamet/nse1minr</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>299</td>
+                    <td><strong>ranaroussi/qtpylib</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>300</td>
+                    <td><strong>ratan00/nse-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>301</td>
+                    <td><strong>ratnaker16-bit/brg-zone-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>302</td>
+                    <td><strong>rbhatia46/option-writing-calls-using-open-interest</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>303</td>
+                    <td><strong>reborn-digitech/swadeshi-tracker</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>304</td>
+                    <td><strong>rehanhaider/stocky</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>305</td>
+                    <td><strong>rhnvrm/stock-market-circulars</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>306</td>
+                    <td><strong>ricequant/rqalpha</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>307</td>
+                    <td><strong>rishikesh5/algo-trading-with-python</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>308</td>
+                    <td><strong>rishilbhutada/rscreener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>309</td>
+                    <td><strong>riyaz-ali/bhav-copy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>310</td>
+                    <td><strong>rizwandil6/nse-whatsapp-alerts</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>311</td>
+                    <td><strong>rjganatra/nse_analyser</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>312</td>
+                    <td><strong>rockbandassembly371/market-sentiments</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>313</td>
+                    <td><strong>romesh1980/india-market-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>314</td>
+                    <td><strong>ronak-59/stock-prediction</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>315</td>
+                    <td><strong>rooneyrulz/agentic-stock-research-system</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>316</td>
+                    <td><strong>rsh-lab/nse-stock-dashboard</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>317</td>
+                    <td><strong>rsireddy002/nse-delivery-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>318</td>
+                    <td><strong>rsquaredacademy/nse2r</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>319</td>
+                    <td><strong>rthennan/zerodhawebsocket</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>320</td>
+                    <td><strong>ruchitanmay/nselib</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>321</td>
+                    <td><strong>ruijiang81/ai_nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>322</td>
+                    <td><strong>rupeezytech/algo_ai_skill</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>323</td>
+                    <td><strong>ryqdev/golden</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>324</td>
+                    <td><strong>s-agawane/stock-price-forecaster-lstm</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>325</td>
+                    <td><strong>saber-hq/stable-swap</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>326</td>
+                    <td><strong>sagar-n/autoresearch-nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>327</td>
+                    <td><strong>sahilgupta/hakija</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>328</td>
+                    <td><strong>sajal101agrawal/nse-options-last-5-years</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>329</td>
+                    <td><strong>sampad-hegde/nse-india-web-scraping</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>330</td>
+                    <td><strong>sandeep-jaiswar/financeindia</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>331</td>
+                    <td><strong>sangram2905/nse_option_chain</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>332</td>
+                    <td><strong>sangram2905/nse_option_stock_market</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>333</td>
+                    <td><strong>sankarganeshb/market-rover</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>334</td>
+                    <td><strong>sapare542/new_fyers_nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>335</td>
+                    <td><strong>saubhagyapandey27/market-data-ops-platform</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>336</td>
+                    <td><strong>shabbirhasan1/fund-forge</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>337</td>
+                    <td><strong>shabbirhasan1/nse-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>338</td>
+                    <td><strong>shabbirhasan1/nsebsemcx</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>339</td>
+                    <td><strong>shahanuj2610/quicknsedatafetcher</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>340</td>
+                    <td><strong>shamu0509/nse-bse-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>341</td>
+                    <td><strong>shikharka/stocks-app</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>342</td>
+                    <td><strong>shrewdlemon/shunkan</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>343</td>
+                    <td><strong>shreyashdarade/ai_trading_calls_pridictor</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>344</td>
+                    <td><strong>shubxam/nifty-500-live-sentiment-analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>345</td>
+                    <td><strong>siddharthakrsaha/nse-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>346</td>
+                    <td><strong>singhsurendrapratap/nse-swing-screener</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>347</td>
+                    <td><strong>skharchikov/polymarket-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>348</td>
+                    <td><strong>sleeyax/ml-crypto-trading-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>349</td>
+                    <td><strong>snowcheetos/automoonbot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>350</td>
+                    <td><strong>sonimaharshi1999/jyotishtrader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>351</td>
+                    <td><strong>stellar-xcrow/stellarescrow</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>352</td>
+                    <td><strong>stevschmid/nsearch</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>353</td>
+                    <td><strong>stockalgo/bandl</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>354</td>
+                    <td><strong>studiogangster/next-gen-algo-trading-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>355</td>
+                    <td><strong>studiogangster/sensibull-realtime-options-api-ingestor</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>356</td>
+                    <td><strong>subaquatic-pierre/raderbot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>357</td>
+                    <td><strong>sudhanshusingh23-wiz/nse-momentum-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>358</td>
+                    <td><strong>sumitjoshi21/nse-real-time-stocks-analysis-and-predictions-using-p</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>359</td>
+                    <td><strong>sumitsainidev/oianalysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>360</td>
+                    <td><strong>sumukshashidhar-archive/nse-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>361</td>
+                    <td><strong>superalgos/algorithmic-trading-plugins</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>362</td>
+                    <td><strong>superalgos/trading-signals-plugins</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>363</td>
+                    <td><strong>svsashank/nse_1000cr_momentum</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>364</td>
+                    <td><strong>swapniljariwala/nsepy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>365</td>
+                    <td><strong>swapniljariwala/quotelib</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>366</td>
+                    <td><strong>tapetide-hq/nse-bse-indian-stock-market-data-mcp</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>367</td>
+                    <td><strong>tcharding/rust-crypto-trader</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>368</td>
+                    <td><strong>techfanetechnologies/nseproxy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>369</td>
+                    <td><strong>techfanetechnologies/pytvlwcharts</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>370</td>
+                    <td><strong>techyaura/nse-bhavcopy</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>371</td>
+                    <td><strong>telepair/polymarket-hft</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>372</td>
+                    <td><strong>tesserspace/tesser</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>373</td>
+                    <td><strong>thehardeep/fenix</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>374</td>
+                    <td><strong>thejesh-k463/vyuha-log</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>375</td>
+                    <td><strong>theonlyanil/pnsea</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>376</td>
+                    <td><strong>thiyagab/autotrade</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>377</td>
+                    <td><strong>tilak999/nse-data-bank</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>378</td>
+                    <td><strong>toptrendev/polymarket-kalshi-arbitrage-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>379</td>
+                    <td><strong>ttzztztz/rabbit_trading</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>380</td>
+                    <td><strong>turtlehq-tech/turtlestack-lite</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>381</td>
+                    <td><strong>uashogeschoolutrecht/nse_analyses</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>382</td>
+                    <td><strong>varundivakar/nsepy-continuous-data</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>383</td>
+                    <td><strong>varuns2002/python-nse-option-chain-analyzer</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>384</td>
+                    <td><strong>vedl/nse-equity-research-report-generator</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>385</td>
+                    <td><strong>ven2day/opendelta-nse</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>386</td>
+                    <td><strong>viabtc/viabtc_exchange_server</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>387</td>
+                    <td><strong>vignesh-moorthy/nse-daydata</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>388</td>
+                    <td><strong>vikaschouhan/portfolio_analysis</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>389</td>
+                    <td><strong>vikranth3140/nse-bse-stock-prices-automation</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>390</td>
+                    <td><strong>vinay-ram1999/algotrade-api</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>391</td>
+                    <td><strong>vinodscode/ipo-exchange-scrape</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>392</td>
+                    <td><strong>vinothkumarmuruga-cyber/nse-pre-market</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>393</td>
+                    <td><strong>vivektmurali/obscura-intel</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>394</td>
+                    <td><strong>vividvilla/nse-live-market</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>395</td>
+                    <td><strong>vjpaij/ladder</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>396</td>
+                    <td><strong>voicegn/polymarket-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>397</td>
+                    <td><strong>volatility4u/nsepython</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>398</td>
+                    <td><strong>vsjha18/nsecli</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>399</td>
+                    <td><strong>vsjha18/nsetools</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>400</td>
+                    <td><strong>wangrunji0408/most</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>401</td>
+                    <td><strong>waxdred/binance-trader-bot</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>402</td>
+                    <td><strong>webclinic017/tradingview-screenshot-bot-</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>403</td>
+                    <td><strong>white-trade-loan/algo-trading-platform</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>404</td>
+                    <td><strong>wizardrao/rao-s-scrap-platform</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>405</td>
+                    <td><strong>wookiao/crypto-trading-hunter</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>406</td>
+                    <td><strong>x86y/dynasty</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>407</td>
+                    <td><strong>xorasysgen/nse-oi-scanner</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>408</td>
+                    <td><strong>yongkangc/lighter-rust</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>409</td>
+                    <td><strong>yswa-var/rrg</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>410</td>
+                    <td><strong>yusuf4030/the-data-analyst-toolkit</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+                <tr>
+                    <td>411</td>
+                    <td><strong>yutiansut/qaaccount-rs</strong></td>
+                    <td class="status-pending">pending</td>
+                    <td>-</td>
+                </tr>
+
+            </tbody>
+        </table>
     </div>
-  </body>
+</body>
 </html>

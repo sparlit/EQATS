@@ -3,9 +3,9 @@
 NSE Swing Scanner & Momentum Engine (EQATS Institutional Adaptation).
 Adapted from amitashwinibhagat/nse-swing-scanner into FOSS Microkernel Architecture.
 
-Provides multi-timeframe swing trend alignment scanning, EMA 20/50 pullback triggers,
-Supertrend volatility trailing channels, and volume expansion filters for NSE equities
-and F&O stocks with 0.05 INR tick size rounding.
+Provides multi-timeframe swing trend alignment scanning, Dual-Timeframe (5m + 1d) Trend Co-Integration,
+Dynamic VIX-Adjusted Trailing ATR Stop Sizing, Supertrend volatility trailing channels,
+and volume expansion filters for NSE equities and F&O stocks with 0.05 INR tick size rounding.
 
 Assigned Magic Number: 9100012
 """
@@ -34,13 +34,78 @@ MAGIC_NUMBER_NSE_SWING_SCANNER = 9100012
 
 class NSESwingScannerEngine:
     """
-    NSE Swing Trading & Momentum Scanning Engine.
+    NSE Swing Trading, Dual-Timeframe Co-Integration & Dynamic ATR Stop Engine.
     """
 
     def __init__(self, supertrend_period: int = 10, supertrend_multiplier: float = 3.0) -> None:
         self.supertrend_period = supertrend_period
         self.supertrend_multiplier = supertrend_multiplier
         self.magic_number = MAGIC_NUMBER_NSE_SWING_SCANNER
+
+    def validate_dual_timeframe_cointegration(
+        self, bars_5m: List[Dict[str, Any]], bars_1d: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Validates Dual-Timeframe (5m intraday + 1d daily) trend co-integration.
+        Filters out counter-trend intraday spikes unless aligned with 1d daily trend.
+        """
+        if not bars_5m or not bars_1d:
+            return {"cointegrated": False, "signal": "HOLD", "reason": "INSUFFICIENT_BARS"}
+
+        c_5m = [float(b["close"]) for b in bars_5m]
+        c_1d = [float(b["close"]) for b in bars_1d]
+
+        ema20_5m = sum(c_5m[-20:]) / 20.0 if len(c_5m) >= 20 else c_5m[-1]
+        ema20_1d = sum(c_1d[-20:]) / 20.0 if len(c_1d) >= 20 else c_1d[-1]
+
+        trend_5m = "BULLISH" if c_5m[-1] > ema20_5m else "BEARISH"
+        trend_1d = "BULLISH" if c_1d[-1] > ema20_1d else "BEARISH"
+
+        cointegrated = trend_5m == trend_1d
+        signal = trend_5m if cointegrated else "HOLD"
+
+        return {
+            "cointegrated": cointegrated,
+            "trend_5m": trend_5m,
+            "trend_1d": trend_1d,
+            "signal": signal,
+            "magic_number": self.magic_number,
+        }
+
+    def calculate_dynamic_atr_stop(
+        self, current_price: float, atr: float, india_vix: float = 15.0, side: str = "BUY"
+    ) -> Dict[str, Any]:
+        """
+        Dynamically adjusts ATR stop loss distance based on real-time INDIA VIX levels.
+        Higher VIX scales stop loss distance (1.5x up to 2.5x ATR) to avoid premature stop-outs.
+        """
+        current_price = round_to_indian_tick_size(current_price)
+        if current_price <= 0 or atr <= 0:
+            return {"stop_loss_price": 0.0, "atr_multiplier": 1.5}
+
+        if india_vix >= 22.0:
+            multiplier = 2.50
+        elif india_vix >= 18.0:
+            multiplier = 2.00
+        else:
+            multiplier = 1.50
+
+        stop_distance = atr * multiplier
+
+        if side.upper() == "BUY":
+            sl_price = round_to_indian_tick_size(max(0.05, current_price - stop_distance))
+        else:
+            sl_price = round_to_indian_tick_size(current_price + stop_distance)
+
+        return {
+            "entry_price": current_price,
+            "stop_loss_price": sl_price,
+            "atr": round(atr, 2),
+            "india_vix": india_vix,
+            "atr_multiplier": multiplier,
+            "stop_distance": round(stop_distance, 2),
+            "magic_number": self.magic_number,
+        }
 
     def calculate_supertrend(self, highs: List[float], lows: List[float], closes: List[float]) -> Dict[str, Any]:
         """
@@ -51,7 +116,6 @@ class NSESwingScannerEngine:
             return {"supertrend": round_to_indian_tick_size(last_c), "trend": "BULLISH"}
 
         n = len(closes)
-        # Calculate ATR
         tr_list = [
             max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])) for i in range(1, n)
         ]
@@ -68,9 +132,6 @@ class NSESwingScannerEngine:
         return {"supertrend": round_to_indian_tick_size(st_val), "trend": trend, "atr": round(atr, 2)}
 
     def scan_swing_setup(self, history_bars: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Evaluates history bars for high-probability swing trading setups.
-        """
         if not history_bars or len(history_bars) < 30:
             return {"swing_signal": "HOLD", "confidence": 0.0, "magic_number": self.magic_number}
 
@@ -79,7 +140,6 @@ class NSESwingScannerEngine:
         lows = [float(b["low"]) for b in history_bars]
         current_price = closes[-1]
 
-        # Calculate EMAs
         ema20 = sum(closes[-20:]) / 20.0
         ema50 = sum(closes[-30:]) / 30.0
 
@@ -117,10 +177,6 @@ class NSESwingScannerEngine:
 
 
 class NSESwingScannerAdapter(SEBIBrokerAdapter):
-    """
-    Microkernel Broker Adapter for NSE Swing Scanner Engine.
-    """
-
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = NSESwingScannerEngine()
@@ -193,6 +249,5 @@ class NSESwingScannerAdapter(SEBIBrokerAdapter):
         return list(self.simulated_orders.values())
 
 
-# Auto-register into Microkernel Plugin Registry
 IndianBrokerPluginRegistry.register("NSE_SWING_SCANNER", NSESwingScannerAdapter)
 IndianBrokerPluginRegistry.register("SWING_SCANNER", NSESwingScannerAdapter)
