@@ -110,7 +110,7 @@ def get_lot_size(symbol: str, instrument_key: str | None = None) -> int:
             _lot_size_cache[symbol] = lot
             return lot
     except Exception:
-        pass
+        return None
     return 1
 
 
