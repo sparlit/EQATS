@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 risk_metrics.py — Complete Risk Metrics Suite
 ==============================================
@@ -23,7 +48,6 @@ Sortino ratio          : downside deviation-based
 Confidence bands       : 5/25/50/75/95th percentile price paths over time
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Dict, List
@@ -39,13 +63,14 @@ TRADING_DAYS_PER_YEAR: int = 252
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
+
 def compute_all_metrics(
     paths: np.ndarray,
-    params: Dict[str, float],
+    params: dict[str, float],
     processed_df: pd.DataFrame,
     cfg: dict,
     model_name: str = "GBM",
-) -> Dict:
+) -> dict:
     """
     Compute the complete suite of risk and performance metrics.
 
@@ -71,16 +96,15 @@ def compute_all_metrics(
     S0: float = params["S0"]
     rf: float = risk_cfg["risk_free_rate"]
     target_ret: float = risk_cfg["target_return"]
-    var_levels: List[float] = risk_cfg["var_levels"]
-    dd_thresholds: List[float] = risk_cfg["drawdown_thresholds"]
-    breach_pcts: List[float] = risk_cfg["price_breach_pcts"]
+    var_levels: list[float] = risk_cfg["var_levels"]
+    dd_thresholds: list[float] = risk_cfg["drawdown_thresholds"]
+    breach_pcts: list[float] = risk_cfg["price_breach_pcts"]
     n_steps = paths.shape[1] - 1
 
-    terminal_prices = paths[:, -1]          # shape (n_paths,)
+    terminal_prices = paths[:, -1]  # shape (n_paths,)
     terminal_returns = terminal_prices / S0 - 1.0
 
-    logger.info("[%s] Computing risk metrics for %d paths × %d steps …",
-                model_name, paths.shape[0], n_steps)
+    logger.info("[%s] Computing risk metrics for %d paths × %d steps …", model_name, paths.shape[0], n_steps)
 
     metrics = {
         "model": model_name,
@@ -89,9 +113,7 @@ def compute_all_metrics(
         "n_steps": n_steps,
         "terminal": _terminal_stats(terminal_prices, terminal_returns),
         "forecast": _price_forecast(terminal_prices, S0),
-        "probabilities": _probability_metrics(
-            terminal_prices, terminal_returns, S0, target_ret, breach_pcts
-        ),
+        "probabilities": _probability_metrics(terminal_prices, terminal_returns, S0, target_ret, breach_pcts),
         "var_cvar": _var_cvar(terminal_returns, var_levels),
         "drawdown": _drawdown_metrics(paths, dd_thresholds),
         "volatility": _volatility_comparison(paths, processed_df, n_steps),
@@ -103,7 +125,7 @@ def compute_all_metrics(
     return metrics
 
 
-def build_comparison_table(all_metrics: Dict[str, Dict]) -> pd.DataFrame:
+def build_comparison_table(all_metrics: dict[str, dict]) -> pd.DataFrame:
     """
     Build a side-by-side model comparison table.
 
@@ -145,14 +167,15 @@ def build_comparison_table(all_metrics: Dict[str, Dict]) -> pd.DataFrame:
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
-def _terminal_stats(terminal_prices: np.ndarray, terminal_returns: np.ndarray) -> Dict:
+
+def _terminal_stats(terminal_prices: np.ndarray, terminal_returns: np.ndarray) -> dict:
     """Descriptive statistics of the terminal price distribution."""
     return {
         "mean": float(np.mean(terminal_prices)),
         "median": float(np.median(terminal_prices)),
         "std": float(np.std(terminal_prices, ddof=1)),
         "skewness": float(stats.skew(terminal_prices)),
-        "kurtosis": float(stats.kurtosis(terminal_prices)),   # excess kurtosis
+        "kurtosis": float(stats.kurtosis(terminal_prices)),  # excess kurtosis
         "min": float(np.min(terminal_prices)),
         "max": float(np.max(terminal_prices)),
         "pct5": float(np.percentile(terminal_prices, 5)),
@@ -164,7 +187,7 @@ def _terminal_stats(terminal_prices: np.ndarray, terminal_returns: np.ndarray) -
     }
 
 
-def _price_forecast(terminal_prices: np.ndarray, S0: float) -> Dict:
+def _price_forecast(terminal_prices: np.ndarray, S0: float) -> dict:
     """Pessimistic / central / optimistic forecast interval."""
     p5 = float(np.percentile(terminal_prices, 5))
     p95 = float(np.percentile(terminal_prices, 95))
@@ -184,12 +207,12 @@ def _probability_metrics(
     terminal_returns: np.ndarray,
     S0: float,
     target_ret: float,
-    breach_pcts: List[float],
-) -> Dict:
+    breach_pcts: list[float],
+) -> dict:
     """Probability estimates from simulated terminal distribution."""
-    n = len(terminal_prices)
+    len(terminal_prices)
 
-    probs: Dict = {
+    probs: dict = {
         "prob_profit": float(np.mean(terminal_prices > S0)),
         "prob_loss": float(np.mean(terminal_prices < S0)),
         "prob_target_return": float(np.mean(terminal_returns > target_ret)),
@@ -198,13 +221,13 @@ def _probability_metrics(
     for pct in breach_pcts:
         upper = S0 * (1 + pct)
         lower = S0 * (1 - pct)
-        probs[f"prob_above_{int(pct*100)}pct"] = float(np.mean(terminal_prices > upper))
-        probs[f"prob_below_{int(pct*100)}pct"] = float(np.mean(terminal_prices < lower))
+        probs[f"prob_above_{int(pct * 100)}pct"] = float(np.mean(terminal_prices > upper))
+        probs[f"prob_below_{int(pct * 100)}pct"] = float(np.mean(terminal_prices < lower))
 
     return probs
 
 
-def _var_cvar(terminal_returns: np.ndarray, var_levels: List[float]) -> Dict:
+def _var_cvar(terminal_returns: np.ndarray, var_levels: list[float]) -> dict:
     """
     Value at Risk and Conditional VaR (Expected Shortfall).
 
@@ -213,7 +236,7 @@ def _var_cvar(terminal_returns: np.ndarray, var_levels: List[float]) -> Dict:
 
     Returns losses as positive numbers (e.g. 0.08 = 8% loss).
     """
-    result: Dict = {}
+    result: dict = {}
     for level in var_levels:
         # Loss threshold: VaR is at the (1-level) quantile of returns
         var = float(-np.percentile(terminal_returns, (1 - level) * 100))
@@ -221,11 +244,11 @@ def _var_cvar(terminal_returns: np.ndarray, var_levels: List[float]) -> Dict:
         cvar = float(-np.mean(terminal_returns[terminal_returns < -var]))
         result[f"var_{level}"] = var
         result[f"cvar_{level}"] = cvar
-        logger.debug("  VaR %.0f%%=%.4f  CVaR %.0f%%=%.4f", level*100, var, level*100, cvar)
+        logger.debug("  VaR %.0f%%=%.4f  CVaR %.0f%%=%.4f", level * 100, var, level * 100, cvar)
     return result
 
 
-def _drawdown_metrics(paths: np.ndarray, thresholds: List[float]) -> Dict:
+def _drawdown_metrics(paths: np.ndarray, thresholds: list[float]) -> dict:
     """
     Compute per-path maximum drawdown and aggregate statistics.
 
@@ -253,13 +276,13 @@ def _drawdown_metrics(paths: np.ndarray, thresholds: List[float]) -> Dict:
     max_dd_per_path = np.max(drawdowns, axis=1)  # shape (n_paths,)
 
     result = {
-        "max_drawdown_per_path": max_dd_per_path,      # full array retained
+        "max_drawdown_per_path": max_dd_per_path,  # full array retained
         "avg_max_drawdown": float(np.mean(max_dd_per_path)),
         "median_max_drawdown": float(np.median(max_dd_per_path)),
         "worst_drawdown": float(np.max(max_dd_per_path)),
     }
     for thresh in thresholds:
-        result[f"prob_dd_gt_{int(thresh*100)}pct"] = float(np.mean(max_dd_per_path > thresh))
+        result[f"prob_dd_gt_{int(thresh * 100)}pct"] = float(np.mean(max_dd_per_path > thresh))
 
     return result
 
@@ -268,7 +291,7 @@ def _volatility_comparison(
     paths: np.ndarray,
     processed_df: pd.DataFrame,
     n_steps: int,
-) -> Dict:
+) -> dict:
     """
     Realised (historical) vs. simulated annualised volatility.
 
@@ -301,7 +324,7 @@ def _sharpe_sortino(
     S0: float,
     risk_free_rate: float,
     n_steps: int,
-) -> Dict:
+) -> dict:
     """
     Sharpe and Sortino ratios across simulated paths.
 
@@ -312,27 +335,27 @@ def _sharpe_sortino(
     computed on the mean-path basis.
     """
     # Per-path log returns
-    log_ret_paths = np.log(paths[:, 1:] / paths[:, :-1])       # (n_paths, n_steps)
+    log_ret_paths = np.log(paths[:, 1:] / paths[:, :-1])  # (n_paths, n_steps)
 
     # Annualised return per path
     ann_return = np.mean(log_ret_paths, axis=1) * TRADING_DAYS_PER_YEAR
 
     # Annualised volatility per path
     ann_vol = np.std(log_ret_paths, axis=1, ddof=1) * np.sqrt(TRADING_DAYS_PER_YEAR)
-    ann_vol = np.where(ann_vol == 0, 1e-10, ann_vol)            # avoid div/0
+    ann_vol = np.where(ann_vol == 0, 1e-10, ann_vol)  # avoid div/0
 
-    sharpe_per_path = (ann_return - risk_free_rate) / ann_vol   # (n_paths,)
+    sharpe_per_path = (ann_return - risk_free_rate) / ann_vol  # (n_paths,)
 
     # Sortino: downside deviation (relative to 0 daily return)
     rf_daily = risk_free_rate / TRADING_DAYS_PER_YEAR
     downside_ret = np.minimum(log_ret_paths - rf_daily, 0.0)
-    downside_dev = np.sqrt(np.mean(downside_ret ** 2, axis=1)) * np.sqrt(TRADING_DAYS_PER_YEAR)
+    downside_dev = np.sqrt(np.mean(downside_ret**2, axis=1)) * np.sqrt(TRADING_DAYS_PER_YEAR)
     downside_dev = np.where(downside_dev == 0, 1e-10, downside_dev)
     sortino_per_path = (ann_return - risk_free_rate) / downside_dev
 
     # Terminal return for summary Sortino
     terminal_ret = paths[:, -1] / S0 - 1.0
-    ann_terminal = (1 + terminal_ret) ** (TRADING_DAYS_PER_YEAR / max(n_steps, 1)) - 1
+    (1 + terminal_ret) ** (TRADING_DAYS_PER_YEAR / max(n_steps, 1)) - 1
 
     return {
         "sharpe_per_path": sharpe_per_path,
@@ -345,7 +368,7 @@ def _sharpe_sortino(
     }
 
 
-def _confidence_bands(paths: np.ndarray) -> Dict:
+def _confidence_bands(paths: np.ndarray) -> dict:
     """
     Compute percentile price bands across all paths for each time step.
 
@@ -361,33 +384,43 @@ def _confidence_bands(paths: np.ndarray) -> Dict:
     return bands
 
 
-def _log_key_metrics(metrics: Dict, model_name: str) -> None:
+def _log_key_metrics(metrics: dict, model_name: str) -> None:
     """Log a concise summary of key risk metrics."""
     t = metrics["terminal"]
     vc = metrics["var_cvar"]
     p = metrics["probabilities"]
     dd = metrics["drawdown"]
     ss = metrics["sharpe_sortino"]
-    S0 = metrics["S0"]
+    metrics["S0"]
 
     logger.info(
         "[%s] Terminal Price → mean=%.0f  median=%.0f  p5=%.0f  p95=%.0f",
-        model_name, t["mean"], t["median"], t["pct5"], t["pct95"],
+        model_name,
+        t["mean"],
+        t["median"],
+        t["pct5"],
+        t["pct95"],
     )
     logger.info(
         "[%s] VaR95=%.2f%%  CVaR95=%.2f%%  VaR99=%.2f%%  CVaR99=%.2f%%",
         model_name,
-        vc.get("var_0.95", 0) * 100, vc.get("cvar_0.95", 0) * 100,
-        vc.get("var_0.99", 0) * 100, vc.get("cvar_0.99", 0) * 100,
+        vc.get("var_0.95", 0) * 100,
+        vc.get("cvar_0.95", 0) * 100,
+        vc.get("var_0.99", 0) * 100,
+        vc.get("cvar_0.99", 0) * 100,
     )
     logger.info(
         "[%s] P(profit)=%.1f%%  P(loss)=%.1f%%  P(>target)=%.1f%%",
         model_name,
-        p["prob_profit"] * 100, p["prob_loss"] * 100, p["prob_target_return"] * 100,
+        p["prob_profit"] * 100,
+        p["prob_loss"] * 100,
+        p["prob_target_return"] * 100,
     )
     logger.info(
         "[%s] AvgMaxDD=%.2f%%  WorstDD=%.2f%%  Sharpe=%.3f  Sortino=%.3f",
         model_name,
-        dd["avg_max_drawdown"] * 100, dd["worst_drawdown"] * 100,
-        ss["mean_sharpe"], ss["sortino"],
+        dd["avg_max_drawdown"] * 100,
+        dd["worst_drawdown"] * 100,
+        ss["mean_sharpe"],
+        ss["sortino"],
     )

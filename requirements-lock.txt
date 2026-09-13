@@ -10,7 +10,7 @@ This directory should contain hash-pinned lockfiles for supply-chain security:
 
 ## Why Hash-Pinned Lockfiles?
 
-The workflows in this repository run with elevated permissions (`contents: write`, 
+The workflows in this repository run with elevated permissions (`contents: write`,
 `pull-requests: write`) and can modify repository content. Without hash verification:
 
 1. **Supply-Chain Attack Risk**: A compromised upstream package could execute malicious
@@ -170,5 +170,3 @@ After this, all workflow runs will use hash-verified dependencies.
 - [PEP 665: Specifying Installation Requirements](https://peps.python.org/pep-0665/)
 - [Securing the Software Supply Chain](https://slsa.dev/)
 - [GitHub Actions Security Hardening](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
-
-

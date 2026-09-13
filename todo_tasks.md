@@ -152,7 +152,6 @@
 - [x] BarathGB007/upstox-python-data
 - [x] barter-rs/barter-rs
 - [x] beinghorizontal/BhavFnO
-- [x] benimward9621/advanced-nse-momentum-terminal
 - [x] BennyThadikaran/eod2
 - [x] BennyThadikaran/eod2_data
 - [x] BennyThadikaran/NseIndiaApi

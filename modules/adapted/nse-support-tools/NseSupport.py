@@ -1,17 +1,41 @@
-import requests
-import json
-import threading
-import queue
-from bs4 import BeautifulSoup
-from datetime import datetime
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 import csv
+import json
+import queue
+import threading
+from datetime import datetime
+
+import requests
 import SupportUrls
+from bs4 import BeautifulSoup
 
 
 class Nse:
     def __init__(self):
         self.queue = queue.Queue()
-        self.threads = list()
+        self.threads = []
         self.number_of_threads = 5
 
         self.stock_quote = None
@@ -38,10 +62,10 @@ class Nse:
 
     def chunk_list(self, l, n):
         for i in range(0, len(l), n):
-            yield l[i:i+n]
+            yield l[i : i + n]
 
     def reset_threads(self):
-        self.threads = list()
+        self.threads = []
         self.queue = queue.Queue()
         self.quote_list = []
 
@@ -54,13 +78,11 @@ class Nse:
         return self.http_json_response
 
     def get_stock_quote(self):
-        self.http_response = requests.get(
-            SupportUrls.nse_get_quote_url + self.symbol)
+        self.http_response = requests.get(SupportUrls.nse_get_quote_url + self.symbol)
 
         if self.http_response.status_code == 200:
-            soup = BeautifulSoup(self.http_response.content, 'html.parser')
-            self.stock_quote = json.loads(
-                soup.html.find("div", id="responseDiv").string)
+            soup = BeautifulSoup(self.http_response.content, "html.parser")
+            self.stock_quote = json.loads(soup.html.find("div", id="responseDiv").string)
 
         return self.stock_quote
 
@@ -70,7 +92,7 @@ class Nse:
         if self.http_response.status_code == 200:
             csv_rows = []
             for item in self.http_response.content.splitlines():
-                item = item.decode('utf-8', 'ignore')
+                item = item.decode("utf-8", "ignore")
                 csv_rows.append(item)
 
             for row in csv.DictReader(csv_rows, csv_rows[0].split(",")):
@@ -79,38 +101,31 @@ class Nse:
         return self.nse_equity_list[1:]
 
     def get_nifty_gainers(self):
-        self.nifty_gainers = self.http_get_json(
-            SupportUrls.nse_nifty_gainers_url)
+        self.nifty_gainers = self.http_get_json(SupportUrls.nse_nifty_gainers_url)
         return self.nifty_gainers
 
     def get_nifty_losers(self):
-        self.nifty_losers = self.http_get_json(
-            SupportUrls.nse_nifty_losers_url)
+        self.nifty_losers = self.http_get_json(SupportUrls.nse_nifty_losers_url)
         return self.nifty_losers
 
     def get_top_fno_gainers(self):
-        self.top_fno_gainers = self.http_get_json(
-            SupportUrls.nse_top_fno_gainers_url)
+        self.top_fno_gainers = self.http_get_json(SupportUrls.nse_top_fno_gainers_url)
         return self.top_fno_gainers
 
     def get_top_fno_losers(self):
-        self.top_fno_losers = self.http_get_json(
-            SupportUrls.nse_top_fno_loser_url)
+        self.top_fno_losers = self.http_get_json(SupportUrls.nse_top_fno_loser_url)
         return self.top_fno_losers
 
     def get_advance_decline_ratio(self):
-        self.advance_decline_ratio = self.http_get_json(
-            SupportUrls.nse_advance_decline_url)
+        self.advance_decline_ratio = self.http_get_json(SupportUrls.nse_advance_decline_url)
         return self.advance_decline_ratio
 
     def get_indices_list(self):
-        self.indices_list = self.http_get_json(
-            SupportUrls.nse_indices_list_url)
+        self.indices_list = self.http_get_json(SupportUrls.nse_indices_list_url)
         return self.indices_list
 
     def get_most_active_monthly(self):
-        self.most_active_monthly = self.http_get_json(
-            SupportUrls.nse_most_active_monthly_url)
+        self.most_active_monthly = self.http_get_json(SupportUrls.nse_most_active_monthly_url)
         return self.most_active_monthly
 
     def get_year_high(self):
@@ -122,8 +137,7 @@ class Nse:
         return self.year_low
 
     def get_nifty_preopen(self):
-        self.nifty_preopen = self.http_get_json(
-            SupportUrls.nse_nifty_preopen_url)
+        self.nifty_preopen = self.http_get_json(SupportUrls.nse_nifty_preopen_url)
         return self.nifty_preopen
 
     def get_fno_preopen(self):
@@ -131,21 +145,20 @@ class Nse:
         return self.fno_preopen
 
     def get_bank_nifty_preopen(self):
-        self.bank_nifty_preopen = self.http_get_json(
-            SupportUrls.nse_bank_nifty_preopen_url)
+        self.bank_nifty_preopen = self.http_get_json(SupportUrls.nse_bank_nifty_preopen_url)
         return self.bank_nifty_preopen
 
     def get_symbol_list(self):
         self.get_equity_list()
 
         for item in self.nse_equity_list:
-            self.symbol_list.append(item['SYMBOL'])
+            self.symbol_list.append(item["SYMBOL"])
 
         self.symbol_list = list(set(self.symbol_list))
 
         return self.symbol_list
 
-    def get_stock_quote_list(self, symbol_list,  queue):
+    def get_stock_quote_list(self, symbol_list, queue):
         quote_list = []
         for item in symbol_list:
             try:
@@ -163,29 +176,26 @@ class Nse:
 
         for ar in args:
             symbol_list = ar
-        
-        if symbol_list != None:
+
+        if symbol_list is not None:
             self.symbol_list = symbol_list
         elif len(self.symbol_list) == 0:
             self.get_symbol_list()
 
-        if len(self.symbol_list) < self.number_of_threads:
-            self.number_of_threads = len(self.symbol_list)
+        self.number_of_threads = min(self.number_of_threads, len(self.symbol_list))
 
         chunk_list = list(self.chunk_list(self.symbol_list, self.number_of_threads))
 
         for item in chunk_list:
-            th = threading.Thread(
-                target=self.get_stock_quote_list, args=(item, self.queue)
-            )
+            th = threading.Thread(target=self.get_stock_quote_list, args=(item, self.queue))
             self.threads.append(th)
             th.start()
 
-        for index, thread in enumerate(self.threads):
+        for _index, thread in enumerate(self.threads):
             thread.join()
             q_list = self.queue.get()
             self.quote_list = self.quote_list + q_list
 
         end = datetime.now()
-        print("Execution time: {}".format(end - start))
+        print(f"Execution time: {end - start}")
         return self.quote_list
