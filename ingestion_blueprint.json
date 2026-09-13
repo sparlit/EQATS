@@ -1,5 +1,5 @@
 {
-  "current_index": 21,
+  "current_index": 22,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -173,9 +173,9 @@
       "name": "wods",
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "get-nse-bhavcopy",
