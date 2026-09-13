@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 plotting.py — All Matplotlib Charts (pop-up + PNG export)
 ==========================================================
@@ -17,20 +42,21 @@ Each chart is:
   - Saved as a PNG to reports/ (if cfg.reporting.save_plots = True)
 """
 
-from __future__ import annotations
 
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 import matplotlib.ticker as mticker
 import numpy as np
-import pandas as pd
+from matplotlib import gridspec
 from scipy import stats
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -62,30 +88,32 @@ MODEL_COLORS = {
 
 def _apply_dark_style() -> None:
     """Apply a premium dark theme to all matplotlib figures."""
-    plt.rcParams.update({
-        "figure.facecolor": PALETTE["bg"],
-        "axes.facecolor": PALETTE["panel"],
-        "axes.edgecolor": PALETTE["grid"],
-        "axes.labelcolor": PALETTE["text"],
-        "axes.titlecolor": PALETTE["text"],
-        "axes.titlesize": 13,
-        "axes.labelsize": 10,
-        "axes.grid": True,
-        "grid.color": PALETTE["grid"],
-        "grid.linewidth": 0.5,
-        "grid.alpha": 0.6,
-        "xtick.color": PALETTE["text"],
-        "ytick.color": PALETTE["text"],
-        "text.color": PALETTE["text"],
-        "legend.facecolor": PALETTE["panel"],
-        "legend.edgecolor": PALETTE["grid"],
-        "legend.labelcolor": PALETTE["text"],
-        "figure.titlesize": 15,
-        "font.family": "DejaVu Sans",
-        "lines.linewidth": 1.5,
-        "savefig.facecolor": PALETTE["bg"],
-        "savefig.dpi": 150,
-    })
+    plt.rcParams.update(
+        {
+            "figure.facecolor": PALETTE["bg"],
+            "axes.facecolor": PALETTE["panel"],
+            "axes.edgecolor": PALETTE["grid"],
+            "axes.labelcolor": PALETTE["text"],
+            "axes.titlecolor": PALETTE["text"],
+            "axes.titlesize": 13,
+            "axes.labelsize": 10,
+            "axes.grid": True,
+            "grid.color": PALETTE["grid"],
+            "grid.linewidth": 0.5,
+            "grid.alpha": 0.6,
+            "xtick.color": PALETTE["text"],
+            "ytick.color": PALETTE["text"],
+            "text.color": PALETTE["text"],
+            "legend.facecolor": PALETTE["panel"],
+            "legend.edgecolor": PALETTE["grid"],
+            "legend.labelcolor": PALETTE["text"],
+            "figure.titlesize": 15,
+            "font.family": "DejaVu Sans",
+            "lines.linewidth": 1.5,
+            "savefig.facecolor": PALETTE["bg"],
+            "savefig.dpi": 150,
+        }
+    )
 
 
 def _save_and_show(fig: plt.Figure, name: str, report_dir: Path, cfg: dict) -> str:
@@ -107,11 +135,11 @@ def _save_and_show(fig: plt.Figure, name: str, report_dir: Path, cfg: dict) -> s
 
 def plot_all(
     processed_df: pd.DataFrame,
-    all_paths: Dict[str, np.ndarray],
-    all_metrics: Dict[str, Dict],
-    params: Dict,
+    all_paths: dict[str, np.ndarray],
+    all_metrics: dict[str, dict],
+    params: dict,
     cfg: dict,
-) -> List[str]:
+) -> list[str]:
     """
     Generate all 8 charts and return list of saved PNG paths.
 
@@ -135,10 +163,10 @@ def plot_all(
     """
     _apply_dark_style()
     report_dir = Path(cfg["reporting"]["report_dir"])
-    saved_paths: List[str] = []
+    saved_paths: list[str] = []
 
     # Primary model paths (GBM as baseline)
-    primary_model = list(all_paths.keys())[0]
+    primary_model = next(iter(all_paths.keys()))
     primary_paths = all_paths[primary_model]
     primary_metrics = all_metrics[primary_model]
 
@@ -159,11 +187,9 @@ def plot_all(
 
 # ─── Chart 1 ─────────────────────────────────────────────────────────────────
 
-def _chart1_historical(
-    df: pd.DataFrame, params: Dict, report_dir: Path, cfg: dict
-) -> str:
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), sharex=True,
-                                    gridspec_kw={"height_ratios": [3, 1]})
+
+def _chart1_historical(df: pd.DataFrame, params: dict, report_dir: Path, cfg: dict) -> str:
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
     fig.suptitle("Nifty Bank Index — Historical Price & Daily Returns", y=0.98)
 
     # Price
@@ -175,8 +201,9 @@ def _chart1_historical(
     ax1.set_title("Closing Price (Adjusted)")
 
     # Annotate S0
-    ax1.axhline(params["S0"], color=PALETTE["accent4"], linestyle="--", linewidth=1,
-                label=f"Current S0 = {params['S0']:,.0f}")
+    ax1.axhline(
+        params["S0"], color=PALETTE["accent4"], linestyle="--", linewidth=1, label=f"Current S0 = {params['S0']:,.0f}"
+    )
     ax1.legend(loc="upper left")
 
     # Returns
@@ -193,15 +220,14 @@ def _chart1_historical(
 
 # ─── Chart 2 ─────────────────────────────────────────────────────────────────
 
-def _chart2_fan(
-    paths: np.ndarray, metrics: Dict, params: Dict, cfg: dict, report_dir: Path
-) -> str:
+
+def _chart2_fan(paths: np.ndarray, metrics: dict, params: dict, cfg: dict, report_dir: Path) -> str:
     n_sample = cfg["reporting"]["n_sample_paths"]
     n_steps = paths.shape[1] - 1
     x = np.arange(n_steps + 1)
 
     fig, ax = plt.subplots(figsize=(14, 7))
-    fig.suptitle(f"Monte Carlo Simulated Price Paths — {n_steps} Trading Days ({n_steps//21} months)")
+    fig.suptitle(f"Monte Carlo Simulated Price Paths — {n_steps} Trading Days ({n_steps // 21} months)")
 
     # Sample paths
     rng = np.random.default_rng(999)
@@ -211,16 +237,15 @@ def _chart2_fan(
 
     # Confidence bands
     bands = metrics["confidence_bands"]
-    ax.fill_between(x, bands["p5"], bands["p95"], alpha=0.25, color=PALETTE["accent1"],
-                    label="5%–95% band")
-    ax.fill_between(x, bands["p25"], bands["p75"], alpha=0.35, color=PALETTE["accent1"],
-                    label="25%–75% band")
+    ax.fill_between(x, bands["p5"], bands["p95"], alpha=0.25, color=PALETTE["accent1"], label="5%–95% band")
+    ax.fill_between(x, bands["p25"], bands["p75"], alpha=0.35, color=PALETTE["accent1"], label="25%–75% band")
     ax.plot(x, bands["p50"], color=PALETTE["accent4"], linewidth=2, label="Median path")
     ax.plot(x, bands["p5"], color=PALETTE["accent2"], linewidth=1.2, linestyle="--", label="5th pct")
     ax.plot(x, bands["p95"], color=PALETTE["accent3"], linewidth=1.2, linestyle="--", label="95th pct")
 
-    ax.axhline(params["S0"], color=PALETTE["text"], linewidth=1, linestyle=":", alpha=0.7,
-               label=f"S0 = {params['S0']:,.0f}")
+    ax.axhline(
+        params["S0"], color=PALETTE["text"], linewidth=1, linestyle=":", alpha=0.7, label=f"S0 = {params['S0']:,.0f}"
+    )
     ax.set_xlabel("Trading Days")
     ax.set_ylabel("Index Level")
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.0f}"))
@@ -232,9 +257,8 @@ def _chart2_fan(
 
 # ─── Chart 3 ─────────────────────────────────────────────────────────────────
 
-def _chart3_terminal_dist(
-    paths: np.ndarray, metrics: Dict, params: Dict, cfg: dict, report_dir: Path
-) -> str:
+
+def _chart3_terminal_dist(paths: np.ndarray, metrics: dict, params: dict, cfg: dict, report_dir: Path) -> str:
     terminal = paths[:, -1]
     S0 = params["S0"]
     vc = metrics["var_cvar"]
@@ -243,27 +267,28 @@ def _chart3_terminal_dist(
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.suptitle("Terminal Price Distribution — VaR & CVaR")
 
-    n, bins, patches = ax.hist(terminal, bins=120, color=PALETTE["accent1"],
-                                alpha=0.7, density=True, label="Simulated Distribution")
+    _n, bins, patches = ax.hist(
+        terminal, bins=120, color=PALETTE["accent1"], alpha=0.7, density=True, label="Simulated Distribution"
+    )
 
     # Colour bars below VaR 95% in red
     var95_price = S0 * (1 - vc.get("var_0.95", 0))
-    for patch, left in zip(patches, bins[:-1]):
+    for patch, left in zip(patches, bins[:-1], strict=False):
         if left < var95_price:
             patch.set_facecolor(PALETTE["accent2"])
             patch.set_alpha(0.85)
 
     # VaR lines
     ax.axvline(S0, color=PALETTE["accent4"], linewidth=2, linestyle="--", label=f"S0 = {S0:,.0f}")
-    ax.axvline(t["pct5"], color=PALETTE["accent2"], linewidth=1.5, linestyle=":",
-               label=f"5th pct = {t['pct5']:,.0f}")
-    ax.axvline(t["pct95"], color=PALETTE["accent3"], linewidth=1.5, linestyle=":",
-               label=f"95th pct = {t['pct95']:,.0f}")
-    ax.axvline(t["mean"], color=PALETTE["accent5"], linewidth=1.5,
-               label=f"Mean = {t['mean']:,.0f}")
+    ax.axvline(t["pct5"], color=PALETTE["accent2"], linewidth=1.5, linestyle=":", label=f"5th pct = {t['pct5']:,.0f}")
+    ax.axvline(
+        t["pct95"], color=PALETTE["accent3"], linewidth=1.5, linestyle=":", label=f"95th pct = {t['pct95']:,.0f}"
+    )
+    ax.axvline(t["mean"], color=PALETTE["accent5"], linewidth=1.5, label=f"Mean = {t['mean']:,.0f}")
 
     # KDE overlay
     from scipy.stats import gaussian_kde
+
     kde = gaussian_kde(terminal)
     x_range = np.linspace(terminal.min(), terminal.max(), 500)
     ax.plot(x_range, kde(x_range), color="white", linewidth=1.5, alpha=0.8, label="KDE")
@@ -277,9 +302,15 @@ def _chart3_terminal_dist(
     var95 = vc.get("var_0.95", 0)
     cvar95 = vc.get("cvar_0.95", 0)
     textstr = f"VaR 95% = {var95:.2%}\nCVaR 95% = {cvar95:.2%}"
-    ax.text(0.02, 0.97, textstr, transform=ax.transAxes, fontsize=9,
-            verticalalignment="top", bbox=dict(boxstyle="round,pad=0.4",
-            facecolor=PALETTE["panel"], alpha=0.9, edgecolor=PALETTE["grid"]))
+    ax.text(
+        0.02,
+        0.97,
+        textstr,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        bbox={"boxstyle": "round,pad=0.4", "facecolor": PALETTE["panel"], "alpha": 0.9, "edgecolor": PALETTE["grid"]},
+    )
 
     plt.tight_layout()
     return _save_and_show(fig, "chart3_terminal_dist", report_dir, cfg)
@@ -287,9 +318,8 @@ def _chart3_terminal_dist(
 
 # ─── Chart 4 ─────────────────────────────────────────────────────────────────
 
-def _chart4_return_dist(
-    processed_df: pd.DataFrame, paths: np.ndarray, report_dir: Path, cfg: dict
-) -> str:
+
+def _chart4_return_dist(processed_df: pd.DataFrame, paths: np.ndarray, report_dir: Path, cfg: dict) -> str:
     hist_ret = processed_df["log_return"].dropna().values
     sim_ret = np.log(paths[:, 1:] / paths[:, :-1]).flatten()
 
@@ -300,23 +330,32 @@ def _chart4_return_dist(
     # ── Left: distribution overlay ──────────────────────────────────────────
     ax1 = fig.add_subplot(gs[0])
     # Historical returns histogram
-    ax1.hist(hist_ret * 100, bins=100, density=True, alpha=0.6, color=PALETTE["accent1"],
-             label="Historical log returns", zorder=2)
+    ax1.hist(
+        hist_ret * 100,
+        bins=100,
+        density=True,
+        alpha=0.6,
+        color=PALETTE["accent1"],
+        label="Historical log returns",
+        zorder=2,
+    )
 
     # Sample of simulated daily returns
     n_sim_sample = min(len(hist_ret) * 5, len(sim_ret))
     rng = np.random.default_rng(42)
     sim_sample = rng.choice(sim_ret, size=n_sim_sample, replace=False) * 100
-    ax1.hist(sim_sample, bins=100, density=True, alpha=0.4, color=PALETTE["accent4"],
-             label="Simulated log returns", zorder=2)
+    ax1.hist(
+        sim_sample, bins=100, density=True, alpha=0.4, color=PALETTE["accent4"], label="Simulated log returns", zorder=2
+    )
 
     # Normal fit over historical
     mu_fit, std_fit = stats.norm.fit(hist_ret * 100)
     xmin = np.percentile(hist_ret * 100, 0.5)
     xmax = np.percentile(hist_ret * 100, 99.5)
     x_range = np.linspace(xmin, xmax, 500)
-    ax1.plot(x_range, stats.norm.pdf(x_range, mu_fit, std_fit),
-             color=PALETTE["accent2"], linewidth=2, label="Normal fit")
+    ax1.plot(
+        x_range, stats.norm.pdf(x_range, mu_fit, std_fit), color=PALETTE["accent2"], linewidth=2, label="Normal fit"
+    )
 
     ax1.set_xlabel("Daily Log Return (%)")
     ax1.set_ylabel("Density")
@@ -325,10 +364,15 @@ def _chart4_return_dist(
 
     # ── Right: Q-Q plot ─────────────────────────────────────────────────────
     ax2 = fig.add_subplot(gs[1])
-    (osm, osr), (slope, intercept, r) = stats.probplot(hist_ret, dist="norm")
+    (osm, osr), (slope, intercept, _r) = stats.probplot(hist_ret, dist="norm")
     ax2.scatter(osm, osr, color=PALETTE["accent1"], s=8, alpha=0.5, label="Historical returns", zorder=2)
-    ax2.plot([osm[0], osm[-1]], [osm[0] * slope + intercept, osm[-1] * slope + intercept],
-             color=PALETTE["accent2"], linewidth=2, label="Normal reference line")
+    ax2.plot(
+        [osm[0], osm[-1]],
+        [osm[0] * slope + intercept, osm[-1] * slope + intercept],
+        color=PALETTE["accent2"],
+        linewidth=2,
+        label="Normal reference line",
+    )
     ax2.set_xlabel("Theoretical Quantiles")
     ax2.set_ylabel("Sample Quantiles")
     ax2.set_title("Q-Q Plot (Fat Tails Diagnostic)")
@@ -340,16 +384,35 @@ def _chart4_return_dist(
 
 # ─── Chart 5 ─────────────────────────────────────────────────────────────────
 
+
 def _chart5_rolling_vol(df: pd.DataFrame, report_dir: Path, cfg: dict) -> str:
     fig, ax = plt.subplots(figsize=(14, 6))
     fig.suptitle("Volatility Clustering — Rolling Annualised Volatility")
 
-    ax.plot(df.index, df["rolling_vol_30"] * 100, color=PALETTE["accent2"],
-            linewidth=1.2, alpha=0.85, label="30-day rolling vol")
-    ax.plot(df.index, df["rolling_vol_60"] * 100, color=PALETTE["accent4"],
-            linewidth=1.2, alpha=0.85, label="60-day rolling vol")
-    ax.plot(df.index, df["rolling_vol_90"] * 100, color=PALETTE["accent3"],
-            linewidth=1.2, alpha=0.85, label="90-day rolling vol")
+    ax.plot(
+        df.index,
+        df["rolling_vol_30"] * 100,
+        color=PALETTE["accent2"],
+        linewidth=1.2,
+        alpha=0.85,
+        label="30-day rolling vol",
+    )
+    ax.plot(
+        df.index,
+        df["rolling_vol_60"] * 100,
+        color=PALETTE["accent4"],
+        linewidth=1.2,
+        alpha=0.85,
+        label="60-day rolling vol",
+    )
+    ax.plot(
+        df.index,
+        df["rolling_vol_90"] * 100,
+        color=PALETTE["accent3"],
+        linewidth=1.2,
+        alpha=0.85,
+        label="90-day rolling vol",
+    )
 
     ax.fill_between(df.index, df["rolling_vol_30"] * 100, alpha=0.1, color=PALETTE["accent2"])
     ax.set_xlabel("Date")
@@ -363,7 +426,8 @@ def _chart5_rolling_vol(df: pd.DataFrame, report_dir: Path, cfg: dict) -> str:
 
 # ─── Chart 6 ─────────────────────────────────────────────────────────────────
 
-def _chart6_drawdown_dist(metrics: Dict, report_dir: Path, cfg: dict) -> str:
+
+def _chart6_drawdown_dist(metrics: dict, report_dir: Path, cfg: dict) -> str:
     dd_array = metrics["drawdown"]["max_drawdown_per_path"] * 100  # in %
     avg_dd = metrics["drawdown"]["avg_max_drawdown"] * 100
     worst_dd = metrics["drawdown"]["worst_drawdown"] * 100
@@ -371,17 +435,20 @@ def _chart6_drawdown_dist(metrics: Dict, report_dir: Path, cfg: dict) -> str:
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.suptitle("Maximum Drawdown Distribution Across Simulated Paths")
 
-    ax.hist(dd_array, bins=100, color=PALETTE["accent2"], alpha=0.75, density=True,
-            label="Max drawdown per path")
-    ax.axvline(avg_dd, color=PALETTE["accent4"], linewidth=2,
-               label=f"Average = {avg_dd:.1f}%")
-    ax.axvline(worst_dd, color=PALETTE["accent5"], linewidth=2, linestyle="--",
-               label=f"Worst = {worst_dd:.1f}%")
+    ax.hist(dd_array, bins=100, color=PALETTE["accent2"], alpha=0.75, density=True, label="Max drawdown per path")
+    ax.axvline(avg_dd, color=PALETTE["accent4"], linewidth=2, label=f"Average = {avg_dd:.1f}%")
+    ax.axvline(worst_dd, color=PALETTE["accent5"], linewidth=2, linestyle="--", label=f"Worst = {worst_dd:.1f}%")
 
     for thresh in cfg["risk"]["drawdown_thresholds"]:
         pct_exceeded = float(np.mean(dd_array / 100 > thresh) * 100)
-        ax.axvline(thresh * 100, color="white", linewidth=1, linestyle=":",
-                   alpha=0.6, label=f"P(DD>{thresh:.0%}) = {pct_exceeded:.1f}%")
+        ax.axvline(
+            thresh * 100,
+            color="white",
+            linewidth=1,
+            linestyle=":",
+            alpha=0.6,
+            label=f"P(DD>{thresh:.0%}) = {pct_exceeded:.1f}%",
+        )
 
     ax.set_xlabel("Maximum Drawdown (%)")
     ax.set_ylabel("Density")
@@ -393,10 +460,11 @@ def _chart6_drawdown_dist(metrics: Dict, report_dir: Path, cfg: dict) -> str:
 
 # ─── Chart 7 ─────────────────────────────────────────────────────────────────
 
+
 def _chart7_model_comparison(
-    all_paths: Dict[str, np.ndarray],
-    all_metrics: Dict[str, Dict],
-    params: Dict,
+    all_paths: dict[str, np.ndarray],
+    all_metrics: dict[str, dict],
+    params: dict,
     report_dir: Path,
     cfg: dict,
 ) -> str:
@@ -426,12 +494,11 @@ def _chart7_model_comparison(
 
 # ─── Chart 8 ─────────────────────────────────────────────────────────────────
 
-def _chart8_heatmap(
-    all_paths: Dict[str, np.ndarray], params: Dict, cfg: dict, report_dir: Path
-) -> str:
+
+def _chart8_heatmap(all_paths: dict[str, np.ndarray], params: dict, cfg: dict, report_dir: Path) -> str:
     """Heatmap: P(price in range) at different time horizons."""
     S0 = params["S0"]
-    primary_paths = list(all_paths.values())[0]
+    primary_paths = next(iter(all_paths.values()))
 
     # Define price ranges as % of S0
     pct_ranges = [-30, -20, -10, -5, 0, 5, 10, 20, 30, 50]
@@ -452,23 +519,32 @@ def _chart8_heatmap(
             prob_matrix[i, j] = np.mean((terminal >= lower) & (terminal < upper))
 
     for i in range(len(pct_ranges) - 1):
-        y_labels.append(f"{pct_ranges[i]:+d}% to {pct_ranges[i+1]:+d}%")
+        y_labels.append(f"{pct_ranges[i]:+d}% to {pct_ranges[i + 1]:+d}%")
 
-    x_labels = [f"{h}d\n({h//21}m)" for h in horizons_valid]
+    x_labels = [f"{h}d\n({h // 21}m)" for h in horizons_valid]
 
     fig, ax = plt.subplots(figsize=(12, 7))
     fig.suptitle("Probability of Price Range at Different Horizons")
 
     import matplotlib.colors as mcolors
-    cmap = matplotlib.colormaps.get_cmap("RdYlGn")
+
+    cmap = mpl.colormaps.get_cmap("RdYlGn")
     im = ax.imshow(prob_matrix, cmap=cmap, aspect="auto", vmin=0, vmax=0.4)
 
     # Labels on cells
     for i in range(prob_matrix.shape[0]):
         for j in range(prob_matrix.shape[1]):
             val = prob_matrix[i, j]
-            ax.text(j, i, f"{val:.1%}", ha="center", va="center",
-                    fontsize=8, color="black" if val > 0.2 else "white", fontweight="bold")
+            ax.text(
+                j,
+                i,
+                f"{val:.1%}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="black" if val > 0.2 else "white",
+                fontweight="bold",
+            )
 
     ax.set_xticks(range(len(x_labels)))
     ax.set_xticklabels(x_labels)

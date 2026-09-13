@@ -1,15 +1,48 @@
-import sys
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 import datetime as dt
-import requests
+import sys
+
 import db
+import requests
 
 URL = "https://scanner.tradingview.com/india/scan"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 MIN_MCAP_CR = 1000
 
-COLS = ["description", "close", "market_cap_basic",
-        "price_earnings_ttm", "Perf.1M", "Perf.3M",
-        "relative_volume_1D", "volume", "average_volume_10D_calc"]
+COLS = [
+    "description",
+    "close",
+    "market_cap_basic",
+    "price_earnings_ttm",
+    "Perf.1M",
+    "Perf.3M",
+    "relative_volume_1D",
+    "volume",
+    "average_volume_10D_calc",
+]
+
 
 def classify(p1, p3, rv):
     p1 = p1 or 0
@@ -22,12 +55,12 @@ def classify(p1, p3, rv):
         return "TURN"
     return None
 
+
 def fetch():
     body = {
         "filter": [
             {"left": "exchange", "operation": "equal", "right": "NSE"},
-            {"left": "market_cap_basic", "operation": "egreater",
-             "right": MIN_MCAP_CR * 1e7},
+            {"left": "market_cap_basic", "operation": "egreater", "right": MIN_MCAP_CR * 1e7},
         ],
         "options": {"lang": "en"},
         "range": [0, 3000],
@@ -40,6 +73,7 @@ def fetch():
         print("HTTP", r.status_code, r.text[:500])
         return []
     return r.json().get("data", [])
+
 
 def run():
     conn = db.get_conn()
@@ -56,7 +90,7 @@ def run():
     pings = []
     for item in data:
         sym = item["s"].split(":")[-1]
-        d = dict(zip(COLS, item["d"]))
+        d = dict(zip(COLS, item["d"], strict=False))
         mcap = d.get("market_cap_basic")
         rv = d.get("relative_volume_1D")
         vol = d.get("volume")
@@ -66,12 +100,19 @@ def run():
         p1 = d.get("Perf.1M")
         p3 = d.get("Perf.3M")
         conn.execute(
-            "INSERT OR REPLACE INTO universe_broad "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
-            (sym, d.get("description"),
-             None if mcap is None else mcap / 1e7,
-             d.get("close"), d.get("price_earnings_ttm"),
-             p1, p3, rv, now))
+            "INSERT OR REPLACE INTO universe_broad VALUES (?,?,?,?,?,?,?,?,?)",
+            (
+                sym,
+                d.get("description"),
+                None if mcap is None else mcap / 1e7,
+                d.get("close"),
+                d.get("price_earnings_ttm"),
+                p1,
+                p3,
+                rv,
+                now,
+            ),
+        )
         n += 1
         tag = classify(p1, p3, rv)
         if tag:
@@ -83,6 +124,7 @@ def run():
         rvs = f" vol {rv:.1f}x" if rv is not None else ""
         print(f"   [{tag}] {sym}: 1M {p1:+.1f}%{rvs}")
     conn.close()
+
 
 if len(sys.argv) > 1 and sys.argv[1] == "run":
     run()

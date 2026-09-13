@@ -1,3 +1,28 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 """
 report.py — HTML/PDF Report Generator
 =======================================
@@ -18,31 +43,31 @@ Report sections
 9. Disclaimer             — research/educational use only
 """
 
-from __future__ import annotations
 
 import base64
-import datetime
 import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
 def generate_report(
-    params: Dict,
-    all_metrics: Dict[str, Dict],
-    backtest_results: Dict[str, Dict],
+    params: dict,
+    all_metrics: dict[str, dict],
+    backtest_results: dict[str, dict],
     comparison_table: pd.DataFrame,
-    png_paths: List[str],
+    png_paths: list[str],
     cfg: dict,
     run_timestamp: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Generate HTML and (optionally) PDF reports.
 
@@ -72,7 +97,7 @@ def generate_report(
     report_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Embed charts as base64 ───────────────────────────────────────────────
-    charts_b64: Dict[str, str] = {}
+    charts_b64: dict[str, str] = {}
     chart_names = [
         "Historical Price & Returns",
         "Simulated Path Fan Chart",
@@ -93,7 +118,7 @@ def generate_report(
             charts_b64[chart_names[i]] = ""
 
     # ── Prepare template context ─────────────────────────────────────────────
-    primary_model = list(all_metrics.keys())[0]
+    primary_model = next(iter(all_metrics.keys()))
     primary = all_metrics[primary_model]
 
     def fmt_pct(v: float, decimals: int = 2) -> str:
@@ -149,6 +174,7 @@ def generate_report(
 
     # ── Save versioned config alongside report ───────────────────────────────
     import yaml
+
     config_copy = report_dir / f"config_{run_timestamp[:10]}.yaml"
     with open(config_copy, "w") as f:
         yaml.dump(cfg, f, default_flow_style=False)
@@ -159,6 +185,7 @@ def generate_report(
         pdf_path = report_dir / f"report_{run_timestamp[:10]}.pdf"
         try:
             from weasyprint import HTML
+
             HTML(string=html_content, base_url=str(report_dir)).write_pdf(str(pdf_path))
             logger.info("PDF report saved → %s", pdf_path)
             output_paths["pdf"] = str(pdf_path)
