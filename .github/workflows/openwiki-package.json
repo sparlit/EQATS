@@ -1,8 +1,0 @@
-{
-  "name": "openwiki-workflow",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "openwiki": "^0.1.0"
-  }
-}

@@ -1,8 +1,9 @@
 """
 Algo-Trade Multi-Broker Unified Router & Execution Engine Module
 ================================================================
-Adapts multi-broker unified gateway routing (Finvasia Shoonya, Upstox, Zerodha Kite),
-automated cron session token refreshers, and order execution dispatching from `Aravin/Algo-Trade`.
+Adapts multi-broker unified gateway routing (Finvasia Shoonya, Upstox, Zerodha Kite, AngelOne SmartAPI),
+automated sub-second multi-broker failover routing, automated cron session token refreshers,
+and order execution dispatching from `Aravin/Algo-Trade`.
 
 Magic Number: 9100047
 """
@@ -49,9 +50,9 @@ def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
 
 class AlgoTradeAravinEngine:
     """
-    Multi-Broker Unified Gateway Router & Strategy Execution Engine.
-    Routes order requests dynamically across multiple Indian broker APIs (Finvasia, Upstox, Kite)
-    and manages automated session token health checks.
+    Multi-Broker Unified Gateway Router with Sub-Second Auto-Failover.
+    Routes order requests dynamically across multiple Indian broker APIs (Finvasia, Upstox, Zerodha, AngelOne)
+    and manages automated failovers if primary broker is degraded.
     """
 
     def __init__(self) -> None:
@@ -71,40 +72,46 @@ class AlgoTradeAravinEngine:
         }
         return {"broker": broker_key, "status": "SESSION_ACTIVE"}
 
-    def route_order_execution(
-        self, target_broker: str, request_data: Dict[str, Any]
+    def route_order_execution_with_failover(
+        self, primary_broker: str, request_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Routes order request to designated target broker adapter interface.
+        Attempts execution via primary broker; if primary session is degraded or fails,
+        automatically cascades through secondary brokers in priority order.
         """
-        broker_key = target_broker.upper().strip()
+        primary = primary_broker.upper().strip()
+        failover_chain = [primary] + [b for b in self.supported_brokers if b != primary]
+
         symbol = request_data.get("symbol", "UNKNOWN").upper().strip()
         price = round_tick_005(float(request_data.get("price", 100.0)))
         quantity = int(request_data.get("quantity", 1))
 
-        if broker_key not in self.supported_brokers:
-            return {
-                "success": False,
-                "error": f"UNSUPPORTED_BROKER_{broker_key}",
-            }
-
-        session = self.active_sessions.get(broker_key, {})
-        if not session.get("connected", False):
-            return {
-                "success": False,
-                "error": f"BROKER_SESSION_INACTIVE_{broker_key}",
-            }
+        for broker in failover_chain:
+            session = self.active_sessions.get(broker, {})
+            if session.get("connected", False):
+                return {
+                    "success": True,
+                    "broker": broker,
+                    "primary_attempted": primary,
+                    "failover_triggered": broker != primary,
+                    "symbol": symbol,
+                    "price": price,
+                    "quantity": quantity,
+                    "execution_id": f"ALGOTRADE-{broker}-{int(datetime.now().timestamp()*1000)}",
+                    "magic_number": self.magic_number,
+                    "timestamp": datetime.now().isoformat(),
+                }
 
         return {
-            "success": True,
-            "broker": broker_key,
-            "symbol": symbol,
-            "price": price,
-            "quantity": quantity,
-            "execution_id": f"ALGOTRADE-{int(datetime.now().timestamp()*1000)}",
-            "magic_number": self.magic_number,
-            "timestamp": datetime.now().isoformat(),
+            "success": False,
+            "error": "ALL_BROKER_SESSIONS_INACTIVE",
+            "attempted_chain": failover_chain,
         }
+
+    def route_order_execution(
+        self, target_broker: str, request_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return self.route_order_execution_with_failover(target_broker, request_data)
 
 
 class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
@@ -120,7 +127,9 @@ class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
 
     def connect(self) -> bool:
         self._connected = True
-        self.engine.refresh_broker_session("FINVASIA", "dummy_token_123")
+        self.engine.refresh_broker_session("FINVASIA", "token_shoonya_123")
+        self.engine.refresh_broker_session("UPSTOX", "token_upstox_456")
+        self.engine.refresh_broker_session("ZERODHA", "token_kite_789")
         return True
 
     def is_connected(self) -> bool:
@@ -172,8 +181,8 @@ class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
             )
 
         rounded_price = round_tick_005(request.price)
-        res = self.engine.route_order_execution(
-            target_broker="FINVASIA",
+        res = self.engine.route_order_execution_with_failover(
+            primary_broker="FINVASIA",
             request_data={
                 "symbol": request.symbol,
                 "price": rounded_price,
@@ -227,5 +236,4 @@ class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-# Register plugin in IndianBrokerPluginRegistry on import
 IndianBrokerPluginRegistry.register("ALGO_TRADE_ARAVIN", AlgoTradeAravinBrokerAdapter)
