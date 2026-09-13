@@ -3,8 +3,8 @@
 Indian Trading Skills & Technical Indicator Engine (EQATS Institutional Adaptation).
 Adapted from ajeeshworkspace/indian-trading-skills into FOSS Microkernel Architecture.
 
-Provides intraday VWAP volatility bands (1.0x & 2.0x StdDev), ADX trend strength evaluation,
-and EMA 9/21 momentum crossover triggers for Indian stock market equities and derivatives
+Provides intraday VWAP volatility bands (1.0x & 2.0x StdDev), Half-Kelly Criterion Fixed-Fractional
+Capital Allocator, ADX trend strength evaluation, and EMA 9/21 momentum crossover triggers
 with 0.05 INR tick size rounding.
 
 Assigned Magic Number: 9100017
@@ -34,12 +34,46 @@ MAGIC_NUMBER_INDIAN_TRADING_SKILLS = 9100017
 
 class IndianTradingSkillsEngine:
     """
-    Indian Trading Skills & Advanced Technical Indicator Engine.
+    Indian Trading Skills, VWAP Volatility Bands & Half-Kelly Position Sizing Engine.
     """
 
     def __init__(self, adx_threshold: float = 25.0) -> None:
         self.adx_threshold = adx_threshold
         self.magic_number = MAGIC_NUMBER_INDIAN_TRADING_SKILLS
+
+    def calculate_half_kelly_position_size(
+        self, account_equity: float, price: float, win_rate_pct: float, win_loss_ratio: float
+    ) -> Dict[str, Any]:
+        """
+        Calculates optimal capital allocation using the Half-Kelly Criterion formula:
+        f* = 0.5 * (W - ((1 - W) / R))
+        Where W = win_rate_pct / 100, R = win_loss_ratio.
+        Maximizes compound portfolio growth while preventing over-leverage drawdown.
+        """
+        if account_equity <= 0 or price <= 0 or win_rate_pct <= 0 or win_loss_ratio <= 0:
+            return {"kelly_fraction": 0.0, "allocated_capital": 0.0, "quantity": 0}
+
+        w = win_rate_pct / 100.0
+        r = win_loss_ratio
+
+        # Full Kelly fraction
+        full_kelly = w - ((1.0 - w) / r)
+        # Half Kelly fraction for safety
+        half_kelly = max(0.0, min(0.25, 0.50 * full_kelly))
+
+        allocated_capital = account_equity * half_kelly
+        raw_quantity = int(allocated_capital // price)
+        quantity = max(1, raw_quantity) if half_kelly > 0 else 0
+
+        return {
+            "full_kelly_fraction": round(full_kelly, 4),
+            "half_kelly_fraction": round(half_kelly, 4),
+            "allocated_capital": round_to_indian_tick_size(allocated_capital),
+            "quantity": quantity,
+            "win_rate_pct": win_rate_pct,
+            "win_loss_ratio": win_loss_ratio,
+            "magic_number": self.magic_number,
+        }
 
     def calculate_vwap_bands(self, history_bars: List[Dict[str, Any]]) -> Dict[str, float]:
         """
@@ -71,7 +105,6 @@ class IndianTradingSkillsEngine:
 
         vwap = cum_tp_vol / max(1.0, cum_vol)
 
-        # Variance calculation relative to VWAP
         var = sum((p - vwap) ** 2 for p in prices) / float(max(1, len(prices)))
         std_dev = math.sqrt(var) if var > 0 else 1.0
 
@@ -85,9 +118,6 @@ class IndianTradingSkillsEngine:
         }
 
     def evaluate_trading_skills_setup(self, history_bars: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Evaluates history bars for VWAP bounce and EMA crossover trade setups.
-        """
         if not history_bars or len(history_bars) < 21:
             return {"signal": "HOLD", "confidence": 0.0, "magic_number": self.magic_number}
 
@@ -104,7 +134,6 @@ class IndianTradingSkillsEngine:
         sl = 0.0
         tp = 0.0
 
-        # Bullish: Price bouncing above VWAP and EMA9 > EMA21
         if current_price > vwap_info["vwap"] and ema9 > ema21 and current_price <= vwap_info["upper_band_1"]:
             signal = "BUY"
             sl = vwap_info["lower_band_1"]
@@ -112,7 +141,6 @@ class IndianTradingSkillsEngine:
             tp = round_to_indian_tick_size(current_price + sl_dist * 2.0)
             confidence = 0.85
 
-        # Bearish: Price dropping below VWAP and EMA9 < EMA21
         elif current_price < vwap_info["vwap"] and ema9 < ema21 and current_price >= vwap_info["lower_band_1"]:
             signal = "SELL"
             sl = vwap_info["upper_band_1"]
@@ -134,10 +162,6 @@ class IndianTradingSkillsEngine:
 
 
 class IndianTradingSkillsAdapter(SEBIBrokerAdapter):
-    """
-    Microkernel Broker Adapter for Indian Trading Skills Engine.
-    """
-
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = IndianTradingSkillsEngine()
@@ -210,6 +234,5 @@ class IndianTradingSkillsAdapter(SEBIBrokerAdapter):
         return list(self.simulated_orders.values())
 
 
-# Auto-register into Microkernel Plugin Registry
 IndianBrokerPluginRegistry.register("INDIAN_TRADING_SKILLS", IndianTradingSkillsAdapter)
 IndianBrokerPluginRegistry.register("TRADING_SKILLS", IndianTradingSkillsAdapter)
