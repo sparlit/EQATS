@@ -67,6 +67,21 @@ jobs:
           echo "[+] Starting Autonomous Integration & Self-Healing Cycle..."
           python3 .github/scripts/autonomous_repo_integrator.py --batch 1
 
+      - name: Execute Automated AI Workflow Review
+        continue-on-error: true
+        env:
+          GOOGLE_JULES_API_KEY: ${{ secrets.GOOGLE_JULES_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CHATGPT_API_KEY: ${{ secrets.CHATGPT_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          echo "[*] Executing Automated AI Workflow & Integration Review..."
+          python3 .github/scripts/ai_workflow_reviewer.py
+
       - name: Generate Interactive HTML/Markdown Dashboard
         continue-on-error: true
         run: |
