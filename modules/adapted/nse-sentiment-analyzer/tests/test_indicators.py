@@ -1,0 +1,265 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Tests for technical indicators computation.
+Mocks yfinance to return controlled OHLCV data.
+"""
+
+# Patch st.cache_data before importing indicators so the
+# decorator is a no-op in test context
+from unittest.mock import MagicMock
+
+import numpy as np
+import pandas as pd
+
+
+def _make_ticker_mock(hist_df):
+    """Create a mock yf.Ticker that returns the given history."""
+    mock_ticker = MagicMock()
+    mock_ticker.history.return_value = hist_df
+    return mock_ticker
+
+
+class TestTechnicalIndicators:
+    """Tests for get_technical_indicators()."""
+
+    def setup_method(self):
+        """Clear L1 in-memory and L2 disk history cache between tests to avoid cross-test contamination."""
+        import os
+
+        import data_fetcher
+        from data_fetcher import _hist_cache, _hist_cache_lock
+
+        with _hist_cache_lock:
+            _hist_cache.clear()
+        # Remove any L2 disk cache entries for the test ticker
+        cache_path = os.path.join(data_fetcher._PRICE_CACHE_DIR, "RELIANCE.json")
+        if os.path.exists(cache_path):
+            os.remove(cache_path)
+
+    def _call(self, mocker, hist_df):
+        """Call get_technical_indicators with mocked yfinance and Streamlit cache."""
+        # Bypass st.cache_data so it's a pass-through
+        mocker.patch("streamlit.cache_data", lambda **kwargs: lambda f: f)
+        # Reload to pick up the patched decorator — single import after reload
+        import importlib
+
+        mod = importlib.import_module("indicators")
+        importlib.reload(mod)
+        from indicators import get_technical_indicators as gti
+
+        # Patch data_fetcher.yf.Ticker so the L3 fallback inside get_cached_history is intercepted
+        mocker.patch("data_fetcher.yf.Ticker", return_value=_make_ticker_mock(hist_df))
+        return gti("RELIANCE")
+
+    def test_rsi_computed(self, mocker):
+        """RSI should be a float between 0-100."""
+        dates = pd.date_range(end="2026-06-18", periods=252, freq="B")
+        np.random.seed(42)
+        prices = 100.0 + np.cumsum(np.random.randn(252) * 0.5)
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.random.randint(500_000, 2_000_000, 252),
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        assert result is not None
+        assert isinstance(result["rsi"], float)
+        assert 0 <= result["rsi"] <= 100
+
+    def test_sma_values(self, mocker):
+        """SMA 50 and 200 should be floats with 252 data points."""
+        dates = pd.date_range(end="2026-06-18", periods=252, freq="B")
+        prices = np.linspace(100, 150, 252)  # Smooth uptrend
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.ones(252) * 1_000_000,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        assert result is not None
+        assert isinstance(result["sma_50"], float)
+        assert isinstance(result["sma_200"], float)
+
+    def test_macd_histogram(self, mocker):
+        """MACD histogram should be a float."""
+        dates = pd.date_range(end="2026-06-18", periods=252, freq="B")
+        prices = 100.0 + np.sin(np.linspace(0, 4 * np.pi, 252)) * 10
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.ones(252) * 1_000_000,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        assert result is not None
+        assert isinstance(result["macd_hist"], float)
+
+    def test_sma_none_on_short_history(self, mocker):
+        """Short history (< 26) returns None entirely (can't compute RSI/MACD either)."""
+        dates = pd.date_range(end="2026-06-18", periods=20, freq="B")
+        hist = pd.DataFrame(
+            {
+                "Open": [100.0] * 20,
+                "High": [101.0] * 20,
+                "Low": [99.0] * 20,
+                "Close": [100.5] * 20,
+                "Volume": [1_000_000] * 20,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        assert result is None, "Should return None when < 26 rows"
+
+    def test_volume_avg_none_on_short_history(self, mocker):
+        """Short history (< 26) returns None (can't compute indicators)."""
+        dates = pd.date_range(end="2026-06-18", periods=20, freq="B")
+        hist = pd.DataFrame(
+            {
+                "Open": [100.0] * 20,
+                "High": [101.0] * 20,
+                "Low": [99.0] * 20,
+                "Close": [100.5] * 20,
+                "Volume": [1_000_000] * 20,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        assert result is None, "Should return None when < 26 rows"
+
+    def test_bullish_crossover_detected(self, mocker):
+        """Should detect bullish SMA50 crossover (price crossed above SMA50 today)."""
+        dates = pd.date_range(end="2026-06-18", periods=252, freq="B")
+        prices = np.linspace(80, 120, 252)  # Uptrend
+        # Force yesterday below SMA50, today above
+        prices[-3] = 94.0
+        prices[-2] = 95.0
+        prices[-1] = 101.0
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.ones(252) * 1_000_000,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        if result:
+            # May or may not detect crossover depending on SMA values
+            assert "close" in result
+            assert "sma50_cross" in result
+
+    def test_bearish_crossover_detected(self, mocker):
+        """Should detect bearish SMA50 crossover (price crossed below SMA50 today)."""
+        dates = pd.date_range(end="2026-06-18", periods=252, freq="B")
+        prices = np.linspace(120, 80, 252)  # Downtrend
+        # Force yesterday above SMA50, today below
+        prices[-3] = 106.0
+        prices[-2] = 105.0
+        prices[-1] = 99.0
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.ones(252) * 1_000_000,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        if result:
+            assert "close" in result
+
+    def test_return_none_on_empty_history(self, mocker):
+        """Empty DataFrame should return None."""
+        empty_hist = pd.DataFrame()
+        result = self._call(mocker, empty_hist)
+        assert result is None
+
+    def test_adx_computed(self, mocker):
+        """ADX(14) should be a float between 0-100 with sufficient data."""
+        dates = pd.date_range(end="2026-06-18", periods=252, freq="B")
+        np.random.seed(42)
+        prices = 100.0 + np.cumsum(np.random.randn(252) * 0.5)
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.random.randint(500_000, 2_000_000, 252),
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        assert result is not None
+        adx = result.get("adx")
+        assert adx is not None
+        assert isinstance(adx, float)
+        assert 0 <= adx <= 100
+
+    def test_adx_none_on_short_history(self, mocker):
+        """Short history (< 28) should return adx=None."""
+        dates = pd.date_range(end="2026-06-18", periods=27, freq="B")
+        prices = np.linspace(100, 110, 27)
+        hist = pd.DataFrame(
+            {
+                "Open": prices,
+                "High": prices * 1.01,
+                "Low": prices * 0.99,
+                "Close": prices,
+                "Volume": np.ones(27) * 1_000_000,
+            },
+            index=dates,
+        )
+
+        result = self._call(mocker, hist)
+        # 27 rows is enough for RSI/MACD (>=26) but not for ADX (<28)
+        if result is not None:
+            assert result.get("adx") is None

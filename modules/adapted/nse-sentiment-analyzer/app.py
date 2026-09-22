@@ -1,0 +1,1196 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+NSE Stock Sentiment Analyzer
+Enter any NSE ticker → get live price + news sentiment score + signal.
+Built with Streamlit + yfinance + VADER + custom financial lexicon for indian markets.
+"""
+
+__version__ = "2.10.0"
+
+import json
+import logging
+import os
+import re
+import time
+from datetime import datetime
+
+import pandas as pd
+import streamlit as st
+import yfinance as yf
+
+logger = logging.getLogger(__name__)
+
+
+def _ohlcv_to_json(hist: pd.DataFrame | None) -> str:
+    """Convert yfinance OHLCV DataFrame to JSON for TradingView Lightweight Charts."""
+    if hist is None or hist.empty:
+        return "[]"
+    records = []
+    for idx, row in hist.iterrows():
+        ts = idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)[:10]
+        o = float(row.get("Open", 0) or 0)
+        h = float(row.get("High", 0) or 0)
+        low = float(row.get("Low", 0) or 0)
+        c = float(row.get("Close", 0) or 0)
+        v = int(row.get("Volume", 0) or 0)
+        records.append({"time": ts, "open": o, "high": h, "low": low, "close": c, "volume": v})
+    return json.dumps(records)
+
+
+# ─── Contact / feature request info
+CONTACT = {
+    "email": "darkcharon3301@gmail.com",
+    "x_url": "https://x.com/sentinelcipher",
+    "x_handle": "@sentinelcipher",
+    "chai_url": "https://chai4.me/ashaykushwaha003",
+}
+
+from typing import Any, cast
+
+from aggregate_sentiment import compute_smartscore
+from cascade import detect_cascade
+from data_fetcher import (
+    NSE_TICKERS,
+    fetch_market_headlines,
+    get_cached_history,
+    get_stock_info,
+    resolve_ticker,
+    search_news,
+)
+from event_classifier import adjust_with_event, classify_headline
+from intraday import compute_pivot_levels, compute_vwap, get_vix
+from market_data import get_fii_dii_flow, get_market_pulse, get_mmi
+from persistence import (
+    ENTRY_PRICES_FILE,
+    calc_portfolio_pnl,
+    get_entry_info,
+    load_entry_prices,
+    load_portfolio,
+    load_sentiment_history,
+    load_track_record,
+    save_fiidii_snapshot,
+    save_portfolio,
+    save_sentiment_history,
+    save_track_record,
+    update_source_accuracy,
+)
+from portfolio_ui import render_bottom_cards
+from render import _is_valid_num, render_dashboard
+from sentiment import analyze_headline_sentiment, get_sia, get_weighted_signal
+
+from indicators import get_technical_indicators
+
+# ─── Page config ───
+st.set_page_config(
+    page_title="NSE Bull/Bear Edge | AI-Powered Sentiment Analyzer",
+    page_icon="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%2322b573' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='12' y1='20' x2='12' y2='10'/><line x1='18' y1='20' x2='18' y2='4'/><line x1='6' y1='20' x2='6' y2='16'/></svg>",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
+# ─── Global UI constants & styles ───
+_CARET = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8891a0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="caret"><path d="m9 18 6-6-6-6"/></svg>'
+_ARROW_UP_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>'
+_ARROW_DOWN_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>'
+_DOT_GREEN = (
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#22b573" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+)
+_DOT_RED = (
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#f85149" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+)
+_DOT_ORANGE = (
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+)
+_DOT_GREY = (
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="#8891a0" stroke="none"><circle cx="12" cy="12" r="6"/></svg>'
+)
+st.markdown(
+    """<style>
+details.news-expander {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:8px;
+    padding:0.5rem 0.75rem;
+    margin-bottom:0.5rem;
+}
+details.news-expander summary {
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-weight:600;
+    font-size:0.95rem;
+    color:#e4e6eb;
+    list-style:none;
+}
+details.news-expander summary::-webkit-details-marker { display:none; }
+details.news-expander summary .caret {
+    transition:transform 0.2s;
+}
+details.news-expander[open] summary .caret {
+    transform:rotate(90deg);
+}
+</style>""",
+    unsafe_allow_html=True,
+)
+
+# ─── Streamlit chrome CSS (Geist, hide chrome, widget overrides) ───
+st.markdown(
+    """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+    * { font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
+    /* Hide Streamlit chrome */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stAppToolbar {display: none;}
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {width: 6px;}
+    ::-webkit-scrollbar-track {background: #0a0b0f;}
+    ::-webkit-scrollbar-thumb {background: #1e2028; border-radius: 3px;}
+    ::-webkit-scrollbar-thumb:hover {background: #2a2d35;}
+    /* Widget overrides */
+    .stTextInput input {border-radius: 8px;border-color: #1e2028 !important;font-size:1rem;padding:0.6rem 0.75rem;}
+
+    /* Ticker search row: tighter spacing between input and search button */
+    div[data-testid="column"]:has(button#svgsrch) {padding-left:0 !important;}
+    div[data-testid="column"]:has(input[placeholder*="RELIANCE"]) {padding-right:0 !important;}
+    div[data-testid="column"]:has(input[placeholder*="HDFCBANK"]) {padding-right:0 !important;}
+    .stTextInput {margin-bottom:0 !important;}
+    div[data-testid="stHorizontalBlock"]:has(div button#svgsrch) {gap:0 !important;}
+    .stTextInput input:focus {border-color: #22b573 !important;box-shadow: 0 0 0 2px rgba(34,181,115,0.1) !important;}
+    .stButton button {border-radius: 8px;border: 1px solid #1e2028;background: rgba(19,21,26,0.6);color: #e4e6eb;font-weight: 500;transition: all 0.2s ease;}
+    .stButton button:hover {border-color: rgba(34,181,115,0.3);background: rgba(34,181,115,0.08);}
+    /* Compact delete button for portfolio rows */
+    .pf-del button {min-height:0 !important;padding:0.15rem 0.5rem !important;font-size:0.75rem !important;line-height:1 !important;border:none !important;background:transparent !important;color:#6b7280 !important;}
+    .pf-del button:hover {color:#ef4444 !important;background:rgba(239,68,68,0.08) !important;}
+    /* Tighten column gaps in portfolio section */
+    .pf-row-cols [data-testid="stHorizontalBlock"] {gap: 0.25rem !important;}
+    /* Custom header */
+    .custom-header {display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0 1.5rem 0;border-bottom:1px solid #1e2028;margin-bottom:1.5rem;}
+    .custom-header .left {display:flex;align-items:center;gap:0.75rem;}
+    .custom-header .logo {font-size:1.75rem;font-weight:800;letter-spacing:-0.03em;color:#22b573;}
+    .custom-header .tagline {font-size:0.8rem;color:#6b7280;margin-top:0.1rem;}
+    .custom-header .gh-btn {display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.75rem;border:1px solid #1e2028;border-radius:8px;color:#e4e6eb;font-size:0.8rem;font-weight:500;text-decoration:none;transition:all 0.2s ease;}
+    .custom-header .gh-btn:hover {border-color:#22b573;color:#22b573;background:rgba(34,181,115,0.05);}
+    /* Search button */
+    .search-wrap {width:100%;height:38px;display:flex;align-items:center;justify-content:center;}
+    .search-btn {width:38px;height:38px;background:rgba(19,21,26,0.6);border:1px solid #1e2028;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#e4e6eb;transition:all 0.2s ease;padding:0;}
+    .search-btn:hover {border-color:rgba(34,181,115,0.3);background:rgba(34,181,115,0.08);}
+    /* Footer classes */
+    .footer-contact {text-align:center;font-size:0.85rem;color:#6b7280;margin-bottom:0.5rem;}
+    .footer-contact a {color:#22b573;text-decoration:none;}
+    .footer-disclaimer {display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#8891a0;}
+    .footer-support {text-align:center;margin-bottom:0.5rem;}
+    .footer-support span {color:#6b7280;font-size:0.75rem;font-style:italic;}
+    .chai-wrap {display:flex;justify-content:center;margin-top:12px;}
+    .chai-btn {display:inline-flex;flex-direction:column;align-items:center;justify-content:center;background:#ffffff;padding:8px 32px;border-radius:16px;text-decoration:none;border:1px solid #e5e7eb;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -2px rgba(0,0,0,0.05);transition:transform 0.2s;}
+    .chai-btn:hover {transform:translateY(-1px);}
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+    }
+    /* Recalculate height now that header/footer are hidden */
+    .block-container {padding-top:1rem !important;padding-bottom:0 !important;}
+
+    /* Responsive: mobile-friendly adjustments */
+    @media (max-width: 640px) {
+        /* General sizing and tap targets */
+        .stButton button {font-size: 0.8rem; padding: 0.3rem 0.5rem; min-height: 40px;}
+        .stTextInput input {font-size: 0.95rem; padding: 0.5rem 0.65rem;}
+        .st-emotion-cache-16idsys {gap: 0.25rem;}
+        .block-container {padding-left: 0.75rem !important; padding-right: 0.75rem !important;}
+
+        /* Search button — bigger tap target */
+        .stTextInput + div .stButton button {font-size: 1.15rem; padding: 0.45rem 0.75rem;}
+
+        /* Smaller header */
+        .custom-header .logo {font-size: 1.3rem !important;}
+        .custom-header .tagline {font-size: 0.7rem !important;}
+
+        /* Smaller caption text */
+        .stCaption {font-size: 0.75rem;}
+        .stMetric label {font-size: 0.8rem;}
+        .stMetric div[data-testid="stMetricValue"] {font-size: 1.2rem !important;}
+
+        /* Portfolio briefing containers stack well */
+        .stContainer .stHorizontalBlock > div {min-width: 0;}
+
+        /* Privacy expander compact */
+        .streamlit-expanderContent {font-size: 0.8rem;}
+        .streamlit-expanderContent li, .streamlit-expanderContent p {font-size: 0.8rem;}
+
+        /* Footer Chai4Me badge */
+        a[aria-label*="Support"] {padding: 6px 16px !important;}
+        a[aria-label*="Support"] img {height: 24px !important;}
+
+        /* Bottom cards (Portfolio + Track Record) — redesigned */
+    }
+
+    /* Cascade / Ripple Effects card */
+    .card {background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:1rem;margin-bottom:1rem;}
+    .card-title {font-size:1rem;font-weight:700;color:#e4e6eb;margin-bottom:0.75rem;}
+    .cw {display:flex;flex-direction:column;gap:0.75rem;}
+    .cd {border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:0.75rem;}
+    .cd:last-child {border-bottom:none;padding-bottom:0;}
+    .ch {display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;font-size:0.85rem;}
+    .cn {color:#e4e6eb;font-weight:600;}
+    .cb {font-weight:700;font-size:0.8rem;}
+    .cc {color:#6b7280;font-size:0.75rem;margin-left:auto;}
+    .cticks {display:flex;flex-direction:column;gap:0.25rem;}
+    .ct {display:flex;align-items:center;gap:0.45rem;padding:0.2rem 0.5rem;border-radius:6px;background:rgba(255,255,255,0.02);font-size:0.8rem;}
+    .cs {color:#22b573;font-weight:700;min-width:5.5rem;}
+    .cco {color:#8891a0;flex:1;font-size:0.75rem;}
+    .cw {color:#6b7280;font-size:0.75rem;}
+    .cti {font-size:0.65rem;font-weight:700;margin-left:auto;flex-shrink:0;}
+
+</style>""",
+    unsafe_allow_html=True,
+)
+
+
+# ─── Rate limiter: prevents rapid-fire searches that waste yfinance quota ───
+# Tracks search timestamps per session. Max 6 searches per 60 seconds.
+# Resets naturally when session expires (app sleep / inactivity).
+_MAX_SEARCHES = 6
+_SEARCH_WINDOW = 60  # seconds
+
+
+def _check_rate_limit() -> bool:
+    """Return True if the user may proceed, False if rate-limited.
+
+    Maintains a rolling window of search timestamps in session_state.
+    If the user exceeds _MAX_SEARCHES in _SEARCH_WINDOW seconds,
+    shows a warning and returns False.
+    """
+    now = time.time()
+    timestamps = st.session_state.setdefault("_search_timestamps", [])
+
+    # Prune entries outside the window
+    cutoff = now - _SEARCH_WINDOW
+    timestamps[:] = [t for t in timestamps if t > cutoff]
+
+    if len(timestamps) >= _MAX_SEARCHES:
+        oldest = timestamps[0]
+        wait_sec = int(_SEARCH_WINDOW - (now - oldest))
+        st.warning(
+            f"⏳ You've made {_MAX_SEARCHES} searches in the last minute. "
+            f"Please wait {wait_sec}s before searching again. "
+            "This limit protects shared API resources for all users."
+        )
+        return False
+
+    return True
+
+
+def analyze_ticker(ticker: str, company_name: str, quick: bool = False) -> dict[str, Any] | None:
+    """Run full analysis pipeline for a ticker. Returns dict or None.
+
+    When quick=True (briefing mode), skips expensive news search and sentiment
+    analysis — just returns price-only snapshot.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    if quick:
+        # Briefing mode: only fetch stock info + FII/DII, skip expensive news
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            stock_future = pool.submit(get_stock_info, ticker)
+            fii_future = pool.submit(get_fii_dii_flow)
+            stock_data = stock_future.result()
+
+        if not stock_data:
+            fii_future.cancel()
+            return None
+
+        return {
+            "stock_data": stock_data,
+            "news_items": [],
+            "headline_scores": [],
+            "signal": "NEUTRAL",
+            "avg_compound": 0.0,
+            "signal_emoji": "⚪",
+            "weighted_signal": "NEUTRAL",
+            "blended_compound": 0.0,
+            "weighted_emoji": "⚪",
+            "source_breakdown": [],
+            "num_articles": 0,
+            "source_stats": {},
+            "smartscore": 0.0,
+            "smartscore_signal": "NEUTRAL",
+            "smartscore_emoji": "⚪",
+            "smartscore_components": None,
+            "event_tags": [],
+            "smartscore_history": [],
+            "vwap": None,
+            "pivot_levels": None,
+            "fii_data": fii_future.result(),
+            "cascade_effects": [],
+        }
+
+    # Full mode: parallel stock info + news + FII/DII
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        stock_future = pool.submit(get_stock_info, ticker)
+        news_future = pool.submit(search_news, ticker, company_name)
+        fii_future = pool.submit(get_fii_dii_flow)
+        stock_data = stock_future.result()
+
+    if not stock_data:
+        news_future.cancel()
+        fii_future.cancel()
+        return None
+
+    use_finbert = os.environ.get("USE_FINBERT", "").strip().lower() in ("1", "true", "yes")
+    pipe_finbert = None
+    if use_finbert:
+        from sentiment import analyze_headline_finbert, get_finbert
+
+        pipe_finbert = get_finbert()
+
+    sia = None if use_finbert else get_sia()
+    # Retrieve news result from parallel future (already fetched above)
+    news_items, cascade_pool, source_stats, _dissemination_clusters, _dissemination_score = news_future.result()
+
+    # Phase 1: Sentiment scoring (FinBERT or VADER+events)
+    headline_scores = []
+    event_adjusted_scores = []
+    event_tags = []
+    for n in news_items:
+        if pipe_finbert:
+            score = analyze_headline_finbert(n["title"], n["body"], pipe_finbert)
+            score["source"] = n.get("source")
+            score["event_type"] = None
+            score["event_base"] = 0.0
+            score["adjusted_compound"] = score["compound"]
+        else:
+            score = analyze_headline_sentiment(n["title"], n["body"], sia, source=n.get("source"))
+            event_type, event_base = classify_headline(n["title"], n["body"])
+            adjusted = adjust_with_event(score["compound"], event_base)
+            score["event_type"] = event_type
+            score["event_base"] = event_base
+            score["adjusted_compound"] = adjusted
+        headline_scores.append(score)
+        event_adjusted_scores.append(score["adjusted_compound"])
+        event_tags.append(score.get("event_type"))
+
+    # Phase 2: SmartScore composite (0-100) with EWMA + breadth + volume
+    history = load_sentiment_history(ticker)
+    ss_result, ss_history = compute_smartscore(headline_scores, event_adjusted_scores, history)
+
+    # Persist today's aggregated stats to history CSV
+    if event_adjusted_scores:
+        save_sentiment_history(
+            ticker,
+            {
+                "headline_count": ss_result["headline_count"],
+                "pos_count": ss_result["pos_count"],
+                "neg_count": ss_result["neg_count"],
+                "avg_compound": sum(event_adjusted_scores) / len(event_adjusted_scores),
+                "event_avg": ss_result["s_events"],
+                "smartscore": ss_result["smartscore"],
+            },
+        )
+
+    # Use weighted signal as the primary (and only) signal
+    weighted_signal, blended_compound, weighted_emoji, source_breakdown = get_weighted_signal(headline_scores)
+
+    # Cascade/Ripple Tracking — scan all market news (including non-ticker articles) for commodity keywords
+    cascade_effects = detect_cascade(cascade_pool, ticker_lookup=NSE_TICKERS, focus_ticker=ticker)
+
+    # Intraday tools — skip if yfinance is rate-limited to avoid extra API pressure
+    from data_fetcher import _check_rate_limited
+
+    vwap_data = None if _check_rate_limited() else compute_vwap(ticker)
+
+    return {
+        "stock_data": stock_data,
+        "news_items": news_items,
+        "headline_scores": headline_scores,
+        "signal": weighted_signal,
+        "avg_compound": blended_compound,
+        "signal_emoji": weighted_emoji,
+        "weighted_signal": weighted_signal,
+        "blended_compound": blended_compound,
+        "weighted_emoji": weighted_emoji,
+        "source_breakdown": source_breakdown,
+        "num_articles": len(news_items),
+        "source_stats": source_stats,
+        # New SmartScore data (consumed by render.py)
+        "smartscore": ss_result["smartscore"],
+        "smartscore_signal": ss_result["signal"],
+        "smartscore_emoji": ss_result["signal_emoji"],
+        "smartscore_components": ss_result,
+        "event_tags": event_tags,
+        "smartscore_history": ss_history,
+        # Intraday trading data
+        "vwap": vwap_data,
+        "pivot_levels": None,  # set after TI fetch in main flow
+        # FII/DII (fetched in parallel above)
+        "fii_data": fii_future.result(),
+        # Cascade/ripple effects
+        "cascade_effects": cascade_effects,
+    }
+
+
+def _fetch_portfolio_price(t: str) -> tuple[str, dict[str, Any] | None]:
+    """Fetch price for one portfolio ticker — runs in worker thread."""
+    try:
+        tk = yf.Ticker(t + ".NS")
+        hist = tk.history(period="2d")
+        if hist is not None and not hist.empty:
+            cp = float(hist["Close"].iloc[-1])
+            prev = float(hist["Close"].iloc[-2]) if len(hist) > 1 else cp
+            return t, {
+                "change_pct": round((cp - prev) / prev * 100, 2),
+                "current_price": cp,
+            }
+    except Exception:
+        logger.warning("_refresh_price_cache failed for %s", t)
+    return t, None
+
+
+def _refresh_price_cache(portfolio: list[str]) -> None:
+    """Fetch current prices for all portfolio stocks and cache in session state."""
+    if not portfolio:
+        return
+    cache = st.session_state.setdefault("_stock_price_cache", {})
+    missing = [t for t in portfolio if t not in cache]
+    if not missing:
+        return
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    _failed = []
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {pool.submit(_fetch_portfolio_price, t): t for t in missing}
+        for future in as_completed(futures):
+            t, result = future.result()
+            if result is not None:
+                cache[t] = result
+            else:
+                _failed.append(t)
+    if _failed:
+        st.warning(f"Could not refresh price for: {', '.join(_failed)}")
+
+
+def _render_portfolio_list(portfolio: list[str], entry_prices: dict[str, Any], key_prefix: str = "side") -> None:
+    """Render portfolio listing with delete buttons for the sidebar.
+
+    Compact single-line layout with ticker, price, P&L, and remove button.
+    No heatmap, no summary stats, no briefing button.
+    """
+    if not portfolio:
+        st.markdown(
+            '<div style="color:#6b7280;font-size:0.8rem;padding:0.5rem 0">'
+            "No tickers yet. Use the add form below the analysis.</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    for t in portfolio:
+        ep = entry_prices.get(t)
+        sd_cache = st.session_state.get("_stock_price_cache", {}).get(t)
+        cp = sd_cache.get("current_price") if sd_cache else None
+
+        ep_price, ep_qty = get_entry_info(ep)
+
+        c1, c2 = st.columns([3, 1])
+        display_parts = [f"<strong>{t}</strong>"]
+        if _is_valid_num(cp):
+            display_parts.append(f'<span style="font-size:0.85rem;">\u20b9{cp:,.2f}</span>')
+        elif sd_cache is not None:
+            display_parts.append('<span style="font-size:0.85rem;color:#6b7280;">Price N/A</span>')
+        if ep_qty > 0:
+            display_parts.append(f'<span style="font-size:0.7rem;color:#6b7280;">\u00d7{ep_qty}</span>')
+        if ep_price and _is_valid_num(cp):
+            pnl = calc_portfolio_pnl(ep_price, cp, ep_qty)
+            sign = "+" if pnl["pnl_pct"] >= 0 else ""
+            display_parts.append(
+                f'<span style="font-size:0.8rem;color:{"#22c55e" if pnl["pnl_pct"] >= 0 else "#ef4444"};">'
+                f"{sign}{pnl['pnl_pct']:.1f}%</span>"
+            )
+            display_parts.append(f'<span style="font-size:0.7rem;color:#6b7280;">ATP \u20b9{ep_price:,.0f}</span>')
+        elif ep_price:
+            display_parts.append(f'<span style="font-size:0.75rem;color:#6b7280;">ATP \u20b9{ep_price:,.0f}</span>')
+        elif cp:
+            display_parts.append('<span style="font-size:0.7rem;color:#6b7280;">No ATP set</span>')
+        c1.markdown(
+            '<div style="line-height:1.5;">' + "<br>".join(display_parts) + "</div>",
+            unsafe_allow_html=True,
+        )
+
+        if c2.button("\u2715", key=f"{key_prefix}_del_{t}", help=f"Remove {t} from portfolio"):
+            portfolio.remove(t)
+            save_portfolio(portfolio)
+            st.session_state._skip_reanalysis = True
+            st.rerun()
+
+
+# ─── Sidebar ───
+with st.sidebar:
+    portfolio = load_portfolio()
+    entry_prices = load_entry_prices()
+    _refresh_price_cache(portfolio)
+
+    # ─── Portfolio list ───
+    if portfolio:
+        _FOLDER = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;'
+            f'font-weight:600;color:#f0f2f5;margin-bottom:0.5rem">{_FOLDER} Portfolio ({len(portfolio)})</div>',
+            unsafe_allow_html=True,
+        )
+        _render_portfolio_list(portfolio, entry_prices, key_prefix="side")
+
+        if st.button("Clear all holdings", key="clear_portfolio", type="secondary", use_container_width=True):
+            save_portfolio([])
+            # Clear entry prices too
+            ENTRY_PRICES_FILE.write_text("{}", encoding="utf-8")
+            st.session_state._skip_reanalysis = True
+            st.rerun()
+    else:
+        st.markdown(
+            '<div style="color:#6b7280;font-size:0.8rem;padding:0.5rem 0">'
+            "No holdings yet. Add tickers in the analysis section below.</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+
+    # ─── Changelog & Feedback ───
+    _FILE_TEXT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>'
+    st.markdown(
+        f'<details class="news-expander"><summary>{_CARET}{_FILE_TEXT_SVG} What\'s New</summary>',
+        unsafe_allow_html=True,
+    )
+    try:
+        if "_changelog_cache" not in st.session_state:
+            with open("CHANGELOG.md", encoding="utf-8") as f:
+                st.session_state._changelog_cache = f.readlines()
+        lines = st.session_state._changelog_cache
+        st.markdown("".join(lines[:40]), unsafe_allow_html=True)
+        if len(lines) > 40:
+            st.caption("... see CHANGELOG.md for full history")
+    except FileNotFoundError:
+        st.caption("Changelog coming soon")
+    st.markdown("</details>", unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="text-align:center;font-size:0.8rem;color:#6b7280;">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>'
+        f' Feature requests: <a href="mailto:{CONTACT["email"]}" '
+        f'style="color:#22b573;text-decoration:none;">{CONTACT["email"]}</a> · '
+        f'<a href="{CONTACT["x_url"]}" '
+        f'style="color:#22b573;text-decoration:none;">{CONTACT["x_handle"]}</a></div>',
+        unsafe_allow_html=True,
+    )
+
+# ─── Main UI ───
+
+# ─── Premium header ───
+st.markdown(
+    """
+<div style="display:flex;align-items:center;justify-content:space-between;
+    padding:0.5rem 0 1.5rem 0;border-bottom:1px solid #1e2028;margin-bottom:1.5rem;">
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div>
+            <div style="font-size:1.25rem;font-weight:700;letter-spacing:-0.02em;
+                background:linear-gradient(135deg,#22b573,#0d9488);
+                -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                background-clip:text;">NSE Bull/Bear Edge<span style="font-weight:400;color:#6b7280;"> — AI-Powered Sentiment Analyzer</span></div>
+            <div style="font-size:0.8rem;color:#6b7280;margin-top:0.15rem;">
+                Live price · Multi-source sentiment · Technical indicators</div>
+        </div>
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
+
+# ─── Market Pulse & VIX ───
+if "market_pulse" not in st.session_state:
+    st.session_state.market_pulse = get_market_pulse()
+if "vix" not in st.session_state:
+    st.session_state.vix = get_vix()
+
+pulse_d = st.session_state.market_pulse
+vix_d = st.session_state.vix
+_has_pulse = pulse_d and pulse_d.get("nifty_price") is not None
+_has_vix = vix_d and vix_d.get("vix") is not None
+
+if _has_pulse or _has_vix:
+    st.markdown("---")
+    # ─── Section label ───
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;'
+        'font-weight:600;color:#f0f2f5;margin-bottom:0.5rem">'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'
+        " Market Pulse</div>",
+        unsafe_allow_html=True,
+    )
+
+    # Compute MMI (cached in session_state)
+    if "mmi_data" not in st.session_state:
+        st.session_state.mmi_data = get_mmi()
+    mmi_d = st.session_state.mmi_data
+    _has_mmi = mmi_d and mmi_d.get("mmi") is not None
+
+    cols = st.columns([1, 1, 1])
+    # ─── Column 1: Nifty 50 ───
+    if _has_pulse:
+        price = pulse_d["nifty_price"]
+        chg = pulse_d["nifty_change_pct"]
+        is_up = chg is not None and chg >= 0
+        _ac = "#22b573" if is_up else "#f85149"
+        _a_svg = (
+            _ARROW_UP_SVG.replace('stroke="currentColor"', f'stroke="{_ac}"')
+            if is_up
+            else _ARROW_DOWN_SVG.replace('stroke="currentColor"', f'stroke="{_ac}"')
+        )
+        _delta = f"{chg:+.2f}%" if chg is not None else "N/A"
+        cols[0].markdown(
+            '<div style="text-align:center;padding:0.25rem 0">'
+            '<div style="font-size:0.7rem;color:#8891a0;text-transform:uppercase;letter-spacing:0.04em;">Nifty 50</div>'
+            f'<div style="font-size:1.4rem;font-weight:700;color:#f0f2f5;">{price:,.0f}</div>'
+            f'<div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.85rem;font-weight:600;color:{_ac};">{_a_svg} {_delta}</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        cols[0].metric("Nifty 50", "\u2014", "Unavailable")
+    # ─── Column 2: MMI Gauge ───
+    if _has_mmi:
+        mmi_val = mmi_d["mmi"]
+        zone = mmi_d["zone"]
+        _mc = {
+            "Extreme Greed": "#22b573",
+            "Greed": "#4ade80",
+            "Neutral": "#8891a0",
+            "Fear": "#f59e0b",
+            "Extreme Fear": "#f85149",
+        }
+        m_color = _mc.get(zone, "#8891a0")
+        # MMI icon based on zone
+        _icons = {
+            "Extreme Greed": _DOT_GREEN,
+            "Greed": _DOT_GREEN,
+            "Neutral": _DOT_GREY,
+            "Fear": _DOT_ORANGE,
+            "Extreme Fear": _DOT_RED,
+        }
+        m_icon = _icons.get(zone, "\u26aa")
+        # Sub-score summary
+        sub = (
+            f"T:{mmi_d['trend_score']:.0f}  V:{mmi_d['vix_score']:.0f}  "
+            f"F:{mmi_d['fii_score']:.0f}  B:{mmi_d['breadth_score']:.0f}"
+        )
+        cols[1].markdown(
+            '<div style="text-align:center;padding:0.25rem 0">'
+            '<div style="font-size:0.7rem;color:#8891a0;text-transform:uppercase;letter-spacing:0.04em;">MMI</div>'
+            f'<div style="font-size:1.4rem;font-weight:700;color:{m_color};">{mmi_val:.0f}</div>'
+            f'<div style="font-size:0.85rem;font-weight:600;color:{m_color};">{m_icon} {zone}</div>'
+            f'<div style="font-size:0.6rem;color:#6b7280;margin-top:0.15rem;font-family:monospace;">{sub}</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        cols[1].markdown(
+            '<div style="text-align:center;padding:0.25rem 0">'
+            '<div style="font-size:0.7rem;color:#8891a0;text-transform:uppercase;letter-spacing:0.04em;">MMI</div>'
+            '<div style="font-size:1rem;font-weight:700;color:#6b7280;">\u2014</div>'
+            '<div style="font-size:0.65rem;color:#6b7280;margin-top:0.15rem;">Data unavailable</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    # ─── Column 3: India VIX ───
+    if _has_vix:
+        vix_up = vix_d["change"] >= 0
+        _vc = "#f85149" if vix_up else "#22b573"
+        _v_svg = (
+            _ARROW_UP_SVG.replace('stroke="currentColor"', f'stroke="{_vc}"')
+            if vix_up
+            else _ARROW_DOWN_SVG.replace('stroke="currentColor"', f'stroke="{_vc}"')
+        )
+        cols[2].markdown(
+            '<div style="text-align:center;padding:0.25rem 0">'
+            '<div style="font-size:0.7rem;color:#8891a0;text-transform:uppercase;letter-spacing:0.04em;">India VIX</div>'
+            f'<div style="font-size:1.4rem;font-weight:700;color:#f0f2f5;">{vix_d["vix"]:.1f}</div>'
+            f'<div style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:0.85rem;font-weight:600;color:{_vc};">{_v_svg} {vix_d["change"]:+.2f}</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        if vix_d["level"] == "High":
+            cols[2].markdown(
+                '<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#8891a0;">'
+                '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+                " High VIX — sharp reversals likely. Trade with caution.</span>",
+                unsafe_allow_html=True,
+            )
+        elif vix_d["level"] == "Low":
+            cols[2].markdown(
+                '<span style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;color:#8891a0;">'
+                '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22b573" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+                " Low VIX — trending markets favored.</span>",
+                unsafe_allow_html=True,
+            )
+    else:
+        cols[2].metric("India VIX", "\u2014", "Unavailable")
+
+# ─── Ticker Input — single text field + search button ───
+# ─── Shareable snapshot link: ?ticker=X bypasses normal input ───
+query_ticker = st.query_params.get("ticker", "")
+if query_ticker:
+    query_ticker = query_ticker.strip().upper().replace(".NS", "")
+    if query_ticker and re.match(r"^[A-Z0-9&-]+$", query_ticker):
+        final_ticker = query_ticker
+        company_name = NSE_TICKERS.get(final_ticker, final_ticker)
+        with st.spinner(f"Loading analysis for {final_ticker}..."):
+            result = analyze_ticker(final_ticker, company_name)
+        if result:
+            st.markdown(
+                '<div style="text-align:right;margin-bottom:0.5rem;">'
+                '<a href="/" style="color:#22b573;font-size:0.85rem;text-decoration:none;">'
+                "\u2190 Back to main app</a></div>",
+                unsafe_allow_html=True,
+            )
+            # Compute supporting data like the normal search path
+            ti = get_technical_indicators(final_ticker)
+            hist_cache = get_cached_history(final_ticker)
+            _hist = hist_cache.tail(5) if hist_cache is not None and len(hist_cache) >= 1 else None
+            result["pivot_levels"] = compute_pivot_levels(_hist)
+            records = load_track_record()
+            fii_data = get_fii_dii_flow()
+            if fii_data:
+                save_fiidii_snapshot(fii_data)
+            ohlcv_json = _ohlcv_to_json(hist_cache)
+            html = render_dashboard(
+                result,
+                final_ticker,
+                company_name,
+                technical_indicators=ti,
+                track_record=records,
+                fii_dii_data=fii_data,
+                ohlcv_json=ohlcv_json,
+            )
+            st.components.v1.html(html, height=result.get("_height", 3000), scrolling=True)
+        else:
+            st.error(f"No data found for **{final_ticker}**")
+        st.stop()
+
+ticker_col, btn_col = st.columns([5, 0.6])
+with ticker_col:
+    ticker_input = st.text_input(
+        "NSE Ticker Symbol",
+        placeholder="Type ticker or company name...",
+        max_chars=15,
+        label_visibility="collapsed",
+    )
+    # Autocomplete: filter NSE_TICKERS + ALIASES as user types (local only, fast)
+    _ac_query = ticker_input.strip()
+    _ac_options = []
+    if len(_ac_query) >= 2:
+        _ac_q = _ac_query.upper()
+        _ac_seen = set()
+        # Pass 1: ticker symbol prefix match
+        for _s, _n in NSE_TICKERS.items():
+            if _s in _ac_seen:
+                continue
+            if _s.startswith(_ac_q):
+                _ac_options.append(f"{_s} — {_n}")
+                _ac_seen.add(_s)
+                if len(_ac_options) >= 10:
+                    break
+        # Pass 2: company name contains
+        if len(_ac_options) < 10:
+            for _s, _n in NSE_TICKERS.items():
+                if _s in _ac_seen:
+                    continue
+                if _ac_q in _n.upper():
+                    _ac_options.append(f"{_s} — {_n}")
+                    _ac_seen.add(_s)
+                    if len(_ac_options) >= 10:
+                        break
+        # Pass 3: alias reverse lookup (e.g. "HDFC" finds "HDFC BANK" → HDFCBANK)
+        if len(_ac_options) < 10:
+            from data_fetcher import _ALIAS_LOOKUP
+
+            for _ak, _at in _ALIAS_LOOKUP.items():
+                if _at in _ac_seen:
+                    continue
+                if _ac_q in _ak or _ak.startswith(_ac_q):
+                    _ac_options.append(f"{_at} — {NSE_TICKERS.get(_at, _ak)}")
+                    _ac_seen.add(_at)
+                    if len(_ac_options) >= 10:
+                        break
+    if _ac_options:
+        _ac_pick = st.selectbox(
+            "Select ticker",
+            _ac_options,
+            index=None,
+            placeholder="Pick a ticker...",
+            label_visibility="collapsed",
+            key="ac_select",
+        )
+        if _ac_pick:
+            ticker_input = _ac_pick.split(" — ")[0]
+
+
+with btn_col:
+    search_trigger_id = "svgsrch"
+    st.markdown(
+        f"""
+        <div class="search-wrap">
+        <button id="{search_trigger_id}" class="search-btn"
+                title="Search ticker" aria-label="Search ticker">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="display:block;">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+            </svg>
+        </button>
+        </div>
+        <script>
+        document.getElementById('{search_trigger_id}').onclick = function() {{
+            // Try multiple selectors — Streamlit versions differ in DOM structure
+            var inp = window.parent.document.querySelector('input[placeholder*="RELIANCE"]')
+                   || window.parent.document.querySelector('input[data-baseweb="input"]')
+                   || window.parent.document.querySelector('section[data-testid="stTextInput"] input');
+            if (!inp) return;
+            // Dispatch React-compatible Enter key event
+            var nativeSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+            ).set;
+            nativeSetter.call(inp, inp.value);
+            inp.dispatchEvent(new Event('input', {{bubbles: true}}));
+            inp.dispatchEvent(new KeyboardEvent('keydown', {{key:'Enter', keyCode:13, bubbles:true}}));
+        }};
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+ticker_text = ticker_input.strip().upper().replace(".NS", "")
+# Resolve final ticker: chip click (quick_action) trumps stale text, Enter key or button click works too
+quick_ticker = st.session_state.pop("quick_ticker", "")
+final_ticker = quick_ticker or ticker_text or st.session_state.pop("manual_search", "")
+
+# Persist final_ticker so portfolio add/delete reruns don't drop to empty state
+if final_ticker:
+    st.session_state["_active_ticker"] = final_ticker
+elif "_active_ticker" in st.session_state:
+    final_ticker = st.session_state["_active_ticker"]
+
+if final_ticker and final_ticker != "":
+    final_ticker = final_ticker.replace(".NS", "")
+    # Resolve aliases and company names (e.g. "HDFC BANK" → "HDFCBANK")
+    _resolved_ticker, _resolved_name = resolve_ticker(final_ticker)
+    if _resolved_ticker:
+        final_ticker = _resolved_ticker
+        company_name = cast("str", _resolved_name)
+    else:
+        company_name = NSE_TICKERS.get(final_ticker, final_ticker)
+
+    # Rate limiter: block if too many searches recently
+    # Skip when _skip_reanalysis is set — no API call will be made (cache hit)
+    if not st.session_state.get("_skip_reanalysis"):
+        if not _check_rate_limit():
+            st.stop()
+
+    # Skip re-analysis when user voted/edited portfolio (instant re-render from cache)
+    if (
+        st.session_state.get("_skip_reanalysis")
+        and st.session_state.get("_last_ticker") == final_ticker
+        and st.session_state.get("_last_result")
+    ):
+        st.session_state._skip_reanalysis = False
+        result = st.session_state._last_result
+    else:
+        # Record this search for rate limiting
+        st.session_state.setdefault("_search_timestamps", []).append(time.time())
+        with st.spinner(f"Fetching data for {final_ticker}..."):
+            result = analyze_ticker(final_ticker, company_name)
+        if result:
+            st.session_state._last_ticker = final_ticker
+            st.session_state._last_result = result
+            # Cache current prices for sidebar heatmap + P&L
+            sd = result["stock_data"]
+            price_cache = st.session_state.setdefault("_stock_price_cache", {})
+            price_cache[final_ticker] = {
+                "change_pct": sd.get("change_pct"),
+                "current_price": sd.get("current_price"),
+            }
+            # Save to track record (dedup: update last unvoted entry for same ticker, else append)
+            recs = load_track_record()
+            now_iso = datetime.now().isoformat(timespec="minutes")
+            existing_idx = None
+            for i, rec in enumerate(reversed(recs)):
+                if rec.get("ticker") == final_ticker and rec.get("vote") is None:
+                    existing_idx = len(recs) - 1 - i
+                    break
+            entry = {
+                "ticker": final_ticker,
+                "datetime": now_iso,
+                "compound": result["avg_compound"],
+                "signal": result["signal"],
+                "vote": None,
+            }
+            if existing_idx is not None:
+                recs[existing_idx] = entry
+            else:
+                recs.append(entry)
+            save_track_record(recs)
+        # Stash source breakdown for vote-based calibration
+        st.session_state._last_source_breakdown = result.get("source_breakdown", []) if result else []
+    if result:
+        news_items = result["news_items"]
+
+        # ─── Technical indicators ───
+        # Compute technical indicators
+        ti = get_technical_indicators(final_ticker)
+        # Compute pivot levels from cached OHLCV (avoids separate yfinance call)
+        hist_cache = get_cached_history(final_ticker)
+        _hist = hist_cache.tail(5) if hist_cache is not None and len(hist_cache) >= 1 else None
+        result["pivot_levels"] = compute_pivot_levels(_hist)
+        # Render premium HTML dashboard
+        # Section heights (desktop):
+        #   price(280) + chart(420) + sentiment+smartscore(450) + dist(130) + stats(200)
+        #   + techs(290) + track(180) + fiidii(200) + cal(270) + buffer(200)
+        # Each news item ≈ 120px (title + meta + body text wrapping)
+        # ─── Annotate news with portfolio match badges ───
+        records = load_track_record()
+        fii_data = result.get("fii_data")
+        if fii_data:
+            save_fiidii_snapshot(fii_data)
+
+        portfolio = load_portfolio()
+        if portfolio and news_items:
+            for item in news_items:
+                item["in_portfolio"] = any(
+                    re.search(rf"(?:\b|_){re.escape(t)}(?:\b|_)", (item.get("title") or "").upper()) for t in portfolio
+                )
+
+        n_news = len(news_items)
+        # Height is a safe default; the auto-height script in render.py
+        # adjusts via postMessage once the iframe loads
+        dash_height = min(2600 + n_news * 120, 6500)
+        ohlcv_json = _ohlcv_to_json(hist_cache)
+        st.components.v1.html(
+            render_dashboard(
+                result,
+                final_ticker,
+                company_name,
+                technical_indicators=ti,
+                track_record=records,
+                fii_dii_data=fii_data,
+                ohlcv_json=ohlcv_json,
+            ),
+            height=dash_height,
+            scrolling=True,
+        )
+
+        # Track record voting (Streamlit buttons outside the iframe)
+        last_rec = records[-1] if records else None
+        if last_rec and last_rec["ticker"] == final_ticker and last_rec.get("vote") is None:
+            st.markdown("##### Was this signal accurate?")
+            vu, vd = st.columns([1, 1])
+            with vu:
+                if st.button("👍 Yes", key="vote_up", use_container_width=True):
+                    last_rec["vote"] = True
+                    save_track_record(records)
+                    for src in st.session_state.get("_last_source_breakdown", []):
+                        update_source_accuracy(src["source"], was_correct=True)
+                    st.toast("Signal logged as accurate ✅", icon="👍")
+                    st.session_state._skip_reanalysis = True
+                    st.rerun()
+            with vd:
+                if st.button("👎 No", key="vote_down", use_container_width=True):
+                    last_rec["vote"] = False
+                    save_track_record(records)
+                    for src in st.session_state.get("_last_source_breakdown", []):
+                        update_source_accuracy(src["source"], was_correct=False)
+                    st.toast("Signal logged as inaccurate ❌", icon="👎")
+                    st.session_state._skip_reanalysis = True
+                    st.rerun()
+        elif last_rec and last_rec["ticker"] == final_ticker and last_rec.get("vote") is not None:
+            _CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22b573" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="20 6 9 17 4 12"/></svg>'
+            _X_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f85149" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+            st.markdown(
+                f'<span style="font-size:0.75rem;color:#8891a0;">{" " + _CHECK_SVG + " accurate" if last_rec["vote"] else " " + _X_SVG + " inaccurate"}</span>',
+                unsafe_allow_html=True,
+            )
+
+        # Shareable link
+        share_url = f"https://nse-sentiment-analyzer.streamlit.app/?ticker={final_ticker}"
+        st.markdown(
+            f'<div style="text-align:right;margin-top:0.5rem;">'
+            f'<a href="{share_url}" target="_blank" style="color:#6b7280;font-size:0.8rem;text-decoration:none;">'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+            "Share snapshot</a></div>",
+            unsafe_allow_html=True,
+        )
+
+        # ─── Bottom section: Portfolio + Track Record cards ───
+        render_bottom_cards(portfolio, final_ticker, entry_prices)
+
+    else:
+        st.error(
+            f"Could not find data for **{final_ticker}**. "
+            f'Try typing a company name (e.g. "HDFC Bank", "Reliance") — '
+            f"the search now resolves aliases automatically. "
+            f"If the ticker is correct, Yahoo Finance may be rate-limited — wait a moment and try again."
+        )
+
+else:
+    # ─── Empty state: guided launchpad ───
+    st.markdown(
+        """
+    <div style="text-align:center;padding:3rem 1rem 1rem">
+        <div style="font-size:1.5rem;font-weight:700;color:#f0f2f5;margin-bottom:0.5rem">
+            Enter a ticker to begin
+        </div>
+        <div style="color:#6b7280;font-size:0.95rem;max-width:400px;margin:0 auto">
+            Search any NSE symbol above or try a popular one below
+        </div>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    # ─── Cascade / Ripple Effects on home page ───
+    _market_news = fetch_market_headlines()
+    if _market_news:
+        _cascade_results = detect_cascade(_market_news, ticker_lookup=NSE_TICKERS)
+        if _cascade_results:
+            _rows = ""
+            _CACHE = {"arrow_up": "↑", "arrow_down": "↓"}
+            for _ce in _cascade_results:
+                _dr = _ce["driver"]
+                _dir_icon = _CACHE["arrow_up"] if _ce["direction"] > 0 else _CACHE["arrow_down"]
+                _n = _ce.get("matched_articles", 1)
+                _aff = ""
+                for _a in _ce["affects"]:
+                    _ti = _a.get("ticker_impact", 1)
+                    _t_label = "Bullish" if _ti < 0 else "Bearish"
+                    _t_color = "#22b573" if _ti < 0 else "#f85149"
+                    _aff += f"""<div class="ct"><span class="cs">{_a["ticker"]}</span><span class="cco">{_a["company"]}</span><span class="cw">{_a["reason"]}</span><span class="cti" style="color:{_t_color}">{_t_label}</span></div>"""
+                _rows += f"""<div class="cd"><div class="ch"><span class="cn">{_dir_icon} {_dr}</span><span class="cc">{_n} article{"s" if _n > 1 else ""}</span></div><div class="cticks">{_aff}</div></div>"""
+            st.markdown(
+                f"""<div class="card"><div class="card-title">Cascade / Ripple Effects</div><div class="cw">{_rows}</div></div>""",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("<div style='text-align:center;padding:0.5rem 0 1.5rem'>", unsafe_allow_html=True)
+    popular = ["RELIANCE", "HDFCBANK", "TCS", "INFY", "SBIN"]
+    chip_cols = st.columns(3)
+    for i, t in enumerate(popular):
+        if chip_cols[i % 3].button(t, key=f"chip_{t}", use_container_width=True, type="secondary"):
+            st.session_state.quick_ticker = t
+            st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ─── PRIVACY POLICY ───
+with st.expander("🔒 Privacy & Data Policy"):
+    st.markdown(f"""
+    **What we collect:**
+    - Ticker symbols you search (stored locally in your browser for track record)
+    - No login, email, or personal information is collected
+
+    **Third-party data sources:**
+    - **Yahoo Finance** — live stock prices (public API)
+    - **RSS News feeds** — publicly available headlines from Google News, Moneycontrol, Economic Times, LiveMint, NDTV Profit
+
+    **Data retention:**
+    - Your search history ("Track Record") is stored in your browser's local storage only. You can clear it at any time.
+    - No data is sent to external servers beyond the API calls listed above.
+    - We do not sell, share, or monetize your data.
+
+    **Contact:** [{CONTACT["x_handle"]} on X/Twitter]({CONTACT["x_url"]})
+    """)
+    st.caption("Last updated: June 2026")
+
+# ─── DISCLAIMER ───
+_ALERT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+st.markdown(
+    f'<details class="news-expander"><summary>{_CARET}{_ALERT_SVG} Disclaimer</summary>', unsafe_allow_html=True
+)
+st.markdown(f"""
+**Not financial advice.** This tool provides data-driven sentiment analysis and technical indicators for educational and informational purposes only. Nothing on this platform constitutes investment advice, a recommendation, or a solicitation to buy or sell securities.
+
+**No SEBI registration.** The creator is not a SEBI-registered investment advisor. All trading and investment decisions are solely your responsibility.
+
+**Data accuracy.** Data is sourced from third-party public APIs (Yahoo Finance, RSS feeds) and may be delayed, incomplete, or inaccurate. We do not guarantee the timeliness, accuracy, or completeness of any data displayed.
+
+**Limitations you should know:**
+- **Price data** — Yahoo Finance free tier has 15-20 min delay. Not suitable for intraday trading without real-time feeds.
+- **NSE intraday (VWAP)** — yfinance intraday history for Indian stocks is spotty; many tickers return incomplete data.
+- **Sentiment model** — VADER is a general-purpose model, not trained on Indian financial news. However, we've expanded it with a 123-term Indian financial lexicon covering common abbreviations (NPA, PAT, EBITDA, AUM, ROE, ROCE), IPO/capital market terms (oversubscribed), banking context (slippage, provisioning, infusion), fund flows (inflow, outflow), Hinglish terms (tezi, mandi, tej, mand), and general financial context. Accuracy is improved over vanilla VADER but still below a finance-tuned model.
+- **Adaptive Sentiment Engine** — Learns from your price reactions, not labels. Requires ~10+ data points per cluster to produce meaningful predictions. Cold-start predictions default to 0%. Calibrates every 72h against ground truth. Does not use FinBERT unless `USE_FINBERT=true`.
+- **Dissemination Clustering** — Groups articles by shared financial entities (commodities, sectors). Clusters with <2 articles are ignored. Score reflects cluster size × source diversity, not predictive power.
+- **SmartScore** — This is a custom composite metric. It has not been backtested or validated against actual returns. A score of 52 vs 48 is not a meaningful difference.
+- **Event classifier** — Keyword-based rules can sometimes misclassify headlines. "SEBI clears merger" is now correctly classified as regulatory approval (positive) rather than penalty.
+- **News sources** — RSS headlines are often trailing the market move. DuckDuckGo fallback (used when RSS returns little) is noisy and unreliable.
+
+**No liability.** Under no circumstances shall the creator be liable for any direct, indirect, incidental, special, or consequential damages arising from your use of this tool, including but not limited to financial losses from trading or investment decisions made based on the data provided.
+
+**Past performance.** Historical data and past sentiment scores do not guarantee future results.
+
+**Use at your own risk.** By using this tool, you acknowledge that you understand and accept these terms. If you do not agree, do not use the tool.
+
+**Contact:** [{CONTACT["x_handle"]} on X/Twitter]({CONTACT["x_url"]}) | {CONTACT["email"]}
+""")
+st.caption("Last updated: June 2026")
+st.markdown("</details>", unsafe_allow_html=True)
+
+# ─── FOOTER ───
+st.markdown("---")
+st.caption(
+    "Built with Streamlit + yfinance + VADER &middot; FinBERT &middot; Bayesian Calibration &middot; Financial Lexicon | Data from Yahoo Finance + RSS News"
+)
+st.markdown(
+    f'<div class="footer-contact">'
+    f'Feature requests: <a href="mailto:{CONTACT["email"]}">'
+    f"{CONTACT['email']}</a> &middot; "
+    f'<a href="{CONTACT["x_url"]}">'
+    f"{CONTACT['x_handle']}</a></div>",
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<span class="footer-disclaimer">'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'
+    " Not financial advice. This tool is for educational purposes only. Trading stocks carries financial risk. Consult a SEBI-registered advisor before making investment decisions.</span>",
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="footer-support"><span>Like this tool? Support the developer with a chai.</span></div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="chai-wrap">'
+    f'<a href="{CONTACT["chai_url"]}" target="_blank" rel="noopener noreferrer" class="chai-btn" aria-label="Support on Chai4Me">'
+    '<img src="https://chai4.me/icons/wordmark.png" alt="Support on Chai4Me" style="height:32px;object-fit:contain;"/>'
+    "</a></div>",
+    unsafe_allow_html=True,
+)

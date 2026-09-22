@@ -5,6 +5,7 @@ Processes repositories sequentially from repositories.txt / repo_list.md.
 
 Features:
 - Sequential 1-by-1 ingestion across 411 repositories.
+<<<<<<< HEAD
 - Multi-tier Self-Healing Loop:
   * AST Syntax Repair
   * Ruff Linter & Formatter (--fix --unsafe-fixes)
@@ -12,15 +13,23 @@ Features:
   * Pytest / Cargo Verification
   * LLM-Assisted AST Code Patch Fallback (OpenAI / NIM endpoint integration)
 - Hardened Auto-PR and Auto-Merge GitHub Branch Loop
+=======
+- Multi-tier Self-Healing Loop (Syntax repair, Ruff lint auto-fix, Mypy typing auto-fix, Pytest/Cargo test auto-fix).
+- Hardened Auto-PR and Auto-Merge GitHub Branch Loop with state ledger persistence
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 - Cross-platform support (Windows 11 Pro CMD/PowerShell & Linux/macOS POSIX)
 - Resilient JSON/Markdown state ledger persistence
 """
 
 import ast
 import json
+<<<<<<< HEAD
 import os
 import re
 import shlex
+=======
+import re
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 import shutil
 import subprocess
 import sys
@@ -154,6 +163,7 @@ class AutonomousRepoIntegrator:
         with self.markdown_blueprint.open("w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
 
+<<<<<<< HEAD
     def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0, env_vars: dict[str, str] | None = None) -> tuple[int, str]:
         """Executes a shell command with built-in auto-retry loop and non-interactive Git environment."""
         env = os.environ.copy()
@@ -164,6 +174,13 @@ class AutonomousRepoIntegrator:
         for attempt in range(1, retries + 1):
             try:
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, env=env, check=False)
+=======
+    def run_cmd(self, cmd: str, cwd=None, retries: int = 1, delay: float = 2.0) -> tuple[int, str]:
+        """Executes a shell command with built-in auto-retry loop for network or transient events."""
+        for attempt in range(1, retries + 1):
+            try:
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False)
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 if result.returncode == 0 or attempt == retries:
                     return (result.returncode, result.stdout + "\n" + result.stderr)
                 time.sleep(delay)
@@ -173,6 +190,7 @@ class AutonomousRepoIntegrator:
                 time.sleep(delay)
         return (1, "Command failed after retries")
 
+<<<<<<< HEAD
     def is_repository_accessible(self, target: dict[str, str]) -> bool:
         """Verifies whether repository target URL is reachable and accessible via HTTP HEAD/GET request
 
@@ -221,11 +239,18 @@ class AutonomousRepoIntegrator:
     def clone_repository(self, target: dict[str, str]) -> Path | None:
         """Clones a single target repository using token auth fallback and non-interactive prompt disabled."""
         repo_name = target["name"]
+=======
+    def clone_repository(self, target: dict[str, str]) -> Path | None:
+        """Clones a single target repository with retry logic."""
+        repo_name = target["name"]
+        repo_url = target["url"]
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         target_dir = self.sandbox_dir / repo_name
 
         if target_dir.exists():
             shutil.rmtree(target_dir, ignore_errors=True)
 
+<<<<<<< HEAD
         token = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
         if token and "x-access-token" not in target["url"]:
             authenticated_url = f"https://x-access-token:{token}@github.com/{target['target']}"
@@ -243,6 +268,12 @@ class AutonomousRepoIntegrator:
             if token:
                 sanitized_out = sanitized_out.replace(token, "***")
             print(f"[-] Repository clone failed for {target['target']} (404/403 or inaccessible): {sanitized_out.strip()}")
+=======
+        print(f"[+] Cloning [{target['target']}] into sandbox...")
+        code, out = self.run_cmd(f"git clone --depth=1 {repo_url} {target_dir}", retries=3)
+        if code != 0:
+            print(f"[-] Failed to clone {repo_url}: {out}")
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             return None
         return target_dir
 
@@ -270,6 +301,7 @@ class AutonomousRepoIntegrator:
 
         content = "\n".join(cleaned_lines)
 
+<<<<<<< HEAD
         # Zero-stub replacement for pass and raise NotImplementedError in functions
         transformed_lines = []
         for line in content.splitlines():
@@ -283,6 +315,8 @@ class AutonomousRepoIntegrator:
 
         content = "\n".join(transformed_lines)
 
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         if file_path.suffix == ".py" and "is_ist_market_session_active" not in content:
             future_imports = []
             other_lines = []
@@ -311,6 +345,7 @@ class AutonomousRepoIntegrator:
 
         return dest_file
 
+<<<<<<< HEAD
     def auto_amend_and_reframe_system(self, error_context: str = "") -> bool:
         """Full-Blown Autonomous System Amendment & Code Re-framing Engine.
 
@@ -362,6 +397,8 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
 
         return True
 
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
     def self_healing_loop(self, file_path: Path, max_retries: int = 5) -> bool:
         """Multi-tier Multi-Event Self-Healing Loop:
 
@@ -369,8 +406,11 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
         2. Ruff linter & format auto-fix
         3. Mypy type annotation auto-fix
         4. Pytest verification (exit code 0 or 5 for NO_TESTS_COLLECTED is considered success)
+<<<<<<< HEAD
         5. LLM-Assisted AST Repair Fallback (if LLM_API_KEY is available)
         6. Autonomous Code Synthesis & System Reframing Fallback
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         Returns True if code passes checks, False otherwise.
         """
         print(f"[*] Initiating Self-Healing Loop for {file_path.name}...")
@@ -405,17 +445,25 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
                 if exit_code in (0, 5):
                     print(f"  [+] Self-Healing Loop PASSED for {file_path.name}.")
                     return True
+<<<<<<< HEAD
                 print("  [-] Test verification failed. Applying auto-repair & LLM code synthesis...")
                 self._auto_fix_test_failures(file_path, test_out)
                 self._auto_fix_llm_fallback(file_path, test_out)
+=======
+                print("  [-] Test verification failed. Applying auto-repair...")
+                self._auto_fix_test_failures(file_path, test_out)
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             elif file_path.suffix == ".rs":
                 exit_code, _rust_out = self.run_cmd("cargo check", cwd=file_path.parent)
                 if exit_code == 0:
                     print(f"  [+] Rust pre-compilation PASSED for {file_path.name}.")
                     return True
 
+<<<<<<< HEAD
         # Fallback autonomous system reframing
         self.auto_amend_and_reframe_system(error_context=f"Module {file_path.name} required synthesis.")
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         print(f"  [!] Self-healing finalized after {max_retries} attempts. Failure recorded.")
         return False
 
@@ -468,6 +516,7 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
         with file_path.open("w", encoding="utf-8") as f:
             f.write(content)
 
+<<<<<<< HEAD
     def _auto_fix_llm_fallback(self, file_path: Path, error_logs: str):
         """Dispatches code repair across LLM Multi-Provider Fallback Cascade:
         1. Google Jules / Gemini API (Default)
@@ -589,10 +638,32 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
         Cross-platform compatible with Windows CMD, PowerShell, and POSIX Bash.
         """
         print(f"[*] Executing Direct Pre-Approved Integration for [{target['target']}] on main branch...")
+=======
+    def execute_auto_pr_and_merge_loop(self, target: dict[str, str]) -> tuple[bool, str | None]:
+        """Creates feature branch `integrate/<clean_repo_name>`, commits changes,
+
+        pushes branch to remote, opens Pull Request via gh CLI or REST API,
+        auto-fixes rebase/merge conflicts, and automatically merges PR into main.
+        Cross-platform compatible with Windows CMD, PowerShell, and POSIX Bash.
+        """
+        repo_name_clean = re.sub(r"[^a-zA-Z0-9_-]", "_", target["name"])
+        branch_name = f"integrate/{repo_name_clean}"
+
+        print(f"[*] Starting Auto-PR & Auto-Merge Loop on branch [{branch_name}]...")
+
+        # Clean untracked temp files before branch checkout
+        shutil.rmtree(self.sandbox_dir, ignore_errors=True)
+        self.sandbox_dir.mkdir(exist_ok=True)
+
+        self.run_cmd("git checkout main")
+        self.run_cmd("git pull origin main --rebase", retries=3)
+        self.run_cmd(f"git checkout -b {branch_name}")
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 
         self.run_cmd('git config user.name "EQATS Autonomous Integrator"')
         self.run_cmd('git config user.email "integrator@eqats.internal"')
 
+<<<<<<< HEAD
         # Checkout main and pull latest rebase
         self.run_cmd("git checkout main")
         self.run_cmd("git pull origin main --rebase", retries=3)
@@ -630,6 +701,69 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
 
     def process_single_repository(self, index: int) -> bool:
         """Processes a single repository target end-to-end with fast reachability verification."""
+=======
+        self.run_cmd("git add .")
+        _status_code, status_out = self.run_cmd("git status --porcelain")
+        if not status_out.strip():
+            print("[-] No changes to commit for PR. Skipping branch push.")
+            self.run_cmd("git checkout main")
+            self.run_cmd(f"git branch -D {branch_name}")
+            return (True, None)
+
+        commit_msg = f"EQATS Auto-Integration and Self-Healing: Integrated {target['target']}"
+        self.run_cmd(f'git commit -m "{commit_msg}"')
+
+        push_code, push_out = self.run_cmd(f"git push origin {branch_name} --force", retries=3)
+        if push_code != 0:
+            print(f"[-] Failed to push branch {branch_name}: {push_out}")
+            self.run_cmd("git checkout main")
+            return (False, None)
+
+        pr_title = f"Integration: {target['target']}"
+        pr_body = f"Autonomous institutional integration and self-healing pass for {target['url']}."
+
+        pr_code, pr_out = self.run_cmd(f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch_name} --base main')
+        pr_url = None
+        if pr_code == 0:
+            pr_match = re.search(r"https://github\.com/[^\s]+/pull/\d+", pr_out)
+            if pr_match:
+                pr_url = pr_match.group(0)
+            target["pr_url"] = pr_url
+            target["merged"] = True
+            self.save_ledger()
+
+            # Commit updated ledger with PR details
+            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
+            self.run_cmd('git commit -m "docs: record PR metadata in state ledger" --allow-empty')
+            self.run_cmd(f"git push origin {branch_name} --force", retries=3)
+
+            merge_code, _merge_out = self.run_cmd(f"gh pr merge {branch_name} --auto --merge --delete-branch")
+            if merge_code != 0:
+                self.run_cmd("git checkout main")
+                self.run_cmd("git pull origin main --rebase")
+                self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"')
+                self.run_cmd("git push origin main", retries=3)
+            print(f"[+] Auto-Merge Loop completed for {branch_name}.")
+        else:
+            print(f"[*] Branch pushed directly without PR creation: {pr_out.strip()}")
+            target["merged"] = True
+            self.save_ledger()
+
+            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
+            self.run_cmd('git commit -m "docs: record direct merge metadata in state ledger" --allow-empty')
+
+            self.run_cmd("git checkout main")
+            self.run_cmd("git pull origin main --rebase")
+            self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
+            self.run_cmd("git push origin main", retries=3)
+
+        self.run_cmd("git checkout main")
+        self.run_cmd("git pull origin main --rebase")
+        return (True, pr_url)
+
+    def process_single_repository(self, index: int) -> bool:
+        """Processes a single repository target end-to-end."""
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         if index >= len(self.ledger["repositories"]):
             print("[+] All repositories fully processed!")
             return False
@@ -639,6 +773,7 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
         print(f"PROCESSING REPOSITORY [{index + 1}/{len(self.ledger['repositories'])}]: {target['target']}")
         print("=======================================================")
 
+<<<<<<< HEAD
         # Fast Reachability Pre-check: Skip dead / 404 / 403 repos immediately without branch checkout or clone
         if not self.is_repository_accessible(target):
             print(f"[-] Repository [{target['target']}] marked as dead and auto-skipped.")
@@ -665,6 +800,8 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
         self.run_cmd("git pull origin main --rebase", retries=3)
         self.run_cmd(f"git checkout -B {branch_name}")
 
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         target_dir = self.clone_repository(target)
         if not target_dir or not target_dir.exists():
             print(f"[-] Repository clone failed for {target['target']}. Record as skipped and push state update.")
@@ -673,12 +810,20 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
             self.ledger["current_index"] += 1
             self.save_ledger()
 
+<<<<<<< HEAD
             # Push updated state directly to main on remote
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase", retries=3)
             self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
             skip_msg = shlex.quote(f"docs: advance ledger index past inaccessible repo {target['target']}")
             self.run_cmd(f"git commit -m {skip_msg}")
+=======
+            # Push updated state directly to main so current_index advances on remote GHA runner!
+            self.run_cmd("git checkout main")
+            self.run_cmd("git pull origin main --rebase", retries=3)
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            self.run_cmd(f'git commit -m "docs: advance ledger index past inaccessible repo {target["target"]}"')
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             self.run_cmd("git push origin main", retries=3)
 
             return True
@@ -695,15 +840,19 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
                 healed = self.self_healing_loop(adapted_file)
                 if healed:
                     integrated_count += 1
+<<<<<<< HEAD
                 else:
                     print(f"[-] Self-healing failed for {adapted_file.name}. Removing unverified file...")
                     if adapted_file.exists():
                         adapted_file.unlink()
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 
         shutil.rmtree(target_dir, ignore_errors=True)
 
         target["status"] = "Completed" if integrated_count > 0 else "Processed"
         self.ledger["current_index"] += 1
+<<<<<<< HEAD
         self.save_ledger()
 
         # Stage and commit adapted modules and ledger updates onto feature branch before merging!
@@ -714,6 +863,11 @@ Return ONLY valid Python code or YAML without Markdown explanations."""
             self.run_cmd(f"git commit -m {commit_msg}")
 
         success, pr_url = self.execute_auto_pr_and_merge_loop(target, branch_name)
+=======
+        self.save_ledger()  # Save updated current_index & blueprint FIRST so git add stages it!
+
+        success, pr_url = self.execute_auto_pr_and_merge_loop(target)
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 
         print(f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved.")
         return True

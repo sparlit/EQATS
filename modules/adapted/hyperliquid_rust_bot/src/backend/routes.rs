@@ -1,0 +1,2157 @@
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use alloy::primitives::Address;
+use axum::extract::ws::{Message, WebSocket};
+use axum::extract::{Path, Query, State, WebSocketUpgrade};
+use axum::http::{HeaderValue, Method, Request, StatusCode};
+use axum::response::IntoResponse;
+use axum::routing::{get, post};
+use axum::{Json, Router};
+use futures_util::StreamExt;
+use log::info;
+use serde::{Deserialize, Serialize};
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
+
+use super::app_state::{AppState, CachedStrategy, WsConnection, broadcast_to_user};
+use super::auth::{self, AuthUser};
+use crate::backtest::BacktestRunRequest;
+use crate::metrics::{RuntimeMetricsSnapshot, runtime_metrics_snapshot};
+use crate::{
+    BacktestProgressUpdate, BacktestResultUpdate, BacktestRunError, BacktestRunPayload,
+    BacktestRunResponse, Backtester, Bot, BotEvent, DEFAULT_BUILDER_ADDRESS, DEFAULT_BUILDER_FEE,
+    UpdateFrontend, get_time_now,
+};
+
+const WS_SEND_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_PAGE_LIMIT: i64 = 50;
+const MAX_PAGE_LIMIT: i64 = 200;
+const DEFAULT_STRATEGY_LIST_LIMIT: i64 = 200;
+const MAX_STRATEGY_LIST_LIMIT: i64 = 500;
+const HYPERLIQUID_HTTP_TIMEOUT_SECS: u64 = 10;
+const AGENT_NAME_PREFIX_MAX_LEN: usize = 64;
+const MAX_PERP_BUILDER_FEE: u64 = 100; // 0.1%, Hyperliquid f units.
+const PENDING_BUILDER_APPROVAL_TTL_SECS: u64 = 300;
+const STRATEGY_NAME_MAX_LEN: usize = 128;
+const STRATEGY_SCRIPT_MAX_BYTES: usize = 64 * 1024;
+const STRATEGY_INDICATORS_MAX: usize = 512;
+const MARKET_PATH_MAX_LEN: usize = 64;
+const NONCE_TTL_SECS: u64 = 300;
+const MAX_PENDING_NONCES: usize = 10_000;
+const BOT_STARTUP_WAIT_TIMEOUT_SECS: u64 = 90;
+const BOT_STARTUP_WAIT_POLL_MS: u64 = 50;
+
+pub fn create_router(state: Arc<AppState>) -> Router {
+    Router::new()
+        // Health (unauthenticated)
+        .route("/healthz", get(healthz))
+        .route("/readyz", get(readyz))
+        // Auth (unauthenticated)
+        .route("/auth/nonce", get(get_nonce))
+        .route("/auth/verify", post(verify_signature))
+        // Bot commands (authenticated)
+        .route("/command", post(execute_command))
+        .route("/backtest", post(run_backtest))
+        // Backtest history
+        .route("/backtest/history", get(list_backtest_history))
+        .route(
+            "/backtest/history/{id}",
+            get(get_backtest_result).delete(delete_backtest_run),
+        )
+        // Data queries (authenticated)
+        .route("/metrics", get(get_metrics))
+        .route("/trades/{market}", get(get_trades))
+        .route("/strategies", get(list_strategies).post(save_strategy))
+        .route(
+            "/strategies/{id}",
+            get(get_strategy)
+                .put(update_strategy)
+                .delete(delete_strategy),
+        )
+        // Agent approval
+        .route("/agent/prepare", post(prepare_agent))
+        .route("/agent/approve", post(approve_agent_route))
+        .route("/builder/prepare", post(prepare_builder_fee))
+        .route("/builder/approve", post(approve_builder_fee_route))
+        // WebSocket
+        .route("/ws", get(ws_handler))
+        // Middleware
+        .layer(cors_layer_from_env())
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
+                tracing::info_span!(
+                    "http_request",
+                    method = %request.method(),
+                    path = %request.uri().path()
+                )
+            }),
+        )
+        .with_state(state)
+}
+
+// ── Auth Routes ──────────────────────────────────────────────────────────────
+
+async fn healthz() -> StatusCode {
+    StatusCode::NO_CONTENT
+}
+
+async fn readyz(State(state): State<Arc<AppState>>) -> StatusCode {
+    if state.store.is_ready().await {
+        StatusCode::NO_CONTENT
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
+}
+
+async fn get_metrics(_auth: AuthUser) -> Json<RuntimeMetricsSnapshot> {
+    Json(runtime_metrics_snapshot())
+}
+
+fn store_error(label: &str, err: String) -> StatusCode {
+    log::warn!("local storage operation {label} failed: {err}");
+    StatusCode::INTERNAL_SERVER_ERROR
+}
+
+enum CorsPolicy {
+    Permissive,
+    Origins(Vec<HeaderValue>),
+}
+
+fn cors_layer_from_env() -> CorsLayer {
+    match std::env::var("CORS_ORIGINS") {
+        Ok(raw) => match parse_cors_policy(&raw) {
+            Ok(CorsPolicy::Permissive) => CorsLayer::permissive(),
+            Ok(CorsPolicy::Origins(origins)) => CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                ])
+                .allow_headers(Any),
+            Err(err) => {
+                log::error!(
+                    "Invalid CORS_ORIGINS; browser cross-origin requests will be denied: {err}"
+                );
+                fail_closed_cors_layer()
+            }
+        },
+        Err(_) => {
+            log::warn!("CORS_ORIGINS not set; browser cross-origin requests will be denied");
+            fail_closed_cors_layer()
+        }
+    }
+}
+
+fn fail_closed_cors_layer() -> CorsLayer {
+    CorsLayer::new()
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+        ])
+        .allow_headers(Any)
+}
+
+fn parse_cors_policy(raw: &str) -> Result<CorsPolicy, String> {
+    if raw.trim() == "*" {
+        return Ok(CorsPolicy::Permissive);
+    }
+
+    parse_cors_origins(raw).map(CorsPolicy::Origins)
+}
+
+fn parse_cors_origins(raw: &str) -> Result<Vec<HeaderValue>, String> {
+    let origins = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|origin| !origin.is_empty())
+        .map(|origin| {
+            origin
+                .parse::<HeaderValue>()
+                .map_err(|err| format!("{origin:?}: {err}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if origins.is_empty() {
+        return Err("no origins configured".to_string());
+    }
+
+    Ok(origins)
+}
+
+#[derive(Deserialize)]
+struct NonceQuery {
+    address: String,
+}
+
+#[derive(Serialize)]
+struct NonceResponse {
+    nonce: String,
+}
+
+async fn get_nonce(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<NonceQuery>,
+) -> Result<Json<NonceResponse>, StatusCode> {
+    let address = normalize_auth_address(&params.address)?;
+
+    let nonce = {
+        let mut store = state.nonces.write().await;
+        issue_nonce_for_address(&mut store, address, Instant::now())?
+    };
+
+    Ok(Json(NonceResponse { nonce }))
+}
+
+#[derive(Deserialize)]
+struct VerifyPayload {
+    address: String,
+    signature: String,
+    nonce: String,
+}
+
+#[derive(Serialize)]
+struct VerifyResponse {
+    token: String,
+}
+
+async fn verify_signature(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<VerifyPayload>,
+) -> Result<Json<VerifyResponse>, StatusCode> {
+    let address = normalize_auth_address(&payload.address)?;
+
+    {
+        let mut store = state.nonces.write().await;
+        verify_nonce_signature_and_consume(
+            &mut store,
+            &address,
+            &payload.signature,
+            &payload.nonce,
+            Instant::now(),
+        )?;
+    }
+
+    state
+        .store
+        .ensure_wallet(&address)
+        .await
+        .map_err(|err| store_error("ensure wallet", err))?;
+
+    // Issue JWT
+    let token = auth::issue_jwt(&address, &state.jwt_secret)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(VerifyResponse { token }))
+}
+
+fn normalize_auth_address(address: &str) -> Result<String, StatusCode> {
+    let address = address
+        .trim()
+        .parse::<Address>()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    Ok(format!("{address:#x}").to_ascii_lowercase())
+}
+
+fn prune_expired_nonces(
+    store: &mut std::collections::HashMap<String, (String, Instant)>,
+    now: Instant,
+) {
+    store.retain(|_, (_, created_at)| !nonce_is_expired(*created_at, now));
+}
+
+fn issue_nonce_for_address(
+    store: &mut std::collections::HashMap<String, (String, Instant)>,
+    address: String,
+    now: Instant,
+) -> Result<String, StatusCode> {
+    prune_expired_nonces(store, now);
+    if let Some((existing_nonce, _)) = store.get(&address) {
+        return Ok(existing_nonce.clone());
+    }
+    if store.len() >= MAX_PENDING_NONCES {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    let nonce = auth::generate_nonce();
+    store.insert(address, (nonce.clone(), now));
+    Ok(nonce)
+}
+
+fn verify_nonce_signature_and_consume(
+    store: &mut std::collections::HashMap<String, (String, Instant)>,
+    address: &str,
+    signature: &str,
+    nonce: &str,
+    now: Instant,
+) -> Result<(), StatusCode> {
+    let (expected_nonce, created_at) =
+        store.get(address).cloned().ok_or(StatusCode::BAD_REQUEST)?;
+
+    if nonce_is_expired(created_at, now) {
+        store.remove(address);
+        return Err(StatusCode::GONE);
+    }
+
+    if nonce != expected_nonce {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    auth::verify_signature(address, signature, nonce).map_err(|_| StatusCode::UNAUTHORIZED)?;
+    store.remove(address);
+    Ok(())
+}
+
+fn nonce_is_expired(created_at: Instant, now: Instant) -> bool {
+    now.saturating_duration_since(created_at).as_secs() > NONCE_TTL_SECS
+}
+
+// ── Command Route ────────────────────────────────────────────────────────────
+
+async fn execute_command(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(event): Json<BotEvent>,
+) -> impl IntoResponse {
+    let cmd_tx = match get_or_create_bot_sender(&state, &auth.pubkey).await {
+        Ok(tx) => tx,
+        Err(e) => {
+            log::warn!("Bot creation failed for {}: {:?}", auth.pubkey, e);
+            let message = e.to_string();
+            let status = if is_missing_api_key_error(&message) {
+                StatusCode::PRECONDITION_FAILED
+            } else {
+                StatusCode::SERVICE_UNAVAILABLE
+            };
+            return (status, message).into_response();
+        }
+    };
+
+    match cmd_tx.try_send(event) {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            StatusCode::TOO_MANY_REQUESTS.into_response()
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+            StatusCode::SERVICE_UNAVAILABLE.into_response()
+        }
+    }
+}
+
+fn is_missing_api_key_error(message: &str) -> bool {
+    message.contains("user has no API key set")
+}
+
+async fn live_bot_sender(
+    state: &Arc<AppState>,
+    pubkey: &str,
+) -> Option<tokio::sync::mpsc::Sender<BotEvent>> {
+    let manager = state.bot_manager.read().await;
+    manager.get_bot(pubkey).filter(|tx| !tx.is_closed())
+}
+
+async fn get_or_create_bot_sender(
+    state: &Arc<AppState>,
+    pubkey: &str,
+) -> Result<tokio::sync::mpsc::Sender<BotEvent>, crate::Error> {
+    let deadline = Instant::now() + Duration::from_secs(BOT_STARTUP_WAIT_TIMEOUT_SECS);
+
+    loop {
+        if let Some(tx) = live_bot_sender(state, pubkey).await {
+            return Ok(tx);
+        }
+
+        if let Some(_startup_guard) =
+            BotStartupGuard::acquire(Arc::clone(&state.bot_startups), pubkey.to_string()).await
+        {
+            if let Some(tx) = live_bot_sender(state, pubkey).await {
+                return Ok(tx);
+            }
+
+            let build_context = {
+                let manager = state.bot_manager.read().await;
+                manager.build_context()
+            };
+
+            let (bot, cmd_tx) = build_context
+                .build_bot(pubkey, state.store.clone(), &state.encryption_key)
+                .await?;
+
+            let registered_tx = {
+                let mut manager = state.bot_manager.write().await;
+                manager.register_bot_if_absent(pubkey.to_string(), cmd_tx.clone())
+            };
+
+            if registered_tx.same_channel(&cmd_tx) {
+                let task = spawn_bot(bot, pubkey.to_string(), state.clone(), cmd_tx.clone());
+                let mut manager = state.bot_manager.write().await;
+                manager.attach_bot_task(pubkey, &cmd_tx, task);
+            } else {
+                bot.shutdown_unused().await;
+            }
+
+            return Ok(registered_tx);
+        }
+
+        if Instant::now() >= deadline {
+            return Err(crate::Error::Custom(format!(
+                "timed out waiting for bot startup for {pubkey}"
+            )));
+        }
+
+        tokio::time::sleep(Duration::from_millis(BOT_STARTUP_WAIT_POLL_MS)).await;
+    }
+}
+
+fn spawn_bot(
+    bot: Bot,
+    pubkey: String,
+    state: Arc<AppState>,
+    cmd_tx: tokio::sync::mpsc::Sender<BotEvent>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let cleanup_pubkey = pubkey.clone();
+        let ws_connections = state.ws_connections.clone();
+        let store = state.store.clone();
+        let rhai_engine = state.rhai_engine.clone();
+        let strategy_cache = state.strategy_cache.clone();
+        if let Err(e) = bot
+            .start(ws_connections, pubkey, store, rhai_engine, strategy_cache)
+            .await
+        {
+            log::error!("Bot exited with error: {:?}", e);
+        }
+
+        let mut manager = state.bot_manager.write().await;
+        manager.remove_if_sender(&cleanup_pubkey, &cmd_tx);
+    })
+}
+
+struct BotStartupGuard {
+    active: Arc<tokio::sync::RwLock<std::collections::HashSet<String>>>,
+    pubkey: Option<String>,
+}
+
+impl BotStartupGuard {
+    async fn acquire(
+        active: Arc<tokio::sync::RwLock<std::collections::HashSet<String>>>,
+        pubkey: String,
+    ) -> Option<Self> {
+        {
+            let mut guard = active.write().await;
+            if !guard.insert(pubkey.clone()) {
+                return None;
+            }
+        }
+
+        Some(Self {
+            active,
+            pubkey: Some(pubkey),
+        })
+    }
+}
+
+impl Drop for BotStartupGuard {
+    fn drop(&mut self) {
+        if let Some(pubkey) = self.pubkey.take() {
+            let active = Arc::clone(&self.active);
+            tokio::spawn(async move {
+                active.write().await.remove(&pubkey);
+            });
+        }
+    }
+}
+
+// ── Backtest Route ───────────────────────────────────────────────────────────
+
+#[inline]
+fn make_backtest_run_id(asset: &str) -> String {
+    format!("bt-{asset}-{}", get_time_now())
+}
+
+fn validate_backtest_request(request: &BacktestRunRequest) -> Result<(), String> {
+    let cfg = &request.config;
+    if cfg.asset.trim().is_empty() {
+        return Err("asset must not be empty".to_string());
+    }
+    if !cfg.margin.is_finite() || cfg.margin <= 0.0 {
+        return Err("margin must be a positive finite number".to_string());
+    }
+    if cfg.lev == 0 {
+        return Err("lev must be greater than zero".to_string());
+    }
+    if cfg.end_time <= cfg.start_time {
+        return Err("endTime must be greater than startTime".to_string());
+    }
+    Ok(())
+}
+
+async fn run_backtest(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(payload): Json<BacktestRunPayload>,
+) -> impl IntoResponse {
+    let mut request: BacktestRunRequest = payload.into();
+    let run_id = request
+        .run_id
+        .clone()
+        .filter(|id| !id.trim().is_empty())
+        .unwrap_or_else(|| make_backtest_run_id(&request.config.asset));
+
+    if let Err(message) = validate_backtest_request(&request) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(BacktestRunError {
+                run_id,
+                message,
+                progress: Vec::new(),
+            }),
+        )
+            .into_response();
+    }
+
+    request.run_id = Some(run_id.clone());
+
+    // Per-user concurrency guard: only 1 active backtest per user
+    let active_guard = match ActiveBacktestGuard::acquire(
+        Arc::clone(&state.active_backtests),
+        auth.pubkey.clone(),
+    )
+    .await
+    {
+        Some(guard) => guard,
+        None => {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(BacktestRunError {
+                    run_id,
+                    message: "A backtest is already running".to_string(),
+                    progress: Vec::new(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let mut backtester = match Backtester::from_request(
+        request,
+        state.rhai_engine.clone(),
+        state.strategy_cache.clone(),
+        state.store.clone(),
+        state.candle_store.clone(),
+    )
+    .await
+    {
+        Ok(bt) => bt,
+        Err(e) => {
+            active_guard.release().await;
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(BacktestRunError {
+                    run_id,
+                    message: e.to_string(),
+                    progress: Vec::new(),
+                }),
+            )
+                .into_response();
+        }
+    };
+    let mut progress = Vec::new();
+
+    let ws_conns = state.ws_connections.clone();
+    let pubkey = auth.pubkey.clone();
+    let progress_run_id = run_id.clone();
+
+    let response = match backtester
+        .run_with_progress(|evt| {
+            progress.push(evt.clone());
+            let conns = ws_conns.clone();
+            let pk = pubkey.clone();
+            let rid = progress_run_id.clone();
+            let evt = evt.clone();
+            tokio::spawn(async move {
+                broadcast_to_user(
+                    &conns,
+                    &pk,
+                    UpdateFrontend::BacktestProgress(BacktestProgressUpdate {
+                        run_id: rid,
+                        progress: evt,
+                    }),
+                )
+                .await;
+            });
+        })
+        .await
+    {
+        Ok(mut result) => {
+            result.run_id = run_id.clone();
+
+            let ws_conns = state.ws_connections.clone();
+            let pk = auth.pubkey.clone();
+            let rid = run_id.clone();
+            let res_clone = result.clone();
+            tokio::spawn(async move {
+                broadcast_to_user(
+                    &ws_conns,
+                    &pk,
+                    UpdateFrontend::BacktestResult(Box::new(BacktestResultUpdate {
+                        run_id: rid,
+                        result: res_clone,
+                    })),
+                )
+                .await;
+            });
+
+            Json(BacktestRunResponse {
+                run_id,
+                result,
+                progress,
+            })
+            .into_response()
+        }
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BacktestRunError {
+                run_id,
+                message: err.to_string(),
+                progress,
+            }),
+        )
+            .into_response(),
+    };
+
+    active_guard.release().await;
+
+    response
+}
+
+struct ActiveBacktestGuard {
+    active: Arc<tokio::sync::RwLock<std::collections::HashSet<String>>>,
+    pubkey: Option<String>,
+}
+
+impl ActiveBacktestGuard {
+    async fn acquire(
+        active: Arc<tokio::sync::RwLock<std::collections::HashSet<String>>>,
+        pubkey: String,
+    ) -> Option<Self> {
+        {
+            let mut guard = active.write().await;
+            if !guard.insert(pubkey.clone()) {
+                return None;
+            }
+        }
+
+        Some(Self {
+            active,
+            pubkey: Some(pubkey),
+        })
+    }
+
+    async fn release(mut self) {
+        if let Some(pubkey) = self.pubkey.take() {
+            self.active.write().await.remove(&pubkey);
+        }
+    }
+}
+
+impl Drop for ActiveBacktestGuard {
+    fn drop(&mut self) {
+        if let Some(pubkey) = self.pubkey.take() {
+            let active = Arc::clone(&self.active);
+            tokio::spawn(async move {
+                active.write().await.remove(&pubkey);
+            });
+        }
+    }
+}
+
+// ── Trades Route ─────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct TradeQueryParams {
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+async fn get_trades(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Path(market): Path<String>,
+    Query(params): Query<TradeQueryParams>,
+) -> Result<impl IntoResponse, StatusCode> {
+    validate_market_path(&market)?;
+    let (limit, offset) = bounded_pagination(params.limit, params.offset);
+
+    let rows = state
+        .store
+        .list_trades(&auth.pubkey, &market, limit, offset)
+        .await
+        .map_err(|err| store_error("list trades", err))?;
+
+    Ok(Json(rows))
+}
+
+// ── Strategies Routes ────────────────────────────────────────────────────────
+
+async fn list_strategies(
+    State(state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Query(params): Query<StrategyListQueryParams>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let (limit, offset) = bounded_strategy_list_pagination(params.limit, params.offset);
+    let rows = state
+        .store
+        .list_strategies(limit, offset)
+        .await
+        .map_err(|err| store_error("list strategies", err))?;
+
+    Ok(Json(rows))
+}
+
+async fn get_strategy(
+    State(state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Path(id): Path<uuid::Uuid>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let row = state
+        .store
+        .strategy(id)
+        .await
+        .map_err(|err| store_error("get strategy", err))?
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    Ok(Json(row))
+}
+
+#[derive(Deserialize)]
+struct SaveStrategyPayload {
+    name: String,
+    on_idle: String,
+    on_open: String,
+    on_busy: String,
+    indicators: serde_json::Value,
+    state_declarations: Option<serde_json::Value>,
+    is_active: Option<bool>,
+}
+
+#[derive(Deserialize)]
+struct StrategyListQueryParams {
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+async fn save_strategy(
+    State(state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Json(payload): Json<SaveStrategyPayload>,
+) -> Result<impl IntoResponse, StatusCode> {
+    if let Some(response) = validate_strategy_payload_bounds(&payload) {
+        return Ok(response);
+    }
+    let strategy_name = normalized_strategy_name(&payload);
+
+    let state_decls: Option<super::scripting::StateDeclarations> =
+        match payload.state_declarations.as_ref() {
+            Some(value) => match serde_json::from_value(value.clone()) {
+                Ok(decls) => Some(decls),
+                Err(err) => {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!("invalid state declarations: {err}")
+                        })),
+                    )
+                        .into_response());
+                }
+            },
+            None => None,
+        };
+    let indicators: Vec<crate::IndexId> = match serde_json::from_value(payload.indicators.clone()) {
+        Ok(indicators) => indicators,
+        Err(err) => {
+            return Ok((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": format!("invalid indicators: {err}")
+                })),
+            )
+                .into_response());
+        }
+    };
+
+    // Validate scripts compile before persisting (expansion happens inside)
+    let compiled = match super::scripting::compile_strategy(
+        &state.rhai_engine,
+        &payload.on_idle,
+        &payload.on_open,
+        &payload.on_busy,
+        state_decls.as_ref(),
+    ) {
+        Ok(c) => c,
+        Err(msg) => {
+            return Ok((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": msg })),
+            )
+                .into_response());
+        }
+    };
+
+    let now = chrono::Utc::now();
+    let row = super::storage_models::StrategyRow {
+        id: uuid::Uuid::new_v4(),
+        name: strategy_name.clone(),
+        on_idle: payload.on_idle.clone(),
+        on_open: payload.on_open.clone(),
+        on_busy: payload.on_busy.clone(),
+        indicators: payload.indicators.clone(),
+        state_declarations: payload.state_declarations.clone(),
+        is_active: Some(payload.is_active.unwrap_or(false)),
+        created_at: Some(now),
+        updated_at: Some(now),
+    };
+    let row = state
+        .store
+        .insert_strategy(row)
+        .await
+        .map_err(|err| store_error("save strategy", err))?;
+
+    {
+        let mut cache = state.strategy_cache.write().await;
+        cache.insert(
+            row.id,
+            CachedStrategy {
+                compiled,
+                indicators,
+                state_declarations: state_decls,
+                name: strategy_name,
+            },
+        );
+    }
+
+    Ok((StatusCode::CREATED, Json(row)).into_response())
+}
+
+async fn update_strategy(
+    State(state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+    Json(payload): Json<SaveStrategyPayload>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let id: uuid::Uuid = id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
+    if let Some(response) = validate_strategy_payload_bounds(&payload) {
+        return Ok(response);
+    }
+    let strategy_name = normalized_strategy_name(&payload);
+
+    let state_decls: Option<super::scripting::StateDeclarations> =
+        match payload.state_declarations.as_ref() {
+            Some(value) => match serde_json::from_value(value.clone()) {
+                Ok(decls) => Some(decls),
+                Err(err) => {
+                    return Ok((
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!("invalid state declarations: {err}")
+                        })),
+                    )
+                        .into_response());
+                }
+            },
+            None => None,
+        };
+    let indicators: Vec<crate::IndexId> = match serde_json::from_value(payload.indicators.clone()) {
+        Ok(indicators) => indicators,
+        Err(err) => {
+            return Ok((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": format!("invalid indicators: {err}")
+                })),
+            )
+                .into_response());
+        }
+    };
+
+    // Validate scripts compile before persisting (expansion happens inside)
+    let compiled = match super::scripting::compile_strategy(
+        &state.rhai_engine,
+        &payload.on_idle,
+        &payload.on_open,
+        &payload.on_busy,
+        state_decls.as_ref(),
+    ) {
+        Ok(c) => c,
+        Err(msg) => {
+            return Ok((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "error": msg })),
+            )
+                .into_response());
+        }
+    };
+
+    let existing = state
+        .store
+        .strategy(id)
+        .await
+        .map_err(|err| store_error("get strategy for update", err))?;
+    let row = match existing {
+        Some(existing) => {
+            let row = super::storage_models::StrategyRow {
+                id,
+                name: strategy_name.clone(),
+                on_idle: payload.on_idle.clone(),
+                on_open: payload.on_open.clone(),
+                on_busy: payload.on_busy.clone(),
+                indicators: payload.indicators.clone(),
+                state_declarations: payload.state_declarations.clone(),
+                is_active: Some(payload.is_active.unwrap_or(false)),
+                created_at: existing.created_at,
+                updated_at: Some(chrono::Utc::now()),
+            };
+            state
+                .store
+                .update_strategy(row)
+                .await
+                .map_err(|err| store_error("update strategy", err))?
+        }
+        None => None,
+    };
+
+    match row {
+        Some(r) => {
+            // Update cache with recompiled strategy
+            {
+                let mut cache = state.strategy_cache.write().await;
+                cache.insert(
+                    id,
+                    CachedStrategy {
+                        compiled,
+                        indicators,
+                        state_declarations: state_decls,
+                        name: strategy_name,
+                    },
+                );
+            }
+            Ok(Json(r).into_response())
+        }
+        None => Ok(StatusCode::NOT_FOUND.into_response()),
+    }
+}
+
+fn validate_strategy_payload_bounds(
+    payload: &SaveStrategyPayload,
+) -> Option<axum::response::Response> {
+    let name = normalized_strategy_name(payload);
+    if name.is_empty() {
+        return Some(strategy_validation_error("strategy name is required"));
+    }
+
+    if name.chars().count() > STRATEGY_NAME_MAX_LEN {
+        return Some(strategy_validation_error(format!(
+            "strategy name must be at most {STRATEGY_NAME_MAX_LEN} characters"
+        )));
+    }
+
+    for (label, script) in [
+        ("on_idle", &payload.on_idle),
+        ("on_open", &payload.on_open),
+        ("on_busy", &payload.on_busy),
+    ] {
+        if script.len() > STRATEGY_SCRIPT_MAX_BYTES {
+            return Some(strategy_validation_error(format!(
+                "{label} must be at most {STRATEGY_SCRIPT_MAX_BYTES} bytes"
+            )));
+        }
+    }
+
+    if payload
+        .indicators
+        .as_array()
+        .is_some_and(|indicators| indicators.len() > STRATEGY_INDICATORS_MAX)
+    {
+        return Some(strategy_validation_error(format!(
+            "strategies may reference at most {STRATEGY_INDICATORS_MAX} indicators"
+        )));
+    }
+
+    None
+}
+
+fn normalized_strategy_name(payload: &SaveStrategyPayload) -> String {
+    payload.name.trim().to_string()
+}
+
+fn strategy_validation_error(message: impl Into<String>) -> axum::response::Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({ "error": message.into() })),
+    )
+        .into_response()
+}
+
+async fn delete_strategy(
+    State(state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let id: uuid::Uuid = id.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
+    let deleted = state
+        .store
+        .delete_strategy(id)
+        .await
+        .map_err(|err| store_error("delete strategy", err))?;
+
+    if !deleted {
+        Ok(StatusCode::NOT_FOUND)
+    } else {
+        // Evict from cache
+        {
+            let mut cache = state.strategy_cache.write().await;
+            cache.remove(&id);
+        }
+        Ok(StatusCode::NO_CONTENT)
+    }
+}
+
+// ── Agent Approval Routes ────────────────────────────────────────────────────
+
+async fn prepare_agent(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(payload): Json<PrepareAgentPayload>,
+) -> impl IntoResponse {
+    log::info!(
+        "[agent/prepare] user={} requested agent preparation",
+        auth.pubkey
+    );
+
+    let agent = alloy::signers::local::PrivateKeySigner::random();
+    let nonce = auth::timestamp_nonce();
+
+    let valid_until = get_time_now() + 180 * 86_400 * 1000; // 6 months in ms
+    let prefix = match normalize_agent_name_prefix(payload.agent_name.as_deref()) {
+        Ok(prefix) => prefix,
+        Err((status, message)) => return (status, message).into_response(),
+    };
+    let agent_name = format!("{prefix} valid_until {valid_until}");
+    log::info!(
+        "[agent/prepare] agent_name={agent_name}, agent_address={:?}, nonce={nonce}",
+        agent.address()
+    );
+
+    let approve_agent = hyperliquid_rust_sdk::ApproveAgent {
+        signature_chain_id: 1, // Ethereum mainnet for frontend signing
+        hyperliquid_chain: "Mainnet".to_string(),
+        agent_address: agent.address(),
+        agent_name: Some(agent_name.clone()),
+        nonce,
+    };
+
+    let eip712_payload = serde_json::json!({
+        "domain": {
+            "name": "HyperliquidSignTransaction",
+            "version": "1",
+            "chainId": 1,
+            "verifyingContract": "0x0000000000000000000000000000000000000000"
+        },
+        "primaryType": "HyperliquidTransaction:ApproveAgent",
+        "types": {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"}
+            ],
+            "HyperliquidTransaction:ApproveAgent": [
+                {"name": "hyperliquidChain", "type": "string"},
+                {"name": "agentAddress", "type": "address"},
+                {"name": "agentName", "type": "string"},
+                {"name": "nonce", "type": "uint64"}
+            ]
+        },
+        "message": {
+            "hyperliquidChain": "Mainnet",
+            "signatureChainId": "0x1",
+            "agentAddress": format!("{:?}", agent.address()),
+            "agentName": agent_name,
+            "nonce": nonce,
+            "type": "approveAgent"
+        }
+    });
+
+    {
+        let mut store = state.pending_agents.write().await;
+        store.insert(
+            auth.pubkey,
+            super::app_state::PendingAgent {
+                agent_signer: agent,
+                approve_agent,
+                created_at: std::time::Instant::now(),
+            },
+        );
+    }
+
+    Json(serde_json::json!({ "eip712Payload": eip712_payload })).into_response()
+}
+
+#[derive(Deserialize)]
+struct PrepareAgentPayload {
+    agent_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ApproveAgentPayload {
+    signature: SignaturePayload,
+}
+
+#[derive(Deserialize, Serialize)]
+struct SignaturePayload {
+    r: String,
+    s: String,
+    v: u64,
+}
+
+async fn approve_agent_route(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(payload): Json<ApproveAgentPayload>,
+) -> impl IntoResponse {
+    log::info!(
+        "[agent/approve] user={} submitting agent approval",
+        auth.pubkey
+    );
+
+    // 1. Pop pending agent
+    let pending = {
+        let mut store = state.pending_agents.write().await;
+        store.remove(&auth.pubkey)
+    };
+    let Some(pending) = pending else {
+        log::warn!("[agent/approve] no pending agent for user={}", auth.pubkey);
+        return (
+            StatusCode::NOT_FOUND,
+            "No pending agent — call /agent/prepare first",
+        )
+            .into_response();
+    };
+    if pending.created_at.elapsed().as_secs() > 300 {
+        log::warn!(
+            "[agent/approve] pending agent expired for user={}",
+            auth.pubkey
+        );
+        return (
+            StatusCode::GONE,
+            "Pending agent expired — call /agent/prepare again",
+        )
+            .into_response();
+    }
+
+    // 2. Serialize action via SDK's Actions enum
+    let action = match serde_json::to_value(hyperliquid_rust_sdk::Actions::ApproveAgent(
+        pending.approve_agent.clone(),
+    )) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("Failed to serialize ApproveAgent: {}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    // 3. Build exchange payload
+    let exchange_payload = serde_json::json!({
+        "action": action,
+        "nonce": pending.approve_agent.nonce,
+        "signature": {
+            "r": payload.signature.r,
+            "s": payload.signature.s,
+            "v": payload.signature.v
+        },
+        "expiresAfter": null,
+        "isFrontend": true,
+        "vaultAddress": null
+    });
+
+    // 4. POST to Hyperliquid /exchange
+    let body = match serde_json::to_string(&exchange_payload) {
+        Ok(body) => body,
+        Err(err) => {
+            log::error!("[agent/approve] failed to serialize exchange payload: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to submit API key approval".to_string(),
+            )
+                .into_response();
+        }
+    };
+    log::debug!("[agent/approve] exchange payload bytes={}", body.len());
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(HYPERLIQUID_HTTP_TIMEOUT_SECS))
+        .build()
+    {
+        Ok(client) => client,
+        Err(err) => {
+            log::error!("[agent/approve] failed to build HTTP client: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to submit API key approval".to_string(),
+            )
+                .into_response();
+        }
+    };
+    let resp = match client
+        .post("https://api.hyperliquid.xyz/exchange")
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            log::error!("Hyperliquid exchange request failed: {}", e);
+            return (StatusCode::BAD_GATEWAY, "Failed to reach Hyperliquid").into_response();
+        }
+    };
+
+    let hl_status = resp.status();
+    let hl_body = match resp.text().await {
+        Ok(body) => body,
+        Err(err) => {
+            log::error!("[agent/approve] failed to read Hyperliquid response body: {err}");
+            return (
+                StatusCode::BAD_GATEWAY,
+                "Failed to read Hyperliquid response".to_string(),
+            )
+                .into_response();
+        }
+    };
+    log::info!("[agent/approve] HL /exchange responded: status={hl_status}");
+
+    if !hl_status.is_success() {
+        log::error!("[agent/approve] Hyperliquid request failed: {hl_body}");
+        return (
+            StatusCode::BAD_GATEWAY,
+            format!("Hyperliquid rejected: {hl_body}"),
+        )
+            .into_response();
+    }
+
+    // HL returns 200 even on errors — check the JSON status field
+    if let Ok(hl_json) = serde_json::from_str::<serde_json::Value>(&hl_body)
+        && hl_json.get("status").and_then(|s| s.as_str()) == Some("err")
+    {
+        let msg = hl_json
+            .get("response")
+            .and_then(|r| r.as_str())
+            .unwrap_or("Unknown error");
+        log::error!("[agent/approve] Hyperliquid rejected agent approval: {msg}");
+        return (
+            StatusCode::BAD_GATEWAY,
+            format!("Hyperliquid rejected: {msg}"),
+        )
+            .into_response();
+    }
+
+    // 5. Encrypt and store agent private key
+    let agent_key_hex = hex::encode(pending.agent_signer.to_bytes());
+    let encrypted = match super::crypto::encrypt(&state.encryption_key, agent_key_hex.as_bytes()) {
+        Ok(encrypted) => encrypted,
+        Err(err) => {
+            log::error!("[agent/approve] failed to encrypt agent key: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to store API key".to_string(),
+            )
+                .into_response();
+        }
+    };
+
+    // valid_until is encoded in agent_name: "{prefix} valid_until {ms_timestamp}"
+    let valid_until: i64 = pending
+        .approve_agent
+        .agent_name
+        .as_deref()
+        .and_then(|n| n.rsplit(' ').next())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+
+    if let Err(err) = state
+        .store
+        .set_encrypted_agent_key(&auth.pubkey, &encrypted, valid_until)
+        .await
+    {
+        return store_error("save agent key", err).into_response();
+    }
+
+    log::info!(
+        "[agent/approve] agent key stored for user={}, valid_until={}",
+        auth.pubkey,
+        valid_until
+    );
+
+    // 6. Hot-reload existing bot or spawn a new one
+    if let Some(tx) = live_bot_sender(&state, &auth.pubkey).await {
+        if queue_reload_wallet(&auth.pubkey, tx, pending.agent_signer.clone()).await {
+            log::info!("[agent/approve] hot-reloaded wallet for existing bot");
+        } else {
+            log::warn!(
+                "[agent/approve] existing bot channel closed during wallet reload for {}",
+                auth.pubkey
+            );
+        }
+    } else if let Err(e) = get_or_create_bot_sender(&state, &auth.pubkey).await {
+        log::warn!(
+            "Bot creation after agent approval failed for {}: {:?}",
+            auth.pubkey,
+            e
+        );
+    }
+
+    log::info!(
+        "[agent/approve] agent approval complete for user={}",
+        auth.pubkey
+    );
+    StatusCode::OK.into_response()
+}
+
+#[derive(Deserialize)]
+struct PrepareBuilderFeePayload {
+    builder: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ApproveBuilderFeePayload {
+    signature: SignaturePayload,
+}
+
+async fn prepare_builder_fee(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(payload): Json<PrepareBuilderFeePayload>,
+) -> impl IntoResponse {
+    log::info!(
+        "[builder/prepare] user={} requested builder fee approval preparation",
+        auth.pubkey
+    );
+
+    let (builder, normalized_builder) = match parse_builder_address(payload.builder.as_deref()) {
+        Ok(parsed) => parsed,
+        Err((status, message)) => return (status, message).into_response(),
+    };
+    let fee_bps = match validate_builder_fee(DEFAULT_BUILDER_FEE) {
+        Ok(fee) => fee,
+        Err((status, message)) => return (status, message).into_response(),
+    };
+    let nonce = auth::timestamp_nonce();
+    let max_fee_rate = format!("{}%", DEFAULT_BUILDER_FEE as f64 / 1000.0);
+
+    log::info!(
+        "[builder/prepare] user={} builder={} fee={} nonce={}",
+        auth.pubkey,
+        normalized_builder,
+        fee_bps,
+        nonce
+    );
+
+    let approve_builder_fee = hyperliquid_rust_sdk::ApproveBuilderFee {
+        signature_chain_id: 421614,
+        hyperliquid_chain: "Mainnet".to_string(),
+        builder,
+        max_fee_rate: max_fee_rate.clone(),
+        nonce,
+    };
+
+    let eip712_payload = serde_json::json!({
+        "domain": {
+            "name": "HyperliquidSignTransaction",
+            "version": "1",
+            "chainId": 421614,
+            "verifyingContract": "0x0000000000000000000000000000000000000000"
+        },
+        "primaryType": "HyperliquidTransaction:ApproveBuilderFee",
+        "types": {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"}
+            ],
+            "HyperliquidTransaction:ApproveBuilderFee": [
+                {"name": "hyperliquidChain", "type": "string"},
+                {"name": "maxFeeRate", "type": "string"},
+                {"name": "builder", "type": "address"},
+                {"name": "nonce", "type": "uint64"}
+            ]
+        },
+        "message": {
+            "hyperliquidChain": "Mainnet",
+            "signatureChainId": "0x66eee",
+            "maxFeeRate": max_fee_rate,
+            "builder": normalized_builder,
+            "nonce": nonce,
+            "type": "approveBuilderFee"
+        }
+    });
+
+    {
+        let mut store = state.pending_builder_fee_approvals.write().await;
+        store.insert(
+            auth.pubkey,
+            super::app_state::PendingBuilderFeeApproval {
+                approve_builder_fee,
+                builder,
+                fee: fee_bps,
+                created_at: Instant::now(),
+            },
+        );
+    }
+
+    Json(serde_json::json!({ "eip712Payload": eip712_payload })).into_response()
+}
+
+async fn approve_builder_fee_route(
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+    Json(payload): Json<ApproveBuilderFeePayload>,
+) -> impl IntoResponse {
+    log::info!(
+        "[builder/approve] user={} submitting builder fee approval",
+        auth.pubkey
+    );
+
+    let pending = {
+        let mut store = state.pending_builder_fee_approvals.write().await;
+        store.remove(&auth.pubkey)
+    };
+    let Some(pending) = pending else {
+        log::warn!(
+            "[builder/approve] no pending builder fee approval for user={}",
+            auth.pubkey
+        );
+        return (
+            StatusCode::NOT_FOUND,
+            "No pending builder fee approval — call /builder/prepare first",
+        )
+            .into_response();
+    };
+    if builder_approval_expired(pending.created_at, Instant::now()) {
+        log::warn!(
+            "[builder/approve] pending builder fee approval expired for user={}",
+            auth.pubkey
+        );
+        return (
+            StatusCode::GONE,
+            "Pending builder fee approval expired — call /builder/prepare again",
+        )
+            .into_response();
+    }
+
+    let action = match serde_json::to_value(hyperliquid_rust_sdk::Actions::ApproveBuilderFee(
+        pending.approve_builder_fee.clone(),
+    )) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("[builder/approve] failed to serialize ApproveBuilderFee: {e}");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let exchange_payload = serde_json::json!({
+        "action": action,
+        "nonce": pending.approve_builder_fee.nonce,
+        "signature": {
+            "r": payload.signature.r,
+            "s": payload.signature.s,
+            "v": payload.signature.v
+        },
+        "expiresAfter": null,
+        "isFrontend": true,
+        "vaultAddress": null
+    });
+
+    let body = match serde_json::to_string(&exchange_payload) {
+        Ok(body) => body,
+        Err(err) => {
+            log::error!("[builder/approve] failed to serialize exchange payload: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to submit builder fee approval".to_string(),
+            )
+                .into_response();
+        }
+    };
+    log::debug!("[builder/approve] exchange payload bytes={}", body.len());
+
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(HYPERLIQUID_HTTP_TIMEOUT_SECS))
+        .build()
+    {
+        Ok(client) => client,
+        Err(err) => {
+            log::error!("[builder/approve] failed to build HTTP client: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to submit builder fee approval".to_string(),
+            )
+                .into_response();
+        }
+    };
+    let resp = match client
+        .post("https://api.hyperliquid.xyz/exchange")
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()
+        .await
+    {
+        Ok(resp) => resp,
+        Err(err) => {
+            log::error!("[builder/approve] Hyperliquid exchange request failed: {err}");
+            return (StatusCode::BAD_GATEWAY, "Failed to reach Hyperliquid").into_response();
+        }
+    };
+
+    let hl_status = resp.status();
+    let hl_body = match resp.text().await {
+        Ok(body) => body,
+        Err(err) => {
+            log::error!("[builder/approve] failed to read Hyperliquid response body: {err}");
+            return (
+                StatusCode::BAD_GATEWAY,
+                "Failed to read Hyperliquid response".to_string(),
+            )
+                .into_response();
+        }
+    };
+    log::info!("[builder/approve] HL /exchange responded: status={hl_status}");
+
+    if !hl_status.is_success() {
+        log::error!("[builder/approve] Hyperliquid request failed: {hl_body}");
+        return (
+            StatusCode::BAD_GATEWAY,
+            format!("Hyperliquid rejected: {hl_body}"),
+        )
+            .into_response();
+    }
+
+    if let Ok(hl_json) = serde_json::from_str::<serde_json::Value>(&hl_body)
+        && hl_json.get("status").and_then(|s| s.as_str()) == Some("err")
+    {
+        let msg = hl_json
+            .get("response")
+            .and_then(|r| r.as_str())
+            .unwrap_or("Unknown error");
+        log::error!("[builder/approve] Hyperliquid rejected builder fee approval: {msg}");
+        return (
+            StatusCode::BAD_GATEWAY,
+            format!("Hyperliquid rejected: {msg}"),
+        )
+            .into_response();
+    }
+
+    log::info!(
+        "[builder/approve] builder fee approval confirmed user={} builder={:?} fee={}",
+        auth.pubkey,
+        pending.builder,
+        pending.fee
+    );
+    broadcast_to_user(
+        &state.ws_connections,
+        &auth.pubkey,
+        UpdateFrontend::NeedsBuilderApproval(false),
+    )
+    .await;
+    if let Some(tx) = live_bot_sender(&state, &auth.pubkey).await
+        && let Err(err) = tx.try_send(BotEvent::BuilderApproved)
+    {
+        log::warn!("[builder/approve] failed to notify bot of builder approval: {err}");
+    }
+    // TODO: add a migration/table for persisting builder approval metadata
+    // (pubkey, builder_address, builder_fee, approval timestamp).
+    StatusCode::OK.into_response()
+}
+
+fn parse_builder_address(input: Option<&str>) -> Result<(Address, String), (StatusCode, String)> {
+    let raw = input
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_BUILDER_ADDRESS);
+
+    match raw.parse::<Address>() {
+        Ok(address) => Ok((address, format!("{address:?}").to_lowercase())),
+        Err(_) => Err((
+            StatusCode::BAD_REQUEST,
+            "invalid builder address".to_string(),
+        )),
+    }
+}
+
+fn validate_builder_fee(fee: u64) -> Result<u64, (StatusCode, String)> {
+    if fee > MAX_PERP_BUILDER_FEE {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("builder fee must be at most {MAX_PERP_BUILDER_FEE}"),
+        ));
+    }
+
+    Ok(fee)
+}
+
+fn builder_approval_expired(created_at: Instant, now: Instant) -> bool {
+    now.duration_since(created_at).as_secs() > PENDING_BUILDER_APPROVAL_TTL_SECS
+}
+
+fn normalize_agent_name_prefix(input: Option<&str>) -> Result<String, (StatusCode, String)> {
+    let prefix = input
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("kwant");
+
+    if prefix.chars().count() > AGENT_NAME_PREFIX_MAX_LEN {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("agent_name must be at most {AGENT_NAME_PREFIX_MAX_LEN} characters"),
+        ));
+    }
+
+    if prefix.chars().any(char::is_control) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "agent_name must not contain control characters".to_string(),
+        ));
+    }
+
+    Ok(prefix.to_string())
+}
+
+async fn queue_reload_wallet(
+    pubkey: &str,
+    tx: tokio::sync::mpsc::Sender<BotEvent>,
+    signer: alloy::signers::local::PrivateKeySigner,
+) -> bool {
+    match tx.try_send(BotEvent::ReloadWallet(signer)) {
+        Ok(()) => true,
+        Err(tokio::sync::mpsc::error::TrySendError::Full(event)) => {
+            match tokio::time::timeout(std::time::Duration::from_secs(5), tx.send(event)).await {
+                Ok(Ok(())) => {
+                    log::info!("[agent/approve] delayed wallet reload queued for {pubkey}");
+                    true
+                }
+                Ok(Err(_)) => {
+                    log::warn!(
+                        "[agent/approve] bot channel closed before delayed wallet reload for {pubkey}"
+                    );
+                    false
+                }
+                Err(_) => {
+                    log::warn!(
+                        "[agent/approve] timed out queuing delayed wallet reload for {pubkey}"
+                    );
+                    false
+                }
+            }
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => false,
+    }
+}
+
+// ── WebSocket Handler ────────────────────────────────────────────────────────
+
+async fn ws_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_ws(socket, state, auth.pubkey))
+}
+
+async fn handle_ws(socket: WebSocket, state: Arc<AppState>, pubkey: String) {
+    // Create channel for this connection
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<UpdateFrontend>(128);
+    let conn_id = uuid::Uuid::new_v4();
+
+    // Register in connections map
+    {
+        let mut conns = state.ws_connections.write().await;
+        conns
+            .entry(pubkey.clone())
+            .or_default()
+            .push(WsConnection { id: conn_id, tx });
+    }
+
+    info!("WebSocket connected for user {}", pubkey);
+
+    let mut socket = socket;
+    loop {
+        tokio::select! {
+            maybe_msg = rx.recv() => {
+                let Some(msg) = maybe_msg else {
+                    break;
+                };
+
+                let Ok(text) = serde_json::to_string(&msg) else {
+                    log::warn!("failed to serialize websocket update for user {pubkey}");
+                    continue;
+                };
+
+                match tokio::time::timeout(
+                    Duration::from_secs(WS_SEND_TIMEOUT_SECS),
+                    socket.send(Message::Text(text.into())),
+                )
+                .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(_)) => break,
+                    Err(_) => {
+                        log::warn!("websocket send timed out for user {pubkey}; closing connection");
+                        break;
+                    }
+                }
+            }
+            inbound = socket.next() => {
+                match inbound {
+                    Some(Ok(Message::Ping(payload))) => {
+                        match tokio::time::timeout(
+                            Duration::from_secs(WS_SEND_TIMEOUT_SECS),
+                            socket.send(Message::Pong(payload)),
+                        )
+                        .await
+                        {
+                            Ok(Ok(())) => {}
+                            Ok(Err(_)) => break,
+                            Err(_) => {
+                                log::warn!("websocket pong timed out for user {pubkey}; closing connection");
+                                break;
+                            }
+                        }
+                    }
+                    Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
+                    Some(Ok(_)) => {}
+                }
+            }
+        };
+    }
+
+    // Cleanup: remove this sender from connections map
+    {
+        let mut conns = state.ws_connections.write().await;
+        if let Some(senders) = conns.get_mut(&pubkey) {
+            senders.retain(|conn| conn.id != conn_id);
+            if senders.is_empty() {
+                conns.remove(&pubkey);
+            }
+        }
+    }
+
+    info!("WebSocket disconnected for user {}", pubkey);
+}
+
+// ── Backtest History Routes ─────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct BacktestHistoryQuery {
+    asset: Option<String>,
+    strategy_id: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+async fn list_backtest_history(
+    State(_state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Query(params): Query<BacktestHistoryQuery>,
+) -> Result<impl IntoResponse, StatusCode> {
+    if let Some(strategy_id) = params.strategy_id {
+        strategy_id
+            .parse::<uuid::Uuid>()
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+    }
+    let _ = (
+        params.asset,
+        bounded_pagination(params.limit, params.offset),
+    );
+    Ok(Json(Vec::<serde_json::Value>::new()))
+}
+
+fn bounded_pagination(limit: Option<i64>, offset: Option<i64>) -> (i64, i64) {
+    let limit = limit.unwrap_or(DEFAULT_PAGE_LIMIT).clamp(1, MAX_PAGE_LIMIT);
+    let offset = offset.unwrap_or(0).max(0);
+
+    (limit, offset)
+}
+
+fn bounded_strategy_list_pagination(limit: Option<i64>, offset: Option<i64>) -> (i64, i64) {
+    let limit = limit
+        .unwrap_or(DEFAULT_STRATEGY_LIST_LIMIT)
+        .clamp(1, MAX_STRATEGY_LIST_LIMIT);
+    let offset = offset.unwrap_or(0).max(0);
+
+    (limit, offset)
+}
+
+fn validate_market_path(market: &str) -> Result<(), StatusCode> {
+    if market.is_empty()
+        || market.chars().count() > MARKET_PATH_MAX_LEN
+        || market.chars().any(char::is_control)
+    {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    Ok(())
+}
+
+async fn get_backtest_result(
+    State(_state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Path(_id): Path<uuid::Uuid>,
+) -> StatusCode {
+    StatusCode::NOT_FOUND
+}
+
+async fn delete_backtest_run(
+    State(_state): State<Arc<AppState>>,
+    _auth: AuthUser,
+    Path(_id): Path<uuid::Uuid>,
+) -> impl IntoResponse {
+    StatusCode::NOT_FOUND
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn healthz_returns_no_content() {
+        assert_eq!(healthz().await, StatusCode::NO_CONTENT);
+    }
+
+    #[test]
+    fn bounded_pagination_clamps_limit_and_offset() {
+        assert_eq!(bounded_pagination(None, None), (DEFAULT_PAGE_LIMIT, 0));
+        assert_eq!(bounded_pagination(Some(-10), Some(-5)), (1, 0));
+        assert_eq!(
+            bounded_pagination(Some(MAX_PAGE_LIMIT + 1), Some(25)),
+            (MAX_PAGE_LIMIT, 25)
+        );
+    }
+
+    #[test]
+    fn bounded_strategy_list_pagination_clamps_limit_and_offset() {
+        assert_eq!(
+            bounded_strategy_list_pagination(None, None),
+            (DEFAULT_STRATEGY_LIST_LIMIT, 0)
+        );
+        assert_eq!(
+            bounded_strategy_list_pagination(Some(-10), Some(-5)),
+            (1, 0)
+        );
+        assert_eq!(
+            bounded_strategy_list_pagination(Some(MAX_STRATEGY_LIST_LIMIT + 1), Some(25)),
+            (MAX_STRATEGY_LIST_LIMIT, 25)
+        );
+    }
+
+    #[test]
+    fn validate_market_path_rejects_empty_control_and_oversized_values() {
+        assert!(validate_market_path("BTC").is_ok());
+        assert!(validate_market_path("").is_err());
+        assert!(validate_market_path("bad\nmarket").is_err());
+        assert!(validate_market_path(&"x".repeat(MARKET_PATH_MAX_LEN + 1)).is_err());
+    }
+
+    #[test]
+    fn parse_cors_origins_parses_comma_separated_header_values() {
+        let origins = parse_cors_origins("https://app.example, http://localhost:5173")
+            .expect("origins should parse");
+
+        assert_eq!(origins.len(), 2);
+        assert_eq!(origins[0], HeaderValue::from_static("https://app.example"));
+        assert_eq!(
+            origins[1],
+            HeaderValue::from_static("http://localhost:5173")
+        );
+    }
+
+    #[test]
+    fn parse_cors_origins_rejects_empty_or_invalid_values() {
+        assert!(parse_cors_origins(" , ").is_err());
+        assert!(parse_cors_origins("not a header\nvalue").is_err());
+    }
+
+    #[test]
+    fn parse_cors_policy_requires_explicit_permissive_wildcard() {
+        assert!(matches!(
+            parse_cors_policy("*").expect("wildcard should parse"),
+            CorsPolicy::Permissive
+        ));
+        assert!(parse_cors_policy("").is_err());
+    }
+
+    #[test]
+    fn normalize_auth_address_rejects_invalid_and_canonicalizes_valid_address() {
+        assert!(normalize_auth_address("not-address").is_err());
+
+        assert_eq!(
+            normalize_auth_address(" 0x0000000000000000000000000000000000000001 ")
+                .expect("address should normalize"),
+            "0x0000000000000000000000000000000000000001"
+        );
+    }
+
+    #[test]
+    fn prune_expired_nonces_removes_only_expired_entries() {
+        let now = Instant::now();
+        let mut store = std::collections::HashMap::from([
+            (
+                "fresh".to_string(),
+                (
+                    "nonce".to_string(),
+                    now - Duration::from_secs(NONCE_TTL_SECS),
+                ),
+            ),
+            (
+                "expired".to_string(),
+                (
+                    "nonce".to_string(),
+                    now - Duration::from_secs(NONCE_TTL_SECS + 1),
+                ),
+            ),
+        ]);
+
+        prune_expired_nonces(&mut store, now);
+
+        assert!(store.contains_key("fresh"));
+        assert!(!store.contains_key("expired"));
+    }
+
+    #[test]
+    fn issue_nonce_for_address_reuses_fresh_nonce_and_prunes_expired() {
+        let now = Instant::now();
+        let mut store = std::collections::HashMap::from([
+            (
+                "0x0000000000000000000000000000000000000001".to_string(),
+                ("existing".to_string(), now),
+            ),
+            (
+                "expired".to_string(),
+                (
+                    "old".to_string(),
+                    now - Duration::from_secs(NONCE_TTL_SECS + 1),
+                ),
+            ),
+        ]);
+
+        let reused = issue_nonce_for_address(
+            &mut store,
+            "0x0000000000000000000000000000000000000001".to_string(),
+            now,
+        )
+        .expect("fresh nonce should be reused");
+        assert_eq!(reused, "existing");
+        assert!(!store.contains_key("expired"));
+
+        let created = issue_nonce_for_address(
+            &mut store,
+            "0x0000000000000000000000000000000000000002".to_string(),
+            now,
+        )
+        .expect("new nonce should be issued");
+        assert_ne!(created, "existing");
+    }
+
+    #[test]
+    fn verify_nonce_signature_preserves_nonce_on_bad_signature() {
+        let now = Instant::now();
+        let address = "0x0000000000000000000000000000000000000001";
+        let mut store =
+            std::collections::HashMap::from([(address.to_string(), ("nonce".to_string(), now))]);
+
+        let result = verify_nonce_signature_and_consume(&mut store, address, "0x00", "nonce", now);
+
+        assert_eq!(result, Err(StatusCode::UNAUTHORIZED));
+        assert!(store.contains_key(address));
+    }
+
+    #[test]
+    fn verify_nonce_signature_rejects_wrong_or_expired_nonce_without_auth() {
+        let now = Instant::now();
+        let address = "0x0000000000000000000000000000000000000001";
+        let mut store =
+            std::collections::HashMap::from([(address.to_string(), ("nonce".to_string(), now))]);
+
+        assert_eq!(
+            verify_nonce_signature_and_consume(&mut store, address, "0x00", "wrong", now),
+            Err(StatusCode::BAD_REQUEST)
+        );
+        assert!(store.contains_key(address));
+
+        let expired_at = now - Duration::from_secs(NONCE_TTL_SECS + 1);
+        store.insert(address.to_string(), ("nonce".to_string(), expired_at));
+
+        assert_eq!(
+            verify_nonce_signature_and_consume(&mut store, address, "0x00", "nonce", now),
+            Err(StatusCode::GONE)
+        );
+        assert!(!store.contains_key(address));
+    }
+
+    #[test]
+    fn normalize_agent_name_prefix_defaults_trims_and_rejects_bad_values() {
+        assert_eq!(
+            normalize_agent_name_prefix(None).expect("default should work"),
+            "kwant"
+        );
+        assert_eq!(
+            normalize_agent_name_prefix(Some(" custom ")).expect("trimmed name should work"),
+            "custom"
+        );
+        assert!(normalize_agent_name_prefix(Some("x".repeat(65).as_str())).is_err());
+        assert!(normalize_agent_name_prefix(Some("bad\nname")).is_err());
+    }
+
+    #[test]
+    fn parse_builder_address_parses_and_normalizes_valid_address() {
+        let (_, normalized) =
+            parse_builder_address(Some(" 0x8b56d7FBC8ad2a90E1C1366CA428efb4b5Bed18F "))
+                .expect("valid builder address should parse");
+
+        assert_eq!(normalized, "0x8b56d7fbc8ad2a90e1c1366ca428efb4b5bed18f");
+    }
+
+    #[test]
+    fn parse_builder_address_rejects_invalid_address() {
+        assert!(parse_builder_address(Some("not-address")).is_err());
+    }
+
+    #[test]
+    fn validate_builder_fee_accepts_values_up_to_max() {
+        assert_eq!(validate_builder_fee(0).expect("zero fee should work"), 0);
+        assert_eq!(
+            validate_builder_fee(MAX_PERP_BUILDER_FEE).expect("max fee should work"),
+            MAX_PERP_BUILDER_FEE
+        );
+    }
+
+    #[test]
+    fn validate_builder_fee_rejects_values_above_max() {
+        assert!(validate_builder_fee(MAX_PERP_BUILDER_FEE + 1).is_err());
+    }
+
+    #[test]
+    fn builder_approval_expired_uses_configured_ttl() {
+        let now = Instant::now();
+
+        assert!(!builder_approval_expired(
+            now - Duration::from_secs(PENDING_BUILDER_APPROVAL_TTL_SECS),
+            now
+        ));
+        assert!(builder_approval_expired(
+            now - Duration::from_secs(PENDING_BUILDER_APPROVAL_TTL_SECS + 1),
+            now
+        ));
+    }
+
+    #[test]
+    fn validate_strategy_payload_bounds_rejects_oversized_strategy_inputs() {
+        let mut payload = SaveStrategyPayload {
+            name: "valid".to_string(),
+            on_idle: String::new(),
+            on_open: String::new(),
+            on_busy: String::new(),
+            indicators: serde_json::json!([]),
+            state_declarations: None,
+            is_active: Some(true),
+        };
+
+        assert!(validate_strategy_payload_bounds(&payload).is_none());
+
+        payload.name = String::new();
+        assert!(validate_strategy_payload_bounds(&payload).is_some());
+
+        payload.name = "valid".to_string();
+        payload.on_idle = "x".repeat(STRATEGY_SCRIPT_MAX_BYTES + 1);
+        assert!(validate_strategy_payload_bounds(&payload).is_some());
+
+        payload.on_idle.clear();
+        payload.indicators = serde_json::Value::Array(
+            (0..=STRATEGY_INDICATORS_MAX)
+                .map(|_| serde_json::json!(["BTC", "Close", "1m"]))
+                .collect(),
+        );
+        assert!(validate_strategy_payload_bounds(&payload).is_some());
+    }
+
+    #[test]
+    fn normalized_strategy_name_trims_persisted_name() {
+        let payload = SaveStrategyPayload {
+            name: "  mean reversion  ".to_string(),
+            on_idle: String::new(),
+            on_open: String::new(),
+            on_busy: String::new(),
+            indicators: serde_json::json!([]),
+            state_declarations: None,
+            is_active: Some(true),
+        };
+
+        assert_eq!(normalized_strategy_name(&payload), "mean reversion");
+    }
+
+    #[tokio::test]
+    async fn active_backtest_guard_releases_on_explicit_release_and_drop() {
+        let active = Arc::new(tokio::sync::RwLock::new(std::collections::HashSet::new()));
+
+        let guard = ActiveBacktestGuard::acquire(Arc::clone(&active), "user".to_string())
+            .await
+            .expect("first guard should acquire");
+        assert!(
+            ActiveBacktestGuard::acquire(Arc::clone(&active), "user".to_string())
+                .await
+                .is_none()
+        );
+
+        guard.release().await;
+        assert!(
+            ActiveBacktestGuard::acquire(Arc::clone(&active), "user".to_string())
+                .await
+                .is_some()
+        );
+
+        let guard = ActiveBacktestGuard::acquire(Arc::clone(&active), "drop-user".to_string())
+            .await
+            .expect("drop guard should acquire");
+        drop(guard);
+        tokio::time::sleep(Duration::from_millis(10)).await;
+
+        assert!(!active.read().await.contains("drop-user"));
+    }
+
+    #[tokio::test]
+    async fn bot_startup_guard_allows_one_builder_per_user() {
+        let active = Arc::new(tokio::sync::RwLock::new(std::collections::HashSet::new()));
+
+        let guard = BotStartupGuard::acquire(Arc::clone(&active), "user".to_string())
+            .await
+            .expect("first guard should acquire");
+        assert!(
+            BotStartupGuard::acquire(Arc::clone(&active), "user".to_string())
+                .await
+                .is_none()
+        );
+
+        drop(guard);
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert!(
+            BotStartupGuard::acquire(Arc::clone(&active), "user".to_string())
+                .await
+                .is_some()
+        );
+    }
+}
