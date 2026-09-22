@@ -612,8 +612,13 @@ impl BitflyerCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_337: bool = true;
             while { if !__for_first_337 { i = add(&i, &Value::Int(1)); } __for_first_337 = false; is_less_than(&i, &get_array_length(&markets)) } {
+=======
+            let mut __for_first_336: bool = true;
+            while { if !__for_first_336 { i = add(&i, &Value::Int(1)); } __for_first_336 = false; is_less_than(&i, &get_array_length(&markets)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut market: Value = get_value(&markets, &i);
             let mut market: Value = get_value(&markets, &i);
             let mut id: Value = self.safe_string_k(market.clone(), "product_code", &[]);
@@ -751,8 +756,13 @@ impl BitflyerCore {
         });
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_338: bool = true;
             while { if !__for_first_338 { i = add(&i, &Value::Int(1)); } __for_first_338 = false; is_less_than(&i, &get_array_length(&response)) } {
+=======
+            let mut __for_first_337: bool = true;
+            while { if !__for_first_337 { i = add(&i, &Value::Int(1)); } __for_first_337 = false; is_less_than(&i, &get_array_length(&response)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut balance: Value = get_value(&response, &i);
             let mut balance: Value = get_value(&response, &i);
             let mut currencyId: Value = self.safe_string_k(balance.clone(), "currency_code", &[]);

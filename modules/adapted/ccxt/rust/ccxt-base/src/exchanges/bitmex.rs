@@ -1104,8 +1104,13 @@ impl BitmexCore {
         let mut precision: Value = self.parse_number(precisionString.clone(), &[]);
         {
                         let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_381: bool = true;
             while { if !__for_first_381 { j = add(&j, &Value::Int(1)); } __for_first_381 = false; is_less_than(&j, &get_array_length(&chains)) } {
+=======
+            let mut __for_first_380: bool = true;
+            while { if !__for_first_380 { j = add(&j, &Value::Int(1)); } __for_first_380 = false; is_less_than(&j, &get_array_length(&chains)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut chain: Value = get_value(&chains, &j);
             let mut chain: Value = get_value(&chains, &j);
             let mut networkId: Value = self.safe_string_k(chain.clone(), "asset", &[]);
@@ -1485,8 +1490,13 @@ impl BitmexCore {
         });
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_382: bool = true;
             while { if !__for_first_382 { i = add(&i, &Value::Int(1)); } __for_first_382 = false; is_less_than(&i, &get_array_length(&response)) } {
+=======
+            let mut __for_first_381: bool = true;
+            while { if !__for_first_381 { i = add(&i, &Value::Int(1)); } __for_first_381 = false; is_less_than(&i, &get_array_length(&response)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut balance: Value = get_value(&response, &i);
             let mut balance: Value = get_value(&response, &i);
             let mut currencyId: Value = self.safe_string_k(balance.clone(), "currency", &[]);
@@ -1577,8 +1587,13 @@ impl BitmexCore {
         let mut orders: Value = self.to_array(response.clone());
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_383: bool = true;
             while { if !__for_first_383 { i = add(&i, &Value::Int(1)); } __for_first_383 = false; is_less_than(&i, &get_array_length(&orders)) } {
+=======
+            let mut __for_first_382: bool = true;
+            while { if !__for_first_382 { i = add(&i, &Value::Int(1)); } __for_first_382 = false; is_less_than(&i, &get_array_length(&orders)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut order: Value = get_value(&orders, &i);
             let mut order: Value = get_value(&orders, &i);
             let mut side: Value = ternary(is_true(&(is_equal(&get_value(&order, &Value::Str("side".to_string())), &Value::Str("Sell".to_string())))), Value::Str("asks".to_string()), Value::Str("bids".to_string()));
@@ -2194,8 +2209,13 @@ impl BitmexCore {
         let mut rawTickers: Value = self.to_array(response.clone());
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_384: bool = true;
             while { if !__for_first_384 { i = add(&i, &Value::Int(1)); } __for_first_384 = false; is_less_than(&i, &get_array_length(&rawTickers)) } {
+=======
+            let mut __for_first_383: bool = true;
+            while { if !__for_first_383 { i = add(&i, &Value::Int(1)); } __for_first_383 = false; is_less_than(&i, &get_array_length(&rawTickers)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut ticker: Value = self.parse_ticker(get_value(&rawTickers, &i), &[]);
             let mut symbol: Value = self.safe_string_k(ticker.clone(), "symbol", &[]);
             if !is_equal(&symbol, &Value::Null) {
@@ -2350,8 +2370,13 @@ impl BitmexCore {
         if is_true(&useOpenTimestamp) {
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_385: bool = true;
                 while { if !__for_first_385 { i = add(&i, &Value::Int(1)); } __for_first_385 = false; is_less_than(&i, &get_array_length(&result)) } {
+=======
+                let mut __for_first_384: bool = true;
+                while { if !__for_first_384 { i = add(&i, &Value::Int(1)); } __for_first_384 = false; is_less_than(&i, &get_array_length(&result)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 { let __be_tmp = subtract(&self.parse_to_int(get_value(&get_value(&result, &i), &Value::Int(0))), &duration); add_element_to_object(get_value_mut(&mut result, &i), &Value::Int(0), __be_tmp); };
             }
             }
@@ -3397,8 +3422,13 @@ impl BitmexCore {
         let mut rawItems: Value = self.to_array(response.clone());
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_386: bool = true;
             while { if !__for_first_386 { i = add(&i, &Value::Int(1)); } __for_first_386 = false; is_less_than(&i, &get_array_length(&rawItems)) } {
+=======
+            let mut __for_first_385: bool = true;
+            while { if !__for_first_385 { i = add(&i, &Value::Int(1)); } __for_first_385 = false; is_less_than(&i, &get_array_length(&rawItems)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut item: Value = get_value(&rawItems, &i);
             let mut item: Value = get_value(&rawItems, &i);
             let mut marketId: Value = self.safe_string_k(item.clone(), "symbol", &[]);
@@ -3733,8 +3763,13 @@ impl BitmexCore {
             let mut precision: Value = self.parse_precision(&[scale.clone()]);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_387: bool = true;
                 while { if !__for_first_387 { i = add(&i, &Value::Int(1)); } __for_first_387 = false; is_less_than(&i, &networksLength) } {
+=======
+                let mut __for_first_386: bool = true;
+                while { if !__for_first_386 { i = add(&i, &Value::Int(1)); } __for_first_386 = false; is_less_than(&i, &networksLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut network: Value = get_value(&networks, &i);
                 let mut network: Value = get_value(&networks, &i);
                 let mut networkId: Value = self.safe_string_k(network.clone(), "asset", &[]);
@@ -4200,8 +4235,13 @@ impl BitmexCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_388: bool = true;
             while { if !__for_first_388 { i = add(&i, &Value::Int(1)); } __for_first_388 = false; is_less_than(&i, &get_array_length(&settlements)) } {
+=======
+            let mut __for_first_387: bool = true;
+            while { if !__for_first_387 { i = add(&i, &Value::Int(1)); } __for_first_387 = false; is_less_than(&i, &get_array_length(&settlements)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             append_to_array(&mut result, self.parse_settlement(get_value(&settlements, &i), &[market.clone()]));
         }
         }

@@ -180,6 +180,7 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
             if is_greater_than_or_equal(&get_array_length(&possibleMethodNames), &Value::Int(1)) {
                 {
                                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                     let mut __for_first_1484: bool = true;
                     while { if !__for_first_1484 { i = add(&i, &Value::Int(1)); } __for_first_1484 = false; is_less_than(&i, &get_array_length(&testFileNames)) } {
                     let mut testFileName: Value = get_value(&testFileNames, &i);
@@ -187,6 +188,15 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
                                                 let mut j: Value = Value::Int(0);
                         let mut __for_first_1483: bool = true;
                         while { if !__for_first_1483 { j = add(&j, &Value::Int(1)); } __for_first_1483 = false; is_less_than(&j, &get_array_length(&possibleMethodNames)) } {
+=======
+                    let mut __for_first_1483: bool = true;
+                    while { if !__for_first_1483 { i = add(&i, &Value::Int(1)); } __for_first_1483 = false; is_less_than(&i, &get_array_length(&testFileNames)) } {
+                    let mut testFileName: Value = get_value(&testFileNames, &i);
+                    {
+                                                let mut j: Value = Value::Int(0);
+                        let mut __for_first_1482: bool = true;
+                        while { if !__for_first_1482 { j = add(&j, &Value::Int(1)); } __for_first_1482 = false; is_less_than(&j, &get_array_length(&possibleMethodNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                         let mut methodName: Value = get_value(&possibleMethodNames, &j);
                         methodName = replace_str(&methodName, &Value::Str("()".to_string()), &Value::Str("".to_string()));
                         if is_equal(&testFileName, &methodName) {
@@ -220,8 +230,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut objkeys: Value = object_keys(&reqCreds);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1485: bool = true;
             while { if !__for_first_1485 { i = add(&i, &Value::Int(1)); } __for_first_1485 = false; is_less_than(&i, &get_array_length(&objkeys)) } {
+=======
+            let mut __for_first_1484: bool = true;
+            while { if !__for_first_1484 { i = add(&i, &Value::Int(1)); } __for_first_1484 = false; is_less_than(&i, &get_array_length(&objkeys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut credential: Value = get_value(&objkeys, &i);
             let mut isRequired: Value = get_value(&reqCreds, &credential);
             if is_true(&(is_equal(&isRequired, &Value::Bool(true)))) && is_true(&(is_equal(&getExchangeProp(exchange.clone(), credential.clone(), &[]), &Value::Null))) {
@@ -266,8 +281,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
             let mut settingKeys: Value = object_keys(&exchangeSettings);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1486: bool = true;
                 while { if !__for_first_1486 { i = add(&i, &Value::Int(1)); } __for_first_1486 = false; is_less_than(&i, &get_array_length(&settingKeys)) } {
+=======
+                let mut __for_first_1485: bool = true;
+                while { if !__for_first_1485 { i = add(&i, &Value::Int(1)); } __for_first_1485 = false; is_less_than(&i, &get_array_length(&settingKeys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut key: Value = get_value(&settingKeys, &i);
                 let mut settingValue: Value = get_value(&exchangeSettings, &key);
                 let mut settingIsEmpty: Value = Value::Bool(is_true(&(is_equal(&settingValue, &Value::Null))) || is_true(&(is_equal(&settingValue, &Value::Null))) || is_true(&(is_equal(&settingValue, &Value::Str("".to_string())))) || is_true(&(is_equal(&settingValue, &Value::Bool(false)))) || is_true(&(is_equal(&settingValue, &Value::Int(0)))));
@@ -328,8 +348,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         if is_greater_than(&missingSpace, &Value::Int(0)) {
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1487: bool = true;
                 while { if !__for_first_1487 { i = add(&i, &Value::Int(1)); } __for_first_1487 = false; is_less_than(&i, &missingSpace) } {
+=======
+                let mut __for_first_1486: bool = true;
+                while { if !__for_first_1486 { i = add(&i, &Value::Int(1)); } __for_first_1486 = false; is_less_than(&i, &missingSpace) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 res = add(&res, &Value::Str(" ".to_string()));
             }
             }
@@ -411,8 +436,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut methodNames: Value = Value::List(vec![methodName.clone(), add(&add(&methodName, &Value::Str(".".to_string())), &self.ext)]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1488: bool = true;
             while { if !__for_first_1488 { i = add(&i, &Value::Int(1)); } __for_first_1488 = false; is_less_than(&i, &get_array_length(&methodNames)) } {
+=======
+            let mut __for_first_1487: bool = true;
+            while { if !__for_first_1487 { i = add(&i, &Value::Int(1)); } __for_first_1487 = false; is_less_than(&i, &get_array_length(&methodNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut mName: Value = get_value(&methodNames, &i);
             if is_true(&Value::Bool(in_op(&self.skippedMethods, &mName))) {
                 // if whole method is skipped, by assigning a string to it, i.e. "fetchOrders":"blabla"
@@ -439,8 +469,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut objectNames: Value = object_keys(&objectSkips);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1489: bool = true;
             while { if !__for_first_1489 { i = add(&i, &Value::Int(1)); } __for_first_1489 = false; is_less_than(&i, &get_array_length(&objectNames)) } {
+=======
+            let mut __for_first_1488: bool = true;
+            while { if !__for_first_1488 { i = add(&i, &Value::Int(1)); } __for_first_1488 = false; is_less_than(&i, &get_array_length(&objectNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut objectName: Value = get_value(&objectNames, &i);
             let mut objectMethods: Value = get_value(&objectSkips, &objectName);
             if is_true(&exchange.in_array(methodName.clone(), objectMethods.clone())) {
@@ -485,8 +520,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut argsStringified: Value = exchange.json(args.clone()); // args.join() breaks when we provide a list of symbols or multidimensional array; "args.to_string()" breaks bcz of "array to string conversion"
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1490: bool = true;
             while { if !__for_first_1490 { i = add(&i, &Value::Int(1)); } __for_first_1490 = false; is_less_than(&i, &maxRetries) } {
+=======
+            let mut __for_first_1489: bool = true;
+            while { if !__for_first_1489 { i = add(&i, &Value::Int(1)); } __for_first_1489 = false; is_less_than(&i, &maxRetries) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let _try_result = futures::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(async {
                 self.test_method(methodName.clone(), exchange.clone(), args.clone(), isPublic.clone()).await;
                 return Value::Bool(true);
@@ -632,8 +672,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut promises: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1491: bool = true;
             while { if !__for_first_1491 { i = add(&i, &Value::Int(1)); } __for_first_1491 = false; is_less_than(&i, &get_array_length(&testNames)) } {
+=======
+            let mut __for_first_1490: bool = true;
+            while { if !__for_first_1490 { i = add(&i, &Value::Int(1)); } __for_first_1490 = false; is_less_than(&i, &get_array_length(&testNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut testName: Value = get_value(&testNames, &i);
             let mut testArgs: Value = get_value(&tests, &testName);
             append_to_array(&mut promises, self.test_safe(testName.clone(), exchange.clone(), &[testArgs.clone(), isPublicTest.clone()]).await);
@@ -646,8 +691,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut failedMethods: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1492: bool = true;
             while { if !__for_first_1492 { i = add(&i, &Value::Int(1)); } __for_first_1492 = false; is_less_than(&i, &get_array_length(&testNames)) } {
+=======
+            let mut __for_first_1491: bool = true;
+            while { if !__for_first_1491 { i = add(&i, &Value::Int(1)); } __for_first_1491 = false; is_less_than(&i, &get_array_length(&testNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut testName: Value = get_value(&testNames, &i);
             let mut testReturnedValue: Value = get_value(&results, &i);
             if !is_equal(&testReturnedValue, &Value::Bool(true)) {
@@ -691,8 +741,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         }
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1493: bool = true;
             while { if !__for_first_1493 { i = add(&i, &Value::Int(1)); } __for_first_1493 = false; is_less_than(&i, &get_array_length(&symbols)) } {
+=======
+            let mut __for_first_1492: bool = true;
+            while { if !__for_first_1492 { i = add(&i, &Value::Int(1)); } __for_first_1492 = false; is_less_than(&i, &get_array_length(&symbols)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut s: Value = get_value(&symbols, &i);
             let mut market: Value = exchange.safe_value(get_value(&exchange, &Value::Str("markets".to_string())), s.clone(), &[]);
             if !is_equal(&market, &Value::Null) {
@@ -717,8 +772,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut code: Value = get_value(&codes, &Value::Int(0));
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1494: bool = true;
             while { if !__for_first_1494 { i = add(&i, &Value::Int(1)); } __for_first_1494 = false; is_less_than(&i, &get_array_length(&codes)) } {
+=======
+            let mut __for_first_1493: bool = true;
+            while { if !__for_first_1493 { i = add(&i, &Value::Int(1)); } __for_first_1493 = false; is_less_than(&i, &get_array_length(&codes)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             if is_true(&Value::Bool(in_op(&get_value(&exchange, &Value::Str("currencies".to_string())), &get_value(&codes, &i)))) {
                 return get_value(&codes, &i);
             }
@@ -739,8 +799,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut keys: Value = object_keys(&markets);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1495: bool = true;
             while { if !__for_first_1495 { i = add(&i, &Value::Int(1)); } __for_first_1495 = false; is_less_than(&i, &get_array_length(&keys)) } {
+=======
+            let mut __for_first_1494: bool = true;
+            while { if !__for_first_1494 { i = add(&i, &Value::Int(1)); } __for_first_1494 = false; is_less_than(&i, &get_array_length(&keys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut key: Value = get_value(&keys, &i);
             let mut market: Value = get_value(&markets, &key);
             if is_true(&spot) && is_true(&(is_equal(&get_value(&market, &Value::Str("spot".to_string())), &Value::Bool(true)))) {
@@ -767,8 +832,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         if is_equal(&symbol, &Value::Null) {
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1496: bool = true;
                 while { if !__for_first_1496 { i = add(&i, &Value::Int(1)); } __for_first_1496 = false; is_less_than(&i, &get_array_length(&codes)) } {
+=======
+                let mut __for_first_1495: bool = true;
+                while { if !__for_first_1495 { i = add(&i, &Value::Int(1)); } __for_first_1495 = false; is_less_than(&i, &get_array_length(&codes)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut currentCode: Value = get_value(&codes, &i);
                 let mut marketsArrayForCurrentCode: Value = exchange.filter_by(currentTypeMarkets.clone(), Value::Str("base".to_string()), currentCode.clone(), &[]);
                 let mut indexedMkts: Value = exchange.index_by(marketsArrayForCurrentCode.clone(), Value::Str("symbol".to_string()));
@@ -787,8 +857,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
             let mut activeSymbols: Value = Value::List(vec![]);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1497: bool = true;
                 while { if !__for_first_1497 { i = add(&i, &Value::Int(1)); } __for_first_1497 = false; is_less_than(&i, &get_array_length(&activeMarkets)) } {
+=======
+                let mut __for_first_1496: bool = true;
+                while { if !__for_first_1496 { i = add(&i, &Value::Int(1)); } __for_first_1496 = false; is_less_than(&i, &get_array_length(&activeMarkets)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 append_to_array(&mut activeSymbols, get_value(&get_value(&activeMarkets, &i), &Value::Str("symbol".to_string())));
             }
             }
@@ -876,8 +951,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut tickerSymbols: Value = object_keys(&tickers);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1498: bool = true;
             while { if !__for_first_1498 { i = add(&i, &Value::Int(1)); } __for_first_1498 = false; is_less_than(&i, &get_array_length(&tickerSymbols)) } {
+=======
+            let mut __for_first_1497: bool = true;
+            while { if !__for_first_1497 { i = add(&i, &Value::Int(1)); } __for_first_1497 = false; is_less_than(&i, &get_array_length(&tickerSymbols)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut tickerSymbol: Value = get_value(&tickerSymbols, &i);
             let mut market: Value = exchange.safe_dict(get_value(&exchange, &Value::Str("markets".to_string())), tickerSymbol.clone(), &[]);
             if !is_equal(&market, &Value::Null) {
@@ -1025,14 +1105,24 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
             let mut pinnedKeys: Value = object_keys(&get_value(&exchange, &Value::Str("markets".to_string())));
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1500: bool = true;
                 while { if !__for_first_1500 { i = add(&i, &Value::Int(1)); } __for_first_1500 = false; is_less_than(&i, &get_array_length(&pinnedKeys)) } {
+=======
+                let mut __for_first_1499: bool = true;
+                while { if !__for_first_1499 { i = add(&i, &Value::Int(1)); } __for_first_1499 = false; is_less_than(&i, &get_array_length(&pinnedKeys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut pinnedMarket: Value = get_value(&get_value(&exchange, &Value::Str("markets".to_string())), &get_value(&pinnedKeys, &i));
                 let mut pinnedOutcomes: Value = exchange.safe_list(pinnedMarket.clone(), Value::Str("outcomes".to_string()), &[Value::List(vec![])]);
                 {
                                         let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
                     let mut __for_first_1499: bool = true;
                     while { if !__for_first_1499 { j = add(&j, &Value::Int(1)); } __for_first_1499 = false; is_less_than(&j, &get_array_length(&pinnedOutcomes)) } {
+=======
+                    let mut __for_first_1498: bool = true;
+                    while { if !__for_first_1498 { j = add(&j, &Value::Int(1)); } __for_first_1498 = false; is_less_than(&j, &get_array_length(&pinnedOutcomes)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                     if is_equal(&exchange.safe_string(get_value(&pinnedOutcomes, &j), Value::Str("outcome".to_string()), &[]), &outcomeSymbol) {
                         pinFound = Value::Bool(true);
                         break;
@@ -1053,8 +1143,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
             let mut marketKeys: Value = object_keys(&get_value(&exchange, &Value::Str("markets".to_string())));
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1501: bool = true;
                 while { if !__for_first_1501 { i = add(&i, &Value::Int(1)); } __for_first_1501 = false; is_less_than(&i, &get_array_length(&marketKeys)) } {
+=======
+                let mut __for_first_1500: bool = true;
+                while { if !__for_first_1500 { i = add(&i, &Value::Int(1)); } __for_first_1500 = false; is_less_than(&i, &get_array_length(&marketKeys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut market: Value = get_value(&get_value(&exchange, &Value::Str("markets".to_string())), &get_value(&marketKeys, &i));
                 let mut outcomesList: Value = exchange.safe_list(market.clone(), Value::Str("outcomes".to_string()), &[Value::List(vec![])]);
                 let mut outcomesListLength: Value = get_array_length(&outcomesList);
@@ -1156,16 +1251,26 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
                 let mut extraScopesLength: Value = get_array_length(&extraScopes);
                 {
                                         let mut si: Value = Value::Int(0);
+<<<<<<< HEAD
                     let mut __for_first_1502: bool = true;
                     while { if !__for_first_1502 { si = add(&si, &Value::Int(1)); } __for_first_1502 = false; is_less_than(&si, &extraScopesLength) } {
+=======
+                    let mut __for_first_1501: bool = true;
+                    while { if !__for_first_1501 { si = add(&si, &Value::Int(1)); } __for_first_1501 = false; is_less_than(&si, &extraScopesLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                     append_to_array(&mut scopesToTest, get_value(&extraScopes, &si));
                 }
                 }
                 let mut scopesToTestLength: Value = get_array_length(&scopesToTest);
                 {
                                         let mut sj: Value = Value::Int(0);
+<<<<<<< HEAD
                     let mut __for_first_1503: bool = true;
                     while { if !__for_first_1503 { sj = add(&sj, &Value::Int(1)); } __for_first_1503 = false; is_less_than(&sj, &scopesToTestLength) } {
+=======
+                    let mut __for_first_1502: bool = true;
+                    while { if !__for_first_1502 { sj = add(&sj, &Value::Int(1)); } __for_first_1502 = false; is_less_than(&sj, &scopesToTestLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                     let mut scope: Value = get_value(&scopesToTest, &sj);
                     // fetchEvents scoped by a single parameter must return a non-empty, valid list
                     let mut scopedEvents: Value = callExchangeMethodDynamically(&mut exchange, Value::Str("fetchEvents".to_string()), Value::List(vec![scope.clone()])).await;
@@ -1269,8 +1374,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut eventsLength: Value = get_array_length(&events);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1504: bool = true;
             while { if !__for_first_1504 { i = add(&i, &Value::Int(1)); } __for_first_1504 = false; is_less_than(&i, &eventsLength) } {
+=======
+            let mut __for_first_1503: bool = true;
+            while { if !__for_first_1503 { i = add(&i, &Value::Int(1)); } __for_first_1503 = false; is_less_than(&i, &eventsLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             self.assert_prediction_event(exchange.clone(), get_value(&events, &i));
         }
         }
@@ -1292,8 +1402,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         assert(Value::Bool(is_equal(&exchange.safe_string(event.clone(), Value::Str("symbol".to_string()), &[]), &Value::Null)), &[add(&add(&get_value(&exchange, &Value::Str("id".to_string())), &Value::Str(" event must not carry the deprecated symbol key".to_string())), &logText)]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1506: bool = true;
             while { if !__for_first_1506 { i = add(&i, &Value::Int(1)); } __for_first_1506 = false; is_less_than(&i, &marketsLength) } {
+=======
+            let mut __for_first_1505: bool = true;
+            while { if !__for_first_1505 { i = add(&i, &Value::Int(1)); } __for_first_1505 = false; is_less_than(&i, &marketsLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut market: Value = get_value(&markets, &i);
             assert(Value::Bool(is_equal(&exchange.is_dictionary(market.clone()), &Value::Bool(true))), &[add(&add(&get_value(&exchange, &Value::Str("id".to_string())), &Value::Str(" event market should be a dict".to_string())), &logText)]);
             assert(Value::Bool(!is_equal(&exchange.safe_string(market.clone(), Value::Str("market".to_string()), &[]), &Value::Null)), &[add(&add(&get_value(&exchange, &Value::Str("id".to_string())), &Value::Str(" event market missing the unified market handle".to_string())), &logText)]);
@@ -1304,8 +1419,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
             let mut outcomesLength: Value = get_array_length(&outcomes);
             {
                                 let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1505: bool = true;
                 while { if !__for_first_1505 { j = add(&j, &Value::Int(1)); } __for_first_1505 = false; is_less_than(&j, &outcomesLength) } {
+=======
+                let mut __for_first_1504: bool = true;
+                while { if !__for_first_1504 { j = add(&j, &Value::Int(1)); } __for_first_1504 = false; is_less_than(&j, &outcomesLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 assert(Value::Bool(is_equal(&exchange.safe_string(get_value(&outcomes, &j), Value::Str("symbol".to_string()), &[]), &Value::Null)), &[add(&add(&get_value(&exchange, &Value::Str("id".to_string())), &Value::Str(" event outcome must not carry the deprecated symbol key".to_string())), &logText)]);
             }
             }
@@ -1514,8 +1634,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut exceptionMessageString: Value = Value::Null;
         {
                         let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1507: bool = true;
             while { if !__for_first_1507 { j = add(&j, &Value::Int(1)); } __for_first_1507 = false; is_less_than(&j, &maxRetries) } {
+=======
+            let mut __for_first_1506: bool = true;
+            while { if !__for_first_1506 { j = add(&j, &Value::Int(1)); } __for_first_1506 = false; is_less_than(&j, &maxRetries) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let _try_result = futures::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(async {
                 self.test_method(proxyTestName.clone(), exchange.clone(), Value::List(vec![]), Value::Bool(true)).await;
                 return Value::Bool(true);
@@ -1695,8 +1820,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut files: Value = ioDirRead(folder.clone());
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1508: bool = true;
             while { if !__for_first_1508 { i = add(&i, &Value::Int(1)); } __for_first_1508 = false; is_less_than(&i, &get_array_length(&files)) } {
+=======
+            let mut __for_first_1507: bool = true;
+            while { if !__for_first_1507 { i = add(&i, &Value::Int(1)); } __for_first_1507 = false; is_less_than(&i, &get_array_length(&files)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut file: Value = get_value(&files, &i);
             // the only non-json entry in the static dirs is the prediction/ subfolder (prediction
             // fixtures live under static/<type>/prediction/). skip it by name — a string-equality
@@ -1723,8 +1853,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut res: Value = Value::Str("".to_string());
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1509: bool = true;
             while { if !__for_first_1509 { i = add(&i, &Value::Int(1)); } __for_first_1509 = false; is_less_than(&i, &get_array_length(&urlParts)) } {
+=======
+            let mut __for_first_1508: bool = true;
+            while { if !__for_first_1508 { i = add(&i, &Value::Int(1)); } __for_first_1508 = false; is_less_than(&i, &get_array_length(&urlParts)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             if is_greater_than(&i, &Value::Int(2)) {
                 let mut current: Value = get_value(&urlParts, &i);
                 if is_greater_than(&get_index_of(&current, &Value::Str("?".to_string())), &negate(&Value::Int(1))) {
@@ -1752,8 +1887,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut parts: Value = split(&url, &Value::Str("&".to_string()));
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1510: bool = true;
             while { if !__for_first_1510 { i = add(&i, &Value::Int(1)); } __for_first_1510 = false; is_less_than(&i, &get_array_length(&parts)) } {
+=======
+            let mut __for_first_1509: bool = true;
+            while { if !__for_first_1509 { i = add(&i, &Value::Int(1)); } __for_first_1509 = false; is_less_than(&i, &get_array_length(&parts)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut part: Value = get_value(&parts, &i);
             let mut keyValue: Value = split(&part, &Value::Str("=".to_string()));
             let mut keysLength: Value = get_array_length(&keyValue);
@@ -1808,8 +1948,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         if is_true(&Value::Bool(is_array(&value))) {
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1511: bool = true;
                 while { if !__for_first_1511 { i = add(&i, &Value::Int(1)); } __for_first_1511 = false; is_less_than(&i, &get_array_length(&value)) } {
+=======
+                let mut __for_first_1510: bool = true;
+                while { if !__for_first_1510 { i = add(&i, &Value::Int(1)); } __for_first_1510 = false; is_less_than(&i, &get_array_length(&value)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 if !is_true(&self.is_vacant_value(exchange.clone(), get_value(&value, &i))) {
                     return Value::Bool(false);
                 }
@@ -1821,8 +1966,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
             let mut keys: Value = object_keys(&value);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1512: bool = true;
                 while { if !__for_first_1512 { i = add(&i, &Value::Int(1)); } __for_first_1512 = false; is_less_than(&i, &get_array_length(&keys)) } {
+=======
+                let mut __for_first_1511: bool = true;
+                while { if !__for_first_1511 { i = add(&i, &Value::Int(1)); } __for_first_1511 = false; is_less_than(&i, &get_array_length(&keys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 if !is_true(&self.is_vacant_value(exchange.clone(), get_value(&value, &get_value(&keys, &i)))) {
                     return Value::Bool(false);
                 }
@@ -1842,8 +1992,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
         let mut count: Value = Value::Int(0);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1513: bool = true;
             while { if !__for_first_1513 { i = add(&i, &Value::Int(1)); } __for_first_1513 = false; is_less_than(&i, &get_array_length(&keys)) } {
+=======
+            let mut __for_first_1512: bool = true;
+            while { if !__for_first_1512 { i = add(&i, &Value::Int(1)); } __for_first_1512 = false; is_less_than(&i, &get_array_length(&keys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut key: Value = get_value(&keys, &i);
             if !is_true(&(exchange.in_array(key.clone(), otherKeys.clone()))) && is_true(&self.is_vacant_value(exchange.clone(), get_value(&target, &key))) {
                 continue;
@@ -1896,8 +2051,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
             self.assert_static_error(Value::Bool(is_equal(&storedKeysLength, &newKeysLength)), Value::Str("output length mismatch".to_string()), storedOutput.clone(), newOutput.clone(), &[]);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1514: bool = true;
                 while { if !__for_first_1514 { i = add(&i, &Value::Int(1)); } __for_first_1514 = false; is_less_than(&i, &get_array_length(&storedOutputKeys)) } {
+=======
+                let mut __for_first_1513: bool = true;
+                while { if !__for_first_1513 { i = add(&i, &Value::Int(1)); } __for_first_1513 = false; is_less_than(&i, &get_array_length(&storedOutputKeys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut key: Value = get_value(&storedOutputKeys, &i);
                 if is_true(&exchange.in_array(key.clone(), skipKeys.clone())) {
                     continue;
@@ -1926,8 +2086,13 @@ match _try_result { Ok(__try_ok) => { if !matches!(__try_ok, Value::Null) { retu
             self.assert_static_error(Value::Bool(is_equal(&storedArrayLength, &newArrayLength)), Value::Str("output length mismatch".to_string()), storedOutput.clone(), newOutput.clone(), &[]);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1515: bool = true;
                 while { if !__for_first_1515 { i = add(&i, &Value::Int(1)); } __for_first_1515 = false; is_less_than(&i, &get_array_length(&storedOutput)) } {
+=======
+                let mut __for_first_1514: bool = true;
+                while { if !__for_first_1514 { i = add(&i, &Value::Int(1)); } __for_first_1514 = false; is_less_than(&i, &get_array_length(&storedOutput)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut storedItem: Value = get_value(&storedOutput, &i);
                 let mut newItem: Value = get_value(&newOutput, &i);
                 self.assert_new_and_stored_output_inner(exchange.clone(), skipKeys.clone(), newItem.clone(), storedItem.clone(), &[strictTypeCheck.clone()]);
@@ -2126,8 +2291,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut newInput: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1516: bool = true;
             while { if !__for_first_1516 { i = add(&i, &Value::Int(1)); } __for_first_1516 = false; is_less_than(&i, &get_array_length(&input)) } {
+=======
+            let mut __for_first_1515: bool = true;
+            while { if !__for_first_1515 { i = add(&i, &Value::Int(1)); } __for_first_1515 = false; is_less_than(&i, &get_array_length(&input)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut current: Value = get_value(&input, &i);
             if is_true(&isNullValue(current.clone())) {
                 append_to_array(&mut newInput, Value::Null);
@@ -2205,8 +2375,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut sequential = get_arg(optional_args, 0, Value::Bool(false));
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1517: bool = true;
             while { if !__for_first_1517 { i = add(&i, &Value::Int(1)); } __for_first_1517 = false; is_less_than(&i, &get_array_length(&messages)) } {
+=======
+            let mut __for_first_1516: bool = true;
+            while { if !__for_first_1516 { i = add(&i, &Value::Int(1)); } __for_first_1516 = false; is_less_than(&i, &get_array_length(&messages)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut waited: Value = Value::Int(0);
             while !is_true(&wsClientHasPendingFutures(exchange.clone(), url.clone())) && is_true(&(is_less_than(&waited, &Value::Int(5000)))) {
                 exchange.sleep(Value::Int(50)).await;
@@ -2253,8 +2428,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let _try_result = futures::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(async {
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1518: bool = true;
                 while { if !__for_first_1518 { i = add(&i, &Value::Int(1)); } __for_first_1518 = false; is_less_than(&i, &get_array_length(&expectedResults)) } {
+=======
+                let mut __for_first_1517: bool = true;
+                while { if !__for_first_1517 { i = add(&i, &Value::Int(1)); } __for_first_1517 = false; is_less_than(&i, &get_array_length(&expectedResults)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut result: Value = callExchangeMethodDynamically(&mut exchange, method.clone(), input.clone()).await;
                 // ws structures can be live typed objects (e.g. orderbooks) in some
                 // runtimes — roundtrip through json so the deep-compare sees plain
@@ -2293,8 +2473,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         assert(Value::Bool(is_equal(&sentLength, &expectedLength)), &[add(&add(&add(&add(&add(&Value::Str("sent ws messages count mismatch: sent ".to_string()), &to_string_val(&sentLength)), &Value::Str(", expected ".to_string())), &to_string_val(&expectedLength)), &Value::Str(" ".to_string())), &jsonStringify(sentMessages.clone()))]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1519: bool = true;
             while { if !__for_first_1519 { i = add(&i, &Value::Int(1)); } __for_first_1519 = false; is_less_than(&i, &expectedLength) } {
+=======
+            let mut __for_first_1518: bool = true;
+            while { if !__for_first_1518 { i = add(&i, &Value::Int(1)); } __for_first_1518 = false; is_less_than(&i, &expectedLength) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut unifiedSent: Value = jsonParse(jsonStringify(get_value(&sentMessages, &i)));
             self.assert_static_response_output(exchange.clone(), sentSkipKeys.clone(), unifiedSent.clone(), get_value(&expectedSent, &i));
         }
@@ -2362,14 +2547,24 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut methodsNames: Value = object_keys(&methods);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1521: bool = true;
             while { if !__for_first_1521 { i = add(&i, &Value::Int(1)); } __for_first_1521 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+=======
+            let mut __for_first_1520: bool = true;
+            while { if !__for_first_1520 { i = add(&i, &Value::Int(1)); } __for_first_1520 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut method: Value = get_value(&methodsNames, &i);
             let mut results: Value = get_value(&methods, &method);
             {
                                 let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1520: bool = true;
                 while { if !__for_first_1520 { j = add(&j, &Value::Int(1)); } __for_first_1520 = false; is_less_than(&j, &get_array_length(&results)) } {
+=======
+                let mut __for_first_1519: bool = true;
+                while { if !__for_first_1519 { j = add(&j, &Value::Int(1)); } __for_first_1519 = false; is_less_than(&j, &get_array_length(&results)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut result: Value = get_value(&results, &j);
                 let mut description: Value = get_value(&result, &Value::Str("description".to_string()));
                 if is_true(&(!is_equal(&testName, &Value::Null))) && is_true(&(!is_equal(&testName, &description))) {
@@ -2528,6 +2723,7 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
             let mut eventMarkets: Value = Value::List(vec![]);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1523: bool = true;
                 while { if !__for_first_1523 { i = add(&i, &Value::Int(1)); } __for_first_1523 = false; is_less_than(&i, &get_array_length(&predictionEvents)) } {
                 let mut evMarkets: Value = exchange.safe_list(get_value(&predictionEvents, &i), Value::Str("markets".to_string()), &[Value::List(vec![])]);
@@ -2535,6 +2731,15 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
                                         let mut j: Value = Value::Int(0);
                     let mut __for_first_1522: bool = true;
                     while { if !__for_first_1522 { j = add(&j, &Value::Int(1)); } __for_first_1522 = false; is_less_than(&j, &get_array_length(&evMarkets)) } {
+=======
+                let mut __for_first_1522: bool = true;
+                while { if !__for_first_1522 { i = add(&i, &Value::Int(1)); } __for_first_1522 = false; is_less_than(&i, &get_array_length(&predictionEvents)) } {
+                let mut evMarkets: Value = exchange.safe_list(get_value(&predictionEvents, &i), Value::Str("markets".to_string()), &[Value::List(vec![])]);
+                {
+                                        let mut j: Value = Value::Int(0);
+                    let mut __for_first_1521: bool = true;
+                    while { if !__for_first_1521 { j = add(&j, &Value::Int(1)); } __for_first_1521 = false; is_less_than(&j, &get_array_length(&evMarkets)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                     let mut evMarket: Value = get_value(&evMarkets, &j);
                     // every market row must carry the unified market handle (PredictionMarket
                     // declares it required) — enforce it on the fixtures so a venue that stops
@@ -2598,14 +2803,24 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut methodsNames: Value = object_keys(&methods);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1525: bool = true;
             while { if !__for_first_1525 { i = add(&i, &Value::Int(1)); } __for_first_1525 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+=======
+            let mut __for_first_1524: bool = true;
+            while { if !__for_first_1524 { i = add(&i, &Value::Int(1)); } __for_first_1524 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut method: Value = get_value(&methodsNames, &i);
             let mut results: Value = get_value(&methods, &method);
             {
                                 let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1524: bool = true;
                 while { if !__for_first_1524 { j = add(&j, &Value::Int(1)); } __for_first_1524 = false; is_less_than(&j, &get_array_length(&results)) } {
+=======
+                let mut __for_first_1523: bool = true;
+                while { if !__for_first_1523 { j = add(&j, &Value::Int(1)); } __for_first_1523 = false; is_less_than(&j, &get_array_length(&results)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut result: Value = get_value(&results, &j);
                 let mut oldExchangeOptions: Value = get_value(&exchange, &Value::Str("options".to_string())); // snapshot options;
                 let mut testExchangeOptions: Value = exchange.safe_value(result.clone(), Value::Str("options".to_string()), &[Value::Map({
@@ -2708,14 +2923,24 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut methodsNames: Value = object_keys(&methods);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1527: bool = true;
             while { if !__for_first_1527 { i = add(&i, &Value::Int(1)); } __for_first_1527 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+=======
+            let mut __for_first_1526: bool = true;
+            while { if !__for_first_1526 { i = add(&i, &Value::Int(1)); } __for_first_1526 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut method: Value = get_value(&methodsNames, &i);
             let mut results: Value = get_value(&methods, &method);
             {
                                 let mut j: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1526: bool = true;
                 while { if !__for_first_1526 { j = add(&j, &Value::Int(1)); } __for_first_1526 = false; is_less_than(&j, &get_array_length(&results)) } {
+=======
+                let mut __for_first_1525: bool = true;
+                while { if !__for_first_1525 { j = add(&j, &Value::Int(1)); } __for_first_1525 = false; is_less_than(&j, &get_array_length(&results)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut result: Value = get_value(&results, &j);
                 let mut description: Value = exchange.safe_value(result.clone(), Value::Str("description".to_string()), &[]);
                 let mut oldExchangeOptions: Value = get_value(&exchange, &Value::Str("options".to_string())); // snapshot options;
@@ -2792,8 +3017,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut methodsNames: Value = object_keys(&methods);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1528: bool = true;
             while { if !__for_first_1528 { i = add(&i, &Value::Int(1)); } __for_first_1528 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+=======
+            let mut __for_first_1527: bool = true;
+            while { if !__for_first_1527 { i = add(&i, &Value::Int(1)); } __for_first_1527 = false; is_less_than(&i, &get_array_length(&methodsNames)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut method: Value = get_value(&methodsNames, &i);
             let mut results: Value = get_value(&methods, &method);
             let mut resultsLength: Value = get_array_length(&results);
@@ -2889,8 +3119,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         }
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1529: bool = true;
             while { if !__for_first_1529 { i = add(&i, &Value::Int(1)); } __for_first_1529 = false; is_less_than(&i, &get_array_length(&exchanges)) } {
+=======
+            let mut __for_first_1528: bool = true;
+            while { if !__for_first_1528 { i = add(&i, &Value::Int(1)); } __for_first_1528 = false; is_less_than(&i, &get_array_length(&exchanges)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut exchangeName: Value = get_value(&exchanges, &i);
             let mut exchangeData: Value = get_value(&staticData, &exchangeName);
             let mut disabled: Value = self.check_if_exchange_is_disabled(exchangeName.clone(), exchangeData.clone());
@@ -3070,8 +3305,13 @@ if let Err(_try_err) = _try_result { let e: Value = panic_to_value(_try_err);
         let mut batchOrders: Value = get_value(&createOrdersRequest, &Value::Str("batchOrders".to_string()));
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1530: bool = true;
             while { if !__for_first_1530 { i = add(&i, &Value::Int(1)); } __for_first_1530 = false; is_less_than(&i, &get_array_length(&batchOrders)) } {
+=======
+            let mut __for_first_1529: bool = true;
+            while { if !__for_first_1529 { i = add(&i, &Value::Int(1)); } __for_first_1529 = false; is_less_than(&i, &get_array_length(&batchOrders)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut current: Value = get_value(&batchOrders, &i);
             let mut currentClientOrderId: Value = get_value(&current, &Value::Str("newClientOrderId".to_string()));
             assert(Value::Bool(is_equal(&Value::Bool(starts_with(&currentClientOrderId, &swapIdString)), &Value::Bool(true))), &[add(&add(&add(&Value::Str("binance createOrders - clientOrderId: ".to_string()), &currentClientOrderId), &Value::Str(" does not start with swapId".to_string())), &swapIdString)]);

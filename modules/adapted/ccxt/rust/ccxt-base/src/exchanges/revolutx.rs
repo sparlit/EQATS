@@ -595,8 +595,13 @@ impl RevolutxCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1067: bool = true;
             while { if !__for_first_1067 { i = add(&i, &Value::Int(1)); } __for_first_1067 = false; is_less_than(&i, &get_array_length(&keys)) } {
+=======
+            let mut __for_first_1066: bool = true;
+            while { if !__for_first_1066 { i = add(&i, &Value::Int(1)); } __for_first_1066 = false; is_less_than(&i, &get_array_length(&keys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut key: Value = get_value(&keys, &i);
             let mut key: Value = get_value(&keys, &i);
             let mut market: Value = self.safe_dict(markets.clone(), key.clone(), &[Value::Map({
@@ -719,8 +724,13 @@ impl RevolutxCore {
         });
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1068: bool = true;
             while { if !__for_first_1068 { i = add(&i, &Value::Int(1)); } __for_first_1068 = false; is_less_than(&i, &get_array_length(&keys)) } {
+=======
+            let mut __for_first_1067: bool = true;
+            while { if !__for_first_1067 { i = add(&i, &Value::Int(1)); } __for_first_1067 = false; is_less_than(&i, &get_array_length(&keys)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut key: Value = get_value(&keys, &i);
             let mut key: Value = get_value(&keys, &i);
             let mut currency: Value = self.safe_dict(currencies.clone(), key.clone(), &[Value::Map({
@@ -830,8 +840,13 @@ impl RevolutxCore {
             let mut marketIds: Value = Value::List(vec![]);
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1069: bool = true;
                 while { if !__for_first_1069 { i = add(&i, &Value::Int(1)); } __for_first_1069 = false; is_less_than(&i, &get_array_length(&symbols)) } {
+=======
+                let mut __for_first_1068: bool = true;
+                while { if !__for_first_1068 { i = add(&i, &Value::Int(1)); } __for_first_1068 = false; is_less_than(&i, &get_array_length(&symbols)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut symbol: Value = get_value(&symbols, &i);
                 let mut symbol: Value = get_value(&symbols, &i);
                 let mut market: Value = self.market(symbol.clone());
@@ -868,8 +883,13 @@ impl RevolutxCore {
         });
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1070: bool = true;
             while { if !__for_first_1070 { i = add(&i, &Value::Int(1)); } __for_first_1070 = false; is_less_than(&i, &get_array_length(&data)) } {
+=======
+            let mut __for_first_1069: bool = true;
+            while { if !__for_first_1069 { i = add(&i, &Value::Int(1)); } __for_first_1069 = false; is_less_than(&i, &get_array_length(&data)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut tickerData: Value = self.safe_dict(data.clone(), i.clone(), &[Value::Map({
     let mut m = indexmap::IndexMap::new();
     m
@@ -890,8 +910,13 @@ impl RevolutxCore {
             });
             {
                                 let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
                 let mut __for_first_1071: bool = true;
                 while { if !__for_first_1071 { i = add(&i, &Value::Int(1)); } __for_first_1071 = false; is_less_than(&i, &get_array_length(&symbols)) } {
+=======
+                let mut __for_first_1070: bool = true;
+                while { if !__for_first_1070 { i = add(&i, &Value::Int(1)); } __for_first_1070 = false; is_less_than(&i, &get_array_length(&symbols)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 let mut s: Value = get_value(&symbols, &i);
                 let mut s: Value = get_value(&symbols, &i);
                 if is_true(&Value::Bool(in_op(&result, &s))) {
@@ -1164,7 +1189,11 @@ impl RevolutxCore {
             add_element_to_object(&mut request, &Value::Str("end_date".to_string()), self.milliseconds());
         }
         if !is_equal(&limit, &Value::Null) {
+<<<<<<< HEAD
             add_element_to_object(&mut request, &Value::Str("limit".to_string()), crate::runtime::Math::min(&limit, &Value::Int(1900)));
+=======
+            add_element_to_object(&mut request, &Value::Str("limit".to_string()), limit.clone());
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         }
         let mut cursor: Value = self.safe_string_k(params.clone(), "cursor", &[]);
         if !is_equal(&cursor, &Value::Null) {
@@ -1185,8 +1214,13 @@ impl RevolutxCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1072: bool = true;
             while { if !__for_first_1072 { i = add(&i, &Value::Int(1)); } __for_first_1072 = false; is_less_than(&i, &get_array_length(&data)) } {
+=======
+            let mut __for_first_1071: bool = true;
+            while { if !__for_first_1071 { i = add(&i, &Value::Int(1)); } __for_first_1071 = false; is_less_than(&i, &get_array_length(&data)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut trade: Value = self.safe_dict(data.clone(), i.clone(), &[Value::Map({
     let mut m = indexmap::IndexMap::new();
     m
@@ -1230,8 +1264,13 @@ impl RevolutxCore {
         });
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1073: bool = true;
             while { if !__for_first_1073 { i = add(&i, &Value::Int(1)); } __for_first_1073 = false; is_less_than(&i, &get_array_length(&data)) } {
+=======
+            let mut __for_first_1072: bool = true;
+            while { if !__for_first_1072 { i = add(&i, &Value::Int(1)); } __for_first_1072 = false; is_less_than(&i, &get_array_length(&data)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut balance: Value = self.safe_dict(data.clone(), i.clone(), &[Value::Map({
     let mut m = indexmap::IndexMap::new();
     m
@@ -1661,8 +1700,13 @@ impl RevolutxCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1074: bool = true;
             while { if !__for_first_1074 { i = add(&i, &Value::Int(1)); } __for_first_1074 = false; is_less_than(&i, &get_array_length(&data)) } {
+=======
+            let mut __for_first_1073: bool = true;
+            while { if !__for_first_1073 { i = add(&i, &Value::Int(1)); } __for_first_1073 = false; is_less_than(&i, &get_array_length(&data)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut order: Value = self.safe_dict(data.clone(), i.clone(), &[Value::Map({
     let mut m = indexmap::IndexMap::new();
     m
@@ -1744,8 +1788,13 @@ impl RevolutxCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1075: bool = true;
             while { if !__for_first_1075 { i = add(&i, &Value::Int(1)); } __for_first_1075 = false; is_less_than(&i, &get_array_length(&data)) } {
+=======
+            let mut __for_first_1074: bool = true;
+            while { if !__for_first_1074 { i = add(&i, &Value::Int(1)); } __for_first_1074 = false; is_less_than(&i, &get_array_length(&data)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut order: Value = self.safe_dict(data.clone(), i.clone(), &[Value::Map({
     let mut m = indexmap::IndexMap::new();
     m
@@ -1905,8 +1954,13 @@ impl RevolutxCore {
         let mut result: Value = Value::List(vec![]);
         {
                         let mut i: Value = Value::Int(0);
+<<<<<<< HEAD
             let mut __for_first_1076: bool = true;
             while { if !__for_first_1076 { i = add(&i, &Value::Int(1)); } __for_first_1076 = false; is_less_than(&i, &get_array_length(&data)) } {
+=======
+            let mut __for_first_1075: bool = true;
+            while { if !__for_first_1075 { i = add(&i, &Value::Int(1)); } __for_first_1075 = false; is_less_than(&i, &get_array_length(&data)) } {
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut trade: Value = self.safe_dict(data.clone(), i.clone(), &[Value::Map({
     let mut m = indexmap::IndexMap::new();
     m

@@ -178,6 +178,7 @@ pub fn testSortBy1() {
         m.insert("x".to_string(), Value::Int(10));
     m
 })]).clone()]);
+<<<<<<< HEAD
     // immutability - original array should not be modified (ascending)
     let mut original: Value = Value::List(vec![Value::Map({
     let mut m = indexmap::IndexMap::new();
@@ -288,6 +289,8 @@ pub fn testSortBy1() {
     crate::tests_support::shared::assert_deep_equal(&exchange.clone_self(), &[Value::Null.clone(), Value::Str("sortBy".to_string()).clone(), originalRows.clone(), Value::List(vec![Value::List(vec![Value::Float(3000.5), Value::Int(1)]), Value::List(vec![Value::Float(2900.5), Value::Int(2)]), Value::List(vec![Value::Float(2950.5), Value::Int(3)])]).clone()]);
     exchange.sort_by(originalRows.clone(), Value::Int(0), &[Value::Bool(true)]);
     crate::tests_support::shared::assert_deep_equal(&exchange.clone_self(), &[Value::Null.clone(), Value::Str("sortBy".to_string()).clone(), originalRows.clone(), Value::List(vec![Value::List(vec![Value::Float(3000.5), Value::Int(1)]), Value::List(vec![Value::Float(2900.5), Value::Int(2)]), Value::List(vec![Value::Float(2950.5), Value::Int(3)])]).clone()]);
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 }
 pub fn testSortBy2() {
     let mut exchange = crate::tests_support::make_exchange(Value::Map({
@@ -528,6 +531,7 @@ pub fn testSortBy2() {
     // empty array
     let mut emptyArray: Value = exchange.sort_by2(Value::List(vec![]), Value::Str("x".to_string()), Value::Str("y".to_string()), &[]);
     crate::tests_support::shared::assert_deep_equal(&exchange.clone_self(), &[Value::Null.clone(), Value::Str("sortBy2".to_string()).clone(), emptyArray.clone(), Value::List(vec![]).clone()]);
+<<<<<<< HEAD
     // immutability - original array should not be modified (ascending)
     let mut original: Value = Value::List(vec![Value::Map({
     let mut m = indexmap::IndexMap::new();
@@ -616,6 +620,8 @@ pub fn testSortBy2() {
         m.insert("y".to_string(), Value::Int(4));
     m
 })]).clone()]);
+=======
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 }
 pub fn testSortBy() {
     testSortBy1();

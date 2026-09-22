@@ -57,6 +57,7 @@ def _send_workflow_dispatch(repo: str, token: str, wf: str, payload_data: bytes)
         time.sleep(retry_delay)
 
 
+<<<<<<< HEAD
 def load_and_repair_blueprint(blueprint_path: Path) -> dict:
     """Loads ingestion_blueprint.json with automatic self-healing repair for malformed or conflict-marked JSON files."""
     if not blueprint_path.exists():
@@ -151,6 +152,27 @@ def dispatch_next_cycle():
     if total == 0:
         print("[-] Warning: Ingestion blueprint contains zero target repositories. Triggering safety cycle.")
         total = 411
+=======
+def dispatch_next_cycle():
+    blueprint_path = Path("ingestion_blueprint.json")
+
+    if not blueprint_path.exists():
+        print("[-] Error: Ingestion blueprint file does not exist.")
+        sys.exit(1)
+
+    try:
+        with blueprint_path.open("r", encoding="utf-8") as f:
+            blueprint = json.load(f)
+        current = blueprint.get("current_index", 0)
+        total = len(blueprint.get("repositories", []))
+    except Exception as e:
+        print(f"[-] Error reading blueprint matrix: {e}")
+        sys.exit(1)
+
+    if total == 0:
+        print("[-] Error: Ingestion blueprint contains zero target repositories.")
+        sys.exit(1)
+>>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 
     if current < total:
         print(f"[+] Progress Matrix Index: ({current} / {total}). Triggering subsequent pipeline cascade...")
