@@ -1,6 +1,13 @@
 from typing import Any
 import os
-import sys
+import sys, types
+
+# Stub missing 'mail' module required by pytest-count plugin during entrypoint loading
+if 'mail' not in sys.modules:
+    mail_mod = types.ModuleType('mail')
+    mail_mod.notification = types.ModuleType('mail.notification')
+    sys.modules['mail'] = mail_mod
+    sys.modules['mail.notification'] = mail_mod.notification
 
 tests_dir = os.path.dirname(os.path.abspath(__file__))
 repo_root = os.path.abspath(os.path.join(tests_dir, ".."))
