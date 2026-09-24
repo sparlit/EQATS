@@ -8,14 +8,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "[+] Cloning msitarzewski/agency-agents..."
 if [ -d "$CLONE_DIR" ]; then
-    rm -rf "$CLONE_DIR"
+	rm -rf "$CLONE_DIR"
 fi
 
 git clone "$REPO_URL" "$CLONE_DIR"
 
 echo "[+] Installing Agency Agents for Claude Code and Codex..."
 CLAUDE_CONFIG_DIR="$ROOT_DIR/.claude" \
-CODEX_AGENTS_DIR="$ROOT_DIR/.codex/agents" \
-"$CLONE_DIR/scripts/install.sh" --tool claude-code,codex --no-interactive
+	CODEX_AGENTS_DIR="$ROOT_DIR/.codex/agents" \
+	"$CLONE_DIR/scripts/install.sh" --tool claude-code,codex --no-interactive
 
 echo "[+] Agency Agents successfully installed into $ROOT_DIR/.claude/agents and $ROOT_DIR/.codex/agents"
