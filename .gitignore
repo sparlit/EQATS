@@ -23,3 +23,6 @@ venv/
 # Rust Target Build Artifacts
 target/
 eqats_rust_core/target/
+.claude/
+.codex/agents/
+.agents/
