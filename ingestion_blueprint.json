@@ -727,7 +727,7 @@
       "url": "https://github.com/chauhanramkeval-blip/nse-stock-bulk-deals-",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-stock-market-bulk-deals-",
