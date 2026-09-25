@@ -1,5 +1,5 @@
 {
-  "current_index": 90,
+  "current_index": 92,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -725,17 +725,17 @@
       "name": "nse-stock-bulk-deals-",
       "target": "chauhanramkeval-blip/nse-stock-bulk-deals-",
       "url": "https://github.com/chauhanramkeval-blip/nse-stock-bulk-deals-",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-stock-market-bulk-deals-",
       "target": "chauhanramkeval-blip/nse-stock-market-bulk-deals-",
       "url": "https://github.com/chauhanramkeval-blip/nse-stock-market-bulk-deals-",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2519",
+      "merged": true
     },
     {
       "name": "nsedatabase",
