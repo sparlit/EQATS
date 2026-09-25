@@ -112,9 +112,9 @@ def _get_session() -> tuple:
         try:
             opener.open("https://fc.yahoo.com/", timeout=_TIMEOUT)
         except urllib.error.HTTPError:
-            return None
+            pass
         except urllib.error.URLError:
-            return None
+            pass
 
         req = urllib.request.Request(
             "https://query2.finance.yahoo.com/v1/test/getcrumb",

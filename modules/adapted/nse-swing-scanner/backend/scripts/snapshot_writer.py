@@ -50,6 +50,7 @@ Exit codes:
   2  parsed input but history_index invariant broken (e.g. duplicate file)
 """
 import argparse
+import contextlib
 import datetime
 import json
 import os
@@ -194,10 +195,8 @@ def prune_snapshots(snapshots_dir: str, index: list[dict], retention_days: int) 
         # Drop entries that are too old, or that point at a missing file.
         if d_date < cutoff:
             if fpath and os.path.exists(fpath):
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(fpath)
-                except OSError:
-                    return
             continue
         if not fname or not SNAPSHOT_FILENAME_RE.match(fname):
             continue
@@ -218,10 +217,8 @@ def prune_snapshots(snapshots_dir: str, index: list[dict], retention_days: int) 
             except ValueError:
                 continue
             if f_date < cutoff:
-                try:
+                with contextlib.suppress(OSError):
                     os.remove(os.path.join(snapshots_dir, name))
-                except OSError:
-                    return
 
     index.clear()
     index.extend(kept)

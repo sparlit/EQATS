@@ -52,7 +52,6 @@ from typing import (
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-
 from pybroker.cache import CacheDateFields
 from pybroker.common import (
     BarData,

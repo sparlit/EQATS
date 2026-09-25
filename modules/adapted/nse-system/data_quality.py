@@ -97,13 +97,13 @@ def _get_universe_symbols(conn):
             ).fetchall()
             symbols.update(r[0] for r in rows)
         except Exception:
-            return None
+            pass
     if _table_exists(conn, "stocks"):
         try:
             rows = conn.execute("SELECT symbol FROM stocks WHERE active=1").fetchall()
             symbols.update(r[0] for r in rows)
         except Exception:
-            return None
+            pass
     return sorted(symbols)
 
 

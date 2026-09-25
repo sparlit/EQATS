@@ -23,20 +23,21 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import sys
 
-from log_utils import get_logger
-
-log = get_logger("daily_update")
+import events
+import ingest_prices
+import ml_predict
+import scan
+import swing_live
+import technicals
 
 
 def _safe(name, fn):
-    log.info(f"START {name}")
+    print(f"... {name}")
     try:
         fn()
-        log.info(f"OK    {name}")
-        return True
+        print(f"ok {name}")
     except Exception as e:
-        log.exception(f"FAIL  {name}: {e}")
-        return False
+        print(f"skip {name}: {e}")
 
 
 def _telegram():
@@ -64,32 +65,17 @@ def _toppicks():
 
 
 def run():
-    log.info("=" * 50)
-    log.info("DAILY UPDATE START")
-    results = {}
-    results["prices"] = _safe("prices", lambda: __import__("ingest_prices").run(show_every=0))
-    results["technicals"] = _safe("technicals", lambda: __import__("technicals").compute_all())
-    results["scan"] = _safe("scan", lambda: __import__("scan").run())
-    results["ml"] = _safe("ml", lambda: __import__("ml_predict").predict_all())
-    results["pwin"] = _safe("pwin", _pwin)
-    results["toppicks"] = _safe("toppicks", _toppicks)
-    results["events"] = _safe("events", lambda: __import__("events").detect())
-
-    def _swing():
-        import swing_live
-
-        swing_live.update_outcomes()
-        swing_live.scan()
-
-    results["swing"] = _safe("swing", _swing)
-
-    results["telegram"] = _safe("telegram", _telegram)
-    results["sheets"] = _safe("sheets", _sheets)
-
-    ok = sum(1 for v in results.values() if v)
-    log.info(f"DAILY UPDATE COMPLETE — {ok}/{len(results)} steps ok")
-    log.info("=" * 50)
-    return results
+    _safe("prices", lambda: ingest_prices.run(show_every=0))
+    _safe("technicals", technicals.compute_all)
+    _safe("scan", scan.run)
+    _safe("ml", ml_predict.predict_all)
+    _safe("pwin", _pwin)
+    _safe("toppicks", _toppicks)
+    _safe("events", events.detect)
+    _safe("swing", lambda: (swing_live.update_outcomes(), swing_live.scan()))
+    _safe("telegram", _telegram)
+    _safe("sheets", _sheets)
+    print("DAILY UPDATE COMPLETE")
 
 
 if len(sys.argv) > 1 and sys.argv[1] == "run":

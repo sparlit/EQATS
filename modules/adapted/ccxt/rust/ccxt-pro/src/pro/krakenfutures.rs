@@ -813,10 +813,7 @@ impl KrakenfuturesCore {
  * @param {int} [since] not used by krakenfutures watchOrders
  * @param {int} [limit] not used by krakenfutures watchOrders
  * @param {object} [params] extra parameters specific to the exchange API endpoint
-<<<<<<< HEAD
  * @param {boolean} [params.verbose] whether to subscribe to the open_orders_verbose feed
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
  * @returns {object[]} a list of [order structures]{@link https://docs.ccxt.com/?id=order-structure}
  */
     pub async fn watch_orders(&mut self, optional_args: &[Value]) -> Value {
@@ -830,7 +827,6 @@ impl KrakenfuturesCore {
         if is_equal(&self.markets, &Value::Null) {
             self.load_markets(&[]).await;
         }
-<<<<<<< HEAD
         let mut verbose: Value = Value::Bool(false);
         { let __destr_tmp = self.handle_option_and_params(params.clone(), Value::Str("watchOrders".to_string()), Value::Str("verbose".to_string()), &[Value::Bool(false)]); verbose = get_value(&__destr_tmp, &Value::Int(0)); params = get_value(&__destr_tmp, &Value::Int(1)); }
         let mut name: Value = Value::Str("open_orders".to_string());
@@ -847,10 +843,6 @@ impl KrakenfuturesCore {
                 messageHash = Value::Str("orders:verbose".to_string());
             }
         }
-=======
-        let mut name: Value = Value::Str("open_orders".to_string());
-        let mut messageHash: Value = Value::Str("orders".to_string());
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         if !is_equal(&symbol, &Value::Null) {
             let mut market: Value = self.market(symbol.clone());
             messageHash = add(&messageHash, &add(&Value::Str(":".to_string()), &get_value(&market, &Value::Str("symbol".to_string()))));
@@ -1200,15 +1192,11 @@ impl KrakenfuturesCore {
         let mut order: Value = self.safe_value_k(message.clone(), "order", &[]);
         if !is_equal(&order, &Value::Null) {
             let mut marketId: Value = self.safe_string_k(order.clone(), "instrument", &[]);
-<<<<<<< HEAD
             let mut feed: Value = self.safe_string_k(message.clone(), "feed", &[]);
             let mut messageHash: Value = Value::Str("orders".to_string());
             if is_equal(&feed, &Value::Str("open_orders_verbose".to_string())) {
                 messageHash = Value::Str("orders:verbose".to_string());
             }
-=======
-            let mut messageHash: Value = Value::Str("orders".to_string());
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut symbol: Value = self.safe_symbol(marketId.clone(), &[]);
             let mut orderId: Value = self.safe_string_k(order.clone(), "order_id", &[]);
             let mut previousOrders: Value = self.safe_value(orders.hashmap(), symbol.clone(), &[Value::Map({
@@ -1284,14 +1272,11 @@ impl KrakenfuturesCore {
                 if is_equal(&reason, &Value::Str("full_fill".to_string())) {
                     status = Value::Str("closed".to_string());
                 }
-<<<<<<< HEAD
                 let mut feed: Value = self.safe_string_k(message.clone(), "feed", &[]);
                 let mut messageHash: Value = Value::Str("orders".to_string());
                 if is_equal(&feed, &Value::Str("open_orders_verbose".to_string())) {
                     messageHash = Value::Str("orders:verbose".to_string());
                 }
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                 {
                                         let mut i: Value = Value::Int(0);
                     let mut __for_first_438: bool = true;
@@ -1314,13 +1299,8 @@ impl KrakenfuturesCore {
         m.insert("info".to_string(), info.clone());
     m
 })]));
-<<<<<<< HEAD
                         client.resolve(&[orders.clone(), messageHash.clone()]);
                         client.resolve(&[orders.clone(), add(&add(&messageHash, &Value::Str(":".to_string())), &get_value(&currentOrder, &Value::Str("symbol".to_string())))]);
-=======
-                        client.resolve(&[orders.clone(), Value::Str("orders".to_string())]);
-                        client.resolve(&[orders.clone(), add(&Value::Str("orders:".to_string()), &get_value(&currentOrder, &Value::Str("symbol".to_string())))]);
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
                         break;
                     }
                 }
@@ -1383,14 +1363,11 @@ impl KrakenfuturesCore {
         let mut orders: Value = self.safe_value_k(message.clone(), "orders", &[Value::List(vec![])]);
         let mut limit: Value = self.safe_integer_k(self.options.clone(), "ordersLimit", &[]);
         self.orders = ArrayCacheBySymbolById::new(limit.clone());
-<<<<<<< HEAD
         let mut feed: Value = self.safe_string_k(message.clone(), "feed", &[]);
         let mut messageHash: Value = Value::Str("orders".to_string());
         if is_equal(&feed, &Value::Str("open_orders_verbose_snapshot".to_string())) {
             messageHash = Value::Str("orders:verbose".to_string());
         }
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         let mut symbols: Value = Value::Map({
             let mut m = indexmap::IndexMap::new();
             m
@@ -1412,11 +1389,7 @@ impl KrakenfuturesCore {
         }
         let mut length: Value = get_array_length(&self.orders);
         if is_greater_than(&length, &Value::Int(0)) {
-<<<<<<< HEAD
             client.resolve(&[self.orders.clone(), messageHash.clone()]);
-=======
-            client.resolve(&[self.orders.clone(), Value::Str("orders".to_string())]);
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             let mut keys: Value = object_keys(&symbols);
             {
                                 let mut i: Value = Value::Int(0);
@@ -1424,13 +1397,8 @@ impl KrakenfuturesCore {
                 while { if !__for_first_440 { i = add(&i, &Value::Int(1)); } __for_first_440 = false; is_less_than(&i, &get_array_length(&keys)) } {
                 let mut symbol: Value = get_value(&keys, &i);
                 let mut symbol: Value = get_value(&keys, &i);
-<<<<<<< HEAD
                 let mut symbolMessageHash: Value = add(&add(&messageHash, &Value::Str(":".to_string())), &symbol);
                 client.resolve(&[self.orders.clone(), symbolMessageHash.clone()]);
-=======
-                let mut messageHash: Value = add(&Value::Str("orders:".to_string()), &symbol);
-                client.resolve(&[self.orders.clone(), messageHash.clone()]);
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
             }
             }
         }
