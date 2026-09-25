@@ -1,5 +1,5 @@
 {
-  "current_index": 92,
+  "current_index": 93,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -741,7 +741,7 @@
       "name": "nsedatabase",
       "target": "chinmayhundekari/nsedatabase",
       "url": "https://github.com/chinmayhundekari/nsedatabase",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
