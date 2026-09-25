@@ -1,5 +1,5 @@
 {
-  "current_index": 90,
+  "current_index": 91,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -725,7 +725,7 @@
       "name": "nse-stock-bulk-deals-",
       "target": "chauhanramkeval-blip/nse-stock-bulk-deals-",
       "url": "https://github.com/chauhanramkeval-blip/nse-stock-bulk-deals-",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
