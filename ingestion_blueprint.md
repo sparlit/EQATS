@@ -96,7 +96,7 @@ Total Repositories: 411 | Current Index: 94
 | 91 | chauhanramkeval-blip/nse-stock-bulk-deals- | Processed | None |
 | 92 | chauhanramkeval-blip/nse-stock-market-bulk-deals- | Processed | https://github.com/sparlit/EQATS/pull/2519 |
 | 93 | chinmayhundekari/nsedatabase | Processed | https://github.com/sparlit/EQATS/pull/2520 |
-| 94 | chinthan-11/nse-bse-arbitrage-bot | Processed | None |
+| 94 | chinthan-11/nse-bse-arbitrage-bot | Processed | https://github.com/sparlit/EQATS/pull/2521 |
 | 95 | chulilee/interchangabletrade-protocol | pending | None |
 | 96 | clayborninconsistent906/indian-stock-market-api | pending | None |
 | 97 | codegallivant/nse-ohlc-scraper-plotter | pending | None |
