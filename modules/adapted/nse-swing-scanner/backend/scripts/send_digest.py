@@ -48,6 +48,7 @@ Exit codes:
   1  invalid arguments / unreadable inputs
 """
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -191,10 +192,8 @@ def send_telegram(message: str) -> tuple:
             return (True, f"Telegram HTTP {resp.status}; body[:120]={body[:120]}")
     except urllib.error.HTTPError as e:
         body = ""
-        try:
+        with contextlib.suppress(Exception):
             body = e.read().decode("utf-8", errors="replace")[:200]
-        except Exception:
-            return None
         return (False, f"Telegram HTTPError {e.code}: {body}")
     except urllib.error.URLError as e:
         return (False, f"Telegram URLError: {e.reason}")

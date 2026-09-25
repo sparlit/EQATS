@@ -15,13 +15,8 @@ pub async fn testFetchBorrowInterest(mut exchange: Value, mut skippedProperties:
     crate::tests_support::shared::assert_non_emtpy_array(exchange.clone(), &[skippedProperties.clone(), method.clone(), borrowInterest.clone(), code.clone()]);
     {
                 let mut i: Value = Value::Int(0);
-<<<<<<< HEAD
         let mut __for_first_1439: bool = true;
         while { if !__for_first_1439 { i = add(&i, &Value::Int(1)); } __for_first_1439 = false; is_less_than(&i, &get_array_length(&borrowInterest)) } {
-=======
-        let mut __for_first_1438: bool = true;
-        while { if !__for_first_1438 { i = add(&i, &Value::Int(1)); } __for_first_1438 = false; is_less_than(&i, &get_array_length(&borrowInterest)) } {
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         testBorrowInterest(exchange.clone(), skippedProperties.clone(), method.clone(), get_value(&borrowInterest, &i), code.clone(), symbol.clone());
     }
     }

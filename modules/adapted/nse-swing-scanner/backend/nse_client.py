@@ -34,6 +34,7 @@ HTML rather than JSON/CSV, callers should fall back to a documented secondary
 source and report `fallback_used` source-status, not fail silently.
 """
 
+import contextlib
 from typing import Optional
 
 import requests
@@ -62,10 +63,8 @@ def get_session() -> requests.Session:
         s.headers.update(DEFAULT_HEADERS)
         # Prime cookies by hitting the homepage once. Cheap; needed for several
         # NSE JSON endpoints which 401 without an established session cookie.
-        try:
+        with contextlib.suppress(Exception):
             s.get(NSE_BASE + "/", timeout=10)
-        except Exception:
-            return None
         _session = s
     return _session
 

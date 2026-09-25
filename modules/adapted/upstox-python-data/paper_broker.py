@@ -453,7 +453,7 @@ class PaperBroker:
             x_dt = datetime.strptime(now.strftime("%H:%M:%S"), "%H:%M:%S")
             hold_min = round((x_dt - e_dt).total_seconds() / 60, 1)
         except (ValueError, TypeError):
-            return None
+            pass
 
         # Record
         closed = {
