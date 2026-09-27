@@ -1,5 +1,5 @@
 {
-  "current_index": 194,
+  "current_index": 195,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1557,9 +1557,9 @@
       "name": "nse-stock-price-crawler",
       "target": "kwoshvick/nse-stock-price-crawler",
       "url": "https://github.com/kwoshvick/nse-stock-price-crawler",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2626",
+      "merged": true
     },
     {
       "name": "nse-stock-price-prediction",

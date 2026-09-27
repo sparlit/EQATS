@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 194
+Total Repositories: 411 | Current Index: 195
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -197,7 +197,7 @@ Total Repositories: 411 | Current Index: 194
 | 192 | kostorub/backtest | Processed | https://github.com/sparlit/EQATS/pull/2622 |
 | 193 | krakenfx/kraken-cli | Processed | https://github.com/sparlit/EQATS/pull/2623 |
 | 194 | kuldeeepy/algo-trader | Completed | https://github.com/sparlit/EQATS/pull/2625 |
-| 195 | kwoshvick/nse-stock-price-crawler | pending | None |
+| 195 | kwoshvick/nse-stock-price-crawler | Processed | https://github.com/sparlit/EQATS/pull/2626 |
 | 196 | kwoshvick/nse-stock-price-prediction | pending | None |
 | 197 | kwoshvick/nse_sentiment_analysis | pending | None |
 | 198 | lakshaysinghal/bhavcopy | pending | None |
