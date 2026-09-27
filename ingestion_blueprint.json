@@ -1,5 +1,5 @@
 {
-  "current_index": 142,
+  "current_index": 143,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1141,7 +1141,7 @@
       "name": "nse-bse-news-scanner",
       "target": "groverjikaladka/nse-bse-news-scanner",
       "url": "https://github.com/groverjikaladka/nse-bse-news-scanner",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
