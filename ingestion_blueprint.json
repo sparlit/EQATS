@@ -1,5 +1,5 @@
 {
-  "current_index": 198,
+  "current_index": 199,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1589,9 +1589,9 @@
       "name": "nse-intraday-bot",
       "target": "lavakus/nse-intraday-bot",
       "url": "https://github.com/lavakus/nse-intraday-bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2783",
+      "merged": true
     },
     {
       "name": "nseindia_lob",
