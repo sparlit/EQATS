@@ -1,5 +1,5 @@
 {
-  "current_index": 113,
+  "current_index": 114,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -909,9 +909,9 @@
       "name": "chartink-to-tradingview-extension",
       "target": "devagam/chartink-to-tradingview-extension",
       "url": "https://github.com/devagam/chartink-to-tradingview-extension",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2697",
+      "merged": true
     },
     {
       "name": "top-gainers-and-losers-nse",
