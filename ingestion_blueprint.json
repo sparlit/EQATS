@@ -1,5 +1,5 @@
 {
-  "current_index": 106,
+  "current_index": 107,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -854,7 +854,7 @@
       "target": "debaonline4u/nse-data",
       "url": "https://github.com/debaonline4u/nse-data",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2653",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2667",
       "merged": true
     },
     {
