@@ -1,5 +1,5 @@
 {
-  "current_index": 105,
+  "current_index": 155,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1238,7 +1238,7 @@
       "target": "hi-imcodeman/stock-nse-india",
       "url": "https://github.com/hi-imcodeman/stock-nse-india",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2585",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2645",
       "merged": true
     },
     {
