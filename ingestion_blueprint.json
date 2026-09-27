@@ -1,5 +1,5 @@
 {
-  "current_index": 91,
+  "current_index": 98,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -733,57 +733,57 @@
       "name": "nse-stock-market-bulk-deals-",
       "target": "chauhanramkeval-blip/nse-stock-market-bulk-deals-",
       "url": "https://github.com/chauhanramkeval-blip/nse-stock-market-bulk-deals-",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2519",
+      "merged": true
     },
     {
       "name": "nsedatabase",
       "target": "chinmayhundekari/nsedatabase",
       "url": "https://github.com/chinmayhundekari/nsedatabase",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2520",
+      "merged": true
     },
     {
       "name": "nse-bse-arbitrage-bot",
       "target": "chinthan-11/nse-bse-arbitrage-bot",
       "url": "https://github.com/chinthan-11/nse-bse-arbitrage-bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2521",
+      "merged": true
     },
     {
       "name": "interchangabletrade-protocol",
       "target": "chulilee/interchangabletrade-protocol",
       "url": "https://github.com/chulilee/interchangabletrade-protocol",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2522",
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
       "target": "clayborninconsistent906/indian-stock-market-api",
       "url": "https://github.com/clayborninconsistent906/indian-stock-market-api",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2523",
+      "merged": true
     },
     {
       "name": "nse-ohlc-scraper-plotter",
       "target": "codegallivant/nse-ohlc-scraper-plotter",
       "url": "https://github.com/codegallivant/nse-ohlc-scraper-plotter",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2524",
+      "merged": true
     },
     {
       "name": "polymarket-trading-bot-rust",
       "target": "conteurshadow/polymarket-trading-bot-rust",
       "url": "https://github.com/conteurshadow/polymarket-trading-bot-rust",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2525",
+      "merged": true
     },
     {
       "name": "hyper-grid",
