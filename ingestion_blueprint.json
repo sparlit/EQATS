@@ -1,5 +1,5 @@
 {
-  "current_index": 178,
+  "current_index": 179,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1429,7 +1429,7 @@
       "name": "cli-candlestick-chart",
       "target": "julien-r44/cli-candlestick-chart",
       "url": "https://github.com/julien-r44/cli-candlestick-chart",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
