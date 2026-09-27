@@ -697,8 +697,7 @@ def stage_bse(cache, cap=20000, shard="0/1", max_minutes=0, codes_file=None):
                 say("3 refusals in a row -> pausing 10 min")
                 time.sleep(600)
                 if fails >= 6:
-                    msg = "BSE refusing repeatedly; stopped (resume later, nothing is lost)"
-                    raise SystemExit(msg)
+                    raise SystemExit("BSE refusing repeatedly; stopped (resume later, nothing is lost)")
             time.sleep(2)
         return None
 
@@ -1240,8 +1239,7 @@ def stage_update(cache, quarters=None, max_minutes=0):
                 say("3 refusals in a row -> pausing 10 min")
                 time.sleep(600)
                 if fails >= 6:
-                    msg = "BSE refusing repeatedly; stopped (the next run resumes)"
-                    raise SystemExit(msg)
+                    raise SystemExit("BSE refusing repeatedly; stopped (the next run resumes)")
             time.sleep(2)
         return None
 
@@ -1283,12 +1281,14 @@ def build(cache, window=None):
     prev_led = json.load(gzip.open(LEDGER, "rt", encoding="utf-8")) if os.path.exists(LEDGER) else {}
     # Re-runs must reproduce the ledger: cells this ledger itself landed are treated as NOT stored (otherwise a
     # rebuild after landing sees every cell as "already stored" and writes an empty ledger that CI then applies).
+    released = set()  # (sym, qe) this fill landed and now re-judges
     if os.path.exists(LEDGER) and not window:
         prev = json.load(gzip.open(LEDGER, "rt", encoding="utf-8")).get("fills", {})
         for s_, qs_ in prev.items():
             for q_ in qs_:
                 if q_ in (hist.get(s_) or {}):
                     del hist[s_][q_]
+                    released.add((s_, q_))
         print("previous ledger: %d cells treated as not yet stored" % sum(len(v) for v in prev.values()))
     # §180c: so is every store cell the COMMITTED ledger wrote (identical values) — a rebuild that removes a wrong cell
     # (BRIGHT: Bright Solar's quarters) must see its quarter as open, or the right company's filing is skipped as
@@ -1310,6 +1310,7 @@ def build(cache, window=None):
             if cur_ is not None and list(cur_[:6]) == list(c_[:6]):
                 del hist[s_][q_]
                 n_head += 1
+                released.add((s_, q_))
     if n_head:
         print("committed ledger: %d more stored cells written by this fill treated as open" % n_head)
     t0 = time.time()
@@ -1715,7 +1716,10 @@ def build(cache, window=None):
             hold("identity: " + bad)
             continue
         former = [x for x in (relatives(sym) | set(extra)) if qe in (hist.get(x) or {})]
-        if former:
+        # a cell this fill already landed under `sym` is re-judged even when a rename merged later brings the same quarter
+        # under a former ticker (HEG -> HEGAM §199: HEG's NSE rows joined the six HEGAM quarters this fill had landed from
+        # BSE 509631) — the landed cell stays in the ledger; only a quarter nobody has landed yet is skipped here
+        if former and (sym, qe) not in released:
             stat[(a.get("idx"), "stored under a former ticker")] += 1
             continue
         c = a.get("cell")
@@ -1914,8 +1918,10 @@ def build(cache, window=None):
                 rev_stat["revision fails the bounds"] += 1
                 continue
             rdate = str(r["revised_date_time"])[:10]
-            if rdate <= cell[5]:
-                rev_stat["revision not after the original"] += 1
+            # a SAME-DAY correction (EPUJA Dec-2024, HBGHOTELS Mar-2026: revised hours after the original) was public that
+            # day under the midnight rule — recorded with that date; only a "revision" dated BEFORE the original is dropped
+            if rdate < cell[5]:
+                rev_stat["revision dated before the original"] += 1
                 continue
             new = [
                 round(rc["prom"], 4),
@@ -1964,6 +1970,32 @@ def build(cache, window=None):
     sh = {s: qs for s, qs in sh.items() if qs}
 
     built = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M IST")
+    if not window and (prev_led or head):
+        # §180e: a full build re-judges only the quarters whose FILING it read (or set aside) this run. A ledger cell whose
+        # document is not on this machine — landed by the GitHub update job, whose files live only on its runner — is
+        # carried over unchanged, never dropped for a missing local file (measured: a local full build after the first CI
+        # run would have dropped all 9 cells that run landed).
+        judged = set(docs) | set(set_aside)
+        carried = 0
+        for src_ in ((prev_led.get("fills") or {}), head):  # the ledger on disk and the committed one
+            for s_, qs_ in src_.items():
+                for q_, c_ in qs_.items():
+                    if (s_, q_) not in judged and q_ not in fills.get(s_, {}):
+                        fills[s_][q_] = c_
+                        carried += 1
+        for s_, qs_ in (prev_led.get("revisions") or {}).items():
+            for q_, c_ in qs_.items():
+                if (s_, q_) not in judged and q_ not in revisions.get(s_, {}):
+                    revisions[s_][q_] = c_
+        if os.path.exists(SHARES_HIST):
+            for s_, qs_ in json.load(open(SHARES_HIST, encoding="utf-8")).items():
+                if s_ == "_meta":
+                    continue
+                for q_, v_ in qs_.items():
+                    if (s_, q_) not in judged and q_ not in (sh.get(s_) or {}):
+                        sh.setdefault(s_, {})[q_] = v_
+        if carried:
+            print("carried over %d ledger cells whose filing is not on this machine" % carried)
     if window:
         # MERGE onto the committed ledger: landed cells are never replaced here (fill-only), a window quarter evaluated
         # this run takes this run's hold (or loses a stale one), and share counts / re-filings are added the same way

@@ -267,7 +267,7 @@ def audit():
             detail=f"{source} carries no usable data stamp ({stamp!r}) — its age is UNKNOWN, so a "
             "silently stale META would report FUND_ALIAS 'in step' while recent "
             "renames are missing from it; rebuild it "
-            "(python3 scripts/build_search_index.py)",
+            "(SF_BIN=<the live `data` release asset> python3 scripts/build_search_index.py — never the committed bin)",
         )
         return rep
     if age > MAX_META_AGE_DAYS:

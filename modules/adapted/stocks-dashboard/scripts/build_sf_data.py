@@ -442,6 +442,48 @@ def prefetch_parallel(dates, workers=6):
                 print("  prefetch %d/%d" % (done, len(dates)), flush=True)
 
 
+def current_universe(slim_meta, isin_of=None):
+    """{SYM: {"name", "industry"}} — the currently-listed tag (alive / name / industry) for the NSE tape, from
+    dash_slim.bin meta, which lists a ticker as SYM.NS and/or SYM.BO. The tape is NSE's bhavcopy, so the NSE row
+    always wins; a SYM.BO row only fills a symbol with no NSE row, and never when ISIN proves the BSE scrip is another
+    company (§76/§203/§207). The old loop let whichever of the two rows came last win: FOCUS (Focus Lighting and
+    Fixtures, NSE, INE593W) went into the tape named "Focus Business Solution Ltd", "Information Technology" — BSE
+    543312's name and industry. isin_of = the tape's own ISINs; bse_resolve adds NSE ISINs from its other sources."""
+    ns, bo = {}, {}
+    for k, m in slim_meta.items():
+        sym = m.get("symbol") or k.split(".")[0]
+        (bo if k.endswith(".BO") else ns)[sym] = {
+            "name": m.get("name"),
+            "industry": m.get("industry") or m.get("sector"),
+        }
+    cur = dict(ns)
+    others = []
+    try:
+        import bse_resolve as BR
+
+        I = BR.identities(dict(isin_of or {}))
+    except Exception as e:  # no identity sources -> cannot disprove a BSE row, same as before
+        print(f"  (bse_resolve unavailable: {e} — BSE rows fill without an ISIN check)")
+        I = None
+    for sym, v in bo.items():
+        if sym in cur:
+            continue
+        if I is not None:
+            S = sym.upper()
+            nis = {BR.issuer(i) for i in I["nse"].get(S, ()) if BR.issuer(i)}
+            bis = {BR.issuer(i) for _, i, _ in I["bse"].get(S, ()) if BR.issuer(i)}
+            if nis and bis and not (nis & bis):
+                others.append(sym)
+                continue
+        cur[sym] = v
+    if others:
+        print(
+            "  current universe: %d BSE rows NOT used for the NSE tape symbol of the same ticker (another company by "
+            "ISIN): %s" % (len(others), ", ".join(sorted(others)[:20]))
+        )
+    return cur
+
+
 def main():
     all_days = []
     d = START
@@ -597,9 +639,7 @@ def main():
     cur = {}
     try:
         slim = json.loads(gzip.decompress(open(os.path.join(ROOT, "docs", "dash_slim.bin"), "rb").read()))
-        for k, m in (slim.get("meta") or {}).items():
-            sym = m.get("symbol") or k.split(".")[0]
-            cur[sym] = {"name": m.get("name"), "industry": m.get("industry") or m.get("sector")}
+        cur = current_universe(slim.get("meta") or {}, isin_of)
     except Exception as e:
         print("  (current meta unavailable:", e, ")")
     if not cur:
