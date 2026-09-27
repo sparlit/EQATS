@@ -1,5 +1,5 @@
 {
-  "current_index": 198,
+  "current_index": 199,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1589,7 +1589,7 @@
       "name": "laminar-chain",
       "target": "laminar-protocol/laminar-chain",
       "url": "https://github.com/laminar-protocol/laminar-chain",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
