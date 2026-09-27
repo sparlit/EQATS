@@ -1,5 +1,5 @@
 {
-  "current_index": 173,
+  "current_index": 174,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1389,7 +1389,7 @@
       "name": "midas",
       "target": "jerryshell/midas",
       "url": "https://github.com/jerryshell/midas",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
