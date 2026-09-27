@@ -1693,17 +1693,17 @@
       "name": "option_chain_analyzer",
       "target": "manishn32/option_chain_analyzer",
       "url": "https://github.com/manishn32/option_chain_analyzer",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-mcp",
       "target": "manitgupta/nse-mcp",
       "url": "https://github.com/manitgupta/nse-mcp",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2680",
+      "merged": true
     },
     {
       "name": "nse",
