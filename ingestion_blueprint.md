@@ -102,11 +102,11 @@ Total Repositories: 411 | Current Index: 206
 | 97 | codegallivant/nse-ohlc-scraper-plotter | Processed | https://github.com/sparlit/EQATS/pull/2524 |
 | 98 | conteurshadow/polymarket-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2525 |
 | 99 | crazygirl437/hyper-grid | Skipped: Private/Non-Existent (404/403) | None |
-| 100 | crypto-crawler/coinsignal | Processed | https://github.com/sparlit/EQATS/pull/2527 |
-| 101 | cutupdev/solana-copytrading-bot | Processed | None |
-| 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2530 |
-| 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2532 |
-| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2533 |
+| 100 | crypto-crawler/coinsignal | Processed | None |
+| 101 | cutupdev/solana-copytrading-bot | Processed | https://github.com/sparlit/EQATS/pull/2638 |
+| 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
+| 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2640 |
+| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2642 |
 | 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2534 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
 | 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
@@ -155,7 +155,7 @@ Total Repositories: 411 | Current Index: 206
 | 150 | hemangjoshi37a/trendmaster | Completed | https://github.com/sparlit/EQATS/pull/2579 |
 | 151 | hemenkapadia/getbhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2580 |
 | 152 | henry-richard7/nse-tool-stocks-aerial-view | Processed | https://github.com/sparlit/EQATS/pull/2581 |
-| 153 | hermanodecastro/arbitrage-trading | Processed | https://github.com/sparlit/EQATS/pull/2582 |
+| 153 | hermanodecastro/arbitrage-trading | Processed | https://github.com/sparlit/EQATS/pull/2583 |
 | 154 | hgsujay/nsedata | Processed | https://github.com/sparlit/EQATS/pull/2584 |
 | 155 | hi-imcodeman/stock-nse-india | Processed | https://github.com/sparlit/EQATS/pull/2585 |
 | 156 | himanshumohanty-git24/rakshaquant | Completed | https://github.com/sparlit/EQATS/pull/2586 |
