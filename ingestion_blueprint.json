@@ -1,5 +1,5 @@
 {
-  "current_index": 164,
+  "current_index": 165,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1317,7 +1317,7 @@
       "name": "nsestockanalyser",
       "target": "indra5196/nsestockanalyser",
       "url": "https://github.com/indra5196/nsestockanalyser",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
