@@ -1,5 +1,5 @@
 {
-  "current_index": 128,
+  "current_index": 129,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1029,7 +1029,7 @@
       "name": "yfinance-stock-history",
       "target": "feroze/yfinance-stock-history",
       "url": "https://github.com/feroze/yfinance-stock-history",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
