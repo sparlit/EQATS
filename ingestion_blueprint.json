@@ -1,5 +1,5 @@
 {
-  "current_index": 109,
+  "current_index": 110,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -877,7 +877,7 @@
       "name": "evpoly",
       "target": "degenapetrader/evpoly",
       "url": "https://github.com/degenapetrader/evpoly",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
