@@ -113,8 +113,8 @@ def fno_value_scan(
         if include_quarterly and taxonomy in _KNOWN_TAXONOMIES:
             try:
                 qdf = xbrl_parser.quarterly_financials(sym)
-                q_sub, _ = xbrl_parser.quarterly_momentum_pillar(qdf)
-                score = xbrl_parser.add_quarterly_pillar(score, q_sub)
+                q_sub, q_extra = xbrl_parser.quarterly_momentum_pillar(qdf)
+                score = xbrl_parser.add_quarterly_pillar(score, q_sub, q_extra)
             except Exception as e:
                 print(f"[fno_value_scan] {sym}: quarterly pillar failed (keeping annual-only score): {e}", flush=True)
 
@@ -145,6 +145,7 @@ def fno_value_scan(
         "solvency_ratio_UNVERIFIED",
         "persistency_13m_UNVERIFIED",
         "fiscal_year_end",
+        "quarterly_as_of",
         "missing_pillars",
         "pillar_scores",
         "sub_scores",
@@ -254,8 +255,8 @@ def score_asof(history: dict, date, score_cache: dict | None = None) -> pd.DataF
                 else:
                     score = {"total_score": None, "rubric": taxonomy, "missing_pillars": ["unsupported_taxonomy"]}
                 if taxonomy in _KNOWN_TAXONOMIES:
-                    q_sub, _ = xbrl_parser.quarterly_momentum_pillar(q_filtered)
-                    score = xbrl_parser.add_quarterly_pillar(score, q_sub)
+                    q_sub, q_extra = xbrl_parser.quarterly_momentum_pillar(q_filtered)
+                    score = xbrl_parser.add_quarterly_pillar(score, q_sub, q_extra)
             except Exception as e:
                 print(f"[score_asof] {sym}: failed: {e}", flush=True)
                 score = {"total_score": None, "rubric": "error", "missing_pillars": ["error"]}
@@ -284,6 +285,7 @@ def score_asof(history: dict, date, score_cache: dict | None = None) -> pd.DataF
         "loan_yoy_pct",
         "advances_yoy_pct",
         "fiscal_year_end",
+        "quarterly_as_of",
         "missing_pillars",
         "pillar_scores",
         "sub_scores",
