@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 410 | Current Index: 197
+Total Repositories: 410 | Current Index: 198
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -200,7 +200,7 @@ Total Repositories: 410 | Current Index: 197
 | 195 | kwoshvick/nse-stock-price-prediction | Processed | https://github.com/sparlit/EQATS/pull/2779 |
 | 196 | kwoshvick/nse_sentiment_analysis | Completed | https://github.com/sparlit/EQATS/pull/2780 |
 | 197 | lakshaysinghal/bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2781 |
-| 198 | laminar-protocol/laminar-chain | pending | None |
+| 198 | laminar-protocol/laminar-chain | Processed | https://github.com/sparlit/EQATS/pull/2782 |
 | 199 | lavakus/nse-intraday-bot | pending | None |
 | 200 | lebedov/nseindia_lob | pending | None |
 | 201 | lebedov/nseindia_reformat | pending | None |
