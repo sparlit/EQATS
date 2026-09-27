@@ -1,11 +1,11 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 410 | Current Index: 2
+Total Repositories: 410 | Current Index: 3
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
 | 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2679 |
 | 2 | 0xnosystem/hyperliquid_rust_bot | Processed | None |
-| 3 | 0xramm/indian-stock-market-api | pending | None |
+| 3 | 0xramm/indian-stock-market-api | Processed | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | pending | None |
 | 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
@@ -110,7 +110,7 @@ Total Repositories: 410 | Current Index: 2
 | 105 | daydy-dev/moon-dev-ai-agents-for-trading | pending | None |
 | 106 | debaonline4u/nse-data | pending | None |
 | 107 | debopam-d/project-nifty | pending | None |
-| 108 | deepentropy/ibx | pending | None |
+| 108 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2673 |
 | 109 | degenapetrader/evpoly | pending | None |
 | 110 | degensugarboo/openbook | pending | None |
 | 111 | deshpanda/nse-screener | pending | None |
