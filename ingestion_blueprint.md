@@ -172,7 +172,7 @@ Total Repositories: 410 | Current Index: 170
 | 167 | inv2004/coinbase-pro-rs | Processed | https://github.com/sparlit/EQATS/pull/2751 |
 | 168 | ishaan3h/india-sector-screener | Completed | https://github.com/sparlit/EQATS/pull/2752 |
 | 169 | itsnrk1/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/2753 |
-| 170 | jandginvestment/cci20-sma20-strategy | Completed | None |
+| 170 | jandginvestment/cci20-sma20-strategy | Completed | https://github.com/sparlit/EQATS/pull/2754 |
 | 171 | jayeshsrathod/nse-scanner | pending | None |
 | 172 | jensnesten/rust_bt | pending | None |
 | 173 | jerryshell/midas | pending | None |
