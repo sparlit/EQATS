@@ -151,7 +151,7 @@ Total Repositories: 410 | Current Index: 149
 | 146 | harshadannina/statistical-arbitrage-model | Processed | https://github.com/sparlit/EQATS/pull/2730 |
 | 147 | hash-it-out/stockchain | Processed | https://github.com/sparlit/EQATS/pull/2731 |
 | 148 | hawkeyecoding/nse-oi-analysis | Processed | https://github.com/sparlit/EQATS/pull/2732 |
-| 149 | hemangjoshi37a/trendmaster | Completed | None |
+| 149 | hemangjoshi37a/trendmaster | Completed | https://github.com/sparlit/EQATS/pull/2733 |
 | 150 | hemenkapadia/getbhavcopy | pending | None |
 | 151 | henry-richard7/nse-tool-stocks-aerial-view | pending | None |
 | 152 | hermanodecastro/arbitrage-trading | pending | None |
