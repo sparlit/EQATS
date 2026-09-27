@@ -107,7 +107,7 @@ Total Repositories: 411 | Current Index: 155
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
 | 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2640 |
 | 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2642 |
-| 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2534 |
+| 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2643 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
 | 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
@@ -208,7 +208,7 @@ Total Repositories: 411 | Current Index: 155
 | 203 | llc-993/matching-core | Processed | https://github.com/sparlit/EQATS/pull/2634 |
 | 204 | longbridge/longbridge-terminal | Processed | https://github.com/sparlit/EQATS/pull/2635 |
 | 205 | lqz13th/extrema_infra | Processed | https://github.com/sparlit/EQATS/pull/2636 |
-| 206 | maanavshah/stock-market-india | pending | None |
+| 206 | maanavshah/stock-market-india | Processed | https://github.com/sparlit/EQATS/pull/2637 |
 | 207 | maheshcharig/financial-data | pending | None |
 | 208 | mailbagrahul/nseoptionalpha | pending | None |
 | 209 | manavgupta83/nse-factor-engine | pending | None |
