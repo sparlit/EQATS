@@ -1,5 +1,5 @@
 {
-  "current_index": 107,
+  "current_index": 108,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -861,9 +861,9 @@
       "name": "project-nifty",
       "target": "debopam-d/project-nifty",
       "url": "https://github.com/debopam-d/project-nifty",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2537",
+      "merged": true
     },
     {
       "name": "ibx",
