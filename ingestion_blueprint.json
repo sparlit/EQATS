@@ -1,5 +1,5 @@
 {
-  "current_index": 113,
+  "current_index": 114,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -909,9 +909,9 @@
       "name": "nse-stock-scanner",
       "target": "deshwalmahesh/nse-stock-scanner",
       "url": "https://github.com/deshwalmahesh/nse-stock-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2543",
+      "merged": true
     },
     {
       "name": "chartink-to-tradingview-extension",
