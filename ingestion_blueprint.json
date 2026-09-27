@@ -1,5 +1,5 @@
 {
-  "current_index": 189,
+  "current_index": 190,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1517,9 +1517,9 @@
       "name": "nse-momentum-dashboard",
       "target": "kkirankumar1511/nse-momentum-dashboard",
       "url": "https://github.com/kkirankumar1511/nse-momentum-dashboard",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2620",
+      "merged": true
     },
     {
       "name": "nse-bse-event-driven-quant-research-platform",
