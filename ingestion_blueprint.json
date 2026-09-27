@@ -1,5 +1,5 @@
 {
-  "current_index": 148,
+  "current_index": 149,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1189,7 +1189,7 @@
       "name": "nse-oi-analysis",
       "target": "hawkeyecoding/nse-oi-analysis",
       "url": "https://github.com/hawkeyecoding/nse-oi-analysis",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
