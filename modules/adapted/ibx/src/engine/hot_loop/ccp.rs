@@ -10,11 +10,11 @@ use crate::protocol::fix;
 use crate::protocol::fixcomp;
 use crate::types::{
     CompletedOrder, Fill, InstrumentId, MidnightSeed, NewsBulletin,
-    PositionInfo, Price, Side, PRICE_SCALE,
+    PositionInfo, Price, Qty, Side, PRICE_SCALE, QTY_SCALE,
 };
 use crossbeam_channel::Sender;
 
-use super::{HeartbeatState, emit, clone_for_event, parse_price_tag, decode_tif};
+use super::{HeartbeatState, emit, clone_for_event, parse_price_tag, parse_qty, decode_tif};
 
 /// Bound for an in-flight contract-details request (secdef reply or
 /// per-exchange fan-out). Refreshed on fan-out activity; on expiry the
@@ -43,6 +43,82 @@ fn extract_tag_value(msg: &[u8], prefix: &[u8]) -> Option<String> {
     None
 }
 
+/// A UTC time as the reports write it, `YYYYMMDD-HH:MM:SS` with optional
+/// `.sss`, to Unix seconds.
+pub(crate) fn fix_utc_to_unix_secs(s: &str) -> Option<i64> {
+    let b = s.as_bytes();
+    if b.len() < 17 || b[8] != b'-' || b[11] != b':' || b[14] != b':' {
+        return None;
+    }
+    let num = |r: std::ops::Range<usize>| -> Option<i64> { s.get(r)?.parse().ok() };
+    let (y, m, d) = (num(0..4)?, num(4..6)?, num(6..8)?);
+    let (hh, mm, ss) = (num(9..11)?, num(12..14)?, num(15..17)?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) || hh > 23 || mm > 59 || ss > 60 {
+        return None;
+    }
+    // Days from civil date (Howard Hinnant).
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe - 719468;
+    Some(days * 86400 + hh * 3600 + mm * 60 + ss)
+}
+
+/// Text of warning 399 for an order message (ibx#465): "Order Message:
+/// {action} {quantity} {symbol} {exchange} {text}". The exchange is the
+/// listing as the contract details give it, `{primaryExchange}.{marketName}`
+/// (NASDAQ.NMS for AAPL, as in the capture; the form is only checked for
+/// AAPL), else the primary exchange, else the order's exchange.
+fn order_message_399(
+    parsed: &std::collections::HashMap<u32, String>,
+    text: &str,
+    context: &Context,
+    clord_id: u64,
+    shared: &SharedState,
+) -> String {
+    let action = match parsed.get(&54).map(|s| s.as_str()) {
+        Some("1") => "BUY",
+        Some("5") => "SSHORT",
+        Some(_) => "SELL",
+        None => match context.order(clord_id).map(|o| o.side) {
+            Some(Side::Buy) => "BUY",
+            Some(Side::ShortSell) => "SSHORT",
+            _ => "SELL",
+        },
+    };
+    let quantity = parsed.get(&38).cloned().unwrap_or_default();
+    let con_id: i64 = parsed.get(&6008).and_then(|s| s.parse().ok()).unwrap_or(0);
+    let cached = shared.reference.get_contract(con_id);
+    let symbol = parsed.get(&55).cloned()
+        .or_else(|| cached.as_ref().map(|c| c.symbol.clone()))
+        .unwrap_or_default();
+    let primary = cached.as_ref().map(|c| c.primary_exchange.clone()).filter(|p| !p.is_empty());
+    let exchange = match (primary, shared.reference.market_name(con_id)) {
+        (Some(p), Some(m)) => format!("{}.{}", p, m),
+        (Some(p), None) => p,
+        (None, _) => parsed.get(&207).or_else(|| parsed.get(&6004))
+            .map(|e| crate::control::contracts::exchange_from_fix(e).to_string())
+            .unwrap_or_default(),
+    };
+    format!("Order Message: {} {} {} {} {}", action, quantity, symbol, exchange, text)
+}
+
+/// Split an execution id into the id without its revision and the
+/// revision, the last dot segment read as hex ("0000e0d5.6ab5f36f.01.01" →
+/// ("0000e0d5.6ab5f36f.01", 1)). An id with no dot has revision 0.
+pub(crate) fn split_exec_revision(exec_id: &str) -> (&str, u64) {
+    match exec_id.rsplit_once('.') {
+        Some((base, rev)) => match u64::from_str_radix(rev, 16) {
+            Ok(r) => (base, r),
+            Err(_) => (exec_id, 0),
+        },
+        None => (exec_id, 0),
+    }
+}
+
 fn perm_id_from_fix_order_id(s: &str) -> i64 {
     // Hash only the stable prefix: "00cf16ed.000225ed.69ca0941" (drop ".0001")
     let stable = match s.rmatch_indices('.').next() {
@@ -64,6 +140,17 @@ pub(crate) struct CcpState {
     /// the whole set — a wholesale clear would let a post-reconnect server
     /// replay of a recently-seen ExecID double-count a fill (ibx#198).
     pub(crate) exec_id_order: VecDeque<String>,
+    /// Commission reports seen, by execution id without its revision:
+    /// the highest revision (ibx#471). Bounded like `seen_exec_ids`.
+    pub(crate) commission_revisions: std::collections::HashMap<String, u64>,
+    pub(crate) commission_order: VecDeque<String>,
+    /// conId of this session's fills and the realized P&L counted for each,
+    /// by execution id without its revision (ibx#478). Bounded like the
+    /// commission window.
+    pub(crate) exec_realized: std::collections::HashMap<String, (i64, f64)>,
+    /// Order messages already reported as 399, by order and text (ibx#465).
+    pub(crate) order_messages_sent: HashSet<(u64, String)>,
+    pub(crate) exec_realized_order: VecDeque<String>,
     pub(crate) bulletin_next_id: i32,
     pub(crate) news_subscriptions: Vec<(InstrumentId, u32)>,
     pub(crate) disconnected: bool,
@@ -146,6 +233,11 @@ impl CcpState {
         Self {
             seen_exec_ids: HashSet::with_capacity(256),
             exec_id_order: VecDeque::with_capacity(256),
+            commission_revisions: std::collections::HashMap::with_capacity(256),
+            commission_order: VecDeque::with_capacity(256),
+            exec_realized: std::collections::HashMap::with_capacity(256),
+            order_messages_sent: HashSet::new(),
+            exec_realized_order: VecDeque::with_capacity(256),
             bulletin_next_id: 0,
             news_subscriptions: Vec::new(),
             disconnected: false,
@@ -186,6 +278,88 @@ impl CcpState {
             }
         }
         true
+    }
+
+    /// Remember the conId of a fill of this session, for the realized P&L
+    /// its commission frame carries (ibx#478).
+    pub(crate) fn record_exec_con_id(&mut self, exec_id: &str, con_id: i64) {
+        if exec_id.is_empty() {
+            return;
+        }
+        let (base, _) = split_exec_revision(exec_id);
+        if self.exec_realized.insert(base.to_string(), (con_id, 0.0)).is_none() {
+            self.exec_realized_order.push_back(base.to_string());
+            while self.exec_realized_order.len() > EXEC_ID_WINDOW {
+                if let Some(old) = self.exec_realized_order.pop_front() {
+                    self.exec_realized.remove(&old);
+                }
+            }
+        }
+    }
+
+    /// Record a commission report for `exec_id`. Returns `false` for a
+    /// report to skip, as the reference does (ibx#471): the same execution
+    /// id again, or a lower revision than one already reported. The revision
+    /// is the last dot segment, in hex; a higher one replaces the report.
+    pub(crate) fn record_commission(&mut self, exec_id: &str) -> bool {
+        let (base, revision) = split_exec_revision(exec_id);
+        match self.commission_revisions.get(base) {
+            Some(&seen) if revision <= seen => return false,
+            Some(_) => {}
+            None => {
+                self.commission_order.push_back(base.to_string());
+                while self.commission_order.len() > EXEC_ID_WINDOW {
+                    if let Some(old) = self.commission_order.pop_front() {
+                        self.commission_revisions.remove(&old);
+                    }
+                }
+            }
+        }
+        self.commission_revisions.insert(base.to_string(), revision);
+        true
+    }
+
+    /// The server's commission frame for one execution (ibx#471). The fill
+    /// report carries no commission; this frame follows it (captured
+    /// 25/09/2026, 25 ms after the fill). A frame with neither the
+    /// commission nor tag 8189 is dropped, like the reference.
+    fn handle_commission_report(&mut self, parsed: &std::collections::HashMap<u32, String>, shared: &SharedState) {
+        let Some(exec_id) = parsed.get(&17).filter(|s| !s.is_empty()) else {
+            log::debug!("Commission report without an execution id: dropped");
+            return;
+        };
+        let commission = parsed.get(&6378).and_then(|s| s.parse::<f64>().ok());
+        if commission.is_none() && !parsed.contains_key(&8189) {
+            log::debug!("Commission report for {} without a commission: dropped", exec_id);
+            return;
+        }
+        if !self.record_commission(exec_id) {
+            log::debug!("Commission report for {} skipped: already reported", exec_id);
+            return;
+        }
+        let unset_when_zero = |v: Option<f64>| v.filter(|x| *x != 0.0).unwrap_or(f64::MAX);
+        let report = api::CommissionAndFeesReport {
+            exec_id: exec_id.clone(),
+            commission_and_fees: commission.unwrap_or(0.0),
+            currency: parsed.get(&6381).cloned().unwrap_or_default(),
+            realized_pnl: unset_when_zero(parsed.get(&6099).and_then(|s| s.parse().ok())),
+            yield_amount: parsed.get(&236).and_then(|s| s.parse().ok()).unwrap_or(f64::MAX),
+            yield_redemption_date: parsed.get(&696).filter(|s| s.len() == 8).cloned().unwrap_or_default(),
+        };
+        log::info!("Commission report: exec={} commission={} {}", report.exec_id, report.commission_and_fees, report.currency);
+        // The realized P&L of a fill of this session adds to P&L (ibx#478);
+        // a higher revision replaces the amount counted before.
+        if report.realized_pnl != f64::MAX {
+            let (base, _) = split_exec_revision(exec_id);
+            if let Some((con_id, counted)) = self.exec_realized.get_mut(base) {
+                let delta = report.realized_pnl - *counted;
+                *counted = report.realized_pnl;
+                shared.portfolio.add_realized_since_seed(*con_id, delta);
+            } else {
+                log::debug!("Commission report for {}: no fill of this session, realized P&L not counted", exec_id);
+            }
+        }
+        shared.orders.push_commission_report(report);
     }
 
     pub(crate) fn poll_executions(
@@ -382,6 +556,7 @@ impl CcpState {
                                 }
                             }
                         }
+                        "60" => self.handle_commission_report(&parsed, shared),
                         "102" => self.handle_exchange_list(msg, shared),
                         "107" => self.handle_schedule_reply(msg, shared, event_tx),
                         _ => {}
@@ -457,7 +632,8 @@ impl CcpState {
                 }
             }
             "UT" | "UM" | "RL" => handle_account_update(msg, context, shared),
-            "UP" => handle_position_update(&parsed, context, shared, event_tx),
+            "EB" => handle_account_end(msg, shared),
+            "UP" => handle_portfolio_message(msg, context, shared, event_tx),
             "d" => {
                 let response_req_id = crate::control::contracts::secdef_response_req_id(msg);
                 let fanout_idx = response_req_id.as_ref().and_then(|rid| {
@@ -481,6 +657,7 @@ impl CcpState {
                                 trading_class: def.trading_class.clone(),
                                 ..Default::default()
                             });
+                            shared.reference.cache_market_name(def.con_id as i64, &def.market_name);
                             self.try_release_scanner_enrichments(def.con_id as i64, shared);
                         }
                         let for_event = clone_for_event(event_tx, &def);
@@ -518,6 +695,7 @@ impl CcpState {
                             trading_class: def.trading_class.clone(),
                             ..Default::default()
                         });
+                        shared.reference.cache_market_name(def.con_id as i64, &def.market_name);
                         self.try_release_scanner_enrichments(def.con_id as i64, shared);
                     }
                     // Match the response to its originating pending_secdef entry
@@ -688,7 +866,7 @@ impl CcpState {
                 Some("5") => Side::ShortSell,
                 _ => Side::Sell,
             };
-            let qty: u32 = parsed.get(&38).and_then(|s| s.parse::<f64>().ok()).map(|q| q as u32).unwrap_or(0);
+            let qty: Qty = parsed.get(&38).and_then(|s| parse_qty(s)).unwrap_or(0);
             let limit_price_i64: i64 = parsed.get(&44)
                 .and_then(|s| s.parse::<f64>().ok())
                 .map(|p| (p * PRICE_SCALE as f64) as i64)
@@ -699,8 +877,22 @@ impl CcpState {
                 .unwrap_or(0);
             let ord_type_byte: u8 = parsed.get(&40).and_then(|s| s.bytes().next()).unwrap_or(b'2');
             let tif_byte: u8 = parsed.get(&59).and_then(|s| s.bytes().next()).unwrap_or(b'1');
-            if con_id != 0 && qty > 0 {
-                let instrument = context.register_instrument(con_id);
+            // A full instrument table must not stop the engine: register()
+            // panics there, and the panic ended the hot loop (ibx#257).
+            let instrument = if con_id != 0 && qty > 0 {
+                let slot = context.market.try_register(con_id);
+                if slot.is_none() {
+                    log::error!("CCP recovery: instrument table full ({} contracts), order {} on con_id {} is not tracked",
+                        crate::types::MAX_INSTRUMENTS, clord_id, con_id);
+                }
+                slot
+            } else {
+                None
+            };
+            if let Some(instrument) = instrument {
+                // req_global_cancel walks ids below this count; without it a
+                // recovered order on a new contract was never cancelled.
+                shared.market.set_instrument_count(context.market.count());
                 if let Some(sym) = parsed.get(&55) {
                     context.set_symbol(instrument, sym.clone());
                 }
@@ -709,15 +901,15 @@ impl CcpState {
                     instrument,
                     side,
                     price: limit_price_i64,
-                    qty,
-                    filled: 0,
+                    qty_fixed: qty,
+                    filled_fixed: 0,
                     status: crate::types::OrderStatus::Submitted,
                     ord_type: ord_type_byte,
                     tif: tif_byte,
                     stop_price: stop_price_i64,
                 });
                 log::info!("CCP recovery: inserted orderId={} sym={:?} side={:?} qty={} px={}",
-                    clord_id, parsed.get(&55), side, qty,
+                    clord_id, parsed.get(&55), side, qty as f64 / QTY_SCALE as f64,
                     limit_price_i64 as f64 / PRICE_SCALE as f64);
             }
         }
@@ -732,11 +924,15 @@ impl CcpState {
         }
 
         // Record the ClOrdID exactly as the server reports it so subsequent
-        // cancel/modify can echo back the same string. Skip cancel-ack frames
-        // (tag 11 starts with 'C' there) — those carry the cancel request's
-        // own id, not the original order's. See ibx#179.
+        // cancel/modify can echo back the same string. Skip reports of a
+        // cancel: they carry the cancel request's own id, not the order's
+        // (ibx#179). A cancel's id is the one ibx sent (ibx#464), or starts
+        // with 'C' (the earlier form, on orders of a previous session).
+        let is_cancel_request = parsed.get(&11).is_some_and(|s| {
+            s.starts_with('C') || context.cancel_clord.get(&clord_id) == Some(s)
+        });
         if let Some(raw_clord) = parsed.get(&11) {
-            if !raw_clord.starts_with('C') && raw_clord != "*" {
+            if !is_cancel_request && raw_clord != "*" {
                 context.last_clord.insert(clord_id, raw_clord.clone());
             }
         }
@@ -795,8 +991,9 @@ impl CcpState {
         let exec_type = parsed.get(&150).map(|s| s.as_str()).unwrap_or("");
         let exec_id = parsed.get(&17).map(|s| s.as_str()).unwrap_or("");
         let last_px = parsed.get(&31).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-        let last_shares = parsed.get(&32).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
-        let leaves_qty = parsed.get(&151).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+        // Fixed-point: a fraction of a share is kept (ibx#313).
+        let last_shares: Qty = parsed.get(&32).and_then(|s| parse_qty(s)).unwrap_or(0);
+        let leaves_qty: Qty = parsed.get(&151).and_then(|s| parse_qty(s)).unwrap_or(0);
         let commission = parsed.get(&12).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
 
         if ord_status == "8" {
@@ -811,41 +1008,123 @@ impl CcpState {
                 parsed.get(&103).map(|s| s.as_str()).unwrap_or(""));
         }
 
-        let status = match ord_status {
-            "0" => {
-                // 39=0 is New on the wire, but the gateway reports PreSubmitted
-                // until the order is actually routed to and acknowledged by an
-                // exchange (for example a limit order resting pre-market). Routing
-                // shows up on the same exec report as a non-empty ExDestination
-                // (tag 100) plus an exec ref (tag 198) other than "NONE"; before
-                // routing both are absent/"NONE". Captured in ib-agent#162 (ibx#210).
-                let routed = parsed.get(&100).is_some_and(|s| !s.is_empty())
-                    || parsed.get(&198).is_some_and(|s| s != "NONE" && !s.is_empty());
-                if routed {
-                    crate::types::OrderStatus::Submitted
-                } else {
-                    crate::types::OrderStatus::PreSubmitted
-                }
+        // 39=0 is New on the wire, but the gateway reports PreSubmitted
+        // until the order is actually routed to and acknowledged by an
+        // exchange (for example a limit order resting pre-market). Routing
+        // shows up on the same exec report as a non-empty ExDestination
+        // (tag 100) plus an exec ref (tag 198) other than "NONE"; before
+        // routing both are absent/"NONE". Captured in ib-agent#162 (ibx#210).
+        let working = || {
+            let routed = parsed.get(&100).is_some_and(|s| !s.is_empty())
+                || parsed.get(&198).is_some_and(|s| s != "NONE" && !s.is_empty());
+            if routed {
+                crate::types::OrderStatus::Submitted
+            } else {
+                crate::types::OrderStatus::PreSubmitted
             }
-            "5" => crate::types::OrderStatus::Submitted,
+        };
+        let status = match ord_status {
+            "0" => working(),
+            // Replaced: back to working, by the same routing rule. The
+            // reference reports no status change across a replace
+            // (ib-agent#192 A1a: PreSubmitted before and after).
+            "5" => working(),
             "A" => crate::types::OrderStatus::PreSubmitted,
-            "E" => crate::types::OrderStatus::PendingReplace,
+            // Not a status the reference reports: it logs the frame and
+            // keeps the order's status (ibx#472). A fill on the same frame
+            // still counts.
+            "E" | "I" => match context.order(clord_id) {
+                Some(o) => o.status,
+                None => {
+                    log::info!("ExecReport: 39={} for order {} not tracked, no status change", ord_status, clord_id);
+                    return;
+                }
+            },
+            // Pending on a replace: the reference reports nothing, so keep
+            // the current status. Reporting it as PendingCancel left the
+            // order looking cancelled, since nothing moves it back (ibx#247).
+            "6" if !is_cancel_request => match context.order(clord_id) {
+                Some(o) => o.status,
+                None => crate::types::OrderStatus::PendingReplace,
+            },
             "6" => crate::types::OrderStatus::PendingCancel,
             "1" => crate::types::OrderStatus::PartiallyFilled,
             "2" => crate::types::OrderStatus::Filled,
-            "4" | "C" | "D" => crate::types::OrderStatus::Cancelled,
+            "4" | "C" => crate::types::OrderStatus::Cancelled,
+            // Pending cancel: the order stays open until 39=4 or a fill
+            // (ibx#472, a server-cancelled IOC sends 39=D then 39=4).
+            "D" => crate::types::OrderStatus::PendingCancel,
             "8" => crate::types::OrderStatus::Rejected,
-            "I" => crate::types::OrderStatus::Inactive,
             _ => {
                 log::warn!("Unknown order status 39={} for order {}", ord_status, clord_id);
                 return;
             }
         };
 
-        // The guard's verdict doubles as the change flag (ibx#212): a stale
-        // frame the guard rejects must not surface as an order_status either.
-        let status_changed = context.update_order_status(clord_id, status);
+        // The guard's verdict (ibx#212): a stale frame the guard rejects
+        // must not surface as an order_status. A frame that restates the
+        // current status does: the reference reports every report of a known
+        // order (ibx#473), except the statuses it reads as invalid (39=E,
+        // 39=I, ibx#472).
+        let change = context.apply_order_status(clord_id, status);
+        let status_changed = change == crate::engine::context::StatusChange::Changed;
+        let report_status = matches!(change,
+            crate::engine::context::StatusChange::Changed | crate::engine::context::StatusChange::Same)
+            && !matches!(ord_status, "E" | "I");
 
+        // The reference reports a server reject as error 201 with the
+        // server's reason (ib-agent#192 C1, ibx#250). Only on the first
+        // transition of an order this session tracks: the "No such order"
+        // frames that follow a cancel of an order already gone are not
+        // shown by the reference (C2).
+        if status == crate::types::OrderStatus::Rejected && status_changed {
+            let reason = parsed.get(&58).map(|s| s.as_str()).unwrap_or("");
+            shared.orders.push_order_error(clord_id, 201, format!("Order rejected - reason:{}", reason));
+        }
+        // The limit offset, limit price and stop price the server reports
+        // for a TRAIL LIMIT (6370, 44, 6117): the offset is restated on its
+        // replace (ib-agent#194), the stop moves with the market (ibx#491).
+        if context.order(clord_id).is_some() {
+            let reported = |tag: u32| parsed.get(&tag).and_then(|s| s.parse::<f64>().ok())
+                .map(|v| (v * PRICE_SCALE as f64).round() as i64);
+            let stop = reported(6117);
+            if let Some(offset) = reported(6370) {
+                let previous_stop = context.trail_limit_reported.get(&clord_id).map_or(0, |r| r.stop);
+                context.trail_limit_reported.insert(clord_id, crate::engine::context::TrailLimitReported {
+                    offset,
+                    limit: reported(44).unwrap_or(0),
+                    stop: stop.unwrap_or(previous_stop),
+                });
+            } else if let (Some(stop), Some(r)) = (stop, context.trail_limit_reported.get_mut(&clord_id)) {
+                r.stop = stop;
+            }
+        }
+        // A cancel of an order of this session: error 202 with the server's
+        // reason, before the Cancelled status, as the reference (ibx#465;
+        // captured 25/09/2026, empty reason for a user cancel).
+        if status == crate::types::OrderStatus::Cancelled && status_changed {
+            let reason = parsed.get(&58).map(|s| s.as_str()).unwrap_or("");
+            shared.orders.push_order_error(clord_id, 202, format!("Order Canceled - reason:{}", reason));
+        }
+        // An order message of the server (6360 type, 6361 text): the
+        // reference reports the TIME one as warning 399, once, and the order
+        // keeps its status (ibx#465; captured 25/09/2026 on an OPG order:
+        // "Order Message: BUY 1 AAPL NASDAQ.NMS Warning: your order will not
+        // be placed at the exchange until ..."). The other types (PRICECAP
+        // in the capture) did not reach the API.
+        if parsed.get(&6360).map(|s| s.as_str()) == Some("TIME") && context.order(clord_id).is_some() {
+            if let Some(text) = parsed.get(&6361).filter(|t| !t.is_empty()) {
+                if self.order_messages_sent.insert((clord_id, text.clone())) {
+                    let message = order_message_399(parsed, text, context, clord_id, shared);
+                    shared.orders.push_order_error(clord_id, 399, message);
+                }
+            }
+        }
+
+        // The fill or status update of this frame, pushed once the order
+        // cache below holds this frame's order state (ibx#473).
+        let mut fill_out: Option<(Fill, crate::bridge::FillExec)> = None;
+        let mut update_out: Option<crate::types::OrderUpdate> = None;
         let mut had_fill = false;
         if matches!(exec_type, "F" | "1" | "2") && last_shares > 0 {
             if !exec_id.is_empty() && !self.record_exec_id(exec_id) {
@@ -853,14 +1132,21 @@ impl CcpState {
                 return;
             }
             if let Some(order) = context.order(clord_id).copied() {
-                context.update_order_filled(clord_id, last_shares as u32);
+                context.update_order_filled_fixed(clord_id, last_shares);
+                // Order totals ride on every fill report next to the print
+                // (ib-agent#192 C3): the callback's filled and average price
+                // are these, not the print (ibx#315).
+                let cum_qty: Qty = parsed.get(&14).and_then(|s| parse_qty(s)).unwrap_or(0);
+                let avg_px = parsed.get(&6).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
                 let fill = Fill {
                     instrument: order.instrument,
                     order_id: clord_id,
                     side: order.side,
                     price: (last_px * PRICE_SCALE as f64) as i64,
-                    qty: last_shares,
-                    remaining: leaves_qty,
+                    qty_fixed: last_shares,
+                    remaining_fixed: leaves_qty,
+                    cum_qty_fixed: cum_qty,
+                    avg_price: (avg_px * PRICE_SCALE as f64).round() as i64,
                     commission: (commission * PRICE_SCALE as f64) as i64,
                     timestamp_ns: context.now_ns(),
                 };
@@ -868,31 +1154,61 @@ impl CcpState {
                     Side::Buy => last_shares,
                     Side::Sell | Side::ShortSell => -last_shares,
                 };
-                context.update_position(order.instrument, delta);
+                context.update_position_fixed(order.instrument, delta);
                 // notify_fill inlined
-                shared.orders.push_fill(fill);
-                shared.portfolio.set_position(fill.instrument, context.position(fill.instrument));
-                emit(event_tx, Event::Fill(fill));
+                let tag = |t: u32| parsed.get(&t).filter(|s| !s.is_empty());
+                let exec = crate::bridge::FillExec {
+                    exec_id: exec_id.to_string(),
+                    time_secs: tag(6699).or_else(|| tag(60)).or_else(|| tag(52))
+                        .and_then(|s| fix_utc_to_unix_secs(s)),
+                    exchange: tag(100).or_else(|| tag(207)).cloned().unwrap_or_default(),
+                    client_id: tag(6119).and_then(|s| s.parse().ok()).unwrap_or(0),
+                    model_code: tag(6700).cloned().unwrap_or_default(),
+                    order_ref: tag(6010).cloned().unwrap_or_default(),
+                };
+                shared.portfolio.set_position_fixed(fill.instrument, context.position_fixed(fill.instrument));
+                if let Some(con_id) = context.market.con_id(order.instrument) {
+                    self.record_exec_con_id(&exec.exec_id, con_id);
+                    // The daily P&L counts the cash of this session's fills
+                    // (sell positive, buy negative). Stock orders only, so
+                    // no multiplier.
+                    let shares = last_shares as f64 / QTY_SCALE as f64;
+                    let cash = match order.side {
+                        Side::Buy => -shares * last_px,
+                        Side::Sell | Side::ShortSell => shares * last_px,
+                    };
+                    shared.portfolio.add_money_since_seed(con_id, cash);
+                    // The position moves with the fill, as the reference's
+                    // position store does; the server's average cost follows
+                    // with its position feed.
+                    shared.portfolio.apply_fill_to_position(con_id, delta, fill.price);
+                }
+                fill_out = Some((fill, exec));
                 had_fill = true;
             }
         }
 
-        if status_changed && !had_fill {
+        if report_status && !had_fill {
             if let Some(order) = context.order(clord_id).copied() {
                 let perm_id: i64 = parsed.get(&37).map(|s| perm_id_from_fix_order_id(s)).unwrap_or(0);
                 let parent_id: i64 = parsed.get(&583).map(|s| perm_id_from_fix_order_id(s)).unwrap_or(0);
+                // Average fill price rides on status reports too (ibx#315).
+                let avg_px = parsed.get(&6).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                // Filled so far as the server counts it (tag 14): an order
+                // recovered at session start has no prints in this session.
+                let filled = parsed.get(&14).and_then(|s| parse_qty(s)).unwrap_or(order.filled_fixed);
                 let update = crate::types::OrderUpdate {
                     order_id: clord_id,
                     instrument: order.instrument,
-                    status,
-                    filled_qty: order.filled as i64,
-                    remaining_qty: leaves_qty,
+                    status: order.status,
+                    filled_qty_fixed: filled,
+                    remaining_qty_fixed: leaves_qty,
+                    avg_fill_price: (avg_px * PRICE_SCALE as f64).round() as i64,
                     perm_id,
                     parent_id,
                     timestamp_ns: context.now_ns(),
                 };
-                shared.orders.push_order_update(update);
-                emit(event_tx, Event::OrderUpdate(update));
+                update_out = Some(update);
             }
         }
 
@@ -943,7 +1259,9 @@ impl CcpState {
                 "K" => "MTL", "R" => "REL", _ => ord_type_tag,
             };
 
+            let dtc = parsed.get(&6436).map(|s| s.as_str()) == Some("1");
             let tif_str = match tif_tag {
+                "1" if dtc => "DTC",
                 "0" => "DAY", "1" => "GTC", "3" => "IOC", "4" => "FOK",
                 "2" => "OPG", "6" => "GTD", "8" => "AUC", _ => "DAY",
             };
@@ -1030,6 +1348,17 @@ impl CcpState {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(f64::MAX);
 
+            // A TRAIL LIMIT report without its offset, limit price or stop
+            // price keeps the last ones (ib-agent#194, ibx#491).
+            let trail_limit = context.trail_limit_reported.get(&clord_id).copied();
+            let limit_price = match trail_limit {
+                Some(r) if limit_price == 0.0 && r.limit != 0 => r.limit as f64 / PRICE_SCALE as f64,
+                _ => limit_price,
+            };
+            let trail_stop_price = match trail_limit {
+                Some(r) if trail_stop_price == f64::MAX && r.stop != 0 => r.stop as f64 / PRICE_SCALE as f64,
+                _ => trail_stop_price,
+            };
             let order = api::Order {
                 order_id: clord_id as i64,
                 action: if action.is_empty() { fb_action.to_string() } else { action.to_string() },
@@ -1040,7 +1369,8 @@ impl CcpState {
                 tif: if tif_str.is_empty() { fb_tif.to_string() } else { tif_str.to_string() },
                 account: if account.is_empty() { account_id.to_string() } else { account.clone() },
                 perm_id,
-                filled_quantity: leaves_qty as f64,
+                // Filled so far, not the quantity still working (ibx#309).
+                filled_quantity: cum_qty,
                 outside_rth,
                 clearing_intent,
                 auto_cancel_date,
@@ -1049,6 +1379,10 @@ impl CcpState {
                 use_price_mgmt_algo,
                 trail_stop_price,
                 algo_strategy,
+                // The orderRef the server echoes (ibx#466).
+                order_ref: parsed.get(&6010).cloned().unwrap_or_default(),
+                // A TRAIL LIMIT's offset as the server reports it (ib-agent#194).
+                lmt_price_offset: trail_limit.map_or(f64::MAX, |r| r.offset as f64 / PRICE_SCALE as f64),
                 ..Default::default()
             };
 
@@ -1104,6 +1438,15 @@ impl CcpState {
             });
         }
 
+        if let Some((fill, exec)) = fill_out {
+            shared.orders.push_fill_with_exec(fill, exec);
+            emit(event_tx, Event::Fill(fill));
+        }
+        if let Some(update) = update_out {
+            shared.orders.push_order_update(update);
+            emit(event_tx, Event::OrderUpdate(update));
+        }
+
         if matches!(status,
             crate::types::OrderStatus::Filled |
             crate::types::OrderStatus::Cancelled |
@@ -1114,11 +1457,11 @@ impl CcpState {
                     order_id: clord_id,
                     instrument: order.instrument,
                     status,
-                    filled_qty: order.filled as i64,
+                    filled_qty_fixed: order.filled_fixed,
                     timestamp_ns: context.now_ns(),
                 });
             }
-            context.remove_order(clord_id);
+            context.finish_order(clord_id, status);
         }
     }
 
@@ -1143,10 +1486,12 @@ impl CcpState {
             orig_clord, reject_type, reason_code, reason);
 
         let Some(oid) = orig_clord else { return };
+        // The cancel is over; a later cancel sends a new id (ibx#464).
+        context.cancel_clord.remove(&oid);
 
         // Update local context only if we tracked the order in this session.
         let instrument = if let Some(order) = context.order(oid).copied() {
-            let restore_status = if order.filled > 0 {
+            let restore_status = if order.filled_fixed > 0 {
                 crate::types::OrderStatus::PartiallyFilled
             } else {
                 crate::types::OrderStatus::Submitted
@@ -1392,6 +1737,34 @@ impl CcpState {
             hb.last_ccp_sent = Instant::now();
             log::info!("Sent P&L subscribe: req_id={} account={}", req_id, account);
         }
+    }
+
+    /// Account summary subscription (ibx#479), as the reference writes it:
+    /// `6040=55|6036=1|6529={sr_id}|6374={tags}|6160={group}` to subscribe,
+    /// `6036=0` with the same id to cancel (`subscribe` is `None`).
+    pub(crate) fn send_account_summary(
+        &mut self,
+        sr_id: &str,
+        subscribe: Option<(&str, &str)>,
+        ccp_conn: &mut Option<Connection>,
+        hb: &mut HeartbeatState,
+    ) {
+        let Some(conn) = ccp_conn.as_mut() else { return };
+        let ts = chrono_free_timestamp();
+        let mut fields: Vec<(u32, &str)> = vec![
+            (fix::TAG_MSG_TYPE, "U"),
+            (fix::TAG_SENDING_TIME, &ts),
+            (6040, "55"),
+            (6036, if subscribe.is_some() { "1" } else { "0" }),
+            (6529, sr_id),
+        ];
+        if let Some((tags, group)) = subscribe {
+            fields.push((6374, tags));
+            fields.push((6160, group));
+        }
+        let _ = conn.send_fix(&fields);
+        hb.last_ccp_sent = Instant::now();
+        log::info!("Sent account summary {}: {}", if subscribe.is_some() { "subscribe" } else { "cancel" }, sr_id);
     }
 
     pub(crate) fn send_news_subscribe(
@@ -1700,6 +2073,20 @@ pub(crate) fn handle_account_update(msg: &[u8], context: &mut Context, shared: &
         Ok(t) => t,
         Err(_) => return,
     };
+    // Rows of an account summary subscription go to that request only, not
+    // to the account state (ibx#479).
+    if let Some(sr_id) = summary_id(text) {
+        let (rows, _) = parse_account_rows(text);
+        shared.portfolio.push_account_summary_event(crate::bridge::AccountSummaryEvent {
+            sr_id: sr_id.to_string(),
+            rows: rows.into_iter()
+                .map(|(key, currency, value)| crate::bridge::AccountRow { key, value, currency, ledger: false })
+                .collect(),
+            ledger: text.split(SOH_CHAR).any(|p| p == "35=RL"),
+            end: false,
+        });
+        return;
+    }
     let mut key: Option<&str> = None;
     for part in text.split('\x01') {
         if let Some(val) = part.strip_prefix("8001=") {
@@ -1733,6 +2120,149 @@ pub(crate) fn handle_account_update(msg: &[u8], context: &mut Context, shared: &
         }
     }
     shared.portfolio.set_account(context.account());
+    // The account stream's values as sent, for update_account_value (ibx#475).
+    if is_account_stream(text) {
+        let (rows, time_secs) = parse_account_rows(text);
+        let ledger = text.split(SOH_CHAR).any(|p| p == "35=RL");
+        shared.portfolio.update_account_rows(|store| {
+            for (key, currency, value) in &rows {
+                store.set_row(key, currency, value, ledger);
+            }
+            if let Some(t) = time_secs {
+                store.time_secs = store.time_secs.max(t);
+            }
+        });
+    }
+}
+
+/// The account stream's frames carry `6529=AR.{n}`; other subscriptions
+/// (account summary, `SR.{n}`) have their own id.
+/// The subscription id of an account summary frame (`6529=SR.{...}`).
+fn summary_id(text: &str) -> Option<&str> {
+    text.split(SOH_CHAR).find_map(|p| p.strip_prefix("6529=")).filter(|id| id.starts_with("SR."))
+}
+
+const SOH_CHAR: char = '\x01';
+
+fn is_account_stream(text: &str) -> bool {
+    text.split('\x01').any(|p| p.starts_with("6529=AR."))
+}
+
+/// End marker of the account stream (`35=EB|6529=AR.{n}`): the first full
+/// image is in (ibx#475). The periodic batches carry none (captured
+/// 25/09/2026).
+fn handle_account_end(msg: &[u8], shared: &SharedState) {
+    let Ok(text) = std::str::from_utf8(msg) else { return };
+    // The end of an account summary batch (ibx#479).
+    if let Some(sr_id) = summary_id(text) {
+        shared.portfolio.push_account_summary_event(crate::bridge::AccountSummaryEvent {
+            sr_id: sr_id.to_string(), rows: Vec::new(), ledger: false, end: true,
+        });
+        return;
+    }
+    if is_account_stream(text) {
+        shared.portfolio.update_account_rows(|store| {
+            if !store.image_complete {
+                store.image_complete = true;
+                store.generation += 1;
+            }
+        });
+    }
+}
+
+/// Ledger tags of a `35=RL` row and the account keys the reference gives
+/// them (ibx#475). The row's currency (8002) is the key's currency.
+const LEDGER_KEYS: &[(&str, &str)] = &[
+    ("9806", "CashBalance"),
+    ("9818", "TotalCashBalance"),
+    ("6242", "AccruedCash"),
+    ("9807", "StockMarketValue"),
+    ("9808", "OptionMarketValue"),
+    ("9809", "FutureOptionValue"),
+    ("9810", "FuturesPNL"),
+    ("9819", "NetLiquidationByCurrency"),
+    ("6100", "UnrealizedPnL"),
+    ("6099", "RealizedPnL"),
+    ("9820", "ExchangeRate"),
+];
+
+/// Rows of an account frame as (key, currency, value text), and the latest
+/// row time (6066), as the reference reads them (ibx#475):
+/// - `35=UT` / `35=UM`: each `8001` key with its `8004` value, currency
+///   from tag 15 (UT rows have none). A row with no value is skipped. A
+///   `PNL` row ends the frame. `AddAccountCode` is skipped, and
+///   `AccountCode` is kept only after an `AccountType` row of the same frame
+///   (the periodic frames carry an empty one).
+/// - `35=RL`: each `LedgerList` row gives `Currency` and the ledger keys,
+///   with the row's currency (8002).
+pub(crate) fn parse_account_rows(text: &str) -> (Vec<(String, String, String)>, Option<i64>) {
+    let mut rows = Vec::new();
+    let mut time: Option<i64> = None;
+    let ledger = text.split('\x01').any(|p| p == "35=RL");
+    // Current row: key, currency, value, ledger values.
+    let mut key: Option<&str> = None;
+    let mut currency = "";
+    let mut value: Option<&str> = None;
+    let mut ledger_values: Vec<(&str, &str)> = Vec::new();
+    let mut seen_account_type = false;
+
+    let flush = |key: Option<&str>, currency: &str, value: Option<&str>,
+                     ledger_values: &mut Vec<(&str, &str)>, rows: &mut Vec<(String, String, String)>,
+                     seen_account_type: &mut bool| -> bool {
+        let Some(k) = key else { return true };
+        if ledger {
+            if k == "LedgerList" && !currency.is_empty() {
+                rows.push(("Currency".into(), currency.into(), currency.into()));
+                for (tag, name) in LEDGER_KEYS {
+                    if let Some((_, v)) = ledger_values.iter().find(|(t, _)| t == tag) {
+                        rows.push((name.to_string(), currency.into(), v.to_string()));
+                    }
+                }
+            }
+            ledger_values.clear();
+            return true;
+        }
+        match k {
+            "PNL" => return false,
+            "AddAccountCode" => {}
+            "AccountCode" if !*seen_account_type => {}
+            _ => {
+                if k == "AccountType" {
+                    *seen_account_type = true;
+                }
+                if let Some(v) = value {
+                    rows.push((k.into(), currency.into(), v.into()));
+                }
+            }
+        }
+        true
+    };
+
+    for part in text.split('\x01') {
+        let Some((tag, val)) = part.split_once('=') else { continue };
+        match tag {
+            "8001" => {
+                if !flush(key, currency, value, &mut ledger_values, &mut rows, &mut seen_account_type) {
+                    return (rows, time);
+                }
+                key = Some(val);
+                currency = "";
+                value = None;
+            }
+            "8002" if ledger => currency = val,
+            "15" if !ledger => currency = val,
+            "8004" => value = Some(val),
+            "6066" => {
+                if let Ok(t) = val.parse::<i64>() {
+                    time = Some(time.map_or(t, |p: i64| p.max(t)));
+                }
+            }
+            _ if ledger && key.is_some() => ledger_values.push((tag, val)),
+            _ => {}
+        }
+    }
+    flush(key, currency, value, &mut ledger_values, &mut rows, &mut seen_account_type);
+    (rows, time)
 }
 
 /// Handle 6040=143 P&L midnight seed response.
@@ -1745,14 +2275,14 @@ fn handle_pnl_response(msg: &[u8], shared: &SharedState) {
     };
     let mut seeds = Vec::new();
     let mut con_id: i64 = 0;
-    let mut qty_midnight: i64 = 0;
+    let mut qty_midnight: Qty = 0;
     let mut money_traded: f64 = 0.0;
     let mut realized_pnl: f64 = 0.0;
     let mut count = 0;
     for part in text.split('\x01') {
         if let Some(v) = part.strip_prefix("6008=") {
             if count > 0 && con_id != 0 {
-                seeds.push(MidnightSeed { con_id, qty_midnight, money_traded, realized_pnl });
+                seeds.push(MidnightSeed { con_id, qty_midnight_fixed: qty_midnight, money_traded, realized_pnl });
             }
             con_id = v.parse().unwrap_or(0);
             qty_midnight = 0;
@@ -1760,7 +2290,7 @@ fn handle_pnl_response(msg: &[u8], shared: &SharedState) {
             realized_pnl = 0.0;
             count += 1;
         } else if let Some(v) = part.strip_prefix("6064=") {
-            qty_midnight = v.parse::<f64>().unwrap_or(0.0) as i64;
+            qty_midnight = parse_qty(v).unwrap_or(0);
         } else if let Some(v) = part.strip_prefix("6822=") {
             // moneyTradedSinceMidnight: signed net cash, SELL positive / BUY
             // negative. Stored with the wire sign; poll_pnl adds it (ib-agent#163).
@@ -1770,7 +2300,7 @@ fn handle_pnl_response(msg: &[u8], shared: &SharedState) {
         }
     }
     if count > 0 && con_id != 0 {
-        seeds.push(MidnightSeed { con_id, qty_midnight, money_traded, realized_pnl });
+        seeds.push(MidnightSeed { con_id, qty_midnight_fixed: qty_midnight, money_traded, realized_pnl });
     }
     shared.portfolio.set_midnight_seeds(seeds);
 }
@@ -1796,7 +2326,7 @@ impl CcpState {
     };
     // Parse repeating group by scanning for 6008= boundaries
     let mut con_id: i64 = 0;
-    let mut qty: i64 = 0;
+    let mut qty: Qty = 0;
     let mut avg_cost_raw: f64 = 0.0;
     let mut count = 0;
     for part in text.split('\x01') {
@@ -1805,11 +2335,11 @@ impl CcpState {
             if count > 0 && con_id != 0 {
                 let avg_cost = (avg_cost_raw * PRICE_SCALE as f64) as Price;
                 shared.portfolio.set_position_info(PositionInfo {
-                    con_id, position: qty, avg_cost, ..Default::default()
+                    con_id, position_fixed: qty, avg_cost, ..Default::default()
                 });
                 if let Some(instrument) = context.market.instrument_by_con_id(con_id) {
-                    shared.portfolio.set_position(instrument, qty);
-                    emit(event_tx, Event::PositionUpdate { instrument, con_id, position: qty, avg_cost });
+                    shared.portfolio.set_position_fixed(instrument, qty);
+                    emit(event_tx, Event::PositionUpdate { instrument, con_id, position_fixed: qty, avg_cost });
                 }
                 self.auto_fetch_secdef_if_cold(con_id, ccp_conn, shared, hb);
             }
@@ -1818,7 +2348,7 @@ impl CcpState {
             avg_cost_raw = 0.0;
             count += 1;
         } else if let Some(v) = part.strip_prefix("6064=") {
-            qty = v.parse::<f64>().unwrap_or(0.0) as i64;
+            qty = parse_qty(v).unwrap_or(0);
         } else if let Some(v) = part.strip_prefix("6101=") {
             avg_cost_raw = v.parse().unwrap_or(0.0);
         }
@@ -1827,11 +2357,11 @@ impl CcpState {
     if count > 0 && con_id != 0 {
         let avg_cost = (avg_cost_raw * PRICE_SCALE as f64) as Price;
         shared.portfolio.set_position_info(PositionInfo {
-            con_id, position: qty, avg_cost, ..Default::default()
+            con_id, position_fixed: qty, avg_cost, ..Default::default()
         });
         if let Some(instrument) = context.market.instrument_by_con_id(con_id) {
-            shared.portfolio.set_position(instrument, qty);
-            emit(event_tx, Event::PositionUpdate { instrument, con_id, position: qty, avg_cost });
+            shared.portfolio.set_position_fixed(instrument, qty);
+            emit(event_tx, Event::PositionUpdate { instrument, con_id, position_fixed: qty, avg_cost });
         }
         self.auto_fetch_secdef_if_cold(con_id, ccp_conn, shared, hb);
     }
@@ -1941,6 +2471,38 @@ impl CcpState {
 }
 
 /// Handle position update messages (cross-cutting, called from CCP message processing).
+/// A portfolio message carries one row per position, each row starting with
+/// the symbol field and repeating the same fields (ib-agent#192 D4:
+/// most messages carry 2 or 3 rows). Parsing the whole message into one map
+/// kept only the last row (ibx#411). A message with no symbol field is one row.
+pub(crate) fn handle_portfolio_message(
+    msg: &[u8],
+    context: &mut Context,
+    shared: &SharedState,
+    event_tx: &Option<Sender<Event>>,
+) {
+    let mut header = std::collections::HashMap::new();
+    let mut rows: Vec<std::collections::HashMap<u32, String>> = Vec::new();
+    for field in msg.split(|&b| b == fix::SOH) {
+        let Some(eq) = field.iter().position(|&b| b == b'=') else { continue };
+        let Some(tag) = std::str::from_utf8(&field[..eq]).ok().and_then(|t| t.parse::<u32>().ok()) else { continue };
+        let value = String::from_utf8_lossy(&field[eq + 1..]).into_owned();
+        if tag == 6068 {
+            rows.push(std::collections::HashMap::new());
+        }
+        match rows.last_mut() {
+            Some(row) => { row.insert(tag, value); }
+            None => { header.insert(tag, value); }
+        }
+    }
+    if rows.is_empty() {
+        rows.push(header);
+    }
+    for row in &rows {
+        handle_position_update(row, context, shared, event_tx);
+    }
+}
+
 pub(crate) fn handle_position_update(
     parsed: &std::collections::HashMap<u32, String>,
     context: &mut Context,
@@ -1951,10 +2513,8 @@ pub(crate) fn handle_position_update(
         Some(v) => v,
         None => return,
     };
-    let position: i64 = parsed.get(&6064)
-        .and_then(|s| s.parse::<f64>().ok())
-        .map(|v| v as i64)
-        .unwrap_or(0);
+    // Fixed-point: a fractional position is kept (ibx#313).
+    let position: Qty = parsed.get(&6064).and_then(|s| parse_qty(s)).unwrap_or(0);
     // Tag map verified against the updatePortfolio callback (ib-agent#172):
     // 6101 = averageCost, 6065 = marketPrice (per share), 6067 = marketValue,
     // 6100 = unrealizedPNL, 6099 = realizedPNL. Earlier code read 6065 as the
@@ -1972,24 +2532,31 @@ pub(crate) fn handle_position_update(
     let symbol = parsed.get(&6068).map(|s| s.trim_end().to_string()).unwrap_or_default();
     let sec_type = parsed.get(&167).cloned().unwrap_or_default();
     let currency = parsed.get(&15).cloned().unwrap_or_default();
-    let multiplier = parsed.get(&8002).cloned().unwrap_or_default();
+    // Only the multiplier part of the row key; the whole key used to be
+    // reported as the contract's multiplier.
+    let multiplier = parsed.get(&8002)
+        .and_then(|key| {
+            let parts: Vec<&str> = key.split('/').collect();
+            (parts.len() == 4).then(|| parts[2].to_string())
+        })
+        .unwrap_or_default();
 
     // Always store position info for reqPositions/pnlSingle, regardless of instrument registry.
     shared.portfolio.set_position_info(PositionInfo {
-        con_id, position, avg_cost,
+        con_id, position_fixed: position, avg_cost,
         symbol, sec_type, currency, multiplier,
         ..Default::default()
     });
     shared.portfolio.set_position_marks(con_id, market_price, market_value, unrealized_pnl, realized_pnl);
 
     if let Some(instrument) = context.market.instrument_by_con_id(con_id) {
-        let current = context.position(instrument);
+        let current = context.position_fixed(instrument);
         let delta = position - current;
         if delta != 0 {
-            context.update_position(instrument, delta);
+            context.update_position_fixed(instrument, delta);
         }
-        shared.portfolio.set_position(instrument, position);
-        emit(event_tx, Event::PositionUpdate { instrument, con_id, position, avg_cost });
+        shared.portfolio.set_position_fixed(instrument, position);
+        emit(event_tx, Event::PositionUpdate { instrument, con_id, position_fixed: position, avg_cost });
     }
 }
 
@@ -2000,6 +2567,127 @@ mod tests {
     // Regression for ibx#198: the fill-dedup set must NOT be wiped wholesale
     // when it reaches its cap. A recently-seen ExecID has to stay deduplicated
     // so a post-reconnect server replay can't double-count the fill.
+    /// The commission frame captured 25/09/2026, 25 ms after a BUY 100 AAPL
+    /// fill that carried no commission (ibx#471).
+    fn commission_frame(pairs: &[(u32, &str)]) -> std::collections::HashMap<u32, String> {
+        let mut m: std::collections::HashMap<u32, String> = [
+            (35u32, "U"), (6040, "60"), (17, "0000e0d5.6ab5f36f.01.01"), (37, "1"),
+            (6381, "USD"), (6378, "1.0003"), (6099, "0"),
+        ].iter().map(|(t, v)| (*t, v.to_string())).collect();
+        for (tag, val) in pairs {
+            m.insert(*tag, val.to_string());
+        }
+        m
+    }
+
+    #[test]
+    fn commission_frame_gives_the_commission_report() {
+        let mut ccp = CcpState::new();
+        let shared = SharedState::new();
+        ccp.handle_commission_report(&commission_frame(&[]), &shared);
+        let reports = shared.orders.drain_commission_reports();
+        assert_eq!(reports.len(), 1);
+        let r = &reports[0];
+        assert_eq!(r.exec_id, "0000e0d5.6ab5f36f.01.01");
+        assert_eq!(r.commission_and_fees, 1.0003);
+        assert_eq!(r.currency, "USD");
+        assert_eq!(r.realized_pnl, f64::MAX, "a realized P&L of 0 is sent as unset");
+        assert_eq!(r.yield_amount, f64::MAX);
+        assert_eq!(r.yield_redemption_date, "");
+    }
+
+    #[test]
+    fn commission_frame_carries_realized_pnl_and_yield() {
+        let mut ccp = CcpState::new();
+        let shared = SharedState::new();
+        ccp.handle_commission_report(&commission_frame(&[(6099, "-12.5"), (236, "4.25"), (696, "20301231")]), &shared);
+        let r = shared.orders.drain_commission_reports().remove(0);
+        assert_eq!(r.realized_pnl, -12.5);
+        assert_eq!(r.yield_amount, 4.25);
+        assert_eq!(r.yield_redemption_date, "20301231");
+    }
+
+    #[test]
+    fn commission_frame_duplicates_and_lower_revisions_are_skipped() {
+        let mut ccp = CcpState::new();
+        let shared = SharedState::new();
+        ccp.handle_commission_report(&commission_frame(&[(17, "0000e0d5.6ab5f36f.01.02")]), &shared);
+        ccp.handle_commission_report(&commission_frame(&[(17, "0000e0d5.6ab5f36f.01.02")]), &shared);
+        ccp.handle_commission_report(&commission_frame(&[(17, "0000e0d5.6ab5f36f.01.01")]), &shared);
+        assert_eq!(shared.orders.drain_commission_reports().len(), 1);
+        // A higher revision replaces the report.
+        ccp.handle_commission_report(&commission_frame(&[(17, "0000e0d5.6ab5f36f.01.0a"), (6378, "1.5")]), &shared);
+        let r = shared.orders.drain_commission_reports();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].commission_and_fees, 1.5);
+    }
+
+    #[test]
+    fn commission_frame_without_a_commission_is_dropped() {
+        let mut ccp = CcpState::new();
+        let shared = SharedState::new();
+        let mut frame = commission_frame(&[]);
+        frame.remove(&6378);
+        ccp.handle_commission_report(&frame, &shared);
+        assert!(shared.orders.drain_commission_reports().is_empty());
+    }
+
+    #[test]
+    fn a_fill_carries_its_execution_id() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let fill = exec_report_frame(&[(20, "0"), (39, "2"), (150, "F"), (17, "0000e0d5.6ab5f36f.01.01"),
+            (31, "336.25"), (32, "1"), (14, "1"), (151, "0"), (6, "336.25")]);
+        ccp.handle_exec_report(&fill, &mut context, &shared, &None, "");
+        let fills = shared.orders.drain_fills_with_exec();
+        assert_eq!(fills.len(), 1);
+        assert_eq!(fills[0].1.exec_id, "0000e0d5.6ab5f36f.01.01");
+    }
+
+    // ibx#474: the captured fill of 25/09/2026 (clientId 250, orderRef
+    // pm0925-fill-BUY): time from tag 60 when 6699 is absent, exchange from
+    // tag 100, clientId from 6119, orderRef from 6010.
+    #[test]
+    fn a_fill_carries_its_execution_details() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let fill = exec_report_frame(&[(20, "0"), (39, "2"), (150, "F"), (17, "0000e0d5.6ab5f36f.01.01"),
+            (31, "336.25"), (32, "1"), (14, "1"), (151, "0"), (6, "336.25"),
+            (100, "ARCA"), (207, "ARCA"), (30, "ARCA"), (6119, "250"), (6010, "pm0925-fill-BUY"),
+            (60, "20260925-08:49:54"), (52, "20260925-08:49:55.123")]);
+        ccp.handle_exec_report(&fill, &mut context, &shared, &None, "");
+        let (_, exec) = shared.orders.drain_fills_with_exec().remove(0);
+        assert_eq!(exec.time_secs, Some(1790326194));
+        assert_eq!(exec.exchange, "ARCA");
+        assert_eq!(exec.client_id, 250);
+        assert_eq!(exec.order_ref, "pm0925-fill-BUY");
+        assert_eq!(exec.model_code, "");
+    }
+
+    #[test]
+    fn a_fill_time_prefers_6699_and_exchange_falls_back_to_207() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let fill = exec_report_frame(&[(20, "0"), (39, "2"), (150, "F"), (17, "e2"),
+            (31, "1"), (32, "1"), (14, "1"), (151, "0"), (207, "NASDAQ"),
+            (6699, "20260925-08:49:53.500"), (60, "20260925-08:49:54")]);
+        ccp.handle_exec_report(&fill, &mut context, &shared, &None, "");
+        let (_, exec) = shared.orders.drain_fills_with_exec().remove(0);
+        assert_eq!(exec.time_secs, Some(1790326193));
+        assert_eq!(exec.exchange, "NASDAQ");
+    }
+
+    #[test]
+    fn fix_utc_time_to_unix_seconds() {
+        assert_eq!(fix_utc_to_unix_secs("19700101-00:00:00"), Some(0));
+        assert_eq!(fix_utc_to_unix_secs("20000301-12:30:15.250"), Some(951913815));
+        assert_eq!(fix_utc_to_unix_secs("20260925 08:49:54"), None);
+        assert_eq!(fix_utc_to_unix_secs("2026"), None);
+    }
+
+    #[test]
+    fn split_exec_revision_reads_the_last_segment_as_hex() {
+        assert_eq!(split_exec_revision("0000e0d5.6ab5f36f.01.0a"), ("0000e0d5.6ab5f36f.01", 10));
+        assert_eq!(split_exec_revision("plain"), ("plain", 0));
+    }
+
     #[test]
     fn record_exec_id_dedupes_within_window() {
         let mut ccp = CcpState::new();
@@ -2067,8 +2755,8 @@ mod tests {
             instrument,
             side: Side::Buy,
             price: 0,
-            qty: 100,
-            filled: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: crate::types::OrderStatus::Submitted,
             ord_type: b'2',
             tif: b'0',
@@ -2210,6 +2898,202 @@ mod tests {
             crate::types::OrderStatus::Submitted);
     }
 
+    // ibx#247: a limit replace is acked with a pending report (39=6 on the
+    // new version) and then Replaced (39=5). The reference reports no status
+    // change across it (ib-agent#192 A1a); ibx used to report PendingCancel
+    // and never move back, so the order looked cancelled.
+    #[test]
+    fn ord_status_replace_keeps_the_working_status() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let waiting = exec_report_frame(&[(39, "0"), (150, "0"), (198, "NONE")]);
+        ccp.handle_exec_report(&waiting, &mut context, &shared, &None, "");
+        shared.orders.drain_order_updates();
+
+        let pending = exec_report_frame(&[(11, "42.1"), (39, "6"), (150, "6"), (198, "NONE")]);
+        ccp.handle_exec_report(&pending, &mut context, &shared, &None, "");
+        let replaced = exec_report_frame(&[(11, "42.1"), (41, "42.0"), (39, "5"), (150, "5"), (198, "NONE")]);
+        ccp.handle_exec_report(&replaced, &mut context, &shared, &None, "");
+
+        assert_eq!(context.order(42).unwrap().status, crate::types::OrderStatus::PreSubmitted);
+        // Each report is reported with the unchanged status, as the
+        // reference does for a modify confirm (ibx#473).
+        let statuses: Vec<_> = shared.orders.drain_order_updates().iter().map(|u| u.status).collect();
+        assert_eq!(statuses, [crate::types::OrderStatus::PreSubmitted; 2]);
+    }
+
+    // ibx#473: a stale report is still not reported (ibx#212), and the
+    // update carries the server's filled quantity (tag 14).
+    #[test]
+    fn a_stale_report_is_not_reported_and_filled_is_the_server_count() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA"), (14, "0")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        shared.orders.drain_order_updates();
+        let stale = exec_report_frame(&[(39, "A"), (150, "A")]);
+        ccp.handle_exec_report(&stale, &mut context, &shared, &None, "");
+        assert!(shared.orders.drain_order_updates().is_empty(), "stale PreSubmitted after Submitted");
+        let restated = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA"), (14, "0.5"), (151, "0.5")]);
+        ccp.handle_exec_report(&restated, &mut context, &shared, &None, "");
+        let updates = shared.orders.drain_order_updates();
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].status, crate::types::OrderStatus::Submitted);
+        assert_eq!(updates[0].filled_qty_fixed, QTY_SCALE / 2);
+    }
+
+    // ibx#473: the update is pushed after the order cache holds this
+    // report, so the client reads the same frame's order state.
+    #[test]
+    fn the_order_cache_holds_the_report_before_the_update() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA"), (44, "101.5")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.drain_order_updates().len(), 1);
+        let info = shared.orders.get_order_info(42).expect("cached");
+        assert_eq!(info.order_state.status, "Submitted");
+        assert_eq!(info.order.lmt_price, 101.5);
+    }
+
+    #[test]
+    fn ord_status_replace_of_a_routed_order_stays_submitted() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA"), (198, "ARCA:1")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        let replaced = exec_report_frame(&[(11, "42.1"), (39, "5"), (150, "5"), (198, "NONE")]);
+        ccp.handle_exec_report(&replaced, &mut context, &shared, &None, "");
+        assert_eq!(context.order(42).unwrap().status, crate::types::OrderStatus::Submitted);
+    }
+
+    #[test]
+    fn ord_status_pending_on_a_cancel_request_is_pending_cancel() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA"), (198, "ARCA:1")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        let pending = exec_report_frame(&[(11, "C42"), (39, "6"), (150, "6")]);
+        ccp.handle_exec_report(&pending, &mut context, &shared, &None, "");
+        assert_eq!(context.order(42).unwrap().status, crate::types::OrderStatus::PendingCancel);
+    }
+
+    // ibx#472: the captured server cancel of an IOC order (25/09/2026):
+    // 39=A, 39=0, 150=D|39=D, then 150=4|39=4. The 39=D report is a pending
+    // cancel, and the order stays open, so a fill between the two reports is
+    // applied.
+    #[test]
+    fn pending_cancel_report_keeps_the_order_until_cancelled() {
+        use crate::types::OrderStatus;
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        for pairs in [
+            &[(20, "3"), (39, "A"), (150, "A")][..],
+            &[(20, "0"), (39, "0"), (150, "0"), (100, "ARCA")][..],
+            &[(20, "3"), (39, "D"), (150, "D"), (378, "5")][..],
+        ] {
+            ccp.handle_exec_report(&exec_report_frame(pairs), &mut context, &shared, &None, "");
+        }
+        assert_eq!(context.order(42).unwrap().status, OrderStatus::PendingCancel);
+        let statuses: Vec<OrderStatus> = shared.orders.drain_order_updates().iter().map(|u| u.status).collect();
+        assert_eq!(statuses, [OrderStatus::PreSubmitted, OrderStatus::Submitted, OrderStatus::PendingCancel]);
+
+        let instrument = context.order(42).unwrap().instrument;
+        let fill = exec_report_frame(&[(20, "0"), (39, "2"), (150, "F"), (17, "e1"),
+            (31, "100"), (32, "1"), (14, "1"), (151, "0"), (6, "100")]);
+        ccp.handle_exec_report(&fill, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.drain_fills().len(), 1, "the fill after 39=D is applied");
+        assert_eq!(context.position_fixed(instrument), QTY_SCALE);
+    }
+
+    #[test]
+    fn cancelled_report_after_pending_cancel_ends_the_order() {
+        use crate::types::OrderStatus;
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        for pairs in [
+            &[(20, "0"), (39, "0"), (150, "0"), (100, "ARCA")][..],
+            &[(20, "3"), (39, "D"), (150, "D")][..],
+            &[(20, "3"), (39, "4"), (150, "4")][..],
+        ] {
+            ccp.handle_exec_report(&exec_report_frame(pairs), &mut context, &shared, &None, "");
+        }
+        assert!(context.order(42).is_none(), "a cancelled order leaves the engine");
+        // Its state stays known for a later cancel (ibx#464).
+        assert_eq!(context.finished_status(42), Some(OrderStatus::Cancelled));
+        let last = shared.orders.drain_order_updates().last().map(|u| u.status);
+        assert_eq!(last, Some(OrderStatus::Cancelled));
+    }
+
+    // ibx#464: a cancel now carries the order's next ClOrdID version, not a
+    // 'C' prefix. Its reports are read as the cancel's: the pending report is
+    // PendingCancel, and the order's ClOrdID on record does not move.
+    #[test]
+    fn reports_of_a_versioned_cancel_are_read_as_the_cancel() {
+        use crate::types::OrderStatus;
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(11, "42.0"), (39, "0"), (150, "0"), (100, "ARCA")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        context.cancel_clord.insert(42, "42.1".to_string());
+        let pending = exec_report_frame(&[(11, "42.1"), (41, "42.0"), (39, "6"), (150, "6")]);
+        ccp.handle_exec_report(&pending, &mut context, &shared, &None, "");
+        assert_eq!(context.order(42).unwrap().status, OrderStatus::PendingCancel);
+        assert_eq!(context.last_clord.get(&42).map(String::as_str), Some("42.0"));
+        let done = exec_report_frame(&[(11, "42.1"), (41, "42.0"), (39, "4"), (150, "4")]);
+        ccp.handle_exec_report(&done, &mut context, &shared, &None, "");
+        assert!(context.order(42).is_none());
+        assert!(context.cancel_clord.get(&42).is_none());
+    }
+
+    #[test]
+    fn a_cancel_reject_ends_the_cancel() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        context.cancel_clord.insert(42, "42.1".to_string());
+        let mut reject = std::collections::HashMap::new();
+        for (t, v) in [(35u32, "9"), (11, "42.1"), (41, "42.0"), (434, "1"), (102, "0")] {
+            reject.insert(t, v.to_string());
+        }
+        ccp.handle_cancel_reject(&reject, &mut context, &shared, &None);
+        assert!(context.cancel_clord.get(&42).is_none());
+        assert_eq!(context.order(42).unwrap().status, crate::types::OrderStatus::Submitted);
+    }
+
+    // ibx#472: the reference handles 39=E and 39=I as invalid statuses: no
+    // status change and no callback.
+    #[test]
+    fn pending_replace_and_inactive_reports_keep_the_status() {
+        use crate::types::OrderStatus;
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        shared.orders.drain_order_updates();
+        for code in ["E", "I"] {
+            let frame = exec_report_frame(&[(20, "3"), (39, code), (150, code)]);
+            ccp.handle_exec_report(&frame, &mut context, &shared, &None, "");
+            assert_eq!(context.order(42).unwrap().status, OrderStatus::Submitted, "39={}", code);
+        }
+        assert!(shared.orders.drain_order_updates().is_empty());
+    }
+
+    // ibx#411: one portfolio message carries a row per position (ib-agent#192
+    // D4). This one is captured, 3 rows; only the last was applied.
+    #[test]
+    fn a_portfolio_message_applies_every_position_row() {
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        let msft = context.market.try_register(272093).unwrap();
+        let captured = "8=FIX.4.1|9=000999|35=UP|6529=AR.3|\
+            6068=AXTI                  |6288=0|8001=PositionList|8002=AXTI/USD/1/4726868|6064=1|6067=107.50|6065=107.5|6066=1781529403|15=USD|6008=4726868|167=STK|6101=117.79|6235=107.5|6099=0.00|6100=-10.29|9821=0|6627=0|6920=0|8136=107.485466|8152=107.5|\
+            6068=MSFT                  |6288=0|8001=PositionList|8002=MSFT/USD/1/272093|6064=-10|6067=-3964.40|6065=396.44000245|6066=1781529403|15=USD|6008=272093|167=STK|6101=423.53108|6235=396.44000245|6099=0.00|6100=270.91|9821=0|6627=0|6920=0|8136=396.4232483|8152=-3964.4000244|\
+            6068=SPY                   |6288=0|8001=PositionList|8002=SPY/USD/1/756733|6064=18|6067=13530.35|6065=751.6859131|6066=1781529403|15=USD|6008=756733|167=STK|6101=723.43166665|6235=751.6859131|6099=0.00|6100=508.58|9821=0|6627=0|6920=0|8136=-1|8152=13530.34643555|10=000|";
+        let msg = captured.replace('|', "\x01");
+
+        handle_portfolio_message(msg.as_bytes(), &mut context, &shared, &None);
+
+        let row = |con_id: i64| shared.portfolio.position_info(con_id).expect("row applied");
+        assert_eq!((row(4726868).position_fixed / crate::types::QTY_SCALE, row(4726868).symbol.as_str()), (1, "AXTI"));
+        assert_eq!(row(4726868).avg_cost, (117.79 * PRICE_SCALE as f64) as Price);
+        assert_eq!((row(272093).position_fixed / crate::types::QTY_SCALE, row(272093).symbol.as_str()), (-10, "MSFT"));
+        assert_eq!(row(272093).unrealized_pnl, (270.91 * PRICE_SCALE as f64) as Price);
+        assert_eq!((row(756733).position_fixed / crate::types::QTY_SCALE, row(756733).symbol.as_str()), (18, "SPY"));
+        // The multiplier is one part of the row key, not the whole key.
+        assert_eq!(row(4726868).multiplier, "1");
+        assert_eq!(context.position_fixed(msft) / crate::types::QTY_SCALE, -10, "a registered instrument's position follows its row");
+    }
+
     // ibx#238 / ib-agent#172: in the UP portfolio snapshot the average cost is
     // tag 6101 and 6065 is the market price. The handler previously read 6065 as
     // the average cost. Verify the mapping and that all marks are stored.
@@ -2228,7 +3112,7 @@ mod tests {
         handle_position_update(&m, &mut context, &shared, &None);
 
         let pi = shared.portfolio.position_info(756733).expect("position stored");
-        assert_eq!(pi.position, 10);
+        assert_eq!(pi.position_fixed / crate::types::QTY_SCALE, 10);
         assert_eq!(pi.avg_cost, (100.50 * PRICE_SCALE as f64) as Price);
         assert_eq!(pi.market_price, (110.25 * PRICE_SCALE as f64) as Price);
         assert_eq!(pi.market_value, (1102.50 * PRICE_SCALE as f64) as Price);
@@ -2242,15 +3126,15 @@ mod tests {
     fn lean_position_feed_does_not_clobber_marks() {
         let shared = SharedState::new();
         shared.portfolio.set_position_info(PositionInfo {
-            con_id: 1, position: 10, avg_cost: 100 * PRICE_SCALE, ..Default::default()
+            con_id: 1, position_fixed: (10) as i64 * crate::types::QTY_SCALE, avg_cost: 100 * PRICE_SCALE, ..Default::default()
         });
         shared.portfolio.set_position_marks(1, 110 * PRICE_SCALE, 1100 * PRICE_SCALE, 100 * PRICE_SCALE, 5 * PRICE_SCALE);
         // Lean feed updates position + avg_cost only.
         shared.portfolio.set_position_info(PositionInfo {
-            con_id: 1, position: 12, avg_cost: 101 * PRICE_SCALE, ..Default::default()
+            con_id: 1, position_fixed: (12) as i64 * crate::types::QTY_SCALE, avg_cost: 101 * PRICE_SCALE, ..Default::default()
         });
         let pi = shared.portfolio.position_info(1).unwrap();
-        assert_eq!(pi.position, 12);
+        assert_eq!(pi.position_fixed / crate::types::QTY_SCALE, 12);
         assert_eq!(pi.avg_cost, 101 * PRICE_SCALE);
         assert_eq!(pi.market_price, 110 * PRICE_SCALE, "marks survive the lean feed");
         assert_eq!(pi.market_value, 1100 * PRICE_SCALE);
@@ -2267,9 +3151,9 @@ mod tests {
             assert_eq!(decode_tif(order.tif_byte()), tif,
                 "TIF {tif} must survive encode->decode");
         }
-        // DTC shares the GTD wire byte and decodes as GTD.
+        // DTC has its own code (ibx#467).
         let dtc = api::Order { tif: "DTC".to_string(), ..Default::default() };
-        assert_eq!(decode_tif(dtc.tif_byte()), "GTD");
+        assert_eq!(decode_tif(dtc.tif_byte()), "DTC");
         // Unknown bytes decode to empty, not a wrong TIF.
         assert_eq!(decode_tif(b'7'), "");
     }
@@ -2464,5 +3348,393 @@ mod tests {
         assert_eq!(ccp.pending_fanout.len(), 1);
         assert!(shared.reference.drain_historical_errors().is_empty());
         assert!(shared.reference.drain_contract_details_end().is_empty());
+    }
+
+    // A session-start recovery entry (150=0/39=0) for an order this session
+    // does not know.
+    fn recovery_frame(order_id: u64, con_id: i64) -> std::collections::HashMap<u32, String> {
+        [
+            (11u32, format!("{}.0", order_id)), (150, "0".into()), (39, "0".into()),
+            (6008, con_id.to_string()), (55, "TEST".into()), (54, "1".into()),
+            (38, "1".into()), (44, "1".into()), (40, "2".into()), (59, "1".into()),
+        ].into_iter().collect()
+    }
+
+    // ibx#257: a recovered order on a new contract, with the instrument table
+    // full, panicked in register() and the panic stopped the engine.
+    #[test]
+    fn recovery_on_a_full_instrument_table_does_not_panic() {
+        let mut ccp = CcpState::new();
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        for i in 0..crate::types::MAX_INSTRUMENTS as i64 {
+            context.market.try_register(1_000 + i).unwrap();
+        }
+
+        ccp.handle_exec_report(&recovery_frame(77, 999_999), &mut context, &shared, &None, "");
+        assert!(context.order(77).is_none(), "no slot, so the order is not tracked");
+
+        // A recovered order on a contract that already has a slot is still tracked.
+        ccp.handle_exec_report(&recovery_frame(78, 1_005), &mut context, &shared, &None, "");
+        let order = context.order(78).expect("tracked on its existing slot");
+        assert_eq!(context.market.con_id(order.instrument), Some(1_005));
+    }
+
+    // A fill report for order 90 (BUY 300), as the server sends it: the
+    // print and the order totals side by side.
+    fn fill_frame(exec_id: &str, last_qty: u32, last_px: &str, cum_qty: u32, avg_px: &str, leaves: u32)
+        -> std::collections::HashMap<u32, String>
+    {
+        let status = if leaves == 0 { "2" } else { "1" };
+        [
+            (11u32, "90.0".to_string()), (17, exec_id.into()), (150, status.into()), (39, status.into()),
+            (55, "TEST".into()), (54, "1".into()), (38, "300".into()), (40, "2".into()), (44, "15".into()),
+            (32, last_qty.to_string()), (31, last_px.into()), (14, cum_qty.to_string()),
+            (6, avg_px.into()), (151, leaves.to_string()), (6008, "1005".into()),
+        ].into_iter().collect()
+    }
+
+    // ibx#315: the fill carries the order totals next to the print.
+    // ibx#309: the order cache's filled quantity is the filled total, not
+    // the quantity still working.
+    #[test]
+    fn a_multi_print_fill_carries_the_order_totals() {
+        let mut ccp = CcpState::new();
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        let instrument = context.market.try_register(1005).unwrap();
+        context.insert_order(crate::types::Order::new(90, instrument, Side::Buy, 300, 15 * PRICE_SCALE, b'2', b'0', 0));
+
+        ccp.handle_exec_report(&fill_frame("e1", 100, "10", 100, "10", 200), &mut context, &shared, &None, "");
+        ccp.handle_exec_report(&fill_frame("e2", 100, "12", 200, "11", 100), &mut context, &shared, &None, "");
+
+        let fills = shared.orders.drain_fills();
+        assert_eq!(fills.len(), 2);
+        let second = fills[1];
+        assert_eq!((second.qty_fixed / crate::types::QTY_SCALE, second.price), (100, 12 * PRICE_SCALE), "the print");
+        assert_eq!((second.cum_qty_fixed / crate::types::QTY_SCALE, second.avg_price), (200, 11 * PRICE_SCALE), "the order totals");
+        let info = shared.orders.get_order_info(90).expect("order cached");
+        assert_eq!(info.order.filled_quantity, 200.0);
+    }
+
+    // ibx#313: fill quantities were read as whole numbers, so a fill of a
+    // fraction of a share parsed to 0 and was dropped: no fill, no position
+    // change. Quantities are fixed-point (QTY_SCALE) end to end.
+    #[test]
+    fn a_fractional_fill_is_applied() {
+        let q = crate::types::QTY_SCALE;
+        let mut ccp = CcpState::new();
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        // An order of 1.5 shares listed at connect (placed in another application).
+        ccp.handle_exec_report(&[
+            (11u32, "93.0".to_string()), (150, "0".into()), (39, "0".into()), (6008, "1005".into()),
+            (55, "TEST".into()), (54, "1".into()), (38, "1.5".into()), (44, "15".into()), (40, "2".into()),
+        ].into_iter().collect(), &mut context, &shared, &None, "");
+        let order = context.order(93).copied().expect("listed order tracked");
+        assert_eq!(order.qty_fixed, 3 * q / 2, "1.5 shares kept");
+
+        let fill: std::collections::HashMap<u32, String> = [
+            (11u32, "93.0".to_string()), (17, "e93".into()), (150, "1".into()), (39, "1".into()),
+            (55, "TEST".into()), (54, "1".into()), (38, "1.5".into()), (40, "2".into()), (44, "15".into()),
+            (32, "0.5".into()), (31, "15".into()), (14, "0.5".into()), (6, "15".into()), (151, "1".into()),
+            (6008, "1005".into()),
+        ].into_iter().collect();
+        ccp.handle_exec_report(&fill, &mut context, &shared, &None, "");
+
+        let fills = shared.orders.drain_fills();
+        assert_eq!(fills.len(), 1, "the fill is not dropped");
+        assert_eq!((fills[0].qty_fixed, fills[0].cum_qty_fixed, fills[0].remaining_fixed), (q / 2, q / 2, q));
+        assert_eq!(context.order(93).unwrap().filled_fixed, q / 2);
+        assert_eq!(context.position_fixed(order.instrument), q / 2, "position moved by half a share");
+        assert_eq!(shared.portfolio.position_fixed(order.instrument), q / 2);
+    }
+
+    // ibx#313: a fractional position from the server is kept, in both the
+    // portfolio rows and the lean position feed.
+    #[test]
+    fn a_fractional_position_is_kept() {
+        let q = crate::types::QTY_SCALE;
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        let msg = "8=FIX.4.1|35=UP|6068=TEST|6008=1005|6064=2.5|6101=10|6065=11|15=USD|167=STK|10=000|".replace('|', "\x01");
+        handle_portfolio_message(msg.as_bytes(), &mut context, &shared, &None);
+        assert_eq!(shared.portfolio.position_info(1005).unwrap().position_fixed, 5 * q / 2);
+
+        let mut ccp = CcpState::new();
+        let feed = "8=FIX.4.1|35=U|6040=75|146=1|6008=1006|6064=0.25|6101=10|10=000|".replace('|', "\x01");
+        ccp.handle_position_feed(feed.as_bytes(), &mut None, &mut context, &shared, &None, &mut HeartbeatState::new());
+        assert_eq!(shared.portfolio.position_info(1006).unwrap().position_fixed, q / 4);
+    }
+
+    // ibx#250: a server reject reaches the caller as error 201 with the
+    // server's reason (ib-agent#192 C1), once, and only for an order this
+    // session tracks.
+    #[test]
+    fn a_server_reject_is_reported_as_error_201_with_the_reason() {
+        let mut ccp = CcpState::new();
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        let instrument = context.market.try_register(1005).unwrap();
+        context.insert_order(crate::types::Order::new(91, instrument, Side::Buy, 1000, 15 * PRICE_SCALE, b'2', b'0', 0));
+        let frame = |order: &str, status: &str| -> std::collections::HashMap<u32, String> {
+            let mut m: std::collections::HashMap<u32, String> = [
+                (11u32, format!("{}.0", order)), (150, status.to_string()), (39, status.to_string()),
+                (55, "TEST".into()), (38, "1000".into()), (151, "1000".into()),
+            ].into_iter().collect();
+            if status == "8" {
+                m.insert(58, "Display size should be a multiple of lot size".into());
+            }
+            m
+        };
+
+        ccp.handle_exec_report(&frame("91", "A"), &mut context, &shared, &None, "");
+        assert!(shared.orders.drain_order_errors().is_empty(), "no error on the acknowledgement");
+        ccp.handle_exec_report(&frame("91", "8"), &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.drain_order_errors(), vec![
+            (91, 201, "Order rejected - reason:Display size should be a multiple of lot size".to_string()),
+        ]);
+
+        // A repeat, and a reject for an order this session does not track.
+        ccp.handle_exec_report(&frame("91", "8"), &mut context, &shared, &None, "");
+        ccp.handle_exec_report(&frame("92", "8"), &mut context, &shared, &None, "");
+        assert!(shared.orders.drain_order_errors().is_empty());
+    }
+
+    // req_global_cancel sends a cancel-all for each id below the shared
+    // instrument count. A recovered order on a new contract took a slot
+    // without raising that count, so the global cancel never reached it.
+    #[test]
+    fn recovered_order_is_inside_the_global_cancel_range() {
+        let mut ccp = CcpState::new();
+        let mut context = Context::new();
+        let shared = SharedState::new();
+        context.market.try_register(265598).unwrap();
+        shared.market.set_instrument_count(context.market.count());
+
+        ccp.handle_exec_report(&recovery_frame(79, 756733), &mut context, &shared, &None, "");
+
+        let order = context.order(79).copied().expect("recovered order tracked");
+        let count = shared.market.instrument_count();
+        assert!(order.instrument < count, "instrument {} outside 0..{}", order.instrument, count);
+        for instrument in 0..count {
+            context.cancel_all(instrument);
+        }
+        assert!(context.pending_orders.drain().any(|r| matches!(r,
+            crate::types::OrderRequest::CancelAll { instrument } if instrument == order.instrument)));
+    }
+
+    // ibx#475: account frames captured on paper 25/09/2026 (account masked,
+    // rows shortened), '|' for SOH.
+    const UT_IMAGE: &str = "8=O|9=000000|35=UT|6529=AR.1|8001=AccountType|6066=1790323947|8004=INDIVIDUAL|6288=0|8001=AccountCode|6066=1790323947|8004=DU0000001|6288=0|8001=AccountReady|6066=1790323947|8004=true|6288=0|8001=DepositOnCreditHold|6066=1790323947|6288=0|8001=Leverage-S|6066=1790323947|8004=0.07|6288=0|8001=SettledCashByDate|8002=BASE|6066=1790323947|8004=20260925:932758.72933742;20260928:899133.49933742|6288=0|";
+    const UM_IMAGE: &str = "8=O|9=000000|35=UM|6529=AR.1|8001=AccruedCash|15=USD|6066=1790323947|6288=0|8004=1893.50|8001=FullMaintMarginReq|15=USD|6066=1790323947|6288=0|8004=11647.75|8001=MaintMarginReq|15=USD|6066=1790323947|6288=0|8004=11647.75|8001=NetLiquidation|15=USD|6066=1790323947|6288=0|8004=953633.06|";
+    const RL_IMAGE: &str = "8=O|9=000000|35=RL|6529=AR.1|8001=LedgerList|8002=BASE|15=BASE|9806=899133.4993|9819=953633.0601|9818=899133.4993|6711=0.0000|9807=52606.06|9808=0.00|9809=0.00|8007=0.00|9810=0.00|6099=26.57|6100=-791.71|9820=1|6242=1893.5|6066=1790338477|6288=0|8001=LedgerList|8002=USD|15=USD|9806=899133.4993|9819=953633.0601|9818=899133.4993|9807=52606.06|9808=0.00|9809=0.00|9810=0.00|6099=26.57|6100=-791.71|9820=1|6242=1893.5|6066=1790338477|6288=0|";
+    const UT_PERIODIC: &str = "8=O|9=000105|35=UT|6529=AR.1|8001=AccountCode|6066=1790338657|8004=|8001=Cushion|6066=1790338657|8004=0.987782|6288=0|";
+
+    fn soh(s: &str) -> String { s.replace('|', "\x01") }
+
+    fn rows_of(frame: &str) -> Vec<(String, String, String)> {
+        parse_account_rows(&soh(frame)).0
+    }
+
+    fn row(k: &str, c: &str, v: &str) -> (String, String, String) {
+        (k.into(), c.into(), v.into())
+    }
+
+    #[test]
+    fn account_rows_keep_the_key_the_text_and_the_currency() {
+        let ut = rows_of(UT_IMAGE);
+        assert_eq!(ut, [
+            row("AccountType", "", "INDIVIDUAL"),
+            row("AccountCode", "", "DU0000001"),
+            row("AccountReady", "", "true"),
+            row("Leverage-S", "", "0.07"),
+            row("SettledCashByDate", "", "20260925:932758.72933742;20260928:899133.49933742"),
+        ], "a row with no value is skipped; UT rows have no currency");
+        let um = rows_of(UM_IMAGE);
+        assert_eq!(um, [
+            row("AccruedCash", "USD", "1893.50"),
+            row("FullMaintMarginReq", "USD", "11647.75"),
+            row("MaintMarginReq", "USD", "11647.75"),
+            row("NetLiquidation", "USD", "953633.06"),
+        ], "each key as sent, the Full keys too");
+        assert_eq!(parse_account_rows(&soh(UM_IMAGE)).1, Some(1790323947));
+    }
+
+    #[test]
+    fn ledger_rows_give_the_keys_per_currency() {
+        let rl = rows_of(RL_IMAGE);
+        assert!(rl.contains(&row("Currency", "BASE", "BASE")));
+        assert!(rl.contains(&row("CashBalance", "BASE", "899133.4993")));
+        assert!(rl.contains(&row("NetLiquidationByCurrency", "USD", "953633.0601")));
+        assert!(rl.contains(&row("RealizedPnL", "USD", "26.57")));
+        assert!(rl.contains(&row("UnrealizedPnL", "BASE", "-791.71")));
+        assert!(rl.contains(&row("ExchangeRate", "USD", "1")));
+        assert!(!rl.iter().any(|(k, _, _)| k == "LedgerList"));
+        assert_eq!(rl.iter().filter(|(_, c, _)| c == "USD").count(), 12);
+    }
+
+    // The periodic frame's empty AccountCode is skipped: no AccountType
+    // before it in the frame.
+    #[test]
+    fn a_periodic_frame_skips_the_empty_account_code() {
+        assert_eq!(rows_of(UT_PERIODIC), [row("Cushion", "", "0.987782")]);
+    }
+
+    #[test]
+    fn a_pnl_row_ends_the_frame() {
+        let frame = "8=O|35=UM|6529=AR.1|8001=NetLiquidation|15=USD|8004=1|8001=PNL|15=USD|8004=2|8001=Cushion|8004=3|";
+        assert_eq!(rows_of(frame), [row("NetLiquidation", "USD", "1")]);
+    }
+
+    #[test]
+    fn the_end_marker_completes_the_image_of_the_account_stream_only() {
+        let (mut context, shared) = (Context::new(), SharedState::new());
+        handle_account_update(soh(UM_IMAGE).as_bytes(), &mut context, &shared);
+        assert_eq!(shared.portfolio.account_rows_generation().1, false);
+        handle_account_end(soh("8=O|9=000016|35=EB|6529=SR.3|").as_bytes(), &shared);
+        assert_eq!(shared.portfolio.account_rows_generation().1, false, "another subscription's end");
+        handle_account_end(soh("8=O|9=000016|35=EB|6529=AR.1|").as_bytes(), &shared);
+        let (_, complete, time) = shared.portfolio.account_rows_generation();
+        assert!(complete);
+        assert_eq!(time, 1790323947);
+        assert_eq!(shared.portfolio.account_rows().rows.len(), 4);
+    }
+
+    // ibx#479: frames of an account summary subscription (6529=SR.*) go to
+    // that request only, not to the account stream or the account state.
+    #[test]
+    fn summary_frames_go_to_their_subscription_only() {
+        let (mut context, shared) = (Context::new(), SharedState::new());
+        let um = UM_IMAGE.replace("6529=AR.1", "6529=SR.Socket.7");
+        handle_account_update(soh(&um).as_bytes(), &mut context, &shared);
+        let rl = RL_IMAGE.replace("6529=AR.1", "6529=SR.Socket.7");
+        handle_account_update(soh(&rl).as_bytes(), &mut context, &shared);
+        handle_account_end(soh("8=O|9=000016|35=EB|6529=SR.Socket.7|").as_bytes(), &shared);
+
+        assert!(shared.portfolio.account_rows().rows.is_empty(), "not the account stream");
+        assert_eq!(shared.portfolio.account().net_liquidation, 0, "not the account state");
+        let events = shared.portfolio.drain_account_summary_events();
+        assert_eq!(events.len(), 3);
+        assert!(events.iter().all(|e| e.sr_id == "SR.Socket.7"));
+        assert_eq!(events[0].rows.len(), 4);
+        assert!(!events[0].ledger && events[1].ledger && events[2].end);
+        assert!(events[1].rows.iter().any(|r| r.key == "CashBalance" && r.currency == "USD"));
+    }
+
+    // ibx#478: the realized P&L of a fill of this session (6099 of its
+    // commission frame, 5.645252 on the closing SELL seen on paper
+    // 25/09/2026) adds to the position's realized P&L; a higher revision
+    // replaces the amount; a fill of an earlier session is not counted.
+    #[test]
+    fn a_fill_realized_pnl_adds_to_its_position() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let fill = exec_report_frame(&[(20, "0"), (39, "2"), (150, "F"), (17, "00025b49.6ab659f3.01.01"),
+            (31, "770.56"), (32, "1"), (14, "1"), (151, "0"), (6, "770.56")]);
+        ccp.handle_exec_report(&fill, &mut context, &shared, &None, "");
+        // The fill's cash, for the daily P&L: a buy of 1 at 770.56.
+        let cash = shared.portfolio.money_since_seed().get(&756733).copied().unwrap();
+        assert!((cash + 770.56).abs() < 1e-9, "cash={cash}");
+        // The position moves with the fill; a new position takes the fill
+        // price as average cost.
+        let pi = shared.portfolio.position_info(756733).unwrap();
+        assert_eq!(pi.position_fixed, QTY_SCALE);
+        assert_eq!(pi.avg_cost, 77056 * PRICE_SCALE / 100);
+        ccp.handle_commission_report(&commission_frame(&[(17, "00025b49.6ab659f3.01.01"), (6099, "5.645252")]), &shared);
+        assert_eq!(shared.portfolio.realized_since_seed().get(&756733).copied(), Some(5.645252));
+
+        ccp.handle_commission_report(&commission_frame(&[(17, "00025b49.6ab659f3.01.02"), (6099, "6.0")]), &shared);
+        let total = shared.portfolio.realized_since_seed().get(&756733).copied().unwrap();
+        assert!((total - 6.0).abs() < 1e-9, "the revision replaces: {total}");
+
+        ccp.handle_commission_report(&commission_frame(&[(17, "0000e0d5.6ab5f36f.01.01"), (6099, "3.0")]), &shared);
+        let total = shared.portfolio.realized_since_seed().get(&756733).copied().unwrap();
+        assert!((total - 6.0).abs() < 1e-9, "an earlier session's fill is not counted");
+    }
+
+    // ibx#465: every cancel of an order of this session gives 202 with the
+    // server's reason (empty for a user cancel, captured 25/09/2026).
+    #[test]
+    fn a_cancel_gives_202_with_the_reason() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let routed = exec_report_frame(&[(39, "0"), (150, "0"), (100, "ARCA")]);
+        ccp.handle_exec_report(&routed, &mut context, &shared, &None, "");
+        let done = exec_report_frame(&[(39, "4"), (150, "4")]);
+        ccp.handle_exec_report(&done, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.drain_order_errors(), [(42, 202, "Order Canceled - reason:".to_string())]);
+
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let done = exec_report_frame(&[(39, "4"), (150, "4"), (58, "Order expired")]);
+        ccp.handle_exec_report(&done, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.drain_order_errors(), [(42, 202, "Order Canceled - reason:Order expired".to_string())]);
+    }
+
+    // ibx#465: the captured order message of an OPG order before the open.
+    #[test]
+    fn a_time_order_message_gives_399_once() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        shared.reference.cache_contract(265598, api::Contract {
+            con_id: 265598, symbol: "AAPL".into(), primary_exchange: "NASDAQ".into(), ..Default::default()
+        });
+        shared.reference.cache_market_name(265598, "NMS");
+        let text = "Warning: your order will not be placed at the exchange until 2026-09-25 09:30:00 US/Eastern";
+        let ack = exec_report_frame(&[(39, "A"), (150, "A"), (20, "3"), (54, "1"), (38, "1"), (55, "AAPL"),
+            (6008, "265598"), (59, "2"), (6360, "TIME"), (6361, text)]);
+        ccp.handle_exec_report(&ack, &mut context, &shared, &None, "");
+        ccp.handle_exec_report(&ack, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.drain_order_errors(),
+            [(42, 399, format!("Order Message: BUY 1 AAPL NASDAQ.NMS {}", text))], "once");
+        assert_eq!(context.order(42).unwrap().status, crate::types::OrderStatus::PreSubmitted, "the order keeps working");
+
+        // Another message type did not reach the API in the capture.
+        let price_cap = exec_report_frame(&[(39, "A"), (150, "A"), (6360, "PRICECAP"), (6361, "long text")]);
+        ccp.handle_exec_report(&price_cap, &mut context, &shared, &None, "");
+        assert!(shared.orders.drain_order_errors().is_empty());
+    }
+
+    // ib-agent#194: the server reports the offset of a TRAIL LIMIT set by
+    // its limit price (6370 = trailStopPrice - lmtPrice); it is kept for the
+    // replace and shown as lmtPriceOffset.
+    #[test]
+    fn the_server_trail_limit_offset_is_kept() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let ack = exec_report_frame(&[(39, "0"), (150, "0"), (40, "TSL"), (6370, "5"), (44, "745.66"), (6117, "750.66")]);
+        ccp.handle_exec_report(&ack, &mut context, &shared, &None, "");
+        assert_eq!(context.trail_limit_reported.get(&42).copied(), Some(crate::engine::context::TrailLimitReported {
+            offset: 5 * PRICE_SCALE, limit: 74566 * PRICE_SCALE / 100, stop: 75066 * PRICE_SCALE / 100,
+        }));
+        let info = shared.orders.get_order_info(42).unwrap();
+        assert_eq!(info.order.lmt_price_offset, 5.0);
+        assert_eq!(info.order.lmt_price, 745.66);
+        assert_eq!(info.order.trail_stop_price, 750.66);
+
+        // A short report without them (seen on paper 25/09/2026) keeps them.
+        let short = exec_report_frame(&[(39, "0"), (150, "0"), (40, "TSL")]);
+        ccp.handle_exec_report(&short, &mut context, &shared, &None, "");
+        let info = shared.orders.get_order_info(42).unwrap();
+        assert_eq!(info.order.lmt_price_offset, 5.0);
+        assert_eq!(info.order.lmt_price, 745.66);
+        assert_eq!(info.order.trail_stop_price, 750.66);
+
+        // ibx#491: the server moves the stop and the limit with the market
+        // (ib-agent#195: 6117=752.01, 44=747.01); the moved values show.
+        let moved = exec_report_frame(&[(39, "0"), (150, "0"), (40, "TSL"), (6370, "5"), (44, "747.01"), (6117, "752.01")]);
+        ccp.handle_exec_report(&moved, &mut context, &shared, &None, "");
+        ccp.handle_exec_report(&short, &mut context, &shared, &None, "");
+        let info = shared.orders.get_order_info(42).unwrap();
+        assert_eq!(info.order.trail_stop_price, 752.01);
+        assert_eq!(info.order.lmt_price, 747.01);
+    }
+
+    // ibx#467: a report with 59=1 and the DTC flag is a DTC order.
+    #[test]
+    fn a_report_with_the_dtc_flag_is_dtc() {
+        let (mut ccp, mut context, shared) = ord_status_test_state();
+        let ack = exec_report_frame(&[(39, "0"), (150, "0"), (40, "2"), (59, "1"), (6436, "1")]);
+        ccp.handle_exec_report(&ack, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.get_order_info(42).unwrap().order.tif, "DTC");
+        let ack = exec_report_frame(&[(39, "0"), (150, "0"), (40, "2"), (59, "1")]);
+        ccp.handle_exec_report(&ack, &mut context, &shared, &None, "");
+        assert_eq!(shared.orders.get_order_info(42).unwrap().order.tif, "GTC");
     }
 }

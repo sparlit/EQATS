@@ -30,6 +30,7 @@ fn farm_reconnect_with_cached_credentials() {
     let t0 = Instant::now();
     let (gw, farm_conn, _ccp_conn, _hmds) =
         Gateway::connect(&cfg).expect("Initial connect failed");
+    assert!(gw.account_id.starts_with("DU"), "refusing to run: the logged-in account is not a paper account (its id does not start with DU)");
     let full_auth_ms = t0.elapsed().as_millis();
 
     // Save credentials
@@ -64,10 +65,12 @@ fn hotloop_auto_reconnect_on_farm_disconnect() {
     let (gw, farm_conn, ccp_conn, hmds) =
         Gateway::connect(&cfg).expect("Initial connect failed");
 
+    assert!(gw.account_id.starts_with("DU"), "refusing to run: the logged-in account is not a paper account (its id does not start with DU)");
+
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::bounded(256);
 
-    let (mut hot_loop, _control_tx) = gw.into_hot_loop_with_farms(
+    let (mut hot_loop, control_tx) = gw.into_hot_loop_with_farms(
         shared.clone(), Some(event_tx),
         farm_conn, ccp_conn, hmds, None,
     );
@@ -82,9 +85,32 @@ fn hotloop_auto_reconnect_on_farm_disconnect() {
     }
     assert!(!hot_loop.is_farm_disconnected());
 
-    // Force farm disconnect by dropping the connection
-    hot_loop.farm_conn = None;
-    hot_loop.force_farm_disconnect();
+    // ibx#288: subscribe SPY. The server's subscription acknowledgement sets
+    // the instrument's min tick, so a non-zero min tick proves the server
+    // accepted the subscription (it arrives with the market closed too).
+    control_tx.send(ibx::types::ControlCommand::Subscribe {
+        con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(),
+        last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(),
+        mode_9887: 0, reply_tx: None,
+    }).unwrap();
+    hot_loop.poll_once();
+    let spy = hot_loop.market_for_test().instrument_by_con_id(756733).expect("SPY registered");
+    let acked = |hot_loop: &mut ibx::engine::hot_loop::HotLoop| {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while Instant::now() < deadline {
+            hot_loop.poll_farm_for_test();
+            if hot_loop.market_for_test().min_tick(spy) > 0.0 { return true; }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        false
+    };
+    assert!(acked(&mut hot_loop), "SPY subscription not acknowledged before the drop");
+    println!("SPY subscription acknowledged");
+
+    // Lose the farm connection through the real loss path, and clear the
+    // acknowledgement marker so only a new acknowledgement can set it.
+    hot_loop.lose_farm_for_test();
+    hot_loop.market_for_test().set_min_tick(spy, 0.0);
 
     assert!(hot_loop.is_farm_disconnected());
     println!("Farm disconnected, spawning auto-reconnect...");
@@ -107,7 +133,8 @@ fn hotloop_auto_reconnect_on_farm_disconnect() {
 
     assert!(!hot_loop.is_farm_disconnected(), "Farm should have reconnected within 60s");
     assert!(hot_loop.farm_conn.is_some(), "Farm connection should be restored");
-    println!("PASS: HotLoop auto-reconnected farm after disconnect");
+    assert!(acked(&mut hot_loop), "SPY subscription not re-issued after the reconnect (ibx#288)");
+    println!("PASS: HotLoop auto-reconnected farm after disconnect and restored the SPY subscription");
 }
 
 #[test]
@@ -117,6 +144,7 @@ fn ccp_reconnect_with_cached_credentials() {
     let t0 = Instant::now();
     let (gw, _farm_conn, ccp_conn, _hmds) =
         Gateway::connect(&cfg).expect("Initial connect failed");
+    assert!(gw.account_id.starts_with("DU"), "refusing to run: the logged-in account is not a paper account (its id does not start with DU)");
     let full_auth_ms = t0.elapsed().as_millis();
 
     let auth = ReconnectAuth {
