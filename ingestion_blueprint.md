@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 209
+Total Repositories: 411 | Current Index: 210
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -106,7 +106,7 @@ Total Repositories: 411 | Current Index: 209
 | 101 | cutupdev/solana-copytrading-bot | Processed | https://github.com/sparlit/EQATS/pull/2638 |
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
 | 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2641 |
-| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2642 |
+| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2650 |
 | 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2643 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
 | 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
@@ -212,7 +212,7 @@ Total Repositories: 411 | Current Index: 209
 | 207 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/2649 |
 | 208 | mailbagrahul/nseoptionalpha | Skipped: Private/Non-Existent (404/403) | None |
 | 209 | manavgupta83/nse-factor-engine | Completed | None |
-| 210 | mandarl/nsedata | pending | None |
+| 210 | mandarl/nsedata | Processed | None |
 | 211 | manddar/open-interest-data-extractor | pending | None |
 | 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | pending | None |
 | 213 | manishn32/option_chain_analyzer | pending | None |
