@@ -188,7 +188,7 @@ Total Repositories: 410 | Current Index: 186
 | 183 | karthik002002/stoklore | Completed | https://github.com/sparlit/EQATS/pull/2767 |
 | 184 | kbizme/nsemine | Completed | https://github.com/sparlit/EQATS/pull/2768 |
 | 185 | kenmwaura1/nse-stock-scraper | Completed | https://github.com/sparlit/EQATS/pull/2769 |
-| 186 | khakhasshi/optionworkstation | Completed | None |
+| 186 | khakhasshi/optionworkstation | Completed | https://github.com/sparlit/EQATS/pull/2770 |
 | 187 | kishanlalchoudhary/nse-option-chain | pending | None |
 | 188 | kislayykumar/dailyvaultrates | pending | None |
 | 189 | kkirankumar1511/nse-momentum-dashboard | pending | None |
