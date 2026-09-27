@@ -109,7 +109,7 @@ Total Repositories: 411 | Current Index: 107
 | 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2533 |
 | 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2534 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
-| 107 | debaonline4u/nse-data | Processed | None |
+| 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
 | 108 | debopam-d/project-nifty | pending | None |
 | 109 | deepentropy/ibx | pending | None |
 | 110 | degenapetrader/evpoly | pending | None |

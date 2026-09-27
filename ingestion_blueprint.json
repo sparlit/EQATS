@@ -854,8 +854,8 @@
       "target": "debaonline4u/nse-data",
       "url": "https://github.com/debaonline4u/nse-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2536",
+      "merged": true
     },
     {
       "name": "project-nifty",
