@@ -1,0 +1,45 @@
+/// OKX API Base
+pub const OKX_WS_PUB: &str = "wss://ws.okx.com:8443/ws/v5/public";
+pub const OKX_WS_PRI: &str = "wss://ws.okx.com:8443/ws/v5/private";
+pub const OKX_WS_BUS: &str = "wss://ws.okx.com:8443/ws/v5/business";
+pub const OKX_BASE_URL: &str = "https://www.okx.com";
+
+/// REST endpoints
+pub const OKX_ACCOUNT_BALANCE: &str = "/api/v5/account/balance";
+pub const OKX_ACCOUNT_CONFIG: &str = "/api/v5/account/config";
+pub const OKX_ACCOUNT_POSITIONS: &str = "/api/v5/account/positions";
+pub const OKX_ACCOUNT_SET_LEVERAGE: &str = "/api/v5/account/set-leverage";
+pub const OKX_ACCOUNT_SET_POSITION_MODE: &str = "/api/v5/account/set-position-mode";
+pub const OKX_ASSET_CURRENCIES: &str = "/api/v5/asset/currencies";
+pub const OKX_ASSET_BALANCES: &str = "/api/v5/asset/balances";
+pub const OKX_ASSET_DEPOSIT_ADDRESS: &str = "/api/v5/asset/deposit-address";
+pub const OKX_ASSET_DEPOSIT_HISTORY: &str = "/api/v5/asset/deposit-history";
+pub const OKX_ASSET_TRANSFER: &str = "/api/v5/asset/transfer";
+pub const OKX_ASSET_TRANSFER_STATE: &str = "/api/v5/asset/transfer-state";
+pub const OKX_ASSET_WITHDRAWAL: &str = "/api/v5/asset/withdrawal";
+pub const OKX_ASSET_WITHDRAWAL_HISTORY: &str = "/api/v5/asset/withdrawal-history";
+pub const OKX_TRADE_ORDER: &str = "/api/v5/trade/order";
+pub const OKX_TRADE_BATCH_ORDERS: &str = "/api/v5/trade/batch-orders";
+pub const OKX_TRADE_CANCEL_ORDER: &str = "/api/v5/trade/cancel-order";
+pub const OKX_TRADE_CANCEL_BATCH_ORDERS: &str = "/api/v5/trade/cancel-batch-orders";
+pub const OKX_TRADE_ORDERS_HISTORY: &str = "/api/v5/trade/orders-history";
+pub const OKX_TRADE_ORDERS_PENDING: &str = "/api/v5/trade/orders-pending";
+pub const OKX_PUBLIC_INSTRUMENTS: &str = "/api/v5/public/instruments";
+pub const OKX_PUBLIC_FUNDING_RATE: &str = "/api/v5/public/funding-rate";
+pub const OKX_PUBLIC_FUNDING_RATE_HISTORY: &str = "/api/v5/public/funding-rate-history";
+pub const OKX_PUBLIC_PRICE_LIMIT: &str = "/api/v5/public/price-limit";
+pub const OKX_PUBLIC_MARK_PRICE: &str = "/api/v5/public/mark-price";
+pub const OKX_MARKET_TICKER: &str = "/api/v5/market/ticker";
+pub const OKX_MARKET_TICKERS: &str = "/api/v5/market/tickers";
+pub const OKX_MARKET_CANDLES: &str = "/api/v5/market/candles";
+pub const OKX_MARKET_BOOKS: &str = "/api/v5/market/books";
+pub const OKX_CT_PUBLIC_LEADTRADERS: &str = "/api/v5/copytrading/public-lead-traders";
+pub const OKX_CT_PUBLIC_LEADTRADER_STATS: &str = "/api/v5/copytrading/public-stats";
+pub const OKX_CT_CURRENT_LEADTRADERS: &str = "/api/v5/copytrading/current-lead-traders";
+pub const OKX_CT_LEADTRADER_SUBPOSITIONS: &str = "/api/v5/copytrading/public-current-subpositions";
+pub const OKX_CT_LEADTRADER_SUBPOSITIONS_HISTORY: &str =
+    "/api/v5/copytrading/public-subpositions-history";
+
+/// WebSocket channels
+pub const OKX_WS_LOGIN: &str = "GET/users/self/verify";
+pub const OKX_WS_ADL_WARNING: &str = "adl-warning";

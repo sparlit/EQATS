@@ -1,0 +1,61 @@
+/// Spot API
+pub const BINANCE_SPOT_BASE_URL: &str = "https://api.binance.com";
+pub const BINANCE_SPOT_WS_API: &str = "wss://ws-api.binance.com:443/ws-api/v3";
+pub const BINANCE_SPOT_EXCHANGE_INFO: &str = "/api/v3/exchangeInfo";
+pub const BINANCE_SPOT_TICKERS: &str = "/api/v3/ticker/price";
+pub const BINANCE_SPOT_PLACE_ORDER: &str = "/api/v3/order";
+pub const BINANCE_SPOT_CANCEL_ORDER: &str = "/api/v3/order";
+pub const BINANCE_SPOT_OPEN_ORDERS: &str = "/api/v3/openOrders";
+pub const BINANCE_SPOT_ALL_ORDERS: &str = "/api/v3/allOrders";
+pub const BINANCE_SPOT_ACCOUNT_INFO: &str = "/api/v3/account";
+pub const BINANCE_SPOT_MY_TRADES: &str = "/api/v3/myTrades";
+pub const SPOT_USER_DATA_STREAM: &str = "/api/v3/userDataStream";
+pub const BINANCE_USER_UNIVERSAL_TRANSFER: &str = "/sapi/v1/asset/transfer";
+pub const BINANCE_SUB_ACCOUNT_UNIVERSAL_TRANSFER: &str = "/sapi/v1/sub-account/universalTransfer";
+pub const BINANCE_CAPITAL_CONFIG_GETALL: &str = "/sapi/v1/capital/config/getall";
+pub const BINANCE_DEPOSIT_ADDRESS: &str = "/sapi/v1/capital/deposit/address";
+pub const BINANCE_DEPOSIT_ADDRESS_LIST: &str = "/sapi/v1/capital/deposit/address/list";
+pub const BINANCE_DEPOSIT_HISTORY: &str = "/sapi/v1/capital/deposit/hisrec";
+pub const BINANCE_WITHDRAW_ADDRESS_LIST: &str = "/sapi/v1/capital/withdraw/address/list";
+pub const BINANCE_WITHDRAW_APPLY: &str = "/sapi/v1/capital/withdraw/apply";
+pub const BINANCE_WITHDRAW_HISTORY: &str = "/sapi/v1/capital/withdraw/history";
+
+/// UmFutures API
+pub const BINANCE_UM_FUTURES_WS_PRI: &str = "wss://fstream.binance.com/private/ws";
+pub const BINANCE_UM_FUTURES_WS_PUB: &str = "wss://fstream.binance.com/public/ws";
+pub const BINANCE_UM_FUTURES_WS_MKT: &str = "wss://fstream.binance.com/market/ws";
+pub const BINANCE_UM_FUTURES_BASE_URL: &str = "https://fapi.binance.com";
+pub const BINANCE_UM_FUTURES_EXCHANGE_INFO: &str = "/fapi/v1/exchangeInfo";
+pub const BINANCE_UM_FUTURES_ACCOUNT_INFO: &str = "/fapi/v3/account";
+pub const BINANCE_UM_FUTURES_BALANCE_INFO: &str = "/fapi/v3/balance";
+pub const BINANCE_UM_FUTURES_PLACE_ORDER_INFO: &str = "/fapi/v1/order";
+pub const BINANCE_UM_FUTURES_CANCEL_ORDER: &str = "/fapi/v1/order";
+pub const BINANCE_UM_FUTURES_BATCH_ORDERS: &str = "/fapi/v1/batchOrders";
+pub const BINANCE_UM_FUTURES_OPEN_ORDERS: &str = "/fapi/v1/openOrders";
+pub const BINANCE_UM_FUTURES_CHANGE_LEVERAGE: &str = "/fapi/v1/leverage";
+pub const BINANCE_UM_FUTURES_POSITION_MODE: &str = "/fapi/v1/positionSide/dual";
+pub const BINANCE_UM_FUTURES_ACCOUNT_CONFIG: &str = "/fapi/v1/accountConfig";
+pub const BINANCE_UM_FUTURES_SYMBOL_CONFIG: &str = "/fapi/v1/symbolConfig";
+pub const BINANCE_UM_FUTURES_POSITION_RISK_INFO: &str = "/fapi/v3/positionRisk";
+pub const BINANCE_UM_FUTURES_POSITION_ADL_QUANTILE: &str = "/fapi/v1/adlQuantile";
+pub const BINANCE_UM_FUTURES_SYMBOL_ADL_RISK: &str = "/fapi/v1/symbolAdlRisk";
+pub const BINANCE_UM_FUTURES_TICKERS: &str = "/fapi/v2/ticker/price";
+pub const BINANCE_UM_FUTURES_KLINES: &str = "/fapi/v1/klines";
+pub const BINANCE_UM_FUTURES_DEPTH: &str = "/fapi/v1/depth";
+pub const BINANCE_UM_FUTURES_PREMIUM_INDEX_KLINES: &str = "/fapi/v1/premiumIndexKlines";
+pub const BINANCE_UM_FUTURES_PREMIUM_INDEX: &str = "/fapi/v1/premiumIndex";
+pub const BINANCE_UM_FUTURES_FUNDING_INFO: &str = "/fapi/v1/fundingInfo";
+pub const BINANCE_UM_FUTURES_LISTEN_KEY: &str = "/fapi/v1/listenKey";
+pub const BINANCE_UM_FUTURES_ALL_ORDERS: &str = "/fapi/v1/allOrders";
+pub const BINANCE_UM_FUTURES_ORDER: &str = "/fapi/v1/order";
+
+/// CmFutures API
+pub const BINANCE_CM_FUTURES_WS_PRI: &str = "wss://dstream.binance.com/private/ws";
+pub const BINANCE_CM_FUTURES_WS_PUB: &str = "wss://dstream.binance.com/public/ws";
+pub const BINANCE_CM_FUTURES_WS_MKT: &str = "wss://dstream.binance.com/market/ws";
+pub const BINANCE_CM_FUTURES_BASE_URL: &str = "https://dapi.binance.com";
+pub const BINANCE_CM_FUTURES_EXCHANGE_INFO: &str = "/dapi/v1/exchangeInfo";
+
+pub const BINANCE_CM_FUTURES_ACCOUNT_INFO: &str = "/dapi/v1/account";
+pub const BINANCE_CM_FUTURES_BALANCE_INFO: &str = "/dapi/v1/balance";
+pub const BINANCE_CM_FUTURES_LISTEN_KEY: &str = "/dapi/v1/listenKey";
