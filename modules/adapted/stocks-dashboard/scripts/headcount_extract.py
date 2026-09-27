@@ -47,6 +47,7 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 import gzip
 import json
 import os
@@ -56,8 +57,6 @@ import time
 import urllib.error
 import urllib.request
 from datetime import date
-
-import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPS = os.path.join(HERE, "bse_scrips.json")

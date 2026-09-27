@@ -43,7 +43,10 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# scripts/, for bse_names (runbook §204). Appended, so this folder's bse.py / ist.py still resolve first.
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bse
+import bse_names
 import ist
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -196,7 +199,7 @@ def announcements_for(scrip, days):
     return [
         {
             "date": (r.get("NEWS_DT") or "")[:10],
-            "subject": (r.get("NEWSSUB") or "").strip(),
+            "subject": bse_names.clean_ann_subject(r.get("NEWSSUB"), r.get("SCRIP_CD") or scrip),
             "headline": (r.get("HEADLINE") or "").strip()[:400],
             "category": r.get("CATEGORYNAME"),
             "sub": r.get("SUBCATNAME"),
@@ -353,6 +356,8 @@ def build(scrip, days, pdf=True):
     os.makedirs(d, exist_ok=True)
     uni = {r["scrip"]: r for r in json.load(open(os.path.join(DOCS, "ideas", "universe.json")))["rows"]}
     u = uni.get(str(scrip), {})
+    if u.get("name"):  # a universe kept from before runbook §204 can still carry BSE's "-$" name marker
+        u["name"] = bse_names.clean_scrip_name(u["name"])
     hdr = header(scrip)
     res = results(scrip)
     shp = shareholding(scrip)

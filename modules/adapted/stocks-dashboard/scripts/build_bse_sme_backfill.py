@@ -51,19 +51,18 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import csv
-import datetime
-import gzip
-import io
-import json
+import bse_headers as BH  # §181 BSE headers
 import os
 import sys
+import io
+import csv
+import json
+import gzip
 import time
-import urllib.error
-import urllib.request
 import zipfile
-
-import bse_headers as BH  # §181 BSE headers
+import datetime
+import urllib.request
+import urllib.error
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.environ.get("BSE_BHAV_CACHE") or os.path.join(HERE, "_bse_bhav_cache")

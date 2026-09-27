@@ -43,6 +43,7 @@ Signal families (all from public exchange data, nothing inferred):
 import argparse
 import collections
 import datetime
+import glob
 import json
 import os
 import re
@@ -50,7 +51,10 @@ import statistics
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# scripts/, for bse_names (runbook §204). Appended, so this folder's bse.py / ist.py still resolve first.
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bse
+import bse_names
 import ist
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -216,8 +220,36 @@ def features(scrip, series):
     }
 
 
+def heal_names():
+    """Scan files written before runbook §204 carry BSE's "-$" name marker in a row's `name` (copied from
+    universe.json) and at the head of an announcement `subject` (BSE's NEWSSUB). Clean those two fields in
+    every earlier scan file that has the marker; nothing else in a file is touched."""
+    healed = []
+    for fn in sorted(glob.glob(os.path.join(DOCS, "scan", "*.json"))):
+        if bse_names.MARKER.encode() not in open(fn, "rb").read():
+            continue
+        d = json.load(open(fn))
+        n = 0
+        for r in d.get("rows") or []:
+            if isinstance(r.get("name"), str):
+                v = bse_names.clean_scrip_name(r["name"])
+                n += v != r["name"]
+                r["name"] = v
+            for a in r.get("announcements") or []:
+                if isinstance(a.get("subject"), str):
+                    v = bse_names.clean_ann_subject(a["subject"], r.get("scrip"))
+                    n += v != a["subject"]
+                    a["subject"] = v
+        if n:
+            json.dump(d, open(fn, "w"), separators=(",", ":"))
+            healed.append(f"{os.path.basename(fn)} {n}")
+    print('scan: earlier scan files with BSE\'s "-$" name marker cleaned (runbook 204):', ", ".join(healed) or "none")
+
+
 def run(date, days):
     uni = json.load(open(os.path.join(DOCS, "universe.json")))["rows"]
+    for u in uni:  # a universe kept from before runbook §204 can still carry BSE's "-$" name marker
+        u["name"] = bse_names.clean_scrip_name(u.get("name"))
     by_scrip = {u["scrip"]: u for u in uni}
     tdays = bse.trading_days_back(days, end=date)
     if not tdays:
@@ -252,7 +284,7 @@ def run(date, days):
         ann_by[s].append(
             {
                 "cats": cats,
-                "subject": (a.get("NEWSSUB") or "").strip(),
+                "subject": bse_names.clean_ann_subject(a.get("NEWSSUB"), s),
                 "headline": (a.get("HEADLINE") or "").strip()[:300],
                 "time": a.get("NEWS_DT"),
                 "pdf": a.get("_pdf") or bse.attachment_url(a),
@@ -329,4 +361,5 @@ if __name__ == "__main__":
     ap.add_argument("--days", type=int, default=65)
     a = ap.parse_args()
     d = datetime.date.fromisoformat(a.date) if a.date else ist.today()
+    heal_names()  # first, so a scan that cannot run (no bhavcopy) still leaves the earlier files clean
     run(d, a.days)

@@ -49,7 +49,9 @@ WHAT IT REPLACES
   shpH   FULL shareholding history, oldest first (scripts/shp_history.json —
          back to 2019-09-30): [[qEndISO, prom%, fii%, dii%, mf%, ins%,
          subDate, nShareholders], …]. shpQ/shp (8 quarters) stay for readers
-         that predate it; the page prefers shpH when present.
+         that predate it; the page prefers shpH when present. A re-filed quarter
+         (§142k, scripts/shp_revisions.json) shows the re-filing's percentages and
+         adds [8] its date + [9] the original five, which a Rewind before [8] shows.
   x      DEEP quarter detail from the XBRL re-parse (scripts/xbrl_extra.json[.gz],
          built by build_xbrl_extra.py): {qEnd: {s:{...}, c:{...}}} — EPS, interest/
          depreciation/tax/exceptional, balance sheet, cash flow (+cf_d period days),
@@ -96,6 +98,7 @@ REVOP_J = os.path.join(DOCS, "sf_revop.json")
 SHP_J = os.path.join(DOCS, "shareholding.json")
 SHPH_J = os.path.join(HERE, "shp_history.json")
 GOV_J = os.path.join(DOCS, "shp_gov.json")  # Government holding sidecar {SYM:{QE:[gov%,sub]}}
+REVS_J = os.path.join(HERE, "shp_revisions.json")  # §142k re-filings {SYM:{QE:[prom,fii,dii,mf,ins,revDate,nsh,src]}}
 XTRA_J = os.path.join(HERE, "xbrl_extra.json")  # local build output…
 XTRA_GZ = XTRA_J + ".gz"  # …the committed copy CI reads
 RENAME = os.path.join(HERE, "_rename_map.json")
@@ -207,6 +210,7 @@ def main():
     shpj = load(SHP_J, "shareholding")
     shph = load(SHPH_J, "shareholding history")
     govj = load(GOV_J, "government holding")
+    revs = load(REVS_J, "shareholding re-filings")
     # {SYM: {QE: gov%}} — the sidecar stores [gov%, sub]; the page only needs the percentage
     gov_rows = {}
     for sym, qmap in (govj or {}).items():
@@ -233,6 +237,25 @@ def main():
         if sym.startswith("_") or not isinstance(qmap, dict):
             continue
         rows = [[qe, *list((qmap[qe] or [])[:7])] for qe in sorted(qmap)]
+        # §142k: the page shows a quarter's LATEST re-filing — the same overlay docs/shareholding.json applies
+        # (re-filing's five percentages, the original's date and holder count). The row also carries
+        # [8] the re-filing's date and [9] the original five, so a Rewind before that date shows the original.
+        rv = (revs or {}).get(sym) or {}
+        for r in rows:
+            rc = rv.get(r[0])
+            c = r[1:]
+            if not (isinstance(rc, list) and len(rc) > 5 and len(c) >= 6 and rc[5]):
+                continue
+            try:
+                if all(abs(float(x) - float(y)) <= 0.0100001 for x, y in zip(rc[:5], c[:5], strict=False)):
+                    continue  # same numbers re-published: nothing to show
+            except (TypeError, ValueError):
+                continue
+            orig = list(c[:5])
+            r[1:6] = list(rc[:5])
+            while len(r) < 8:
+                r.append(None)
+            r[8:] = [str(rc[5])[:10], orig]
         if rows:
             hist_rows[sym] = rows
 
@@ -403,6 +426,11 @@ def main():
             code2sym = {str(v): k for k, v in bsj.get("by_id", {}).items()}
             code2isin = {str(v): k for k, v in bsj.get("by_isin", {}).items()}
             tape_isin = nse_tape_isin()  # NSE symbol -> ISIN (committed tape meta)
+            sys.path.insert(0, HERE)
+            import bse_resolve  # §203: whose page a ticker is, by ISIN
+
+            bse_resolve.identities(tape_isin)
+            not_this_page = {}  # ticker -> why a BSE scrip is kept off its page
             isin2nse = {}
             for s_, i_ in tape_isin.items():
                 isin2nse.setdefault(i_, set()).add(s_)
@@ -426,6 +454,13 @@ def main():
                 isin = code2isin.get(str(code), "")
                 targets = []
                 sym = code2sym.get(str(code))
+                # §203: the ticker string is also the NSE symbol of ANOTHER company whose page this is (ZEAL = Zeal
+                # Global on NSE SME, BSE 539963 = Zeal Aqua). The tape ISIN check below never saw it: the committed
+                # tape carries no SME symbol, so `ti` was None and the other company's quarters were folded in.
+                why = bse_resolve.bse_blocked_under(sym, isin, code) if sym else None
+                if why:
+                    not_this_page[sym] = why
+                    sym = None
                 if sym:
                     ti = tape_isin.get(sym)
                     if sym in fund or sym in revop:
@@ -487,6 +522,10 @@ def main():
             print(
                 "BSE fundamentals folded in: %d new symbols, %d existing symbols gap-filled (fill-only)"
                 % (bse_added, bse_filled)
+            )
+            print(
+                "BSE scrips kept off another company's page (§203): %d — %s"
+                % (len(not_this_page), ", ".join(sorted(not_this_page)[:12]))
             )
         except Exception as e:
             print(f"WARN: could not fold bse_fundamentals.json ({e}) — BSE-only names get no fin slice")
