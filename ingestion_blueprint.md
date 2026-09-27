@@ -215,7 +215,7 @@ Total Repositories: 411 | Current Index: 109
 | 210 | mandarl/nsedata | Processed | None |
 | 211 | manddar/open-interest-data-extractor | Completed | https://github.com/sparlit/EQATS/pull/2665 |
 | 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | Processed | https://github.com/sparlit/EQATS/pull/2674 |
-| 213 | manishn32/option_chain_analyzer | pending | None |
+| 213 | manishn32/option_chain_analyzer | Processed | None |
 | 214 | manitgupta/nse-mcp | pending | None |
 | 215 | mapsx/nse | pending | None |
 | 216 | marketcalls/openalgo | pending | None |
