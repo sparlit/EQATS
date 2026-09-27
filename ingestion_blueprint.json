@@ -1,5 +1,5 @@
 {
-  "current_index": 190,
+  "current_index": 191,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1525,7 +1525,7 @@
       "name": "backtest",
       "target": "kostorub/backtest",
       "url": "https://github.com/kostorub/backtest",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
