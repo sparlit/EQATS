@@ -1,5 +1,5 @@
 {
-  "current_index": 194,
+  "current_index": 195,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1557,9 +1557,9 @@
       "name": "nse-stock-price-prediction",
       "target": "kwoshvick/nse-stock-price-prediction",
       "url": "https://github.com/kwoshvick/nse-stock-price-prediction",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2779",
+      "merged": true
     },
     {
       "name": "nse_sentiment_analysis",
