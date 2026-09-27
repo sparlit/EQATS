@@ -1478,8 +1478,8 @@
       "target": "kenmwaura1/nse-stock-scraper",
       "url": "https://github.com/kenmwaura1/nse-stock-scraper",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2769",
+      "merged": true
     },
     {
       "name": "optionworkstation",
