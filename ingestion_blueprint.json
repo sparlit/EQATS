@@ -1470,8 +1470,8 @@
       "target": "karthik002002/stoklore",
       "url": "https://github.com/karthik002002/stoklore",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2614",
+      "merged": true
     },
     {
       "name": "nsemine",
