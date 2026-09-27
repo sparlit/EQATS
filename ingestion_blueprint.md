@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 410 | Current Index: 132
+Total Repositories: 410 | Current Index: 133
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -135,7 +135,7 @@ Total Repositories: 410 | Current Index: 132
 | 130 | ferrumfix/ferrumfix | Processed | https://github.com/sparlit/EQATS/pull/2713 |
 | 131 | finstacklabs/finstack-mcp | Completed | https://github.com/sparlit/EQATS/pull/2714 |
 | 132 | fluidex/dingir-exchange | Processed | https://github.com/sparlit/EQATS/pull/2715 |
-| 133 | gabriel-milan/btrader | pending | None |
+| 133 | gabriel-milan/btrader | Processed | https://github.com/sparlit/EQATS/pull/2716 |
 | 134 | gadiyar/nsebhavcopy | pending | None |
 | 135 | ganeshbiyer/nse_historical_data | pending | None |
 | 136 | georgiag7652/kronos-india | pending | None |
