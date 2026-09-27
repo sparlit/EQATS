@@ -44,15 +44,13 @@ pub async fn sign_l1_action<S: Signer + Send + Sync>(
     chain: Chain,
     connection_id: B256,
 ) -> anyhow::Result<Signature> {
-    let sig = signer
-        .sign_typed_data(
-            &solidity::Agent {
-                source: if chain.is_mainnet() { "a" } else { "b" }.to_string(),
-                connectionId: connection_id,
-            },
-            &CORE_MAINNET_EIP712_DOMAIN,
-        )
-        .await?;
+    let agent = solidity::Agent {
+        source: if chain.is_mainnet() { "a" } else { "b" }.to_string(),
+        connectionId: connection_id,
+    };
+    // Hardware signers need the typed fields, not just a precomputed hash.
+    let typed_data = TypedData::from_struct(&agent, Some(CORE_MAINNET_EIP712_DOMAIN.clone()));
+    let sig = signer.sign_dynamic_typed_data(&typed_data).await?;
     Ok(sig.into())
 }
 
@@ -148,73 +146,52 @@ pub async fn multisig_collect_signatures<'a, S: Signer + Send + Sync + 'a>(
     nonce: u64,
     chain: Chain,
 ) -> Result<MultiSigAction> {
-    // Normalize addresses (required for consistent hashing)
-    let multi_sig_user_str = multi_sig_user.to_string().to_lowercase();
-    let lead_str = lead.to_string().to_lowercase();
+    multisig_collect_signatures_with_context(
+        lead,
+        multi_sig_user,
+        signers,
+        signed,
+        inner_action,
+        nonce,
+        None,
+        None,
+        chain,
+    )
+    .await
+}
 
-    // Dispatch to specialized function based on action type
-    let mut signatures =
-        if let Some(typed_data) = inner_action.typed_data_multisig(multi_sig_user, lead, chain) {
-            // EIP-712 typed data actions (UsdSend, SpotSend, SendAsset)
-            multisig_collect_eip712_signatures(signers, typed_data).await?
-        } else {
-            // RMP-based actions (orders, cancels, modifications)
-            multisig_collect_rmp_signatures(
-                signers,
-                &multi_sig_user_str,
-                &lead_str,
-                &inner_action,
-                nonce,
-                chain,
-            )
-            .await?
-        };
+/// Collect multisig signatures with the vault and expiry used by the outer request.
+/// Existing signatures must have been generated with these same parameters.
+pub async fn multisig_collect_signatures_with_context<'a, S: Signer + Send + Sync + 'a>(
+    lead: Address,
+    multi_sig_user: Address,
+    signers: impl Iterator<Item = &'a S>,
+    signed: impl Iterator<Item = Signature>,
+    inner_action: Action,
+    nonce: u64,
+    vault_address: Option<Address>,
+    expires_after: Option<DateTime<Utc>>,
+    chain: Chain,
+) -> Result<MultiSigAction> {
+    let payload = MultiSigPayload {
+        multi_sig_user: const_hex::encode_prefixed(multi_sig_user.as_slice()),
+        outer_signer: const_hex::encode_prefixed(lead.as_slice()),
+        action: Box::new(inner_action),
+    };
+    let mut signatures = Vec::new();
+    for signer in signers {
+        signatures.push(
+            payload
+                .sign_with_context(signer, nonce, vault_address, expires_after, chain)
+                .await?,
+        );
+    }
     signatures.extend(signed);
-
     Ok(MultiSigAction {
         signature_chain_id: chain.arbitrum_id().to_owned(),
         signatures,
-        payload: MultiSigPayload {
-            multi_sig_user: multi_sig_user_str,
-            outer_signer: lead_str,
-            action: Box::new(inner_action),
-        },
+        payload,
     })
-}
-
-/// Collects signatures for EIP-712 typed data actions (transfers).
-async fn multisig_collect_eip712_signatures<'a, S: Signer + Send + Sync + 'a>(
-    signers: impl Iterator<Item = &'a S>,
-    typed_data: TypedData,
-) -> Result<Vec<Signature>> {
-    let mut signatures = vec![];
-    for signer in signers {
-        let signature = signer.sign_dynamic_typed_data(&typed_data).await?;
-        signatures.push(signature.into());
-    }
-
-    Ok(signatures)
-}
-
-/// Collects signatures for RMP-based actions (orders, cancels, modifications).
-async fn multisig_collect_rmp_signatures<'a, S: Signer + Send + Sync + 'a>(
-    signers: impl Iterator<Item = &'a S>,
-    multi_sig_user: &str,
-    lead: &str,
-    action: &Action,
-    nonce: u64,
-    chain: Chain,
-) -> Result<Vec<Signature>> {
-    // Create the RMP hash once
-    let connection_id = rmp_hash(&(multi_sig_user, lead, action), nonce, None, None)?;
-
-    let mut signatures = vec![];
-    for signer in signers {
-        let signature = sign_l1_action(signer, chain, connection_id).await?;
-        signatures.push(signature);
-    }
-
-    Ok(signatures)
 }
 
 #[cfg(test)]

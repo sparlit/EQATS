@@ -5,10 +5,16 @@
 
 use alloy::primitives::Address;
 use clap::{Args, Subcommand};
-use hypersdk::{Decimal, hypercore::{self, HttpClient, NonceHandler}};
+use hypersdk::{
+    Decimal,
+    hypercore::{
+        self, HttpClient,
+        api::{Action, VaultTransfer},
+    },
+};
 
-use crate::SignerArgs;
-use crate::utils::find_signer_sync;
+use crate::action::ActionArgs;
+use rust_decimal::prelude::ToPrimitive;
 
 /// Vault deposit and withdrawal commands.
 #[derive(Subcommand)]
@@ -32,12 +38,25 @@ impl VaultCmd {
 }
 
 async fn execute_transfer(cmd: VaultTransferCmd, is_deposit: bool) -> anyhow::Result<()> {
-    let (verb, past) = if is_deposit { ("Depositing", "Deposited") } else { ("Withdrawing", "Withdrawn") };
-    let signer = find_signer_sync(&cmd.signer)?;
+    let (verb, past) = if is_deposit {
+        ("Depositing", "Deposited")
+    } else {
+        ("Withdrawing", "Withdrawn")
+    };
     let client = HttpClient::new(cmd.signer.chain);
-    let nonce = NonceHandler::default().next();
     println!("{} ${} vault {}", verb, cmd.amount, cmd.vault);
-    client.vault_transfer(&signer, cmd.vault, cmd.amount, nonce, is_deposit).await?;
+    let usd = (cmd.amount * Decimal::from(1_000_000))
+        .to_u64()
+        .ok_or_else(|| anyhow::anyhow!("vault transfer amount out of range"))?;
+    cmd.signer
+        .execute_default(client, |_, _| {
+            Action::VaultTransfer(VaultTransfer {
+                vault_address: cmd.vault,
+                is_deposit,
+                usd,
+            })
+        })
+        .await?;
     println!("{} successfully.", past);
     Ok(())
 }
@@ -47,7 +66,7 @@ async fn execute_transfer(cmd: VaultTransferCmd, is_deposit: bool) -> anyhow::Re
 pub struct VaultTransferCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Vault address to deposit into or withdraw from
     #[arg(long)]
@@ -81,14 +100,22 @@ impl VaultDetailsCmd {
         println!("Description: {}", details.description);
         println!();
         println!("APR: {}%", details.apr * Decimal::ONE_HUNDRED);
-        println!("Leader Fraction: {}%", details.leader_fraction * Decimal::ONE_HUNDRED);
-        println!("Leader Commission: {}%", details.leader_commission * Decimal::ONE_HUNDRED);
+        println!(
+            "Leader Fraction: {}%",
+            details.leader_fraction * Decimal::ONE_HUNDRED
+        );
+        println!(
+            "Leader Commission: {}%",
+            details.leader_commission * Decimal::ONE_HUNDRED
+        );
         println!("Max Distributable: ${}", details.max_distributable);
         println!("Max Withdrawable: ${}", details.max_withdrawable);
         println!();
         println!("Followers: {}", details.followers.len());
         const DAY_PERIOD: &str = "day";
-        let tvl = details.portfolio.iter()
+        let tvl = details
+            .portfolio
+            .iter()
             .find(|(period, _)| period == DAY_PERIOD)
             .and_then(|(_, p)| p.account_value_history.iter().max_by_key(|(ts, _)| *ts))
             .map(|(_, value)| value.to_string());

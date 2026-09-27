@@ -24,13 +24,12 @@
 //! <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/priority-fees>
 
 use clap::{Args, Subcommand};
-use hypersdk::hypercore::types::{OkResponse, Response};
-use hypersdk::hypercore::{Chain, HttpClient, NonceHandler};
+use hypersdk::hypercore::api::{Action, GossipPriorityBid};
+use hypersdk::hypercore::{Chain, HttpClient};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::FromPrimitive;
 
-use crate::SignerArgs;
-use crate::utils::find_signer_sync;
+use crate::action::ActionArgs;
 
 #[derive(Subcommand)]
 pub enum PrioCmd {
@@ -103,7 +102,10 @@ impl StatusCmd {
                 i,
                 slot.start_gas,
                 cur_str.as_deref().unwrap_or("(no bid)"),
-                slot.end_gas.map(|d| d.to_string()).as_deref().unwrap_or("-")
+                slot.end_gas
+                    .map(|d| d.to_string())
+                    .as_deref()
+                    .unwrap_or("-")
             );
         }
 
@@ -119,7 +121,7 @@ impl StatusCmd {
 pub struct BidCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Max HYPE to bid. You pay the live price at execution time, capped here.
     #[arg(long)]
@@ -142,7 +144,6 @@ impl BidCmd {
     /// You pay the live `currentGas` price at TX mining time — not `--max`.
     /// The difference is refunded automatically. Winning amount is burned.
     pub async fn run(self) -> anyhow::Result<()> {
-        let signer = find_signer_sync(&self.signer)?;
         let client = HttpClient::new(self.chain);
 
         let decimals = client
@@ -178,22 +179,16 @@ impl BidCmd {
 
         let bid = if current > 0 { current + 1 } else { max_gas };
 
-        let nonce = NonceHandler::default().next();
-        let resp = client
-            .gossip_priority_bid(&signer, self.slot, &self.ip, bid, nonce, None, None)
+        self.signer
+            .execute_default(client, |_, _| {
+                Action::GossipPriorityBid(GossipPriorityBid {
+                    slot_id: self.slot,
+                    ip: self.ip.clone(),
+                    max_gas: bid,
+                })
+            })
             .await?;
-
-        match &resp {
-            Response::Ok(OkResponse::Default) => {
-                println!("-- Bid {} on slot {}", fmt_wei(bid, decimals), self.slot);
-            }
-            Response::Err(e) => {
-                println!("XX Error: {e}");
-            }
-            _ => {
-                println!("?? {:?}", resp);
-            }
-        }
+        println!("-- Bid {} on slot {}", fmt_wei(bid, decimals), self.slot);
 
         Ok(())
     }
