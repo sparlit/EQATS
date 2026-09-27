@@ -1,5 +1,5 @@
 {
-  "current_index": 107,
+  "current_index": 214,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -886,7 +886,7 @@
       "target": "degensugarboo/openbook",
       "url": "https://github.com/degensugarboo/openbook",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2540",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2677",
       "merged": true
     },
     {
@@ -1694,24 +1694,24 @@
       "target": "manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "url": "https://github.com/manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2674",
       "merged": true
     },
     {
       "name": "option_chain_analyzer",
       "target": "manishn32/option_chain_analyzer",
       "url": "https://github.com/manishn32/option_chain_analyzer",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-mcp",
       "target": "manitgupta/nse-mcp",
       "url": "https://github.com/manitgupta/nse-mcp",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2680",
+      "merged": true
     },
     {
       "name": "nse",
