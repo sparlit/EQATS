@@ -2,9 +2,9 @@
 
 use std::sync::atomic::Ordering;
 
-use crate::api::types::{ExecutionFilter, PRICE_SCALE_F};
+use crate::api::types::ExecutionFilter;
 use crate::api::wrapper::Wrapper;
-use crate::client_core::ClientCore;
+use crate::client_core::{ClientCore, ModifyPlan};
 use crate::types::*;
 
 use super::{Contract, Order, TagValue, EClient};
@@ -14,6 +14,9 @@ impl EClient {
 
     /// Place an order. Matches `placeOrder` in C++.
     pub fn place_order(&self, order_id: i64, contract: &Contract, order: &Order) -> Result<(), String> {
+        // The reference's other names for an order type, under ibx's name
+        // for every check and for the tracked order (ibx#469).
+        let order = &*ClientCore::with_canonical_order_type(order);
         // Validate order params and contract before registering instrument (fail fast).
         ClientCore::validate_order(order)?;
         ClientCore::validate_order_contract(&contract.sec_type)?;
@@ -24,21 +27,32 @@ impl EClient {
             self.next_order_id.fetch_add(1, Ordering::Relaxed)
         };
 
+        // Refused before sending, like the reference: error() only.
+        if let Some((code, message)) = ClientCore::refusal_before_sending(order)
+            .or_else(|| self.core.refusal_for_order_id(oid, order))
+        {
+            self.shared.orders.push_order_error(oid, code, message);
+            return Ok(());
+        }
+
         let instrument = self.core.find_or_register_instrument(
             &self.control_tx,
             contract.con_id, &contract.symbol, &contract.exchange, &contract.sec_type,
         )?;
+        self.core.note_currency(&self.control_tx, contract.con_id, &contract.currency);
 
-        // If orderId is already tracked, this is a modification — emit Modify instead of Submit.
-        let cmd = if self.core.is_order_tracked(oid) {
-            let price = (order.lmt_price * PRICE_SCALE_F) as i64;
-            let qty = order.total_quantity as u32;
-            ControlCommand::Order(OrderRequest::Modify {
-                new_order_id: oid,
-                order_id: oid,
-                price,
-                qty,
-            })
+        // If orderId is already tracked, this is a modification: replace it
+        // with the full wanted state (ibx#247).
+        let cmd = if let Some(working_type) = self.core.tracked_order_type(oid) {
+            match ClientCore::build_modify_request(order, oid, &working_type)? {
+                ModifyPlan::Send(cmd) => cmd,
+                ModifyPlan::Refused { code, message } => {
+                    // Refused before sending, like the reference: the caller
+                    // gets error() and the tracked order keeps its old state.
+                    self.shared.orders.push_order_error(oid, code, message);
+                    return Ok(());
+                }
+            }
         } else {
             ClientCore::build_order_request(order, oid, instrument)?
         };
@@ -166,7 +180,9 @@ impl EClient {
         for i in indices {
             let se = &execs[i];
             wrapper.exec_details(req_id, &se.contract, &se.execution);
-            wrapper.commission_and_fees_report(&se.commission_and_fees);
+            if let Some(report) = &se.commission_and_fees {
+                wrapper.commission_and_fees_report(report);
+            }
         }
         wrapper.exec_details_end(req_id);
     }

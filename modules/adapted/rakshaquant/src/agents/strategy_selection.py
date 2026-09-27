@@ -39,11 +39,11 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
+
+from src.config import get_settings
 from src.finops import record_llm_response
 from src.utils.circuit_breaker import CircuitBreakerOpenError, get_groq_circuit_breaker
 from src.utils.rate_limiter import get_groq_limiter
-
-from src.config import get_settings
 
 from .state import TradingState
 

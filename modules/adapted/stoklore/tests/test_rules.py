@@ -1,0 +1,126 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""Self-check for rules.evaluate and llm.parse_watch_rule - mocks scraper/prices/db/the LLM call
+so it runs without live network, DB, or a configured model."""
+import sys
+from pathlib import Path
+
+# Run as a script, so the repo root has to go on sys.path before importing app.* - the package
+# is not installed, it just sits at the repo root.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from unittest.mock import patch
+
+from app.core import llm, rules
+
+
+def test_max_pe_check():
+    rule = {"max_pe": 25}
+    with patch("app.core.scraper.get_quote", return_value={"trailingPE": 20}):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is True
+    assert result["checks"][0]["passed"] is True
+
+    with patch("app.core.scraper.get_quote", return_value={"trailingPE": 30}):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is False
+
+
+def test_ema_bullish_check():
+    rule = {"ema_short": 20, "ema_long": 50}
+    with patch("app.core.prices.ema_crossover", return_value={"shortEma": 110, "longEma": 100, "crossover": None}):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is True
+
+    with patch("app.core.prices.ema_crossover", return_value={"shortEma": 90, "longEma": 100, "crossover": None}):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is False
+
+    with patch("app.core.prices.ema_crossover", return_value=None):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is False  # not enough history counts as not-passed, not skipped
+
+
+def test_no_negative_events_check():
+    rule = {"no_negative_events_days": 14}
+    with patch("app.core.db.list_events", return_value=[]):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is True
+
+    with patch(
+        "app.core.db.list_events", return_value=[{"sentiment_label": "negative"}, {"sentiment_label": "positive"}]
+    ):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is False
+    assert "1 negative" in result["checks"][0]["detail"]
+
+
+def test_no_criteria_set_never_passes():
+    assert rules.evaluate({}, "TEST")["passed"] is False
+
+
+def test_multiple_criteria_all_must_pass():
+    rule = {"max_pe": 25, "no_negative_events_days": 14}
+    with (
+        patch("app.core.scraper.get_quote", return_value={"trailingPE": 20}),
+        patch("app.core.db.list_events", return_value=[{"sentiment_label": "negative"}]),
+    ):
+        result = rules.evaluate(rule, "TEST")
+    assert result["passed"] is False  # PE ok, but a negative event fails the combined rule
+    assert len(result["checks"]) == 2
+
+
+def test_same_rule_checks_different_symbols_independently():
+    rule = {"max_pe": 25}
+    with patch("app.core.scraper.get_quote", side_effect=lambda s: {"trailingPE": 20 if s == "GOOD" else 30}):
+        assert rules.evaluate(rule, "GOOD")["passed"] is True
+        assert rules.evaluate(rule, "BAD")["passed"] is False
+
+
+def test_parse_watch_rule_extracts_only_mentioned_fields():
+    reply = '{"max_pe": 25, "ema_short": 20, "ema_long": 50, "no_negative_events_days": 14}'
+    with patch("app.core.llm._generate", return_value=reply):
+        parsed = llm.parse_watch_rule("P/E under 25 AND EMA20 above EMA50 AND no negative events in 14d")
+    assert parsed == {"max_pe": 25, "ema_short": 20, "ema_long": 50, "no_negative_events_days": 14}
+
+    # model wraps the JSON in prose, and only mentions one criterion - null fields dropped
+    with patch(
+        "app.core.llm._generate", return_value='Sure, here it is: {"max_pe": 30, "ema_short": null}\nhope that helps'
+    ):
+        parsed = llm.parse_watch_rule("P/E under 30")
+    assert parsed == {"max_pe": 30}
+
+    with patch("app.core.llm._generate", return_value="I don't understand this request"):
+        assert llm.parse_watch_rule("blah blah") == {}
+
+
+if __name__ == "__main__":
+    test_max_pe_check()
+    test_ema_bullish_check()
+    test_no_negative_events_check()
+    test_no_criteria_set_never_passes()
+    test_multiple_criteria_all_must_pass()
+    test_same_rule_checks_different_symbols_independently()
+    test_parse_watch_rule_extracts_only_mentioned_fields()
+    print("all checks passed")

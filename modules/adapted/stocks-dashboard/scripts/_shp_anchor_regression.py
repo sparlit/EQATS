@@ -32,12 +32,15 @@ import collections
 import importlib.util
 import json
 import os
+import os as _o
 import subprocess
 import sys
+import sys as _s
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
-from curl_cffi import requests as cr
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -91,7 +94,7 @@ def get(u, tries=3):
     last = None
     for _ in range(tries):
         try:
-            r = cr.get(u, headers=H, impersonate="chrome", timeout=40)
+            r = BH.get(u, headers=H, timeout=40)  # honest headers (§190)
             if r.status_code == 200:
                 return r.content
             last = Exception("HTTP %d" % r.status_code)

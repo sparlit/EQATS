@@ -22,7 +22,7 @@ impl EClient {
             return Err(PyRuntimeError::new_err("Already connected"));
         }
         let shared = Arc::new(SharedState::new());
-        let (tx, _rx) = crossbeam_channel::unbounded();
+        let (tx, rx) = crossbeam_channel::unbounded();
         let (event_tx, event_rx) = crossbeam_channel::bounded(256);
         *self.shared.lock().unwrap() = Some(shared);
         *self.control_tx.lock().unwrap() = Some(tx);
@@ -30,6 +30,9 @@ impl EClient {
         *self.account_id.lock().unwrap() = Some(account_id);
         // Store event_tx so _test_push_disconnect_event can use it.
         *self._test_event_tx.lock().unwrap() = Some(event_tx);
+        // Keep the command receiver: commands sent to the absent engine
+        // must not fail as "Engine stopped".
+        *self._test_control_rx.lock().unwrap() = Some(rx);
         self.next_order_id.store(1000, Ordering::Relaxed);
         self.connected.store(true, Ordering::Release);
         Ok(())
@@ -90,9 +93,11 @@ impl EClient {
             _ => return Err(PyRuntimeError::new_err(format!("Invalid side: {}", side))),
         };
         let ps = PRICE_SCALE as f64;
+        // The tests pass whole shares; fills are fixed-point.
         shared.orders.push_fill(Fill {
+            cum_qty_fixed: 0, avg_price: 0,
             instrument, order_id, side: s,
-            price: (price * ps) as i64, qty, remaining,
+            price: (price * ps) as i64, qty_fixed: qty * QTY_SCALE, remaining_fixed: remaining * QTY_SCALE,
             commission: (commission * ps) as i64,
             timestamp_ns: 100,
         });
@@ -120,7 +125,10 @@ impl EClient {
             _ => return Err(PyRuntimeError::new_err(format!("Invalid status: {}", status))),
         };
         shared.orders.push_order_update(OrderUpdate {
-            order_id, instrument, status: st, filled_qty, remaining_qty, perm_id: 0, parent_id: 0, timestamp_ns: 100,
+            avg_fill_price: 0,
+            order_id, instrument, status: st,
+            filled_qty_fixed: filled_qty * QTY_SCALE, remaining_qty_fixed: remaining_qty * QTY_SCALE,
+            perm_id: 0, parent_id: 0, timestamp_ns: 100,
         });
         Ok(())
     }
@@ -148,7 +156,7 @@ impl EClient {
             _ => return Err(PyRuntimeError::new_err(format!("Invalid status: {}", status))),
         };
         shared.orders.push_completed_order(crate::types::CompletedOrder {
-            order_id, instrument, status: st, filled_qty, timestamp_ns: 100,
+            order_id, instrument, status: st, filled_qty_fixed: filled_qty * QTY_SCALE, timestamp_ns: 100,
         });
         shared.orders.push_order_info(order_id, crate::bridge::RichOrderInfo {
             contract: ApiContract {
@@ -325,7 +333,7 @@ impl EClient {
         let shared = self.shared_state()?;
         let ps = PRICE_SCALE as f64;
         shared.portfolio.set_position_info(PositionInfo {
-            con_id, position, avg_cost: (avg_cost * ps) as i64, ..Default::default()
+            con_id, position_fixed: position * QTY_SCALE, avg_cost: (avg_cost * ps) as i64, ..Default::default()
         });
         Ok(())
     }

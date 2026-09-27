@@ -85,15 +85,31 @@ def main():
     # biggest first — the ones that matter most are the ones you want to see at the top
     out_rows.sort(key=lambda r: -(r[3] or 0))
     # "open" = declared but no numbers yet, i.e. what the routine still owes you
-    stat["open"] = stat["pending"] + stat["no_pdf"]
+    stat["open"] = stat["pending"] + stat["no_pdf"] + stat.get("unknown_qe", 0)  # same meaning as byExch.open
+
+    # LATE FILERS for the two quarters before the current one — the vision routine reads them too
+    # (results_pending.find_pending_late, runbook §187), so the page must show what it still owes there.
+    late = []
+    qr = _load("quarterly_results.json") or {}
+    for lq in (qr.get("quarters") or [])[1:3]:
+        _, lrows = classify(lq, unknown=False)
+        lopen = [
+            [e["sym"], e["name"], e["exch"], round(e["mcap"] or 0, 1), e["ann"], e["status"]]
+            for e in lrows
+            if e["status"] in ("pending", "no_pdf")
+        ]
+        lopen.sort(key=lambda r: -(r[3] or 0))
+        if lopen:
+            late.append({"qe": lq, "qlabel": qlabel(lq), "rows": lopen})
     doc = {
-        "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "updated": time.strftime("%Y-%m-%d %H:%M IST", time.gmtime(time.time() + 5.5 * 3600)),  # runners are UTC
         "qe": qe,
         "qlabel": qlabel(qe),
         "stat": stat,
         "byExch": ex,
         "cols": ["sym", "name", "exch", "mcap", "declared_on", "status"],
         "rows": out_rows,
+        "late": late,
     }
     json.dump(doc, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(

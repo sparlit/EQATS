@@ -149,11 +149,34 @@ pub struct Fill {
     pub instrument: InstrumentId,
     pub order_id: OrderId,
     pub side: Side,
+    /// Price of this print.
     pub price: Price,
-    pub qty: i64,
-    pub remaining: i64,
+    /// Size of this print, fixed-point (QTY_SCALE).
+    pub qty_fixed: Qty,
+    /// Quantity still working, fixed-point (QTY_SCALE).
+    pub remaining_fixed: Qty,
+    /// Quantity filled on the order so far, this print included,
+    /// fixed-point (QTY_SCALE). 0 when the report did not carry it.
+    pub cum_qty_fixed: Qty,
+    /// Average price over every print of the order so far. 0 when the
+    /// report did not carry it.
+    pub avg_price: Price,
     pub commission: Price,
     pub timestamp_ns: u64,
+}
+
+impl Fill {
+    /// Quantity filled on the order so far; the print when the report did
+    /// not carry the total.
+    pub fn filled_so_far_fixed(&self) -> Qty {
+        if self.cum_qty_fixed > 0 { self.cum_qty_fixed } else { self.qty_fixed }
+    }
+
+    /// Average price over the order's prints so far; the print price when
+    /// the report did not carry it.
+    pub fn average_price(&self) -> Price {
+        if self.avg_price > 0 { self.avg_price } else { self.price }
+    }
 }
 
 /// Order status change notification.
@@ -162,8 +185,13 @@ pub struct OrderUpdate {
     pub order_id: OrderId,
     pub instrument: InstrumentId,
     pub status: OrderStatus,
-    pub filled_qty: i64,
-    pub remaining_qty: i64,
+    /// Fixed-point (QTY_SCALE).
+    pub filled_qty_fixed: Qty,
+    /// Fixed-point (QTY_SCALE).
+    pub remaining_qty_fixed: Qty,
+    /// Average price over the order's prints so far; 0 before any fill or
+    /// when the report did not carry it.
+    pub avg_fill_price: Price,
     pub perm_id: i64,
     pub parent_id: i64,
     pub timestamp_ns: u64,
@@ -231,17 +259,21 @@ pub struct WhatIfResponse {
 pub enum AdjustedOrderType {
     Stop,       // 3
     StopLimit,  // 4
-    Trail,      // 7
-    TrailLimit, // 8
+    Trail,      // T
+    TrailLimit, // TSL
 }
 
 impl AdjustedOrderType {
+    /// The order-type code, the same one the base order type rides on.
+    /// Stop and Trail captured (ib-agent#167, ib-agent#192); StopLimit and
+    /// TrailLimit from the reference order-type table. The earlier 7/8 were
+    /// not codes the reference ever sends (ibx#240).
     pub fn fix_code(&self) -> &'static str {
         match self {
             Self::Stop => "3",
             Self::StopLimit => "4",
-            Self::Trail => "7",
-            Self::TrailLimit => "8",
+            Self::Trail => "T",
+            Self::TrailLimit => "TSL",
         }
     }
 }
@@ -253,8 +285,10 @@ pub struct Order {
     pub instrument: InstrumentId,
     pub side: Side,
     pub price: Price,
-    pub qty: u32,
-    pub filled: u32,
+    /// Order quantity, fixed-point (QTY_SCALE).
+    pub qty_fixed: Qty,
+    /// Filled so far, fixed-point (QTY_SCALE).
+    pub filled_fixed: Qty,
     pub status: OrderStatus,
     /// FIX tag 40 OrdType: b'1'=MKT, b'2'=LMT, b'3'=STP, b'4'=STPLMT, b'P'=TRAIL, etc.
     /// For multi-char OrdTypes (MIDPX, SP, SMKT, etc.), uses ORD_* constants (values < 32).
@@ -266,9 +300,10 @@ pub struct Order {
 }
 
 impl Order {
-    /// Create a new tracked order with FIX type metadata.
+    /// Create a new tracked order with its order-type metadata. `qty` is in
+    /// whole shares; it is stored fixed-point.
     pub fn new(order_id: OrderId, instrument: InstrumentId, side: Side, qty: u32, price: Price, ord_type: u8, tif: u8, stop_price: Price) -> Self {
-        Self { order_id, instrument, side, price, qty, filled: 0, status: OrderStatus::PendingSubmit, ord_type, tif, stop_price }
+        Self { order_id, instrument, side, price, qty_fixed: qty as Qty * QTY_SCALE, filled_fixed: 0, status: OrderStatus::PendingSubmit, ord_type, tif, stop_price }
     }
 }
 
@@ -290,10 +325,17 @@ impl AdaptivePriority {
     }
 }
 
+/// Time-in-force code of a DTC order. It is sent as GTC with the DTC flag
+/// (ibx#467).
+pub const TIF_DTC: u8 = b'r';
+
 /// Optional attributes for extended order submissions.
 /// All fields default to "not set" (0/false).
 #[derive(Debug, Clone, Default)]
 pub struct OrderAttrs {
+    /// The caller's orderRef, sent in tag 6010 on the order and every
+    /// replace (ibx#466).
+    pub order_ref: String,
     /// Show on book as this many shares (tag 111). 0 = not set (show full qty).
     pub display_size: u32,
     /// Minimum fill quantity (FIX tag 110). 0 = not set.
@@ -490,7 +532,9 @@ pub enum OrderKind {
     TrailingStop { trail_amt: Price, trail_stop_price: Price },
     /// Trailing stop limit; `lmt_offset` is the limit-vs-trail offset (tag 6370).
     /// `trail_stop_price` is the optional initial stop trigger (tag 6117); 0 = not set.
-    TrailingStopLimit { lmt_offset: Price, trail_amt: Price, trail_stop_price: Price },
+    /// `lmt_price`: the absolute limit price, sent in 44 with no 6370;
+    /// else `lmt_offset` in 6370 (ib-agent#194).
+    TrailingStopLimit { lmt_offset: Price, lmt_price: Option<Price>, trail_amt: Price, trail_stop_price: Price },
     /// Trailing stop by percentage. Basis points: 100 = 1%.
     /// `trail_stop_price` is the optional initial stop trigger (tag 6117); 0 = not set.
     TrailPct { trail_pct: u32, trail_stop_price: Price },
@@ -508,6 +552,55 @@ pub enum OrderKind {
     PegMkt { offset: Price },
     PegMid { offset: Price },
     Rel { offset: Price },
+    /// Adjustable stop, same fields as `OrderRequest::SubmitAdjustableStop`.
+    /// On this path it also carries parent, OCA and tif, so it can be a
+    /// bracket child (ibx#240).
+    AdjustableStop {
+        stop_price: Price,
+        trigger_price: Price,
+        adjusted_order_type: AdjustedOrderType,
+        adjusted_stop_price: Price,
+        adjusted_stop_limit_price: Price,
+        adjusted_trailing_amount: Price,
+        adjustable_trailing_unit: i32,
+    },
+}
+
+impl OrderKind {
+    /// Snap every price of this kind to the tick grid (ibx#216). Percent
+    /// values are not prices and are left alone.
+    pub fn snap_prices(&mut self, tick: i64) {
+        if tick <= 0 {
+            return;
+        }
+        let s = |p: &mut Price| *p = snap_to_tick(*p, tick);
+        match self {
+            OrderKind::Market | OrderKind::Moc | OrderKind::Mtl | OrderKind::MktPrt
+            | OrderKind::SnapMkt | OrderKind::SnapMid | OrderKind::SnapPri => {}
+            OrderKind::TrailPct { trail_stop_price, .. } => s(trail_stop_price),
+            OrderKind::Limit { price } | OrderKind::Loc { price } => s(price),
+            OrderKind::Stop { stop_price }
+            | OrderKind::Mit { stop_price }
+            | OrderKind::StpPrt { stop_price } => s(stop_price),
+            OrderKind::StopLimit { price, stop_price }
+            | OrderKind::Lit { price, stop_price } => { s(price); s(stop_price); }
+            OrderKind::TrailingStop { trail_amt, trail_stop_price } => { s(trail_amt); s(trail_stop_price); }
+            OrderKind::TrailingStopLimit { lmt_offset, lmt_price, trail_amt, trail_stop_price } => {
+                s(lmt_offset); if let Some(p) = lmt_price { s(p); } s(trail_amt); s(trail_stop_price);
+            }
+            OrderKind::MidPrice { price_cap } => s(price_cap),
+            OrderKind::PegMkt { offset } | OrderKind::PegMid { offset }
+            | OrderKind::Rel { offset } => s(offset),
+            OrderKind::AdjustableStop {
+                stop_price, trigger_price, adjusted_stop_price, adjusted_stop_limit_price,
+                adjusted_trailing_amount, adjustable_trailing_unit, ..
+            } => {
+                s(stop_price); s(trigger_price); s(adjusted_stop_price); s(adjusted_stop_limit_price);
+                // Same rule as SubmitAdjustableStop: a percent does not snap.
+                if *adjustable_trailing_unit == 0 { s(adjusted_trailing_amount); }
+            }
+        }
+    }
 }
 
 /// Order request sent via control channel, processed by engine.
@@ -597,11 +690,15 @@ pub enum OrderRequest {
         /// Limit offset from the trail-stop price (wire tag 6370 LimitPriceOffset).
         /// The gateway derives the absolute limit price; do not pass an absolute price here.
         lmt_offset: Price,
+        /// Absolute limit price (44, no 6370) instead of the offset (ib-agent#194).
+        lmt_price: Option<Price>,
         trail_amt: Price,
         /// Optional initial stop trigger (tag 6117); 0 = not set.
         trail_stop_price: Price,
     },
-    /// Trailing stop by percentage (tag 6268). Trail percent is in basis points (1% = 100).
+    /// Trailing stop by percentage. `trail_pct` is in basis points (1% = 100);
+    /// on the wire the percent rides as a decimal with the unit flag set to
+    /// percent (ibx#339).
     SubmitTrailingStopPct {
         order_id: OrderId,
         instrument: InstrumentId,
@@ -710,6 +807,10 @@ pub enum OrderRequest {
         qty: u32,
         price: Price,
         priority: AdaptivePriority,
+        /// Time-in-force byte and extended attributes, like every other
+        /// order type: a parented or GTC algo order kept neither (ibx#318).
+        tif: u8,
+        attrs: OrderAttrs,
     },
     /// Market to Limit: fills at market, remainder converts to limit at fill price. OrdType K.
     SubmitMtl {
@@ -786,6 +887,10 @@ pub enum OrderRequest {
         qty: u32,
         price: Price,
         algo: AlgoParams,
+        /// Time-in-force byte and extended attributes, like every other
+        /// order type: a parented or GTC algo order kept neither (ibx#318).
+        tif: u8,
+        attrs: OrderAttrs,
     },
     /// Pegged to Benchmark: pegs to a benchmark instrument's price. OrdType PB.
     /// Companion tags: 6941=refConId, 6938=isPegDecrease, 6939=pegChangeAmt, 6942=refChangeAmt.
@@ -823,6 +928,10 @@ pub enum OrderRequest {
         side: Side,
         qty: u32,
         price: Price,
+        /// Time-in-force byte and extended attributes, like every other
+        /// order type: a parented or GTC algo order kept neither (ibx#318).
+        tif: u8,
+        attrs: OrderAttrs,
     },
     /// Fractional shares limit order. Qty is fixed-point (QTY_SCALE = 10^4).
     /// E.g., 0.5 shares = 5000. Tag 38 sent as decimal string.
@@ -860,11 +969,17 @@ pub enum OrderRequest {
     CancelAll {
         instrument: InstrumentId,
     },
+    /// Replace a working order. Carries the full wanted state, like a new
+    /// order does: the replace restates the order type, prices, time-in-force
+    /// and the attributes the reference restates (ibx#247 ibx#324 ibx#334
+    /// ibx#349, reference capture ib-agent#192 group A).
     Modify {
         new_order_id: OrderId,
         order_id: OrderId,
-        price: Price,
         qty: u32,
+        kind: OrderKind,
+        tif: u8,
+        attrs: OrderAttrs,
     },
 }
 
@@ -983,7 +1098,7 @@ impl OrderRequest {
             | Self::SubmitMtl { .. } | Self::SubmitMktPrt { .. }
             | Self::SubmitSnapMkt { .. } | Self::SubmitSnapMid { .. }
             | Self::SubmitSnapPri { .. } | Self::SubmitMtlAuc { .. } => {}
-            Self::Modify { price, .. } => s(price),
+            Self::Modify { kind, .. } => kind.snap_prices(tick),
             Self::SubmitLimit { price, .. }
             | Self::SubmitLimitGtc { price, .. }
             | Self::SubmitLimitIoc { price, .. }
@@ -1004,7 +1119,9 @@ impl OrderRequest {
             | Self::SubmitStopLimitGtc { price, stop_price, .. }
             | Self::SubmitLit { price, stop_price, .. } => { s(price); s(stop_price); }
             Self::SubmitTrailingStop { trail_amt, trail_stop_price, .. } => { s(trail_amt); s(trail_stop_price); }
-            Self::SubmitTrailingStopLimit { lmt_offset, trail_amt, trail_stop_price, .. } => { s(lmt_offset); s(trail_amt); s(trail_stop_price); }
+            Self::SubmitTrailingStopLimit { lmt_offset, lmt_price, trail_amt, trail_stop_price, .. } => {
+                s(lmt_offset); if let Some(p) = lmt_price { s(p); } s(trail_amt); s(trail_stop_price);
+            }
             Self::SubmitTrailingStopPct { trail_stop_price, .. }
             | Self::SubmitTrailingStopPctEx { trail_stop_price, .. } => s(trail_stop_price),
             Self::SubmitMidPrice { price_cap, .. } => s(price_cap),
@@ -1026,22 +1143,7 @@ impl OrderRequest {
                 // offset; a percent (unit 100) is not a price and must not snap.
                 if *adjustable_trailing_unit == 0 { s(adjusted_trailing_amount); }
             }
-            Self::SubmitEx { kind, .. } => match kind {
-                OrderKind::Market | OrderKind::Moc | OrderKind::Mtl | OrderKind::MktPrt
-                | OrderKind::SnapMkt | OrderKind::SnapMid | OrderKind::SnapPri => {}
-                OrderKind::TrailPct { trail_stop_price, .. } => s(trail_stop_price),
-                OrderKind::Limit { price } | OrderKind::Loc { price } => s(price),
-                OrderKind::Stop { stop_price }
-                | OrderKind::Mit { stop_price }
-                | OrderKind::StpPrt { stop_price } => s(stop_price),
-                OrderKind::StopLimit { price, stop_price }
-                | OrderKind::Lit { price, stop_price } => { s(price); s(stop_price); }
-                OrderKind::TrailingStop { trail_amt, trail_stop_price } => { s(trail_amt); s(trail_stop_price); }
-                OrderKind::TrailingStopLimit { lmt_offset, trail_amt, trail_stop_price } => { s(lmt_offset); s(trail_amt); s(trail_stop_price); }
-                OrderKind::MidPrice { price_cap } => s(price_cap),
-                OrderKind::PegMkt { offset } | OrderKind::PegMid { offset }
-                | OrderKind::Rel { offset } => s(offset),
-            },
+            Self::SubmitEx { kind, .. } => kind.snap_prices(tick),
         }
     }
 }
@@ -1253,7 +1355,8 @@ pub struct CompletedOrder {
     pub order_id: OrderId,
     pub instrument: InstrumentId,
     pub status: OrderStatus,
-    pub filled_qty: i64,
+    /// Fixed-point (QTY_SCALE).
+    pub filled_qty_fixed: Qty,
     pub timestamp_ns: u64,
 }
 
@@ -1302,6 +1405,15 @@ pub enum ControlCommand {
     SubscribePnl { req_id: i64, account: String },
     /// Cancel P&L subscription.
     CancelPnl { req_id: i64 },
+    /// The currency of a contract, for the orders on its instrument
+    /// (tag 15, ibx#466). Sent before an order when the engine does not have
+    /// it yet.
+    SetInstrumentCurrency { con_id: i64, currency: String },
+    /// Subscribe to an account summary (6040=55, ibx#479): `sr_id` is the
+    /// subscription id the server echoes on the rows (`SR.Socket.{n}`).
+    SubscribeAccountSummary { sr_id: String, tags: String, group: String },
+    /// Cancel an account summary subscription.
+    CancelAccountSummary { sr_id: String },
     /// Update a strategy parameter.
     UpdateParam { key: String, value: String },
     /// Submit an order from external caller (bridge mode).
@@ -1472,7 +1584,8 @@ pub struct AccountState {
 #[derive(Debug, Clone, Default)]
 pub struct PositionInfo {
     pub con_id: i64,
-    pub position: i64,
+    /// Fixed-point (QTY_SCALE).
+    pub position_fixed: Qty,
     pub avg_cost: Price,      // per-share avg cost * PRICE_SCALE
     pub symbol: String,
     pub sec_type: String,
@@ -1491,7 +1604,7 @@ pub struct PositionInfo {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MidnightSeed {
     pub con_id: i64,
-    pub qty_midnight: i64,            // position held at midnight
+    pub qty_midnight_fixed: Qty,  // position held at midnight, fixed-point (QTY_SCALE)
     pub money_traded: f64,            // net cash from today's fills (signed)
     pub realized_pnl: f64,           // realized P&L since midnight
 }
@@ -1618,8 +1731,10 @@ mod tests {
         let req = OrderRequest::Modify {
             new_order_id: 2,
             order_id: 1,
-            price: 100 * PRICE_SCALE,
             qty: 200,
+            kind: OrderKind::Limit { price: 100 * PRICE_SCALE },
+            tif: b'0',
+            attrs: OrderAttrs::default(),
         };
         let req2 = req.clone();
         match (req, req2) {
@@ -1868,7 +1983,10 @@ mod tests {
         assert_eq!(req.instrument(), Some(7));
         assert_eq!(OrderRequest::Cancel { order_id: 1 }.instrument(), None);
         assert_eq!(
-            OrderRequest::Modify { new_order_id: 2, order_id: 1, price: 0, qty: 1 }.instrument(),
+            OrderRequest::Modify {
+                new_order_id: 2, order_id: 1, qty: 1,
+                kind: OrderKind::Market, tif: b'0', attrs: OrderAttrs::default(),
+            }.instrument(),
             None
         );
     }
@@ -1893,12 +2011,17 @@ mod tests {
 
     #[test]
     fn order_request_modify_fields() {
-        let req = OrderRequest::Modify { new_order_id: 100, order_id: 99, price: 200 * PRICE_SCALE, qty: 10 };
+        let req = OrderRequest::Modify {
+            new_order_id: 100, order_id: 99, qty: 10,
+            kind: OrderKind::Stop { stop_price: 200 * PRICE_SCALE },
+            tif: b'1', attrs: OrderAttrs::default(),
+        };
         match req {
-            OrderRequest::Modify { order_id, price, qty, .. } => {
+            OrderRequest::Modify { order_id, qty, kind, tif, .. } => {
                 assert_eq!(order_id, 99);
-                assert_eq!(price, 200 * PRICE_SCALE);
+                assert!(matches!(kind, OrderKind::Stop { stop_price } if stop_price == 200 * PRICE_SCALE));
                 assert_eq!(qty, 10);
+                assert_eq!(tif, b'1');
             }
             _ => panic!("wrong variant"),
         }
@@ -1980,12 +2103,13 @@ mod tests {
     #[test]
     fn fill_is_copy() {
         let f = Fill {
+            cum_qty_fixed: (0) as i64 * crate::types::QTY_SCALE, avg_price: 0,
             instrument: 0,
             order_id: 1,
             side: Side::Buy,
             price: 150 * PRICE_SCALE,
-            qty: 100,
-            remaining: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            remaining_fixed: (0) as i64 * crate::types::QTY_SCALE,
             commission: 0,
             timestamp_ns: 123456789,
         };
@@ -2003,8 +2127,8 @@ mod tests {
             instrument: 0,
             side: Side::Sell,
             price: 200 * PRICE_SCALE,
-            qty: 50,
-            filled: 10,
+            qty_fixed: (50) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (10) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::PartiallyFilled,
             ord_type: b'2',
             tif: b'0',
@@ -2012,7 +2136,7 @@ mod tests {
         };
         let o2 = o; // Copy
         assert_eq!(o.order_id, o2.order_id);
-        assert_eq!(o.filled, o2.filled);
+        assert_eq!(o.filled_fixed / crate::types::QTY_SCALE, o2.filled_fixed / crate::types::QTY_SCALE);
     }
 
     // --- Side ---
@@ -2059,8 +2183,8 @@ mod tests {
     fn adjusted_order_type_fix_codes() {
         assert_eq!(AdjustedOrderType::Stop.fix_code(), "3");
         assert_eq!(AdjustedOrderType::StopLimit.fix_code(), "4");
-        assert_eq!(AdjustedOrderType::Trail.fix_code(), "7");
-        assert_eq!(AdjustedOrderType::TrailLimit.fix_code(), "8");
+        assert_eq!(AdjustedOrderType::Trail.fix_code(), "T");
+        assert_eq!(AdjustedOrderType::TrailLimit.fix_code(), "TSL");
     }
 
     // --- OrderAttrs cash_qty ---

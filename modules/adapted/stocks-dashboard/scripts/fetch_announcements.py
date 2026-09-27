@@ -37,12 +37,18 @@ session (plain urllib + Chrome UA + cookie warmup — same as the daily fundamen
 
 Run: python -X utf8 scripts/fetch_announcements.py
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import datetime
 import json
 import os
 import re
 import sys
 import time
+
+import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_fundamentals as B  # _get / nse_jar / UA
@@ -97,7 +103,7 @@ def key_of(r):
 
 
 def main():
-    today = datetime.date.today()
+    today = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()  # IST, not the runner's UTC
     start = today - datetime.timedelta(days=WINDOW_DAYS - 1)
     hdr = {
         "User-Agent": B.UA,
@@ -201,7 +207,9 @@ RESULT_CAP_RE = re.compile(
     r"submitted.{0,40}financial\s+results?",
     re.IGNORECASE,
 )
-RESULT_CAT_RE = re.compile(r"^financial\s+result", re.IGNORECASE)
+RESULT_CAT_RE = re.compile(
+    r"^(?:financial\s+result|integrated\s+filing\s*[-–]?\s*financial)", re.IGNORECASE
+)  # NSE's "Integrated Filing- Financial" (TEMPSENS, NAGAFERT)
 # ⚠️ A results filing in Jul/Aug/Sep is often a LATE March (Q4/annual) result, not the current June
 # quarter — so read the reporting period per filing and ANCHOR on an "ended" clause (never assume the
 # current season). Snap to a quarter-end month; 0 (no badge) when the period isn't stated.
@@ -225,8 +233,17 @@ _ANCHOR_RES = [
         re.IGNORECASE,
     ),  # "For March 31, 2026" / "for 30th June-2026" / "for September 2025" (month+year can't be a meeting date)
 ]
-_DMY_RE = re.compile(r"(\d{1,2})(?:st|nd|rd|th)?[\s,]+([A-Za-z]{3,9})[,\s.\-]+(\d{4})", re.IGNORECASE)
-_MDY_RE = re.compile(r"([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})", re.IGNORECASE)
+_DMY_RE = re.compile(
+    r"(\d{1,2})(?:st|nd|rd|th)?[\s,.\-]+([A-Za-z]{3,9})\.?[,\s.\-]+(\d{4})", re.IGNORECASE
+)  # + "30-Jun-2026"
+_MDY_RE = re.compile(
+    r"([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})", re.IGNORECASE
+)  # + "June 30,2026", "june 30th 2026", "Sept. 30, 2026"
+_ISO_RE = re.compile(r"\b(20\d{2})-(\d{2})-(\d{2})\b")  # "2026-06-30" -> "30.06.2026"
+_YY_RE = re.compile(r"\b(\d{1,2})([./])(\d{1,2})\2(\d{2})\b(?![./\d])")  # "30/06/26" -> "30/06/2026"
+_TIME_RE = re.compile(
+    r"\bat\s+\d{1,2}:\d{2}\b|\d{1,2}[.:]\d{2}\s*(?:a\.?m|p\.?m|hrs)\b", re.IGNORECASE
+)  # "at 4:30" / "4.30 PM" — NOT "ended at 30.06.2026"   # a meeting's clock time
 _NUM_RE = re.compile(r"(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})")
 _MY_RE = re.compile(r"([A-Za-z]{3,9})[,\s]+(\d{4})", re.IGNORECASE)  # "March, 2026" (day unstated)
 # "F.Y. 2025-26" / "FY 2025-2026" / "financial year 2025-26" -> March of the END year. Unambiguous
@@ -252,9 +269,14 @@ def qe_sane(qe, filed):
 
 def parse_qe(*texts):
     h = " ".join(str(t or "") for t in texts)
+    h = _ISO_RE.sub(lambda m: f"{m.group(3)}.{m.group(2)}.{m.group(1)}", h)
+    h = _YY_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(2)}20{m.group(4)}", h)
     for rx in _ANCHOR_RES:
         for mm in rx.finditer(h):
             seg = mm.group(1)
+            # "…meeting ended at 4.30 PM on 30th June 2026" — that 'ended' is the MEETING, not a period
+            if _TIME_RE.search(seg):
+                continue
             m = _DMY_RE.search(seg)
             if m:
                 qe = _qe_mk(MON.get(m.group(2).lower()[:3], 0), int(m.group(3)))
@@ -324,7 +346,9 @@ def write_results_feed(allrows):
         feed.append(r)
         have.add((r[0], r[2][:10]))
     # trim to a rolling 31-day window (matches fetch_bse_results) so preserved BSE rows don't accrete
-    cut = (datetime.date.today() - datetime.timedelta(days=31)).isoformat()
+    cut = (
+        (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date() - datetime.timedelta(days=31)
+    ).isoformat()
     feed = [r for r in feed if r[2][:10] >= cut]
     feed.sort(key=lambda r: (r[2], r[0]), reverse=True)
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)

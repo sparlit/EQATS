@@ -396,7 +396,15 @@ def main():
     # candidate quarter-ends: Mar-2019 (earliest with a 2018 year-ago base) to latest
     cand = []
     y, m = 2019, 3
-    while (y, m) <= (2026, 12):
+    # up to the last quarter that has ENDED (IST) — was a fixed (2026, 12), so Mar-2027 and every later
+    # quarter would never have appeared in Season Trends
+    _now = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()
+    _last = max(
+        q
+        for q in ((yy, mm) for yy in (_now.year - 1, _now.year) for mm in (3, 6, 9, 12))
+        if datetime.date(q[0], q[1], {3: 31, 6: 30, 9: 30, 12: 31}[q[1]]) <= _now
+    )
+    while (y, m) <= _last:
         cand.append(y * 10000 + m * 100 + {3: 31, 6: 30, 9: 30, 12: 31}[m])
         m += 3
         if m > 12:

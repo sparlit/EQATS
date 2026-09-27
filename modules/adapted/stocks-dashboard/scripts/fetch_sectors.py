@@ -38,12 +38,19 @@ Older versions of this script discarded a row unless `Sector` was non-empty.
 That dropped a lot of legit data (BSE sometimes nulls Sector but populates
 the rest), so now we accept any row with at least one classification field.
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import concurrent.futures
 import json
+import os
 import re
 import subprocess
 import time
 from pathlib import Path
+
+import bse_headers as BH  # §181 BSE headers
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "scripts" / "stock_data.json"
@@ -67,25 +74,13 @@ print(f"BSE scrips to enrich: {len(scrip_list)}")
 
 
 def fetch(entry):
-    code, _sid, ref = entry
+    code, _sid, _ref = entry
     url = f"https://api.bseindia.com/BseIndiaAPI/api/ComHeadernew/w?quotetype=EQ&scripcode={code}"
     try:
         r = subprocess.run(
-            [
-                "curl",
-                "-s",
-                "--max-time",
-                "8",
-                "-A",
-                UA,
-                "-H",
-                f"Referer: {ref}",
-                "-H",
-                "Origin: https://www.bseindia.com",
-                "-H",
-                "Accept: application/json, text/plain, */*",
-                url,
-            ],
+            # honest UA; CURL_ARGS already carries Accept + Referer — a SECOND Referer is a 403 (§181, §190:
+            # this call still sent its per-scrip Referer, and got 0/4,926 on the last run)
+            ["curl", "-s", "--max-time", "8", "-A", BH.UA, *BH.CURL_ARGS, url],
             capture_output=True,
             timeout=10,
         )
@@ -110,7 +105,9 @@ def fetch(entry):
 
 # Up to 4 passes — BSE's endpoint is flaky from cloud IPs, retries pay off.
 sectors = {}
-PASSES = 4
+PASSES = (
+    0 if os.environ.get("FETCH_SECTORS_DRY") else 4
+)  # DRY = no BSE traffic, resolution logic only (prints per-ticker codes)
 for attempt in range(PASSES):
     todo = [s for s in scrip_list if s[0] not in sectors]
     if not todo:
@@ -130,6 +127,25 @@ for attempt in range(PASSES):
         time.sleep(5)  # cool-off if BSE was rate-limiting
 
 print(f"\nTotal sector rows: {len(sectors)} / {len(scrip_list)} ({100 * len(sectors) / len(scrip_list):.1f}%)")
+
+# --- Fallback: the last PUBLISHED build's labels, fill-only (DATA_RUNBOOK §150) ------------
+# 2026-09-23: api.bseindia.com answered 403 "Access Denied" to every client for hours. With
+# `sectors` empty, the merge below stamped EVERY stock "Uncategorized" — so a run that survives
+# the outage (the scrip-master fallback in refresh.yml) would have shipped a sector-less site.
+# Any ticker BSE did not answer for THIS run keeps the sector/industry it shipped with last time;
+# a fresh answer always wins. docs/stock_data.bin is the build that is live right now (committed
+# by the previous successful run) — the same "last-good copy" the scrip master falls back to.
+PREV = {}
+try:
+    import gzip
+
+    with open(ROOT / "docs" / "stock_data.bin", "rb") as fh:
+        for _t, _m in (json.loads(gzip.decompress(fh.read())).get("meta") or {}).items():
+            if _m.get("sector") and _m["sector"] not in ("Uncategorized", "NSE-SME"):
+                PREV[_t] = {"sector": _m["sector"], "industry": _m.get("industry") or ""}
+except Exception as e:
+    print(f"previous build unreadable, no sector fallback this run: {e}")
+print(f"Previous build carries sector labels for {len(PREV)} tickers (fallback for any BSE did not answer)")
 
 # Histogram of industries we found
 from collections import Counter
@@ -154,6 +170,7 @@ for b in bse:
         sid_to_code[sid] = code
     if isin and code:
         isin_to_code[isin] = code
+code_to_isin = {c: i for i, c in isin_to_code.items()}
 
 # Build NSE symbol -> ISIN map from the NSE master
 import csv
@@ -169,8 +186,11 @@ with open("/tmp/nse.csv") as f:
 print(f"NSE symbol->ISIN map: {len(nse_sym_to_isin)}")
 
 merged = 0
+carried = 0  # §150: kept from the previous build because BSE gave no answer this run
 fallback_isin = 0
 fallback_sid = 0
+refused_sid = 0  # §76: scrip_id twin with a different ISIN, not used
+sme_rows = 0  # NSE-SME rows kept out of the BSE lookup
 for ticker, meta in data["meta"].items():
     sym, suffix = ticker.rsplit(".", 1)
     code = None
@@ -183,20 +203,39 @@ for ticker, meta in data["meta"].items():
             code = sid_to_code.get(sym)
             if code:
                 fallback_sid += 1
+    elif meta.get("sme"):
+        # NSE SME platform (Emerge) listing: not on BSE at all (measured 2026-09-22: 0 of 571 SME
+        # ISINs on BSE), and 5 SME symbols COLLIDE with unrelated BSE scrip_ids (RAJPUTANA, MAL,
+        # SEL, ZEAL, GSTL) — a scrip_id lookup here would hand them another company's industry
+        # (DATA_RUNBOOK §76 / §145). No BSE lookup; the group is set below.
+        code = None
     else:  # .NS
-        # NSE symbol: try direct scrip_id match, then ISIN fallback.
+        # NSE symbol: direct scrip_id match, ISIN-GATED (§76: a scrip_id equal to the NSE symbol is
+        # a coincidence until the ISIN agrees — BSE "KALYANI" is Kalyani Cast-Tech, NSE KALYANI is
+        # Kalyani Commercials; same for FOCUS), then ISIN fallback.
         code = sid_to_code.get(sym)
-        if not code:
-            isin = nse_sym_to_isin.get(sym)
-            if isin:
-                code = isin_to_code.get(isin)
-                if code:
-                    fallback_isin += 1
+        isin = nse_sym_to_isin.get(sym)
+        if code and isin and code_to_isin.get(code) and code_to_isin[code] != isin:
+            refused_sid += 1
+            code = None
+        if not code and isin:
+            code = isin_to_code.get(isin)
+            if code:
+                fallback_isin += 1
+    if PASSES == 0:
+        print(f"  DRY resolve {ticker}: code={code}")
     info = sectors.get(code or "")
     if info:
         meta["sector"] = info.get("sector") or info.get("industry") or "Uncategorized"
         meta["industry"] = info.get("industry") or info.get("igroup") or info.get("sector") or ""
         merged += 1
+    elif meta.get("sme"):
+        meta["sector"] = "NSE-SME"  # the dashboard's industry filter groups these as "NSE-SME (n)"
+        meta["industry"] = ""
+        sme_rows += 1
+    elif ticker in PREV:
+        meta["sector"], meta["industry"] = PREV[ticker]["sector"], PREV[ticker]["industry"]
+        carried += 1
     else:
         meta["sector"] = "Uncategorized"
         meta["industry"] = ""
@@ -206,4 +245,13 @@ print(f"\nMerged sector data into {merged}/{len(data['meta'])} stocks ({100 * me
 print(f"  via numeric/scrip_id direct: {merged - fallback_isin - fallback_sid}")
 print(f"  via .BO scrip_id text match: {fallback_sid}")
 print(f"  via ISIN fallback:           {fallback_isin}")
+print(f"  scrip_id twins refused (ISIN differs, §76): {refused_sid}")
+print(f"  NSE-SME rows (no BSE lookup, sector NSE-SME): {sme_rows}")
+print(f"  carried from the previous build (BSE gave no answer this run, §150): {carried}")
+if (
+    carried > 50
+):  # the script's own "BSE is rate-limiting" threshold — a handful of flaky scrips is normal, this is an outage
+    print(
+        f"::warning::fetch_sectors: {carried} tickers keep the previous build's sector/industry — BSE ComHeadernew answered for {len(sectors)}/{len(scrip_list)} scrips this run (DATA_RUNBOOK §150)"
+    )
 print(f"Updated {DATA}")

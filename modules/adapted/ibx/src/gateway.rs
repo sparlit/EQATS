@@ -416,7 +416,7 @@ pub struct Gateway {
     /// Stored for farm reconnection.
     pub hw_info: String,
     pub encoded: String,
-    /// Raw soft dollar tier data from CCP logon tag 6560.
+    /// Raw soft dollar tier data from CCP logon tag 6522 (ibx#480).
     pub raw_soft_dollar_tiers: String,
     /// Raw family code data from CCP logon tag 6823.
     pub raw_family_codes: String,
@@ -1296,7 +1296,7 @@ impl Gateway {
             }
 
             // Gateway-local init data from logon response
-            if let Some(v) = fields.get(&6560) {
+            if let Some(v) = fields.get(&6522) {
                 if raw_soft_dollar_tiers.is_empty() { raw_soft_dollar_tiers = v.clone(); }
             }
             if let Some(v) = fields.get(&6823) {
@@ -1406,43 +1406,14 @@ impl Gateway {
         );
 
         // The auth-server's logon ACK arrives DEFLATE-compressed inside one or
-        // more `8=FIXCOMP` envelopes (per ib-agent#129). The compressed body
-        // is ~30 kB on the wire but expands to ~48 kB plaintext containing
-        // the routing tags 6145/6171/8008. Walk the buffer, decompress every
-        // FIXCOMP segment, and concatenate the plaintext with init_data so the
-        // existing tag-scan loop below sees the inflated content.
-        let mut inflated_extra: Vec<u8> = Vec::new();
-        let mut cursor = 0usize;
-        while cursor + 12 < init_data.len() {
-            if init_data[cursor..].starts_with(b"8=FIXCOMP\x01") {
-                if let Some(total_len) = fixcomp::fixcomp_length(&init_data[cursor..]) {
-                    let segment = &init_data[cursor..cursor + total_len.min(init_data.len() - cursor)];
-                    let inflated = fixcomp::fixcomp_decompress(segment).unwrap_or_else(|e| {
-                        log::warn!("Init FIXCOMP segment at offset {}: dropping malformed frame: {}", cursor, e);
-                        Vec::new()
-                    });
-                    let inflated_bytes: usize = inflated.iter().map(|m| m.len() + 1).sum();
-                    log::info!(
-                        "Init FIXCOMP segment at offset {}: {} compressed → {} inner messages, ~{} inflated bytes",
-                        cursor, total_len, inflated.len(), inflated_bytes,
-                    );
-                    for inner in inflated {
-                        inflated_extra.extend_from_slice(&inner);
-                        inflated_extra.push(b'\x01');
-                    }
-                    cursor += total_len;
-                    continue;
-                }
-            }
-            cursor += 1;
-        }
-        if !inflated_extra.is_empty() {
-            log::info!("Inflated {} bytes of FIXCOMP content; appending to scan buffer", inflated_extra.len());
-            init_data.extend_from_slice(&inflated_extra);
-        }
+        // more `8=FIXCOMP` envelopes (per ib-agent#129); the routing tags are
+        // in the inflated content. The scan reads a copy with that content
+        // appended; `init_data` itself seeds the connection buffer below
+        // unchanged (ibx#317).
+        let scan_data = init_scan_buffer(&init_data);
 
         // Scan init response for account ID and gateway-local init tags
-        let init_str = String::from_utf8_lossy(&init_data);
+        let init_str = String::from_utf8_lossy(&scan_data);
         // TEMP diagnostic (ib-agent#128 follow-up): log every part containing
         // "farm" or "hmds" so we can locate the routing tags.
         for part in init_str.split('\x01') {
@@ -1459,7 +1430,7 @@ impl Gateway {
                         log::info!("Found account ID from init response: {}", account_id);
                     }
                 }
-            } else if part.starts_with("6560=") && raw_soft_dollar_tiers.is_empty() {
+            } else if part.starts_with("6522=") && raw_soft_dollar_tiers.is_empty() {
                 raw_soft_dollar_tiers = part[5..].to_string();
                 log::info!("Found soft dollar tiers from init response ({} bytes)", raw_soft_dollar_tiers.len());
             } else if part.starts_with("6823=") && raw_family_codes.is_empty() {
@@ -1676,7 +1647,7 @@ impl Gateway {
 
     /// Populate shared state with gateway-local init data parsed from CCP logon.
     pub fn populate_init_data(&self, shared: &SharedState) {
-        use crate::types::{SmartComponent, NewsProvider, SoftDollarTier, FamilyCode};
+        use crate::types::{SmartComponent, NewsProvider, FamilyCode};
 
         // Smart components: hardcoded US equity SMART routing exchanges.
         // Server doesn't send these in a parseable init message; they're
@@ -1722,35 +1693,9 @@ impl Gateway {
         };
         shared.reference.set_news_providers(news_providers);
 
-        // Soft dollar tiers: parse from CCP logon tag 6560, fall back to defaults.
-        let tiers = if self.raw_soft_dollar_tiers.is_empty() {
-            // Default tiers matching Gateway 10.30+
-            vec![
-                SoftDollarTier { name: "MaxRebate".into(), val: "1".into(), display_name: "Maximize Rebate".into() },
-                SoftDollarTier { name: "PreferRebate".into(), val: "9".into(), display_name: "Prefer Rebate".into() },
-                SoftDollarTier { name: "PreferFill".into(), val: "11".into(), display_name: "Prefer Fill".into() },
-                SoftDollarTier { name: "MaxFill".into(), val: "12".into(), display_name: "Maximize Fill".into() },
-                SoftDollarTier { name: "Primary".into(), val: "2".into(), display_name: "Primary Exchange".into() },
-                SoftDollarTier { name: "VRebate".into(), val: "3".into(), display_name: "Highest Volume Exchange With Rebate".into() },
-                SoftDollarTier { name: "VLowFee".into(), val: "4".into(), display_name: "High Volume Exchange With Lowest Fee".into() },
-            ]
-        } else {
-            // Parse "name1|val1|display1;name2|val2|display2" format
-            self.raw_soft_dollar_tiers.split(';').filter_map(|entry| {
-                let parts: Vec<&str> = entry.split('|').collect();
-                if parts.len() >= 3 {
-                    Some(SoftDollarTier {
-                        name: parts[0].to_string(),
-                        val: parts[1].to_string(),
-                        display_name: parts[2].to_string(),
-                    })
-                } else {
-                    log::warn!("Unexpected soft dollar tier format: {}", entry);
-                    None
-                }
-            }).collect()
-        };
-        shared.reference.set_soft_dollar_tiers(tiers);
+        // Soft dollar tiers: from CCP logon tag 6522, none when it is absent
+        // (ibx#480).
+        shared.reference.set_soft_dollar_tiers(parse_soft_dollar_tiers(&self.raw_soft_dollar_tiers));
 
         // Family codes: parse from CCP logon tag 6823.
         // Empty for paper/single accounts.
@@ -1881,9 +1826,75 @@ pub fn build_mktdata_unsubscribe(md_req_id: &str, seq: u32) -> Vec<u8> {
 /// Re-exports for backward compatibility.
 pub use crate::config::{chrono_free_timestamp, days_to_ymd};
 
+/// The init burst as the logon tag scan reads it: the received bytes, then
+/// the inflated content of every `8=FIXCOMP` frame in them (ib-agent#129).
+/// The compressed body is ~30 kB on the wire and expands to ~48 kB plaintext
+/// holding the routing tags 6145/6171/8008.
+///
+/// The received bytes also seed the connection buffer, where the hot loop
+/// inflates the compressed frames itself. The copy must stay out of it: with
+/// the inflated content appended there, every compressed message of the init
+/// burst was handled twice, executions included (ibx#317).
+fn init_scan_buffer(init_data: &[u8]) -> Vec<u8> {
+    let mut inflated_extra: Vec<u8> = Vec::new();
+    let mut cursor = 0usize;
+    while cursor + 12 < init_data.len() {
+        if init_data[cursor..].starts_with(b"8=FIXCOMP\x01") {
+            if let Some(total_len) = fixcomp::fixcomp_length(&init_data[cursor..]) {
+                let segment = &init_data[cursor..cursor + total_len.min(init_data.len() - cursor)];
+                let inflated = fixcomp::fixcomp_decompress(segment).unwrap_or_else(|e| {
+                    log::warn!("Init FIXCOMP segment at offset {}: dropping malformed frame: {}", cursor, e);
+                    Vec::new()
+                });
+                let inflated_bytes: usize = inflated.iter().map(|m| m.len() + 1).sum();
+                log::info!(
+                    "Init FIXCOMP segment at offset {}: {} compressed → {} inner messages, ~{} inflated bytes",
+                    cursor, total_len, inflated.len(), inflated_bytes,
+                );
+                for inner in inflated {
+                    inflated_extra.extend_from_slice(&inner);
+                    inflated_extra.push(b'\x01');
+                }
+                cursor += total_len;
+                continue;
+            }
+        }
+        cursor += 1;
+    }
+    let mut scan = init_data.to_vec();
+    if !inflated_extra.is_empty() {
+        log::info!("Inflated {} bytes of FIXCOMP content; appending to scan buffer", inflated_extra.len());
+        scan.extend_from_slice(&inflated_extra);
+    }
+    scan
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ibx#317: the tag scan sees the inflated init burst, and the bytes that
+    // seed the connection buffer stay as received. The inflated copy used
+    // to be appended to them, so every compressed message of the burst
+    // reached the engine twice (seen on paper 25/09/2026: seq 4 to 119).
+    #[test]
+    fn init_scan_buffer_inflates_for_the_scan_only() {
+        use crate::protocol::fix::fix_build;
+        let plain = fix_build(&[(35, "U"), (6040, "93")], 3);
+        let mut inner = fix_build(&[(35, "8"), (17, "e1"), (6145, "usfarm")], 4);
+        inner.extend_from_slice(&fix_build(&[(35, "U"), (6040, "60"), (17, "e1")], 5));
+        let mut init_data = plain.clone();
+        init_data.extend_from_slice(&fixcomp::fixcomp_build(&inner));
+        let received = init_data.clone();
+
+        let scan = init_scan_buffer(&init_data);
+
+        assert_eq!(init_data, received, "the seed bytes are unchanged");
+        assert!(scan.starts_with(&received));
+        let text = String::from_utf8_lossy(&scan[received.len()..]).into_owned();
+        assert!(text.contains("6145=usfarm"), "the scan sees the inflated content");
+        assert_eq!(text.matches("35=").count(), 2, "each inflated message once");
+    }
 
     #[test]
     fn token_short_hash_deterministic() {
@@ -2204,5 +2215,61 @@ mod tests {
         };
         assert_eq!(config.username, "user");
         assert!(config.paper);
+    }
+}
+
+/// Soft dollar tiers as the reference reads them from logon tag 6522
+/// (ibx#480): groups `{KEY}:{tiers}` separated by `;`, tiers `{name}@{value}`
+/// separated by `,`. A later group with the same key replaces the earlier
+/// one; every tier of every key is returned. The display name is
+/// `Tier {name} ({value})`, with name + 1 when the name is an integer.
+pub(crate) fn parse_soft_dollar_tiers(raw: &str) -> Vec<crate::types::SoftDollarTier> {
+    let mut groups: Vec<(String, Vec<crate::types::SoftDollarTier>)> = Vec::new();
+    for group in raw.split(';').filter(|g| !g.is_empty()) {
+        let Some((key, list)) = group.split_once(':') else {
+            log::warn!("Unexpected soft dollar tiers format: {} in: {}", group, raw);
+            continue;
+        };
+        let tiers: Vec<crate::types::SoftDollarTier> = list.split(',').filter(|t| !t.is_empty()).filter_map(|tier| {
+            let Some((name, val)) = tier.split_once('@') else {
+                log::warn!("Unexpected soft dollar tier format: {} in: {}", tier, raw);
+                return None;
+            };
+            let shown = name.parse::<i32>().map_or_else(|_| name.to_string(), |n| n.wrapping_add(1).to_string());
+            Some(crate::types::SoftDollarTier {
+                name: name.to_string(),
+                val: val.to_string(),
+                display_name: format!("Tier {} ({})", shown, val),
+            })
+        }).collect();
+        if tiers.is_empty() { continue; }
+        let key = key.to_uppercase();
+        match groups.iter_mut().find(|(k, _)| *k == key) {
+            Some(existing) => existing.1 = tiers,
+            None => groups.push((key, tiers)),
+        }
+    }
+    groups.into_iter().flat_map(|(_, tiers)| tiers).collect()
+}
+
+#[cfg(test)]
+mod soft_dollar_tests {
+    use super::parse_soft_dollar_tiers;
+
+    // ibx#480: tiers come from logon tag 6522, in the reference's format.
+    #[test]
+    fn soft_dollar_tiers_from_6522() {
+        assert!(parse_soft_dollar_tiers("").is_empty());
+        let t = parse_soft_dollar_tiers("USSTK:0@ABC");
+        assert_eq!(t.len(), 1);
+        assert_eq!((t[0].name.as_str(), t[0].val.as_str(), t[0].display_name.as_str()), ("0", "ABC", "Tier 1 (ABC)"));
+
+        let t = parse_soft_dollar_tiers("usstk:1@X,Gold@Y;EUSTK:2@Z;BAD;USSTK:3@W;CASH:");
+        let shown: Vec<&str> = t.iter().map(|t| t.display_name.as_str()).collect();
+        assert_eq!(shown, ["Tier 4 (W)", "Tier 3 (Z)"], "a later group with the same key replaces the earlier one");
+
+        let t = parse_soft_dollar_tiers("USSTK:Gold@Y,nope");
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].display_name, "Tier Gold (Y)");
     }
 }

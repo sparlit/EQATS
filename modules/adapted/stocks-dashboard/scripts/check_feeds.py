@@ -134,7 +134,10 @@ def check_special(s):
     try:
         if s["type"] == "release_asset":
             rel = api(f"https://api.github.com/repos/{s['repo']}/releases/tags/{s['tag']}")
-            asset = next((a for a in rel.get("assets", []) if a["name"] == s["asset"]), None)
+            # The tag listing's `assets` can lag a re-upload by >1 h (DATA_RUNBOOK §146), so take
+            # only the release id from it and list the assets by id, which stays fresh.
+            assets = api(f"https://api.github.com/repos/{s['repo']}/releases/{rel['id']}/assets?per_page=100")
+            asset = next((a for a in assets if a["name"] == s["asset"]), None)
             if not asset:
                 r.update(status="missing", detail=f"asset {s['asset']} not found")
                 return r

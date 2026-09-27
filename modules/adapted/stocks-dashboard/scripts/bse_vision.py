@@ -38,6 +38,10 @@ quarter) x the Lakh/Crore unit, and write bse_fundamentals.json.
 
 Run: python -X utf8 bse_vision.py SBILIFE HDFCLIFE ICICIGI --quarters 4
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import concurrent.futures
 import contextlib
 import gzip
@@ -51,6 +55,7 @@ import sys
 import time
 import urllib.request
 
+import bse_headers as BH  # §181 BSE headers
 import cv2
 import fitz
 import numpy as np
@@ -74,7 +79,8 @@ def watchdog(fn, secs, *a):
         raise TimeoutError(msg)
 
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+UA = BH.UA  # honest BSE identity (§181) -- no browser impersonation
+_UA_OTHER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"  # non-BSE hosts only, unchanged
 OCR = RapidOCR()
 HERE = os.path.dirname(os.path.abspath(__file__))
 VP = os.path.join(HERE, os.environ.get("VPDIR", "_vp"))
@@ -117,13 +123,16 @@ PAT = [
 def session():
     o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     with contextlib.suppress(Exception):
-        o.open(urllib.request.Request("https://www.bseindia.com/", headers={"User-Agent": UA}), timeout=30).read()
+        o.open(urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30).read()
     return o
 
 
 def get(o, u, b=False):
     r = o.open(
-        urllib.request.Request(u, headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"}), timeout=60
+        urllib.request.Request(
+            u, headers=BH.HEADERS if BH.is_bse(u) else {"User-Agent": _UA_OTHER, "Referer": "https://www.bseindia.com/"}
+        ),
+        timeout=60,
     )
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":

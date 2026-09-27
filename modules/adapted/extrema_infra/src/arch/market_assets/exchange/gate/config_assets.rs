@@ -1,0 +1,78 @@
+/// Gate API Base
+pub const GATE_BASE_URL: &str = "https://api.gateio.ws";
+pub const GATE_WS_BASE_URL: &str = "wss://api.gateio.ws/ws/v4/";
+pub const GATE_FUTURES_WS_USDT: &str = "wss://fx-ws.gateio.ws/v4/ws/usdt";
+pub const GATE_FUTURES_WS_BTC: &str = "wss://fx-ws.gateio.ws/v4/ws/btc";
+
+/// Spot endpoints/channels
+pub const GATE_WS_SPOT_ORDERS: &str = "spot.orders";
+pub const GATE_WS_SPOT_ORDERS_V2: &str = "spot.orders_v2";
+pub const GATE_WS_SPOT_BALANCES: &str = "spot.balances";
+pub const GATE_WS_SPOT_CROSS_BALANCES: &str = "spot.cross_balances";
+pub const GATE_SPOT_CURRENCY_PAIRS: &str = "/api/v4/spot/currency_pairs";
+pub const GATE_SPOT_ORDERS: &str = "/api/v4/spot/orders";
+pub const GATE_SPOT_ORDER: &str = "/api/v4/spot/orders/{order_id}";
+pub const GATE_SPOT_TICKERS: &str = "/api/v4/spot/tickers";
+pub const GATE_SPOT_ACCOUNTS: &str = "/api/v4/spot/accounts";
+
+/// Uni (margin/unified) REST endpoints
+pub const GATE_UNI_MARGIN_CURRENCY_PAIRS: &str = "/api/v4/margin/uni/currency_pairs";
+pub const GATE_UNI_MARGIN_ESTIMATE_RATE: &str = "/api/v4/margin/uni/estimate_rate";
+pub const GATE_UNI_MARGIN_LOANS: &str = "/api/v4/margin/uni/loans";
+pub const GATE_UNI_MARGIN_USER_ACCOUNT: &str = "/api/v4/margin/user/account";
+pub const GATE_UNI_MARGIN_INTEREST_RECORDS: &str = "/api/v4/margin/uni/interest_records";
+pub const GATE_UNI_MARGIN_AUTO_REPAY: &str = "/api/v4/margin/auto_repay";
+pub const GATE_UNI_MARGIN_ACCOUNT_BOOK: &str = "/api/v4/margin/account_book";
+pub const GATE_UNI_ACCOUNTS: &str = "/api/v4/unified/accounts";
+pub const GATE_UNI_BATCH_BORROWABLE: &str = "/api/v4/unified/batch_borrowable";
+pub const GATE_UNI_CURRENCIES: &str = "/api/v4/unified/currencies";
+pub const GATE_UNI_ESTIMATE_RATE: &str = "/api/v4/unified/estimate_rate";
+pub const GATE_UNI_LOANS: &str = "/api/v4/unified/loans";
+pub const GATE_UNI_SUB_ACCOUNTS: &str = "/api/v4/sub_accounts";
+
+/// Futures (perp) REST endpoints
+pub const GATE_FUTURES_CONTRACTS: &str = "/api/v4/futures/{settle}/contracts";
+pub const GATE_FUTURES_CONTRACT: &str = "/api/v4/futures/{settle}/contracts/{contract}";
+pub const GATE_FUTURES_TICKERS: &str = "/api/v4/futures/{settle}/tickers";
+pub const GATE_FUTURES_ADL_RISK_STATES: &str = "/api/v4/futures/{settle}/adl_risk_states";
+pub const GATE_FUTURES_CANDLESTICKS: &str = "/api/v4/futures/{settle}/candlesticks";
+pub const GATE_FUTURES_ORDER_BOOK: &str = "/api/v4/futures/{settle}/order_book";
+pub const GATE_FUTURES_PREMIUM_INDEX: &str = "/api/v4/futures/{settle}/premium_index";
+pub const GATE_FUTURES_FUNDING_RATE: &str = "/api/v4/futures/{settle}/funding_rate";
+pub const GATE_FUTURES_SET_POSITION_MODE: &str = "/api/v4/futures/{settle}/set_position_mode";
+pub const GATE_FUTURES_SET_LEVERAGE: &str =
+    "/api/v4/futures/{settle}/positions/{contract}/leverage";
+pub const GATE_FUTURES_POSITIONS: &str = "/api/v4/futures/{settle}/positions";
+pub const GATE_FUTURES_ORDERS: &str = "/api/v4/futures/{settle}/orders";
+pub const GATE_FUTURES_BATCH_ORDERS: &str = "/api/v4/futures/{settle}/batch_orders";
+pub const GATE_FUTURES_BATCH_CANCEL_ORDERS: &str = "/api/v4/futures/{settle}/batch_cancel_orders";
+pub const GATE_FUTURES_ORDER: &str = "/api/v4/futures/{settle}/orders/{order_id}";
+pub const GATE_WS_FUTURES_ORDERS: &str = "futures.orders";
+pub const GATE_WS_FUTURES_BALANCES: &str = "futures.balances";
+pub const GATE_WS_FUTURES_POSITIONS: &str = "futures.positions";
+pub const GATE_WS_FUTURES_TRADES: &str = "futures.trades";
+pub const GATE_WS_FUTURES_CANDLES: &str = "futures.candlesticks";
+pub const GATE_WS_FUTURES_BOOK_TICKER: &str = "futures.book_ticker";
+pub const GATE_WS_FUTURES_ORDER_BOOK: &str = "futures.order_book";
+pub const GATE_WS_FUTURES_ORDER_BOOK_UPDATE: &str = "futures.order_book_update";
+pub const GATE_WS_FUTURES_ADL_WARNING: &str = "futures.adl_warning";
+
+/// Delivery REST endpoints
+pub const GATE_DELIVERY_CONTRACTS: &str = "/api/v4/delivery/{settle}/contracts";
+pub const GATE_DELIVERY_CONTRACT: &str = "/api/v4/delivery/{settle}/contracts/{contract}";
+
+/// Account REST endpoints
+pub const GATE_ACCOUNT_DETAIL: &str = "/api/v4/account/detail";
+pub const GATE_ACCOUNT_MAIN_KEYS: &str = "/api/v4/account/main_keys";
+
+/// Wallet REST endpoints
+pub const GATE_WALLET_CURRENCY_CHAINS: &str = "/api/v4/wallet/currency_chains";
+pub const GATE_WALLET_DEPOSIT_ADDRESS: &str = "/api/v4/wallet/deposit_address";
+pub const GATE_WALLET_SAVED_ADDRESS: &str = "/api/v4/wallet/saved_address";
+pub const GATE_WALLET_SUB_ACCOUNT_TRANSFERS: &str = "/api/v4/wallet/sub_account_transfers";
+pub const GATE_WALLET_SUB_ACCOUNT_TO_SUB_ACCOUNT: &str =
+    "/api/v4/wallet/sub_account_to_sub_account";
+pub const GATE_WALLET_ORDER_STATUS: &str = "/api/v4/wallet/order_status";
+pub const GATE_WITHDRAWALS: &str = "/api/v4/withdrawals";
+pub const GATE_WALLET_WITHDRAWALS_LIST: &str = "/api/v4/wallet/withdrawals";
+pub const GATE_WALLET_DEPOSITS_LIST: &str = "/api/v4/wallet/deposits";

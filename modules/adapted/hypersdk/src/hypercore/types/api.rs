@@ -302,20 +302,8 @@ impl Action {
 }
 
 impl Action {
-    /// The EIP-712 typed data this action signs over, or `None` when it signs the msgpack
-    /// `Agent` hash instead.
-    ///
-    /// This is the single place that decides which signing scheme an action uses.
-    /// [`sign_sync`](Self::sign_sync), [`sign`](Self::sign) and [`prehash`](Self::prehash) all
-    /// go through it, so a new variant only has to be classified once. The match is
-    /// exhaustive, so the compiler will not let a new action be forgotten.
-    fn signing_typed_data(
-        &self,
-        nonce: u64,
-        maybe_vault_address: Option<Address>,
-        expires_after: Option<u64>,
-        chain: Chain,
-    ) -> anyhow::Result<Option<TypedData>> {
+    /// Classify every action once for both ordinary and multisig signing.
+    fn user_signed_typed_data(&self, chain: Chain) -> Option<TypedData> {
         let typed_data = match self {
             // Actions signed over the msgpack hash wrapped in `Agent`.
             Action::Order(_)
@@ -362,7 +350,8 @@ impl Action {
             | Action::SpotDeploy(_)
             | Action::PerpDeploy(_)
             | Action::OutcomeDeploy(_)
-            | Action::ActivateOutcomeDeployer(_) => return Ok(None),
+            | Action::ActivateOutcomeDeployer(_)
+            | Action::MultiSig(_) => return None,
 
             // Actions signed as EIP-712 typed data.
             Action::UsdSend(inner) => get_typed_data::<solidity::UsdSend>(inner, chain, None),
@@ -402,31 +391,42 @@ impl Action {
             Action::TokenDelegate(inner) => {
                 get_typed_data::<solidity::TokenDelegate>(inner, chain, None)
             }
-
-            // MultiSig signs an envelope over the inner action's msgpack hash.
-            Action::MultiSig(inner) => {
-                let multi_sig_hash =
-                    utils::rmp_hash(&inner, nonce, maybe_vault_address, expires_after)?;
-
-                #[derive(Serialize)]
-                #[serde(rename_all = "camelCase")]
-                struct Envelope {
-                    hyperliquid_chain: String,
-                    multi_sig_action_hash: String,
-                    nonce: u64,
-                }
-
-                let envelope = Envelope {
-                    hyperliquid_chain: chain.to_string(),
-                    multi_sig_action_hash: multi_sig_hash.to_string(),
-                    nonce,
-                };
-
-                get_typed_data::<solidity::SendMultiSig>(&envelope, chain, None)
-            }
         };
+        Some(typed_data)
+    }
 
-        Ok(Some(typed_data))
+    /// Resolve typed data, including the request context for a multisig envelope.
+    fn signing_typed_data(
+        &self,
+        nonce: u64,
+        maybe_vault_address: Option<Address>,
+        expires_after: Option<u64>,
+        chain: Chain,
+    ) -> anyhow::Result<Option<TypedData>> {
+        if let Action::MultiSig(inner) = self {
+            let multi_sig_hash =
+                utils::rmp_hash(&inner, nonce, maybe_vault_address, expires_after)?;
+
+            #[derive(Serialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Envelope {
+                hyperliquid_chain: String,
+                multi_sig_action_hash: String,
+                nonce: u64,
+            }
+
+            let envelope = Envelope {
+                hyperliquid_chain: chain.to_string(),
+                multi_sig_action_hash: multi_sig_hash.to_string(),
+                nonce,
+            };
+
+            Ok(Some(get_typed_data::<solidity::SendMultiSig>(
+                &envelope, chain, None,
+            )))
+        } else {
+            Ok(self.user_signed_typed_data(chain))
+        }
     }
 
     /// The `Agent` struct an msgpack-signed action wraps its hash in.
@@ -446,34 +446,16 @@ impl Action {
         })
     }
 
-    /// Returns the typed data for multisig signing, if applicable.
-    ///
-    /// Only EIP-712 typed data actions (UsdSend, SpotSend, SendAsset) support multisig typed data.
-    /// All other actions (orders, cancels, modifications) return None and use RMP hash signing.
+    /// Add multisig fields to any user-signed action's EIP-712 schema.
+    /// L1 actions return `None` and use the multisig msgpack envelope instead.
     pub fn typed_data_multisig(
         &self,
         multi_sig_user: Address,
         lead: Address,
         chain: Chain,
     ) -> Option<TypedData> {
-        let multi_sig = Some((multi_sig_user, lead));
-
-        match self {
-            Action::UsdSend(inner) => Some(utils::get_typed_data::<solidity::multisig::UsdSend>(
-                inner, chain, multi_sig,
-            )),
-            Action::SpotSend(inner) => Some(utils::get_typed_data::<solidity::multisig::SpotSend>(
-                inner, chain, multi_sig,
-            )),
-            Action::SendAsset(inner) => Some(
-                utils::get_typed_data::<solidity::multisig::SendAsset>(inner, chain, multi_sig),
-            ),
-            Action::ConvertToMultiSigUser(inner) => Some(utils::get_typed_data::<
-                solidity::multisig::ConvertToMultiSigUser,
-            >(inner, chain, multi_sig)),
-            // All other actions use RMP signing
-            _ => None,
-        }
+        self.user_signed_typed_data(chain)
+            .map(|data| utils::multisig_typed_data(data, multi_sig_user, lead))
     }
 }
 
@@ -574,9 +556,9 @@ impl Action {
                 Some(typed_data) => signer.sign_dynamic_typed_data(&typed_data).await?,
                 None => {
                     let agent = self.agent(nonce, maybe_vault_address, expires_after, chain)?;
-                    signer
-                        .sign_typed_data(&agent, &CORE_MAINNET_EIP712_DOMAIN)
-                        .await?
+                    let typed_data =
+                        TypedData::from_struct(&agent, Some(CORE_MAINNET_EIP712_DOMAIN.clone()));
+                    signer.sign_dynamic_typed_data(&typed_data).await?
                 }
             };
 
@@ -832,6 +814,7 @@ pub struct ApproveAgent {
     ///
     /// An account can have 1 unnamed approved wallet,
     /// up to 3 named ones, and 2 named agents per subaccount.
+    #[serde(serialize_with = "utils::serialize_agent_name")]
     pub agent_name: Option<String>,
     /// Request nonce
     pub nonce: u64,
@@ -1131,59 +1114,83 @@ pub struct MultiSigPayload {
 }
 
 impl MultiSigPayload {
-    /// Computes the prehash for this multisig payload.
-    ///
-    /// Uses EIP-712 typed data for transfers or RMP+Agent for orders/cancels.
-    pub fn prehash(&self, nonce: u64, chain: Chain) -> anyhow::Result<B256> {
-        let multi_sig_user: Address = self.multi_sig_user.parse()?;
+    /// Compute the multisig L1 connection ID, including the outer request context.
+    fn connection_id(
+        &self,
+        nonce: u64,
+        vault_address: Option<Address>,
+        expires_after: Option<DateTime<Utc>>,
+    ) -> anyhow::Result<B256> {
+        let user: Address = self.multi_sig_user.parse()?;
         let lead: Address = self.outer_signer.parse()?;
+        Ok(utils::rmp_hash(
+            &(
+                const_hex::encode_prefixed(user.as_slice()),
+                const_hex::encode_prefixed(lead.as_slice()),
+                &self.action,
+            ),
+            nonce,
+            vault_address,
+            expires_after.map(|time| time.timestamp_millis() as u64),
+        )?)
+    }
 
-        // Determine signing method based on action type
-        if let Some(typed_data) = self.action.typed_data_multisig(multi_sig_user, lead, chain) {
-            // EIP-712 typed data actions (UsdSend, SpotSend, SendAsset, ConvertToMultiSigUser)
-            Ok(typed_data.eip712_signing_hash()?)
+    /// Compute the signing hash without a vault or expiry.
+    pub fn prehash(&self, nonce: u64, chain: Chain) -> anyhow::Result<B256> {
+        self.prehash_with_context(nonce, None, None, chain)
+    }
+
+    /// Compute the signing hash using the same vault and expiry as the outer request.
+    pub fn prehash_with_context(
+        &self,
+        nonce: u64,
+        vault_address: Option<Address>,
+        expires_after: Option<DateTime<Utc>>,
+        chain: Chain,
+    ) -> anyhow::Result<B256> {
+        if let Some(data) = self.action.typed_data_multisig(
+            self.multi_sig_user.parse()?,
+            self.outer_signer.parse()?,
+            chain,
+        ) {
+            Ok(data.eip712_signing_hash()?)
         } else {
-            // RMP-based actions (orders, cancels, modifications)
-            let connection_id = utils::rmp_hash(
-                &(&self.multi_sig_user, &self.outer_signer, &self.action),
-                nonce,
-                None,
-                None,
-            )?;
             Ok(crate::hypercore::signing::agent_signing_hash(
                 chain,
-                connection_id,
+                self.connection_id(nonce, vault_address, expires_after)?,
             ))
         }
     }
 
-    /// Signs this multisig payload synchronously and returns a signature.
-    ///
-    /// Uses EIP-712 typed data for transfers or RMP+Agent for orders/cancels.
+    /// Sign synchronously without a vault or expiry.
     pub fn sign_sync<S: SignerSync>(
         &self,
         signer: &S,
         nonce: u64,
         chain: Chain,
     ) -> anyhow::Result<Signature> {
-        let multi_sig_user: Address = self.multi_sig_user.parse()?;
-        let lead: Address = self.outer_signer.parse()?;
+        self.sign_sync_with_context(signer, nonce, None, None, chain)
+    }
 
-        // Determine signing method based on action type
-        if let Some(typed_data) = self.action.typed_data_multisig(multi_sig_user, lead, chain) {
-            // EIP-712 typed data actions (UsdSend, SpotSend, SendAsset, ConvertToMultiSigUser)
-            Ok(signer.sign_dynamic_typed_data_sync(&typed_data)?.into())
+    /// Sign synchronously using the outer request's vault and expiry.
+    pub fn sign_sync_with_context<S: SignerSync>(
+        &self,
+        signer: &S,
+        nonce: u64,
+        vault_address: Option<Address>,
+        expires_after: Option<DateTime<Utc>>,
+        chain: Chain,
+    ) -> anyhow::Result<Signature> {
+        if let Some(data) = self.action.typed_data_multisig(
+            self.multi_sig_user.parse()?,
+            self.outer_signer.parse()?,
+            chain,
+        ) {
+            Ok(signer.sign_dynamic_typed_data_sync(&data)?.into())
         } else {
-            // RMP-based actions (orders, cancels, modifications)
-            let connection_id = utils::rmp_hash(
-                &(&self.multi_sig_user, &self.outer_signer, &self.action),
-                nonce,
-                None,
-                None,
-            )?;
             let agent = solidity::Agent {
                 source: if chain.is_mainnet() { "a" } else { "b" }.to_string(),
-                connectionId: connection_id,
+                connectionId: self.connection_id(nonce, vault_address, expires_after)?,
             };
             Ok(signer
                 .sign_typed_data_sync(&agent, &CORE_MAINNET_EIP712_DOMAIN)?
@@ -1191,75 +1198,66 @@ impl MultiSigPayload {
         }
     }
 
-    /// Signs this multisig payload asynchronously and returns a signature.
-    ///
-    /// Uses EIP-712 typed data for transfers or RMP+Agent for orders/cancels.
+    /// Sign asynchronously without a vault or expiry.
     pub async fn sign<S: Signer + Send + Sync>(
         &self,
         signer: &S,
         nonce: u64,
         chain: Chain,
     ) -> anyhow::Result<Signature> {
-        let multi_sig_user: Address = self.multi_sig_user.parse()?;
-        let lead: Address = self.outer_signer.parse()?;
+        self.sign_with_context(signer, nonce, None, None, chain)
+            .await
+    }
 
-        // Determine signing method based on action type
-        if let Some(typed_data) = self.action.typed_data_multisig(multi_sig_user, lead, chain) {
-            // EIP-712 typed data actions (UsdSend, SpotSend, SendAsset, ConvertToMultiSigUser)
-            Ok(signer.sign_dynamic_typed_data(&typed_data).await?.into())
+    /// Sign asynchronously using the outer request's vault and expiry.
+    pub async fn sign_with_context<S: Signer + Send + Sync>(
+        &self,
+        signer: &S,
+        nonce: u64,
+        vault_address: Option<Address>,
+        expires_after: Option<DateTime<Utc>>,
+        chain: Chain,
+    ) -> anyhow::Result<Signature> {
+        if let Some(data) = self.action.typed_data_multisig(
+            self.multi_sig_user.parse()?,
+            self.outer_signer.parse()?,
+            chain,
+        ) {
+            Ok(signer.sign_dynamic_typed_data(&data).await?.into())
         } else {
-            // RMP-based actions (orders, cancels, modifications)
-            let connection_id = utils::rmp_hash(
-                &(&self.multi_sig_user, &self.outer_signer, &self.action),
-                nonce,
-                None,
-                None,
-            )?;
-            let agent = solidity::Agent {
-                source: if chain.is_mainnet() { "a" } else { "b" }.to_string(),
-                connectionId: connection_id,
-            };
-            Ok(signer
-                .sign_typed_data(&agent, &CORE_MAINNET_EIP712_DOMAIN)
-                .await?
-                .into())
+            crate::hypercore::signing::sign_l1_action(
+                signer,
+                chain,
+                self.connection_id(nonce, vault_address, expires_after)?,
+            )
+            .await
         }
     }
 
-    /// Recovers the signer's address from a multisig action signature.
-    ///
-    /// Uses EIP-712 typed data for transfers or RMP+Agent for orders/cancels.
+    /// Recover a signature made without a vault or expiry.
     pub fn recover(
         &self,
         signature: &Signature,
         nonce: u64,
         chain: Chain,
     ) -> anyhow::Result<Address> {
-        let multi_sig_user: Address = self.multi_sig_user.parse()?;
-        let lead: Address = self.outer_signer.parse()?;
+        self.recover_with_context(signature, nonce, None, None, chain)
+    }
 
-        let recid = RecoveryId::from_byte(signature.v as u8 - 27_u8)
-            .ok_or_else(|| anyhow::anyhow!("unable to convert recovery_id: {}", signature.v))?;
-        let sig = alloy::signers::Signature::new(signature.r, signature.s, recid.is_y_odd());
-
-        // Determine signing method based on action type
-        let prehash = if let Some(typed_data) =
-            self.action.typed_data_multisig(multi_sig_user, lead, chain)
-        {
-            // EIP-712 typed data actions (UsdSend, SpotSend, SendAsset, ConvertToMultiSigUser)
-            typed_data.eip712_signing_hash()?
-        } else {
-            // RMP-based actions (orders, cancels, modifications)
-            let connection_id = utils::rmp_hash(
-                &(&self.multi_sig_user, &self.outer_signer, &self.action),
-                nonce,
-                None,
-                None,
-            )?;
-            crate::hypercore::signing::agent_signing_hash(chain, connection_id)
-        };
-
-        Ok(sig.recover_address_from_prehash(&prehash)?)
+    /// Recover a signature using the outer request's vault and expiry.
+    pub fn recover_with_context(
+        &self,
+        signature: &Signature,
+        nonce: u64,
+        vault_address: Option<Address>,
+        expires_after: Option<DateTime<Utc>>,
+        chain: Chain,
+    ) -> anyhow::Result<Address> {
+        let parity = alloy::primitives::normalize_v(signature.v)
+            .ok_or_else(|| anyhow::anyhow!("invalid signature recovery id: {}", signature.v))?;
+        let sig = alloy::signers::Signature::new(signature.r, signature.s, parity);
+        let hash = self.prehash_with_context(nonce, vault_address, expires_after, chain)?;
+        Ok(sig.recover_address_from_prehash(&hash)?)
     }
 }
 
@@ -1330,16 +1328,22 @@ pub struct UsdClassTransferAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenDelegateAction {
+    /// Signature chain ID used for EIP-712 signing.
+    pub signature_chain_id: String,
+    /// Target Hyperliquid network.
+    pub hyperliquid_chain: Chain,
     /// Validator address.
     #[serde(
         serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
         deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
     )]
     pub validator: Address,
-    /// `true` to undelegate, `false` to delegate.
-    pub is_undelegate: bool,
     /// Amount in wei of native token.
     pub wei: u64,
+    /// `true` to undelegate, `false` to delegate.
+    pub is_undelegate: bool,
+    /// Request nonce, matching the outer request.
+    pub nonce: u64,
 }
 
 /// Encoding of [`SendToEvmWithDataAction::destination_recipient`].

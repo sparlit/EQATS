@@ -33,6 +33,9 @@ Pipeline (DATA_RUNBOOK.md section 22):
        promoter  = ShareholdingOfPromoterAndPromoterGroupMember
        public    = PublicShareholdingMember
        FII       = InstitutionsForeignMember      (FPI I+II, FDI, other foreign)
+                   MINUS OverseasDepositoriesMember — the ADR/GDR custodian line that the
+                   2022+ format prints inside Institutions (Foreign). DR-underlying shares are
+                   NOT a foreign-institution holding (runbook §151, user rule 2026-09-24).
        DII       = InstitutionsDomesticMember     (MF, insurance, banks, PF, AIF, ...)
        MF        = MutualFundsOrUTIMember
        insurance = InsuranceCompaniesMember
@@ -55,11 +58,16 @@ Runs:
   python -X utf8 scripts/fetch_shareholding.py --quarters 2026-06-30 --fill-shares   # only symbols with no share count yet
   python -X utf8 scripts/fetch_shareholding.py --quarters 2026-06-30 --fill-shares --symbols E2E,BSE,CDSL
   python -X utf8 scripts/fetch_shareholding.py --feed-only    # rebuild docs feed from history, no network
+  python -X utf8 scripts/fetch_shareholding.py --sme-shares   # NSE SME board: bank share counts only (market caps, §145)
 
 Self-healing: a failed master call skips that quarter (history keeps yesterday's cells); XBRL
 download/parse failures skip that company; the history write is add/update-only and ABORTs if
 the merged file would lose cells. Resumable: flushes history every FLUSH_EVERY parses.
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import datetime
 import gzip
 import json
@@ -70,6 +78,8 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_fundamentals as B  # _get / nse_jar / UA (CI-proven NSE session)
@@ -121,6 +131,12 @@ MEMBERS = {
     "PublicShareholdingMember": "pub",
     "InstitutionsForeignMember": "fii",
     "InstitutionsDomesticMember": "dii",
+    # §151: "Overseas Depositories (holding DRs) (balancing figure)" — the custodian of shares
+    # underlying ADRs/GDRs. The 2022+ format lists it INSIDE Institutions (Foreign); the 2015-2022
+    # format listed it outside the FII rows and the 2001-2015 pages put DR shares in the custodian
+    # block. Excluded from FII in every era (Screener/Trendlyne rule) so a DR issuer's series does
+    # not jump at the Sep-2022 format change (DRREDDY 25.9 -> 36.3, UPL +6.3, TMPV +5.3, ...).
+    "OverseasDepositoriesMember": "od",
     "MutualFundsOrUTIMember": "mf",
     "InsuranceCompaniesMember": "ins",
     "ShareholdingPatternMember": "total",
@@ -337,6 +353,11 @@ BSE_HIST_LEDGERS = [
     # point-in-time N500 member quarters only, ins=None (lump), sub=QE+21d -> served UN-DATED (§120).
     # Fill-only, LAST: every BSE-derived cell wins where both hold a quarter.
     os.path.join(HERE, "shp_fill_nse_shpdetails.json.gz"),
+    # ALL-STOCKS fill (2026-09-26, runbook §180, fetch_shp_allstocks.py): NSE's own SHP XBRL for every
+    # NSE main-board and SME quarter-end filing 2020-03..2026-06 the store lacked. parse_shp unchanged,
+    # plus zeros PROVEN by share-count arithmetic (Public == Non-institutions share for share); every
+    # refused/ambiguous cell is in _shp_allstocks_holds.json, not here. Fill-only, LAST in the list.
+    os.path.join(HERE, "shp_fill_allstocks.json.gz"),
 ]
 
 
@@ -367,6 +388,32 @@ def apply_bse_hist_ledger(h):
     return n_total
 
 
+def apply_ledger_revisions(revs):
+    """§180c: a fill ledger may carry the LATEST re-filing of a quarter it filled (`revisions`, same row shape as
+    shp_revisions.json, dated by the re-filing's own publication day). Merged fill-only — a sidecar row that exists is
+    never replaced (the regular re-filing pass owns it). Returns the number of rows added."""
+    n = 0
+    for path in BSE_HIST_LEDGERS:
+        if not os.path.exists(path):
+            continue
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as fh:
+                rv = json.load(fh).get("revisions") or {}
+        except Exception as e:
+            print(f"{os.path.basename(path)} unreadable ({e}) — revisions skipped")
+            continue
+        for sym, qs in rv.items():
+            dest = revs.setdefault(sym, {})
+            for key, row in qs.items():
+                if key in dest:
+                    continue
+                dest[key] = list(row)
+                n += 1
+    if n:
+        print("ledger re-filings added to shp_revisions.json: %d" % n)
+    return n
+
+
 # §22j PRECISION REFRESH ledger (scripts/fetch_shp_bse_hist.py --refine). Cells parsed before the
 # share-count pass carry the filer's 2dp percentage; these are the SAME filings re-read so
 # parse_shp recomputes them at 4dp. REFINE-ONLY: a cell is replaced only when the new value is
@@ -390,6 +437,15 @@ def apply_refine_ledger(h, path=None):
         return 0
     n = skip = 0
     bad = []
+    # §164: a §164 cell (the (A+B) depository re-base, or a row-level read) must not be "refined" back toward the share-count
+    # values this ledger was built on (within 0.02 pp it would silently undo the move slot by slot)
+    try:
+        _cf = json.load(open(os.path.join(HERE, "shp_cell_fix.json"), encoding="utf-8")).get("fix") or {}
+        rebased = {
+            (s_, q_) for s_, qs_ in _cf.items() for q_, e_ in qs_.items() if "\u00a7164" in str(e_.get("why", ""))
+        }  # every §164 row-level cell (a small slot move is still the read)
+    except (OSError, ValueError):
+        rebased = set()
     for sym, qs in fills.items():
         dest = h.get(sym)
         if not isinstance(dest, dict):
@@ -397,6 +453,8 @@ def apply_refine_ledger(h, path=None):
         for qe, cell in qs.items():
             cur = dest.get(qe)
             if cur is None:
+                continue
+            if (sym, qe) in rebased:
                 continue
             # Compare ONLY the five holding percentages. `sub` and `nsh` describe WHICH DOCUMENT
             # was read, not the holding: BSE commonly serves a company's REVISION where NSE served
@@ -647,6 +705,38 @@ def _cell_eq(a, b):
     return True
 
 
+def apply_cell_fix_events(ev, led=None):
+    """§142e (2026-09-22): the cell_fix ledger also corrects EVENT rows (scripts/shp_events.json).
+    Same `fix.<SYM>.<DATE>` shape; a key that is not a quarter-end names an event row (as-on date).
+    Event rows had NO ledger route before this (runbook §22k: "no ledgers are applied to event
+    rows"), so a wrong event cell could only be edited in place and a --reparse would re-poison
+    it. Same was-guard as apply_cell_fix: never invent a row, never overwrite a cell that is
+    neither the fix nor the recorded bad value. Returns the number of rows corrected."""
+    led = load_cell_fix() if led is None else led
+    n = 0
+    for sym, qs in (led.get("fix") or {}).items():
+        for d, ent in qs.items():
+            if d[5:] in ("03-31", "06-30", "09-30", "12-31"):
+                continue  # quarter-end keys belong to shp_history
+            cur = (ev.get(sym) or {}).get(d)
+            want, was = ent.get("cell"), ent.get("was")
+            if cur is None:
+                continue
+            if _cell_eq(cur, want):
+                continue
+            if was is not None and not _cell_eq(cur, was):
+                print(
+                    f"WARN cell_fix(event) {sym} {d}: stored row is neither the fix nor the recorded bad "
+                    f"value ({cur}) — leaving it alone, re-adjudicate"
+                )
+                continue
+            ev.setdefault(sym, {})[d] = list(want)
+            n += 1
+    if n:
+        print("shp_cell_fix applied to %d event row(s)" % n)
+    return n
+
+
 def apply_cell_fix(h, led=None):
     """Override known-wrong cells. Runs AFTER the fetch so a --reparse cannot re-poison them."""
     led = load_cell_fix() if led is None else led
@@ -669,6 +759,23 @@ def apply_cell_fix(h, led=None):
             n += 1
     if n:
         print("shp_cell_fix applied: %d cells" % n)
+    # §156 (2026-09-24): a sanctioned RETRACTION. `drop.<SYM>.<QE>` = a cell the ledger asserts must be ABSENT — a
+    # fill written from a source read that was later shown wrong (the seam formula routed an unlabelled FII row to
+    # dii; the fill ledger no longer carries it). The history writer is add/update-only, so without this a wrong fill
+    # could never leave the store. Dropped only while the stored cell still equals the recorded value, so a genuine
+    # later filing for the same quarter is never removed. load_hist applies it, so the shrink guard's `before`
+    # already reflects the drop.
+    d = 0
+    for sym, qs in (led.get("drop") or {}).items():
+        for qe, ent in qs.items():
+            cur = (h.get(sym) or {}).get(qe)
+            if cur is None or ent.get("was") is None:
+                continue
+            if _cell_eq(cur, ent["was"]):
+                del h[sym][qe]
+                d += 1
+    if d:
+        print("shp_cell_fix dropped: %d cells (retractions)" % d)
     return n
 
 
@@ -696,7 +803,47 @@ def nsh_gate(h, sym, qe, nsh, accept):
 
 
 # ------------------------------------------------------------------ NSE fetch
-def fetch_master(jar, qe_iso, events=False):
+def visible_iso(rec):
+    """MIDNIGHT VISIBILITY RULE (user decision 2026-09-23, runbook §149 — supersedes the §12/§135j 15:30 gate):
+    the visibility date of an NSE SHP filing = the CALENDAR DAY of its broadcast timestamp, whatever the time.
+    The user sells at the rebalance close and buys at the next session's open, so anything public by midnight
+    on the rebalance day is actionable — a pattern broadcast at 22:00 on day R counts for R. `submissionDate`
+    is a DATE only and is the fallback when the broadcast carries no time. Non-trading days are NOT shifted
+    either: the engines compare `sub <= screenDate`, so a Saturday filing is simply visible to the next screen.
+    Both ingestion paths (quarterly and event) MUST call this; refresh-shareholding.yml asserts that on every
+    run (guard_shp_gate.py). The retired rule survives as legacy_gate_iso() ONLY so `--regate` can recognise
+    the rows it dated (21-23 Sep 2026 ingestion, NSE-dated revisions) and move them to the filing day."""
+    b = str(rec.get("broadcastDate") or "")
+    m = re.match(r"\s*(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{1,2}):(\d{2})", b)
+    if m and MON.get(m.group(2).upper()):
+        return "%s-%02d-%02d" % (m.group(3), MON[m.group(2).upper()], int(m.group(1)))
+    return iso_date(rec.get("submissionDate")) or iso_date(rec.get("broadcastDate"))
+
+
+def legacy_gate_iso(rec):
+    """The RETIRED §12 15:30 gate exactly as it ran from 2026-09-05/21 to 2026-09-23 (broadcast after 15:30 IST
+    or on a non-trading day -> next trading day per gate_calendar.json). Kept ONLY so regate_recent() can tell
+    "this stored date is what the old rule produced for this record" — never call it to date a row."""
+    b = str(rec.get("broadcastDate") or "")
+    m = re.match(r"\s*(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{1,2}):(\d{2})", b)
+    if m and MON.get(m.group(2).upper()):
+        try:
+            import bisect as _bis
+
+            cal = json.load(open(os.path.join(HERE, "gate_calendar.json"), encoding="utf-8"))["tdays"]
+            d = int(m.group(3)) * 10000 + MON[m.group(2).upper()] * 100 + int(m.group(1))
+            mins = int(m.group(4)) * 60 + int(m.group(5))
+            if mins > 15 * 60 + 30 or d not in set(cal):
+                i = _bis.bisect_right(cal, d)
+                if i < len(cal):
+                    d = cal[i]
+            return "%d-%02d-%02d" % (d // 10000, (d // 100) % 100, d % 100)
+        except Exception:
+            pass
+    return iso_date(rec.get("submissionDate")) or iso_date(rec.get("broadcastDate"))
+
+
+def fetch_master(jar, qe_iso, events=False, index="equities"):
     """All SHP filings whose AS-ON date == qe (events=True: the MID-quarter ones instead).
     Returns [] on failure (self-healing).
 
@@ -715,7 +862,7 @@ def fetch_master(jar, qe_iso, events=False):
         return "%02d-%02d-%04d" % (x.day, x.month, x.year)
 
     url = (
-        "https://www.nseindia.com/api/corporate-share-holdings-master?index=equities"
+        f"https://www.nseindia.com/api/corporate-share-holdings-master?index={index}"
         f"&from_date={fmt(d)}&to_date={fmt(to)}"
     )
     hdr = {"User-Agent": B.UA, "Accept": "application/json, text/plain, */*", "Referer": REF}
@@ -910,6 +1057,12 @@ def parse_shp(txt, qe_iso):
     if is_new:
         for k in ("fii", "dii", "mf", "ins"):
             out[k] = (vals.get(k) or 0.0) * scale
+        # §151 (2026-09-24, user rule "exclude DR shares like Screener"): drop the Overseas
+        # Depositories line from the Institutions (Foreign) total. Recorded as out["od"] so ledgers
+        # and audits can see what was removed; callers build cells from named slots only.
+        if vals.get("od"):
+            out["od"] = vals["od"] * scale
+            out["fii"] = max(0.0, out["fii"] - out["od"])
         # ⚠️ New-format filings spell the MF member BOTH ways — MutualFundsOrUTIMember and the
         # old-format's MutualFundsOrUtiMember (the lowercase-ti one is what BSE's copies and every
         # NSE filing before ~Jul-2025 carry). Mapping only the uppercase spelling silently wrote
@@ -1004,8 +1157,16 @@ def parse_shp(txt, qe_iso):
             groups = {"fii": f_slots, "dii": d_slots, "mf": ["o_mf"], "ins": ["ins"]}
         for key, slots in groups.items():
             n = _sum(slots)
-            if n is not None:
-                out[key] = n / tot_sh * 100.0
+            if n is None:
+                continue
+            if key == "fii" and is_new and vals.get("od"):
+                # §151: the share-count path must drop the same DR-custodian block. A percentage
+                # without a count -> keep the percentage-derived fii rather than undercount.
+                if "od" not in shares:
+                    continue
+                n -= shares["od"]
+                out["od"] = shares["od"] / tot_sh * 100.0
+            out[key] = n / tot_sh * 100.0
     # Government row (public sub-category) for the sidecar — share-count precision where available,
     # else the filer's own 2dp percentage. Present only when the filing carried the member AND the
     # value is a genuine PUBLIC government holding. In a PSU the SAME GovernmentsMember tag carries the
@@ -1028,6 +1189,94 @@ def parse_shp(txt, qe_iso):
 
 
 # ------------------------------------------------------------------ main fetch
+def bank_sme_shares(qes, only=None):
+    """Bank the total share count of every NSE SME-platform (Emerge) filer — shares ONLY.
+
+    NSE files SME shareholding patterns on a SEPARATE board (`index=sme`), exactly like SME results
+    and corporate actions, so the main pass (index=equities) never saw them and no SME company had a
+    share count — i.e. no market cap anywhere on the site, and every dashboard market-cap band hid
+    all 570 of them (user report 2026-09-23, SUNLITE; DATA_RUNBOOK §145). Most SME companies file
+    HALF-YEARLY (31-Mar / 30-Sep; measured Mar-2026 window: 550 as-on 31-MAR, 143 as-on 30-JUN), so
+    the default walks the last 4 quarter-ends and the newest quarter per symbol wins, the same rule as
+    the main bank. shp_history is deliberately NOT touched: SME holdings are a separate decision (the
+    backtest engines read that file), the share count is a separate fact with its own ledger.
+    NSE symbols are unique across the two boards; a company that migrates to the main board is then
+    banked by the main pass with a newer quarter, which wins."""
+    jar = B.nse_jar()
+    shares = load_shares()
+    banked = seen = 0
+    for qe in qes:
+        recs = fetch_master(jar, qe, index="sme")
+        best = {}
+        for r in recs:
+            sym = str(r.get("symbol") or "").strip().upper()
+            sub = visible_iso(r)
+            xb = str(r.get("xbrl") or "").strip()
+            if not sym or not sub or not xb.lower().startswith("http"):
+                continue
+            if only is not None and sym not in only:
+                continue
+            if sym not in best or sub >= best[sym]["sub"]:
+                best[sym] = {"sub": sub, "xb": xb}
+        todo = [(sym, r) for sym, r in best.items() if (shares.get(sym) or [None, ""])[1] < qe]
+        print("sme %s: %d filers, %d with no count at this quarter yet" % (qe, len(best), len(todo)))
+        seen += len(best)
+
+        def work(item):
+            sym, r = item
+            try:
+                return sym, r, parse_shares(ET.fromstring(fetch_xbrl(r["xb"], jar)))
+            except Exception:
+                return sym, r, None
+
+        with ThreadPoolExecutor(max_workers=THREADS) as ex:
+            for fut in as_completed([ex.submit(work, it) for it in todo]):
+                sym, r, n = fut.result()
+                if n and n > 0 and (shares.get(sym) or [None, ""])[1] <= qe:
+                    shares[sym] = [n, qe, r["sub"]]
+                    banked += 1
+        save_shares(shares)
+    # NEW LISTINGS: a company that listed after the last quarter end has only its PRE-LISTING
+    # pattern (Reg 31(1)(a)), filed as an EVENT with a mid-quarter as-on date, which the quarter-end
+    # filter above drops. For symbols that still have no count at all, bank the newest such event
+    # filing, keyed by its as-on date (the ledger's "QE" slot then sorts before the next quarter end,
+    # so the first regular filing replaces it). Measured 2026-09-23: 32 SME names, all listed
+    # 2026-04-07 .. 2026-09-17, had no quarter-end filing yet.
+    ev_best = {}
+    for qe in qes[:2]:  # the two newest windows cover the last ~6 months
+        for r in fetch_master(jar, qe, events=True, index="sme"):
+            sym = str(r.get("symbol") or "").strip().upper()
+            asof = iso_date(r.get("date")) or ""
+            xb = str(r.get("xbrl") or "").strip()
+            if not sym or not asof or not xb.lower().startswith("http") or sym in shares:
+                continue
+            if only is not None and sym not in only:
+                continue
+            if sym not in ev_best or asof >= ev_best[sym]["asof"]:
+                ev_best[sym] = {"asof": asof, "xb": xb, "sub": visible_iso(r) or asof}
+    ev_banked = 0
+    if ev_best:
+        with ThreadPoolExecutor(max_workers=THREADS) as ex:
+            futs = [
+                ex.submit(lambda it: (it[0], it[1], parse_shares(ET.fromstring(fetch_xbrl(it[1]["xb"], jar)))), it)
+                for it in ev_best.items()
+            ]
+            for fut in as_completed(futs):
+                try:
+                    sym, r, n = fut.result()
+                except Exception:
+                    continue
+                if n and n > 0 and sym not in shares:
+                    shares[sym] = [n, r["asof"], r["sub"]]
+                    ev_banked += 1
+        save_shares(shares)
+    print(
+        "sme share counts: %d banked from quarter-end filings, %d from pre-listing/event filings "
+        "(%d filer-quarters seen), ledger now %d symbols" % (banked, ev_banked, seen, len(shares))
+    )
+    return banked + ev_banked
+
+
 def refresh_quarters(qes, reparse=False, only=None, fill_shares=False):
     jar = B.nse_jar()
     hist = load_hist()
@@ -1046,20 +1295,32 @@ def refresh_quarters(qes, reparse=False, only=None, fill_shares=False):
             gov = {}
     before = cells_of(hist)
     stats = []
+    revs = load_revs()
+    rev_new = 0  # §142k re-filings sidecar
+    apply_ledger_revisions(revs)  # §180c fill-ledger re-filings, fill-only (no-op once merged)
 
     for qe in qes:
         recs = fetch_master(jar, qe)
-        # newest submission per symbol wins (revisions re-file the same (sym, qe))
+        # NSE's master keeps ONE record per (symbol, as-on): a re-filing REPLACES it and moves broadcastDate to
+        # the newest publication, while submissionDate keeps the ORIGINAL's day. So "newest submission" is all
+        # NSE serves — remember whether the record is a revision and what the original's day was (§142i).
         best = {}
         for r in recs:
             sym = str(r.get("symbol") or "").strip().upper()
-            sub = iso_date(r.get("submissionDate")) or iso_date(r.get("broadcastDate"))
+            sub = visible_iso(r)
             xb = str(r.get("xbrl") or "").strip()
             if not sym or not sub or not xb.lower().startswith("http"):
                 continue
             cur = best.get(sym)
             if cur is None or sub >= cur["sub"]:
-                best[sym] = {"sub": sub, "xb": xb, "name": re.sub(r"\s+", " ", str(r.get("name") or "")).strip()}
+                best[sym] = {
+                    "sub": sub,
+                    "xb": xb,
+                    "name": re.sub(r"\s+", " ", str(r.get("name") or "")).strip(),
+                    "revised": str(r.get("revisedData") or "").strip().lower() == "revised",
+                    "first": iso_date(r.get("submissionDate")) or sub,
+                }
+        seen = hist.setdefault("_seen", {})  # "SYM|QE" -> XBRL already parsed for a same-window re-filing
         todo = []
         for sym, r in best.items():
             if only is not None and sym not in only:
@@ -1069,25 +1330,33 @@ def refresh_quarters(qes, reparse=False, only=None, fill_shares=False):
                 # re-read only the filings whose share count we never captured
                 if (shares.get(sym) or [None, ""])[1] >= qe:
                     continue
-            elif have and str(have[5]) >= r["sub"] and not reparse:
-                continue  # already have this or newer
-            todo.append((sym, r))
+            elif have and not reparse:
+                # §142i/§142k (2026-09-22): a stored row is the ORIGINAL filing and is never re-dated or overwritten.
+                # "Newest submission wins" had re-stamped TCS Mar-2026 to 17-Sep on a same-numbers re-publication
+                # and left the quarter dark for five months (601 such rows since Sep-2025). A re-filing is parsed
+                # once (`_seen`) and, if its numbers differ, recorded in shp_revisions.json with ITS OWN gated date
+                # (option C: the backtest serves it from that date, the stock page shows it as the latest truth).
+                if not r["revised"]:
+                    continue
+                if seen.get(f"{sym}|{qe}") == r["xb"]:
+                    continue
+            todo.append((sym, r, have))
         print("%s: %d filings, %d new/revised to parse" % (qe, len(best), len(todo)))
         stats.append((qe, len(best), len(todo)))
 
         done = skip = nsh_new = quar = 0
 
         def work(item):
-            sym, r = item
+            sym, r, have = item
             try:
                 root = ET.fromstring(fetch_xbrl(r["xb"], jar))
-                return sym, r, parse_shp(root, qe), parse_shares(root)
+                return sym, r, have, parse_shp(root, qe), parse_shares(root)
             except Exception as e:
-                return sym, r, ("ERR", repr(e)), None
+                return sym, r, have, ("ERR", repr(e)), None
 
         with ThreadPoolExecutor(max_workers=THREADS) as ex:
             for fut in as_completed([ex.submit(work, it) for it in todo]):
-                sym, r, res, nshares = fut.result()
+                sym, r, have, res, nshares = fut.result()
                 # A filing that describes a different share class carries a share count to
                 # match, and shares_outstanding feeds market cap (§22e) — so a quarantined
                 # filing must not bank its count either, or the stock gets a mcap several
@@ -1114,11 +1383,50 @@ def refresh_quarters(qes, reparse=False, only=None, fill_shares=False):
                     if shares.get(sym) != [nshares, qe, r["sub"]]:
                         nsh_new += 1
                     shares[sym] = [nshares, qe, r["sub"]]
+                if isinstance(res, dict) and have and r["revised"]:
+                    # §142k: the stored row is the ORIGINAL — never touched. The re-filing's values go to the
+                    # revisions sidecar dated by THEIR gated publication (r["sub"]); an identical re-publication
+                    # (TCS Mar-2026, NSE re-broadcast of the same numbers) records nothing.
+                    seen[f"{sym}|{qe}"] = r["xb"]
+                    rc = [
+                        res["prom"],
+                        res["fii"],
+                        res["dii"],
+                        res["mf"],
+                        res["ins"],
+                        r["sub"],
+                        res.get("nsh"),
+                        "nse:" + r["xb"].rsplit("/", 1)[-1],
+                    ]
+                    rc, how = heal_refiling(sym, qe, rc, cellfix)  # §152
+                    if how:
+                        rc[7] += " §152 heal:" + how
+                    if not _same_cell(rc, have):
+                        revs.setdefault(sym, {})[qe] = rc
+                        rev_new += 1
+                    elif qe in (revs.get(sym) or {}):
+                        del revs[sym][qe]
+                        rev_new += 1  # healed re-filing == original: no row
+                    if r["name"]:
+                        names[sym] = r["name"]
+                    done += 1
+                    continue
                 if isinstance(res, dict):
-                    cell = [res["prom"], res["fii"], res["dii"], res["mf"], res["ins"], r["sub"]]
+                    vis = r["sub"]
+                    if not have and r["revised"]:
+                        # §142i: first sight of an as-on whose NSE record is already a re-filing — the original's
+                        # broadcast is gone (NSE overwrote it) but its submission DAY survives. Serve from that day
+                        # (day precision, the pre-2021 NSE convention) rather than from the revision's broadcast,
+                        # which would leave the quarter dark. Values are the re-filing's — the only document NSE has;
+                        # the BSE revision sweep (§22h) can recover the original later.
+                        vis = r["first"]
+                    if have and str(have[5]) < vis:
+                        vis = str(have[5])  # a re-parse never moves a row later
+                    cell = [res["prom"], res["fii"], res["dii"], res["mf"], res["ins"], vis]
                     if res.get("nsh"):
                         cell.append(res["nsh"])
                     hist.setdefault(sym, {})[qe] = cell
+                    seen[f"{sym}|{qe}"] = r["xb"]
                     # Government sidecar (separate file, never in the cell): newest submission wins.
                     if res.get("gov") is not None:
                         g = gov.setdefault(sym, {})
@@ -1136,9 +1444,13 @@ def refresh_quarters(qes, reparse=False, only=None, fill_shares=False):
                     why = res[1] if isinstance(res, tuple) else "no-anchor/old-format"
                     if skip <= 12:
                         print(f"  SKIP {sym} {qe}: {why}")
-        print("%s: +%d cells, %d skipped, %d quarantined, %d share counts" % (qe, done, skip, quar, nsh_new))
+        print(
+            "%s: +%d cells, %d skipped, %d quarantined, %d share counts, %d re-filings to the sidecar"
+            % (qe, done, skip, quar, nsh_new, rev_new)
+        )
         save_hist(hist)
         save_shares(shares)
+        save_revs(revs)
         # persist the Government sidecar per-quarter too, so a long backfill survives an interruption
         _gtmp = GOV_OUT + ".tmp"
         json.dump(gov, open(_gtmp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
@@ -1169,14 +1481,149 @@ def refresh_quarters(qes, reparse=False, only=None, fill_shares=False):
     return stats
 
 
+EVENT_REDATE = os.path.join(HERE, "shp_event_redate.json")
+
+
+def apply_event_redate(ev):
+    """§164m: move EVENT rows whose as-on date is wrong (NSE's master 'date' = the allotment date or a mistyped year) to the
+    filing's own XBRL DateOfReport, per scripts/shp_event_redate.json. Runs in load_events AND save_events, so every reader
+    sees the corrected date and a re-ingest cannot write the wrong key back. The same filing already at the target (equal
+    values) merges and keeps its EARLIEST publication; a different filing at the target is left alone. -> rows moved."""
+    try:
+        led = json.load(open(EVENT_REDATE, encoding="utf-8")).get("redate") or {}
+    except (OSError, ValueError):
+        return 0
+    n = 0
+    for k, v in led.items():
+        sym, src = k.split("|", 1)
+        to = (v or {}).get("to")
+        rows = ev.get(sym)
+        if not to or not isinstance(rows, dict) or src not in rows:
+            continue
+        row = rows[src]
+        tgt = rows.get(to)
+        if tgt is not None:
+            if not all(abs((tgt[i] or 0) - (row[i] or 0)) <= 1e-6 for i in range(5)):
+                continue  # a different filing already sits at the target date: re-adjudicate
+            if str(row[5]) < str(tgt[5]):
+                tgt[5] = row[5]  # the same filing twice: keep its earliest publication
+        else:
+            rows[to] = row
+        del rows[src]
+        lat = (ev.get("_latest") or {}).get(sym)
+        if isinstance(lat, dict) and src in lat:
+            lat.setdefault(to, lat.pop(src))
+        n += 1
+    return n
+
+
 def load_events():
     try:
-        return json.load(open(EVENTS, encoding="utf-8"))
+        ev = json.load(open(EVENTS, encoding="utf-8"))
     except Exception:
         return {}
+    apply_event_redate(ev)
+    return ev
+
+
+REVS = os.path.join(HERE, "shp_revisions.json")
+
+
+def load_revs():
+    """§142k (2026-09-22, option C): the LATEST re-filing of a quarter/event, kept BESIDE the original —
+    {SYM: {ASON_ISO: [prom, fii, dii, mf, ins, revSub, nsh, src]}}. The store (shp_history / shp_events) keeps the
+    ORIGINAL filing's values at its own date; a re-filing never touches it. The engine feed carries both rows
+    (same as-on, the re-filing dated by ITS gated publication) so a screen sees the original until the
+    correction was public and the correction after; the stock page shows the re-filing (latest truth)."""
+    if os.path.exists(REVS):
+        try:
+            return json.load(open(REVS, encoding="utf-8"))
+        except Exception as e:
+            print(f"WARN shp_revisions.json unreadable ({e}) — starting empty")
+    return {}
+
+
+def save_revs(r):
+    tmp = REVS + ".tmp"
+    json.dump(r, open(tmp, "w", encoding="utf-8"), separators=(",", ":"), sort_keys=True)
+    os.replace(tmp, REVS)
+
+
+# ---- §152 (2026-09-24): a re-filing must inherit the stored original's source-adjudicated heals ----
+# Option C (§142k) wrote every re-filing's RAW parse into shp_revisions.json. Where the stored original
+# had been healed from its own document (SW-2: a curated-FOREIGN "Any Other institutions" block moved
+# dii -> fii; item-4 §142e; §151 depositories), a re-filing that repeats the same raw numbers served the
+# raw value from its date onward and silently undid the heal: JSWSTEEL Sep-2016 35.64 -> 20.62 (the 15 pp
+# JFE Steel block), JUSTDIAL Jun-2016 42.14 -> 12.88, 42 sidecar rows / 66 N500 month-end cells measured.
+# Ledger classes that are DOCUMENT-READING heals (the same numbers re-read correctly): carried onto a re-filing.
+# Revision adjudications ("BSE revision supersedes", "Company REVISED", REVISION_RIGHT, option C §142k) are NOT —
+# there the re-filing's own numbers are the truth.
+VALUE_HEAL_MARK = re.compile(
+    r"SW-2 other-institutions|SW-2 phase-2|foreign block swallowed|locked [\d.]+-[\d.]+ block|"
+    r"FILER MISCLASSIFICATION|FALSE ZERO|NSE served ONE filing|\u00a7142e|item 4 \u2014|\u00a7151|"
+    r"other-institutions sweep|quantmac FII reconciliation|§158 row-level DII heal|§159 row-level FII heal|§160 page-era row-level heal|§164"
+)
+AUDIT_JSON = os.path.join(HERE, "_shp_other_inst_audit.json")
+_AUDIT_CELLS = None
+
+
+def audited_block(sym, key):
+    """The SW-2 audit's adjudicated FOREIGN Any-Other block for (symbol, as-on) in pp, or 0.0. Hand-reviewed
+    per cell (verdict 'foreign-confirmed'); the block is a strategic holder (JFE Steel in JSWSTEEL, IFC in
+    JISLJALEQS...) that a re-filing does not move. Never re-classified from names here — the sweep's name
+    regexes only ever proposed, and nested holder rows double-count (JUSTDIAL: parent FII row + its funds)."""
+    global _AUDIT_CELLS
+    if _AUDIT_CELLS is None:
+        try:
+            cells = json.load(open(AUDIT_JSON, encoding="utf-8")).get("cells") or {}
+            _AUDIT_CELLS = {
+                k: float(v.get("oth") or 0.0) for k, v in cells.items() if v.get("verdict") == "foreign-confirmed"
+            }
+        except Exception as e:
+            print(f"WARN {os.path.basename(AUDIT_JSON)} unreadable ({e}) — no audited blocks")
+            _AUDIT_CELLS = {}
+    return _AUDIT_CELLS.get(f"{sym}|{key}", 0.0)
+
+
+def heal_refiling(sym, key, rc, cellfix):
+    """§152: return (cell, how) — the re-filing cell `rc` carrying the original's adjudicated heals.
+    (1) Its holdings repeat the raw numbers a VALUE heal adjudicated (`was` of a cell_fix entry) -> serve
+        that entry's healed holdings: same document numbers, same adjudication. Date/nsh/src stay the re-filing's.
+    (2) Otherwise (numbers changed) a quarter with an audited foreign Any-Other block still gets that block
+        moved dii -> fii, provided the re-filing's dii can hold it. Date-only / option-C entries are never
+        used: their `was` is a wrong date or a revision's values, not an adjudicated reading."""
+    ent = ((cellfix or {}).get("fix") or {}).get(sym, {}).get(key)
+    if ent and VALUE_HEAL_MARK.search(str(ent.get("why", ""))) and ent.get("was") and ent.get("cell"):
+        # §156: an entry that supersedes an earlier value heal keeps that heal under `superseded`; the raw
+        # document numbers a re-filing repeats are the OLDEST `was` in that chain, the reading to serve is
+        # the TOP `cell`. Walk the chain so a superseding entry never re-exposes the raw numbers.
+        top = ent["cell"]
+        link = ent
+        depth = 0
+        while link and depth < 8:
+            if link.get("was") and _same_cell(rc, link["was"]) and not _same_cell(link["was"], top):
+                return [top[0], top[1], top[2], top[3], top[4], *list(rc[5:])], "adjudicated"
+            link = link.get("superseded") if isinstance(link.get("superseded"), dict) else None
+            depth += 1
+    blk = audited_block(sym, key)
+    if blk >= 0.25 and rc[2] is not None and float(rc[2]) + 0.02 >= blk:
+        out = list(rc)
+        out[1] = round(float(rc[1]) + blk, 4)
+        out[2] = round(float(rc[2]) - blk, 4)
+        return out, f"audited block {blk:.4f}"
+    return rc, None
+
+
+def _same_cell(a, b):
+    return (
+        a is not None
+        and b is not None
+        and all(abs(float(x) - float(y)) <= 0.0100001 for x, y in zip(a[:5], b[:5], strict=False))
+    )
 
 
 def save_events(e):
+    apply_event_redate(e)  # §164m: never write a known-wrong as-on date back
     tmp = EVENTS + ".tmp"
     json.dump(e, open(tmp, "w", encoding="utf-8"), separators=(",", ":"), sort_keys=True)
     os.replace(tmp, EVENTS)
@@ -1192,32 +1639,47 @@ def refresh_events(qes, only=None, reparse=False):
     six weeks of a "lowest DII" screen holding a stock whose real DII was 170x what we showed.
 
     Stored {SYM: {ASON_ISO: [prom, fii, dii, mf, ins, sub, nsh]}} — the shp_history row shape, so
-    the engine feed can merge the two without a second format. No ledgers are applied: those are
-    all keyed by quarter-end and none of them describes an event row."""
+    the engine feed can merge the two without a second format. The fill/heal ledgers are keyed by
+    quarter-end and describe no event row; the ONE ledger that does is shp_cell_fix.json, whose
+    non-quarter-end keys name event rows (apply_cell_fix_events, §142e)."""
     jar = B.nse_jar()
     ev = load_events()
-    before = sum(len(v) for v in ev.values())
+    if apply_cell_fix_events(ev):
+        save_events(ev)  # §142e: re-assert event-row corrections
+    revs = load_revs()
+    rev_new = 0  # §142k re-filings sidecar
+    cellfix_ev = load_cell_fix()  # §152: re-filed events inherit adjudicated heals
+    before = sum(len(v) for k, v in ev.items() if not k.startswith("_"))
     for qe in qes:
         recs = fetch_master(jar, qe, events=True)
-        best = {}  # (sym, as-on) -> newest submission wins
+        best = {}  # (sym, as-on) -> newest submission's XBRL (values), EARLIEST submission (visibility)
         for r in recs:
             sym = str(r.get("symbol") or "").strip().upper()
             ason = iso_date(r.get("date"))
-            sub = iso_date(r.get("submissionDate")) or iso_date(r.get("broadcastDate"))
+            sub = visible_iso(r)
             xb = str(r.get("xbrl") or "").strip()
             if not sym or not ason or not sub or not xb.lower().startswith("http"):
                 continue
             if only is not None and sym not in only:
                 continue
             k = (sym, ason)
-            if k not in best or sub >= best[k]["sub"]:
-                best[k] = {"sub": sub, "xb": xb}
+            if k not in best:
+                best[k] = {"sub": sub, "xb": xb, "first": sub}
+            else:
+                if sub >= best[k]["sub"]:
+                    best[k]["sub"], best[k]["xb"] = sub, xb
+                best[k]["first"] = min(best[k]["first"], sub)
+        # §142c (2026-09-21): a company re-files the SAME event pattern (BRIGADE 18-Jun-2026: 25-Jun, again 3-Jul;
+        # LENSKART 7-Nov-2025: 10-Nov, again 13-Feb). Values come from the newest filing, but the row's visibility
+        # date must stay the FIRST filing — "newest submission wins" had stored the re-filing date and hid a public
+        # pattern for weeks. The newest submission seen per row lives in ev["_latest"] so a re-filing is parsed once.
+        latest = ev.setdefault("_latest", {})
         todo = [
             (k, v)
             for k, v in best.items()
             if reparse
             or not (ev.get(k[0]) or {}).get(k[1])
-            or str(((ev.get(k[0]) or {}).get(k[1]) or [None] * 6)[5]) < v["sub"]
+            or str((latest.get(k[0]) or {}).get(k[1]) or ((ev.get(k[0]) or {}).get(k[1]) or [None] * 6)[5]) < v["sub"]
         ]
         if not todo:
             print(f"  events {qe}: nothing new")
@@ -1236,15 +1698,47 @@ def refresh_events(qes, only=None, reparse=False):
                 sym, ason, r, res = fut.result()
                 if not isinstance(res, dict):
                     continue
-                cell = [res["prom"], res["fii"], res["dii"], res["mf"], res["ins"], r["sub"]]
+                prev = (ev.get(sym) or {}).get(ason)
+                latest.setdefault(sym, {})[ason] = r["sub"]
+                if prev and str(prev[5]) < r["sub"]:
+                    # §142k: a re-filed event pattern — the stored row (original values, first date) stays; the
+                    # re-filing goes to the sidecar dated by its own gated publication unless identical.
+                    rc = [
+                        res["prom"],
+                        res["fii"],
+                        res["dii"],
+                        res["mf"],
+                        res["ins"],
+                        r["sub"],
+                        res.get("nsh"),
+                        "nse:" + r["xb"].rsplit("/", 1)[-1],
+                    ]
+                    rc, how = heal_refiling(sym, ason, rc, cellfix_ev)  # §152
+                    if how:
+                        rc[7] += " §152 heal:" + how
+                    if not _same_cell(rc, prev):
+                        revs.setdefault(sym, {})[ason] = rc
+                        rev_new += 1
+                    elif ason in (revs.get(sym) or {}):
+                        del revs[sym][ason]
+                        rev_new += 1
+                    done += 1
+                    continue
+                first = min([r["first"]] + ([str(prev[5])] if prev and prev[5] else []))
+                cell = [res["prom"], res["fii"], res["dii"], res["mf"], res["ins"], first]
                 if res.get("nsh"):
                     cell.append(res["nsh"])
                 ev.setdefault(sym, {})[ason] = cell
                 done += 1
-        print("  events %s: %d parsed of %d" % (qe, done, len(todo)))
+        print("  events %s: %d parsed of %d (%d re-filings to the sidecar)" % (qe, done, len(todo), rev_new))
+        apply_cell_fix_events(ev)  # §142e: a re-parsed row must not re-poison a fixed cell
         save_events(ev)
-    after = sum(len(v) for v in ev.values())
-    print("shp_events.json: %d rows (%+d), %d symbols" % (after, after - before, len(ev)))
+        save_revs(revs)
+    after = sum(len(v) for k, v in ev.items() if not k.startswith("_"))
+    print(
+        "shp_events.json: %d rows (%+d), %d symbols"
+        % (after, after - before, sum(1 for k in ev if not k.startswith("_")))
+    )
     return ev
 
 
@@ -1268,11 +1762,25 @@ def build_feed():
 
     all_qes = sorted({qe for s, qs in hist.items() if not s.startswith("_") for qe in qs}, reverse=True)
     quarters = all_qes[:FEED_QUARTERS]
+    revs = load_revs()
+    n_rev = 0  # §142k: the page shows the LATEST re-filing's numbers
     rows = []
     for sym, qs in hist.items():
         if sym.startswith("_") or not isinstance(qs, dict):
             continue
-        cells = [qs.get(qe) or 0 for qe in quarters]
+        cells = []
+        for qe in quarters:
+            c = qs.get(qe) or 0
+            rc = (revs.get(sym) or {}).get(qe)
+            if c and rc and not _same_cell(rc, c):
+                c = [
+                    *list(rc[:5]),
+                    c[5],
+                    *list(c[6:]),
+                    "rev:" + str(rc[5]),
+                ]  # original date kept, re-filing date appended
+                n_rev += 1
+            cells.append(c)
         if not any(cells):
             continue
         nm, mc = meta.get(sym, (None, None))
@@ -1285,8 +1793,8 @@ def build_feed():
     out = {"updated": ist.strftime("%Y-%m-%d %H:%M IST"), "quarters": quarters, "rows": rows}
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(
-        "WROTE %s: %d rows x %d quarters, %.1f KB"
-        % (os.path.normpath(OUT), len(rows), len(quarters), os.path.getsize(OUT) / 1e3)
+        "WROTE %s: %d rows x %d quarters, %.1f KB (%d cells show a re-filing, §142k)"
+        % (os.path.normpath(OUT), len(rows), len(quarters), os.path.getsize(OUT) / 1e3, n_rev)
     )
     return True
 
@@ -1357,6 +1865,10 @@ def build_engine_feed():
         }
     except Exception as e:
         print(f"WARN SHP date ledgers unreadable ({e}) — visibility dates served as stored")
+    # §149 (2026-09-23, midnight visibility rule): every ledger entry the 15:30 gate had dated now carries
+    # `sub` = the filing's CALENDAR day and `sub_1530` = the date the retired gate used to serve. History slot 5
+    # may hold either the raw day (`was`) or that gated day (the Aug-23 P4 pass wrote gated dates into history),
+    # so a stored date matching EITHER is the same filing and is served at the ledger's (midnight-rule) date.
     n_reassert = [0]
 
     def _reassert_sub(sym, qi, sub):
@@ -1370,16 +1882,26 @@ def build_engine_feed():
                 if sub == e["sub"]:
                     return sub  # already at the healed (earliest-disclosure) date: an older BSE-only
                     # shp_sub_dates entry must not move it later again
-            if "days_later" in e and sub == e.get("was"):
-                n_reassert[0] += 1
+            if "days_later" in e and (sub == e.get("was") or sub == e.get("sub_1530")):
+                if sub != e["sub"]:
+                    n_reassert[0] += 1
                 return e["sub"]
         e = sub_led.get(k)
-        if isinstance(e, dict) and isinstance(e.get("sub"), int) and sub != e["sub"] and sub == e.get("was"):
+        if (
+            isinstance(e, dict)
+            and isinstance(e.get("sub"), int)
+            and sub != e["sub"]
+            and (sub == e.get("was") or sub == e.get("sub_1530"))
+        ):
             n_reassert[0] += 1
             return e["sub"]
         return sub
 
     n_undated = [0]
+    try:  # §164e: post-Mar-2016 rows whose only date is an assumed quarter-end + 21 days
+        undated_keys = set(json.load(open(os.path.join(HERE, "shp_undated.json"), encoding="utf-8")).get("keys") or {})
+    except (OSError, ValueError):
+        undated_keys = set()
 
     def rows_of(qs, sym):
         rows = []
@@ -1387,7 +1909,9 @@ def build_engine_feed():
             try:
                 qi = int(qe.replace("-", ""))
                 sub = int(str(c[5]).replace("-", ""))
-                if qi <= 20160331 and _is_conv21(qi, sub) and "%s|%d" % (sym, qi) not in led_keys:
+                if (qi <= 20160331 and _is_conv21(qi, sub) and "%s|%d" % (sym, qi) not in led_keys) or (
+                    "%s|%d" % (sym, qi) in undated_keys and _is_conv21(qi, sub)
+                ):
                     sub = UNDATED_SUB
                     n_undated[0] += 1
                 sub = _reassert_sub(sym, qi, sub)
@@ -1396,6 +1920,8 @@ def build_engine_feed():
                 continue
         return rows
 
+    revs = load_revs()
+    n_rev = 0  # §142k re-filings sidecar
     for sym in set(hist) | set(events):
         if sym.startswith("_"):
             continue
@@ -1406,8 +1932,29 @@ def build_engine_feed():
         # no engine change. A quarter-end row wins a same-date collision (it is the fuller filing).
         seen = {r[0] for r in rows}
         rows += [r for r in rows_of(events.get(sym), sym) if r[0] not in seen]
+        # §142k: a re-filing rides as a SECOND row for the same as-on, dated by its own gated publication — never
+        # lag-fixed, never un-dated (its date is measured). The engine picks the latest row public on the screen date.
+        base = {r[0]: r for r in rows}
+        for iso, rc in (revs.get(sym) or {}).items():
+            try:
+                qi = int(iso.replace("-", ""))
+                rsub = int(str(rc[5]).replace("-", ""))
+            except (ValueError, TypeError, IndexError):
+                continue
+            b = base.get(qi)
+            if b is None or rsub <= b[3]:
+                continue  # no original row, or not later than it: nothing to add
+
+            def _eq(x, y):
+                return x is None or y is None or abs(float(x) - float(y)) <= 0.0100001
+
+            if _eq(rc[1], b[1]) and _eq(rc[2], b[2]) and _eq(rc[0], b[4]) and _eq(rc[3], b[5]):
+                continue  # identical numbers (fii/dii/prom/mf): nothing for the engine to learn
+            rows.append([qi, rc[1], rc[2], rsub, rc[0], rc[3]])
+            n_rev += 1
         if rows:
-            out[sym] = sorted(rows)
+            out[sym] = sorted(rows, key=lambda r: (r[0], r[3]))
+    print("  engine feed: %d re-filing rows added beside their originals (§142k)" % n_rev)
     print("  engine feed: %d pre-Jun-2016 rows served UN-DATED (no evidenced visibility date)" % n_undated[0])
     print(
         "  engine feed: %d visibility dates re-asserted from shp_lag_fix.json / shp_sub_dates.json (§135)"
@@ -1437,6 +1984,63 @@ def write_meta(stats):
     print(f"WROTE {os.path.normpath(META_OUT)}")
 
 
+def regate_recent(qes, only=None):
+    """§149 (2026-09-23): rows the RETIRED 15:30 gate dated AT INGESTION carry no ledger entry — their raw
+    broadcast lives only in NSE's master (visible_iso gated from 2026-09-05 13:33-13:41 and 2026-09-21 → 23;
+    NSE-dated re-filings in shp_revisions.json likewise). For the given quarter-ends (and their event windows)
+    re-read the master and, wherever a stored quarterly / event / revision date EQUALS the legacy gate of that
+    record's broadcast, store the midnight-rule day instead. Any other stored date (an earlier disclosure, a
+    ledger heal, a re-filing's own date) is left alone. No XBRL is parsed; holdings never change. Runs after
+    every fetch in refresh-shareholding.yml so a stale writer can never re-poison the window. Returns rows moved."""
+    jar = B.nse_jar()
+    hist = load_hist()
+    ev = load_events()
+    revs = load_revs()
+    latest = ev.setdefault("_latest", {})
+    moved = {"quarterly": 0, "event": 0, "revision": 0, "latest": 0}
+    for qe in qes:
+        for events in (False, True):
+            try:
+                recs = fetch_master(jar, qe, events=events)
+            except Exception as e:
+                print("  regate {}{}: master fetch failed ({})".format(qe, " events" if events else "", str(e)[:80]))
+                continue
+            for r in recs:
+                sym = str(r.get("symbol") or "").strip().upper()
+                if not sym or (only is not None and sym not in only):
+                    continue
+                key = iso_date(r.get("date")) if events else qe
+                if not key:
+                    continue
+                new = visible_iso(r)
+                old = legacy_gate_iso(r)
+                if not new or not old or new == old:
+                    continue
+                store = ev if events else hist
+                cell = (store.get(sym) or {}).get(key)
+                if isinstance(cell, list) and len(cell) > 5 and str(cell[5]) == old:
+                    cell[5] = new
+                    moved["event" if events else "quarterly"] += 1
+                rc = (revs.get(sym) or {}).get(key)
+                if isinstance(rc, list) and len(rc) > 5 and str(rc[5]) == old:
+                    rc[5] = new
+                    moved["revision"] += 1
+                if events and (latest.get(sym) or {}).get(key) == old:
+                    latest[sym][key] = new
+                    moved["latest"] += 1
+    if moved["quarterly"]:
+        save_hist(hist)
+    if moved["event"] or moved["latest"]:
+        save_events(ev)
+    if moved["revision"]:
+        save_revs(revs)
+    print(
+        "  regate: %d quarterly, %d event, %d revision rows moved from the retired 15:30-gate day to the "
+        "filing day (%d _latest markers)" % (moved["quarterly"], moved["event"], moved["revision"], moved["latest"])
+    )
+    return moved["quarterly"] + moved["event"] + moved["revision"]
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if "--hist" in args:  # write to an alternate history file (staging for conflict-free backfills)
@@ -1459,6 +2063,12 @@ if __name__ == "__main__":
             sys.exit(1)
         save_hist(h)
         print("history: %d cells (%+d) after ledgers" % (after, after - before))
+        _revs = load_revs()
+        if apply_ledger_revisions(_revs):
+            save_revs(_revs)  # §180c fill-ledger re-filings, fill-only
+        ev = load_events()
+        if apply_cell_fix_events(ev):
+            save_events(ev)  # §142e: event rows take cell_fix too
         build_feed()
         build_engine_feed()
     elif "--events" in args:
@@ -1477,6 +2087,39 @@ if __name__ == "__main__":
         print("event quarters:", ", ".join(qes))
         refresh_events(qes, only=only, reparse="--reparse" in args)
         build_engine_feed()
+    elif "--sme-shares" in args:
+        # NSE SME-platform share counts -> shares_outstanding.json only (market caps; §145).
+        n = int(args[args.index("--backfill") + 1]) if "--backfill" in args else 4
+        qes = (
+            [q.strip() for q in args[args.index("--quarters") + 1].split(",") if q.strip()]
+            if "--quarters" in args
+            else last_qes(n)
+        )
+        only = (
+            {s.strip().upper() for s in args[args.index("--symbols") + 1].split(",") if s.strip()}
+            if "--symbols" in args
+            else None
+        )
+        print("sme quarter-ends:", ", ".join(qes))
+        bank_sme_shares(qes, only=only)
+    elif "--regate" in args:
+        # §149: move rows the retired 15:30 gate dated at ingestion to the filing day (see regate_recent).
+        n = int(args[args.index("--backfill") + 1]) if "--backfill" in args else TOPUP_QES
+        qes = (
+            [q.strip() for q in args[args.index("--quarters") + 1].split(",") if q.strip()]
+            if "--quarters" in args
+            else last_qes(n)
+        )
+        only = (
+            {s.strip().upper() for s in args[args.index("--symbols") + 1].split(",") if s.strip()}
+            if "--symbols" in args
+            else None
+        )
+        print("regate quarter-ends:", ", ".join(qes))
+        if regate_recent(qes, only=only):
+            build_engine_feed()
+        else:
+            print("  regate: nothing to move")
     elif "--feed-only" in args:
         build_feed()
         build_engine_feed()

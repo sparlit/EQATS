@@ -121,7 +121,7 @@ def quarter_of(ann):
 def main():
     reads = json.load(open(READS, encoding="utf-8")) if os.path.exists(READS) else {}
     fund = json.load(open(os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json"), encoding="utf-8"))
-    SCALEF = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-5}
+    SCALEF = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-4}
     sel = json.load(open(DECL, encoding="utf-8"))
     comp = json.load(open(COMP, encoding="utf-8")) if os.path.exists(COMP) else {}
     adj = json.load(open(ADJ, encoding="utf-8"))["cells"]

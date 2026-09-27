@@ -7,7 +7,7 @@
 //! - Solidity struct definitions for EIP-712 signing
 
 use alloy::{
-    dyn_abi::{Eip712Types, Resolver, TypedData},
+    dyn_abi::{Eip712Types, PropertyDef, Resolver, TypedData},
     primitives::{Address, B256, U256, keccak256},
     sol_types::SolStruct,
 };
@@ -17,6 +17,42 @@ use super::Cloid;
 use crate::hypercore::Chain;
 
 const HYPERLIQUID_EIP_PREFIX: &str = "HyperliquidTransaction:";
+
+pub(super) fn serialize_agent_name<S: Serializer>(
+    value: &Option<String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(value.as_deref().unwrap_or_default())
+}
+
+/// Enrich the ordinary user-signed schema, preserving its field order.
+pub(super) fn multisig_typed_data(
+    mut data: TypedData,
+    multi_sig_user: Address,
+    lead: Address,
+) -> TypedData {
+    let mut types = Eip712Types::from(&data.resolver);
+    let fields = types
+        .get_mut(&data.primary_type)
+        .expect("known action schema");
+    let index = fields
+        .iter()
+        .position(|field| field.name() == "hyperliquidChain")
+        .expect("user-signed actions include hyperliquidChain")
+        + 1;
+    fields.splice(
+        index..index,
+        [
+            PropertyDef::new_unchecked("address", "payloadMultiSigUser"),
+            PropertyDef::new_unchecked("address", "outerSigner"),
+        ],
+    );
+    data.resolver = Resolver::from(types);
+    data.message["payloadMultiSigUser"] =
+        const_hex::encode_prefixed(multi_sig_user.as_slice()).into();
+    data.message["outerSigner"] = const_hex::encode_prefixed(lead.as_slice()).into();
+    data
+}
 
 /// Serde module for normalized decimal serialization.
 ///

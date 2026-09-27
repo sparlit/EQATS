@@ -35,7 +35,24 @@ Resumable via scripts/_bse_fund_hist.json {code:{oldest,fails,done,frm}} — the
 run (merge sets `oldest` to the deepest quarter that landed, or skips an empty window). Bounded per run.
 
 Run: python -X utf8 scripts/bse_hist_prep.py [--budget N] [--max-filings K] [--floor YYYYMMDD]
-     [--min-mcap CR] [--outdir DIR]   →  writes <outdir>/manifest.json + <outdir>/*.png
+     [--min-mcap CR] [--outdir DIR] [--scrips C1,C2,...] [--no-ledger]
+     →  writes <outdir>/manifest.json + <outdir>/*.png + <outdir>/empty.json + <outdir>/unfetched.json
+
+STUCK-NAME FIX (2026-09-23): a scrip whose window produced no rendered filing never reached the
+manifest, so merge never advanced it and it was re-picked (and re-spent budget) every run forever —
+44 of the top-50 not-done names were frozen for 10+ days. Every budgeted scrip is now classified:
+  manifest.json   — >=1 filing rendered → the readers read it (unchanged)
+  empty.json      — BSE CONFIRMED the window has no result filings (valid listing, 0 attachments) →
+                    merge steps the ledger past the window
+  unfetched.json  — filings listed but none downloadable/renderable → merge counts `ufails` and steps
+                    past only after 3 consecutive runs (a dead attachment must not block forever,
+                    a transient download failure must not skip real data)
+  (listing FAILED — network/stub/error object — is printed and written nowhere: retry next run,
+   never stepped past, so a flaky BSE response can never skip a year of history)
+The sidecars are ALWAYS rewritten (possibly empty) so a stale one from an earlier run in the same
+outdir is never re-applied. --no-ledger skips writing _bse_fund_hist.json (merge is the only ledger
+writer that lands — the routine and the local flow both reset to origin/main before merging — and
+parallel prep shards must not race on that file).
 """
 import datetime
 import json
@@ -64,6 +81,8 @@ def main():
     min_mcap = argv("--min-mcap", float, 0.0)
     outdir = argv("--outdir", str, "/tmp/bse_hist")
     only = set(sys.argv[sys.argv.index("--scrips") + 1].split(",")) if "--scrips" in sys.argv else None
+    no_ledger = "--no-ledger" in sys.argv
+    run_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")  # merge counts each run's ufails once
     os.makedirs(outdir, exist_ok=True)
     today_i = int(datetime.date.today().strftime("%Y%m%d"))
     floor_d = datetime.date(floor // 10000, floor // 100 % 100, floor % 100)
@@ -86,7 +105,7 @@ def main():
     op = B.session()
     time.sleep(1)
 
-    manifest, spent = [], 0
+    manifest, spent, empty, unfetched, lfail = [], 0, [], [], []
     for r in univ:
         code = str(r[0])
         mc = r[6] or 0
@@ -109,11 +128,14 @@ def main():
         to_ymd = (od - datetime.timedelta(days=1)).strftime("%Y%m%d")
         frm_d = max(floor_d, od - datetime.timedelta(days=360))
         frm_ymd = frm_d.strftime("%Y%m%d")
+        st = {}
         try:
-            filings = bk.result_filings(op, code, frm_ymd, to_ymd)
+            filings = bk.result_filings(op, code, frm_ymd, to_ymd, status=st)
         except Exception as ex:
             print(f"  {code} ANN ERR {str(ex)[:40]}")
             filings = []
+            st = {"ok": False}
+        rendered = 0
         for annd, att, _hd, _sc in filings[:max_filings]:
             raw = bf.fetch_pdf(op, att)
             if not raw:
@@ -142,6 +164,23 @@ def main():
                     "pngs": paths,
                 }
             )
+            rendered += 1
+        base = {
+            "sym": code2sym.get(code, code),
+            "scrip": int(code),
+            "name": r[2] or code,
+            "floor": floor,
+            "oldest": oldest,
+            "frm": int(frm_ymd),
+            "run": run_id,
+        }
+        if not filings:
+            if st.get("ok"):
+                empty.append(base)  # BSE's own answer: nothing in this window
+            else:
+                lfail.append(code)  # listing failed → retry, NEVER step past
+        elif not rendered:
+            unfetched.append(dict(base, listed=len(filings)))
         hist[code] = {
             "oldest": oldest,
             "fails": (hist.get(code) or {}).get("fails", 0),
@@ -151,8 +190,16 @@ def main():
         time.sleep(0.1)
 
     json.dump(manifest, open(os.path.join(outdir, "manifest.json"), "w"), ensure_ascii=False)
-    json.dump(hist, open(HIST, "w"))
-    print("prep: %d scrips, %d filings rendered → %s/manifest.json" % (spent, len(manifest), outdir))
+    json.dump(empty, open(os.path.join(outdir, "empty.json"), "w"), ensure_ascii=False)
+    json.dump(unfetched, open(os.path.join(outdir, "unfetched.json"), "w"), ensure_ascii=False)
+    if not no_ledger:
+        json.dump(hist, open(HIST, "w"))
+    print(
+        "prep: %d scrips, %d filings rendered → %s/manifest.json | %d empty window(s), %d unfetchable, "
+        "%d listing failure(s)" % (spent, len(manifest), outdir, len(empty), len(unfetched), len(lfail))
+    )
+    if lfail:
+        print("  LISTING FAILED (left for retry, not stepped past): {}".format(",".join(lfail[:40])))
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 //! Event dispatch: drains SharedState queues and fires Wrapper callbacks.
 
 use crate::api::types::{
-    BarData, CommissionAndFeesReport, ContractDetails, ContractDescription, Execution,
-    Order as ApiOrder, OrderState, TickAttribLast, TickAttribBidAsk, PRICE_SCALE_F,
+    BarData, ContractDetails, ContractDescription, Execution,
+    Order as ApiOrder, OrderState, TickAttribLast, TickAttribBidAsk, PRICE_SCALE_F, QTY_SCALE_F,
 };
 use crate::api::wrapper::Wrapper;
 use crate::client_core::order_status_str;
@@ -46,30 +46,50 @@ impl EClient {
     // ── Order / Fill Dispatch ──
 
     fn dispatch_orders(&self, wrapper: &mut impl Wrapper) {
-        // Fills → order_status + exec_details + commission_and_fees_report
-        for fill in self.shared.orders.drain_fills() {
+        // Fills → order_status + exec_details. The commission report comes
+        // later, from its own server frame (ibx#471).
+        for (fill, fill_exec) in self.shared.orders.drain_fills_with_exec() {
             let price_f = fill.price as f64 / PRICE_SCALE_F;
-            let commission_and_fees_f = fill.commission as f64 / PRICE_SCALE_F;
-            let status = if fill.remaining == 0 { "Filled" } else { "PartiallyFilled" };
+            let status = if fill.remaining_fixed == 0 { "Filled" } else { self.core.partial_fill_status(fill.order_id) };
             let (perm_id, parent_id) = self.shared.orders.get_order_info(fill.order_id)
                 .map(|info| (info.order.perm_id, info.order.parent_id))
                 .unwrap_or((0, 0));
+            // filled and avgFillPrice are the order totals, lastFillPrice
+            // is this print (ibx#315). Quantities are fixed-point; the
+            // callbacks take decimal shares (ibx#313).
+            let filled_f = fill.filled_so_far_fixed() as f64 / QTY_SCALE_F;
+            let remaining_f = fill.remaining_fixed as f64 / QTY_SCALE_F;
+            let shares_f = fill.qty_fixed as f64 / QTY_SCALE_F;
+            let avg_f = fill.average_price() as f64 / PRICE_SCALE_F;
+            // openOrder then orderStatus for every report of a known order
+            // (ibx#473).
+            let client_id = match self.core.order_view(fill.order_id, &self.shared, status) {
+                Some(view) => {
+                    wrapper.open_order(fill.order_id as i64, &view.contract, &view.order, &view.state);
+                    view.client_id
+                }
+                None => 0,
+            };
             wrapper.order_status(
-                fill.order_id as i64, status, fill.qty as f64, fill.remaining as f64,
-                price_f, perm_id, parent_id, price_f, 0, "", 0.0,
+                fill.order_id as i64, status, filled_f, remaining_f,
+                avg_f, perm_id, parent_id, price_f, client_id, "", 0.0,
             );
+            self.core.record_last_fill_price(fill.order_id, price_f);
 
             let side_str = match fill.side {
                 Side::Buy => "BOT",
                 Side::Sell => "SLD",
                 Side::ShortSell => "SLD",
             };
-            let (c, exec) = if let Some(info) = self.shared.orders.get_order_info(fill.order_id) {
+            let (c, mut exec) = if let Some(info) = self.shared.orders.get_order_info(fill.order_id) {
                 let mut ex = info.last_exec;
+                ex.perm_id = perm_id;
                 ex.side = side_str.into();
-                ex.shares = fill.qty as f64;
+                ex.shares = shares_f;
                 ex.price = price_f;
                 ex.order_id = fill.order_id as i64;
+                ex.cum_qty = filled_f;
+                ex.avg_price = avg_f;
                 let contract = if info.contract.con_id != 0 {
                     self.core.get_contract(info.contract.con_id, &self.shared).unwrap_or(info.contract)
                 } else {
@@ -79,45 +99,66 @@ impl EClient {
             } else {
                 (Contract::default(), Execution {
                     side: side_str.into(),
-                    shares: fill.qty as f64,
+                    shares: shares_f,
                     price: price_f,
                     order_id: fill.order_id as i64,
+                    cum_qty: filled_f,
+                    avg_price: avg_f,
                     ..Default::default()
                 })
             };
-            let req_id = self.core.req_id_for_instrument(fill.instrument);
-            wrapper.exec_details(req_id, &c, &exec);
+            self.core.apply_fill_exec(&mut exec, &fill_exec, fill.order_id);
+            // A live execution has no request: reqId -1 (ibx#474).
+            wrapper.exec_details(-1, &c, &exec);
 
-            let report = CommissionAndFeesReport {
-                exec_id: exec.exec_id.clone(),
-                commission_and_fees: commission_and_fees_f,
-                currency: "USD".into(),
-                realized_pnl: f64::MAX,
-                yield_amount: f64::MAX,
-                yield_redemption_date: String::new(),
-            };
-            wrapper.commission_and_fees_report(&report);
-
-            // Store for req_executions replay
-            self.core.push_execution(req_id, c, exec, report);
+            // Store for req_executions replay; a commission report that came
+            // first is sent now.
+            if let Some(report) = self.core.push_execution(-1, c, exec, fill_exec.time_secs) {
+                wrapper.commission_and_fees_report(&report);
+            }
 
             // Update open order tracking
-            self.core.update_order_fill(fill.order_id, status, fill.qty as f64, fill.remaining as f64);
+            self.core.update_order_fill(fill.order_id, status, filled_f, remaining_f);
         }
 
-        // Order updates → order_status
+        // Commission reports, sent once their execution is known (ibx#471).
+        for report in self.shared.orders.drain_commission_reports() {
+            if self.core.apply_commission(&report) {
+                wrapper.commission_and_fees_report(&report);
+            }
+        }
+
+        // Order errors (refused before sending, or rejected by the server)
+        // → error, ahead of the status: the reference reports a server
+        // reject as error 201 before the Inactive status (ibx#250).
+        for (order_id, code, msg) in self.shared.orders.drain_order_errors() {
+            wrapper.error(order_id as i64, code, &msg, "");
+        }
+
+        // Order updates → open_order + order_status for every report of a
+        // known order; a cancel gives order_status only (ibx#473).
         for update in self.shared.orders.drain_order_updates() {
             let status = order_status_str(update.status);
+            let filled_f = update.filled_qty_fixed as f64 / QTY_SCALE_F;
+            let remaining_f = update.remaining_qty_fixed as f64 / QTY_SCALE_F;
+            let view = self.core.order_view(update.order_id, &self.shared, status);
+            if let Some(v) = view.as_ref().filter(|_| status != "Cancelled") {
+                wrapper.open_order(update.order_id as i64, &v.contract, &v.order, &v.state);
+            }
+            let (last_fill_price, client_id) = view.map(|v| (v.last_fill_price, v.client_id)).unwrap_or((0.0, 0));
             wrapper.order_status(
-                update.order_id as i64, status, update.filled_qty as f64,
-                update.remaining_qty as f64, 0.0, update.perm_id, update.parent_id, 0.0, 0, "", 0.0,
+                update.order_id as i64, status, filled_f,
+                remaining_f, update.avg_fill_price as f64 / PRICE_SCALE_F,
+                update.perm_id, update.parent_id, last_fill_price, client_id, "", 0.0,
             );
-            self.core.update_order_status(update.order_id, status, update.filled_qty as f64, update.remaining_qty as f64);
+            self.core.update_order_status(update.order_id, status, filled_f, remaining_f);
         }
 
         // Cancel rejects → error
         for reject in self.shared.orders.drain_cancel_rejects() {
-            let code = if reject.reject_type == 1 { 202 } else { 10147 };
+            // 202 is the cancel notice (ibx#465); a server reject of a
+            // cancel or modify is 10147.
+            let code = 10147;
             let msg = format!("Order {} cancel/modify rejected (reason: {})", reject.order_id, reject.reason_code);
             wrapper.error(reject.order_id as i64, code, &msg, "");
         }
@@ -377,7 +418,10 @@ impl EClient {
         }
 
         // PnL → pnl callback (change-detected via ClientCore)
-        if let Some(update) = self.core.poll_pnl(&self.shared) {
+        // Quotes the P&L needs, subscribed by ibx itself when the caller has
+        // none; they never reach the tick callbacks.
+        self.core.maintain_pnl_quotes(&self.shared, &self.control_tx);
+        for update in self.core.poll_pnl(&self.shared) {
             wrapper.pnl(update.req_id, update.daily_pnl, update.unrealized_pnl, update.realized_pnl);
         }
 
@@ -386,23 +430,51 @@ impl EClient {
             wrapper.pnl_single(update.req_id, update.pos, update.daily_pnl, update.unrealized_pnl, update.realized_pnl, update.value);
         }
 
-        // Account updates → update_account_value + account_download_end (via ClientCore)
+        // Positions of a running req_positions (ibx#477).
+        self.dispatch_positions(wrapper);
+        // Multi-account requests (ibx#476).
+        self.dispatch_multi(wrapper);
+
+        // Account updates (ibx#475): values, portfolio rows each followed by
+        // the account time, the time after the batch, and for the first image
+        // the end, once per subscription.
         if let Some(batch) = self.core.prepare_account_updates(&self.shared) {
             for field in &batch.fields {
                 wrapper.update_account_value(&field.key, &field.value, &field.currency, &self.account_id);
             }
-            if batch.delivered {
-                wrapper.update_account_time("");
+            let portfolio = self.core.prepare_portfolio_updates(&self.shared);
+            for entry in &portfolio {
+                let ac = self.core.position_contract(entry.con_id, &self.shared);
+                let c = Contract {
+                    con_id: ac.con_id, symbol: ac.symbol, sec_type: ac.sec_type,
+                    exchange: ac.exchange, primary_exchange: ac.primary_exchange,
+                    currency: ac.currency, local_symbol: ac.local_symbol,
+                    trading_class: ac.trading_class, multiplier: ac.multiplier,
+                    ..Default::default()
+                };
+                wrapper.update_portfolio(
+                    &c, entry.position, entry.market_price, entry.market_value,
+                    entry.avg_cost, entry.unrealized_pnl, entry.realized_pnl, &self.account_id,
+                );
+                wrapper.update_account_time(&batch.time);
+            }
+            if !batch.fields.is_empty() || !portfolio.is_empty() {
+                wrapper.update_account_time(&batch.time);
+            }
+            if batch.download_end {
                 wrapper.account_download_end(&self.account_id);
             }
         }
 
-        // Account summary → account_summary + account_summary_end (one-shot via ClientCore)
-        if let Some(batch) = self.core.prepare_account_summary(&self.shared, &self.account_id) {
-            for entry in &batch.entries {
-                wrapper.account_summary(batch.req_id, &self.account_id, entry.tag, &entry.value, entry.currency);
+        // Account summary rows as the server sends them; the end at each of
+        // its end markers (ibx#479).
+        for batch in self.core.prepare_account_summary(&self.shared) {
+            for row in &batch.rows {
+                wrapper.account_summary(batch.req_id, &self.account_id, &row.key, &row.value, &row.currency);
             }
-            wrapper.account_summary_end(batch.req_id);
+            if batch.end {
+                wrapper.account_summary_end(batch.req_id);
+            }
         }
     }
 }

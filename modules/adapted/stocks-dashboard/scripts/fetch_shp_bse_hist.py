@@ -40,6 +40,10 @@ applied fill-only by fetch_shareholding.apply_bse_hist_ledger().
   python3 -X utf8 scripts/fetch_shp_bse_hist.py --from-qe 2020-03-31
 Resumable: re-running skips everything already in the ledger and every (sym,qe) proven absent.
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import argparse
 import collections
 import gzip
@@ -52,6 +56,8 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -66,38 +72,25 @@ RMAPP = os.path.join(HERE, "_rename_map.json")
 SCRIPS = os.path.join(HERE, "bse_scrips.json")
 FULLSCRIP = os.path.join(CACHE, "_all_scrips.json")
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-HDRS = {"User-Agent": UA, "Referer": "https://www.bseindia.com/", "Accept": "application/json"}
 THREADS = 5
 FLUSH_EVERY = 60
 QMON = {"March": "-03-31", "June": "-06-30", "September": "-09-30", "December": "-12-31"}
 FIRST_QE = "2016-06-30"  # BSE's earliest real XBRL (measured: 40/40 at Jun-16, 3/40 Mar-16, 0/40 Dec-15)
 
 
-try:
-    from curl_cffi import requests as _cr
-except Exception:
-    _cr = None
-
-
 def get(url, tries=4, timeout=45):
-    """⚠️ Akamai fingerprints the client on /XBRL1/: plain urllib gets a 404 on the very file curl
-    serves 200. curl_cffi impersonate=chrome is the only reliable transport (same lesson as the
-    Wayback harvest) — urllib stays as a fallback for the API host, which is not fussy."""
+    """Honest urllib transport with the one BSE header set (bse_headers.HEADERS, runbook §181).
+    Until 2026-09-26 this used curl_cffi impersonate="chrome" because plain urllib got a 404 on
+    /XBRL1/ -- that 404 was the missing Accept-Language/Referer, not the client: urllib + BH.HEADERS
+    measured 200 on /XBRL1/500002_104202516129_SHP.xml (2026-09-26). No browser impersonation."""
     last = None
     for i in range(tries):
         try:
-            if _cr is not None:
-                r = _cr.get(
-                    url, headers={"Referer": "https://www.bseindia.com/"}, impersonate="chrome", timeout=timeout
-                )
-                if r.status_code == 200:
-                    return r.content
-                last = Exception("HTTP %d" % r.status_code)
-                if r.status_code == 404 and i >= 1:
-                    raise last
-            else:
-                return urllib.request.urlopen(urllib.request.Request(url, headers=HDRS), timeout=timeout).read()
+            return urllib.request.urlopen(urllib.request.Request(url, headers=BH.HEADERS), timeout=timeout).read()
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code == 404 and i >= 1:
+                raise
         except Exception as e:
             last = e
         time.sleep(1.5 * (i + 1))

@@ -52,6 +52,7 @@ import numpy as np
 import pandas as pd
 from joblib import delayed
 from numba import njit
+
 from pybroker.cache import CacheDateFields, ModelCacheKey
 from pybroker.common import (
     DataCol,
@@ -80,6 +81,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 
     from numpy.typing import NDArray
+
     from pybroker.scope import SymbolArrayStore
 
 # --- Model input and lag helpers (formerly timeseries.py) ---

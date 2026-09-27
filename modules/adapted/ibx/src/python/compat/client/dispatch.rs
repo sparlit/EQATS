@@ -16,7 +16,7 @@ use crate::api::types::{
 use super::EClient;
 use super::super::contract::{Contract, ContractDescription, ContractDetails, BarData, CommissionAndFeesReport, DepthMktDataDescriptionPy, Execution, Order, OrderState};
 use super::super::tick_types::*;
-use super::super::super::types::PRICE_SCALE_F;
+use super::super::super::types::{PRICE_SCALE_F, QTY_SCALE_F};
 
 /// Call a Python wrapper method, catching and logging any exception instead of propagating.
 /// This prevents user callback exceptions from killing the dispatch loop.
@@ -31,6 +31,135 @@ macro_rules! call_wrapper {
 }
 
 impl EClient {
+    /// Rows of the running multi-account requests (ibx#476).
+    pub(crate) fn dispatch_multi(&self, py: Python<'_>, shared: &Arc<SharedState>) -> PyResult<()> {
+        let own = self.account();
+        for batch in self.core.prepare_account_multi(shared) {
+            let account = if batch.account.is_empty() { own.as_str() } else { batch.account.as_str() };
+            for row in &batch.rows {
+                call_wrapper!(self.wrapper, py, "account_update_multi",
+                    (batch.req_id, account, batch.model_code.as_str(), row.key.as_str(), row.value.as_str(), row.currency.as_str()));
+            }
+            if batch.end {
+                call_wrapper!(self.wrapper, py, "account_update_multi_end", (batch.req_id,));
+            }
+        }
+        for (req_id, account, model_code, batch) in self.core.prepare_positions_multi(shared) {
+            let account = if account.is_empty() { own.clone() } else { account };
+            for pi in &batch.rows {
+                let ac = self.core.position_contract(pi.con_id, shared);
+                let mut c = Contract::default();
+                c.con_id = ac.con_id;
+                c.symbol = ac.symbol;
+                c.sec_type = ac.sec_type;
+                c.exchange = ac.exchange;
+                c.primary_exchange = ac.primary_exchange;
+                c.currency = ac.currency;
+                c.local_symbol = ac.local_symbol;
+                c.trading_class = ac.trading_class;
+                c.multiplier = ac.multiplier;
+                let c_py = Py::new(py, c)?.into_any();
+                call_wrapper!(self.wrapper, py, "position_multi",
+                    (req_id, account.as_str(), model_code.as_str(), &c_py,
+                     pi.position_fixed as f64 / QTY_SCALE_F, pi.avg_cost as f64 / PRICE_SCALE_F));
+            }
+            if batch.end {
+                call_wrapper!(self.wrapper, py, "position_multi_end", (req_id,));
+            }
+            if let Some((code, message)) = batch.error {
+                call_wrapper!(self.wrapper, py, "error", (req_id, code, message.as_str(), ""));
+            }
+        }
+        Ok(())
+    }
+
+    /// Position rows of a running req_positions (ibx#477).
+    pub(crate) fn dispatch_positions(&self, py: Python<'_>, shared: &Arc<SharedState>) -> PyResult<()> {
+        let Some(batch) = self.core.prepare_positions(shared) else { return Ok(()) };
+        let account = self.account();
+        for pi in &batch.rows {
+            let ac = self.core.position_contract(pi.con_id, shared);
+            let mut c = Contract::default();
+            c.con_id = ac.con_id;
+            c.symbol = ac.symbol;
+            c.sec_type = ac.sec_type;
+            c.exchange = ac.exchange;
+            c.primary_exchange = ac.primary_exchange;
+            c.currency = ac.currency;
+            c.local_symbol = ac.local_symbol;
+            c.trading_class = ac.trading_class;
+            c.multiplier = ac.multiplier;
+            let c_py = Py::new(py, c)?.into_any();
+            call_wrapper!(self.wrapper, py, "position",
+                (account.as_str(), &c_py, pi.position_fixed as f64 / QTY_SCALE_F, pi.avg_cost as f64 / PRICE_SCALE_F));
+        }
+        if batch.end {
+            call_wrapper!(self.wrapper, py, "position_end", ());
+        }
+        if let Some((code, message)) = batch.error {
+            call_wrapper!(self.wrapper, py, "error", (-1i64, code, message.as_str(), ""));
+        }
+        Ok(())
+    }
+
+    /// open_order for an order after a server report (ibx#473).
+    fn send_open_order(&self, py: Python<'_>, order_id: u64, view: &crate::client_core::OrderView) -> PyResult<()> {
+        let c = Contract {
+            con_id: view.contract.con_id,
+            symbol: view.contract.symbol.clone(),
+            sec_type: view.contract.sec_type.clone(),
+            exchange: view.contract.exchange.clone(),
+            primary_exchange: view.contract.primary_exchange.clone(),
+            currency: view.contract.currency.clone(),
+            local_symbol: view.contract.local_symbol.clone(),
+            trading_class: view.contract.trading_class.clone(),
+            ..Default::default()
+        };
+        let src = &view.order;
+        let mut o = Order::default();
+        o.order_id = order_id as i64;
+        o.action = src.action.clone();
+        o.total_quantity = src.total_quantity;
+        o.order_type = src.order_type.clone();
+        o.lmt_price = src.lmt_price;
+        o.aux_price = src.aux_price;
+        o.tif = src.tif.clone();
+        o.account = src.account.clone();
+        o.perm_id = src.perm_id;
+        o.parent_id = src.parent_id;
+        o.oca_type = src.oca_type;
+        o.outside_rth = src.outside_rth;
+        o.order_ref = src.order_ref.clone();
+        o.use_price_mgmt_algo = src.use_price_mgmt_algo;
+        o.trail_stop_price = src.trail_stop_price;
+        o.algo_strategy = src.algo_strategy.clone();
+        o.what_if = src.what_if;
+        let mut state = OrderState::default();
+        state.status = view.state.status.clone();
+        state.commission_and_fees = view.state.commission_and_fees;
+        state.completed_time = view.state.completed_time.clone();
+        state.completed_status = view.state.completed_status.clone();
+        let c_py = Py::new(py, c)?.into_any();
+        let o_py = Py::new(py, o)?.into_any();
+        let state_py = Py::new(py, state)?.into_any();
+        call_wrapper!(self.wrapper, py, "open_order", (order_id as i64, &c_py, &o_py, &state_py));
+        Ok(())
+    }
+
+    fn send_commission_report(&self, py: Python<'_>, cr: &ApiCommissionAndFeesReport) -> PyResult<()> {
+        let report = CommissionAndFeesReport {
+            exec_id: cr.exec_id.clone(),
+            commission_and_fees: cr.commission_and_fees,
+            currency: cr.currency.clone(),
+            realized_pnl: cr.realized_pnl,
+            yield_amount: cr.yield_amount,
+            yield_redemption_date: cr.yield_redemption_date.clone(),
+        };
+        let report_py = Py::new(py, report)?.into_any();
+        call_wrapper!(self.wrapper, py, "commission_and_fees_report", (&report_py,));
+        Ok(())
+    }
+
     /// Single iteration of event dispatch: drain all shared queues and fire Python callbacks.
     pub(crate) fn dispatch_once(&self, py: Python<'_>, shared: &Arc<SharedState>) -> PyResult<()> {
         // Drain engine events — surface disconnects as error callbacks.
@@ -43,36 +172,42 @@ impl EClient {
             }
         }
 
-        // Drain fills -> execDetails + orderStatus
-        let fills = shared.orders.drain_fills();
-        for fill in fills {
-            let req_id = self.core.instrument_to_req.lock().unwrap()
-                .get(&fill.instrument).copied().unwrap_or(-1);
+        // Drain fills -> execDetails + orderStatus. The commission report
+        // comes later, from its own server frame (ibx#471).
+        let fills = shared.orders.drain_fills_with_exec();
+        for (fill, fill_exec) in fills {
+            // As the reference: BOT / SLD (ibx#474).
             let side_str = match fill.side {
-                Side::Buy => "BUY",
-                Side::Sell => "SELL",
-                Side::ShortSell => "SSHORT",
+                Side::Buy => "BOT",
+                Side::Sell | Side::ShortSell => "SLD",
             };
             let price = fill.price as f64 / PRICE_SCALE_F;
-            let commission = fill.commission as f64 / PRICE_SCALE_F;
 
-            let status = if fill.remaining == 0 { "Filled" } else { "PartiallyFilled" };
+            let status = if fill.remaining_fixed == 0 { "Filled" } else { self.core.partial_fill_status(fill.order_id) };
             let (perm_id, parent_id) = shared.orders.get_order_info(fill.order_id)
                 .map(|info| (info.order.perm_id, info.order.parent_id))
                 .unwrap_or((0, 0));
-            call_wrapper!(self.wrapper, py, "order_status", (fill.order_id as i64, status, fill.qty as f64, fill.remaining as f64,
-                 price, perm_id, parent_id, price, 0i64, "", 0.0f64));
+            // filled and avgFillPrice are the order totals carried on the
+            // fill, lastFillPrice is this print (ibx#315). Quantities are
+            // fixed-point; the callbacks take decimal shares (ibx#313).
+            let cum_qty = fill.filled_so_far_fixed() as f64 / QTY_SCALE_F;
+            let remaining = fill.remaining_fixed as f64 / QTY_SCALE_F;
+            let shares = fill.qty_fixed as f64 / QTY_SCALE_F;
+            let avg_price = fill.average_price() as f64 / PRICE_SCALE_F;
+            // openOrder then orderStatus for every report of a known order
+            // (ibx#473).
+            let client_id = match self.core.order_view(fill.order_id, shared, status) {
+                Some(view) => {
+                    self.send_open_order(py, fill.order_id, &view)?;
+                    view.client_id
+                }
+                None => 0,
+            };
+            call_wrapper!(self.wrapper, py, "order_status", (fill.order_id as i64, status, cum_qty, remaining,
+                 avg_price, perm_id, parent_id, price, client_id, "", 0.0f64));
+            self.core.record_last_fill_price(fill.order_id, price);
 
-            // Track execution for req_executions
-            let exec_id = format!("{}.{}", fill.order_id, fill.timestamp_ns);
-            let now_str = format!("{}", fill.timestamp_ns);
             let rich_info = shared.orders.get_order_info(fill.order_id);
-            let exec_exchange = rich_info.as_ref()
-                .map(|i| i.last_exec.exchange.as_str()).unwrap_or("").to_string();
-            let cum_qty = rich_info.as_ref()
-                .map(|i| i.last_exec.cum_qty).unwrap_or(fill.qty as f64);
-            let avg_price = rich_info.as_ref()
-                .map(|i| i.last_exec.avg_price).unwrap_or(price);
             // Build api-level contract for shared storage
             let api_contract = self.core.open_orders.lock().unwrap()
                 .get(&fill.order_id).map(|o| o.contract.clone())
@@ -81,27 +216,22 @@ impl EClient {
                 })
                 .unwrap_or_default();
 
-            let api_exec = ApiExecution {
-                exec_id: exec_id.clone(),
-                time: now_str.clone(),
+            // A fill injected with no execution details (tests) gets a local
+            // id and time; a real fill carries the server's (ibx#471 ibx#474).
+            let mut api_exec = ApiExecution {
+                exec_id: format!("{}.{}", fill.order_id, fill.timestamp_ns),
+                time: format!("{}", fill.timestamp_ns),
                 acct_number: self.account(),
-                exchange: exec_exchange.clone(),
                 side: side_str.to_string(),
-                shares: fill.qty as f64,
+                shares,
                 price,
+                perm_id,
                 order_id: fill.order_id as i64,
                 cum_qty,
                 avg_price,
                 ..Default::default()
             };
-            let api_commission = ApiCommissionAndFeesReport {
-                exec_id: exec_id.clone(),
-                commission_and_fees: commission,
-                currency: "USD".into(),
-                realized_pnl: f64::MAX,
-                yield_amount: f64::MAX,
-                yield_redemption_date: String::new(),
-            };
+            self.core.apply_fill_exec(&mut api_exec, &fill_exec, fill.order_id);
 
             // Build Python contract for callback
             let exec_contract = Contract {
@@ -113,63 +243,85 @@ impl EClient {
                 ..Default::default()
             };
 
-            // Store for req_executions replay via shared core
-            self.core.push_execution(req_id, api_contract, api_exec, api_commission);
-
-            let acct_name = self.account();
             let c_py = Py::new(py, exec_contract)?.into_any();
             let exec_obj = Execution {
-                exec_id: exec_id.clone(),
-                time: now_str.clone(),
-                acct_number: acct_name,
-                exchange: exec_exchange.clone(),
-                side: side_str.to_string(),
-                shares: fill.qty as f64,
+                exec_id: api_exec.exec_id.clone(),
+                time: api_exec.time.clone(),
+                acct_number: api_exec.acct_number.clone(),
+                exchange: api_exec.exchange.clone(),
+                side: api_exec.side.clone(),
+                shares,
                 price,
                 perm_id,
-                client_id: 0,
+                client_id: api_exec.client_id,
                 order_id: fill.order_id as i64,
                 liquidation: 0,
                 cum_qty,
                 avg_price,
+                order_ref: api_exec.order_ref.clone(),
+                model_code: api_exec.model_code.clone(),
                 last_liquidity: 0,
                 pending_price_revision: false,
                 ..Default::default()
             };
+
+            // Store for req_executions replay via shared core; a commission
+            // report that came first is sent after exec_details.
+            let early_report = self.core.push_execution(-1, api_contract, api_exec, fill_exec.time_secs);
+
             let exec_py = Py::new(py, exec_obj)?.into_any();
-            call_wrapper!(self.wrapper, py, "exec_details", (req_id, &c_py, &exec_py));
+            // A live execution has no request: reqId -1 (ibx#474).
+            call_wrapper!(self.wrapper, py, "exec_details", (-1i64, &c_py, &exec_py));
+
+            if let Some(cr) = early_report {
+                self.send_commission_report(py, &cr)?;
+            }
 
             // Update open order tracking
-            self.core.update_order_fill(fill.order_id, status, fill.qty as f64, fill.remaining as f64);
+            self.core.update_order_fill(fill.order_id, status, cum_qty, remaining);
+        }
 
-            // Dispatch commission_and_fees_report
-            let report = CommissionAndFeesReport {
-                exec_id,
-                commission_and_fees: commission,
-                currency: "USD".to_string(),
-                realized_pnl: f64::MAX,
-                yield_amount: f64::MAX,
-                yield_redemption_date: String::new(),
-            };
-            let report_py = Py::new(py, report)?.into_any();
-            call_wrapper!(self.wrapper, py, "commission_and_fees_report", (&report_py,));
+        // Commission reports, sent once their execution is known (ibx#471).
+        for cr in shared.orders.drain_commission_reports() {
+            if self.core.apply_commission(&cr) {
+                self.send_commission_report(py, &cr)?;
+            }
+        }
+
+        // Order errors (refused before sending, or rejected by the server)
+        // -> error, ahead of the status: the reference reports a server
+        // reject as error 201 before the Inactive status (ibx#250).
+        for (order_id, code, msg) in shared.orders.drain_order_errors() {
+            call_wrapper!(self.wrapper, py, "error", (order_id as i64, code, msg.as_str(), ""));
         }
 
         // Drain order updates -> orderStatus
         let updates = shared.orders.drain_order_updates();
         for update in updates {
             let status = order_status_str(update.status);
-            call_wrapper!(self.wrapper, py, "order_status", (update.order_id as i64, status, update.filled_qty as f64,
-                 update.remaining_qty as f64, 0.0f64, update.perm_id, update.parent_id, 0.0f64, 0i64, "", 0.0f64));
+            let filled = update.filled_qty_fixed as f64 / QTY_SCALE_F;
+            let remaining = update.remaining_qty_fixed as f64 / QTY_SCALE_F;
+            // open_order + order_status for every report of a known order;
+            // a cancel gives order_status only (ibx#473).
+            let view = self.core.order_view(update.order_id, shared, status);
+            if let Some(v) = view.as_ref().filter(|_| status != "Cancelled") {
+                self.send_open_order(py, update.order_id, v)?;
+            }
+            let (last_fill_price, client_id) = view.map(|v| (v.last_fill_price, v.client_id)).unwrap_or((0.0, 0));
+            call_wrapper!(self.wrapper, py, "order_status", (update.order_id as i64, status, filled,
+                 remaining, update.avg_fill_price as f64 / PRICE_SCALE_F,
+                 update.perm_id, update.parent_id, last_fill_price, client_id, "", 0.0f64));
 
             // Track open orders
-            self.core.update_order_status(update.order_id, status, update.filled_qty as f64, update.remaining_qty as f64);
+            self.core.update_order_status(update.order_id, status, filled, remaining);
         }
 
         // Drain cancel rejects -> error
         let rejects = shared.orders.drain_cancel_rejects();
         for reject in rejects {
-            let code = if reject.reject_type == 1 { 202i64 } else { 10147i64 };
+            // 202 is the cancel notice (ibx#465); a server reject of a
+            // cancel or modify is 10147.
+            let code = 10147i64;
             let msg = format!("Order {} cancel/modify rejected (reason: {})", reject.order_id, reject.reason_code);
             call_wrapper!(self.wrapper, py, "error", (reject.order_id as i64, code, msg.as_str(), ""));
         }
@@ -543,44 +695,55 @@ impl EClient {
             ));
         }
 
-        // Account updates (via ClientCore)
+        // Positions of a running req_positions (ibx#477).
+        self.dispatch_positions(py, shared)?;
+        // Multi-account requests (ibx#476).
+        self.dispatch_multi(py, shared)?;
+
+        // Account updates (ibx#475): values, portfolio rows each followed by
+        // the account time, the time after the batch, and for the first image
+        // the end, once per subscription.
         if let Some(batch) = self.core.prepare_account_updates(shared) {
             let account_name = self.account();
             for field in &batch.fields {
                 call_wrapper!(self.wrapper, py, "update_account_value", (field.key.as_str(), field.value.as_str(), field.currency.as_str(), account_name.as_str()));
             }
 
-            // Portfolio updates (position entries)
             let portfolio = self.core.prepare_portfolio_updates(shared);
             for entry in &portfolio {
-                let contract = self.core.get_contract(entry.con_id, shared);
-                let c = contract.map(|ac| {
-                    let mut c = crate::python::compat::contract::Contract::default();
-                    c.con_id = ac.con_id;
-                    c.symbol = ac.symbol;
-                    c.sec_type = ac.sec_type;
-                    c.exchange = ac.exchange;
-                    c.currency = ac.currency;
-                    c
-                }).unwrap_or_else(|| {
-                    let mut c = crate::python::compat::contract::Contract::default();
-                    c.con_id = entry.con_id;
-                    c
-                });
+                let ac = self.core.position_contract(entry.con_id, shared);
+                let mut c = crate::python::compat::contract::Contract::default();
+                c.con_id = ac.con_id;
+                c.symbol = ac.symbol;
+                c.sec_type = ac.sec_type;
+                c.exchange = ac.exchange;
+                c.primary_exchange = ac.primary_exchange;
+                c.currency = ac.currency;
+                c.local_symbol = ac.local_symbol;
+                c.trading_class = ac.trading_class;
+                c.multiplier = ac.multiplier;
                 let c_py = pyo3::Py::new(py, c).unwrap().into_any();
                 call_wrapper!(self.wrapper, py, "update_portfolio",
                     (&c_py, entry.position, entry.market_price, entry.market_value,
                      entry.avg_cost, entry.unrealized_pnl, entry.realized_pnl, account_name.as_str()));
+                call_wrapper!(self.wrapper, py, "update_account_time", (batch.time.as_str(),));
             }
 
-            if batch.delivered {
-                call_wrapper!(self.wrapper, py, "update_account_time", ("",));
+            if !batch.fields.is_empty() || !portfolio.is_empty() {
+                call_wrapper!(self.wrapper, py, "update_account_time", (batch.time.as_str(),));
+            }
+            if batch.download_end {
                 call_wrapper!(self.wrapper, py, "account_download_end", (account_name.as_str(),));
             }
         }
 
         // P&L dispatch (via ClientCore)
-        if let Some(update) = self.core.poll_pnl(shared) {
+        // Quotes the P&L needs, subscribed by ibx itself when the caller has
+        // none; they never reach the tick callbacks.
+        if let Ok(tx) = self.tx() {
+            self.core.maintain_pnl_quotes(shared, &tx);
+        }
+        for update in self.core.poll_pnl(shared) {
             call_wrapper!(self.wrapper, py, "pnl", (update.req_id, update.daily_pnl, update.unrealized_pnl, update.realized_pnl));
         }
 
@@ -590,19 +753,17 @@ impl EClient {
                  update.unrealized_pnl, update.realized_pnl, update.value));
         }
 
-        // Account summary dispatch (via ClientCore)
+        // Account summary rows as the server sends them; the end at each of
+        // its end markers (ibx#479).
         {
             let acct_name = self.account();
-            if let Some(batch) = self.core.prepare_account_summary(shared, acct_name.as_str()) {
-                let tags_orig = self.core.account_summary_req.lock().unwrap().clone();
-                let tags_list = tags_orig.map(|(_, t)| t).unwrap_or_default();
-                if tags_list.is_empty() || tags_list.iter().any(|t| t == "AccountType") {
-                    call_wrapper!(self.wrapper, py, "account_summary", (batch.req_id, acct_name.as_str(), "AccountType", "INDIVIDUAL", ""));
+            for batch in self.core.prepare_account_summary(shared) {
+                for row in &batch.rows {
+                    call_wrapper!(self.wrapper, py, "account_summary", (batch.req_id, acct_name.as_str(), row.key.as_str(), row.value.as_str(), row.currency.as_str()));
                 }
-                for entry in &batch.entries {
-                    call_wrapper!(self.wrapper, py, "account_summary", (batch.req_id, acct_name.as_str(), entry.tag, entry.value.as_str(), entry.currency));
+                if batch.end {
+                    call_wrapper!(self.wrapper, py, "account_summary_end", (batch.req_id,));
                 }
-                call_wrapper!(self.wrapper, py, "account_summary_end", (batch.req_id,));
             }
         }
 

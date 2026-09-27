@@ -38,8 +38,10 @@ import requests
 
 S = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(S, "cache")
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-H = {"User-Agent": UA, "Referer": "https://www.bseindia.com/", "Accept": "application/json, text/plain, */*"}
+sys.path.insert(0, S)
+import bse_headers  # §181: full standard header set, or BSE answers 403
+
+H = dict(bse_headers.HEADERS)
 import argparse
 
 ap = argparse.ArgumentParser()

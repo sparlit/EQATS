@@ -70,7 +70,7 @@ DECL = os.path.join(SP, "declined67.json")
 OUT = os.path.join(SP, "_vintage111_reads.json")
 
 NUMW = re.compile(r"^\(?-?[\d,]+\.?\d*\)?[*#]?$")
-SCALES = (("crore", 1.0), ("lakh", 0.01), ("million", 0.1), ("thousand", 1e-5))
+SCALES = (("crore", 1.0), ("lakh", 0.01), ("million", 0.1), ("thousand", 1e-4))
 
 # raw-label patterns
 R_OWN = re.compile(

@@ -1,0 +1,1232 @@
+/******************************************************************************
+   Author: Joaquín Béjar García
+   Email: jb@taunais.com
+   Date: 25/12/24
+******************************************************************************/
+use crate::error::decimal::DecimalError;
+use num_traits::{FromPrimitive, ToPrimitive};
+use positive::{Positive, PositiveError};
+use rand::distr::Distribution;
+use rand_distr::StandardNormal;
+use rust_decimal::{Decimal, MathematicalOps, RoundingStrategy};
+use rust_decimal_macros::dec;
+
+/// Represents the daily interest rate factor used for financial calculations,
+/// approximately equivalent to 1/252 (a standard value for the number of trading days in a year).
+///
+/// This constant converts annual interest rates to daily rates by providing a division factor.
+/// The value 0.00396825397 corresponds to 1/252, where 252 is the typical number of trading
+/// days in a financial year.
+///
+/// # Usage
+///
+/// This constant is commonly used in financial calculations such as:
+/// - Converting annual interest rates to daily rates
+/// - Time value calculations for options pricing
+/// - Discounting cash flows on a daily basis
+/// - Interest accrual calculations
+pub const ONE_DAY: Decimal = dec!(0.00396825397);
+
+/// Asserts that two Decimal values are approximately equal within a given epsilon
+#[macro_export]
+macro_rules! assert_decimal_eq {
+    ($left:expr, $right:expr, $epsilon:expr) => {
+        let diff = ($left - $right).abs();
+        assert!(
+            diff <= $epsilon,
+            "assertion failed: `(left == right)`\n  left: `{}`\n right: `{}`\n  diff: `{}`\n epsilon: `{}`",
+            $left,
+            $right,
+            diff,
+            $epsilon
+        );
+    };
+}
+
+/// Defines statistical operations for collections of decimal values.
+///
+/// This trait provides methods to calculate common statistical measures
+/// for sequences or collections of `Decimal` values. It allows implementing
+/// types to offer standardized statistical analysis capabilities.
+///
+/// ## Key Features
+///
+/// * Basic statistical calculations for `Decimal` collections
+/// * Consistent interface for various collection types
+/// * Precision-preserving operations using the `Decimal` type
+///
+/// ## Available Statistics
+///
+/// * `mean`: Calculates the arithmetic mean (average) of the values
+/// * `std_dev`: Calculates the standard deviation, measuring the dispersion from the mean
+///
+/// ## Example
+///
+/// ```rust
+/// use rust_decimal::Decimal;
+/// use rust_decimal_macros::dec;
+/// use optionstratlib::error::DecimalError;
+/// use optionstratlib::model::decimal::DecimalStats;
+///
+/// struct DecimalSeries(Vec<Decimal>);
+///
+/// impl DecimalStats for DecimalSeries {
+///     fn mean(&self) -> Result<Decimal, DecimalError> {
+///         if self.0.is_empty() {
+///             return Ok(dec!(0));
+///         }
+///         let sum: Decimal = self.0.iter().sum();
+///         Ok(sum / Decimal::from(self.0.len()))
+///     }
+///
+///     fn std_dev(&self) -> Result<Decimal, DecimalError> {
+///         // Implementation of standard deviation calculation
+///         // ...
+///         Ok(dec!(0)) // Placeholder return
+///     }
+/// }
+/// ```
+pub trait DecimalStats {
+    /// Calculates the arithmetic mean (average) of the collection.
+    ///
+    /// The mean is the sum of all values divided by the count of values.
+    /// This method should handle empty collections appropriately.
+    ///
+    /// # Errors
+    ///
+    /// Implementations return [`DecimalError`] when the running sum or the
+    /// division by the count leaves the representable `Decimal` range.
+    fn mean(&self) -> Result<Decimal, DecimalError>;
+
+    /// Calculates the standard deviation of the collection.
+    ///
+    /// The standard deviation measures the amount of variation or dispersion
+    /// from the mean. A low standard deviation indicates that values tend to be
+    /// close to the mean, while a high standard deviation indicates values are
+    /// spread out over a wider range.
+    ///
+    /// # Errors
+    ///
+    /// Implementations return [`DecimalError`] when a centred deviation, its
+    /// square, the sum of squares, or the final division leaves the
+    /// representable `Decimal` range.
+    fn std_dev(&self) -> Result<Decimal, DecimalError>;
+}
+
+impl DecimalStats for Vec<Decimal> {
+    /// # Errors
+    ///
+    /// Returns [`DecimalError::Overflow`] when the sum of the values leaves
+    /// the representable range — `vec![Decimal::MAX; 2]` is enough. The
+    /// previous signature had nowhere to put that, and `iter().sum()` aborts
+    /// with `Addition overflowed`.
+    fn mean(&self) -> Result<Decimal, DecimalError> {
+        if self.is_empty() {
+            return Ok(Decimal::ZERO);
+        }
+        let sum = d_sum(self, "decimal::stats::mean::sum")?;
+        // `Decimal::from(usize)` is total, and the slice is non-empty here,
+        // so the divisor is neither an overflow nor a zero.
+        d_div(sum, Decimal::from(self.len()), "decimal::stats::mean")
+    }
+
+    /// # Errors
+    ///
+    /// Returns [`DecimalError::Overflow`] when the mean, a centred deviation,
+    /// its square or the sum of squares leaves the representable range, and
+    /// [`DecimalError::ArithmeticError`] if the sample variance were negative.
+    /// The squaring was `.powd(Decimal::TWO)`, which aborts with
+    /// `Pow overflowed`.
+    fn std_dev(&self) -> Result<Decimal, DecimalError> {
+        // Population variance of a single value is zero
+        if self.len() < 2usize {
+            return Ok(Decimal::ZERO);
+        }
+        let mean = self.mean()?;
+        let mut sq_total = Decimal::ZERO;
+        for value in self {
+            let centred = d_sub(*value, mean, "decimal::stats::std_dev::centred")?;
+            let centred_sq = d_mul(centred, centred, "decimal::stats::std_dev::centred_sq")?;
+            sq_total = d_add(sq_total, centred_sq, "decimal::stats::std_dev::sq_total")?;
+        }
+        // `len() >= 2` above, so `len() - 1` neither underflows nor is zero.
+        let variance = d_div(
+            sq_total,
+            Decimal::from(self.len() - 1),
+            "decimal::stats::std_dev::variance",
+        )?;
+        d_sqrt(variance, "decimal::stats::std_dev")
+    }
+}
+
+/// Converts a Decimal value to an f64.
+///
+/// This function attempts to convert a Decimal value to an f64 floating-point number.
+/// If the conversion fails, it returns a DecimalError with detailed information about
+/// the failure.
+///
+/// # Parameters
+///
+/// * `value` - The Decimal value to convert
+///
+/// # Returns
+///
+/// * `Result<f64, DecimalError>` - The converted f64 value if successful, or a DecimalError
+///   if the conversion fails
+///
+/// # Errors
+///
+/// Returns [`DecimalError::ConversionError`] when the `Decimal` operand cannot
+/// be represented as an `f64` (e.g. out-of-range magnitude or precision loss
+/// beyond the `f64` mantissa).
+///
+/// # Example
+///
+/// ```rust
+/// use rust_decimal::Decimal;
+/// use rust_decimal_macros::dec;
+/// use tracing::info;
+/// use optionstratlib::model::decimal::decimal_to_f64;
+///
+/// let decimal = dec!(3.14159);
+/// match decimal_to_f64(decimal) {
+///     Ok(float) => info!("Converted to f64: {}", float),
+///     Err(e) => info!("Conversion error: {:?}", e)
+/// }
+/// ```
+pub fn decimal_to_f64(value: Decimal) -> Result<f64, DecimalError> {
+    value.to_f64().ok_or(DecimalError::ConversionError {
+        from_type: format!("Decimal: {value}"),
+        to_type: "f64".to_string(),
+        reason: "Failed to convert Decimal to f64".to_string(),
+    })
+}
+
+/// Converts an f64 floating-point number to a Decimal.
+///
+/// This function attempts to convert an f64 floating-point number to a Decimal value.
+/// If the conversion fails (for example, if the f64 represents NaN, infinity, or is otherwise
+/// not representable as a Decimal), it returns a DecimalError with detailed information about
+/// the failure.
+///
+/// # Parameters
+///
+/// * `value` - The f64 value to convert
+///
+/// # Returns
+///
+/// * `Result<Decimal, DecimalError>` - The converted Decimal value if successful, or a DecimalError
+///   if the conversion fails
+///
+/// # Errors
+///
+/// Returns [`DecimalError::ConversionError`] when the `f64` operand is not
+/// representable as a `Decimal`, for example `NaN`, `±Infinity`, or a value
+/// whose magnitude exceeds the `Decimal` range.
+///
+/// # Example
+///
+/// ```rust
+/// use rust_decimal::Decimal;
+/// use tracing::info;
+/// use optionstratlib::model::decimal::f64_to_decimal;
+///
+/// let float = std::f64::consts::PI;
+/// match f64_to_decimal(float) {
+///     Ok(decimal) => info!("Converted to Decimal: {}", decimal),
+///     Err(e) => info!("Conversion error: {:?}", e)
+/// }
+/// ```
+pub fn f64_to_decimal(value: f64) -> Result<Decimal, DecimalError> {
+    Decimal::from_f64(value).ok_or(DecimalError::ConversionError {
+        from_type: format!("f64: {value}"),
+        to_type: "Decimal".to_string(),
+        reason: "Failed to convert f64 to Decimal".to_string(),
+    })
+}
+
+/// Attempts to convert a finite `f64` into a `Decimal`.
+///
+/// Returns `None` when `value` is not finite (`NaN`, `+∞`, `-∞`) or
+/// when `Decimal::from_f64` rejects the conversion (the latter is
+/// vanishingly rare for representable `f64`). Crate-private helper
+/// that standardises the `is_finite()` check paired with
+/// `Decimal::from_f64` at every `f64` → `Decimal` boundary inside
+/// pricing, Greeks, volatility, and simulation kernels.
+///
+/// Callers wrap the `None` case with a domain-specific
+/// `*Error::NonFinite { context, value }` via `ok_or_else`:
+///
+/// ```ignore
+/// let v = finite_decimal(v_f64)
+///     .ok_or_else(|| PricingError::non_finite("pricing::bs::call::d1", v_f64))?;
+/// ```
+///
+/// The guard is enforced at the public boundary of every `f64`
+/// numerical kernel per the rules (`rules/global_rules.md`
+/// §Arithmetic).
+#[must_use]
+#[inline]
+pub(crate) fn finite_decimal(value: f64) -> Option<Decimal> {
+    if value.is_finite() {
+        Decimal::from_f64(value)
+    } else {
+        None
+    }
+}
+
+/// Generates a random positive value from a standard normal distribution.
+///
+/// This function samples from a normal distribution with mean 0.0 and standard
+/// deviation 1.0, and returns the value as a `Positive` type. Since the normal
+/// distribution can produce negative values, the function uses the `pos!` macro
+/// to convert the sample to a `Positive` value, which will handle the conversion
+/// according to the `Positive` type's implementation.
+///
+/// # Returns
+///
+/// A `Positive` value sampled from a standard normal distribution.
+///
+/// # Examples
+///
+/// ```rust
+/// use optionstratlib::model::decimal::decimal_normal_sample;
+/// use positive::Positive;
+/// let normal = decimal_normal_sample();
+/// ```
+///
+/// The sample is drawn from [`rand_distr::StandardNormal`], which is a unit
+/// struct with no constructor and therefore nothing to reject. It replaced
+/// `Normal::new(0.0, 1.0)`, whose `Err` arm had no value to return and so
+/// aborted. The two are the same distribution and the same value: `Normal`
+/// samples `StandardNormal` and applies `mean + std_dev * z`, which is the
+/// identity at `(0.0, 1.0)`.
+#[must_use]
+pub fn decimal_normal_sample() -> Decimal {
+    let mut t_rng = rand::rng();
+    let sample: f64 = StandardNormal.sample(&mut t_rng);
+    Decimal::from_f64(sample).unwrap_or(Decimal::ZERO)
+}
+
+/// Scale applied to banker's-rounding divisions in [`d_div`].
+///
+/// `28` matches `Decimal::MAX_SCALE` so a rounded division preserves every
+/// digit of precision the backing 96-bit mantissa can represent without
+/// triggering a later rescale overflow. Divisions that need a different
+/// scale (for example a P&L that rounds to cents) should apply a subsequent
+/// explicit `.round_dp_with_strategy(dp, RoundingStrategy::MidpointNearestEven)`.
+pub(crate) const DIV_DEFAULT_SCALE: u32 = 28;
+
+/// Checked `Decimal` addition with operand-preserving overflow reporting.
+///
+/// Crate-private helper used by every monetary-flow kernel in place of the
+/// raw `+` operator. Wraps [`Decimal::checked_add`] and converts `None`
+/// into a [`DecimalError::Overflow`] tagged with the static `op` string
+/// passed in by the call-site.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] when the result is outside the
+/// representable `Decimal` range.
+#[inline]
+pub(crate) fn d_add(lhs: Decimal, rhs: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    lhs.checked_add(rhs)
+        .ok_or_else(|| DecimalError::overflow(op, lhs, rhs))
+}
+
+/// Checked sum over a slice of `Decimal` values.
+///
+/// Crate-private helper used by multi-leg strategy P&L aggregations
+/// (spreads, condors, butterflies) where each leg already returns a
+/// `Result<Decimal, _>` and the sum has to preserve the checked
+/// semantics of the individual legs. Returns `Decimal::ZERO` on an
+/// empty slice.
+///
+/// Delegates to [`d_sum_iter`] so the overflow-tagging semantics stay
+/// in lock-step between the slice and iterator entry points.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] on the first accumulation that
+/// exceeds the representable `Decimal` range, tagged with the
+/// supplied `op` string so the caller can be identified without a
+/// stack trace.
+#[inline]
+pub(crate) fn d_sum(values: &[Decimal], op: &'static str) -> Result<Decimal, DecimalError> {
+    d_sum_iter(values.iter().copied(), op)
+}
+
+/// Checked sum over any `IntoIterator` of `Decimal` values.
+///
+/// Zero-allocation counterpart to [`d_sum`]. Use at aggregation sites
+/// that already have a natural iterator (e.g. `self.positions.iter()
+/// .map(..)`) to avoid the intermediate `Vec<Decimal>` that `d_sum`
+/// forces. Returns `Decimal::ZERO` on an empty iterator.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] on the first accumulation that
+/// exceeds the representable `Decimal` range, tagged with the
+/// supplied `op` string so the caller can be identified without a
+/// stack trace.
+#[inline]
+pub(crate) fn d_sum_iter<I>(iter: I, op: &'static str) -> Result<Decimal, DecimalError>
+where
+    I: IntoIterator<Item = Decimal>,
+{
+    let mut acc = Decimal::ZERO;
+    for v in iter {
+        acc = acc
+            .checked_add(v)
+            .ok_or_else(|| DecimalError::overflow(op, acc, v))?;
+    }
+    Ok(acc)
+}
+
+/// Checked `Decimal` subtraction with operand-preserving overflow reporting.
+///
+/// Crate-private helper used by every monetary-flow kernel in place of the
+/// raw `-` operator. Wraps [`Decimal::checked_sub`] and converts `None`
+/// into a [`DecimalError::Overflow`] tagged with the static `op` string
+/// passed in by the call-site.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] when the result is outside the
+/// representable `Decimal` range.
+#[inline]
+pub(crate) fn d_sub(lhs: Decimal, rhs: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    lhs.checked_sub(rhs)
+        .ok_or_else(|| DecimalError::overflow(op, lhs, rhs))
+}
+
+/// Checked `Decimal` multiplication with operand-preserving overflow reporting.
+///
+/// Crate-private helper used by every monetary-flow kernel in place of the
+/// raw `*` operator. Wraps [`Decimal::checked_mul`] and converts `None`
+/// into a [`DecimalError::Overflow`] tagged with the static `op` string
+/// passed in by the call-site.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] when the result is outside the
+/// representable `Decimal` range.
+#[inline]
+pub(crate) fn d_mul(lhs: Decimal, rhs: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    lhs.checked_mul(rhs)
+        .ok_or_else(|| DecimalError::overflow(op, lhs, rhs))
+}
+
+/// Checked product over any `IntoIterator` of `Decimal` values.
+///
+/// Multiplicative counterpart to [`d_sum_iter`], with the same
+/// overflow-tagging semantics and the same zero-allocation shape. Returns
+/// [`Decimal::ONE`] on an empty iterator, so an empty product is the
+/// multiplicative identity just as an empty sum is [`Decimal::ZERO`].
+///
+/// # Ordering
+///
+/// The fold runs strictly left to right, and that order is part of the
+/// contract rather than an implementation detail. `Decimal` multiplication
+/// rounds as soon as a product needs more decimal places than `Decimal`'s
+/// scale limit of 28, which makes it non-associative: `(a * b) *
+/// c` and `a * (b * c)` can differ in their last digit. A parallel reducer
+/// picks its bracketing from the chunking rayon happens to choose on the day,
+/// so the same binary on the same input can return different last digits from
+/// one run to the next. Callers that have to reconcile, cache or
+/// regression-test a result at full precision need the fixed order this
+/// gives them.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] on the first accumulation that
+/// exceeds the representable `Decimal` range, tagged with the supplied `op`
+/// string so the call-site can be identified without a stack trace.
+#[inline]
+pub(crate) fn d_product_iter<I>(iter: I, op: &'static str) -> Result<Decimal, DecimalError>
+where
+    I: IntoIterator<Item = Decimal>,
+{
+    let mut acc = Decimal::ONE;
+    for v in iter {
+        acc = acc
+            .checked_mul(v)
+            .ok_or_else(|| DecimalError::overflow(op, acc, v))?;
+    }
+    Ok(acc)
+}
+
+/// Checked `Decimal` division with banker's rounding at scale 28.
+///
+/// Crate-private helper used by every monetary-flow kernel in place of the
+/// raw `/` operator. Performs [`Decimal::checked_div`] then re-rounds the
+/// quotient with [`RoundingStrategy::MidpointNearestEven`] to the default
+/// [`DIV_DEFAULT_SCALE`]. This policy is applied uniformly across the
+/// crate so long-chain divisions do not silently accumulate bias.
+///
+/// # Errors
+///
+/// - Returns [`DecimalError::Overflow`] when the quotient is outside the
+///   representable `Decimal` range.
+/// - Returns [`DecimalError::ArithmeticError`] when `rhs` is zero.
+#[inline]
+pub(crate) fn d_div(lhs: Decimal, rhs: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    if rhs.is_zero() {
+        return Err(DecimalError::arithmetic_error(op, "division by zero"));
+    }
+    let raw = lhs
+        .checked_div(rhs)
+        .ok_or_else(|| DecimalError::overflow(op, lhs, rhs))?;
+    Ok(raw.round_dp_with_strategy(DIV_DEFAULT_SCALE, RoundingStrategy::MidpointNearestEven))
+}
+
+/// Checked `e^x` with underflow flushed to zero.
+///
+/// Crate-private helper used by every kernel in place of
+/// [`MathematicalOps::exp`], which panics with `Exp overflowed` /
+/// `Exp underflowed` instead of reporting the failure.
+///
+/// A negative argument whose exponential is smaller than the smallest
+/// representable `Decimal` (`1e-28`) returns `Decimal::ZERO`: that is the
+/// value the discount factor takes at the limit, and it is the only
+/// representable answer. A positive argument that overflows is a real
+/// failure and is reported as such — the caller asked for a number the type
+/// cannot hold.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] when `x` is positive and `e^x` is
+/// outside the representable `Decimal` range.
+#[inline]
+pub(crate) fn d_exp(x: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    if let Some(value) = x.checked_exp() {
+        return Ok(value);
+    }
+    if x.is_sign_negative() {
+        // e^x < 1e-28 for x <= -65: zero is the representable limit.
+        return Ok(Decimal::ZERO);
+    }
+    Err(DecimalError::overflow(op, x, Decimal::ZERO))
+}
+
+/// Checked natural logarithm.
+///
+/// Crate-private helper used in place of [`MathematicalOps::ln`], which
+/// panics on zero and on negative inputs. Note that a ratio such as `S / K`
+/// can round down to exactly zero for extreme operands, so the zero case is
+/// reachable from ordinary-looking code.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::ArithmeticError`] when `x` is zero or negative,
+/// or when the series evaluation fails to converge to a representable
+/// value.
+#[inline]
+pub(crate) fn d_ln(x: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    if x <= Decimal::ZERO {
+        return Err(DecimalError::arithmetic_error(
+            op,
+            "logarithm of a non-positive value",
+        ));
+    }
+    x.checked_ln()
+        .ok_or_else(|| DecimalError::arithmetic_error(op, "logarithm is not representable"))
+}
+
+/// Checked `base^exponent`.
+///
+/// Crate-private helper used in place of [`MathematicalOps::powd`], which
+/// panics with `Pow overflowed` both when the result is too large and when
+/// it underflows below the representable scale.
+///
+/// # Errors
+///
+/// Returns [`DecimalError::Overflow`] when the power is outside the
+/// representable `Decimal` range.
+#[inline]
+pub(crate) fn d_powd(
+    base: Decimal,
+    exponent: Decimal,
+    op: &'static str,
+) -> Result<Decimal, DecimalError> {
+    base.checked_powd(exponent)
+        .ok_or_else(|| DecimalError::overflow(op, base, exponent))
+}
+
+/// Upper bound on the Newton steps of [`d_sqrt`]; the upstream iteration
+/// converges in a few dozen steps for every representable input and only
+/// exceeds this bound when it oscillates between two adjacent values.
+const SQRT_MAX_ITERATIONS: u32 = 1000;
+
+/// Checked square root.
+///
+/// Crate-private replacement for [`MathematicalOps::sqrt`]. The upstream
+/// implementation (`rust_decimal` 1.43, `maths.rs`) runs the same Newton
+/// iteration but aborts the process with `geo mean circuit breaker` when the
+/// iteration oscillates between two values that differ in the 28th decimal
+/// instead of converging, which happens for inputs a few units above a
+/// perfect square such as `4.0000000000000000000000000003` (#588). This
+/// version keeps the upstream initial guess and update step, so every input
+/// on which upstream converges yields the bit-identical result, and resolves
+/// the period-2 oscillation the moment it appears by returning the candidate
+/// whose square is closest to `x` (a bounded iteration count is the backstop
+/// for any other non-convergence).
+///
+/// # Errors
+///
+/// Returns [`DecimalError::ArithmeticError`] when `x` is negative or when an
+/// intermediate quotient or sum leaves the representable `Decimal` range.
+pub(crate) fn d_sqrt(x: Decimal, op: &'static str) -> Result<Decimal, DecimalError> {
+    sqrt_with_iterations(x, op).map(|(value, _)| value)
+}
+
+/// The Newton iteration behind [`d_sqrt`], reporting how many steps it took.
+///
+/// The count is what proves the period-2 cycle is resolved as soon as it
+/// appears rather than at the backstop; a test that measured elapsed time
+/// instead failed under coverage instrumentation, which slows every call
+/// (#604).
+fn sqrt_with_iterations(x: Decimal, op: &'static str) -> Result<(Decimal, u32), DecimalError> {
+    if x.is_sign_negative() {
+        return Err(DecimalError::arithmetic_error(
+            op,
+            "square root of a negative value",
+        ));
+    }
+    if x.is_zero() {
+        return Ok((Decimal::ZERO, 0));
+    }
+    let overflow = || DecimalError::arithmetic_error(op, "square root iteration overflowed");
+    // Same seed as upstream: half the input, or the input itself when the
+    // half is not representable.
+    let mut result = x.checked_div(Decimal::TWO).ok_or_else(overflow)?;
+    if result.is_zero() {
+        result = x;
+    }
+    let mut last = result.checked_add(Decimal::ONE).ok_or_else(overflow)?;
+    let mut before_last = last;
+    let mut iterations = 0u32;
+    // Squared distance from `x`; a candidate whose square is not
+    // representable is treated as infinitely far so the other one wins.
+    let error_of = |candidate: Decimal| -> Decimal {
+        candidate
+            .checked_mul(candidate)
+            .and_then(|square| square.checked_sub(x))
+            .map(|d| d.abs())
+            .unwrap_or(Decimal::MAX)
+    };
+    while last != result {
+        iterations += 1;
+        // A period-2 cycle (`result` back to the value two steps ago) is how
+        // the upstream iteration fails to converge; resolve it as soon as it
+        // appears. The iteration bound is the backstop for anything else.
+        if result == before_last || iterations > SQRT_MAX_ITERATIONS {
+            return if error_of(last) <= error_of(result) {
+                Ok((last, iterations))
+            } else {
+                Ok((result, iterations))
+            };
+        }
+        before_last = last;
+        last = result;
+        let quotient = x.checked_div(result).ok_or_else(overflow)?;
+        result = result
+            .checked_add(quotient)
+            .ok_or_else(overflow)?
+            .checked_div(Decimal::TWO)
+            .ok_or_else(overflow)?;
+    }
+    Ok((result, iterations))
+}
+
+/// Checked square root of a [`Positive`], routed through [`d_sqrt`] so that
+/// no production path reaches the panicking upstream `sqrt` that
+/// `Positive::checked_sqrt` still wraps (#588).
+///
+/// # Errors
+///
+/// Returns [`PositiveError::ArithmeticError`] when the iteration overflows
+/// or the root cannot be represented as a `Positive`; the error type matches
+/// `Positive::checked_sqrt` so call sites keep their conversions.
+#[inline]
+pub(crate) fn p_sqrt(x: &Positive, op: &'static str) -> Result<Positive, PositiveError> {
+    let root =
+        d_sqrt(x.to_dec(), op).map_err(|e| PositiveError::arithmetic_error(op, &e.to_string()))?;
+    Positive::new_decimal(root)
+}
+
+/// Converts a Decimal value to f64 without error checking.
+///
+/// This macro converts a Decimal type to an f64 floating-point value.
+/// It's an "unchecked" version that doesn't handle potential conversion errors.
+///
+/// # Parameters
+/// * `$val` - A Decimal value to be converted to f64
+///
+/// # Example
+/// ```rust
+/// use rust_decimal_macros::dec;
+/// use optionstratlib::d2fu;
+/// let decimal_value = dec!(10.5);
+/// let float_value = d2fu!(decimal_value);
+/// ```
+#[macro_export]
+macro_rules! d2fu {
+    ($val:expr) => {
+        $crate::model::decimal::decimal_to_f64($val)
+    };
+}
+
+/// Converts a Decimal value to f64 with error propagation.
+///
+/// This macro converts a Decimal type to an f64 floating-point value.
+/// It propagates any errors that might occur during conversion using the `?` operator.
+///
+/// # Parameters
+/// * `$val` - A Decimal value to be converted to f64
+///
+#[macro_export]
+macro_rules! d2f {
+    ($val:expr) => {
+        $crate::model::decimal::decimal_to_f64($val)?
+    };
+}
+
+/// Builds a `NonZeroUsize` from a literal or constant expression.
+///
+/// Ergonomic shorthand for the `NonZeroUsize::new(N).expect(..)` pattern
+/// at call sites that know the value is non-zero by construction (tests,
+/// examples, benchmarks). Use this whenever passing literal step or
+/// simulation counts to one of the public pricing kernels migrated
+/// in #337.
+///
+/// # Panics
+///
+/// Panics with a descriptive message if `$val` evaluates to zero. For
+/// runtime values coming from JSON, CLI, or external APIs prefer
+/// `NonZeroUsize::new(x).ok_or_else(..)` at the boundary instead.
+///
+/// # Examples
+///
+/// ```rust
+/// use optionstratlib::nz;
+/// use std::num::NonZeroUsize;
+///
+/// let steps = nz!(100);
+/// assert_eq!(steps.get(), 100);
+/// ```
+#[macro_export]
+macro_rules! nz {
+    ($val:expr) => {{
+        // The panic expands at the caller, never inside the library: no
+        // production code uses `nz!`, only tests, examples and doc examples,
+        // all of which pass a non-zero literal. A runtime count must go
+        // through `NonZeroUsize::new(x).ok_or_else(..)` at the boundary, as
+        // the doc comment above says.
+        ::std::num::NonZeroUsize::new($val)
+            .unwrap_or_else(|| panic!("nz!({}) must be non-zero", stringify!($val))) // scan-banned: allow -- expands at the caller only; no library code uses `nz!`
+    }};
+}
+
+/// Converts an f64 value to Decimal without error checking.
+///
+/// This macro converts an f64 floating-point value to a Decimal type.
+/// It's an "unchecked" version that doesn't handle potential conversion errors.
+///
+/// # Parameters
+/// * `$val` - An f64 value to be converted to Decimal
+///
+/// # Example
+/// ```rust
+/// use optionstratlib::f2du;
+/// let float_value = 10.5;
+/// let decimal_value = f2du!(float_value);
+/// ```
+#[macro_export]
+macro_rules! f2du {
+    ($val:expr) => {
+        $crate::model::decimal::f64_to_decimal($val)
+    };
+}
+
+/// Converts an f64 value to Decimal with error propagation.
+///
+/// This macro converts an f64 floating-point value to a Decimal type.
+/// It propagates any errors that might occur during conversion using the `?` operator.
+///
+/// # Parameters
+/// * `$val` - An f64 value to be converted to Decimal
+///
+#[macro_export]
+macro_rules! f2d {
+    ($val:expr) => {
+        $crate::model::decimal::f64_to_decimal($val)?
+    };
+}
+
+/// Conversion helpers' sanity tests (public module to support doctest wiring).
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_f64_to_decimal_valid() {
+        let value = 42.42;
+        let result = f64_to_decimal(value);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Decimal::from_str("42.42").unwrap());
+    }
+
+    #[test]
+    fn test_f64_to_decimal_zero() {
+        let value = 0.0;
+        let result = f64_to_decimal(value);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Decimal::from_str("0").unwrap());
+    }
+
+    #[test]
+    fn test_decimal_to_f64_valid() {
+        let decimal = Decimal::from_str("42.42").unwrap();
+        let result = decimal_to_f64(decimal);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 42.42);
+    }
+
+    #[test]
+    fn test_decimal_to_f64_zero() {
+        let decimal = Decimal::from_str("0").unwrap();
+        let result = decimal_to_f64(decimal);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 0.0);
+    }
+
+    /// Reproducer from #588: upstream `Decimal::sqrt` aborts with
+    /// `geo mean circuit breaker` on this input because the Newton
+    /// iteration oscillates at the 28th decimal instead of converging.
+    #[test]
+    fn test_d_sqrt_resolves_upstream_circuit_breaker() {
+        let x = dec!(4.0000000000000000000000000003);
+        let root = d_sqrt(x, "test").unwrap();
+        let residual = (root * root - x).abs();
+        assert!(
+            residual <= dec!(0.0000000000000000000000000001),
+            "sqrt({x}) = {root}, residual {residual}"
+        );
+    }
+
+    /// Every input on which upstream converges must yield the bit-identical
+    /// result: same seed, same update step.
+    #[test]
+    fn test_d_sqrt_matches_upstream_on_converging_inputs() {
+        let inputs = [
+            Decimal::ZERO,
+            Decimal::ONE,
+            Decimal::TWO,
+            dec!(4),
+            dec!(0.25),
+            dec!(0.0000000000000000000000000001),
+            dec!(123456.789),
+            Decimal::MAX,
+        ];
+        for x in inputs {
+            let expected = x.sqrt().unwrap_or_default();
+            assert_eq!(d_sqrt(x, "test").unwrap(), expected, "sqrt({x})");
+        }
+    }
+
+    /// The bit-identical claim, checked byte for byte on a seeded sweep:
+    /// random mantissa/scale pairs plus squares of short roots nudged by a
+    /// few units in the 28th decimal (the region where upstream can
+    /// oscillate). Inputs on which upstream itself aborts are skipped
+    /// through `catch_unwind`; a converging upstream result must be
+    /// reproduced exactly, `serialize()` bytes included, so a scale
+    /// difference cannot hide behind numerical equality.
+    #[test]
+    fn test_d_sqrt_matches_upstream_on_a_seeded_sweep() {
+        use rand::{RngExt, SeedableRng};
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5eed_5eed_0588);
+        let mut inputs: Vec<Decimal> = Vec::with_capacity(6_000);
+        for _ in 0..4_000 {
+            let mantissa: i64 = rng.random_range(0..=i64::MAX);
+            let scale: u32 = rng.random_range(0..=28);
+            inputs.push(Decimal::new(mantissa, scale));
+        }
+        let ulp = dec!(0.0000000000000000000000000001);
+        for root in [1u32, 2, 3, 7, 12, 100, 1_000, 65_536] {
+            let square = Decimal::from(root) * Decimal::from(root);
+            for units in -6i32..=6 {
+                let nudge = ulp * Decimal::from(units);
+                if let Some(x) = square.checked_add(nudge) {
+                    inputs.push(x);
+                }
+            }
+        }
+        let mut compared = 0usize;
+        let mut skipped = 0usize;
+        for x in inputs {
+            let upstream = std::panic::catch_unwind(|| x.sqrt());
+            match upstream {
+                Ok(Some(expected)) => {
+                    let actual = d_sqrt(x, "sweep").unwrap();
+                    assert_eq!(
+                        actual.serialize(),
+                        expected.serialize(),
+                        "sqrt({x}): upstream {expected}, d_sqrt {actual}"
+                    );
+                    compared += 1;
+                }
+                Ok(None) => unreachable!("non-negative inputs only"),
+                Err(_) => {
+                    // Upstream aborted: the whole point of d_sqrt.
+                    assert!(d_sqrt(x, "sweep").is_ok(), "d_sqrt({x}) must be total");
+                    skipped += 1;
+                }
+            }
+        }
+        assert!(compared > 4_000, "compared {compared}, skipped {skipped}");
+    }
+
+    /// The reproducer resolves at the third iteration, not at the bound:
+    /// a period-2 cycle is detected as soon as it appears.
+    #[test]
+    fn test_d_sqrt_resolves_the_cycle_in_a_few_iterations() {
+        // The property is a count, not a duration: the period-2 cycle is
+        // resolved as soon as it appears instead of running to the
+        // 1000-iteration backstop. A wall-clock assertion here failed under
+        // coverage instrumentation, which slows every call (#604).
+        let oscillating = dec!(4.0000000000000000000000000003);
+        let (_, iterations) = sqrt_with_iterations(oscillating, "cycle").unwrap();
+        assert!(
+            iterations < 10,
+            "cycle detection is not immediate: {iterations} iterations"
+        );
+        assert!(iterations < SQRT_MAX_ITERATIONS);
+        // Control: an input upstream converges on takes a comparable number
+        // of steps, so the bound above is not vacuous.
+        let (_, converging) =
+            sqrt_with_iterations(dec!(4.0000000000000000000000000004), "control").unwrap();
+        assert!(converging < 60, "control took {converging} iterations");
+    }
+
+    #[test]
+    fn test_d_sqrt_rejects_negative_input() {
+        assert!(d_sqrt(dec!(-1), "test").is_err());
+        assert!(d_sqrt(dec!(-0.0000000000000000000000000001), "test").is_err());
+    }
+
+    #[test]
+    fn test_p_sqrt_matches_d_sqrt() {
+        let x = Positive::new_decimal(dec!(4.0000000000000000000000000003)).unwrap();
+        let expected = d_sqrt(x.to_dec(), "test").unwrap();
+        assert_eq!(p_sqrt(&x, "test").unwrap().to_dec(), expected);
+    }
+}
+
+#[cfg(test)]
+mod tests_decimal_stats {
+    use super::*;
+
+    #[test]
+    fn test_decimal_stats_empty_and_singleton_return_zero() {
+        let empty: Vec<Decimal> = vec![];
+        assert_eq!(empty.mean().unwrap(), Decimal::ZERO);
+        assert_eq!(empty.std_dev().unwrap(), Decimal::ZERO);
+        let one = vec![dec!(3)];
+        assert_eq!(one.mean().unwrap(), dec!(3));
+        assert_eq!(one.std_dev().unwrap(), Decimal::ZERO);
+    }
+
+    #[test]
+    fn test_decimal_stats_ordinary_sample_is_unchanged() {
+        // The textbook series: mean 5, sample variance 32 / 7.
+        let values = vec![
+            dec!(2),
+            dec!(4),
+            dec!(4),
+            dec!(4),
+            dec!(5),
+            dec!(5),
+            dec!(7),
+            dec!(9),
+        ];
+        assert_eq!(values.mean().unwrap(), dec!(5));
+        let expected = d_div(dec!(32), dec!(7), "test")
+            .and_then(|v| d_sqrt(v, "test"))
+            .unwrap();
+        assert_eq!(values.std_dev().unwrap(), expected);
+    }
+
+    #[test]
+    fn test_decimal_stats_saturated_sample_reports_overflow_instead_of_aborting() {
+        // `iter().sum()` aborted here with `Addition overflowed`, and the
+        // squaring in `std_dev` with `Pow overflowed`. Both are a
+        // `DecimalError` the caller can read now.
+        let values = vec![Decimal::MAX, Decimal::MAX];
+        assert!(values.mean().is_err());
+        assert!(values.std_dev().is_err());
+    }
+
+    #[test]
+    fn test_decimal_stats_std_dev_reports_a_deviation_that_overflows() {
+        // The mean is finite but a centred deviation is not.
+        let values = vec![Decimal::MAX, Decimal::MIN, Decimal::MAX, Decimal::MIN];
+        assert!(values.std_dev().is_err());
+    }
+}
+
+#[cfg(test)]
+mod tests_random_generation {
+    use super::*;
+    use approx::assert_relative_eq;
+    use rand::distr::Distribution;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_normal_sample_returns() {
+        // Run the function multiple times to ensure it always returns a positive value
+        for _ in 0..1000 {
+            let sample = decimal_normal_sample();
+            assert!(sample <= Decimal::TEN);
+            assert!(sample >= -Decimal::TEN);
+        }
+    }
+
+    #[test]
+    fn test_normal_sample_distribution() {
+        // Generate a large number of samples to check distribution characteristics
+        const NUM_SAMPLES: usize = 10000;
+        let mut samples = Vec::with_capacity(NUM_SAMPLES);
+
+        for _ in 0..NUM_SAMPLES {
+            samples.push(decimal_normal_sample().to_f64().unwrap());
+        }
+
+        // Calculate mean and standard deviation
+        let sum: f64 = samples.iter().sum();
+        let mean = sum / NUM_SAMPLES as f64;
+
+        let variance_sum: f64 = samples.iter().map(|&x| (x - mean).powi(2)).sum();
+        let std_dev = (variance_sum / NUM_SAMPLES as f64).sqrt();
+
+        // Check if the distribution approximately matches a standard normal
+        // Note: These tests use wide tolerances since we're working with random samples
+        assert_relative_eq!(mean, 0.0, epsilon = 0.04);
+        assert_relative_eq!(std_dev, 1.0, epsilon = 0.03);
+    }
+
+    #[test]
+    fn test_normal_distribution_transformation() {
+        let mut t_rng = rand::rng();
+        // Deliberately a distribution with a negative mean.
+        let normal = rand_distr::Normal::new(-1.0, 0.5).unwrap();
+
+        // Count occurrences of values after transformation
+        let mut value_counts: HashMap<i32, usize> = HashMap::new();
+        const SAMPLES: usize = 5000;
+
+        for _ in 0..SAMPLES {
+            let raw_sample = normal.sample(&mut t_rng);
+            let positive_sample = raw_sample.to_f64().unwrap();
+
+            // Bucket values to the nearest integer for counting
+            let bucket = (positive_sample.round() as i32).max(0);
+            *value_counts.entry(bucket).or_insert(0) += 1;
+        }
+
+        // Verify that zero values appear frequently (due to negative values being transformed)
+        assert!(value_counts.get(&0).unwrap_or(&0) > &(SAMPLES / 10));
+
+        // Verify that we have a range of positive values
+        let max_bucket = value_counts.keys().max().unwrap_or(&0);
+        assert!(*max_bucket > 0);
+    }
+
+    #[test]
+    fn test_normal_sample_consistency() {
+        // This test ensures that multiple calls in sequence produce different values
+        let sample1 = decimal_normal_sample();
+        let sample2 = decimal_normal_sample();
+        let sample3 = decimal_normal_sample();
+
+        // It's statistically extremely unlikely to get the same value three times in a row
+        // This verifies that the RNG is properly producing different values
+        assert!(sample1 != sample2 || sample2 != sample3);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod checked_helpers_tests {
+    use super::*;
+
+    #[test]
+    fn d_add_happy_path() {
+        let result = d_add(dec!(1.25), dec!(2.50), "test::add");
+        assert_eq!(result.unwrap(), dec!(3.75));
+    }
+
+    #[test]
+    fn d_add_overflow_on_max_plus_max() {
+        let err = d_add(Decimal::MAX, Decimal::MAX, "test::add").unwrap_err();
+        match err {
+            DecimalError::Overflow { operation, .. } => assert_eq!(operation, "test::add"),
+            other => panic!("expected Overflow, got {other:?}"),
+        }
+    }
+
+    /// A checked add that reports `Ok` has not necessarily moved the value.
+    ///
+    /// `Decimal::MAX` has scale 0 and a mantissa filling all 96 bits. Adding a
+    /// fractional addend needs a 29th significant digit, which does not exist,
+    /// so `rust_decimal` rescales the addend down to scale 0 instead of failing:
+    /// anything below half a unit rounds to zero, the addition succeeds, and the
+    /// result is `Decimal::MAX` again. The overflow path is never reached. The
+    /// silent window is `|x| < 0.5`, not `|x| < 1` — at `0.5` the addend rounds
+    /// away from zero to `1` and the sum does overflow, which is why the two
+    /// halves of this test sit three hundredths apart.
+    ///
+    /// This has already broken two call sites in this crate:
+    ///
+    /// - `chains::optiondata::unlock` lifted a locked quote by one tick and read
+    ///   `Ok` as "lifted", so it re-emitted the very quote it existed to remove.
+    /// - `greeks::equations::alpha_from` returns `Decimal::MAX` as its
+    ///   "theta vanished" sentinel. Summing one such leg with an ordinary one
+    ///   returned `Ok` with the running total standing still and the ordinary
+    ///   leg's alpha silently dropped, so that aggregation needs an explicit
+    ///   guard on the operand; no arithmetic check can catch it.
+    ///
+    /// The rule this implies: when you nudge a value and need to know it moved,
+    /// compare the result against the input. `checked_*` returning `Ok` is not
+    /// that check — it only says the result was representable.
+    #[test]
+    fn checked_add_near_max_reports_ok_without_moving_the_value() {
+        // Below half a unit: rounds to zero, succeeds, and stands still.
+        assert_eq!(
+            Decimal::MAX.checked_add(dec!(0.01)),
+            Some(Decimal::MAX),
+            "a fractional addend rescales away instead of overflowing"
+        );
+        assert_eq!(
+            d_add(Decimal::MAX, dec!(0.47), "test::add").unwrap(),
+            Decimal::MAX,
+            "the crate helper inherits the same behaviour"
+        );
+
+        // At half a unit and above: rounds away from zero and does overflow, so
+        // the boundary is visible rather than implied.
+        assert_eq!(Decimal::MAX.checked_add(dec!(0.5)), None);
+        assert!(d_add(Decimal::MAX, dec!(0.5), "test::add").is_err());
+    }
+
+    #[test]
+    fn d_sub_happy_path() {
+        let result = d_sub(dec!(10), dec!(3.5), "test::sub");
+        assert_eq!(result.unwrap(), dec!(6.5));
+    }
+
+    #[test]
+    fn d_sub_overflow_on_min_minus_max() {
+        let err = d_sub(Decimal::MIN, Decimal::MAX, "test::sub").unwrap_err();
+        assert!(
+            matches!(err, DecimalError::Overflow { operation, .. } if operation == "test::sub")
+        );
+    }
+
+    #[test]
+    fn d_mul_happy_path() {
+        let result = d_mul(dec!(2.5), dec!(4), "test::mul");
+        assert_eq!(result.unwrap(), dec!(10.0));
+    }
+
+    #[test]
+    fn d_mul_overflow_on_max_times_two() {
+        let err = d_mul(Decimal::MAX, dec!(2), "test::mul").unwrap_err();
+        assert!(
+            matches!(err, DecimalError::Overflow { operation, .. } if operation == "test::mul")
+        );
+    }
+
+    #[test]
+    fn d_div_happy_path_exact() {
+        let result = d_div(dec!(10), dec!(4), "test::div");
+        assert_eq!(result.unwrap(), dec!(2.5));
+    }
+
+    #[test]
+    fn d_div_applies_banker_rounding() {
+        // Divide by three is recurring and must round half-to-even at the default scale.
+        let result = d_div(dec!(1), dec!(3), "test::div").unwrap();
+        // `1 / 3` at scale 28 under banker's rounding produces the canonical
+        // `0.3333333333333333333333333333` (scale 28). Any other trailing digit
+        // would signal the rounding strategy drifted.
+        assert_eq!(result, dec!(0.3333333333333333333333333333));
+    }
+
+    #[test]
+    fn d_div_zero_denominator_returns_arithmetic_error() {
+        let err = d_div(dec!(1), Decimal::ZERO, "test::div").unwrap_err();
+        assert!(matches!(err, DecimalError::ArithmeticError { .. }));
+    }
+
+    #[test]
+    fn d_div_tag_is_preserved_on_overflow() {
+        // `Decimal::MIN / 0.5` overflows because the quotient is 2 * MIN.
+        let err = d_div(Decimal::MIN, dec!(0.5), "test::div").unwrap_err();
+        match err {
+            DecimalError::Overflow { operation, .. } => assert_eq!(operation, "test::div"),
+            other => panic!("expected Overflow, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn d_sum_empty_returns_zero() {
+        assert_eq!(d_sum(&[], "test::sum").unwrap(), Decimal::ZERO);
+    }
+
+    #[test]
+    fn d_sum_happy_path() {
+        let result = d_sum(&[dec!(1.5), dec!(2.25), dec!(-0.75), dec!(10)], "test::sum");
+        assert_eq!(result.unwrap(), dec!(13));
+    }
+
+    #[test]
+    fn d_sum_overflow_returns_tagged_error() {
+        let err = d_sum(&[Decimal::MAX, Decimal::MAX], "test::sum").unwrap_err();
+        assert!(
+            matches!(err, DecimalError::Overflow { operation, .. } if operation == "test::sum")
+        );
+    }
+
+    #[test]
+    fn d_sum_iter_empty_returns_zero() {
+        let empty: std::iter::Empty<Decimal> = std::iter::empty();
+        assert_eq!(d_sum_iter(empty, "test::sum_iter").unwrap(), Decimal::ZERO);
+    }
+
+    #[test]
+    fn d_sum_iter_happy_path_matches_d_sum() {
+        let values = [dec!(1.5), dec!(2.25), dec!(-0.75), dec!(10)];
+        let via_iter = d_sum_iter(values.iter().copied(), "test::sum_iter").unwrap();
+        let via_slice = d_sum(&values, "test::sum_iter").unwrap();
+        assert_eq!(via_iter, dec!(13));
+        assert_eq!(via_iter, via_slice);
+    }
+
+    #[test]
+    fn d_sum_iter_accepts_lazy_map() {
+        // Exercise the no-allocation pathway: a `map` adapter over a range
+        // should aggregate without any intermediate `Vec`.
+        let sum = d_sum_iter((1i64..=4).map(Decimal::from), "test::sum_iter_lazy").unwrap();
+        assert_eq!(sum, dec!(10));
+    }
+
+    #[test]
+    fn d_sum_iter_overflow_returns_tagged_error() {
+        let err = d_sum_iter([Decimal::MAX, Decimal::MAX], "test::sum_iter").unwrap_err();
+        assert!(
+            matches!(err, DecimalError::Overflow { operation, .. } if operation == "test::sum_iter")
+        );
+    }
+}

@@ -43,9 +43,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.execution.costs import CostModel
-
 from src.config import get_settings
+from src.execution.costs import CostModel
 
 logger = logging.getLogger(__name__)
 

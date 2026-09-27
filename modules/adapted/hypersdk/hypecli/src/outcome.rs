@@ -9,11 +9,13 @@ use std::io::{Write, stdout};
 use clap::{Args, Subcommand};
 use hypersdk::{
     Decimal,
-    hypercore::{Chain, HttpClient, NonceHandler},
+    hypercore::{
+        Chain, HttpClient,
+        api::{Action, UserOutcomeAction},
+    },
 };
 
-use crate::SignerArgs;
-use crate::utils::find_signer_sync;
+use crate::action::ActionArgs;
 
 /// HIP-4 outcome token commands.
 #[derive(Subcommand)]
@@ -78,12 +80,7 @@ impl OutcomeListCmd {
             "question\tname\toutcomes\tsettled\tfallback\tdescription"
         );
         for question in &meta.questions {
-            let ids = |ids: &[u32]| {
-                ids.iter()
-                    .map(u32::to_string)
-                    .collect::<Vec<_>>()
-                    .join(",")
-            };
+            let ids = |ids: &[u32]| ids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
             let fallback = question
                 .fallback_outcome
                 .map(|o| o.to_string())
@@ -111,7 +108,7 @@ impl OutcomeListCmd {
 pub struct OutcomeSplitCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Outcome ID (see `hypecli outcome list`)
     #[arg(long)]
@@ -124,15 +121,15 @@ pub struct OutcomeSplitCmd {
 
 impl OutcomeSplitCmd {
     pub async fn run(self) -> anyhow::Result<()> {
-        let signer = find_signer_sync(&self.signer)?;
         let client = HttpClient::new(self.signer.chain);
-        let nonce = NonceHandler::default().next();
         println!(
             "Splitting {} of the quote token into outcome {}",
             self.amount, self.outcome
         );
-        client
-            .split_outcome(&signer, self.outcome, self.amount, nonce, None, None)
+        self.signer
+            .execute_default(client, |_, _| {
+                Action::UserOutcome(UserOutcomeAction::split(self.outcome, self.amount))
+            })
             .await?;
         println!("Split successfully.");
         Ok(())
@@ -144,7 +141,7 @@ impl OutcomeSplitCmd {
 pub struct OutcomeMergeCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Outcome ID (see `hypecli outcome list`)
     #[arg(long)]
@@ -157,15 +154,15 @@ pub struct OutcomeMergeCmd {
 
 impl OutcomeMergeCmd {
     pub async fn run(self) -> anyhow::Result<()> {
-        let signer = find_signer_sync(&self.signer)?;
         let client = HttpClient::new(self.signer.chain);
-        let nonce = NonceHandler::default().next();
         match self.amount {
             Some(amount) => println!("Merging {} shares of outcome {}", amount, self.outcome),
             None => println!("Merging all available shares of outcome {}", self.outcome),
         }
-        client
-            .merge_outcome(&signer, self.outcome, self.amount, nonce, None, None)
+        self.signer
+            .execute_default(client, |_, _| {
+                Action::UserOutcome(UserOutcomeAction::merge(self.outcome, self.amount))
+            })
             .await?;
         println!("Merged successfully.");
         Ok(())
@@ -177,7 +174,7 @@ impl OutcomeMergeCmd {
 pub struct OutcomeMergeQuestionCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Question ID (see `hypecli outcome list`)
     #[arg(long)]
@@ -190,9 +187,7 @@ pub struct OutcomeMergeQuestionCmd {
 
 impl OutcomeMergeQuestionCmd {
     pub async fn run(self) -> anyhow::Result<()> {
-        let signer = find_signer_sync(&self.signer)?;
         let client = HttpClient::new(self.signer.chain);
-        let nonce = NonceHandler::default().next();
         match self.amount {
             Some(amount) => println!("Merging {} across question {}", amount, self.question),
             None => println!(
@@ -200,8 +195,13 @@ impl OutcomeMergeQuestionCmd {
                 self.question
             ),
         }
-        client
-            .merge_outcome_question(&signer, self.question, self.amount, nonce, None, None)
+        self.signer
+            .execute_default(client, |_, _| {
+                Action::UserOutcome(UserOutcomeAction::merge_question(
+                    self.question,
+                    self.amount,
+                ))
+            })
             .await?;
         println!("Merged successfully.");
         Ok(())
@@ -213,7 +213,7 @@ impl OutcomeMergeQuestionCmd {
 pub struct OutcomeNegateCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Question ID (see `hypecli outcome list`)
     #[arg(long)]
@@ -230,23 +230,19 @@ pub struct OutcomeNegateCmd {
 
 impl OutcomeNegateCmd {
     pub async fn run(self) -> anyhow::Result<()> {
-        let signer = find_signer_sync(&self.signer)?;
         let client = HttpClient::new(self.signer.chain);
-        let nonce = NonceHandler::default().next();
         println!(
             "Negating {} shares of outcome {} within question {}",
             self.amount, self.outcome, self.question
         );
-        client
-            .negate_outcome(
-                &signer,
-                self.question,
-                self.outcome,
-                self.amount,
-                nonce,
-                None,
-                None,
-            )
+        self.signer
+            .execute_default(client, |_, _| {
+                Action::UserOutcome(UserOutcomeAction::negate(
+                    self.question,
+                    self.outcome,
+                    self.amount,
+                ))
+            })
             .await?;
         println!("Negated successfully.");
         Ok(())

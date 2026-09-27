@@ -51,7 +51,7 @@ W = os.environ["V111_WORK"]
 sys.path.insert(0, HERE)
 import vintage111_adjudicate as A  # noqa: E402
 
-SCALEF = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-5}
+SCALEF = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-4}
 
 
 def main():

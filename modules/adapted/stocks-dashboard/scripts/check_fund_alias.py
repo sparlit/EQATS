@@ -79,6 +79,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RENAME_MAP = os.path.join(HERE, "_rename_map.json")
 INDEX = os.path.join(ROOT, "docs", "search_index.json")
+COLLIDE = os.path.join(ROOT, "docs", "bse_alias_collisions.json")  # BSE tickers the aliases must not touch (§197)
 TARGETS = [os.path.join(ROOT, "docs", "backtest-engine.js"), os.path.join(ROOT, "docs", "stock-backtest.html")]
 
 # The constant is one line in both files; the capture must stay anchored so a stray
@@ -170,6 +171,47 @@ def read_baked(path):
     return json.loads(m.group(1)), text, m
 
 
+def collision_audit(rmap, baked):
+    """§197 — the BSE-ticker collision ledger (docs/bse_alias_collisions.json). An alias OLD -> TARGET stays baked
+    for the NSE namespace, but the site treats OLD as the BSE company. Two ways that silently breaks again:
+      * the ledger no longer names the alias's current target (a new rename moved the chain end);
+      * an NSE-namespace store is RE-SEEDED with TARGET's rows under OLD (a --fresh rebuild replaying old
+        filings) — the stock page and discovery would serve the other company under the BSE name again.
+    -> list of problem strings (empty = fine). Needs no META, so a stale META can never mask it."""
+    try:
+        with open(COLLIDE, encoding="utf-8") as fh:
+            coll = json.load(fh)["collisions"]
+    except Exception as e:
+        return [f"docs/bse_alias_collisions.json unreadable ({e})"]
+    probs = []
+    for old, c in sorted(coll.items()):
+        ends = ({resolve(old, rmap)} if old in rmap else set()) | ({baked[old]} if old in baked else set())
+        if ends and c.get("target") not in ends:
+            probs.append(
+                "{}: ledger target {}, the aliases now end at {} — re-run scan_bse_alias_collisions.py".format(
+                    old, c.get("target"), sorted(ends)
+                )
+            )
+    sys.path.insert(0, HERE)
+    from retract_bse_alias_collision_rows import agrees
+
+    with open(os.path.join(ROOT, "docs", "sf_revop.json"), encoding="utf-8") as fh:
+        rv = json.load(fh)
+    with open(os.path.join(ROOT, "docs", "sf_fundamentals.json"), encoding="utf-8") as fh:
+        fd = json.load(fh)
+    for old, c in sorted(coll.items()):
+        t = c["target"]
+        n_rv = sum(1 for q, r in (rv.get(old) or {}).items() if (rv.get(t) or {}).get(q) and agrees(r, rv[t][q]))
+        tf = {r[0]: r for r in fd.get(t) or []}
+        n_fd = sum(1 for r in fd.get(old) or [] if r[0] in tf and r[1] is not None and r[1] == tf[r[0]][1])
+        if n_rv or n_fd:
+            probs.append(
+                "%s re-seeded with %s's rows (%d revenue, %d profit quarters) — fix: python3 "
+                "scripts/retract_bse_alias_collision_rows.py --apply" % (old, t, n_rv, n_fd)
+            )
+    return probs
+
+
 def audit():
     """-> report dict. Importable so check_feeds.py can surface drift on the health board."""
     with open(RENAME_MAP, encoding="utf-8") as fh:
@@ -191,7 +233,23 @@ def audit():
         "extra": 0,
         "baked": 0,
         "identical": True,
+        "collisions": [],
     }
+
+    try:
+        baked0 = read_baked(TARGETS[0])[0]
+    except Exception:
+        baked0 = {}
+    rep["collisions"] = collision_audit(rmap, baked0)
+    if rep["collisions"]:
+        rep.update(
+            ok=False,
+            status="drift",
+            detail="BSE-ticker collision ledger (§197): "
+            + "; ".join(rep["collisions"][:3])
+            + (" ..." if len(rep["collisions"]) > 3 else ""),
+        )
+        return rep
 
     if total < MIN_SYMBOLS or len(alive) < MIN_ALIVE:
         rep.update(
@@ -309,6 +367,11 @@ def main():
             rep["baked"],
         )
     )
+    if rep["collisions"]:
+        for p in rep["collisions"]:
+            print(f"  COLLISION {p}")
+        print("!! the BSE-ticker collision ledger (runbook §197) is out of step — --write cannot fix it")
+        return 1
     if rep["status"] in ("error", "mismatch", "stale"):
         print("!! {}: {}".format(rep["status"], rep["detail"]))
         return 1

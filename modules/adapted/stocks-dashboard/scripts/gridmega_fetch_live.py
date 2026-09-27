@@ -32,6 +32,7 @@ directory from the live GitHub Pages origins:
   p1_new.bin           <- sf-data parts, merged per-symbol (deep first, recent appended)
   p2_new.bin           <- empty stub (the engine merges p1+p2; one file is enough)
   fund_live.json       <- stocks-dashboard/sf_fundamentals.json
+  fund_months_live.json <- stocks-dashboard/fund_months.json (proven half-year rows, runbook §198)
   shp_live.json        <- stocks-dashboard/shp_engine.json
   nifty_live.json      <- stocks-dashboard/nifty.json
   nifty500_live.json   <- stocks-dashboard/nifty500.json
@@ -101,6 +102,7 @@ def main():
     for src, dst in [
         ("stock_data.bin", "stock_data_live.bin"),
         ("sf_fundamentals.json", "fund_live.json"),
+        ("fund_months.json", "fund_months_live.json"),
         ("shp_engine.json", "shp_live.json"),
         ("nifty.json", "nifty_live.json"),
         ("nifty500.json", "nifty500_live.json"),

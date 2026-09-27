@@ -4,21 +4,27 @@ pub mod ai_career;
 pub mod anthropic_proxy;
 pub mod auto_fix;
 pub mod bundled_assets;
+pub mod claude_code_accounts;
+pub mod claude_code_oauth;
+pub mod codex_accounts;
 pub mod codex_catalog;
-pub mod codex_proxy;
+#[path = "codex_proxy/mod.rs"]
+pub mod codex_runtime;
 pub mod codex_session_merge;
 pub mod datalog;
+pub mod deepseek_accounts;
+pub mod deepseek_oauth;
 pub mod free_model_directory;
+pub mod grok_accounts;
 pub mod json_repair;
 pub mod llm_client;
 pub mod local_llm;
+pub(crate) mod local_proxy;
 pub mod model_directory;
 pub mod model_manager;
 pub mod parasite;
 pub mod process_manager;
-pub mod pulse_archive;
 pub mod self_update;
-pub mod skill_manager;
 pub mod smart_router;
 pub mod tool_config_manager;
 pub mod tool_manager;
@@ -26,3 +32,5 @@ pub mod tool_patcher;
 pub mod usage_providers;
 #[cfg(windows)]
 pub mod windows_path;
+
+pub mod workbuddy_accounts;

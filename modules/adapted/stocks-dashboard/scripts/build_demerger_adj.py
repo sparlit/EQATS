@@ -71,7 +71,10 @@ LOGGED_KW = (
     "reduction of capital",
     "capital reduction",
 )
-MIN_GAP = 0.98  # only adjust real value separations (open-gap >= 2%); above this = noise
+MIN_GAP = 1.0  # §170d (user, 2026-09-26): NO materiality floor — the auction price IS the exchange's measurement, so
+# every gap is adjusted (the old 0.98 "noise" floor skipped HINDUNILVR 2025's real 1.6% Kwality Wall's
+# separation, ~7x HUL's typical 0.24% morning move). Only an open AT/ABOVE the previous close is
+# skipped: a spin-off cannot add value to the parent.
 MAX_GAP = 0.05  # sanity floor — a >95% "demerger" is a data error, inspect by hand
 
 
@@ -175,6 +178,8 @@ def main():
         if not row:
             print("  SKIP %s %d: no bhavcopy row on the ex trading day" % (sym, ex))
             continue
+        if (key_sym, used) in led:  # a hand-verified row (DATA_RUNBOOK §170) already owns this bar — never overwrite it
+            continue
         close, prev, opn = row[1], row[2], row[6]
         if not prev or not opn:
             print("  SKIP %s %d: missing open/prevclose in bhavcopy" % (sym, ex))
@@ -182,7 +187,8 @@ def main():
         factor, raw_drop = opn / prev, close / prev
         if factor >= MIN_GAP:
             print(
-                "  SKIP %s %d: open-gap %.4f above %.2f (immaterial/no value separation)" % (sym, ex, factor, MIN_GAP)
+                "  SKIP %s %d: open-gap %.4f >= %.2f (opened at/above the previous close - no value separation)"
+                % (sym, ex, factor, MIN_GAP)
             )
             continue
         if factor <= MAX_GAP:
@@ -194,6 +200,71 @@ def main():
             "  + %s ex %d  factor=%.4f (open %.2f / prev %.2f)  raw_drop=%.4f%s"
             % (key_sym, used, factor, opn, prev, raw_drop, "" if key_sym == sym else f"  [feed sym {sym}]")
         )
+
+    # §170d (user, 2026-09-26): a spin-off NSE files only as "Scheme of Arrangement" (no demerger/spin-off wording) is never
+    # auto-adjusted above — 59 such Nifty-500 events sat raw for years (DATA_RUNBOOK §170). Every RECENT (<= 30 days) scheme /
+    # amalgamation / capital-reduction ex-date of a stock that was a Nifty-500 member on that date and has no ledger row gets a
+    # loud ::warning:: with its measured opening and closing gap, so a human reads the filing and, if holders received another
+    # company's shares, adds the row by hand. Warns only — never adjusts anything.
+    try:
+        _n5 = sorted(
+            (json.load(open(os.path.join(HERE, "indices_history.json"))) or {}).get("Nifty 500") or [],
+            key=lambda s: s.get("effectiveDate", ""),
+        )
+    except Exception as e:
+        _n5 = []
+        print(f"  (indices_history.json not loaded: {e} — scheme warning skipped)")
+
+    def _cur(s):
+        seen = set()
+        while s in rename and s not in seen:
+            seen.add(s)
+            s = rename[s]
+        return s
+
+    def _n500_on(sym, ex):
+        iso = "%d-%02d-%02d" % (ex // 10000, ex // 100 % 100, ex % 100)
+        snaps = [s for s in _n5 if s.get("effectiveDate", "") <= iso]
+        return bool(snaps) and _cur(sym) in {_cur(m) for m in snaps[-1].get("symbols") or []}
+
+    today = datetime.date.today()
+    warned = 0
+    for sym, ex, subj in logged:
+        d = datetime.date(ex // 10000, ex // 100 % 100, ex % 100)
+        if not 0 <= (today - d).days <= 30:
+            continue
+        key_sym = _cur(sym)
+        if any(k in (sym, key_sym) and abs(od(e) - od(ex)) <= 7 for (k, e) in led):
+            continue
+        if not _n500_on(sym, ex):
+            continue
+        cands = {sym, key_sym} | {o for o, n in rename.items() if _cur(n) == key_sym}
+        row = None
+        used = None
+        for k in range(4):
+            dd = d + datetime.timedelta(days=k)
+            if dd > today:
+                break
+            rows = B.fetch_day(dd, jar)
+            if not rows:
+                continue
+            row = next((r for r in rows if r[0] in cands), None)
+            used = int(dd.strftime("%Y%m%d"))
+            break
+        gap = (
+            "open %+.2f%% / close %+.2f%% vs prev close %.2f on %d"
+            % (100 * (row[6] / row[2] - 1), 100 * (row[1] / row[2] - 1), row[2], used)
+            if row and row[2] and row[6]
+            else "no bhavcopy row yet"
+        )
+        print(
+            "::warning::§170d scheme ex-date on a Nifty-500 stock with NO demerger_adj row: %s %d '%s' — %s. If the "
+            "filing gives holders shares of another company it is a spin-off: add the row by hand (DATA_RUNBOOK §170)."
+            % (key_sym, ex, subj, gap)
+        )
+        warned += 1
+    if warned:
+        print("  %d Nifty-500 scheme ex-date(s) flagged for a human (§170d)" % warned)
 
     out = sorted(led.values(), key=lambda x: (x[1], x[0]))
     tmp = OUT + ".tmp"

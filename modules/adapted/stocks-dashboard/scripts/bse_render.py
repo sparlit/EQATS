@@ -58,10 +58,15 @@ PL_HINT = re.compile(r"profit|revenue from oper|total income|earnings per", re.I
 NOT_RESULT = re.compile(
     r"chief financial officer|\bcfo\b|key managerial|annual report|annual general meeting"
     r"|newspaper (publication|advertisement)|trading window|book closure"
-    r"|certificate under regulation|resignation|appointment",
+    r"|certificate under regulation|resignation|appointment"
+    r"|\bagm\b|scrutini[sz]er|e-?voting|voting results?",
     re.IGNORECASE,
-)
+)  # AGM vote tallies say "results"
 STRONG_RESULT = re.compile(r"financial results?|results? for the (quarter|period|half|year)", re.IGNORECASE)
+# A Reg-47 newspaper ad REPRINTS the results ("…advertisement relating to unaudited financial results") so it
+# passes STRONG_RESULT, and it is filed a day or two AFTER the real filing — newest-first put it on top, and
+# a renderer then showed the reader a newspaper page with no table (runbook §17c; UPROTECH 2026-08-09).
+NEWSPAPER = re.compile(r"newspaper|advertisement|paper (publication|cutting)", re.IGNORECASE)
 BOARD_OUTCOME = re.compile(r"outcome of (the )?board|board meeting outcome", re.IGNORECASE)
 
 
@@ -104,7 +109,9 @@ def announcements(op, code, months=5):
     # NEWEST FIRST, rank only as a same-day tie-break. Ranking across dates would pull an older quarter's
     # tidily-titled filing ahead of today's vaguely-titled one — which is exactly how GYANDEV/NAM ended up
     # rendering their March quarter. Within one date, a real results filing still beats a CFO notice.
-    return sorted(rows, key=lambda t: (t[0], -_rank(t[2])), reverse=True)
+    # A newspaper ad is never the filing itself: it goes after every real candidate.
+    rows = sorted(rows, key=lambda t: (t[0], -_rank(t[2])), reverse=True)
+    return [r for r in rows if not NEWSPAPER.search(r[2])] + [r for r in rows if NEWSPAPER.search(r[2])]
 
 
 def fetch_pdf(op, att):

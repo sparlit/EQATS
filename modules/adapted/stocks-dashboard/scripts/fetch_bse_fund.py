@@ -40,6 +40,10 @@ Store: {"updated", "px":{ "<scripcode>": { "<QE YYYYMMDD>": {"rev":cr,"pat":cr,"
 
 Run: python -X utf8 scripts/fetch_bse_fund.py [--budget N] [--scrips 532701,...] [--min-mcap CR] [--months M]
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import datetime
 import io
 import json
@@ -48,9 +52,12 @@ import re
 import sys
 import time
 
+import bse_headers as BH  # §181 BSE headers
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
 import fitz
+import qe_util as QU
 from rapidocr_onnxruntime import RapidOCR
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +65,10 @@ OUT = os.path.join(HERE, "..", "docs", "bse_fundamentals.json")
 UNIV = os.path.join(HERE, "..", "docs", "bse_universe.json")
 DONE = os.path.join(HERE, "_bse_fund_done.json")
 FAILS = os.path.join(HERE, "_bse_fund_fail.json")
+# code -> YYYYMMDD of the newest declared result filing already handled (read, or given up on). A DONE
+# scrip is re-opened when BSE shows a result filing NEWER than this — that is how each new quarter's
+# results get read. Without it DONE only grew, and every scrip was skipped for good after one season.
+SEEN = os.path.join(HERE, "_bse_fund_seen.json")
 MAX_FAIL = 3  # retry a declared-but-unparsed scrip this many runs before giving up
 OCR = RapidOCR()
 MON = {
@@ -92,6 +103,10 @@ def num(s):
 
 
 def qe_from_text(blob):
+    """The quarter a results page states (qe_util.stated_quarter), else the original two patterns."""
+    q = QU.stated_quarter(blob)
+    if q:
+        return q
     m = re.search(
         r"quarter (and year )?ended\s*(on\s*)?(\d{1,2})[\s.\-/]*([A-Za-z]{3,9})[,\s.\-/]*(\d{4})", blob, re.IGNORECASE
     )
@@ -135,7 +150,7 @@ def parse_pl(boxes):
         0.01
         if any(re.search(r"in lakh", b["t"], re.IGNORECASE) for b in boxes)
         else (
-            10.0
+            0.1
             if any(re.search(r"in million", b["t"], re.IGNORECASE) for b in boxes)
             else (1.0 if any(re.search(r"in (crore|cr\.)", b["t"], re.IGNORECASE) for b in boxes) else None)
         )
@@ -157,10 +172,11 @@ def parse_pl(boxes):
 
 def declared_recently(op, univ_codes, days=110):
     """BSE-only scrips that filed a result (strCat=Result) in the last `days` — grind these FIRST,
-    at any market cap, so already-declared results get numbers before the long mcap tail."""
+    at any market cap, so already-declared results get numbers before the long mcap tail.
+    Returns {code: newest filing date YYYYMMDD int} (0 when BSE gave no date)."""
     today = datetime.date.today()
     lo = today - datetime.timedelta(days=days)
-    got = set()
+    got = {}
     cur = lo
     while cur <= today:
         hi = min(cur + datetime.timedelta(days=9), today)
@@ -180,7 +196,11 @@ def declared_recently(op, univ_codes, days=110):
             for r in tab:
                 sc = str(r.get("SCRIP_CD") or "")
                 if sc in univ_codes:
-                    got.add(sc)
+                    try:
+                        nd = int(str(r.get("NEWS_DT") or "")[:10].replace("-", ""))
+                    except ValueError:
+                        nd = 0
+                    got[sc] = max(got.get(sc, 0), nd)
             page += 1
             time.sleep(0.15)
         cur = hi + datetime.timedelta(days=1)
@@ -188,25 +208,12 @@ def declared_recently(op, univ_codes, days=110):
 
 
 def scrip_announcements(op, code, months):
-    hi = datetime.date.today()
-    lo = hi - datetime.timedelta(days=30 * months)
-    url = (
-        "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1"
-        "&strPrevDate={}&strToDate={}&strScrip={}&strSearch=P&strType=C&subcategory=-1".format(
-            lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d"), code
-        )
-    )
-    try:
-        tab = json.loads(B.get(op, url)).get("Table", []) or []
-    except Exception:
-        return []
-    out = []
-    for r in tab:
-        hd = str(r.get("HEADLINE") or "")
-        att = r.get("ATTACHMENTNAME")
-        if att and RESULT_HEAD.search(hd):
-            out.append((str(r.get("NEWS_DT") or "")[:10], att, hd))
-    return out
+    """Result-filing candidates, newest first: [(YYYY-MM-DD, attachment, 'HEADLINE | NEWSSUB')]. Shared with
+    the vision routine (bse_render.announcements): matches HEADLINE + NEWSSUB (runbook §17 — a headline of
+    'Please refer the attachment' hid real filings) and drops CFO/newspaper/AGM notices."""
+    import bse_render
+
+    return bse_render.announcements(op, code, months)
 
 
 def fetch_pdf(op, att):
@@ -223,17 +230,21 @@ def fetch_pdf(op, att):
     return None
 
 
-def extract(op, code, name, months, deadline=None):
+def extract(op, code, name, months, deadline=None, have=()):
     """Return {QE: {rev,pat,ann,basis}} for a scrip from its own filings, identity-guarded.
-    `deadline` (epoch secs) caps per-scrip work so one heavy filer can't starve a bounded run."""
+    `deadline` (epoch secs) caps per-scrip work so one heavy filer can't starve a bounded run.
+    `have` = quarter keys already stored with a PAT (the vision fallback never re-reads those)."""
     toks = [w for w in re.split(r"[^A-Za-z]+", name.upper()) if len(w) >= 4][:2]
     res = {}
-    for annd, att, hd in scrip_announcements(op, code, months)[:3]:
+    cands = scrip_announcements(op, code, months)[:3]
+    raws = {}  # att -> PDF bytes, reused by the vision fallback
+    for annd, att, hd in cands:
         if deadline and time.time() > deadline:
             break
         raw = fetch_pdf(op, att)
         if not raw:
             continue
+        raws[att] = raw
         try:
             doc = fitz.open(stream=raw, filetype="pdf")
         except Exception:
@@ -267,87 +278,126 @@ def extract(op, code, name, months, deadline=None):
             # keep the most recent filing per quarter-end
             if qe not in res or anni >= res[qe].get("ann", 0):
                 res[qe] = rec
-    # VISION FALLBACK: OCR found nothing anchored → render the P&L pages and ask a vision reader.
-    # CI has no Claude, so this is what fills scanned filings unattended. Two readers, tried in order:
-    #   1. bse_vision_api (Anthropic)  — no-op when ANTHROPIC_API_KEY is unset (it is, as of 2026-07-23)
-    #   2. gemini_vision.read_corp_results — Google AI Studio FREE tier, the key we actually hold.
-    # Before this, the whole fallback was Anthropic-only, so every scanned BSE micro-cap fell through and
-    # got retired at MAX_FAIL while a working free key sat wired to the insurer job two workflows away.
-    if not res and (deadline is None or time.time() < deadline):
-        pngs = None
+    # VISION FALLBACK: the newest filing's quarter is still missing (a scanned PDF OCR can't anchor) →
+    # render its P&L pages and ask a vision reader. CI has no Claude, so this is what fills scanned filings
+    # unattended. Readers, in order: bse_vision_api (Anthropic; no-op without ANTHROPIC_API_KEY — unset as
+    # of 2026-09-27) then gemini_vision.read_corp_results (Google AI Studio free tier, the key we hold).
+    # It runs whenever that quarter is missing — not only when OCR found nothing: an older text-layer filing
+    # parsing fine must not hide a scanned new one (it did until 2026-09-27).
+    tq = want_quarter(cands, raws)
+    LAST_TARGET[code] = tq  # main() judges success against THIS quarter
+    if tq and tq not in res and str(tq) not in have and (deadline is None or time.time() < deadline):
         try:
-            import bse_vision_api
-
-            pngs = _render_pl_pngs(op, code)
-            if pngs:
-                v = bse_vision_api.vision_extract(name, pngs)
-                if v and v.get("ok"):
-                    basis = v.get("basis", "S")
-                    for qe, key in ((20260630, "jun2026"), (20250630, "jun2025")):
-                        d = v.get(key) or {}
-                        if d.get("pat") is not None or d.get("rev") is not None:
-                            rec = {
-                                "pat": (round(float(d["pat"]), 2) if d.get("pat") is not None else None),
-                                "ann": (20260715 if qe == 20260630 else 0),
-                                "basis": basis,
-                                "src": "vision",
-                            }
-                            if d.get("rev") is not None:
-                                rec["rev"] = round(float(d["rev"]), 2)
-                            res[qe] = rec
+            pngs, ann_i = _render_pl_pngs(op, cands, raws, tq)
         except Exception as ex:
-            print("    vision fallback err:", str(ex)[:70])
-        # FREE reader, second chance. read_corp_results is PAT-only (no revenue in its schema), so cells
-        # it fills carry rev=None — the same PAT-only shape the Claude backfills leave behind.
-        if not res and (deadline is None or time.time() < deadline):
-            try:
-                import gemini_vision
-
-                if not gemini_vision.quota_dead():
-                    if pngs is None:
-                        pngs = _render_pl_pngs(op, code)
-                    if pngs:
-                        g = gemini_vision.read_corp_results(name, "30 June 2026", "31 March 2026", "30 June 2025", pngs)
-                        if g and g.get("ok") and g.get("company_matches"):
-                            for qe, key in ((20260630, "cur"), (20250630, "yago")):
-                                d = g.get(key) or {}
-                                pat = d.get("con") if d.get("con") is not None else d.get("std")
-                                if pat is None:
-                                    continue
-                                res[qe] = {
-                                    "pat": round(float(pat), 2),
-                                    "src": "gemini",
-                                    "ann": (20260715 if qe == 20260630 else 0),
-                                    "basis": "C" if d.get("con") is not None else "S",
-                                }
-            except Exception as ex:
-                print("    gemini fallback err:", str(ex)[:70])
+            print("    vision render err:", str(ex)[:70])
+            pngs, ann_i = [], 0
+        if pngs:
+            _vision_fill(res, name, pngs, tq, ann_i)
     return res
 
 
-def _render_pl_pngs(op, code):
-    """Render the P&L-bearing pages of a scrip's latest result filing to PNGs (for the vision fallback)."""
-    import bse_render
+LAST_TARGET = {}  # code -> the quarter extract() read the newest filing as (want_quarter), for main()'s success test
 
-    pngs = []
-    for _annd, att, _hd in scrip_announcements(op, code, 5)[:1]:
-        raw = fetch_pdf(op, att)
+
+def want_quarter(cands, raws=None):
+    """The quarter the newest result filing reports: the period its own text states (a late filer's June
+    results filed in October say June), else — scanned, no text layer — the last quarter end before its
+    filing date."""
+    if not cands:
+        return 0
+    annd, att, _hd = cands[0]
+    guess = QU.last_qe_before(annd)
+    raw = (raws or {}).get(att)
+    if raw:
+        import bse_vision_prep as VP
+
+        real = VP.pdf_period(raw)
+        if QU.is_qe(real) and real <= guess:
+            return real  # never a period ending on/after the filing date
+    return guess
+
+
+def _vision_fill(res, name, pngs, tq, ann_i):
+    """Fill res[tq] (and its year-ago quarter) from the rendered P&L pages. Values must come back labelled
+    with the quarter they belong to — a column is never re-dated to fit the one we asked for."""
+    ya = QU.yago(tq)
+    try:
+        import bse_vision_api
+
+        v = bse_vision_api.vision_extract_periods(name, pngs)  # reads EVERY printed column with its date
+        f = bse_vision_api.TO_CRORE.get((v or {}).get("unit"))
+        if v and v.get("ok") and f is not None:
+            basis = v.get("basis", "S")
+            for p in v.get("periods") or []:
+                try:
+                    end = int(str(p.get("end") or "").replace("-", ""))
+                except ValueError:
+                    continue
+                if p.get("kind") != "Q" or end not in (tq, ya) or end in res:
+                    continue
+                if p.get("pat") is None and p.get("rev") is None:
+                    continue
+                rec = {
+                    "pat": (round(float(p["pat"]) * f, 2) if p.get("pat") is not None else None),
+                    "ann": (ann_i if end == tq else 0),
+                    "basis": basis,
+                    "src": "vision",
+                }
+                if p.get("rev") is not None:
+                    rec["rev"] = round(float(p["rev"]) * f, 2)
+                res[end] = rec
+    except Exception as ex:
+        print("    vision fallback err:", str(ex)[:70])
+    # FREE reader, second chance. read_corp_results is PAT-only (no revenue in its schema), so cells
+    # it fills carry rev=None — the same PAT-only shape the Claude backfills leave behind.
+    if not res:
+        try:
+            import gemini_vision
+
+            if not gemini_vision.quota_dead():
+                g = gemini_vision.read_corp_results(name, QU.label(tq), QU.label(QU.prevq(tq)), QU.label(ya), pngs)
+                if g and g.get("ok") and g.get("company_matches"):
+                    for qe, key in ((tq, "cur"), (ya, "yago")):
+                        d = g.get(key) or {}
+                        std, con = d.get("std"), d.get("con")
+                        # read_corp_results copies a single statement into BOTH slots, so con == std means
+                        # standalone-only; only a con that differs from std (or has no std) is consolidated.
+                        # (Until 2026-09-27 every Gemini cell was labelled C — BYLD's standalone-only filing.)
+                        if con is not None and con != std:
+                            pat, basis = con, "C"
+                        else:
+                            pat, basis = (std if std is not None else con), "S"
+                        if pat is None:
+                            continue
+                        res[qe] = {
+                            "pat": round(float(pat), 2),
+                            "src": "gemini",
+                            "ann": (ann_i if qe == tq else 0),
+                            "basis": basis,
+                        }
+        except Exception as ex:
+            print("    gemini fallback err:", str(ex)[:70])
+
+
+def _render_pl_pngs(op, cands, raws, tq):
+    """PNG pages of the first candidate filing (newest first) that could be the tq results filing, via the
+    vision routine's own renderer (numeric-density page pick, runbook §17c). TRIPWIRE, same as
+    bse_vision_prep: a filing whose text states another quarter is the WRONG announcement — skip it.
+    Returns (pngs, announcement date int)."""
+    import bse_vision_prep as VP
+
+    for annd, att, _hd in cands:
+        raw = raws.get(att) or fetch_pdf(op, att)
         if not raw:
             continue
-        try:
-            doc = fitz.open(stream=raw, filetype="pdf")
-        except Exception:
+        real = VP.pdf_period(raw)  # 0 = scanned / unstated: can't tell, don't block
+        if real and real != tq:
             continue
-        for pi in range(min(len(doc), 8)):
-            txt = doc[pi].get_text()
-            if txt.strip() and not bse_render.PL_HINT.search(txt):
-                continue
-            pngs.append(doc[pi].get_pixmap(dpi=200).tobytes("png"))
-            if len(pngs) >= 4:
-                break
+        pngs = VP.render_pdf_pages(raw)
         if pngs:
-            break
-    return pngs
+            return pngs, int(annd.replace("-", ""))
+    return [], 0
 
 
 def main():
@@ -365,16 +415,36 @@ def main():
     data = json.loads(open(OUT, encoding="utf-8").read()) if os.path.exists(OUT) else {"px": {}}
     done = set(json.load(open(DONE))) if os.path.exists(DONE) else set()
     fails = json.load(open(FAILS)) if os.path.exists(FAILS) else {}  # code -> retry count (declared misses)
+    seen = json.load(open(SEEN)) if os.path.exists(SEEN) else None  # code -> newest filing date handled
 
     op = B.session()
     time.sleep(1)
 
     # DECLARED-FIRST: scrips that filed a result recently are ground first at ANY market cap, so
     # already-declared results (incl. sub-₹100cr names the mcap floor would skip) get numbers first.
-    declared = set()
+    declared = {}
     if only is None and "--no-declared-first" not in sys.argv:
         declared = declared_recently(op, {str(r[0]) for r in univ})
         print("declared recently (BSE-only):", len(declared))
+    # NEW-QUARTER RE-OPEN. First run with no SEEN ledger: every DONE scrip's current filing counts as
+    # handled (what DONE meant until now), so the ledger starts without a re-read wave. After that, a DONE
+    # scrip whose newest result filing is newer than both SEEN and every stored quarter's ann gets ground again.
+    save_seen = seen is not None or bool(declared)  # a --scrips run has no declared list: never seed from it
+    if seen is None:
+        seen = {c: d for c, d in declared.items() if c in done}
+        if save_seen:
+            print("seen ledger seeded: %d scrips" % len(seen))
+    reopened = 0
+    for c, d in declared.items():
+        if c not in done or not d or d <= int(seen.get(c, 0) or 0):
+            continue
+        stored = data["px"].get(c, {})
+        if d <= max([int(v.get("ann") or 0) for v in stored.values()] or [0]):
+            continue
+        done.discard(c)
+        fails.pop(c, None)
+        reopened += 1
+    print("re-opened for a newer result filing:", reopened)
 
     def prio(r):
         return (0 if str(r[0]) in declared else 1, -r[6])  # declared first, then mcap desc
@@ -397,23 +467,49 @@ def main():
         if spent >= budget or (time.time() - t_start) / 60 >= max_min:
             break
         spent += 1
+        cur = data["px"].get(code, {})
+        have = {q for q, c in cur.items() if c.get("pat") is not None}
         try:
-            recs = extract(op, code, name, months, deadline=time.time() + 120)  # ≤2 min/scrip
+            recs = extract(op, code, name, months, deadline=time.time() + 120, have=have)  # ≤2 min/scrip
         except Exception as ex:
             print(f"  {code} {tkr} ERR {str(ex)[:60]}")
             recs = {}
-        if recs:
-            cur = data["px"].get(code, {})
-            for qe, rec in recs.items():
-                if str(qe) not in cur:  # fill-only
-                    cur[str(qe)] = rec
+        added = 0
+        recs = {q: r for q, r in recs.items() if QU.is_qe(q)}  # never store a garbled period (26310331)
+        for qe, rec in recs.items():  # fill-only: add a quarter, or a figure
+            old = cur.get(str(qe))  # a stored cell lacks (same basis only)
+            if old is None:
+                cur[str(qe)] = rec
+                added += 1
+            elif old.get("basis", rec.get("basis")) == rec.get("basis"):
+                for k in ("pat", "rev"):
+                    if old.get(k) is None and rec.get(k) is not None:
+                        old[k] = rec[k]
+                        added += 1
+        if cur:
             data["px"][code] = cur
-            latest = max(recs)
-            print("  ✓ %s %-12s %s PAT=%s rev=%s" % (code, tkr, latest, recs[latest]["pat"], recs[latest].get("rev")))
+        # SUCCESS. A declared scrip is handled once its newest filing's quarter is stored with a PAT, or this
+        # run added something. Just re-parsing an OLDER filing whose numbers are already stored is not
+        # success — it used to mark the scrip done/seen and the new quarter was never read.
+        if code in declared:
+            # the quarter the newest filing REPORTS (its printed period — a late March result filed in
+            # September is March), not the last quarter end before the declared date
+            wq = LAST_TARGET.get(code) or (QU.last_qe_before(declared[code]) if declared[code] else 0)
+            ok = added > 0 or (wq and (cur.get(str(wq)) or {}).get("pat") is not None)
+        else:
+            ok = bool(recs)
+        if ok:
+            latest = max(recs) if recs else None
+            print(
+                "  ✓ %s %-12s %s PAT=%s rev=%s (+%d)"
+                % (code, tkr, latest, (recs.get(latest) or {}).get("pat"), (recs.get(latest) or {}).get("rev"), added)
+            )
             done.add(code)
             fails.pop(code, None)
+            if declared.get(code):
+                seen[code] = declared[code]
         else:
-            print("  · %s %-12s (no anchored result)" % (code, tkr))
+            print("  · %s %-12s (no anchored result%s)" % (code, tkr, " for its newest filing" if recs else ""))
             # Record the failed attempt for EVERY scrip (declared or targeted) — this count drives the
             # page's "filing available — PDF only" label once a filed co has resisted parsing (fail>=2),
             # so users know its number isn't merely queued. A DECLARED scrip keeps retrying up to
@@ -421,17 +517,24 @@ def main():
             fails[code] = fails.get(code, 0) + 1
             if code not in declared or fails[code] >= MAX_FAIL:
                 done.add(code)
+                if declared.get(code):
+                    seen[code] = declared[code]
         if spent % 10 == 0:
             ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
             data["updated"] = ist.strftime("%Y-%m-%d %H:%M IST")
             json.dump(data, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
             json.dump(sorted(done), open(DONE, "w"))
             json.dump(fails, open(FAILS, "w"))
+            if save_seen:
+                json.dump(seen, open(SEEN, "w"), sort_keys=True)
             time.sleep(0.2)
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
     data["updated"] = ist.strftime("%Y-%m-%d %H:%M IST")
     json.dump(data, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     json.dump(sorted(done), open(DONE, "w"))
+    json.dump(fails, open(FAILS, "w"))
+    if save_seen:
+        json.dump(seen, open(SEEN, "w"), sort_keys=True)
     ncov = len(data["px"])
     print("WROTE %s: processed %d scrips this run; %d scrips now have numbers" % (os.path.normpath(OUT), spent, ncov))
 
