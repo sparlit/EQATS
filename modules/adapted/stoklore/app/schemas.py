@@ -30,8 +30,9 @@ importing another's schemas.
 from datetime import date
 from typing import Literal
 
-from app.core import price_sources
 from pydantic import BaseModel, Field
+
+from app.core import price_sources
 
 
 class ChatRequest(BaseModel):

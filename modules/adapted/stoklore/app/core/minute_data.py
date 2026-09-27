@@ -44,6 +44,7 @@ import threading
 from pathlib import Path
 
 import duckdb
+
 from app.core import scraper
 
 HF_GLOB = "hf://datasets/xxparthparekhxx/indian-stock-market-minute-data/minute/*.parquet"

@@ -24,9 +24,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from fastapi import APIRouter, HTTPException
+
 from app.core import db, scraper
 from app.deps import _cached
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["indices"])
 

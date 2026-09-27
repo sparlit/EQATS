@@ -27,6 +27,7 @@ One strategy for now (the same golden/death cross prices.ema_crossover already c
 live signal) - more strategies are a later update, not this one.
 """
 import pandas as pd
+
 from app.core import db
 
 

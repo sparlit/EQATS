@@ -30,6 +30,9 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
+
 from app.core import classifier, db, llm, trade_context
 from app.core.config import DIRECTIONS, IST, RESULTS, UPLOAD_DIR
 from app.schemas import (
@@ -40,8 +43,6 @@ from app.schemas import (
     TradeReviewRequest,
     TradingGoalRequest,
 )
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from fastapi.responses import Response
 
 router = APIRouter(tags=["manual-trades"])
 

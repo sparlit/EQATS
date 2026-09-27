@@ -21,6 +21,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+from fastapi import APIRouter, HTTPException
+
 from app.core import backtest, db
 from app.schemas import (
     AutoBacktestScriptRequest,
@@ -28,7 +30,6 @@ from app.schemas import (
     BacktestRunRequest,
     BacktestSaveRequest,
 )
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["backtest"])
 
