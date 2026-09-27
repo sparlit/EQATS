@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 410 | Current Index: 172
+Total Repositories: 410 | Current Index: 173
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -175,7 +175,7 @@ Total Repositories: 410 | Current Index: 172
 | 170 | jandginvestment/cci20-sma20-strategy | Completed | https://github.com/sparlit/EQATS/pull/2754 |
 | 171 | jayeshsrathod/nse-scanner | Completed | https://github.com/sparlit/EQATS/pull/2755 |
 | 172 | jensnesten/rust_bt | Processed | https://github.com/sparlit/EQATS/pull/2756 |
-| 173 | jerryshell/midas | pending | None |
+| 173 | jerryshell/midas | Processed | None |
 | 174 | jinit24/nsedownload | pending | None |
 | 175 | joaquinbejar/optionstratlib | pending | None |
 | 176 | johnebe2020-trade/nse-scanner | pending | None |
