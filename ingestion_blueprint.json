@@ -878,8 +878,8 @@
       "target": "degenapetrader/evpoly",
       "url": "https://github.com/degenapetrader/evpoly",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2539",
+      "merged": true
     },
     {
       "name": "openbook",
