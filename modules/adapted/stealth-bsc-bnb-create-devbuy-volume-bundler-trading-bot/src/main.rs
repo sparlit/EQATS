@@ -44,7 +44,7 @@ struct CreateTokenRequest {
     raised_amount: u64, // must not be null
     #[serde(rename = "symbol")]
     symbol: String, // <-- required
-
+    
 }
 
 #[derive(Deserialize, Debug)]
@@ -167,8 +167,8 @@ async fn main() -> anyhow::Result<()> {
 
 
     // Replace with your private key (for testing only, never hardcode in prod)
-
-
+    
+    
     let nonce = parsed.data; // normally you'd get this from the nonce API
 
     // The message to sign — must match exactly what the backend expects
@@ -201,7 +201,7 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-
+    
     let parsed: LoginResponse = res.json().await?;
     println!("{:#?}", parsed);
     let access_token = if parsed.code == 0 {
@@ -217,7 +217,7 @@ async fn main() -> anyhow::Result<()> {
         eprintln!("❌ Login failed: {:?}", parsed.message);
         None
     };
-
+    
     let file_path = env::var("IMAGE_PATH").context("Missing IMAGE_PATH in .env")?;
     let path = Path::new(&file_path);
     // check if the file exists
@@ -243,7 +243,7 @@ async fn main() -> anyhow::Result<()> {
                 .mime_str("image/png")?,
         );
 
-
+    
         println!("Access token: --------------------------------");
 
         // Declare `res` outside so it's visible later
@@ -254,18 +254,18 @@ async fn main() -> anyhow::Result<()> {
                 .multipart(form)
                 .send()
                 .await?;
-
+        
             if !res.status().is_success() {
                 eprintln!("❌ Upload failed: {}", res.status());
                 return Ok(()); // early return on failure
             }
-
+        
             res // return this `res` value from the if block
         } else {
             eprintln!("⚠️ Skipping upload — no access token");
             return Ok(()); // nothing to upload
         };
-
+        
         // Parse the response JSON (res is still in scope here)
         let parsed: UploadResponse = res.json().await?;
         let uploaded_url = if parsed.code == 0 {
@@ -284,7 +284,7 @@ async fn main() -> anyhow::Result<()> {
     // Read config.json
     let data = fs::read_to_string("./src/config.json")?;
     let mut payload: CreateTokenRequest = from_str(&data)?;
-
+    
     payload.img_url = uploaded_url.clone(); // inject new URL dynamically
     // Optional: log to verify
     println!("📤 Final payload:\n{}", serde_json::to_string_pretty(&payload)?);
@@ -296,13 +296,13 @@ async fn main() -> anyhow::Result<()> {
             .json(&payload)
             .send()
             .await?;
-
+        
 
         if !res1.status().is_success() {
             eprintln!("❌ Token creation failed: {}", res1.status());   // early return if the API call failed
         }
         //println!("{:#?}", res1);
-
+        
         res1 // return this `res1` from the if block
     } else {
         eprintln!("⚠️ Skipping token creation — no access token");
@@ -339,7 +339,7 @@ async fn main() -> anyhow::Result<()> {
     //     .parse::<LocalWallet>()?
     //     .with_chain_id(56u64); // BSC Mainnet = 56
     let client = Arc::new(SignerMiddleware::new(provider.clone(), wallet));
-
+    
     // 3️⃣ TokenManager2 contract address
     let token_manager_addr: Address = "0x5c952063c7fc8610FFDB798152D69F0B9550762b"
         .parse()
