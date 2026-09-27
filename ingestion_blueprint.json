@@ -1,5 +1,5 @@
 {
-  "current_index": 139,
+  "current_index": 140,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1117,7 +1117,7 @@
       "name": "bhavcopy-downloader",
       "target": "girishg4t/bhavcopy-downloader",
       "url": "https://github.com/girishg4t/bhavcopy-downloader",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
