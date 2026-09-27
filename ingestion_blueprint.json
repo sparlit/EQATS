@@ -1,5 +1,5 @@
 {
-  "current_index": 168,
+  "current_index": 169,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1349,9 +1349,9 @@
       "name": "nse-scanner",
       "target": "itsnrk1/nse-scanner",
       "url": "https://github.com/itsnrk1/nse-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2753",
+      "merged": true
     },
     {
       "name": "cci20-sma20-strategy",
