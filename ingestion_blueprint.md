@@ -156,8 +156,8 @@ Total Repositories: 411 | Current Index: 106
 | 151 | hemenkapadia/getbhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2580 |
 | 152 | henry-richard7/nse-tool-stocks-aerial-view | Processed | https://github.com/sparlit/EQATS/pull/2581 |
 | 153 | hermanodecastro/arbitrage-trading | Processed | https://github.com/sparlit/EQATS/pull/2583 |
-| 154 | hgsujay/nsedata | Processed | https://github.com/sparlit/EQATS/pull/2584 |
-| 155 | hi-imcodeman/stock-nse-india | Processed | https://github.com/sparlit/EQATS/pull/2585 |
+| 154 | hgsujay/nsedata | Processed | https://github.com/sparlit/EQATS/pull/2646 |
+| 155 | hi-imcodeman/stock-nse-india | Processed | https://github.com/sparlit/EQATS/pull/2645 |
 | 156 | himanshumohanty-git24/rakshaquant | Completed | https://github.com/sparlit/EQATS/pull/2586 |
 | 157 | hirawatt/bse_nse_announcement | Processed | https://github.com/sparlit/EQATS/pull/2587 |
 | 158 | hmerro3/indian-trading-skills | Processed | https://github.com/sparlit/EQATS/pull/2588 |
@@ -209,7 +209,7 @@ Total Repositories: 411 | Current Index: 106
 | 204 | longbridge/longbridge-terminal | Processed | https://github.com/sparlit/EQATS/pull/2635 |
 | 205 | lqz13th/extrema_infra | Processed | https://github.com/sparlit/EQATS/pull/2636 |
 | 206 | maanavshah/stock-market-india | Processed | https://github.com/sparlit/EQATS/pull/2637 |
-| 207 | maheshcharig/financial-data | pending | None |
+| 207 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/2649 |
 | 208 | mailbagrahul/nseoptionalpha | pending | None |
 | 209 | manavgupta83/nse-factor-engine | pending | None |
 | 210 | mandarl/nsedata | pending | None |

@@ -830,7 +830,7 @@
       "target": "dallyshalla/tropix",
       "url": "https://github.com/dallyshalla/tropix",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2642",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2650",
       "merged": true
     },
     {
@@ -1230,7 +1230,7 @@
       "target": "hgsujay/nsedata",
       "url": "https://github.com/hgsujay/nsedata",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2584",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2646",
       "merged": true
     },
     {
@@ -1238,7 +1238,7 @@
       "target": "hi-imcodeman/stock-nse-india",
       "url": "https://github.com/hi-imcodeman/stock-nse-india",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2585",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2645",
       "merged": true
     },
     {
@@ -1653,9 +1653,9 @@
       "name": "financial-data",
       "target": "maheshcharig/financial-data",
       "url": "https://github.com/maheshcharig/financial-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2649",
+      "merged": true
     },
     {
       "name": "nseoptionalpha",
