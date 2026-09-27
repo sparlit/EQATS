@@ -1,5 +1,5 @@
 {
-  "current_index": 114,
+  "current_index": 115,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -917,9 +917,9 @@
       "name": "top-gainers-and-losers-nse",
       "target": "devangmukherjee/top-gainers-and-losers-nse",
       "url": "https://github.com/devangmukherjee/top-gainers-and-losers-nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2698",
+      "merged": true
     },
     {
       "name": "portfolio-monte-carlo",
