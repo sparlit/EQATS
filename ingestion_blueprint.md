@@ -1,9 +1,13 @@
 # EQATS Master Integration Blueprint
 <<<<<<< HEAD
+<<<<<<< HEAD
 Total Repositories: 411 | Current Index: 207
 =======
 Total Repositories: 411 | Current Index: 155
 >>>>>>> integrate/stock-nse-india
+=======
+Total Repositories: 411 | Current Index: 156
+>>>>>>> integrate/rakshaquant
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
