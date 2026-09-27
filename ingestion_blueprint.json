@@ -1,5 +1,5 @@
 {
-  "current_index": 175,
+  "current_index": 176,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1405,7 +1405,7 @@
       "name": "optionstratlib",
       "target": "joaquinbejar/optionstratlib",
       "url": "https://github.com/joaquinbejar/optionstratlib",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
