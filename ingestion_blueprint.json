@@ -1390,8 +1390,8 @@
       "target": "jinit24/nsedownload",
       "url": "https://github.com/jinit24/nsedownload",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2758",
+      "merged": true
     },
     {
       "name": "optionstratlib",
