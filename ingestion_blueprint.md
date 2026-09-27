@@ -102,7 +102,7 @@ Total Repositories: 411 | Current Index: 100
 | 97 | codegallivant/nse-ohlc-scraper-plotter | Processed | https://github.com/sparlit/EQATS/pull/2524 |
 | 98 | conteurshadow/polymarket-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2525 |
 | 99 | crazygirl437/hyper-grid | Skipped: Private/Non-Existent (404/403) | None |
-| 100 | crypto-crawler/coinsignal | Processed | None |
+| 100 | crypto-crawler/coinsignal | Processed | https://github.com/sparlit/EQATS/pull/2527 |
 | 101 | cutupdev/solana-copytrading-bot | pending | None |
 | 102 | cyberomin/nsefinance-python | pending | None |
 | 103 | d-e-s-o/apcacli | pending | None |

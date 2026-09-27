@@ -798,8 +798,8 @@
       "target": "crypto-crawler/coinsignal",
       "url": "https://github.com/crypto-crawler/coinsignal",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2527",
+      "merged": true
     },
     {
       "name": "solana-copytrading-bot",
