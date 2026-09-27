@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 410 | Current Index: 125
+Total Repositories: 410 | Current Index: 126
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -128,7 +128,7 @@ Total Repositories: 410 | Current Index: 125
 | 123 | ej9909-create/nse_52wk_screener | Completed | https://github.com/sparlit/EQATS/pull/2706 |
 | 124 | ekanshsinghal/indian-stock-market | Completed | https://github.com/sparlit/EQATS/pull/2707 |
 | 125 | erio-harrison/rust-trade | Processed | https://github.com/sparlit/EQATS/pull/2708 |
-| 126 | featherenvy/botvana | pending | None |
+| 126 | featherenvy/botvana | Processed | None |
 | 127 | feroz-ghub-26/nse-sharia-news-feed | pending | None |
 | 128 | feroze/yfinance-stock-history | pending | None |
 | 129 | ferozmd53/nse-preopen-data | pending | None |
