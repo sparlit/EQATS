@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 111
+Total Repositories: 411 | Current Index: 212
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -113,11 +113,7 @@ Total Repositories: 411 | Current Index: 111
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
 | 109 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2670 |
 | 110 | degenapetrader/evpoly | Completed | https://github.com/sparlit/EQATS/pull/2539 |
-<<<<<<< HEAD
 | 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2677 |
-=======
-| 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2678 |
->>>>>>> integrate/openbook
 | 112 | deshpanda/nse-screener | Completed | https://github.com/sparlit/EQATS/pull/2541 |
 | 113 | deshpanda/nse-screener-data | Processed | https://github.com/sparlit/EQATS/pull/2542 |
 | 114 | deshwalmahesh/nse-stock-scanner | Completed | https://github.com/sparlit/EQATS/pull/2543 |
@@ -218,7 +214,7 @@ Total Repositories: 411 | Current Index: 111
 | 209 | manavgupta83/nse-factor-engine | Completed | None |
 | 210 | mandarl/nsedata | Processed | None |
 | 211 | manddar/open-interest-data-extractor | Completed | https://github.com/sparlit/EQATS/pull/2665 |
-| 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | Processed | None |
+| 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | Processed | https://github.com/sparlit/EQATS/pull/2674 |
 | 213 | manishn32/option_chain_analyzer | pending | None |
 | 214 | manitgupta/nse-mcp | pending | None |
 | 215 | mapsx/nse | pending | None |

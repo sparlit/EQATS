@@ -1,5 +1,5 @@
 {
-  "current_index": 111,
+  "current_index": 212,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -886,11 +886,7 @@
       "target": "degensugarboo/openbook",
       "url": "https://github.com/degensugarboo/openbook",
       "status": "Processed",
-<<<<<<< HEAD
       "pr_url": "https://github.com/sparlit/EQATS/pull/2677",
-=======
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2678",
->>>>>>> integrate/openbook
       "merged": true
     },
     {
@@ -1698,7 +1694,7 @@
       "target": "manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "url": "https://github.com/manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2674",
       "merged": true
     },
     {
