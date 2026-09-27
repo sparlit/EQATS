@@ -7,8 +7,8 @@
 //!   2. each rollout transcript's first JSONL line
 //!      (`session_meta.payload.model_provider`, read on resume).
 //!
-//! Codex HIDES any session whose provider differs from the one currently
-//! active. So a user who has talked to Codex under several provider ids —
+//! Older Codex clients hide sessions whose provider differs from the one
+//! active. A user who has talked to Codex under several provider ids —
 //! the official ChatGPT login (`openai`, lowercase), our third-party block
 //! (`OpenAI`), a `gemini` config, … — only ever sees the slice matching
 //! whatever provider is launched. The rest looks "lost".
@@ -35,12 +35,15 @@
 //!     N) BEFORE mutating, and skip the retag entirely if the backup fails.
 //!   * Idempotent (`WHERE model_provider IS NOT ?`): re-running on every
 //!     launch is a cheap self-heal.
-//!   * Atomic rollout rewrite (temp + rename), first line only, and skip
-//!     freshly-written rollouts so we never race Codex appending to the
-//!     live session.
+//!   * Save the original rollout metadata before rewriting. Coordinate with
+//!     Codex's writer locks and exclude active threads from both stores.
+//!     Keep mtime/length checks as a fallback for older clients without locks.
 //!   * Never fatal: a locked DB (Codex still running) or any error is
 //!     logged and skipped; the next launch self-heals.
 
+use std::collections::HashSet;
+use std::fs::{File, OpenOptions};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -61,7 +64,7 @@ pub struct MergeReport {
 }
 
 /// Public entry — called from the Codex launch pre-flight in
-/// `process_manager::start_codex_native`, after `config.toml` is written
+/// `process_manager::start_tool`, after `config.toml` is written
 /// and before Codex spawns. Never returns an error: everything is logged.
 pub fn merge_codex_history(codex_home: &Path) {
     let Some(active) = read_active_provider(codex_home) else {
@@ -84,16 +87,90 @@ pub fn merge_codex_history(codex_home: &Path) {
 /// Retag both stores to `active`. Split from the public entry for tests.
 fn retag_all(codex_home: &Path, active: &str) -> MergeReport {
     let mut report = MergeReport::default();
-    for db in find_state_dbs(codex_home) {
-        report.dbs_seen += 1;
-        match retag_db(&db, active) {
-            Ok(Some(n)) => report.threads_retagged += n,
-            Ok(None) => report.dbs_locked += 1,
-            Err(e) => log::warn!("[CodexMerge] state db {db:?}: {e}"),
+    let (_coordination, mut skipped) = match lock_history_writers(codex_home) {
+        Ok(guard) => guard,
+        Err(e) => {
+            log::warn!("[CodexMerge] writer coordination unavailable; retry next launch: {e}");
+            return report;
+        }
+    };
+    let mut files = Vec::new();
+    collect_jsonl(&codex_home.join("sessions"), 4, &mut files);
+    collect_jsonl(&codex_home.join("archived_sessions"), 1, &mut files);
+    // Old clients do not take writer locks. Also leave their fresh DB rows
+    // alone instead of retagging the index while skipping the transcript.
+    for path in &files {
+        if is_live_session(path) {
+            if let Some(id) = rollout_id(path) {
+                skipped.insert(id);
+            }
         }
     }
-    report.rollouts_retagged = retag_rollouts(codex_home, active);
+    for db in find_state_dbs(codex_home) {
+        report.dbs_seen += 1;
+        match retag_db(&db, active, &skipped) {
+            Ok(Some(n)) => report.threads_retagged += n,
+            Ok(None) => {
+                report.dbs_locked += 1;
+                return report;
+            }
+            Err(e) => {
+                log::warn!("[CodexMerge] state db {db:?}; retry next launch: {e}");
+                return report;
+            }
+        }
+    }
+    report.rollouts_retagged = retag_rollouts(&files, active, &skipped);
     report
+}
+
+/// Codex 0.154's thread-store/local/writer_lock.rs holds the coordination
+/// lock while acquiring/removing per-thread locks. Holding the same OS lock
+/// here prevents new writers until migration ends; already-active writers
+/// keep their own locks and are excluded. fs2 uses flock/LockFileEx, as does
+/// Codex's std::fs::File locking, without raising our Rust MSRV.
+fn lock_history_writers(codex_home: &Path) -> io::Result<(File, HashSet<String>)> {
+    use fs2::FileExt;
+    let dir = codex_home.join("thread-writer-locks");
+    std::fs::create_dir_all(&dir)?;
+    let coordination = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(dir.join(".coordination.lock"))?;
+    coordination.try_lock_exclusive()?;
+    let mut active = HashSet::new();
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        let Some(id) = path.file_stem().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if path.extension().and_then(|ext| ext.to_str()) != Some("lock")
+            || uuid::Uuid::parse_str(id).is_err()
+        {
+            continue;
+        }
+        let file = OpenOptions::new().read(true).write(true).open(&path)?;
+        match file.try_lock_exclusive() {
+            Ok(()) => {}
+            Err(e) if e.raw_os_error() == fs2::lock_contended_error().raw_os_error() => {
+                active.insert(id.to_string());
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok((coordination, active))
+}
+
+fn rollout_id(path: &Path) -> Option<String> {
+    use std::io::BufRead;
+    let mut first = String::new();
+    io::BufReader::new(File::open(path).ok()?)
+        .read_line(&mut first)
+        .ok()?;
+    let value: serde_json::Value = serde_json::from_str(&first).ok()?;
+    value.get("payload")?.get("id")?.as_str().map(String::from)
 }
 
 // ─── config.toml: the active provider ────────────────────────────────────
@@ -166,7 +243,11 @@ fn find_state_dbs(codex_home: &Path) -> Vec<PathBuf> {
 /// Retag every thread in one state DB to `active`.
 /// `Ok(Some(n))` = success, n rows changed. `Ok(None)` = DB busy/locked
 /// (Codex running) — skipped, next launch self-heals. `Err` = real error.
-fn retag_db(db_path: &Path, active: &str) -> Result<Option<usize>, String> {
+fn retag_db(
+    db_path: &Path,
+    active: &str,
+    skipped: &HashSet<String>,
+) -> Result<Option<usize>, String> {
     use rusqlite::{Connection, OpenFlags};
 
     let conn = Connection::open_with_flags(
@@ -183,14 +264,22 @@ fn retag_db(db_path: &Path, active: &str) -> Result<Option<usize>, String> {
             (),
             |r| r.get(0),
         )
-        .unwrap_or(0);
+        .map_err(|e| format!("schema: {e}"))?;
     if has_col == 0 {
         return Ok(Some(0));
     }
 
+    conn.execute_batch("CREATE TEMP TABLE eb_merge_skipped (id TEXT PRIMARY KEY)")
+        .map_err(|e| format!("skip table: {e}"))?;
+    for id in skipped {
+        conn.execute("INSERT INTO eb_merge_skipped VALUES (?1)", (id,))
+            .map_err(|e| format!("skip thread: {e}"))?;
+    }
+
     // How many rows actually need retagging? (Idempotent: usually 0.)
     let pending: i64 = match conn.query_row(
-        "SELECT count(*) FROM threads WHERE model_provider IS NOT ?1",
+        "SELECT count(*) FROM threads WHERE model_provider IS NOT ?1
+         AND id NOT IN (SELECT id FROM eb_merge_skipped)",
         (active,),
         |r| r.get(0),
     ) {
@@ -208,13 +297,13 @@ fn retag_db(db_path: &Path, active: &str) -> Result<Option<usize>, String> {
         BackupOutcome::Ok => prune_backups(db_path),
         BackupOutcome::Locked => return Ok(None),
         BackupOutcome::Failed(e) => {
-            log::warn!("[CodexMerge] backup of {db_path:?} failed; skipping retag: {e}");
-            return Ok(None);
+            return Err(format!("backup failed: {e}"));
         }
     }
 
     match conn.execute(
-        "UPDATE threads SET model_provider = ?1 WHERE model_provider IS NOT ?1",
+        "UPDATE threads SET model_provider = ?1 WHERE model_provider IS NOT ?1
+         AND id NOT IN (SELECT id FROM eb_merge_skipped)",
         (active,),
     ) {
         Ok(n) => Ok(Some(n)),
@@ -246,12 +335,15 @@ fn backup_state_db(conn: &rusqlite::Connection, db_path: &Path) -> BackupOutcome
 }
 
 fn backup_path(db_path: &Path) -> PathBuf {
-    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S-%f");
     let name = db_path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "state.sqlite".to_string());
-    db_path.with_file_name(format!("{name}{BACKUP_MARKER}{ts}"))
+    db_path.with_file_name(format!(
+        "{name}{BACKUP_MARKER}{ts}-{}",
+        uuid::Uuid::new_v4()
+    ))
 }
 
 fn prune_backups(db_path: &Path) {
@@ -282,19 +374,13 @@ fn prune_backups(db_path: &Path) {
 
 // ─── rollout JSONL: session_meta.model_provider ─────────────────────────
 
-fn retag_rollouts(codex_home: &Path, active: &str) -> usize {
-    let mut files = Vec::new();
-    // sessions/<Y>/<M>/<D>/rollout-*.jsonl  →  depth 4
-    collect_jsonl(&codex_home.join("sessions"), 4, &mut files);
-    // archived_sessions/*.jsonl  →  depth 1 (flat)
-    collect_jsonl(&codex_home.join("archived_sessions"), 1, &mut files);
-
+fn retag_rollouts(files: &[PathBuf], active: &str, skipped: &HashSet<String>) -> usize {
     let mut count = 0;
     for file in files {
-        if is_live_session(&file) {
+        if is_live_session(file) || rollout_id(file).is_some_and(|id| skipped.contains(&id)) {
             continue;
         }
-        match rewrite_rollout_meta(&file, active) {
+        match rewrite_rollout_meta(file, active) {
             Ok(true) => count += 1,
             Ok(false) => {}
             Err(e) => log::warn!("[CodexMerge] rollout {file:?}: {e}"),
@@ -324,7 +410,7 @@ fn collect_jsonl(dir: &Path, depth: u8, out: &mut Vec<PathBuf>) {
 /// appending to it. On any mtime uncertainty we err toward "live" (skip).
 fn is_live_session(path: &Path) -> bool {
     let Ok(meta) = std::fs::metadata(path) else {
-        return false; // can't stat → best-effort proceed
+        return true;
     };
     meta.modified()
         .map(|m| {
@@ -332,7 +418,7 @@ fn is_live_session(path: &Path) -> bool {
                 .map(|d| d.as_secs() < ACTIVE_ROLLOUT_SKIP_SECS)
                 .unwrap_or(true)
         })
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 /// Rewrite the first-line `session_meta.model_provider` to `active`,
@@ -343,6 +429,7 @@ fn rewrite_rollout_meta(path: &Path, active: &str) -> std::io::Result<bool> {
     use std::io::{BufRead, Write};
 
     let mut reader = std::io::BufReader::new(std::fs::File::open(path)?);
+    let before = reader.get_ref().metadata()?;
     let mut first = String::new();
     if reader.read_line(&mut first)? == 0 {
         return Ok(false); // empty file
@@ -371,6 +458,43 @@ fn rewrite_rollout_meta(path: &Path, active: &str) -> std::io::Result<bool> {
     );
     let new_first = serde_json::to_string(&value).map_err(std::io::Error::other)?;
 
+    // Save only the original first line: the body is copied verbatim and a
+    // full-transcript backup on every switch would grow with chat history.
+    // Never overwrite this evidence on subsequent provider changes.
+    let backup = path.with_extension("jsonl.eb-merge-original-meta");
+    match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&backup)
+    {
+        Ok(mut file) => {
+            if let Err(e) = file
+                .write_all(first.as_bytes())
+                .and_then(|()| file.sync_all())
+            {
+                drop(file);
+                let _ = std::fs::remove_file(&backup);
+                return Err(e);
+            }
+        }
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            let saved: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(&backup)?).map_err(io::Error::other)?;
+            if saved.get("type") != value.get("type")
+                || saved.pointer("/payload/id") != value.pointer("/payload/id")
+                || saved
+                    .pointer("/payload/model_provider")
+                    .and_then(|v| v.as_str())
+                    .is_none()
+            {
+                return Err(io::Error::other(
+                    "rollout metadata backup does not match session",
+                ));
+            }
+        }
+        Err(e) => return Err(e),
+    }
+
     // Atomic: new first line + verbatim remainder → temp in the same dir,
     // then rename over the original.
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
@@ -378,16 +502,38 @@ fn rewrite_rollout_meta(path: &Path, active: &str) -> std::io::Result<bool> {
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("rollout.jsonl");
-    let tmp = dir.join(format!(".{file_name}.eb-tmp"));
-    {
-        let mut out = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
+    let tmp = dir.join(format!(".{file_name}.{}.eb-tmp", uuid::Uuid::new_v4()));
+    let result = (|| {
+        let mut out =
+            std::io::BufWriter::new(OpenOptions::new().write(true).create_new(true).open(&tmp)?);
         out.write_all(new_first.as_bytes())?;
         out.write_all(b"\n")?;
         std::io::copy(&mut reader, &mut out)?; // lines 2..N, untouched
         out.flush()?;
+        out.get_ref().sync_all()?;
+        drop(out);
+        drop(reader);
+        replace_unchanged_rollout(path, &tmp, &before)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
     }
-    std::fs::rename(&tmp, path)?;
+    result?;
     Ok(true)
+}
+
+fn replace_unchanged_rollout(
+    path: &Path,
+    tmp: &Path,
+    before: &std::fs::Metadata,
+) -> io::Result<()> {
+    let after = std::fs::metadata(path)?;
+    if after.len() != before.len() || after.modified()? != before.modified()? {
+        return Err(io::Error::other(
+            "rollout changed during merge; retry next launch",
+        ));
+    }
+    std::fs::rename(tmp, path)
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────
@@ -472,11 +618,11 @@ mod tests {
         make_state_db(&db, &[("a", "gemini"), ("b", "openai"), ("c", "OpenAI")]);
 
         // gemini + openai retagged; the already-OpenAI row is left alone.
-        assert_eq!(retag_db(&db, "OpenAI").unwrap(), Some(2));
+        assert_eq!(retag_db(&db, "OpenAI", &HashSet::new()).unwrap(), Some(2));
         assert_eq!(provider_count(&db, "OpenAI"), 3);
 
         // second run is a no-op
-        assert_eq!(retag_db(&db, "OpenAI").unwrap(), Some(0));
+        assert_eq!(retag_db(&db, "OpenAI", &HashSet::new()).unwrap(), Some(0));
 
         // a pre-merge backup was written
         let has_backup = std::fs::read_dir(&dir)
@@ -496,7 +642,7 @@ mod tests {
         conn.execute_batch("CREATE TABLE other (x INTEGER);")
             .unwrap();
         drop(conn);
-        assert_eq!(retag_db(&db, "OpenAI").unwrap(), Some(0));
+        assert_eq!(retag_db(&db, "OpenAI", &HashSet::new()).unwrap(), Some(0));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -592,5 +738,175 @@ mod tests {
         assert_eq!(report.threads_retagged, 1);
         assert_eq!(provider_count(&dir.join("state_5.sqlite"), "OpenAI"), 2);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn old_rollout(dir: &Path, id: &str) -> PathBuf {
+        let sessions = dir.join("sessions");
+        std::fs::create_dir_all(&sessions).unwrap();
+        let path = sessions.join(format!("rollout-{id}.jsonl"));
+        std::fs::write(
+            &path,
+            format!("{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{id}\",\"model_provider\":\"openai\"}}}}\n{{\"type\":\"event_msg\",\"payload\":{{\"text\":\"keep me\"}}}}\n"),
+        )
+        .unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - Duration::from_secs(600))
+            .unwrap();
+        path
+    }
+
+    #[test]
+    fn state_db_failure_leaves_rollouts_untouched() {
+        let dir = tmp_dir("db_failure");
+        std::fs::write(dir.join("state_5.sqlite"), b"invalid sqlite database").unwrap();
+        let path = old_rollout(&dir, "s1");
+        let before = std::fs::read(&path).unwrap();
+        let report = retag_all(&dir, "OpenAI");
+        assert_eq!(report.rollouts_retagged, 0);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn state_backup_failure_leaves_both_stores_untouched() {
+        let dir = tmp_dir("db_backup_failure");
+        // The DB fits, but the backup suffix exceeds SQLite's Windows path
+        // limit (or the filename component limit on Unix). No ACL setup needed.
+        let padding = if cfg!(windows) {
+            230usize.saturating_sub(dir.as_os_str().len())
+        } else {
+            230
+        };
+        let db = dir.join(format!("state_{}.sqlite", "a".repeat(padding)));
+        make_state_db(&db, &[("s1", "openai")]);
+        let path = old_rollout(&dir, "s1");
+        let before = std::fs::read(&path).unwrap();
+        let report = retag_all(&dir, "OpenAI");
+        assert_eq!(report.threads_retagged, 0);
+        assert_eq!(report.rollouts_retagged, 0);
+        assert_eq!(provider_count(&db, "openai"), 1);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn rollout_original_metadata_survives_repeated_merges() {
+        let dir = tmp_dir("original_meta");
+        let path = old_rollout(&dir, "s1");
+        let original = std::fs::read_to_string(&path).unwrap();
+        assert!(rewrite_rollout_meta(&path, "OpenAI").unwrap());
+        assert!(rewrite_rollout_meta(&path, "custom").unwrap());
+        let backup = path.with_extension("jsonl.eb-merge-original-meta");
+        assert_eq!(
+            std::fs::read_to_string(backup).unwrap(),
+            original.split_inclusive('\n').next().unwrap()
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn active_writer_is_skipped_in_both_stores_then_merged_after_release() {
+        use fs2::FileExt;
+        let dir = tmp_dir("active_writer");
+        let id = uuid::Uuid::new_v4().to_string();
+        let path = old_rollout(&dir, &id);
+        let before = std::fs::read(&path).unwrap();
+        let db = dir.join("state_5.sqlite");
+        make_state_db(&db, &[(&id, "openai"), ("idle", "openai")]);
+        old_rollout(&dir, "idle");
+        let locks = dir.join("thread-writer-locks");
+        std::fs::create_dir_all(&locks).unwrap();
+        let writer = std::fs::File::create(locks.join(format!("{id}.lock"))).unwrap();
+        writer.try_lock_exclusive().unwrap();
+
+        let report = retag_all(&dir, "OpenAI");
+        assert_eq!(report.threads_retagged, 1);
+        assert_eq!(report.rollouts_retagged, 1);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(provider_count(&db, "openai"), 1);
+
+        drop(writer);
+        let report = retag_all(&dir, "OpenAI");
+        assert_eq!(report.threads_retagged, 1);
+        assert_eq!(report.rollouts_retagged, 1);
+        assert_eq!(provider_count(&db, "OpenAI"), 2);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn rollout_backup_failure_preserves_original() {
+        let dir = tmp_dir("backup_failure");
+        let path = old_rollout(&dir, "s1");
+        let before = std::fs::read(&path).unwrap();
+        // A directory at the backup destination forces an I/O failure on all
+        // platforms, including Windows where read-only directory bits differ.
+        std::fs::create_dir(path.with_extension("jsonl.eb-merge-original-meta")).unwrap();
+        assert!(rewrite_rollout_meta(&path, "OpenAI").is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn appended_body_is_not_replaced_with_stale_copy() {
+        use std::io::Write;
+        let dir = tmp_dir("append_race");
+        let path = old_rollout(&dir, "s1");
+        let before = std::fs::metadata(&path).unwrap();
+        let tmp = dir.join("prepared.eb-tmp");
+        std::fs::copy(&path, &tmp).unwrap();
+        let appended = b"{\"type\":\"event_msg\",\"payload\":{\"text\":\"new message\"}}\n";
+        OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap()
+            .write_all(appended)
+            .unwrap();
+
+        assert!(replace_unchanged_rollout(&path, &tmp, &before).is_err());
+        assert!(std::fs::read(&path).unwrap().ends_with(appended));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn busy_coordination_leaves_both_stores_untouched() {
+        use fs2::FileExt;
+        let dir = tmp_dir("busy_coordination");
+        let path = old_rollout(&dir, "s1");
+        let before = std::fs::read(&path).unwrap();
+        let db = dir.join("state_5.sqlite");
+        make_state_db(&db, &[("s1", "openai")]);
+        let locks = dir.join("thread-writer-locks");
+        std::fs::create_dir_all(&locks).unwrap();
+        let guard = File::create(locks.join(".coordination.lock")).unwrap();
+        guard.try_lock_exclusive().unwrap();
+        assert_eq!(retag_all(&dir, "OpenAI"), MergeReport::default());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(provider_count(&db, "openai"), 1);
+        drop(guard);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn fresh_rollout_keeps_index_provider_until_next_launch() {
+        let dir = tmp_dir("fresh_index");
+        let path = old_rollout(&dir, "s1");
+        File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now())
+            .unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let db = dir.join("state_5.sqlite");
+        make_state_db(&db, &[("s1", "openai")]);
+        let report = retag_all(&dir, "OpenAI");
+        assert_eq!(report.threads_retagged, 0);
+        assert_eq!(report.rollouts_retagged, 0);
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(provider_count(&db, "openai"), 1);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

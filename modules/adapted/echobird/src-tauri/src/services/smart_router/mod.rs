@@ -1,9 +1,10 @@
+mod runtime;
 mod server;
 
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use rand::rngs::OsRng;
@@ -20,10 +21,30 @@ pub const SMART_ROUTER_MODEL_ID: &str = "auto";
 
 static CONFIG_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 static RUNNING: AtomicBool = AtomicBool::new(false);
+static PORT: AtomicU16 = AtomicU16::new(SMART_ROUTER_PORT);
+static SERVER: tokio::sync::Mutex<Option<runtime::ServerControl>> =
+    tokio::sync::Mutex::const_new(None);
+
+pub fn port() -> u16 {
+    PORT.load(Ordering::Relaxed)
+}
+
+fn is_router_url(raw: &str) -> bool {
+    is_loopback_url_on_port(raw, port()) || is_loopback_url_on_port(raw, SMART_ROUTER_PORT)
+}
+
+fn is_loopback_url_on_port(raw: &str, port: u16) -> bool {
+    url::Url::parse(raw.trim()).ok().is_some_and(|url| {
+        matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"))
+            && url.port_or_known_default() == Some(port)
+    })
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredConfig {
+    #[serde(default = "default_enabled")]
+    enabled: bool,
     #[serde(default = "default_version")]
     version: u32,
     #[serde(default)]
@@ -35,6 +56,7 @@ struct StoredConfig {
 impl Default for StoredConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             version: default_version(),
             candidate_ids: Vec::new(),
             api_key: String::new(),
@@ -45,6 +67,7 @@ impl Default for StoredConfig {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicConfig {
+    pub enabled: bool,
     pub candidate_ids: Vec<String>,
     pub usable_candidate_count: usize,
     pub base_url: String,
@@ -64,6 +87,10 @@ pub struct PublicActivity {
 
 fn default_version() -> u32 {
     1
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 fn config_path() -> PathBuf {
@@ -121,13 +148,15 @@ fn load_config() -> Result<StoredConfig, String> {
 }
 
 fn public_config(config: StoredConfig) -> PublicConfig {
+    let port = port();
     let usable_candidate_count = usable_candidate_count(&config.candidate_ids);
     PublicConfig {
+        enabled: config.enabled,
         candidate_ids: config.candidate_ids,
         usable_candidate_count,
-        base_url: format!("http://127.0.0.1:{SMART_ROUTER_PORT}/v1"),
+        base_url: format!("http://127.0.0.1:{port}/v1"),
         model_id: SMART_ROUTER_MODEL_ID.to_string(),
-        port: SMART_ROUTER_PORT,
+        port,
         running: RUNNING.load(Ordering::Relaxed),
     }
 }
@@ -143,7 +172,6 @@ pub fn get_public_activity() -> PublicActivity {
 pub fn set_candidate_ids(candidate_ids: Vec<String>) -> Result<PublicConfig, String> {
     let valid_user_ids: HashSet<String> = model_manager::get_user_models()
         .into_iter()
-        .filter(model_is_routable)
         .map(|model| model.internal_id)
         .collect();
     let mut seen = HashSet::new();
@@ -174,7 +202,7 @@ pub fn get_candidate_models() -> Vec<ModelConfig> {
     let candidate_ids: HashSet<String> = candidate_ids().into_iter().collect();
     let mut models: Vec<ModelConfig> = model_manager::get_user_models()
         .into_iter()
-        .filter(|model| candidate_ids.contains(&model.internal_id) && model_is_routable(model))
+        .filter(|model| candidate_ids.contains(&model.internal_id))
         .collect();
     if candidate_ids.contains("local-server") {
         let local_server = crate::services::local_llm::get_server_info_sync();
@@ -205,8 +233,10 @@ fn model_is_routable(model: &ModelConfig) -> bool {
             .as_deref()
             .is_some_and(|model_id| !model_id.trim().is_empty())
         && !model.base_url.trim().is_empty()
-        && !model.base_url.contains(":53683")
-        && !model_manager::decrypt_key_for_use(&model.api_key).is_empty()
+        && !is_router_url(&model.base_url)
+        && !model_manager::decrypt_key_for_use(&model.api_key)
+            .trim()
+            .is_empty()
 }
 
 fn local_server_is_routable(server: &crate::services::local_llm::LocalServerInfo) -> bool {
@@ -279,6 +309,7 @@ pub(crate) fn api_key_for_use() -> Result<String, String> {
 }
 
 pub fn model_config() -> Option<ModelConfig> {
+    let port = port();
     let config = load_config().ok()?;
     if usable_candidate_count(&config.candidate_ids) == 0 {
         return None;
@@ -288,9 +319,9 @@ pub fn model_config() -> Option<ModelConfig> {
         internal_id: SMART_ROUTER_INTERNAL_ID.to_string(),
         name: "Auto Router".to_string(),
         model_id: Some(SMART_ROUTER_MODEL_ID.to_string()),
-        base_url: format!("http://127.0.0.1:{SMART_ROUTER_PORT}/v1"),
+        base_url: format!("http://127.0.0.1:{port}/v1"),
         api_key: config.api_key,
-        anthropic_url: Some(format!("http://127.0.0.1:{SMART_ROUTER_PORT}")),
+        anthropic_url: Some(format!("http://127.0.0.1:{port}")),
         model_type: Some(ModelType::Local),
         openai_tested: None,
         anthropic_tested: None,
@@ -301,24 +332,96 @@ pub fn model_config() -> Option<ModelConfig> {
 }
 
 pub fn spawn_proxy_task() {
-    tauri::async_runtime::spawn(async {
-        match server::run(SMART_ROUTER_PORT).await {
-            Ok(()) => RUNNING.store(false, Ordering::Relaxed),
-            Err(e) => {
-                RUNNING.store(false, Ordering::Relaxed);
-                log::error!("[SmartRouter] {e}");
-            }
+    if let Err(error) = tauri::async_runtime::block_on(async {
+        let mut server = SERVER.lock().await;
+        PORT.store(
+            super::local_proxy::saved_port("smart-router", SMART_ROUTER_PORT)?,
+            Ordering::Relaxed,
+        );
+        if load_config()?.enabled {
+            *server = Some(start_server()?);
         }
-    });
+        Ok::<_, String>(())
+    }) {
+        log::error!("[SmartRouter] {error}");
+    }
 }
 
-pub(crate) fn mark_running() {
-    RUNNING.store(true, Ordering::Relaxed);
+fn start_server() -> Result<runtime::ServerControl, String> {
+    let listener = super::local_proxy::bind("smart-router", SMART_ROUTER_PORT)?;
+    PORT.store(
+        listener.local_addr().expect("bound listener").port(),
+        Ordering::Relaxed,
+    );
+    server::start(listener)
+}
+
+fn save_enabled(enabled: bool) -> Result<(), String> {
+    let _guard = config_lock()
+        .lock()
+        .map_err(|_| "smart router config lock poisoned".to_string())?;
+    let mut config = load_config_unlocked()?;
+    config.enabled = enabled;
+    save_config_unlocked(&config)
+}
+
+pub async fn set_enabled(enabled: bool) -> Result<PublicConfig, String> {
+    let mut server = SERVER.lock().await;
+    if enabled {
+        if !RUNNING.load(Ordering::Relaxed) {
+            if let Some(previous) = server.take() {
+                previous.stop().await;
+            }
+            let started = start_server()?;
+            if let Err(error) = save_enabled(true) {
+                started.stop().await;
+                return Err(error);
+            }
+            *server = Some(started);
+        } else {
+            save_enabled(true)?;
+        }
+    } else {
+        save_enabled(false)?;
+        if let Some(previous) = server.take() {
+            previous.stop().await;
+        }
+    }
+    get_public_config()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn enabled_defaults_on_and_persists_without_changing_candidates() {
+        let mut config: StoredConfig =
+            serde_json::from_str(r#"{"candidateIds":["first","second"],"apiKey":"key"}"#).unwrap();
+        assert!(config.enabled);
+        config.enabled = false;
+        let restored: StoredConfig =
+            serde_json::from_str(&serde_json::to_string(&config).unwrap()).unwrap();
+        assert!(!restored.enabled);
+        assert_eq!(restored.candidate_ids, vec!["first", "second"]);
+        assert_eq!(restored.api_key, "key");
+    }
+
+    #[test]
+    fn loopback_detection_uses_the_actual_port() {
+        for host in ["127.0.0.1", "localhost", "[::1]"] {
+            assert!(is_loopback_url_on_port(
+                &format!("http://{host}:41234/v1"),
+                41234
+            ));
+        }
+        assert!(!is_loopback_url_on_port("http://127.0.0.1:41235/v1", 41234));
+        assert!(!is_loopback_url_on_port(
+            "https://example.com:41234/v1",
+            41234
+        ));
+        assert!(is_router_url(&format!("http://127.0.0.1:{}/v1", port())));
+    }
 
     #[test]
     fn generated_api_key_is_prefixed_and_random_sized() {
@@ -344,14 +447,19 @@ mod tests {
             scope: ModelScope::SmartRouter,
         };
         assert!(model_is_routable(&model));
+        model.name.clear();
+        assert!(model_is_routable(&model));
 
         model.model_id = Some(String::new());
         assert!(!model_is_routable(&model));
         model.model_id = Some("model-id".to_string());
         model.base_url.clear();
+        model.anthropic_url = Some("https://example.com/anthropic".to_string());
         assert!(!model_is_routable(&model));
         model.base_url = "https://example.com/v1".to_string();
         model.api_key.clear();
+        assert!(!model_is_routable(&model));
+        model.api_key = "   ".to_string();
         assert!(!model_is_routable(&model));
     }
 

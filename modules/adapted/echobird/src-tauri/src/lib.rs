@@ -15,7 +15,6 @@ use commands::mod_stub;
 use commands::model_commands;
 use commands::process_commands;
 use commands::settings_commands;
-use commands::skill_commands;
 use commands::smart_router_commands;
 use commands::tool_commands;
 
@@ -23,7 +22,6 @@ use commands::agent_commands;
 use commands::ai_career_commands;
 use commands::bundled_commands;
 use commands::parasite_commands;
-use commands::pulse_commands;
 use commands::secret_commands;
 use commands::ssh_commands;
 
@@ -86,6 +84,10 @@ static BUNDLED: BundledAssets = BundledAssets {
             include_str!("../../docs/api/tools/install/kimicode.json"),
         ),
         (
+            "kimidesktop",
+            include_str!("../../docs/api/tools/install/kimidesktop.json"),
+        ),
+        (
             "claudedesktop",
             include_str!("../../docs/api/tools/install/claudedesktop.json"),
         ),
@@ -100,6 +102,10 @@ static BUNDLED: BundledAssets = BundledAssets {
         (
             "opencodedesktop",
             include_str!("../../docs/api/tools/install/opencodedesktop.json"),
+        ),
+        (
+            "mimodesktop",
+            include_str!("../../docs/api/tools/install/mimodesktop.json"),
         ),
         (
             "coffeecli",
@@ -126,14 +132,6 @@ static BUNDLED: BundledAssets = BundledAssets {
             include_str!("../../docs/api/tools/install/clashverge.json"),
         ),
         (
-            "trae",
-            include_str!("../../docs/api/tools/install/trae.json"),
-        ),
-        (
-            "traecn",
-            include_str!("../../docs/api/tools/install/traecn.json"),
-        ),
-        (
             "grok",
             include_str!("../../docs/api/tools/install/grok.json"),
         ),
@@ -144,6 +142,10 @@ static BUNDLED: BundledAssets = BundledAssets {
         (
             "workbuddy",
             include_str!("../../docs/api/tools/install/workbuddy.json"),
+        ),
+        (
+            "workbuddyai",
+            include_str!("../../docs/api/tools/install/workbuddyai.json"),
         ),
         (
             "zcode",
@@ -632,9 +634,8 @@ pub fn run() {
         // Single-instance guard. Must be the FIRST plugin registered (Tauri
         // requirement). When EchoBird is launched again while already running
         // — e.g. the user double-clicks the desktop shortcut while the window
-        // is minimized to tray — the OS would otherwise spawn a second process
-        // (Windows has no app-level dedup; the codex proxy's fixed port 53682
-        // just logs EADDRINUSE and the duplicate window still opens). Instead,
+        // is minimized to tray — the OS would otherwise spawn a second process.
+        // Instead,
         // the second launch hands off to this primary instance and we restore
         // and focus the existing window rather than opening a new one.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -652,29 +653,23 @@ pub fn run() {
         .manage(services::agent_loop::create_session_map())
         .manage(services::parasite::create_parasite_sessions())
         .setup(move |app| {
-            // Clean up orphaned llama-server from a previous EchoBird
-            // session. The codex launcher doesn't need this — the proxy
-            // shares a fixed port (53682) and any stale launcher gets
-            // shared by new launchers via the EADDRINUSE branch.
+            // Clean up orphaned llama-server from a previous EchoBird session.
             kill_stale_llama_server();
             log::info!("[Setup] Cleaned up any leftover llama-server processes");
 
-            // Rust codex_proxy. Binds 127.0.0.1:53682 as a background
-            // task and serves POST /v1/responses by translating Codex's
-            // Responses-API request to upstream Chat Completions, then
-            // translating the streaming response back. Replaced the
-            // Node-based launcher (tools/codex/lib/*.cjs) that earlier
-            // versions shipped — end users no longer need Node installed.
-            //
-            // If port 53682 is already held by another EchoBird instance
-            // the bind fails and we log + continue, so EchoBird's other
-            // features still start.
-            services::codex_proxy::spawn_proxy_task();
-
-            // Local OpenAI-compatible smart router. It owns a separate fixed
-            // loopback port so Codex's Responses bridge can safely use it as
-            // an upstream without forwarding back into itself.
-            services::smart_router::spawn_proxy_task();
+            // Older releases pointed Codex and ChatGPT at EchoBird's local
+            // Responses-to-Chat bridge. Migrate that config before starting
+            // services so already-running clients do not keep calling a route
+            // that no longer exists.
+            if let Some(codex_dir) = services::codex_runtime::default_codex_dir() {
+                match services::codex_runtime::migrate_legacy_proxy_config(&codex_dir) {
+                    Ok(true) => log::info!("[Setup] migrated legacy Codex proxy config"),
+                    Ok(false) => {}
+                    Err(e) => {
+                        log::warn!("[Setup] legacy Codex proxy migration failed (non-fatal): {e}")
+                    }
+                }
+            }
 
             // Initialize resource_dir for correct tools/ path resolution on all platforms
             // (especially Linux where exe is at /usr/bin but tools are at /usr/lib/com.echobird.ai/)
@@ -708,6 +703,11 @@ pub fn run() {
                     ])
                     .build(),
             )?;
+
+            // Bind and publish actual loopback ports before the UI can read
+            // them. Logging and tool paths must be ready for URL migration.
+            services::anthropic_proxy::spawn_proxy_task();
+            services::smart_router::spawn_proxy_task();
 
             // Register shell plugin (open external URLs, folders)
             app.handle().plugin(tauri_plugin_shell::init())?;
@@ -936,6 +936,40 @@ pub fn run() {
             tool_commands::scan_tools,
             tool_commands::apply_model_to_tool,
             tool_commands::restore_tool_to_official,
+            tool_commands::list_claude_code_accounts,
+            tool_commands::start_claude_code_login,
+            tool_commands::complete_claude_code_login,
+            tool_commands::cancel_claude_code_login,
+            tool_commands::switch_claude_code_account,
+            tool_commands::refresh_claude_code_account_quota,
+            tool_commands::delete_claude_code_account,
+            tool_commands::list_deepseek_accounts,
+            tool_commands::start_deepseek_login,
+            tool_commands::poll_deepseek_login,
+            tool_commands::cancel_deepseek_login,
+            tool_commands::switch_deepseek_account,
+            tool_commands::refresh_deepseek_account_quota,
+            tool_commands::delete_deepseek_account,
+            tool_commands::start_grok_login,
+            tool_commands::poll_grok_login,
+            tool_commands::cancel_grok_login,
+            tool_commands::list_grok_accounts,
+            tool_commands::switch_grok_account,
+            tool_commands::delete_grok_account,
+            tool_commands::refresh_grok_account,
+            tool_commands::list_workbuddy_accounts,
+            tool_commands::start_workbuddy_login,
+            tool_commands::poll_workbuddy_login,
+            tool_commands::cancel_workbuddy_login,
+            tool_commands::switch_workbuddy_account,
+            tool_commands::refresh_workbuddy_account_quota,
+            tool_commands::delete_workbuddy_account,
+            tool_commands::list_codex_accounts,
+            tool_commands::capture_current_codex_account,
+            tool_commands::add_codex_account_via_oauth,
+            tool_commands::switch_codex_account,
+            tool_commands::refresh_codex_account_quota,
+            tool_commands::delete_codex_account,
             tool_commands::launch_game,
             tool_commands::apply_user_project_model,
             tool_commands::launch_user_project,
@@ -950,16 +984,13 @@ pub fn run() {
             model_commands::test_model,
             model_commands::ping_model,
             model_commands::is_key_destroyed,
-            skill_commands::get_skills,
-            skill_commands::add_skill,
-            skill_commands::delete_skill,
-            skill_commands::update_skill,
             model_commands::query_model_usage,
             model_commands::save_volc_aksk,
             model_commands::has_volc_aksk,
             model_commands::clear_volc_aksk,
             model_commands::get_volc_aksk,
             smart_router_commands::get_smart_router_config,
+            smart_router_commands::set_smart_router_enabled,
             smart_router_commands::get_smart_router_activity,
             smart_router_commands::get_smart_router_candidates,
             smart_router_commands::remove_smart_router_candidate,
@@ -1012,9 +1043,6 @@ pub fn run() {
             parasite_commands::parasite_reset,
             bundled_commands::get_mother_hints,
             bundled_commands::get_install_index,
-            pulse_commands::pulse_save,
-            pulse_commands::pulse_load_all,
-            pulse_commands::pulse_list_dates,
             ai_career_commands::ai_career_family_history,
             ai_career_commands::ai_career_heatmap,
             ai_career_commands::ai_career_token_bytes,

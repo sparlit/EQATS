@@ -1097,10 +1097,8 @@ fn build_assistant_message(
 /// an orphan tool_result that Anthropic-style upstreams reject with
 /// "tool_result block has no preceding tool_use" (issue #106).
 ///
-/// Mirror of `ensure_tool_outputs_paired` in codex_proxy (which handles
-/// the reverse case: orphan `tool_use` without `tool_result`). The two
-/// directions exist independently because Mother Agent owns its own
-/// trim path and never goes through codex_proxy's pairing pass.
+/// This handles the reverse case from the output-pairing pass: orphan
+/// `tool_use` without `tool_result`.
 ///
 /// Strategy:
 ///   1. Pass 1 — collect every `tool_use` id currently present.
@@ -1189,17 +1187,21 @@ async fn build_system_prompt(request: &AgentRequest, ssh_pool: &SSHPool) -> Stri
         |------|---------|-------------|--------|\n\
         | Claude Code | Anthropic | `@anthropic-ai/claude-code` | claude |\n\
         | Codex CLI | OpenAI | `@openai/codex` | codex |\n\
-        | OpenCode | Charm/Anomaly | `opencode-ai` | opencode |\n\
+        | OpenCode v2 | Anomaly | `@opencode/cli` | opencode |\n\
         | OpenClaw | Community | `openclaw` | openclaw |\n\
-        | MiMo Code | Xiaomi | `@mimo-ai/cli` | mimo |\n\
+        | MiMo CLI (MiMo Code) | Xiaomi | `@mimo-ai/cli` | mimo |\n\
+        | MiMo Desktop (MiMo 桌面端) | Xiaomi | none; official desktop installer | Xiaomi MiMo.exe / Xiaomi MiMo.app |\n\
         | Kilo Code | Kilo | `@kilocode/cli` | kilo |\n\
-        | Kimi Code | Moonshot AI | `@moonshot-ai/kimi-code` | kimi |\n\
+        | Kimi CLI | Moonshot AI | `@moonshot-ai/kimi-code` | kimi |\n\
+        | Kimi Desktop (Kimi 桌面端) | Moonshot AI | none; official desktop installer | Kimi Code.exe / Kimi Code.app |\n\
         When the user says 'install Codex', install `@openai/codex`. Do NOT install Claude Code.\n\
         When the user says 'install Claude Code', install via `irm https://claude.ai/install.ps1 | iex` (Windows) or `curl -fsSL https://claude.ai/install.sh | bash`. Do NOT install Codex.\n\
-        When the user says 'install OpenCode', install `opencode-ai`. Do NOT install Codex or Claude Code.\n\
-        When the user says 'install MiMo Code', install `@mimo-ai/cli` (or `curl -fsSL https://mimo.xiaomi.com/install | bash` on macOS/Linux). It is a fork of OpenCode but a SEPARATE product — do NOT install `opencode-ai`.\n\
-        When the user says 'install Kilo Code', install `@kilocode/cli` (or `curl -fsSL https://kilo.ai/cli/install | bash` on macOS/Linux). It is a fork of OpenCode but a SEPARATE product — do NOT install `opencode-ai`.\n\
-        When the user says 'install Kimi Code', install `@moonshot-ai/kimi-code` (or `curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash` on macOS/Linux). It is built on Pi's pi-tui but a SEPARATE product — do NOT install `pi` or `@earendil-works/pi-coding-agent`.\n\
+        When the user says 'install OpenCode', follow the `opencode` reference and install v2 (`@opencode/cli`, or the official v2 installer). Do NOT install Codex or Claude Code.\n\
+        When the user says 'install MiMo CLI' or 'install MiMo Code', follow the `mimocode` reference and install `@mimo-ai/cli` (or `curl -fsSL https://mimo.xiaomi.com/install | bash` on macOS/Linux). It is a fork of OpenCode but a SEPARATE product — do NOT install `@opencode/cli`.\n\
+        When the user says 'install MiMo Desktop', 'MiMo 桌面端', or 'MiMo デスクトップ', follow the `mimodesktop` reference for the official Xiaomi MiMo desktop installer. Do NOT install `@mimo-ai/cli`. If the user only says 'MiMo' and the conversation does not identify the edition, ask whether they want Desktop or CLI before installing.\n\
+        When the user says 'install Kilo Code', install `@kilocode/cli` (or `curl -fsSL https://kilo.ai/cli/install | bash` on macOS/Linux). It is a fork of OpenCode but a SEPARATE product — do NOT install `@opencode/cli`.\n\
+        When the user says 'install Kimi CLI' or 'install Kimi Code CLI', follow the `kimicode` reference and install `@moonshot-ai/kimi-code` (or `curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash` on macOS/Linux). It is built on Pi's pi-tui but a SEPARATE product — do NOT install `pi` or `@earendil-works/pi-coding-agent`.\n\
+        When the user says 'install Kimi Desktop', 'Kimi 桌面端', or 'Kimi Code Desktop', follow the `kimidesktop` reference for the official Moonshot AI desktop installer. Do NOT install `@moonshot-ai/kimi-code`. If the user only says 'Kimi Code' and the conversation does not identify the edition, ask whether they want Desktop or CLI before installing.\n\
         When the user says 'install OMP' or 'Oh My Pi', follow the `omp` install reference. Its binary is `omp`, package is `@oh-my-pi/pi-coding-agent`, and config is under ~/.omp/agent. It is separate from Pi; do NOT install Pi or write ~/.pi/agent for this request.\n\
         ALWAYS read the tool's install JSON first from the **Embedded Install References** section appended below — do NOT `web_fetch` echobird.ai for these (they are already in this prompt).\n\n\
         ## Rules\n\
@@ -1307,7 +1309,7 @@ Do NOT offer WSL2 as a workaround.\n\
         - OpenClaw remote: npm uninstall -g openclaw && pkill -f 'openclaw gateway' || true\n\
         - NEVER delete ~/.openclaw/openclaw.json unless user explicitly requests -- it contains the channel pairing token.\n\n\
         ## Tool Install Reference\n\
-        When the user asks to install any tool, ALWAYS read the install reference from the **Embedded Install References** section appended at the end of this system prompt — it contains the install JSON for every supported tool (openclaw, opencode, mimocode, kilo, kimicode, claudecode, claudescience, openscience, codex, hermes, grok, workbuddy, zcode, dsh).\n\
+        When the user asks to install any tool, ALWAYS read the install reference from the **Embedded Install References** section appended at the end of this system prompt — it contains the install JSON for every supported tool (openclaw, opencode, mimocode, mimodesktop, kilo, kimicode, kimidesktop, claudecode, claudescience, openscience, codex, hermes, grok, workbuddy, zcode, dsh).\n\
         Do NOT `web_fetch` `https://echobird.ai/api/tools/install/...` — that content is already embedded in this prompt and works offline.\n\
         Use `web_fetch` on the tool's official site when the tool is not in the embedded list, when its reference explicitly requires current download links or repository setup instructions, or when an install failure indicates an outdated endpoint, package, prerequisite, or installer option. Verify replacements before retrying.\n\n\
         ## Network Pre-Check (MANDATORY Before Installation)\n\
@@ -1423,7 +1425,7 @@ fn is_shared_tool(name: &str) -> bool {
 // -- Install-intent validator --
 //
 // The model occasionally substitutes a similarly-named product when generating
-// install commands ("install OpenClaw" → `npm install -g opencode-ai`). The
+// install commands ("install OpenClaw" → `npm install -g @opencode/cli`). The
 // system prompt's tool-identity table tries to prevent this but model attention
 // is not reliable enough to lean on it alone, so this is a deterministic check:
 // before a shell_exec install command runs, we compare what the user asked for
@@ -1439,8 +1441,10 @@ enum AgentTarget {
     OpenClaw,
     OpenCode,
     MiMoCode,
+    MiMoDesktop,
     KiloCode,
     KimiCode,
+    KimiDesktop,
     ClaudeCode,
     Codex,
 }
@@ -1450,9 +1454,11 @@ impl AgentTarget {
         match self {
             Self::OpenClaw => "OpenClaw",
             Self::OpenCode => "OpenCode",
-            Self::MiMoCode => "MiMo Code",
+            Self::MiMoCode => "MiMo CLI (MiMo Code)",
+            Self::MiMoDesktop => "MiMo Desktop (MiMo 桌面端)",
             Self::KiloCode => "Kilo Code",
-            Self::KimiCode => "Kimi Code",
+            Self::KimiCode => "Kimi CLI",
+            Self::KimiDesktop => "Kimi Desktop (Kimi 桌面端)",
             Self::ClaudeCode => "Claude Code",
             Self::Codex => "Codex CLI",
         }
@@ -1460,10 +1466,12 @@ impl AgentTarget {
     fn canonical_install(&self) -> &'static str {
         match self {
             Self::OpenClaw => "npm install -g openclaw",
-            Self::OpenCode => "npm install -g opencode-ai",
+            Self::OpenCode => "npm install -g @opencode/cli  (or  curl -fsSL https://opencode.ai/v2/install | bash)",
             Self::MiMoCode => "npm install -g @mimo-ai/cli  (or  curl -fsSL https://mimo.xiaomi.com/install | bash)",
+            Self::MiMoDesktop => "Follow the embedded mimodesktop install reference for the official Xiaomi MiMo desktop installer.",
             Self::KiloCode => "npm install -g @kilocode/cli  (or  curl -fsSL https://kilo.ai/cli/install | bash)",
             Self::KimiCode => "npm install -g @moonshot-ai/kimi-code  (or  curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash)",
+            Self::KimiDesktop => "Follow the embedded kimidesktop install reference for the official Kimi desktop installer.",
             Self::ClaudeCode => "curl -fsSL https://claude.ai/install.sh | bash  (or  npm install -g @anthropic-ai/claude-code)",
             Self::Codex => "npm install -g @openai/codex",
         }
@@ -1497,10 +1505,23 @@ fn detect_user_intent(messages: &[Message]) -> Option<AgentTarget> {
         if text.contains("openclaw") || text.contains("open claw") || text.contains("openclaude") {
             return Some(AgentTarget::OpenClaw);
         }
+        // Desktop first: its shared config path can also mention mimocode.
+        if text.contains("mimodesktop")
+            || text.contains("mimo desktop")
+            || text.contains("mimo 桌面")
+            || text.contains("mimo桌面")
+            || text.contains("mimo デスクトップ")
+        {
+            return Some(AgentTarget::MiMoDesktop);
+        }
         // Before OpenCode: MiMo Code is an OpenCode fork and the most likely
         // wrong-package target. Bare "mimo" is deliberately NOT matched — it
         // usually refers to the MiMo model/API, not the CLI (skip-on-uncertainty).
-        if text.contains("mimocode") || text.contains("mimo code") || text.contains("mimo-code") {
+        if text.contains("mimocode")
+            || text.contains("mimo code")
+            || text.contains("mimo-code")
+            || text.contains("mimo cli")
+        {
             return Some(AgentTarget::MiMoCode);
         }
         // Kilo Code: bare "kilo" deliberately NOT matched — it usually refers
@@ -1509,9 +1530,22 @@ fn detect_user_intent(messages: &[Message]) -> Option<AgentTarget> {
         if text.contains("kilocode") || text.contains("kilo code") || text.contains("kilo-code") {
             return Some(AgentTarget::KiloCode);
         }
-        // Kimi Code: bare "kimi" deliberately NOT matched — it usually refers
-        // to the Kimi model/API, not the CLI (skip-on-uncertainty, same as mimo).
-        if text.contains("kimicode") || text.contains("kimi code") || text.contains("kimi-code") {
+        if text.contains("kimidesktop")
+            || text.contains("kimi desktop")
+            || text.contains("kimi 桌面")
+            || text.contains("kimi桌面")
+            || text.contains("kimi デスクトップ")
+            || text.contains("kimi code desktop")
+        {
+            return Some(AgentTarget::KimiDesktop);
+        }
+        // Bare "Kimi Code" is now ambiguous between Desktop and CLI. Only
+        // explicit CLI names and the legacy internal id map to the CLI.
+        if text.contains("kimicode")
+            || text.contains("kimi cli")
+            || text.contains("kimi code cli")
+            || text.contains("kimi-code cli")
+        {
             return Some(AgentTarget::KimiCode);
         }
         if text.contains("opencode") || text.contains("open code") {
@@ -1534,7 +1568,7 @@ fn detect_user_intent(messages: &[Message]) -> Option<AgentTarget> {
 fn detect_command_target(command: &str) -> Option<AgentTarget> {
     let cmd = command.to_lowercase();
     // Must look like an install operation, otherwise we don't validate
-    // (don't false-positive on `which openclaw`, `npm view opencode-ai`, etc.).
+    // (don't false-positive on `which openclaw`, `npm view @opencode/cli`, etc.).
     let is_install_op = cmd.contains("install")
         || cmd.contains("brew add")
         || cmd.contains("yarn add")
@@ -1545,7 +1579,8 @@ fn detect_command_target(command: &str) -> Option<AgentTarget> {
             && (cmd.contains("install.sh")
                 || cmd.contains("install.ps1")
                 || cmd.contains("| bash")
-                || cmd.contains("| sh")));
+                || cmd.contains("| sh")))
+        || cmd.contains("kimi-code/desktop/download/");
     if !is_install_op {
         return None;
     }
@@ -1563,13 +1598,26 @@ fn detect_command_target(command: &str) -> Option<AgentTarget> {
     if cmd.contains("@kilocode/cli") || cmd.contains("kilo.ai/cli/install") {
         return Some(AgentTarget::KiloCode);
     }
+    if cmd.contains("kimi-code/desktop/download/")
+        || cmd.contains("kimicode-win-x64.exe")
+        || cmd.contains("kimicode-mac-arm64.dmg")
+        || cmd.contains("kimicode-mac-x64.dmg")
+    {
+        return Some(AgentTarget::KimiDesktop);
+    }
     if cmd.contains("@moonshot-ai/kimi-code")
         || cmd.contains("code.kimi.com/kimi-code/install")
         || cmd.contains("brew install kimi-code")
     {
         return Some(AgentTarget::KimiCode);
     }
-    if cmd.contains("opencode-ai") || (cmd.contains("install") && cmd.contains(" opencode")) {
+    if cmd.contains("@opencode/cli")
+        || cmd.contains("opencode.ai/install")
+        || cmd.contains("opencode.ai/v2/install")
+        || cmd.contains("anomalyco/tap/opencode")
+        || cmd.contains("opencode-ai")
+        || (cmd.contains("install") && cmd.contains(" opencode"))
+    {
         return Some(AgentTarget::OpenCode);
     }
     if cmd.contains(" openclaw") || cmd.ends_with("openclaw") || cmd.contains("openclaw.ai/install")
@@ -1591,6 +1639,17 @@ fn validate_install_intent(command: &str, messages: &[Message]) -> Result<(), St
         Some(x) => x,
         None => return Ok(()),
     };
+    if intent == AgentTarget::OpenCode
+        && target == AgentTarget::OpenCode
+        && is_legacy_opencode_install(command)
+    {
+        return Err(format!(
+            "LEGACY OPENCODE INSTALL BLOCKED (install_intent_validator):\n\
+             The user asked for OpenCode, which EchoBird now supports as v2.\n\
+             Do not install the legacy v1 package or package-manager recipe. Use: {}",
+            AgentTarget::OpenCode.canonical_install()
+        ));
+    }
     if intent == target {
         return Ok(());
     }
@@ -1605,6 +1664,118 @@ fn validate_install_intent(command: &str, messages: &[Message]) -> Result<(), St
         intent.label(),
         intent.canonical_install(),
     ))
+}
+
+fn is_legacy_opencode_install(command: &str) -> bool {
+    let cmd = command.to_lowercase();
+    cmd.contains("opencode-ai")
+        || (cmd.contains("opencode.ai/install") && !cmd.contains("opencode.ai/v2/install"))
+        || cmd.contains("scoop install opencode")
+        || cmd.contains("choco install opencode")
+        || cmd.contains("chocolatey install opencode")
+        || (cmd.contains("brew install opencode") && !cmd.contains("opencode-v2"))
+        || (cmd.contains("brew install anomalyco/tap/opencode") && !cmd.contains("opencode-v2"))
+}
+
+#[cfg(test)]
+mod install_intent_tests {
+    use super::*;
+
+    fn request(text: &str) -> Vec<Message> {
+        vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text(text.into()),
+        }]
+    }
+
+    #[test]
+    fn mimo_desktop_request_rejects_cli_install() {
+        for name in [
+            "MiMo 桌面端",
+            "MiMo桌面端",
+            "MiMo Desktop",
+            "MiMo デスクトップ",
+            "MiMo Desktop with ~/.config/mimocode/mimocode.jsonc",
+        ] {
+            let messages = request(&format!("Install {name}"));
+            for command in [
+                "npm install -g @mimo-ai/cli",
+                "irm https://mimo.xiaomi.com/install.ps1 | iex",
+            ] {
+                let error = validate_install_intent(command, &messages).unwrap_err();
+                assert!(error.contains("MiMo Desktop"));
+                assert!(error.contains("mimodesktop install reference"));
+            }
+            assert!(validate_install_intent("mimo --version", &messages).is_ok());
+        }
+    }
+
+    #[test]
+    fn mimo_cli_and_legacy_name_accept_cli_but_reject_opencode() {
+        for name in ["MiMo CLI", "MiMo Code", "mimocode", "MiMo-Code"] {
+            let messages = request(&format!("Install {name}"));
+            assert!(validate_install_intent("npm install -g @mimo-ai/cli", &messages).is_ok());
+            for command in ["npm install -g @opencode/cli", "npm install -g opencode-ai"] {
+                assert!(validate_install_intent(command, &messages).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn mimo_model_mention_does_not_assume_cli() {
+        assert_eq!(detect_user_intent(&request("Use the MiMo model")), None);
+    }
+
+    #[test]
+    fn kimi_desktop_and_cli_are_distinct_install_targets() {
+        let desktop = request("Install Kimi 桌面端");
+        let desktop_url = "https://code.kimi.com/kimi-code/desktop/download/KimiCode-win-x64.exe";
+        assert!(validate_install_intent(desktop_url, &desktop).is_ok());
+        let error =
+            validate_install_intent("npm install -g @moonshot-ai/kimi-code", &desktop).unwrap_err();
+        assert!(error.contains("Kimi Desktop"));
+        assert!(error.contains("kimidesktop install reference"));
+
+        let cli = request("Install Kimi CLI");
+        assert!(validate_install_intent("npm install -g @moonshot-ai/kimi-code", &cli).is_ok());
+        assert!(validate_install_intent(desktop_url, &cli).is_err());
+    }
+
+    #[test]
+    fn bare_kimi_code_is_ambiguous() {
+        assert_eq!(detect_user_intent(&request("Install Kimi Code")), None);
+        assert_eq!(detect_user_intent(&request("Use the Kimi model")), None);
+    }
+
+    #[test]
+    fn opencode_v2_install_commands_match_opencode_intent() {
+        let messages = request("Install OpenCode v2");
+        for command in [
+            "npm install -g @opencode/cli",
+            "bun install -g --trust @opencode/cli",
+            "curl -fsSL https://opencode.ai/v2/install | bash",
+            "brew install anomalyco/tap/opencode-v2",
+        ] {
+            assert!(validate_install_intent(command, &messages).is_ok());
+        }
+    }
+
+    #[test]
+    fn opencode_v1_install_commands_are_blocked() {
+        let messages = request("Install OpenCode");
+        for command in [
+            "npm install -g opencode-ai",
+            "curl -fsSL https://opencode.ai/install | bash",
+            "brew install anomalyco/tap/opencode",
+            "brew install opencode",
+            "scoop install opencode",
+            "choco install opencode",
+        ] {
+            let error = validate_install_intent(command, &messages).unwrap_err();
+            assert!(error.contains("LEGACY OPENCODE INSTALL BLOCKED"));
+            assert!(error.contains("@opencode/cli"));
+        }
+    }
 }
 
 #[cfg(test)]

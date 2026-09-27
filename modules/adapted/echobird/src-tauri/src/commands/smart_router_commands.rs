@@ -2,6 +2,11 @@ use crate::models::model::ModelConfig;
 use crate::services::smart_router::{self, PublicActivity, PublicConfig};
 
 #[tauri::command]
+pub async fn set_smart_router_enabled(enabled: bool) -> Result<PublicConfig, String> {
+    smart_router::set_enabled(enabled).await
+}
+
+#[tauri::command]
 pub fn get_smart_router_config() -> Result<PublicConfig, String> {
     smart_router::get_public_config()
 }
