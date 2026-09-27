@@ -1,5 +1,5 @@
 {
-  "current_index": 185,
+  "current_index": 186,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1485,9 +1485,9 @@
       "name": "nse-stock-scraper",
       "target": "kenmwaura1/nse-stock-scraper",
       "url": "https://github.com/kenmwaura1/nse-stock-scraper",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2616",
+      "merged": true
     },
     {
       "name": "optionworkstation",
