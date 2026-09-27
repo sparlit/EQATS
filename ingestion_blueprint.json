@@ -1,5 +1,5 @@
 {
-  "current_index": 205,
+  "current_index": 206,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1645,7 +1645,7 @@
       "name": "stock-market-india",
       "target": "maanavshah/stock-market-india",
       "url": "https://github.com/maanavshah/stock-market-india",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
