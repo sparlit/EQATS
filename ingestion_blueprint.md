@@ -113,7 +113,11 @@ Total Repositories: 411 | Current Index: 111
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
 | 109 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2670 |
 | 110 | degenapetrader/evpoly | Completed | https://github.com/sparlit/EQATS/pull/2539 |
+<<<<<<< HEAD
 | 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2677 |
+=======
+| 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2678 |
+>>>>>>> integrate/openbook
 | 112 | deshpanda/nse-screener | Completed | https://github.com/sparlit/EQATS/pull/2541 |
 | 113 | deshpanda/nse-screener-data | Processed | https://github.com/sparlit/EQATS/pull/2542 |
 | 114 | deshwalmahesh/nse-stock-scanner | Completed | https://github.com/sparlit/EQATS/pull/2543 |
