@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 410 | Current Index: 203
+Total Repositories: 410 | Current Index: 204
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -206,7 +206,7 @@ Total Repositories: 410 | Current Index: 203
 | 201 | lebedov/nseindia_reformat | Processed | https://github.com/sparlit/EQATS/pull/2785 |
 | 202 | llc-993/matching-core | Processed | https://github.com/sparlit/EQATS/pull/2786 |
 | 203 | longbridge/longbridge-terminal | Processed | https://github.com/sparlit/EQATS/pull/2787 |
-| 204 | lqz13th/extrema_infra | pending | None |
+| 204 | lqz13th/extrema_infra | Processed | None |
 | 205 | maanavshah/stock-market-india | pending | None |
 | 206 | maheshcharig/financial-data | pending | None |
 | 207 | mailbagrahul/nseoptionalpha | pending | None |
