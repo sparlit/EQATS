@@ -1558,8 +1558,8 @@
       "target": "kwoshvick/nse-stock-price-prediction",
       "url": "https://github.com/kwoshvick/nse-stock-price-prediction",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2779",
+      "merged": true
     },
     {
       "name": "nse_sentiment_analysis",
