@@ -185,7 +185,7 @@ Total Repositories: 411 | Current Index: 183
 | 180 | julien-r44/cli-candlestick-chart | Processed | https://github.com/sparlit/EQATS/pull/2610 |
 | 181 | junbeoml22/trusted | Processed | https://github.com/sparlit/EQATS/pull/2611 |
 | 182 | kalyanm45/marketinsight | Completed | https://github.com/sparlit/EQATS/pull/2612 |
-| 183 | kalyanroyinfo/stock-research-assistant | Completed | None |
+| 183 | kalyanroyinfo/stock-research-assistant | Completed | https://github.com/sparlit/EQATS/pull/2613 |
 | 184 | karthik002002/stoklore | pending | None |
 | 185 | kbizme/nsemine | pending | None |
 | 186 | kenmwaura1/nse-stock-scraper | pending | None |

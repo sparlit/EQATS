@@ -1462,8 +1462,8 @@
       "target": "kalyanroyinfo/stock-research-assistant",
       "url": "https://github.com/kalyanroyinfo/stock-research-assistant",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2613",
+      "merged": true
     },
     {
       "name": "stoklore",
