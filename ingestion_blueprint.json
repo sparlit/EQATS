@@ -1661,7 +1661,7 @@
       "name": "nseoptionalpha",
       "target": "mailbagrahul/nseoptionalpha",
       "url": "https://github.com/mailbagrahul/nseoptionalpha",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
@@ -1669,7 +1669,7 @@
       "name": "nse-factor-engine",
       "target": "manavgupta83/nse-factor-engine",
       "url": "https://github.com/manavgupta83/nse-factor-engine",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
@@ -1677,17 +1677,17 @@
       "name": "nsedata",
       "target": "mandarl/nsedata",
       "url": "https://github.com/mandarl/nsedata",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2664",
+      "merged": true
     },
     {
       "name": "open-interest-data-extractor",
       "target": "manddar/open-interest-data-extractor",
       "url": "https://github.com/manddar/open-interest-data-extractor",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2665",
+      "merged": true
     },
     {
       "name": "nifty50_data_analysis_nsetools_nsepy_python",
