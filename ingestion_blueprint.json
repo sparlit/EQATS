@@ -1,5 +1,5 @@
 {
-  "current_index": 134,
+  "current_index": 135,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1077,7 +1077,7 @@
       "name": "nsebhavcopy",
       "target": "gadiyar/nsebhavcopy",
       "url": "https://github.com/gadiyar/nsebhavcopy",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
