@@ -1686,8 +1686,8 @@
       "target": "manddar/open-interest-data-extractor",
       "url": "https://github.com/manddar/open-interest-data-extractor",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2665",
+      "merged": true
     },
     {
       "name": "nifty50_data_analysis_nsetools_nsepy_python",
