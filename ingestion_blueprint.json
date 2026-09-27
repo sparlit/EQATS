@@ -1,5 +1,5 @@
 {
-  "current_index": 117,
+  "current_index": 118,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -941,9 +941,9 @@
       "name": "nse-delivery-data",
       "target": "dkraj0612/nse-delivery-data",
       "url": "https://github.com/dkraj0612/nse-delivery-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2701",
+      "merged": true
     },
     {
       "name": "kalshi-rust",
