@@ -1,5 +1,5 @@
 {
-  "current_index": 201,
+  "current_index": 202,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1613,9 +1613,9 @@
       "name": "matching-core",
       "target": "llc-993/matching-core",
       "url": "https://github.com/llc-993/matching-core",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2786",
+      "merged": true
     },
     {
       "name": "longbridge-terminal",
