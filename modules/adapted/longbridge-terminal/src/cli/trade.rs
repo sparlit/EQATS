@@ -1,0 +1,2536 @@
+use anyhow::{bail, Result};
+use longbridge::trade::{
+    EstimateMaxPurchaseQuantityOptions, GetCashFlowOptions, GetHistoryExecutionsOptions,
+    GetHistoryOrdersOptions, GetTodayExecutionsOptions, GetTodayOrdersOptions,
+    GetUSRealizedPLOptions, OrderSide, OrderType, OutsideRTH, ReplaceOrderOptions,
+    SubmitOrderOptions, TimeInForceType,
+};
+use rust_decimal::Decimal;
+use std::fmt::Write as _;
+use std::str::FromStr;
+
+use super::{
+    api::TradeApi,
+    output::{
+        fmt_decimal, parse_datetime_end, parse_datetime_start, print_account_banner, print_table,
+    },
+    OutputFormat,
+};
+use crate::utils::datetime::{fmt_rfc3339, format_date};
+
+fn risk_level_name(level: i32) -> &'static str {
+    match level {
+        0 => "Safe",
+        1 => "Medium Risk",
+        2 => "Early Warning",
+        3 => "Danger",
+        _ => "Unknown",
+    }
+}
+
+pub fn parse_order_type(s: &str) -> Result<OrderType> {
+    match s.to_uppercase().as_str() {
+        "LO" => Ok(OrderType::LO),
+        "MO" => Ok(OrderType::MO),
+        "ELO" => Ok(OrderType::ELO),
+        "AO" => Ok(OrderType::AO),
+        "ALO" => Ok(OrderType::ALO),
+        "ODD" => Ok(OrderType::ODD),
+        "SLO" => Ok(OrderType::SLO),
+        "LIT" => Ok(OrderType::LIT),
+        "MIT" => Ok(OrderType::MIT),
+        "TSLPAMT" => Ok(OrderType::TSLPAMT),
+        "TSLPPCT" => Ok(OrderType::TSLPPCT),
+        _ => {
+            bail!("Unknown order type '{s}'. Use: LO MO ELO AO ALO ODD SLO LIT MIT TSLPAMT TSLPPCT")
+        }
+    }
+}
+
+pub fn parse_tif(s: &str) -> Result<TimeInForceType> {
+    match s.to_lowercase().as_str() {
+        "day" => Ok(TimeInForceType::Day),
+        "gtc" | "goodtilcanceled" => Ok(TimeInForceType::GoodTilCanceled),
+        "gtd" | "goodtildate" => Ok(TimeInForceType::GoodTilDate),
+        _ => bail!("Unknown time in force '{s}'. Use: day gtc gtd"),
+    }
+}
+
+const INTERNAL_ORDER_FIELDS: &[&str] = &[
+    "aaid",
+    "org_id",
+    "ploy_id",
+    "ploy_type",
+    "card_ids",
+    "bid_size_list",
+    "button_control",
+    "current_millisecond",
+    "deductions_status",
+    "free_status",
+    "platform_deductions_status",
+    "force_only_rth",
+    "limit_depth_level",
+    "tag",
+    "trend",
+    "trigger_count",
+    "trigger_status",
+    "trigger_at",
+    "account_channel",
+];
+
+fn normalize_us_order_map(m: &mut serde_json::Map<String, serde_json::Value>) {
+    if let Some(action) = m.get("action").and_then(serde_json::Value::as_i64) {
+        let label = match action {
+            1 => "Buy",
+            2 => "Sell",
+            _ => "Unknown",
+        };
+        m.insert(
+            "action".to_string(),
+            serde_json::Value::String(label.to_string()),
+        );
+    }
+    for ts_key in &[
+        "submitted_at",
+        "updated_at",
+        "create_time",
+        "done_at",
+        "time",
+    ] {
+        if let Some(s) = m.get(*ts_key).and_then(|v| v.as_str()) {
+            if let Ok(n) = s.parse::<i64>() {
+                m.insert(
+                    (*ts_key).to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(n)),
+                );
+            }
+        }
+    }
+    if let Some(s) = m.get("status").and_then(|v| v.as_str()) {
+        if let Some(clean) = s.strip_suffix("Status").filter(|s| !s.is_empty()) {
+            m.insert(
+                "status".to_string(),
+                serde_json::Value::String(clean.to_string()),
+            );
+        }
+    }
+    if let Some(tif) = m.get("time_in_force").and_then(serde_json::Value::as_i64) {
+        let label = match tif {
+            1 => "Day",
+            3 => "GTC",
+            4 => "GTD",
+            5 => "IOC",
+            6 => "FOK",
+            _ => "Unknown",
+        };
+        m.insert(
+            "time_in_force".to_string(),
+            serde_json::Value::String(label.to_string()),
+        );
+    }
+    if let Some(st) = m.get("security_type").and_then(|v| v.as_str()) {
+        let label = match st {
+            "CS" => "Stock",
+            "VA" => "Crypto",
+            "OPT" => "Option",
+            "WAR" => "Warrant",
+            "IOPT" => "Inline-Warrant",
+            "ETF" => "ETF",
+            "ADR" => "ADR",
+            _ => "",
+        };
+        if !label.is_empty() {
+            m.insert(
+                "security_type".to_string(),
+                serde_json::Value::String(label.to_string()),
+            );
+        }
+    }
+    if let Some(cid) = m.remove("counter_id") {
+        if !m.contains_key("symbol") {
+            let sym = cid.as_str().map_or_else(
+                || cid.clone(),
+                |s| serde_json::Value::String(crate::utils::counter::counter_id_to_symbol(s)),
+            );
+            m.insert("symbol".to_string(), sym);
+        }
+    }
+    for key in INTERNAL_ORDER_FIELDS {
+        m.remove(*key);
+    }
+    // Normalize empty strings to explicit null. Null = field returned with no value;
+    // AI agents use is_null() to detect this (e.g. price is null for market orders).
+    for v in m.values_mut() {
+        if matches!(v, serde_json::Value::String(s) if s.is_empty()) {
+            *v = serde_json::Value::Null;
+        }
+    }
+    // create_time is often absent; promote submitted_at so all output paths see a timestamp.
+    if m.get("create_time").is_none_or(serde_json::Value::is_null) {
+        if let Some(sa) = m.get("submitted_at").cloned() {
+            m.insert("create_time".to_string(), sa);
+        }
+    }
+}
+
+pub async fn cmd_orders(
+    history: bool,
+    start: Option<String>,
+    end: Option<String>,
+    symbol: Option<String>,
+    // US-only filters (interface 14); ignored for HK/CN accounts
+    us_action: Option<String>,
+    us_page: u32,
+    us_limit: u32,
+    format: &OutputFormat,
+    _verbose: bool,
+) -> Result<()> {
+    // US accounts: SDK us_query_orders (interface 14)
+    if crate::openapi::is_us_account().await {
+        use longbridge::trade::{GetUSHistoryOrders, OrderSide};
+        let side_str = us_action.as_deref().unwrap_or("").to_lowercase();
+        let side = match side_str.as_str() {
+            "buy" => OrderSide::Buy,
+            "sell" => OrderSide::Sell,
+            _ => OrderSide::Unknown,
+        };
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let now_i64 = i64::try_from(now).unwrap_or(i64::MAX);
+        // history=false: default start is today midnight UTC; history=true: 90 days
+        let default_start = if history {
+            now_i64 - 86400 * 90
+        } else {
+            now_i64 - (now_i64 % 86400)
+        };
+        let start_ts = match start.as_deref() {
+            Some(s) => parse_datetime_start(s)?.unix_timestamp(),
+            None => default_start,
+        };
+        let end_ts = match end.as_deref() {
+            Some(s) => parse_datetime_end(s)?.unix_timestamp(),
+            None => now_i64,
+        };
+        let opts = GetUSHistoryOrders {
+            symbol: symbol.clone(),
+            side,
+            start_at: start_ts,
+            end_at: end_ts,
+            query_type: 0,
+            page: i32::try_from(us_page).unwrap_or(1),
+            limit: i32::try_from(us_limit).unwrap_or(20),
+        };
+        let resp = crate::openapi::trade().us_query_orders(opts).await?;
+        let mut data = serde_json::to_value(&resp)?;
+        if let Some(orders) = data["orders"].as_array_mut() {
+            for o in orders {
+                if let Some(map) = o.as_object_mut() {
+                    normalize_us_order_map(map);
+                }
+            }
+        }
+        match format {
+            OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&data)?),
+            OutputFormat::Pretty => {
+                let empty = vec![];
+                let orders = data["orders"].as_array().unwrap_or(&empty);
+                let val = |v: &serde_json::Value| -> String {
+                    match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        serde_json::Value::Number(n) => n.to_string(),
+                        _ => "-".to_string(),
+                    }
+                };
+                print_table(
+                    &[
+                        "Order ID", "Symbol", "Side", "Type", "Status", "Qty", "Price", "Created",
+                    ],
+                    orders
+                        .iter()
+                        .map(|o| {
+                            let side = val(&o["action"]);
+                            vec![
+                                val(&o["id"]),
+                                val(&o["symbol"]),
+                                side,
+                                val(&o["order_type"]),
+                                val(&o["status"]),
+                                val(&o["quantity"]),
+                                val(&o["price"]),
+                                o["create_time"]
+                                    .as_i64()
+                                    .map_or_else(|| val(&o["create_time"]), format_date),
+                            ]
+                        })
+                        .collect(),
+                    format,
+                );
+            }
+        }
+        return Ok(());
+    }
+
+    let ctx = crate::openapi::trade();
+
+    let orders = if history {
+        let mut opts = GetHistoryOrdersOptions::new();
+        if let Some(s) = symbol {
+            opts = opts.symbol(s);
+        }
+        if let Some(s) = start {
+            opts = opts.start_at(parse_datetime_start(&s)?);
+        }
+        if let Some(e) = end {
+            opts = opts.end_at(parse_datetime_end(&e)?);
+        }
+        ctx.history_orders(opts).await?
+    } else {
+        let opts = longbridge::trade::GetTodayOrdersOptions::new();
+        let opts = if let Some(s) = symbol {
+            opts.symbol(s)
+        } else {
+            opts
+        };
+        ctx.today_orders(opts).await?
+    };
+
+    let headers = &[
+        "Order ID",
+        "Symbol",
+        "Side",
+        "Order Type",
+        "Status",
+        "Quantity",
+        "Price",
+        "Executed Quantity",
+        "Executed Price",
+        "Created At",
+    ];
+    let rows = orders
+        .iter()
+        .map(|o| {
+            vec![
+                o.order_id.clone(),
+                o.symbol.clone(),
+                format!("{:?}", o.side),
+                format!("{:?}", o.order_type),
+                format!("{:?}", o.status),
+                o.quantity.to_string(),
+                fmt_decimal(&o.price),
+                o.executed_quantity.to_string(),
+                fmt_decimal(&o.executed_price),
+                fmt_rfc3339(o.submitted_at),
+            ]
+        })
+        .collect();
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn cmd_order_detail(
+    order_id: String,
+    attached: bool,
+    format: &OutputFormat,
+) -> Result<()> {
+    // US accounts always use us_order_detail (interface 16).
+    // --attached: show the attached child order instead of the main order.
+    if crate::openapi::is_us_account().await {
+        let resp = crate::openapi::trade()
+            .us_order_detail(order_id.clone())
+            .await?;
+        let full = serde_json::to_value(&resp)?;
+        // Normalize the inner order object same as order list
+        let mut order_obj = if let Some(o) = full["order"].as_object() {
+            let mut m = o.clone();
+            normalize_us_order_map(&mut m);
+            serde_json::Value::Object(m)
+        } else if let Some(m) = full.as_object() {
+            let mut nm = m.clone();
+            normalize_us_order_map(&mut nm);
+            serde_json::Value::Object(nm)
+        } else {
+            full.clone()
+        };
+        // For --attached: replace with child order if present, applying the same normalization.
+        // current_attached_order may be nested inside full["order"] (same level as order_histories)
+        // or at the response root depending on SDK version — check both.
+        let attached_val = if full["order"]["current_attached_order"].is_null() {
+            full["current_attached_order"].clone()
+        } else {
+            full["order"]["current_attached_order"].clone()
+        };
+        let using_attached = attached && !attached_val.is_null();
+        let data = if using_attached {
+            if let Some(o) = attached_val.as_object() {
+                let mut m = o.clone();
+                normalize_us_order_map(&mut m);
+                serde_json::Value::Object(m)
+            } else {
+                attached_val
+            }
+        } else {
+            // Flatten: expose order fields at top level + order_histories.
+            // order_histories is now embedded inside USOrderDetail (order_obj), not at root.
+            if let Some(m) = order_obj.as_object_mut() {
+                if let Some(hist) = m.get("order_histories").and_then(|v| v.as_array()).cloned() {
+                    if !hist.is_empty() {
+                        let normalized: Vec<serde_json::Value> = hist
+                            .iter()
+                            .map(|entry| {
+                                if let Some(hm) = entry.as_object() {
+                                    let mut nm = hm.clone();
+                                    normalize_us_order_map(&mut nm);
+                                    serde_json::Value::Object(nm)
+                                } else {
+                                    entry.clone()
+                                }
+                            })
+                            .collect();
+                        m.insert(
+                            "order_histories".to_string(),
+                            serde_json::Value::Array(normalized),
+                        );
+                    }
+                }
+            }
+            order_obj
+        };
+        match format {
+            OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&data)?),
+            OutputFormat::Pretty => {
+                let val = |k: &str| -> String {
+                    match &data[k] {
+                        serde_json::Value::String(s) => s.clone(),
+                        serde_json::Value::Number(n) => n.to_string(),
+                        serde_json::Value::Null | serde_json::Value::Bool(_) => "-".to_string(),
+                        other => other.to_string(),
+                    }
+                };
+                let label = if using_attached {
+                    "Attached order"
+                } else {
+                    "Order"
+                };
+                println!("{label} detail for {order_id}:");
+                // US orders use id/symbol/action; HK/CN use order_id/symbol/side
+                let id_val = if data["id"].is_null() {
+                    val("order_id")
+                } else {
+                    val("id")
+                };
+                let sym_val = val("symbol");
+                let side_val = if data["action"].is_null() {
+                    val("side")
+                } else {
+                    val("action")
+                };
+                println!("  {:<20} {}", "order_id", id_val);
+                println!("  {:<20} {}", "symbol", sym_val);
+                println!("  {:<20} {}", "side", side_val);
+                for key in &["status", "order_type", "quantity", "price"] {
+                    println!("  {key:<20} {}", val(key));
+                }
+            }
+        }
+        return Ok(());
+    }
+    let ctx = crate::openapi::trade();
+    let detail = ctx.order_detail(order_id).await?;
+
+    let executed_amount = detail.executed_price.map(|p| p * detail.executed_quantity);
+    let outside_rth = detail
+        .outside_rth
+        .map_or_else(|| "-".to_string(), |v| format!("{v:?}"));
+
+    match format {
+        OutputFormat::Json => {
+            let history: Vec<serde_json::Value> = detail
+                .history
+                .iter()
+                .map(|h| {
+                    serde_json::json!({
+                        "status": format!("{:?}", h.status),
+                        "time": fmt_rfc3339(h.time),
+                        "price": h.price.to_string(),
+                        "quantity": h.quantity.to_string(),
+                        "msg": h.msg,
+                    })
+                })
+                .collect();
+            let val = serde_json::json!({
+                "order_id": detail.order_id,
+                "stock_name": detail.stock_name,
+                "symbol": detail.symbol,
+                "side": format!("{:?}", detail.side),
+                "order_type": format!("{:?}", detail.order_type),
+                "status": format!("{:?}", detail.status),
+                "quantity": detail.quantity.to_string(),
+                "price": fmt_decimal(&detail.price),
+                "executed_quantity": detail.executed_quantity.to_string(),
+                "executed_price": fmt_decimal(&detail.executed_price),
+                "executed_amount": executed_amount.map(|a| a.to_string()).unwrap_or_default(),
+                "time_in_force": format!("{:?}", detail.time_in_force),
+                "outside_rth": outside_rth,
+                "currency": detail.currency,
+                "submitted_at": fmt_rfc3339(detail.submitted_at),
+                "updated_at": detail.updated_at.map(fmt_rfc3339).unwrap_or_default(),
+                "remark": detail.msg,
+                "history": history,
+            });
+            println!("{}", serde_json::to_string_pretty(&val)?);
+        }
+        OutputFormat::Pretty => {
+            let headers = &["Field", "Value"];
+            let rows = vec![
+                vec!["Order ID".to_string(), detail.order_id.clone()],
+                vec!["Stock Name".to_string(), detail.stock_name.clone()],
+                vec!["Symbol".to_string(), detail.symbol.clone()],
+                vec!["Side".to_string(), format!("{:?}", detail.side)],
+                vec!["Order Type".to_string(), format!("{:?}", detail.order_type)],
+                vec!["Status".to_string(), format!("{:?}", detail.status)],
+                vec!["Quantity".to_string(), detail.quantity.to_string()],
+                vec!["Price".to_string(), fmt_decimal(&detail.price)],
+                vec![
+                    "Executed Qty".to_string(),
+                    detail.executed_quantity.to_string(),
+                ],
+                vec![
+                    "Executed Price".to_string(),
+                    fmt_decimal(&detail.executed_price),
+                ],
+                vec![
+                    "Executed Amount".to_string(),
+                    executed_amount.map(|a| a.to_string()).unwrap_or_default(),
+                ],
+                vec![
+                    "Time in Force".to_string(),
+                    format!("{:?}", detail.time_in_force),
+                ],
+                vec!["Outside RTH".to_string(), outside_rth],
+                vec!["Currency".to_string(), detail.currency.clone()],
+                vec!["Submitted At".to_string(), fmt_rfc3339(detail.submitted_at)],
+                vec![
+                    "Updated At".to_string(),
+                    detail.updated_at.map(fmt_rfc3339).unwrap_or_default(),
+                ],
+                vec!["Remark".to_string(), detail.msg.clone()],
+            ];
+            print_table(headers, rows, &OutputFormat::Pretty);
+
+            if !detail.history.is_empty() {
+                println!();
+                println!("History");
+                let hist_headers = &["Status", "Time", "Price", "Quantity", "Message"];
+                let hist_rows = detail
+                    .history
+                    .iter()
+                    .map(|h| {
+                        vec![
+                            format!("{:?}", h.status),
+                            fmt_rfc3339(h.time),
+                            h.price.to_string(),
+                            h.quantity.to_string(),
+                            h.msg.clone(),
+                        ]
+                    })
+                    .collect();
+                print_table(hist_headers, hist_rows, &OutputFormat::Pretty);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// One execution row for the today / history output.
+struct ExecRow {
+    order_id: String,
+    trade_id: String,
+    symbol: String,
+    side: String,
+    price: String,
+    quantity: String,
+    time_iso: String,
+}
+
+impl ExecRow {
+    fn from_sdk(e: &longbridge::trade::Execution) -> Self {
+        Self {
+            order_id: e.order_id.clone(),
+            trade_id: e.trade_id.clone(),
+            symbol: e.symbol.clone(),
+            side: format!("{:?}", e.side),
+            price: e.price.to_string(),
+            quantity: e.quantity.to_string(),
+            time_iso: fmt_rfc3339(e.trade_done_at),
+        }
+    }
+}
+
+pub async fn cmd_executions(
+    history: bool,
+    start: Option<String>,
+    end: Option<String>,
+    symbol: Option<String>,
+    format: &OutputFormat,
+) -> Result<()> {
+    if crate::openapi::is_us_account().await {
+        anyhow::bail!(
+            "Execution history is not supported for US accounts; use 'order --history' to view filled orders"
+        );
+    }
+
+    let ctx = crate::openapi::trade();
+    let executions = if history {
+        let start_dt = start.as_deref().map(parse_datetime_start).transpose()?;
+        let end_dt = end.as_deref().map(parse_datetime_end).transpose()?;
+        // v3 `/trade/execution/all` filters by execution time and caps each page
+        // at 1000 records; walk `page` until `has_more` is false.
+        let mut all: Vec<longbridge::trade::Execution> = Vec::new();
+        for page in 1..=1000u64 {
+            let mut exec_opts = longbridge::trade::GetAllExecutionsOptions::new().page(page);
+            if let Some(s) = &symbol {
+                exec_opts = exec_opts.symbol(s.clone());
+            }
+            if let Some(dt) = start_dt {
+                exec_opts = exec_opts.start_at(dt);
+            }
+            if let Some(dt) = end_dt {
+                exec_opts = exec_opts.end_at(dt);
+            }
+            let resp = ctx.all_executions(exec_opts).await?;
+            if resp.trades.is_empty() {
+                break;
+            }
+            all.extend(resp.trades);
+            if !resp.has_more {
+                break;
+            }
+        }
+        all
+    } else {
+        let mut exec_opts = GetTodayExecutionsOptions::new();
+        if let Some(s) = &symbol {
+            exec_opts = exec_opts.symbol(s.clone());
+        }
+        ctx.today_executions(exec_opts).await?
+    };
+
+    let rows: Vec<ExecRow> = executions.iter().map(ExecRow::from_sdk).collect();
+
+    match format {
+        OutputFormat::Json => {
+            let arr: Vec<serde_json::Value> = rows
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "order_id": r.order_id,
+                        "trade_id": r.trade_id,
+                        "symbol": r.symbol,
+                        "side": r.side,
+                        "price": r.price,
+                        "quantity": r.quantity,
+                        "trade_done_at": r.time_iso,
+                        "time": r.time_iso,
+                    })
+                })
+                .collect();
+            println!("{}", serde_json::to_string_pretty(&arr)?);
+        }
+        OutputFormat::Pretty => {
+            let headers = &[
+                "Order ID", "Trade ID", "Symbol", "Side", "Price", "Quantity", "Time",
+            ];
+            let table_rows = rows
+                .iter()
+                .map(|r| {
+                    vec![
+                        r.order_id.clone(),
+                        r.trade_id.clone(),
+                        r.symbol.clone(),
+                        r.side.clone(),
+                        r.price.clone(),
+                        r.quantity.clone(),
+                        r.time_iso.clone(),
+                    ]
+                })
+                .collect();
+            print_table(headers, table_rows, &OutputFormat::Pretty);
+        }
+    }
+    Ok(())
+}
+
+pub fn parse_outside_rth(s: &str) -> Result<OutsideRTH> {
+    match s.to_uppercase().as_str() {
+        "RTH_ONLY" => Ok(OutsideRTH::RTHOnly),
+        "ANY_TIME" => Ok(OutsideRTH::AnyTime),
+        "OVERNIGHT" => Ok(OutsideRTH::Overnight),
+        _ => bail!("Unknown outside-rth '{s}'. Use: RTH_ONLY ANY_TIME OVERNIGHT"),
+    }
+}
+
+/// Best-effort last traded price, used to sanity-check a previewed order.
+/// A quote failure must never block a dry run, so errors collapse to `None`.
+async fn preview_last_price(symbol: &str) -> Option<Decimal> {
+    let quotes = crate::openapi::quote_cmd()
+        .quote(&[symbol.to_string()])
+        .await
+        .ok()?;
+    quotes.first().map(|q| q.last_done)
+}
+
+/// Best-effort summary of an existing order, used by the cancel/replace previews
+/// so the operator can confirm they are acting on the order they meant.
+async fn preview_order_summary(order_id: &str) -> Option<serde_json::Value> {
+    let ctx = crate::openapi::trade();
+    let raw = if crate::openapi::is_us_account().await {
+        let resp = ctx.us_order_detail(order_id.to_string()).await.ok()?;
+        let full = serde_json::to_value(&resp).ok()?;
+        let mut order = full.get("order").cloned().unwrap_or(full);
+        if let Some(m) = order.as_object_mut() {
+            normalize_us_order_map(m);
+        }
+        order
+    } else {
+        serde_json::to_value(ctx.order_detail(order_id.to_string()).await.ok()?).ok()?
+    };
+
+    let pick = |key: &str| -> Option<String> {
+        match raw.get(key)? {
+            serde_json::Value::String(s) if !s.is_empty() => Some(s.clone()),
+            serde_json::Value::Null => None,
+            other => Some(other.to_string()),
+        }
+    };
+    Some(serde_json::json!({
+        "symbol": pick("symbol"),
+        "side": pick("side").or_else(|| pick("action")),
+        // Non-US `OrderDetail` serialises the enum verbatim ("FilledStatus");
+        // trim the suffix so previews read like the rest of the order output.
+        "status": pick("status").map(|s| s.strip_suffix("Status").unwrap_or(&s).to_string()),
+        "quantity": pick("quantity"),
+        "executed_quantity": pick("executed_quantity"),
+        "price": pick("price"),
+    }))
+}
+
+fn print_order_summary(summary: Option<&serde_json::Value>, order_id: &str) {
+    println!("  {:<18}{order_id}", "Order ID");
+    let Some(summary) = summary else {
+        println!(
+            "  {:<18}(unavailable — could not fetch order detail)",
+            "Order"
+        );
+        return;
+    };
+    for (label, key) in [
+        ("Symbol", "symbol"),
+        ("Side", "side"),
+        ("Status", "status"),
+        ("Quantity", "quantity"),
+        ("Filled", "executed_quantity"),
+        ("Price", "price"),
+    ] {
+        if let Some(v) = summary.get(key).and_then(serde_json::Value::as_str) {
+            println!("  {label:<18}{v}");
+        }
+    }
+}
+
+pub async fn cmd_submit_order(
+    symbol: String,
+    quantity: u64,
+    price: Option<String>,
+    trigger_price: Option<String>,
+    trailing_amount: Option<String>,
+    trailing_percent: Option<String>,
+    limit_offset: Option<String>,
+    expire_date: Option<String>,
+    outside_rth: Option<String>,
+    remark: Option<String>,
+    order_type: String,
+    tif: String,
+    side: OrderSide,
+    execute: Option<String>,
+    format: &OutputFormat,
+) -> Result<()> {
+    let ot = parse_order_type(&order_type)?;
+    let tif_val = parse_tif(&tif)?;
+    let qty = Decimal::from(quantity);
+
+    let mut opts = SubmitOrderOptions::new(symbol.clone(), ot, side, qty, tif_val);
+    if let Some(ref p) = price {
+        let price_dec = Decimal::from_str(p).map_err(|_| anyhow::anyhow!("Invalid price: {p}"))?;
+        opts = opts.submitted_price(price_dec);
+    }
+    if let Some(ref tp) = trigger_price {
+        let tp_dec =
+            Decimal::from_str(tp).map_err(|_| anyhow::anyhow!("Invalid trigger price: {tp}"))?;
+        opts = opts.trigger_price(tp_dec);
+    }
+    if let Some(ref ta) = trailing_amount {
+        let ta_dec =
+            Decimal::from_str(ta).map_err(|_| anyhow::anyhow!("Invalid trailing amount: {ta}"))?;
+        opts = opts.trailing_amount(ta_dec);
+    }
+    if let Some(ref tp) = trailing_percent {
+        let tp_dec =
+            Decimal::from_str(tp).map_err(|_| anyhow::anyhow!("Invalid trailing percent: {tp}"))?;
+        opts = opts.trailing_percent(tp_dec);
+    }
+    if let Some(ref lo) = limit_offset {
+        let lo_dec =
+            Decimal::from_str(lo).map_err(|_| anyhow::anyhow!("Invalid limit offset: {lo}"))?;
+        opts = opts.limit_offset(lo_dec);
+    }
+    if let Some(ref ed) = expire_date {
+        let date = time::Date::parse(
+            ed,
+            &time::format_description::parse("[year]-[month]-[day]")
+                .map_err(|e| anyhow::anyhow!("Date format error: {e}"))?,
+        )
+        .map_err(|_| anyhow::anyhow!("Invalid expire date '{ed}'. Use YYYY-MM-DD"))?;
+        opts = opts.expire_date(date);
+    }
+    if let Some(ref rth) = outside_rth {
+        opts = opts.outside_rth(parse_outside_rth(rth)?);
+    }
+    if let Some(ref r) = remark {
+        opts = opts.remark(r.clone());
+    }
+
+    // Confirm before submitting
+    let mut price_display = match (price.as_deref(), trigger_price.as_deref()) {
+        (Some(p), Some(tp)) => format!("{p} (trigger: {tp})"),
+        (Some(p), None) => p.to_string(),
+        (None, Some(tp)) => format!("market (trigger: {tp})"),
+        (None, None) => "market".to_string(),
+    };
+    if let Some(ref ta) = trailing_amount {
+        let _ = write!(price_display, " trailing-amount: {ta}");
+    }
+    if let Some(ref tp) = trailing_percent {
+        let _ = write!(price_display, " trailing-percent: {tp}%");
+    }
+    if let Some(ref lo) = limit_offset {
+        let _ = write!(price_display, " limit-offset: {lo}");
+    }
+    if let Some(ref ed) = expire_date {
+        let _ = write!(price_display, " expire: {ed}");
+    }
+    if let Some(ref rth) = outside_rth {
+        let _ = write!(price_display, " outside-rth: {rth}");
+    }
+    let scope = crate::utils::dry_run::Scope::order(
+        &format!("{side:?}"),
+        &symbol,
+        &quantity.to_string(),
+        price.as_deref().unwrap_or(""),
+    );
+
+    // Two-step by design: without --execute this previews and sends nothing.
+    let Some(code) = execute else {
+        let confirmation = scope.code();
+        let last = preview_last_price(&symbol).await;
+        let reference = price
+            .as_deref()
+            .and_then(|p| Decimal::from_str(p).ok())
+            .or(last);
+        let estimated = reference.map(|p| (p * qty).round_dp(2));
+        match format {
+            OutputFormat::Json => {
+                let val = serde_json::json!({
+                    "dry_run": true,
+                    "submitted": false,
+                    "side": format!("{side:?}"),
+                    "symbol": symbol,
+                    "quantity": quantity,
+                    "order_type": order_type.to_uppercase(),
+                    "time_in_force": tif.to_lowercase(),
+                    "price": price,
+                    "trigger_price": trigger_price,
+                    "trailing_amount": trailing_amount,
+                    "trailing_percent": trailing_percent,
+                    "limit_offset": limit_offset,
+                    "expire_date": expire_date,
+                    "outside_rth": outside_rth,
+                    "remark": remark,
+                    "last_price": last.map(|d| d.to_string()),
+                    "estimated_amount": estimated.map(|d| d.to_string()),
+                    "confirmation_code": confirmation,
+                    "message": crate::utils::dry_run::message(&confirmation, "place this order"),
+                });
+                println!("{}", serde_json::to_string_pretty(&val)?);
+            }
+            OutputFormat::Pretty => {
+                println!("DRY RUN — no order was placed.");
+                println!();
+                println!("  {:<18}{side:?}", "Action");
+                println!("  {:<18}{symbol}", "Symbol");
+                println!("  {:<18}{quantity}", "Quantity");
+                println!("  {:<18}{}", "Order type", order_type.to_uppercase());
+                println!("  {:<18}{price_display}", "Price");
+                println!("  {:<18}{}", "Time in force", tif.to_lowercase());
+                if let Some(p) = last {
+                    println!("  {:<18}{p}", "Last price");
+                }
+                if let Some(a) = estimated {
+                    println!("  {:<18}~{a}", "Est. amount");
+                }
+                crate::utils::dry_run::print_notice(&confirmation, "place this order");
+            }
+        }
+        return Ok(());
+    };
+    scope.verify(&code)?;
+
+    println!("Submitting {side:?} order: {quantity} {symbol} @ {price_display}");
+    let ctx = crate::openapi::trade();
+    let resp = ctx.submit_order(opts).await?;
+
+    match format {
+        OutputFormat::Json => {
+            let val = serde_json::json!({ "order_id": resp.order_id });
+            println!("{}", serde_json::to_string_pretty(&val)?);
+        }
+        OutputFormat::Pretty => {
+            println!("Order submitted successfully.");
+            println!("Order ID: {}", resp.order_id);
+        }
+    }
+    Ok(())
+}
+
+pub async fn cmd_cancel_order(
+    order_id: String,
+    execute: Option<String>,
+    format: &OutputFormat,
+) -> Result<()> {
+    let scope = crate::utils::dry_run::Scope::on_order("cancel", &order_id);
+    // Two-step by design: without --execute this previews and cancels nothing.
+    let Some(code) = execute else {
+        let confirmation = scope.code();
+        let summary = preview_order_summary(&order_id).await;
+        match format {
+            OutputFormat::Json => {
+                let val = serde_json::json!({
+                    "dry_run": true,
+                    "cancelled": false,
+                    "action": "cancel",
+                    "order_id": order_id,
+                    "order": summary,
+                    "confirmation_code": confirmation,
+                    "message": crate::utils::dry_run::message(&confirmation, "cancel this order"),
+                });
+                println!("{}", serde_json::to_string_pretty(&val)?);
+            }
+            OutputFormat::Pretty => {
+                println!("DRY RUN — no order was cancelled.");
+                println!();
+                println!("  {:<18}Cancel", "Action");
+                print_order_summary(summary.as_ref(), &order_id);
+                crate::utils::dry_run::print_notice(&confirmation, "cancel this order");
+            }
+        }
+        return Ok(());
+    };
+    scope.verify(&code)?;
+
+    let ctx = crate::openapi::trade();
+    ctx.cancel_order(order_id.clone()).await?;
+    match format {
+        OutputFormat::Json => {
+            let val = serde_json::json!({ "order_id": order_id, "cancelled": true });
+            println!("{}", serde_json::to_string_pretty(&val)?);
+        }
+        OutputFormat::Pretty => println!("Order {order_id} cancelled."),
+    }
+    Ok(())
+}
+
+pub async fn cmd_replace_order(
+    order_id: String,
+    qty: Option<u64>,
+    price: Option<String>,
+    execute: Option<String>,
+    format: &OutputFormat,
+) -> Result<()> {
+    let quantity = qty.ok_or_else(|| anyhow::anyhow!("--qty is required"))?;
+    let qty_dec = Decimal::from(quantity);
+
+    let mut opts = ReplaceOrderOptions::new(order_id.clone(), qty_dec);
+    if let Some(ref p) = price {
+        let price_dec = Decimal::from_str(p).map_err(|_| anyhow::anyhow!("Invalid price: {p}"))?;
+        opts = opts.price(price_dec);
+    }
+
+    let scope = crate::utils::dry_run::Scope::replace(
+        &order_id,
+        &quantity.to_string(),
+        price.as_deref().unwrap_or(""),
+    );
+    // Two-step by design: without --execute this previews and changes nothing.
+    let Some(code) = execute else {
+        let confirmation = scope.code();
+        let summary = preview_order_summary(&order_id).await;
+        match format {
+            OutputFormat::Json => {
+                let val = serde_json::json!({
+                    "dry_run": true,
+                    "modified": false,
+                    "action": "replace",
+                    "order_id": order_id,
+                    "current": summary,
+                    "new_quantity": quantity,
+                    "new_price": price,
+                    "confirmation_code": confirmation,
+                    "message": crate::utils::dry_run::message(&confirmation, "apply this change"),
+                });
+                println!("{}", serde_json::to_string_pretty(&val)?);
+            }
+            OutputFormat::Pretty => {
+                println!("DRY RUN — no order was modified.");
+                println!();
+                println!("  {:<18}Replace", "Action");
+                print_order_summary(summary.as_ref(), &order_id);
+                println!("  {:<18}{quantity}", "New quantity");
+                println!(
+                    "  {:<18}{}",
+                    "New price",
+                    price.as_deref().unwrap_or("(unchanged)")
+                );
+                crate::utils::dry_run::print_notice(&confirmation, "apply this change");
+            }
+        }
+        return Ok(());
+    };
+    scope.verify(&code)?;
+
+    let ctx = crate::openapi::trade();
+    ctx.replace_order(opts).await?;
+    match format {
+        OutputFormat::Json => {
+            let val = serde_json::json!({ "order_id": order_id, "modified": true });
+            println!("{}", serde_json::to_string_pretty(&val)?);
+        }
+        OutputFormat::Pretty => println!("Order {order_id} modified."),
+    }
+    Ok(())
+}
+
+fn print_assets(balances: &[longbridge::trade::AccountBalance], format: &OutputFormat) {
+    match format {
+        OutputFormat::Json => {
+            let records: Vec<serde_json::Value> = balances
+                .iter()
+                .map(|b| {
+                    let cash_infos: Vec<serde_json::Value> = b
+                        .cash_infos
+                        .iter()
+                        .map(|c| {
+                            serde_json::json!({
+                                "currency": c.currency,
+                                "available_cash": c.available_cash.to_string(),
+                                "frozen_cash": c.frozen_cash.to_string(),
+                                "settling_cash": c.settling_cash.to_string(),
+                                "withdraw_cash": c.withdraw_cash.to_string(),
+                            })
+                        })
+                        .collect();
+                    serde_json::json!({
+                        "currency": b.currency,
+                        "net_assets": b.net_assets.to_string(),
+                        "total_cash": b.total_cash.to_string(),
+                        "buy_power": b.buy_power.to_string(),
+                        "max_finance_amount": b.max_finance_amount.to_string(),
+                        "remaining_finance_amount": b.remaining_finance_amount.to_string(),
+                        "init_margin": b.init_margin.to_string(),
+                        "maintenance_margin": b.maintenance_margin.to_string(),
+                        "margin_call": b.margin_call.to_string(),
+                        "risk_level": risk_level_name(b.risk_level),
+                        "cash_infos": cash_infos,
+                    })
+                })
+                .collect();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&records).unwrap_or_default()
+            );
+        }
+        OutputFormat::Pretty => {
+            let headers = &[
+                "Currency",
+                "Net Assets",
+                "Total Cash",
+                "Buy Power",
+                "Max Finance",
+                "Remaining Finance",
+                "Init Margin",
+                "Maintenance Margin",
+                "Margin Call",
+                "Risk Level",
+            ];
+            let rows = balances
+                .iter()
+                .map(|b| {
+                    vec![
+                        b.currency.clone(),
+                        b.net_assets.to_string(),
+                        b.total_cash.to_string(),
+                        b.buy_power.to_string(),
+                        b.max_finance_amount.to_string(),
+                        b.remaining_finance_amount.to_string(),
+                        b.init_margin.to_string(),
+                        b.maintenance_margin.to_string(),
+                        b.margin_call.to_string(),
+                        risk_level_name(b.risk_level).to_string(),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            print_table(headers, rows, format);
+
+            let cash_headers = &[
+                "Currency",
+                "Available Cash",
+                "Frozen Cash",
+                "Settling Cash",
+                "Withdrawable",
+            ];
+            let mut cash_rows = vec![];
+            for b in balances {
+                for c in &b.cash_infos {
+                    cash_rows.push(vec![
+                        c.currency.clone(),
+                        c.available_cash.to_string(),
+                        c.frozen_cash.to_string(),
+                        c.settling_cash.to_string(),
+                        c.withdraw_cash.to_string(),
+                    ]);
+                }
+            }
+            if !cash_rows.is_empty() {
+                println!();
+                print_table(cash_headers, cash_rows, format);
+            }
+        }
+    }
+}
+
+pub async fn cmd_assets(currency: Option<String>, format: &OutputFormat) -> Result<()> {
+    let ctx = crate::openapi::trade();
+    let balances = ctx.account_balance(currency.as_deref()).await?;
+    print_account_banner(format);
+    print_assets(&balances, format);
+    Ok(())
+}
+
+pub async fn cmd_cash_flow(
+    start: Option<String>,
+    end: Option<String>,
+    format: &OutputFormat,
+) -> Result<()> {
+    let ctx = crate::openapi::trade();
+
+    let now = time::OffsetDateTime::now_utc();
+    let start_at = start
+        .as_deref()
+        .map(parse_datetime_start)
+        .transpose()?
+        .unwrap_or_else(|| now - time::Duration::days(30));
+    let end_at = end
+        .as_deref()
+        .map(parse_datetime_end)
+        .transpose()?
+        .unwrap_or(now);
+
+    let opts = longbridge::trade::GetCashFlowOptions::new(start_at, end_at);
+    let flows = ctx.cash_flow(opts).await?;
+
+    let headers = &[
+        "Flow Name",
+        "Symbol",
+        "Business Type",
+        "Balance",
+        "Currency",
+        "Time",
+        "Description",
+    ];
+    let rows = flows
+        .iter()
+        .map(|f| {
+            vec![
+                f.transaction_flow_name.clone(),
+                f.symbol.clone().unwrap_or_default(),
+                format!("{:?}", f.business_type),
+                f.balance.to_string(),
+                f.currency.clone(),
+                fmt_rfc3339(f.business_time),
+                f.description.clone(),
+            ]
+        })
+        .collect();
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn cmd_fund_positions(format: &OutputFormat) -> Result<()> {
+    let ctx = crate::openapi::trade();
+    let resp = ctx.fund_positions(None).await?;
+
+    print_account_banner(format);
+    let headers = &[
+        "Symbol",
+        "Name",
+        "Net Asset Value",
+        "Cost Net Asset Value",
+        "Currency",
+        "Holding Units",
+    ];
+    let mut rows = vec![];
+    for channel in &resp.channels {
+        for pos in &channel.positions {
+            rows.push(vec![
+                pos.symbol.clone(),
+                pos.symbol_name.clone(),
+                pos.current_net_asset_value.to_string(),
+                pos.cost_net_asset_value.to_string(),
+                pos.currency.clone(),
+                pos.holding_units.to_string(),
+            ]);
+        }
+    }
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn cmd_margin_ratio(symbol: String, format: &OutputFormat) -> Result<()> {
+    let ctx = crate::openapi::trade();
+    let ratio = ctx.margin_ratio(symbol.clone()).await?;
+
+    let headers = &["Field", "Value"];
+    let rows = vec![
+        vec!["Symbol".to_string(), symbol],
+        vec![
+            "Initial Margin Ratio".to_string(),
+            ratio.im_factor.to_string(),
+        ],
+        vec![
+            "Maintenance Margin Ratio".to_string(),
+            ratio.mm_factor.to_string(),
+        ],
+        vec![
+            "Forced Liquidation Ratio".to_string(),
+            ratio.fm_factor.to_string(),
+        ],
+    ];
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn cmd_max_qty(
+    symbol: String,
+    side: &str,
+    price: Option<String>,
+    order_type: &str,
+    format: &OutputFormat,
+) -> Result<()> {
+    let ctx = crate::openapi::trade();
+    let side_val = match side.to_lowercase().as_str() {
+        "buy" => OrderSide::Buy,
+        "sell" => OrderSide::Sell,
+        _ => bail!("Unknown side '{side}'. Use: Buy Sell"),
+    };
+    let ot = parse_order_type(order_type)?;
+
+    let price_dec = price
+        .as_deref()
+        .map(|p| Decimal::from_str(p).map_err(|_| anyhow::anyhow!("Invalid price: {p}")))
+        .transpose()?;
+
+    let opts =
+        longbridge::trade::EstimateMaxPurchaseQuantityOptions::new(symbol.clone(), ot, side_val);
+    let opts = if let Some(p) = price_dec {
+        opts.price(p)
+    } else {
+        opts
+    };
+
+    let resp = ctx.estimate_max_purchase_quantity(opts).await?;
+
+    let headers = &["Field", "Value"];
+    let rows = vec![
+        vec!["Symbol".to_string(), symbol],
+        vec!["Cash Max Qty".to_string(), resp.cash_max_qty.to_string()],
+        vec![
+            "Margin Max Qty".to_string(),
+            resp.margin_max_qty.to_string(),
+        ],
+    ];
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn cmd_portfolio(format: &OutputFormat) -> Result<()> {
+    // Portfolio reaches QuoteContext (WS) through the shared `account` helper, so
+    // record the WS quote operation here at the CLI entry point.
+    crate::openapi::track_quote_cmd();
+    let portfolio = crate::openapi::account::fetch_portfolio().await?;
+
+    print_account_banner(format);
+    match format {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&portfolio)?);
+        }
+        OutputFormat::Pretty => {
+            let o = &portfolio.overview;
+
+            // Overview section
+            let risk_label = match o.risk_level {
+                0 => "Safe",
+                1 => "Middle",
+                2 => "Warning",
+                3 => "Danger",
+                _ => "Unknown",
+            };
+            let overview_headers = &["Field", "Value"];
+            let overview_rows = vec![
+                vec!["Currency".to_string(), o.currency.clone()],
+                vec!["Total Asset".to_string(), fmt_decimal(&Some(o.total_asset))],
+                vec!["Market Cap".to_string(), fmt_decimal(&Some(o.market_cap))],
+                vec!["Total Cash".to_string(), fmt_decimal(&Some(o.total_cash))],
+                vec!["P/L".to_string(), format!("{:.2}", o.total_pl)],
+                vec![
+                    "Intraday P/L".to_string(),
+                    format!("{:.2}", o.total_today_pl),
+                ],
+                vec!["Margin Call".to_string(), fmt_decimal(&Some(o.margin_call))],
+                vec!["Risk Level".to_string(), risk_label.to_string()],
+                vec![
+                    "Credit Limit".to_string(),
+                    fmt_decimal(&Some(o.credit_limit)),
+                ],
+                vec![
+                    "Fund Market Value".to_string(),
+                    fmt_decimal(&Some(o.fund_market_value)),
+                ],
+            ];
+            print_table(overview_headers, overview_rows, format);
+
+            // Asset distribution section
+            {
+                println!();
+                let total = o.total_asset;
+                // Aggregate USD market value per market (from symbol suffix)
+                let mut market_values: std::collections::BTreeMap<String, rust_decimal::Decimal> =
+                    std::collections::BTreeMap::new();
+                for h in &portfolio.holdings {
+                    let market_label = if let Some(dot_pos) = h.symbol.rfind('.') {
+                        match &h.symbol[dot_pos + 1..] {
+                            "US" => "US",
+                            "SH" | "SZ" => "CN",
+                            "SG" => "SG",
+                            _ => "HK",
+                        }
+                    } else {
+                        "HK"
+                    };
+                    *market_values.entry(market_label.to_string()).or_default() +=
+                        h.market_value_usd;
+                }
+                // Add cash and fund
+                market_values.insert("Cash".to_string(), o.total_cash);
+                if o.fund_market_value > rust_decimal::Decimal::ZERO {
+                    market_values.insert("Fund".to_string(), o.fund_market_value);
+                }
+
+                // Sort by value descending
+                let mut dist: Vec<(String, rust_decimal::Decimal)> =
+                    market_values.into_iter().collect();
+                dist.sort_by_key(|b| std::cmp::Reverse(b.1));
+
+                let dist_headers = &["Market", "Value (USD)", "%"];
+                let dist_rows = dist
+                    .iter()
+                    .map(|(label, value)| {
+                        let pct = if total > rust_decimal::Decimal::ZERO {
+                            value / total * rust_decimal::Decimal::ONE_HUNDRED
+                        } else {
+                            rust_decimal::Decimal::ZERO
+                        };
+                        vec![
+                            label.clone(),
+                            format!("{:.2}", value),
+                            format!("{:.2}%", pct),
+                        ]
+                    })
+                    .collect::<Vec<_>>();
+                print_table(dist_headers, dist_rows, format);
+            }
+
+            // Holdings section
+            if portfolio.holdings.is_empty() {
+                println!("\nNo holdings data");
+            } else {
+                println!();
+                let holding_headers = &[
+                    "Symbol",
+                    "Name",
+                    "Qty",
+                    "Price",
+                    "Cost",
+                    "Mkt Value",
+                    "P/L",
+                    "P/L%",
+                    "Intraday",
+                    "Intraday%",
+                    "Currency",
+                ];
+                let holding_rows = portfolio
+                    .holdings
+                    .iter()
+                    .map(|h| {
+                        let pl = h.cost_price.map_or(rust_decimal::Decimal::ZERO, |cost| {
+                            (h.market_price - cost) * h.quantity
+                        });
+                        let pl_pct = h
+                            .cost_price
+                            .filter(|&c| c > rust_decimal::Decimal::ZERO)
+                            .map_or(rust_decimal::Decimal::ZERO, |cost| {
+                                (h.market_price - cost) / cost * rust_decimal::Decimal::ONE_HUNDRED
+                            });
+                        let today_pl = h
+                            .prev_close
+                            .filter(|&pc| pc > rust_decimal::Decimal::ZERO)
+                            .map_or(rust_decimal::Decimal::ZERO, |pc| {
+                                (h.market_price - pc) * h.quantity
+                            });
+                        let today_pl_pct = h
+                            .prev_close
+                            .filter(|&pc| pc > rust_decimal::Decimal::ZERO)
+                            .map_or(rust_decimal::Decimal::ZERO, |pc| {
+                                (h.market_price - pc) / pc * rust_decimal::Decimal::ONE_HUNDRED
+                            });
+                        vec![
+                            h.symbol.clone(),
+                            h.name.clone(),
+                            h.quantity.to_string(),
+                            fmt_decimal(&Some(h.market_price)),
+                            h.cost_price
+                                .map(|c| fmt_decimal(&Some(c)))
+                                .unwrap_or_default(),
+                            fmt_decimal(&Some(h.market_value)),
+                            fmt_decimal(&Some(pl)),
+                            format!("{:.2}%", pl_pct),
+                            fmt_decimal(&Some(today_pl)),
+                            format!("{:.2}%", today_pl_pct),
+                            format!("{:?}", h.currency),
+                        ]
+                    })
+                    .collect::<Vec<_>>();
+                print_table(holding_headers, holding_rows, format);
+            }
+
+            // Cash balances section
+            if !portfolio.cash_balances.is_empty() {
+                println!();
+                let cash_headers = &["Currency", "Total", "Available", "Frozen", "Withdrawable"];
+                let cash_rows = portfolio
+                    .cash_balances
+                    .iter()
+                    .map(|c| {
+                        vec![
+                            format!("{:?}", c.currency),
+                            fmt_decimal(&Some(c.total_amount)),
+                            fmt_decimal(&Some(c.balance)),
+                            fmt_decimal(&Some(c.frozen_cash)),
+                            fmt_decimal(&Some(c.withdraw_cash)),
+                        ]
+                    })
+                    .collect::<Vec<_>>();
+                print_table(cash_headers, cash_rows, format);
+            }
+
+            println!("\n{}", t!("Portfolio.QuoteDisclaimer"));
+        }
+    }
+
+    Ok(())
+}
+
+// ─── Testable run_* functions ─────────────────────────────────────────────────
+
+pub async fn run_today_orders(
+    api: &dyn TradeApi,
+    opts: GetTodayOrdersOptions,
+    format: &OutputFormat,
+) -> Result<()> {
+    let orders = api.today_orders(opts).await?;
+    let headers = &[
+        "Order ID",
+        "Symbol",
+        "Side",
+        "Order Type",
+        "Status",
+        "Quantity",
+        "Price",
+        "Created At",
+    ];
+    let rows = orders
+        .iter()
+        .map(|o| {
+            vec![
+                o.order_id.clone(),
+                o.symbol.clone(),
+                format!("{:?}", o.side),
+                format!("{:?}", o.order_type),
+                format!("{:?}", o.status),
+                o.quantity.to_string(),
+                fmt_decimal(&o.price),
+                fmt_rfc3339(o.submitted_at),
+            ]
+        })
+        .collect();
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_history_orders(
+    api: &dyn TradeApi,
+    opts: GetHistoryOrdersOptions,
+    format: &OutputFormat,
+) -> Result<()> {
+    let orders = api.history_orders(opts).await?;
+    let headers = &[
+        "Order ID",
+        "Symbol",
+        "Side",
+        "Order Type",
+        "Status",
+        "Quantity",
+        "Price",
+        "Created At",
+    ];
+    let rows = orders
+        .iter()
+        .map(|o| {
+            vec![
+                o.order_id.clone(),
+                o.symbol.clone(),
+                format!("{:?}", o.side),
+                format!("{:?}", o.order_type),
+                format!("{:?}", o.status),
+                o.quantity.to_string(),
+                fmt_decimal(&o.price),
+                fmt_rfc3339(o.submitted_at),
+            ]
+        })
+        .collect();
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_order_detail(
+    api: &dyn TradeApi,
+    order_id: String,
+    format: &OutputFormat,
+) -> Result<()> {
+    let detail = api.order_detail(order_id).await?;
+    match format {
+        OutputFormat::Json => {
+            let val = serde_json::json!({"order_id": detail.order_id, "symbol": detail.symbol, "side": format!("{:?}", detail.side), "status": format!("{:?}", detail.status)});
+            println!("{}", serde_json::to_string_pretty(&val)?);
+        }
+        OutputFormat::Pretty => {
+            let headers = &["Field", "Value"];
+            let rows = vec![
+                vec!["Order ID".to_string(), detail.order_id.clone()],
+                vec!["Symbol".to_string(), detail.symbol.clone()],
+                vec!["Side".to_string(), format!("{:?}", detail.side)],
+                vec!["Status".to_string(), format!("{:?}", detail.status)],
+            ];
+            print_table(headers, rows, &OutputFormat::Pretty);
+        }
+    }
+    Ok(())
+}
+
+pub async fn run_today_executions(
+    api: &dyn TradeApi,
+    opts: GetTodayExecutionsOptions,
+    format: &OutputFormat,
+) -> Result<()> {
+    let executions = api.today_executions(opts).await?;
+    let headers = &[
+        "Order ID", "Trade ID", "Symbol", "Price", "Quantity", "Time",
+    ];
+    let rows = executions
+        .iter()
+        .map(|e| {
+            vec![
+                e.order_id.clone(),
+                e.trade_id.clone(),
+                e.symbol.clone(),
+                e.price.to_string(),
+                e.quantity.to_string(),
+                fmt_rfc3339(e.trade_done_at),
+            ]
+        })
+        .collect();
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_history_executions(
+    api: &dyn TradeApi,
+    opts: GetHistoryExecutionsOptions,
+    format: &OutputFormat,
+) -> Result<()> {
+    let executions = api.history_executions(opts).await?;
+    let headers = &[
+        "Order ID", "Trade ID", "Symbol", "Price", "Quantity", "Time",
+    ];
+    let rows = executions
+        .iter()
+        .map(|e| {
+            vec![
+                e.order_id.clone(),
+                e.trade_id.clone(),
+                e.symbol.clone(),
+                e.price.to_string(),
+                e.quantity.to_string(),
+                fmt_rfc3339(e.trade_done_at),
+            ]
+        })
+        .collect();
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_submit_order(
+    api: &dyn TradeApi,
+    opts: SubmitOrderOptions,
+    format: &OutputFormat,
+) -> Result<()> {
+    let resp = api.submit_order(opts).await?;
+    match format {
+        OutputFormat::Json => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({"order_id": resp.order_id}))?
+            );
+        }
+        OutputFormat::Pretty => println!("Order ID: {}", resp.order_id),
+    }
+    Ok(())
+}
+
+pub async fn run_cancel_order(api: &dyn TradeApi, order_id: String) -> Result<()> {
+    api.cancel_order(order_id).await?;
+    Ok(())
+}
+
+pub async fn run_replace_order(api: &dyn TradeApi, opts: ReplaceOrderOptions) -> Result<()> {
+    api.replace_order(opts).await?;
+    Ok(())
+}
+
+pub async fn run_assets(
+    api: &dyn TradeApi,
+    currency: Option<String>,
+    format: &OutputFormat,
+) -> Result<()> {
+    let balances = api.account_balance(currency).await?;
+    print_assets(&balances, format);
+    Ok(())
+}
+
+pub async fn run_cash_flow(
+    api: &dyn TradeApi,
+    opts: GetCashFlowOptions,
+    format: &OutputFormat,
+) -> Result<()> {
+    let flows = api.cash_flow(opts).await?;
+    let headers = &[
+        "Flow Name",
+        "Symbol",
+        "Business Type",
+        "Balance",
+        "Currency",
+        "Time",
+    ];
+    let rows = flows
+        .iter()
+        .map(|f| {
+            vec![
+                f.transaction_flow_name.clone(),
+                f.symbol.clone().unwrap_or_default(),
+                format!("{:?}", f.business_type),
+                f.balance.to_string(),
+                f.currency.clone(),
+                fmt_rfc3339(f.business_time),
+            ]
+        })
+        .collect();
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_positions(api: &dyn TradeApi, format: &OutputFormat) -> Result<()> {
+    let resp = api.stock_positions().await?;
+    let headers = &[
+        "Symbol",
+        "Name",
+        "Quantity",
+        "Available",
+        "Cost Price",
+        "Currency",
+        "Market",
+    ];
+    let mut rows = vec![];
+    for channel in &resp.channels {
+        for pos in &channel.positions {
+            rows.push(vec![
+                pos.symbol.clone(),
+                pos.symbol_name.clone(),
+                pos.quantity.to_string(),
+                pos.available_quantity.to_string(),
+                pos.cost_price.to_string(),
+                pos.currency.clone(),
+                format!("{:?}", pos.market),
+            ]);
+        }
+    }
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_fund_positions(api: &dyn TradeApi, format: &OutputFormat) -> Result<()> {
+    let resp = api.fund_positions().await?;
+    let headers = &[
+        "Symbol",
+        "Name",
+        "Net Asset Value",
+        "Cost NAV",
+        "Currency",
+        "Holding Units",
+    ];
+    let mut rows = vec![];
+    for channel in &resp.channels {
+        for pos in &channel.positions {
+            rows.push(vec![
+                pos.symbol.clone(),
+                pos.symbol_name.clone(),
+                pos.current_net_asset_value.to_string(),
+                pos.cost_net_asset_value.to_string(),
+                pos.currency.clone(),
+                pos.holding_units.to_string(),
+            ]);
+        }
+    }
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_margin_ratio(
+    api: &dyn TradeApi,
+    symbol: String,
+    format: &OutputFormat,
+) -> Result<()> {
+    let ratio = api.margin_ratio(symbol.clone()).await?;
+    let headers = &["Field", "Value"];
+    let rows = vec![
+        vec!["Symbol".to_string(), symbol],
+        vec![
+            "Initial Margin Ratio".to_string(),
+            ratio.im_factor.to_string(),
+        ],
+        vec![
+            "Maintenance Margin Ratio".to_string(),
+            ratio.mm_factor.to_string(),
+        ],
+        vec![
+            "Forced Liquidation Ratio".to_string(),
+            ratio.fm_factor.to_string(),
+        ],
+    ];
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+pub async fn run_max_qty(
+    api: &dyn TradeApi,
+    opts: EstimateMaxPurchaseQuantityOptions,
+    symbol: String,
+    format: &OutputFormat,
+) -> Result<()> {
+    let resp = api.estimate_max_purchase_quantity(opts).await?;
+    let headers = &["Field", "Value"];
+    let rows = vec![
+        vec!["Symbol".to_string(), symbol],
+        vec!["Cash Max Qty".to_string(), resp.cash_max_qty.to_string()],
+        vec![
+            "Margin Max Qty".to_string(),
+            resp.margin_max_qty.to_string(),
+        ],
+    ];
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+// ── Pending commands ─────────────────────────────────────────────────────────
+
+fn val_str(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Null => "-".to_owned(),
+        other => other.to_string(),
+    }
+}
+
+fn print_json_value(data: &serde_json::Value) {
+    let mut v = data.clone();
+    super::output::strip_counter_ids(&mut v);
+    println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
+}
+
+pub async fn cmd_alert_list(
+    symbol: Option<String>,
+    format: &OutputFormat,
+    verbose: bool,
+) -> Result<()> {
+    let mut params: Vec<(&str, &str)> = vec![];
+    if let Some(ref sym) = symbol {
+        params.push(("symbol", sym.as_str()));
+    }
+    let data = super::api::http_get("/v1/notify/reminders", &params, verbose).await?;
+    match format {
+        OutputFormat::Json => print_json_value(&data),
+        OutputFormat::Pretty => {
+            let stocks = match data
+                .get("lists")
+                .or_else(|| data.get("list"))
+                .and_then(|v| v.as_array())
+            {
+                Some(a) if !a.is_empty() => a,
+                _ => {
+                    println!("No alerts found.");
+                    return Ok(());
+                }
+            };
+            let headers = ["id", "symbol", "price", "alert", "enabled", "frequency"];
+            let mut rows: Vec<Vec<String>> = Vec::new();
+            for stock in stocks {
+                let sym = super::output::item_symbol(stock);
+                let price = val_str(&stock["price"]);
+                let Some(indicators) = stock.get("indicators").and_then(|v| v.as_array()) else {
+                    continue;
+                };
+                for ind in indicators {
+                    let enabled = if ind["enabled"].as_bool().unwrap_or(false) {
+                        "\u{2713}" // ✓
+                    } else {
+                        ""
+                    };
+                    let freq = match ind["frequency"].as_i64() {
+                        Some(1) => "daily",
+                        Some(2) => "every",
+                        Some(3) => "once",
+                        _ => "-",
+                    };
+                    rows.push(vec![
+                        val_str(&ind["id"]),
+                        sym.clone(),
+                        price.clone(),
+                        val_str(&ind["text"]),
+                        enabled.to_string(),
+                        freq.to_string(),
+                    ]);
+                }
+            }
+            if rows.is_empty() {
+                println!("No alerts found.");
+            } else {
+                print_table(&headers, rows, format);
+            }
+        }
+    }
+    Ok(())
+}
+
+pub async fn cmd_alert_add(
+    symbol: String,
+    price: &str,
+    direction: &str,
+    alert_type: &str,
+    frequency: &str,
+    _note: Option<String>,
+    format: &OutputFormat,
+    verbose: bool,
+) -> Result<()> {
+    // indicator_id: 1=price_rise, 2=price_fall, 3=change%_rise, 4=change%_fall
+    let indicator_id: i32 = match (alert_type, direction) {
+        ("percent", "fall" | "down") => 4,
+        ("percent", _) => 3,
+        (_, "fall" | "down") => 2,
+        _ => 1,
+    };
+    let freq: i32 = match frequency {
+        "daily" => 1,
+        "every" => 2,
+        _ => 3, // once
+    };
+    let setting_key = match indicator_id {
+        3 | 4 => "chg",
+        _ => "price",
+    };
+    let body = serde_json::json!({
+        "symbol": symbol,
+        "indicator_id": indicator_id.to_string(),
+        "value_map": { setting_key: price },
+        "frequency": freq,
+        "enabled": true,
+        "scope": 0,
+        "state": [1],
+    });
+    let data = super::api::http_post("/v1/notify/reminders", body, verbose).await?;
+    match format {
+        OutputFormat::Json => print_json_value(&data),
+        OutputFormat::Pretty => println!("Alert added for {symbol} at {price} ({direction})"),
+    }
+    Ok(())
+}
+
+pub async fn cmd_alert_delete(id: String, format: &OutputFormat, verbose: bool) -> Result<()> {
+    let id_num: i64 = id
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid alert id '{id}': must be a numeric id"))?;
+    let body = serde_json::json!({ "ids": [id_num] });
+    let data = super::api::http_delete("/v1/notify/reminders", body, verbose).await?;
+    match format {
+        OutputFormat::Json => print_json_value(&data),
+        OutputFormat::Pretty => println!("Alert {id} deleted"),
+    }
+    Ok(())
+}
+
+pub async fn cmd_alert_set_enabled(
+    id: String,
+    enabled: bool,
+    format: &OutputFormat,
+    verbose: bool,
+) -> Result<()> {
+    // Fetch the existing alert to get all required fields
+    let list_data = super::api::http_get("/v1/notify/reminders", &[], verbose).await?;
+    let stocks = list_data
+        .get("lists")
+        .or_else(|| list_data.get("list"))
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let id_num: i64 = id
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid alert id '{id}': must be a numeric id"))?;
+    let mut found = false;
+
+    for stock in &stocks {
+        let counter_id = stock["counter_id"].as_str().unwrap_or("");
+        if let Some(indicators) = stock["indicators"].as_array() {
+            for ind in indicators {
+                let Some(ind_id) = ind["id"].as_str().and_then(|s| s.parse::<i64>().ok()) else {
+                    continue;
+                };
+                if ind_id == id_num {
+                    let body = serde_json::json!({
+                        "id": ind_id,
+                        "counter_id": counter_id,
+                        "indicator_id": ind["indicator_id"].as_str().unwrap_or("1"),
+                        "value_map": ind["value_map"],
+                        "frequency": ind["frequency"],
+                        "enabled": enabled,
+                        "scope": ind["scope"],
+                        "state": ind["state"],
+                    });
+                    super::api::http_post("/v1/notify/reminders", body, verbose).await?;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if found {
+            break;
+        }
+    }
+
+    if !found {
+        bail!("Alert id {id} not found");
+    }
+
+    let action = if enabled { "enabled" } else { "disabled" };
+    match format {
+        OutputFormat::Json => {
+            println!("{}", serde_json::json!({"id": id, "status": action}));
+        }
+        OutputFormat::Pretty => println!("Alert {id} {action}"),
+    }
+    Ok(())
+}
+
+pub(crate) fn schema_for_path(path: &[String]) -> Option<super::schema::ResponseSchema> {
+    use super::schema::{array, object, text};
+
+    let command = path.join(" ");
+    let schema = match command.as_str() {
+        "order" => text("US accounts: object {orders: array of {id, symbol, action, order_type, status, price, quantity, submitted_at, updated_at}, has_more}; HK/CN accounts: array of {order_id, symbol, side, type, status, price, quantity, created_at, updated_at}"),
+        "order detail" => text(
+            "US accounts: object {id, symbol, action, status, order_type, quantity, price, submitted_at, updated_at, order_histories}; HK/CN accounts: object {order_id, symbol, side, order_type, status, quantity, price, submitted_at, updated_at, history}",
+        ),
+        "order executions" => array(
+            "Order executions",
+            &[
+                "order_id", "trade_id", "symbol", "price", "quantity", "time",
+            ],
+        ),
+        "order buy" | "order sell" => object("Submitted order", &["order_id"]),
+        "order cancel" | "order replace" => text("Order mutation status message"),
+        "assets" => array(
+            "Account asset overview",
+            &[
+                "currency",
+                "net_assets",
+                "total_cash",
+                "buy_power",
+                "max_finance_amount",
+                "remaining_finance_amount",
+                "init_margin",
+                "maintenance_margin",
+                "margin_call",
+                "risk_level",
+                "cash_infos",
+            ],
+        ),
+        "cash-flow" => array(
+            "Cash flow records",
+            &[
+                "flow_name",
+                "symbol",
+                "business_type",
+                "balance",
+                "currency",
+                "time",
+                "description",
+            ],
+        ),
+        "portfolio" => object(
+            "Portfolio overview",
+            &["overview", "holdings", "cash_balances", "market_accounts"],
+        ),
+        "positions" => text(
+            "US accounts: object {account_type, cash_buy_power, stock_list, option_list, crypto_list, cash_list}; HK/CN accounts: array of {symbol, name, quantity, available, cost_price, currency, market}",
+        ),
+        "fund-positions" => array(
+            "Current fund positions",
+            &[
+                "symbol",
+                "name",
+                "current_net_asset_value",
+                "cost_net_asset_value",
+                "currency",
+                "holding_units",
+            ],
+        ),
+        "margin-ratio" | "max-qty" => {
+            array("Key/value account calculation result", &["field", "value"])
+        }
+        "alert" => object("Price alert list", &["lists"]),
+        "alert add" | "alert delete" => {
+            object("Price alert mutation result", &["id", "status", "data"])
+        }
+        "alert enable" | "alert disable" => object("Price alert status update", &["id", "status"]),
+        _ => return None,
+    };
+    Some(schema)
+}
+
+// ── US-specific commands ─────────────────────────────────────────────────────
+
+/// `longbridge positions` — US account full overview.
+///
+/// When the session is a US account (`token.ac` starts with `us_lb`), calls
+/// `GET /v1/us/asset/overview` and renders stock / option / crypto positions
+/// plus buy-power. Falls back to the standard HK/CN SDK path otherwise.
+pub async fn cmd_positions(format: &OutputFormat) -> Result<()> {
+    if crate::openapi::is_us_account().await {
+        cmd_us_positions(format).await
+    } else {
+        let ctx = crate::openapi::trade();
+        let resp = ctx.stock_positions(None).await?;
+        print_account_banner(format);
+        let headers = &[
+            "Symbol",
+            "Name",
+            "Quantity",
+            "Available",
+            "Cost Price",
+            "Currency",
+            "Market",
+        ];
+        let mut rows = vec![];
+        for channel in &resp.channels {
+            for pos in &channel.positions {
+                rows.push(vec![
+                    pos.symbol.clone(),
+                    pos.symbol_name.clone(),
+                    pos.quantity.to_string(),
+                    pos.available_quantity.to_string(),
+                    pos.cost_price.to_string(),
+                    pos.currency.clone(),
+                    format!("{:?}", pos.market),
+                ]);
+            }
+        }
+        print_table(headers, rows, format);
+        Ok(())
+    }
+}
+
+fn print_json_us(data: &serde_json::Value) {
+    let mut v = data.clone();
+    super::output::strip_counter_ids(&mut v);
+    println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
+}
+
+async fn cmd_us_positions(format: &OutputFormat) -> Result<()> {
+    let resp = crate::openapi::trade().us_asset_overview().await?;
+    let mut data = serde_json::to_value(&resp)?;
+    // Normalize for AI agent: account_type code → readable string, timestamp string → int
+    if let Some(map) = data.as_object_mut() {
+        if let Some(s) = map.get("account_type").and_then(|v| v.as_str()) {
+            let label = match s {
+                "0" => "Standard (Margin)",
+                "1" => "Cash",
+                other => other,
+            };
+            map.insert(
+                "account_type".to_string(),
+                serde_json::Value::String(label.to_string()),
+            );
+        }
+        if let Some(s) = map.get("asset_timestamp").and_then(|v| v.as_str()) {
+            if let Ok(n) = s.parse::<i64>() {
+                map.insert(
+                    "asset_timestamp".to_string(),
+                    serde_json::Value::Number(serde_json::Number::from(n)),
+                );
+            }
+        }
+        // Ensure list fields are always [] rather than null/absent
+        for list_key in &["stock_list", "option_list", "crypto_list", "cash_list"] {
+            if map.get(*list_key).is_none_or(serde_json::Value::is_null) {
+                map.insert((*list_key).to_string(), serde_json::Value::Array(vec![]));
+            }
+        }
+    }
+    match format {
+        OutputFormat::Json => print_json_us(&data),
+        OutputFormat::Pretty => print_us_positions_pretty(&data),
+    }
+    Ok(())
+}
+
+fn print_us_positions_pretty(data: &serde_json::Value) {
+    let val = |v: &serde_json::Value| match v {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        _ => "-".to_string(),
+    };
+    let acct_type = data["account_type"].as_str().unwrap_or("-");
+    println!("Account Type:   {acct_type}");
+    println!("Cash Buy Power: {}", val(&data["cash_buy_power"]));
+    println!();
+
+    let empty = vec![];
+
+    // Cash balances
+    let cash_list = data["cash_list"].as_array().unwrap_or(&empty);
+    if !cash_list.is_empty() {
+        println!("── Cash ────────────────────────────────────────────────────────");
+        print_table(
+            &["Currency", "Total Cash", "Settled Cash", "Frozen"],
+            cash_list
+                .iter()
+                .map(|c| {
+                    vec![
+                        val(&c["currency"]),
+                        val(&c["total_cash"]),
+                        val(&c["settled_cash"]),
+                        val(&c["frozen_buy_cash"]),
+                    ]
+                })
+                .collect(),
+            &OutputFormat::Pretty,
+        );
+    }
+
+    // Stock positions — counter_id field contains the already-converted symbol (USStockEntry.full_symbol)
+    let stock_list = data["stock_list"].as_array().unwrap_or(&empty);
+    if !stock_list.is_empty() {
+        println!("── Stocks ──────────────────────────────────────────────────────");
+        print_table(
+            &["Symbol", "Qty", "Cost", "Last", "Today P&L"],
+            stock_list
+                .iter()
+                .map(|p| {
+                    vec![
+                        val(&p["counter_id"]),
+                        val(&p["quantity"]),
+                        val(&p["average_cost"]),
+                        val(&p["last_done"]),
+                        val(&p["today_pl"]),
+                    ]
+                })
+                .collect(),
+            &OutputFormat::Pretty,
+        );
+    }
+
+    // Option positions (raw serde_json::Value entries — field names follow API response)
+    let option_list = data["option_list"].as_array().unwrap_or(&empty);
+    if !option_list.is_empty() {
+        println!("── Options ─────────────────────────────────────────────────────");
+        print_table(
+            &["Symbol", "Underlying", "Qty", "Cost"],
+            option_list
+                .iter()
+                .map(|p| {
+                    vec![
+                        val(&p["counter_id"]),
+                        val(&p["underlying_counter_id"]),
+                        val(&p["quantity"]),
+                        val(&p["average_cost"]),
+                    ]
+                })
+                .collect(),
+            &OutputFormat::Pretty,
+        );
+    }
+
+    let cryptos = data["crypto_list"].as_array().unwrap_or(&empty);
+    if !cryptos.is_empty() {
+        println!("── Crypto ──────────────────────────────────────────────────────");
+        print_table(
+            &["Symbol", "Type", "Avg Cost", "Currency", "Industry"],
+            cryptos
+                .iter()
+                .map(|p| {
+                    vec![
+                        val(&p["counter_id"]),
+                        val(&p["asset_type"]),
+                        val(&p["average_cost"]),
+                        val(&p["currency"]),
+                        val(&p["industry_name"]),
+                    ]
+                })
+                .collect(),
+            &OutputFormat::Pretty,
+        );
+    }
+}
+
+/// `longbridge profit-analysis realized` — US accounts only.
+///
+/// Calls `GET /v1/us/asset/pl/realized`.
+/// HK/CN token → `DcRegionRestricted` error from the SDK.
+pub async fn cmd_us_realized_pl(
+    category: &str,
+    currency: &str,
+    format: &OutputFormat,
+    _verbose: bool,
+) -> Result<()> {
+    // GetUSRealizedPLOptions.category: "" = all, "STOCK", "OPTION", "CRYPTO"
+    let cat = match category.to_lowercase().as_str() {
+        "all" | "0" => "",
+        "stock" | "1" => "STOCK",
+        "option" | "2" => "OPTION",
+        "crypto" | "3" => "CRYPTO",
+        other => {
+            anyhow::bail!("Invalid category '{other}'. Valid values: all | stock | option | crypto")
+        }
+    };
+    let resp = crate::openapi::trade()
+        .us_realized_pl(GetUSRealizedPLOptions {
+            currency: currency.to_string(),
+            category: cat.to_string(),
+        })
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("data center") {
+                anyhow::anyhow!("This command is only available for US accounts")
+            } else {
+                anyhow::Error::from(e)
+            }
+        })?;
+    let mut data = serde_json::to_value(&resp)?;
+    // Annotate category/period integers with labels for AI agents
+    if let Some(list) = data["realized_pl_list"].as_array_mut() {
+        for entry in list.iter_mut() {
+            let cat = entry["category"].as_i64().unwrap_or(0);
+            entry["category_name"] = serde_json::json!(match cat {
+                0 => "All",
+                1 => "Stock",
+                2 => "Option",
+                3 => "Crypto",
+                _ => "Unknown",
+            });
+            if let Some(metrics) = entry["metrics"].as_array_mut() {
+                for m in metrics.iter_mut() {
+                    let period = m["period"].as_i64().unwrap_or(0);
+                    m["period_name"] = serde_json::json!(match period {
+                        1 => "YTD",
+                        2 => "Since Inception",
+                        _ => "Unknown",
+                    });
+                    // rate is a decimal fraction: -0.9303 means -93.03%
+                    m["rate_unit"] = serde_json::json!("decimal_fraction");
+                }
+            }
+        }
+    }
+    match format {
+        OutputFormat::Json => print_json_us(&data),
+        OutputFormat::Pretty => {
+            let empty = vec![];
+            let list = data["realized_pl_list"].as_array().unwrap_or(&empty);
+            if list.is_empty() {
+                println!("No realized P&L data.");
+            } else {
+                let cat_name = |c: i64| match c {
+                    0 => "All",
+                    1 => "Stock",
+                    2 => "Option",
+                    3 => "Crypto",
+                    _ => "Unknown",
+                };
+                let num = |v: &serde_json::Value| match v {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    _ => "-".to_owned(),
+                };
+                print_table(
+                    &["Category", "Period", "Currency", "Amount", "Return Rate"],
+                    list.iter()
+                        .flat_map(|entry| {
+                            let cat = entry["category"].as_i64().unwrap_or(0);
+                            let currency = entry["currency"].as_str().unwrap_or("-");
+                            entry["metrics"]
+                                .as_array()
+                                .unwrap_or(&empty)
+                                .iter()
+                                .map(move |m| {
+                                    vec![
+                                        cat_name(cat).to_string(),
+                                        m["period_name"].as_str().unwrap_or("-").to_string(),
+                                        currency.to_string(),
+                                        num(&m["amount"]),
+                                        num(&m["rate"]),
+                                    ]
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .collect(),
+                    format,
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::api::MockTradeApi;
+
+    fn make_submit_opts() -> SubmitOrderOptions {
+        SubmitOrderOptions::new(
+            "TSLA.US",
+            OrderType::LO,
+            OrderSide::Buy,
+            Decimal::from(100u64),
+            TimeInForceType::Day,
+        )
+    }
+
+    #[tokio::test]
+    async fn test_run_today_orders_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_today_orders()
+            .times(1)
+            .returning(|_| Ok(vec![]));
+        run_today_orders(&mock, GetTodayOrdersOptions::new(), &OutputFormat::Pretty)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_history_orders_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_history_orders()
+            .times(1)
+            .returning(|_| Ok(vec![]));
+        run_history_orders(&mock, GetHistoryOrdersOptions::new(), &OutputFormat::Pretty)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_today_executions_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_today_executions()
+            .times(1)
+            .returning(|_| Ok(vec![]));
+        run_today_executions(
+            &mock,
+            GetTodayExecutionsOptions::new(),
+            &OutputFormat::Pretty,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_history_executions_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_history_executions()
+            .times(1)
+            .returning(|_| Ok(vec![]));
+        run_history_executions(
+            &mock,
+            GetHistoryExecutionsOptions::new(),
+            &OutputFormat::Pretty,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_submit_order_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_submit_order().times(1).returning(|_| {
+            Ok(longbridge::trade::SubmitOrderResponse {
+                order_id: "order-1".to_string(),
+            })
+        });
+        run_submit_order(&mock, make_submit_opts(), &OutputFormat::Pretty)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_cancel_order_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_cancel_order()
+            .with(mockall::predicate::eq("order-1".to_string()))
+            .times(1)
+            .returning(|_| Ok(()));
+        run_cancel_order(&mock, "order-1".to_string())
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_replace_order_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_replace_order().times(1).returning(|_| Ok(()));
+        let opts = ReplaceOrderOptions::new("order-1", Decimal::from(200u64));
+        run_replace_order(&mock, opts).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_assets_dispatches() {
+        let mut mock = MockTradeApi::new();
+        mock.expect_account_balance()
+            .with(mockall::predicate::eq(None::<String>))
+            .times(1)
+            .returning(|_| Ok(vec![]));
+        run_assets(&mock, None, &OutputFormat::Pretty)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_positions_dispatches() {
+        use longbridge::trade::StockPositionsResponse;
+        let mut mock = MockTradeApi::new();
+        mock.expect_stock_positions()
+            .times(1)
+            .returning(|| Ok(StockPositionsResponse { channels: vec![] }));
+        run_positions(&mock, &OutputFormat::Pretty).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_fund_positions_dispatches() {
+        use longbridge::trade::FundPositionsResponse;
+        let mut mock = MockTradeApi::new();
+        mock.expect_fund_positions()
+            .times(1)
+            .returning(|| Ok(FundPositionsResponse { channels: vec![] }));
+        run_fund_positions(&mock, &OutputFormat::Pretty)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_margin_ratio_dispatches() {
+        use longbridge::trade::MarginRatio;
+        let mut mock = MockTradeApi::new();
+        mock.expect_margin_ratio()
+            .with(mockall::predicate::eq("TSLA.US".to_string()))
+            .times(1)
+            .returning(|_| {
+                Ok(MarginRatio {
+                    im_factor: Decimal::ZERO,
+                    mm_factor: Decimal::ZERO,
+                    fm_factor: Decimal::ZERO,
+                })
+            });
+        run_margin_ratio(&mock, "TSLA.US".to_string(), &OutputFormat::Pretty)
+            .await
+            .unwrap();
+    }
+
+    #[test]
+    fn test_parse_order_type_valid() {
+        assert!(parse_order_type("LO").is_ok());
+        assert!(parse_order_type("lo").is_ok());
+        assert!(parse_order_type("MO").is_ok());
+        assert!(parse_order_type("ELO").is_ok());
+    }
+
+    #[test]
+    fn test_parse_order_type_invalid() {
+        assert!(parse_order_type("LIMIT").is_err());
+        assert!(parse_order_type("").is_err());
+    }
+
+    #[test]
+    fn test_parse_tif_valid() {
+        assert!(parse_tif("day").is_ok());
+        assert!(parse_tif("gtc").is_ok());
+        assert!(parse_tif("goodtilcanceled").is_ok());
+        assert!(parse_tif("gtd").is_ok());
+    }
+
+    #[test]
+    fn test_parse_tif_invalid() {
+        assert!(parse_tif("ioc").is_err());
+    }
+}
