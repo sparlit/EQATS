@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 107
+Total Repositories: 411 | Current Index: 111
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -113,7 +113,7 @@ Total Repositories: 411 | Current Index: 107
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
 | 109 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2670 |
 | 110 | degenapetrader/evpoly | Completed | https://github.com/sparlit/EQATS/pull/2539 |
-| 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2540 |
+| 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2677 |
 | 112 | deshpanda/nse-screener | Completed | https://github.com/sparlit/EQATS/pull/2541 |
 | 113 | deshpanda/nse-screener-data | Processed | https://github.com/sparlit/EQATS/pull/2542 |
 | 114 | deshwalmahesh/nse-stock-scanner | Completed | https://github.com/sparlit/EQATS/pull/2543 |
