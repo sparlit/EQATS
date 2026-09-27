@@ -1,5 +1,5 @@
 {
-  "current_index": 177,
+  "current_index": 178,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1421,7 +1421,7 @@
       "name": "nse-data",
       "target": "joshiadvait8/nse-data",
       "url": "https://github.com/joshiadvait8/nse-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
