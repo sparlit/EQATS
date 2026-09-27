@@ -41,13 +41,12 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import datetime
-import gzip
-import json
+import bse_headers as BH  # §181 BSE headers
 import os
 import sys
-
-import bse_headers as BH  # §181 BSE headers
+import json
+import gzip
+import datetime
 import reaction_timing as RT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -129,7 +128,10 @@ def main():
             ann = 0
         rx, sr = reaction(series, ann, RT.after_close(ann, scrip=scrip)) if ann else (None, None)
         v = [rec.get("rev"), rec.get("op"), rec.get("pat")]
-        return (([None] * 3 + v) if rec.get("basis") == "C" else (v + [None] * 3)) + [ann or None, rx, sr]
+        out = (([None] * 3 + v) if rec.get("basis") == "C" else (v + [None] * 3)) + [ann or None, rx, sr]
+        if rec.get("prov"):
+            out.append(1)  # [9] = provisional Apr-Sep half, not yet closed by the Mar filing (runbook §195, Option A)
+        return out
 
     for code, qs in fund.items():
         u = univ.get(code)

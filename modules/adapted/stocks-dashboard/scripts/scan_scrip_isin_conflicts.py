@@ -122,7 +122,10 @@ def main():
     qrco = json.load(open(os.path.join(ROOT, "docs", "quarterly_results.json"), encoding="utf-8")).get("co") or {}
     universe = sorted({s for s in fund if not s.startswith("_")} | set(qrco))
 
-    conflicts, agreed, unmapped, uncheckable = {}, 0, 0, 0
+    sys.path.insert(0, HERE)
+    import bse_resolve
+
+    conflicts, agreed, unmapped, uncheckable, bse_page = {}, 0, 0, 0, []
     for sym in universe:
         code = by_id.get(sym)
         if code is None:
@@ -142,6 +145,9 @@ def main():
         if bisin == nisin or bisin[:7] == nisin[:7]:
             agreed += 1
             continue
+        if bse_resolve.page_company(sym)[0] == "bse":
+            bse_page.append(sym)  # §203: the site lists sym as the BSE company (sym.BO, no sym.NS) — the BSE
+            continue  # scrip IS the page; a conflict entry would strip it of its own data
         conflicts[sym] = {
             "nse_isin": nisin,
             "bse_code": str(code),
@@ -152,8 +158,17 @@ def main():
 
     if not quiet:
         print(
-            "checked %d symbols: agree %d | conflicts %d | no BSE code %d | uncheckable %d"
-            % (len(universe), agreed, len(conflicts), unmapped, uncheckable)
+            "checked %d symbols: agree %d | conflicts %d | no BSE code %d | uncheckable %d | BSE company's page "
+            "(not a conflict, §203) %d%s"
+            % (
+                len(universe),
+                agreed,
+                len(conflicts),
+                unmapped,
+                uncheckable,
+                len(bse_page),
+                (": " + ", ".join(bse_page)) if bse_page else "",
+            )
         )
         for s in sorted(conflicts):
             e = conflicts[s]

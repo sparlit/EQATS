@@ -36,7 +36,10 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# scripts/, for bse_names (runbook §204). Appended, so this folder's bse.py / ist.py still resolve first.
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import bse
+import bse_names
 import ist
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -77,7 +80,7 @@ def build(lo, hi):
             {
                 "scrip": str(x["SCRIP_CD"]).strip(),
                 "id": (x.get("scrip_id") or "").strip(),
-                "name": (x.get("Scrip_Name") or "").strip(),
+                "name": bse_names.clean_scrip_name(x.get("Scrip_Name")),
                 "issuer": (x.get("Issuer_Name") or "").strip(),
                 "isin": isin,
                 "group": grp,

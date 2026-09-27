@@ -68,18 +68,17 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import datetime
-import gzip
-import json
+import bse_headers as BH  # §181 BSE headers
 import os
-import re
 import sys
+import json
+import re
+import gzip
+import datetime
 import threading
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_fundamentals as B  # _get / nse_jar / UA (CI-proven NSE session)
@@ -1773,12 +1772,9 @@ def build_feed():
             c = qs.get(qe) or 0
             rc = (revs.get(sym) or {}).get(qe)
             if c and rc and not _same_cell(rc, c):
-                c = [
-                    *list(rc[:5]),
-                    c[5],
-                    *list(c[6:]),
-                    "rev:" + str(rc[5]),
-                ]  # original date kept, re-filing date appended
+                c = (
+                    list(rc[:5]) + [c[5]] + list(c[6:]) + ["rev:" + str(rc[5])]
+                )  # original date kept, re-filing date appended
                 n_rev += 1
             cells.append(c)
         if not any(cells):
@@ -1921,7 +1917,8 @@ def build_engine_feed():
         return rows
 
     revs = load_revs()
-    n_rev = 0  # §142k re-filings sidecar
+    n_rev = 0
+    n_same = [0]  # §142k re-filings sidecar
     for sym in set(hist) | set(events):
         if sym.startswith("_"):
             continue
@@ -1942,19 +1939,29 @@ def build_engine_feed():
             except (ValueError, TypeError, IndexError):
                 continue
             b = base.get(qi)
-            if b is None or rsub <= b[3]:
-                continue  # no original row, or not later than it: nothing to add
+            if b is None or rsub < b[3]:
+                continue  # no original row, or dated before it: nothing to add
 
             def _eq(x, y):
                 return x is None or y is None or abs(float(x) - float(y)) <= 0.0100001
 
             if _eq(rc[1], b[1]) and _eq(rc[2], b[2]) and _eq(rc[0], b[4]) and _eq(rc[3], b[5]):
                 continue  # identical numbers (fii/dii/prom/mf): nothing for the engine to learn
+            if rsub == b[3]:
+                # §180e: a SAME-DAY correction (MTPL Jun-2024 62.21 -> 72.77, BMBMUMG 100 -> 12.09 promoter) was public
+                # on the same date as the original, so no screen date ever saw the original alone — the quarter's one
+                # row carries the correction (a second row with the same qe|sub would collide in the alias merge)
+                b[1], b[2], b[4], b[5] = rc[1], rc[2], rc[0], rc[3]
+                n_same[0] += 1
+                continue
             rows.append([qi, rc[1], rc[2], rsub, rc[0], rc[3]])
             n_rev += 1
         if rows:
             out[sym] = sorted(rows, key=lambda r: (r[0], r[3]))
-    print("  engine feed: %d re-filing rows added beside their originals (§142k)" % n_rev)
+    print(
+        "  engine feed: %d re-filing rows added beside their originals (§142k), %d same-day corrections served "
+        "in place of the original" % (n_rev, n_same[0])
+    )
     print("  engine feed: %d pre-Jun-2016 rows served UN-DATED (no evidenced visibility date)" % n_undated[0])
     print(
         "  engine feed: %d visibility dates re-asserted from shp_lag_fix.json / shp_sub_dates.json (§135)"

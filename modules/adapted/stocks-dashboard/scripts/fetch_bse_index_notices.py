@@ -38,15 +38,14 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import datetime
-import json
-import os
-import re
-import sys
-import time
-import urllib.request
-
 import bse_headers
+import os
+import sys
+import re
+import json
+import time
+import datetime
+import urllib.request
 
 CACHE = os.path.expanduser("~/stocks-cache/bse_index_notices")
 LIST = (

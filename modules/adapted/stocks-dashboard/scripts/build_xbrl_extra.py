@@ -71,6 +71,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contextlib
 
+import bse_resolve
 import scale_fix
 import xbrl_symbol
 
@@ -138,7 +139,10 @@ RE_SEGCID = re.compile(r"^(One|Four)(?:Reportable|Segment)\d+D$")
 PNL = {  # quarter money, ₹ -> cr
     "oi": ["OtherIncome"],
     "fc": ["FinanceCosts"],
-    "dep": ["DepreciationDepletionAndAmortisationExpense"],
+    # trailing name = the NON-Ind-AS spelling (NSE "NONINDAS" files — every SME half-year / quarter,
+    # older small filers — and BSE's "NonBanking" / "IFOtherthan" SME files); same rule as below,
+    # it only applies where the Ind-AS tag is absent (build_revop.metrics_for reads both, §205)
+    "dep": ["DepreciationDepletionAndAmortisationExpense", "DepreciationAndAmortisationExpense"],
     "tax": ["TaxExpense"],
     "tax_c": ["CurrentTax"],
     "tax_d": ["DeferredTax"],
@@ -152,7 +156,8 @@ PNL = {  # quarter money, ₹ -> cr
         "ProfitOrLossBeforeTax",
         "ProfitLossFromOrdinaryActivitiesBeforeTax",
     ],
-    "pbet": ["ProfitBeforeExceptionalItemsAndTax"],
+    # non-Ind-AS: "Profit before exceptional and extraordinary items and tax" — the pre-exceptional line
+    "pbet": ["ProfitBeforeExceptionalItemsAndTax", "ProfitBeforeExceptionalAndExtraordinaryItemsAndTax"],
     "emp": ["EmployeeBenefitExpense", "EmployeesCost"],
     "mat": ["CostOfMaterialsConsumed"],
     "oci": ["OtherComprehensiveIncomeNetOfTaxes"],
@@ -358,6 +363,12 @@ def parse_file(path, fname, sym_override=None):
     if not sym:
         return None
     sym = sym.upper()
+    if not sym_override:
+        # §203: the site's page for this ticker can be a BSE company of another issuer — KEL is Kotia Enterprises
+        # (BSE 539599) since NSE's KEL, Kundan Edifice, stopped trading; that filing is never keyed under it
+        mi = xbrl_symbol.RE_ISIN.search(xml)
+        if bse_resolve.nse_blocked_under(sym, mi.group(1) if mi else None):
+            return None
 
     # ---- contexts --------------------------------------------------------------------------
     ctx = {}  # cid -> ('I', date) | ('D', start, end)

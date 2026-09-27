@@ -105,6 +105,130 @@ def bse_key(tkr):
     return t + "-BSE" if t in conflicts() else t
 
 
+# ---- §203: ONE TICKER STRING, TWO COMPANIES -----------------------------------------------------------------------
+# The site lists an NSE company under its NSE symbol and a BSE-only company under its BSE scrip_id, and the two
+# namespaces collide: ZEAL is Zeal Global Services on NSE (SME, INE0PPS01018) and Zeal Aqua on BSE (539963,
+# INE819S01025). The conflict ledger above only ever held the pairs somebody had scanned for, and the build's own
+# proof (the committed tape's ISIN) covers the main board only — no SME symbol — so a BSE scrip folded straight into
+# an SME company's page (ZEAL, GSTL, MAL, SEL, RAJPUTANA) and its detail was filed under the SME company's key.
+# The reverse happens too: KEL's page is Kotia Enterprises (BSE 539599) since its NSE twin Kundan Edifice stopped
+# trading, but Kundan's filings were still keyed KEL. WHOSE PAGE A TICKER IS comes from the dashboard's own universe,
+# docs/stock_data.bin meta: "SYM.NS" -> the NSE company; only "SYM.BO" -> the BSE company. A writer may file a
+# company's data under the ticker only when ISIN proves it IS the page's company.
+ROOT = os.path.dirname(HERE)
+NSE_ISIN_PATHS = (
+    os.path.join(HERE, "_nse_sym_isin_2020.json"),  # NSE symbol -> every ISIN since 2020 (+SME)
+    os.path.join(HERE, "ideas", "nse_sme.csv"),
+)  # NSE's SME_EQUITY_L (committed copy)
+_ident = None
+
+
+def issuer(isin):
+    """The issuer part of an ISIN (first 7 chars) — a face-value change re-issues the security, not the company."""
+    i = str(isin or "").strip().upper()
+    return i[:7] if len(i) >= 7 else None
+
+
+def identities(tape_isin=None):
+    """Loaded once: {"site": {"SYM.NS"|"SYM.BO": meta}, "nse": {SYM: {ISIN}}, "bse": {TICKER: [(code, isin, name)]},
+    "code_isin": {code: isin}}. tape_isin: {SYM: ISIN} from the committed tape meta when the caller already decoded
+    it (build_stock_fin, fetch_bse_results_xbrl); else read here. A missing source degrades to fewer ISINs, and an
+    NSE page with no ISIN on record then refuses every BSE scrip — never the reverse."""
+    global _ident
+    if _ident is not None:
+        return _ident
+    import csv
+    import gzip
+
+    site, nse, bse, code_isin = {}, {}, {}, {}
+    try:
+        raw = open(os.path.join(ROOT, "docs", "stock_data.bin"), "rb").read()
+        site = json.loads(gzip.decompress(raw) if raw[:2] == b"\x1f\x8b" else raw).get("meta") or {}
+    except Exception as e:
+        print(f"bse_resolve: docs/stock_data.bin meta unreadable ({e}) — page owners unknown, §203 guard idle")
+    if tape_isin is None:
+        try:
+            b = gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+            m, _ = json.JSONDecoder().raw_decode(b[b.rfind(b'"meta":') + 7 :].decode("utf-8"))
+            tape_isin = {k: v["isin"] for k, v in m.items() if isinstance(v, dict) and v.get("isin")}
+        except Exception:
+            tape_isin = {}
+    for s, i in (tape_isin or {}).items():
+        nse.setdefault(s.upper(), set()).add(str(i).upper())
+    try:
+        for s, lst in json.load(open(NSE_ISIN_PATHS[0], encoding="utf-8")).items():
+            nse.setdefault(s.upper(), set()).update(str(i).upper() for i in lst)
+    except Exception:
+        pass
+    try:
+        for r in csv.DictReader(open(NSE_ISIN_PATHS[1], encoding="utf-8", errors="replace")):
+            s, i = (r.get("SYMBOL") or "").strip().upper(), (r.get("ISIN_NUMBER") or r.get("ISIN NUMBER") or "").strip()
+            if s and i:
+                nse.setdefault(s, set()).add(i.upper())
+    except Exception:
+        pass
+    for s, e in conflicts().items():
+        if e.get("nse_isin"):
+            nse.setdefault(s, set()).add(str(e["nse_isin"]).upper())
+    try:
+        d = json.load(open(SCRIPS_PATH, encoding="utf-8"))
+        code_isin = {str(c): str(i).upper() for i, c in (d.get("by_isin") or {}).items()}
+    except Exception:
+        pass
+    try:
+        for r in json.load(open(os.path.join(ROOT, "docs", "bse_universe.json"), encoding="utf-8")).get("rows") or []:
+            if len(r) > 3 and r[1]:
+                bse.setdefault(str(r[1]).upper(), []).append((str(r[0]), str(r[3] or "").upper(), r[2]))
+                if r[3]:
+                    code_isin.setdefault(str(r[0]), str(r[3]).upper())
+    except Exception:
+        pass
+    _ident = {"site": site, "nse": nse, "bse": bse, "code_isin": code_isin}
+    return _ident
+
+
+def page_company(sym):
+    """Whose page the site's ticker `sym` is: ("nse", {issuers}) when the dashboard lists SYM.NS; ("bse", {issuers})
+    when it lists only SYM.BO (the BSE scrip whose ticker is SYM); (None, set()) when it lists neither."""
+    I = identities()
+    s = str(sym or "").upper()
+    if s + ".NS" in I["site"]:
+        return "nse", {issuer(i) for i in I["nse"].get(s, ()) if issuer(i)}
+    if s + ".BO" in I["site"]:
+        return "bse", {issuer(i) for _, i, _ in I["bse"].get(s, ()) if issuer(i)}
+    return None, set()
+
+
+def bse_blocked_under(sym, isin=None, code=None):
+    """Reason string when BSE scrip `code` (ISIN `isin`) must NOT be filed under the site ticker `sym`, else None:
+    a recorded conflict, or `sym`'s page is an NSE company that ISIN does not prove to be this scrip (no NSE ISIN on
+    record proves nothing, so it refuses too)."""
+    s = str(sym or "").upper()
+    bi = issuer(isin) or issuer(identities()["code_isin"].get(str(code)))
+    e = conflicts().get(s)
+    if e and (str(code) == str(e.get("bse_code")) or bi != issuer(e.get("nse_isin"))):
+        return blocked(s)
+    own, iss = page_company(s)
+    if own == "nse" and (not bi or bi not in iss):
+        return "{} on this site is the NSE company (ISIN issuer {}); BSE {} is {}".format(
+            s, "/".join(sorted(iss)) or "none on record", code or "?", bi or "an unknown ISIN"
+        )
+    return None
+
+
+def nse_blocked_under(sym, isin):
+    """Reason string when an NSE filing of ISIN `isin` must NOT be filed under `sym` because the site's `sym` page is
+    a BSE company of another issuer (its NSE twin stopped trading: KEL, DRL, INNOVATIVE, BRIGHT), else None. An
+    unknown filing ISIN is never blocked here (the page owner cannot be contradicted by nothing)."""
+    own, iss = page_company(sym)
+    ni = issuer(isin)
+    if own == "bse" and iss and ni and ni not in iss:
+        return "{} on this site is the BSE company (ISIN issuer {}); this NSE filing is ISIN {}".format(
+            str(sym).upper(), "/".join(sorted(iss)), isin
+        )
+    return None
+
+
 def by_id(path=None):
     """bse_scrips.json['by_id'], ISIN-guarded. This is the call every fundamentals-feeding
     consumer should use instead of json.load(...)['by_id']."""

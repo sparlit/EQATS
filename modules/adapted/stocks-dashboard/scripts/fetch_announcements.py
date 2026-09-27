@@ -41,14 +41,13 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import datetime
-import json
-import os
-import re
-import sys
-import time
-
 import bse_headers as BH  # §181 BSE headers
+import os
+import sys
+import json
+import datetime
+import re
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_fundamentals as B  # _get / nse_jar / UA

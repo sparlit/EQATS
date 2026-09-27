@@ -333,6 +333,20 @@ def main():
             f"ABORT: no usable top-level `end` in {os.path.basename(SF)} (got {end!r}) — refusing to publish an "
             "index with no staleness stamp"
         )
+    # NEVER REGRESS. The daily refresh-search-index job cut the index from the committed docs/sf_stock_data.bin (frozen
+    # 2026-06-13) for weeks and overwrote every fresh cut refresh-backtest-data made — live "v" sat 106 days old, which
+    # also kept check_fund_alias.py on "stale" (it judges on this file). A bin OLDER than the index already on disk is
+    # the wrong bin, whoever called us: refuse rather than overwrite a newer cut with an older one.
+    try:
+        with open(OUT, encoding="utf-8") as fh:
+            have = json.load(fh).get("v") or ""
+    except (OSError, ValueError):
+        have = ""
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", have) and end < have:
+        sys.exit(
+            f"ABORT: {os.path.basename(SF)} is cut from {end} but {os.path.basename(OUT)} already carries {have} — refusing to regress the index "
+            "(point SF_BIN at the live release asset)"
+        )
 
     mcap = {}
     if os.path.exists(SLIM):
@@ -345,24 +359,66 @@ def main():
         except Exception as e:
             print(f"WARN: could not read mcap from dash_slim.bin: {e}")
 
+    # BSE side, read once: who has a BSE price series (docs/bse_prices.bin) — the exact set build_bse_slices.py cuts a
+    # stk slice for — and which tape tickers are pages of the BSE company (§207: their slice is the BSE series).
+    bu = code2sym = bpx = None
+    take = {}
+    if os.path.exists(BSE_UNIV) and os.path.exists(BSE_SCRIP) and os.path.exists(BSE_PX):
+        try:
+            bu = {str(r[0]): r for r in json.load(open(BSE_UNIV, encoding="utf-8"))["rows"]}
+            code2sym = {str(v): k for k, v in json.load(open(BSE_SCRIP, encoding="utf-8"))["by_id"].items()}
+            bpx = json.loads(gzip.decompress(open(BSE_PX, "rb").read()))["px"]
+            sys.path.insert(0, HERE)
+            from build_bse_slices import owner_takeovers
+
+            take = owner_takeovers(
+                {s.upper() for s in meta},
+                bpx,
+                code2sym,
+                20,
+                {k: v["isin"] for k, v in meta.items() if isinstance(v, dict) and v.get("isin")},
+            )
+        except Exception as e:
+            print(f"WARN: BSE side unreadable ({e}) — BSE-only names not appended, page owners not applied")
+            bu = None
+            take = {}
+
+    def bse_row(code, sym):
+        """[sym, name, alive, mcap, ind] from the BSE universe row — build_bse_slices.py's own name/ind/mcap."""
+        row = bu[str(code)]
+        name = ((row[2] if len(row) > 2 else "") or sym).strip()
+        ind = ((row[7] if len(row) > 7 else "") or "").strip()
+        if ind not in ind_ix:
+            ind_ix[ind] = len(inds)
+            inds.append(ind)
+        mc = row[6] if len(row) > 6 and isinstance(row[6], (int, float)) else 0
+        return [sym, name, 1, round(mc), ind_ix[ind]]
+
     inds, ind_ix, rows = [], {}, []
+    owned = 0
     for sym, m in meta.items():
+        code = (take.get(sym.upper()) or (None,))[0]
+        if code and bu and str(code) in bu:
+            # §207: the site gives this ticker's page to the BSE company and its slice is the BSE series — the search
+            # row must name that company (KEL = Kotia Enterprises, not the tape's "KEL" = Kundan Edifice's NSE series).
+            rows.append(bse_row(code, sym))
+            owned += 1
+            continue
         name = (m.get("name") or sym).strip()
         ind = (m.get("ind") or m.get("industry") or "").strip()
         if ind not in ind_ix:
             ind_ix[ind] = len(inds)
             inds.append(ind)
         rows.append([sym, name, 1 if m.get("alive") else 0, round(mcap.get(sym, 0)), ind_ix[ind]])
+    if take:
+        print("  %d tape tickers are BSE companies' pages (§207) — named from the BSE universe" % owned)
 
     # --- BSE-ONLY names (not in the sf payload) that build_bse_slices.py now makes renderable -------
     # Their price slice lives on the sf-data host and their fin slice in docs/fin, so the stock page
     # opens — but without a row here the search box can't offer them. Include only scrips that actually
     # carry a price series (docs/bse_prices.bin), i.e. exactly the set that got a stk slice.
-    if os.path.exists(BSE_UNIV) and os.path.exists(BSE_SCRIP) and os.path.exists(BSE_PX):
+    if bu is not None:
         try:
-            bu = {str(r[0]): r for r in json.load(open(BSE_UNIV, encoding="utf-8"))["rows"]}
-            code2sym = {str(v): k for k, v in json.load(open(BSE_SCRIP, encoding="utf-8"))["by_id"].items()}
-            bpx = json.loads(gzip.decompress(open(BSE_PX, "rb").read()))["px"]
             existing = {r[0] for r in rows}
             added = 0
             for code in bpx:
@@ -373,13 +429,7 @@ def main():
                 if not sym or not row or sym in existing:
                     continue
                 existing.add(sym)
-                name = ((row[2] if len(row) > 2 else "") or sym).strip()
-                ind = ((row[7] if len(row) > 7 else "") or "").strip()
-                if ind not in ind_ix:
-                    ind_ix[ind] = len(inds)
-                    inds.append(ind)
-                mc = row[6] if len(row) > 6 and isinstance(row[6], (int, float)) else 0
-                rows.append([sym, name, 1, round(mc), ind_ix[ind]])
+                rows.append(bse_row(code, sym))
                 added += 1
             print("  + %d BSE-only names appended to the search index" % added)
         except Exception as e:
