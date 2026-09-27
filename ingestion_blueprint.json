@@ -1414,8 +1414,8 @@
       "target": "johnebe2020-trade/nse-scanner",
       "url": "https://github.com/johnebe2020-trade/nse-scanner",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2607",
+      "merged": true
     },
     {
       "name": "nse-data",

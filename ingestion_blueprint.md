@@ -179,7 +179,7 @@ Total Repositories: 411 | Current Index: 177
 | 174 | jerryshell/midas | Processed | https://github.com/sparlit/EQATS/pull/2604 |
 | 175 | jinit24/nsedownload | Processed | https://github.com/sparlit/EQATS/pull/2605 |
 | 176 | joaquinbejar/optionstratlib | Completed | https://github.com/sparlit/EQATS/pull/2606 |
-| 177 | johnebe2020-trade/nse-scanner | Processed | None |
+| 177 | johnebe2020-trade/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/2607 |
 | 178 | joshiadvait8/nse-data | pending | None |
 | 179 | jugaad-py/master-data | pending | None |
 | 180 | julien-r44/cli-candlestick-chart | pending | None |
