@@ -1,5 +1,5 @@
 {
-  "current_index": 162,
+  "current_index": 163,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1301,9 +1301,9 @@
       "name": "nse-india-all-stocks-tickers-data",
       "target": "imanojkumar/nse-india-all-stocks-tickers-data",
       "url": "https://github.com/imanojkumar/nse-india-all-stocks-tickers-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2747",
+      "merged": true
     },
     {
       "name": "nse",
