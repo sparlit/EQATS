@@ -1430,8 +1430,8 @@
       "target": "jugaad-py/master-data",
       "url": "https://github.com/jugaad-py/master-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2609",
+      "merged": true
     },
     {
       "name": "cli-candlestick-chart",
