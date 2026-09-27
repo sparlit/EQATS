@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 200
+Total Repositories: 411 | Current Index: 201
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -203,7 +203,7 @@ Total Repositories: 411 | Current Index: 200
 | 198 | lakshaysinghal/bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2629 |
 | 199 | laminar-protocol/laminar-chain | Processed | https://github.com/sparlit/EQATS/pull/2630 |
 | 200 | lavakus/nse-intraday-bot | Completed | https://github.com/sparlit/EQATS/pull/2631 |
-| 201 | lebedov/nseindia_lob | pending | None |
+| 201 | lebedov/nseindia_lob | Processed | https://github.com/sparlit/EQATS/pull/2632 |
 | 202 | lebedov/nseindia_reformat | pending | None |
 | 203 | llc-993/matching-core | pending | None |
 | 204 | longbridge/longbridge-terminal | pending | None |
