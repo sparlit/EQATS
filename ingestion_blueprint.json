@@ -1,5 +1,5 @@
 {
-  "current_index": 110,
+  "current_index": 3,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -14,16 +14,16 @@
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2684",
-      "merged": true
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "indian-stock-market-api",
       "target": "0xramm/indian-stock-market-api",
       "url": "https://github.com/0xramm/indian-stock-market-api",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2687",
+      "merged": true
     },
     {
       "name": "stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
