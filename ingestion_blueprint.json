@@ -1,5 +1,5 @@
 {
-  "current_index": 203,
+  "current_index": 204,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1629,9 +1629,9 @@
       "name": "extrema_infra",
       "target": "lqz13th/extrema_infra",
       "url": "https://github.com/lqz13th/extrema_infra",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2788",
+      "merged": true
     },
     {
       "name": "stock-market-india",
