@@ -200,7 +200,7 @@ Total Repositories: 411 | Current Index: 198
 | 195 | kwoshvick/nse-stock-price-crawler | Processed | https://github.com/sparlit/EQATS/pull/2626 |
 | 196 | kwoshvick/nse-stock-price-prediction | Processed | https://github.com/sparlit/EQATS/pull/2627 |
 | 197 | kwoshvick/nse_sentiment_analysis | Completed | https://github.com/sparlit/EQATS/pull/2628 |
-| 198 | lakshaysinghal/bhavcopy | Processed | None |
+| 198 | lakshaysinghal/bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2629 |
 | 199 | laminar-protocol/laminar-chain | pending | None |
 | 200 | lavakus/nse-intraday-bot | pending | None |
 | 201 | lebedov/nseindia_lob | pending | None |
