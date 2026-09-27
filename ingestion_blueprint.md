@@ -162,7 +162,7 @@ Total Repositories: 411 | Current Index: 160
 | 157 | hirawatt/bse_nse_announcement | Processed | https://github.com/sparlit/EQATS/pull/2587 |
 | 158 | hmerro3/indian-trading-skills | Processed | https://github.com/sparlit/EQATS/pull/2588 |
 | 159 | hopit-ai/india-trade-cli | Completed | https://github.com/sparlit/EQATS/pull/2589 |
-| 160 | hotessy/nse-historical-data | Processed | None |
+| 160 | hotessy/nse-historical-data | Processed | https://github.com/sparlit/EQATS/pull/2590 |
 | 161 | huseinzol05/stock-prediction-models | pending | None |
 | 162 | hyphenos/tickdownload | pending | None |
 | 163 | ibm/nse-observer | pending | None |
