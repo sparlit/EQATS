@@ -1550,8 +1550,8 @@
       "target": "kuldeeepy/algo-trader",
       "url": "https://github.com/kuldeeepy/algo-trader",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2625",
+      "merged": true
     },
     {
       "name": "nse-stock-price-crawler",
