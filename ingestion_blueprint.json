@@ -1694,8 +1694,8 @@
       "target": "manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "url": "https://github.com/manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2674",
+      "merged": true
     },
     {
       "name": "option_chain_analyzer",
