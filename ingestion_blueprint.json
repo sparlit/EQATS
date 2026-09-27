@@ -870,8 +870,8 @@
       "target": "deepentropy/ibx",
       "url": "https://github.com/deepentropy/ibx",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2538",
+      "merged": true
     },
     {
       "name": "evpoly",
