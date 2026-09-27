@@ -1,5 +1,5 @@
 {
-  "current_index": 206,
+  "current_index": 207,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1653,7 +1653,7 @@
       "name": "financial-data",
       "target": "maheshcharig/financial-data",
       "url": "https://github.com/maheshcharig/financial-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
