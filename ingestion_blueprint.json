@@ -1590,8 +1590,8 @@
       "target": "lavakus/nse-intraday-bot",
       "url": "https://github.com/lavakus/nse-intraday-bot",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2783",
+      "merged": true
     },
     {
       "name": "nseindia_lob",
