@@ -131,7 +131,7 @@ Total Repositories: 411 | Current Index: 129
 | 126 | erio-harrison/rust-trade | Processed | https://github.com/sparlit/EQATS/pull/2555 |
 | 127 | featherenvy/botvana | Processed | https://github.com/sparlit/EQATS/pull/2556 |
 | 128 | feroz-ghub-26/nse-sharia-news-feed | Completed | https://github.com/sparlit/EQATS/pull/2557 |
-| 129 | feroze/yfinance-stock-history | Completed | None |
+| 129 | feroze/yfinance-stock-history | Completed | https://github.com/sparlit/EQATS/pull/2558 |
 | 130 | ferozmd53/nse-preopen-data | pending | None |
 | 131 | ferrumfix/ferrumfix | pending | None |
 | 132 | finstacklabs/finstack-mcp | pending | None |
