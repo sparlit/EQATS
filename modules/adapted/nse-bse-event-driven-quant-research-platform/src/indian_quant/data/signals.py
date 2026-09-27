@@ -31,6 +31,7 @@ Source table: cached_signals (updated by cache_signals.py)
 
 import pandas as pd
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 
 

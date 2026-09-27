@@ -34,6 +34,7 @@ Universe: ₹100-500, NSE EQ, ₹1Cr+ turnover, cluster entries
 from typing import TYPE_CHECKING
 
 import numpy as np
+
 from indian_quant.features.delivery import (
     add_features,
     cluster_entry_mask,

@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pandas as pd
+
 from indian_quant.adapters.announcements.models import Announcement, Signal
 
 if TYPE_CHECKING:

@@ -31,6 +31,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 
 if TYPE_CHECKING:

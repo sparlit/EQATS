@@ -31,6 +31,7 @@ Source tables: sector_map, sector_daily (updated by pipeline.sectors)
 
 import pandas as pd
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 
 
