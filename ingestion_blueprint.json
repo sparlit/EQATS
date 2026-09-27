@@ -1,5 +1,5 @@
 {
-  "current_index": 98,
+  "current_index": 100,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -789,7 +789,7 @@
       "name": "hyper-grid",
       "target": "crazygirl437/hyper-grid",
       "url": "https://github.com/crazygirl437/hyper-grid",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
@@ -797,9 +797,9 @@
       "name": "coinsignal",
       "target": "crypto-crawler/coinsignal",
       "url": "https://github.com/crypto-crawler/coinsignal",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2527",
+      "merged": true
     },
     {
       "name": "solana-copytrading-bot",
