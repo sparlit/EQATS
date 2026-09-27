@@ -1,5 +1,5 @@
 {
-  "current_index": 200,
+  "current_index": 201,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1605,7 +1605,7 @@
       "name": "nseindia_lob",
       "target": "lebedov/nseindia_lob",
       "url": "https://github.com/lebedov/nseindia_lob",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
