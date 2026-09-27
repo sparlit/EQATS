@@ -134,7 +134,7 @@ Total Repositories: 411 | Current Index: 132
 | 129 | feroze/yfinance-stock-history | Completed | https://github.com/sparlit/EQATS/pull/2558 |
 | 130 | ferozmd53/nse-preopen-data | Completed | https://github.com/sparlit/EQATS/pull/2559 |
 | 131 | ferrumfix/ferrumfix | Processed | https://github.com/sparlit/EQATS/pull/2560 |
-| 132 | finstacklabs/finstack-mcp | Completed | None |
+| 132 | finstacklabs/finstack-mcp | Completed | https://github.com/sparlit/EQATS/pull/2561 |
 | 133 | fluidex/dingir-exchange | pending | None |
 | 134 | gabriel-milan/btrader | pending | None |
 | 135 | gadiyar/nsebhavcopy | pending | None |
