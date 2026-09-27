@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 150
+Total Repositories: 411 | Current Index: 151
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -153,7 +153,7 @@ Total Repositories: 411 | Current Index: 150
 | 148 | hash-it-out/stockchain | Processed | https://github.com/sparlit/EQATS/pull/2577 |
 | 149 | hawkeyecoding/nse-oi-analysis | Processed | https://github.com/sparlit/EQATS/pull/2578 |
 | 150 | hemangjoshi37a/trendmaster | Completed | https://github.com/sparlit/EQATS/pull/2579 |
-| 151 | hemenkapadia/getbhavcopy | pending | None |
+| 151 | hemenkapadia/getbhavcopy | Processed | None |
 | 152 | henry-richard7/nse-tool-stocks-aerial-view | pending | None |
 | 153 | hermanodecastro/arbitrage-trading | pending | None |
 | 154 | hgsujay/nsedata | pending | None |
