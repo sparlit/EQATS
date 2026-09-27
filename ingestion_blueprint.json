@@ -1,5 +1,5 @@
 {
-  "current_index": 210,
+  "current_index": 211,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1685,7 +1685,7 @@
       "name": "open-interest-data-extractor",
       "target": "manddar/open-interest-data-extractor",
       "url": "https://github.com/manddar/open-interest-data-extractor",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
