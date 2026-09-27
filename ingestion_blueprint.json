@@ -1526,8 +1526,8 @@
       "target": "kostorub/backtest",
       "url": "https://github.com/kostorub/backtest",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2775",
+      "merged": true
     },
     {
       "name": "kraken-cli",
