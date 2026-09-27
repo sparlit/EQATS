@@ -910,8 +910,8 @@
       "target": "devagam/chartink-to-tradingview-extension",
       "url": "https://github.com/devagam/chartink-to-tradingview-extension",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2697",
+      "merged": true
     },
     {
       "name": "top-gainers-and-losers-nse",
