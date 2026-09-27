@@ -830,7 +830,7 @@
       "target": "dallyshalla/tropix",
       "url": "https://github.com/dallyshalla/tropix",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2533",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2642",
       "merged": true
     },
     {
@@ -1222,7 +1222,7 @@
       "target": "hermanodecastro/arbitrage-trading",
       "url": "https://github.com/hermanodecastro/arbitrage-trading",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2582",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2583",
       "merged": true
     },
     {
@@ -1645,9 +1645,9 @@
       "name": "stock-market-india",
       "target": "maanavshah/stock-market-india",
       "url": "https://github.com/maanavshah/stock-market-india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2637",
+      "merged": true
     },
     {
       "name": "financial-data",
