@@ -1,5 +1,5 @@
 {
-  "current_index": 100,
+  "current_index": 101,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -806,7 +806,7 @@
       "target": "cutupdev/solana-copytrading-bot",
       "url": "https://github.com/cutupdev/solana-copytrading-bot",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2529",
       "merged": true
     },
     {
