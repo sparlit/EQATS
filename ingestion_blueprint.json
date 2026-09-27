@@ -1,5 +1,5 @@
 {
-  "current_index": 136,
+  "current_index": 137,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1093,9 +1093,9 @@
       "name": "10101",
       "target": "get10101/10101",
       "url": "https://github.com/get10101/10101",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2720",
+      "merged": true
     },
     {
       "name": "shoonya-php",
