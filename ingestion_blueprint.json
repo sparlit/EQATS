@@ -1590,8 +1590,8 @@
       "target": "laminar-protocol/laminar-chain",
       "url": "https://github.com/laminar-protocol/laminar-chain",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2630",
+      "merged": true
     },
     {
       "name": "nse-intraday-bot",
