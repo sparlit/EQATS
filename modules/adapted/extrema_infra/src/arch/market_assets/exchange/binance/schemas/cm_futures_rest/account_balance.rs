@@ -1,0 +1,35 @@
+use serde::Deserialize;
+
+use crate::arch::market_assets::{api_data::account_data::BalanceData, api_general::ts_to_micros};
+
+#[allow(non_snake_case)]
+#[derive(Clone, Debug, Deserialize)]
+pub struct RestAccountBalBinanceCM {
+    pub accountAlias: String,
+    pub asset: String,
+    pub balance: String,
+    pub availableBalance: String,
+    pub withdrawAvailable: String,
+    pub crossWalletBalance: String,
+    pub crossUnPnl: String,
+    pub updateTime: u64,
+}
+
+impl From<RestAccountBalBinanceCM> for BalanceData {
+    fn from(d: RestAccountBalBinanceCM) -> Self {
+        let wallet_balance = d.balance.parse::<f64>().unwrap_or_default();
+        let available = d.availableBalance.parse().unwrap_or_default();
+        let cross_un_pnl = d.crossUnPnl.parse::<f64>().unwrap_or_default();
+        let total = wallet_balance + cross_un_pnl;
+        let frozen = total - available;
+
+        BalanceData {
+            timestamp: ts_to_micros(d.updateTime),
+            asset: d.asset,
+            total,
+            available,
+            frozen,
+            borrowed: None,
+        }
+    }
+}

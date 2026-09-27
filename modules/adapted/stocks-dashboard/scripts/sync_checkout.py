@@ -47,7 +47,8 @@ Every decision is MEASURED (git blob ids / commit content), never guessed:
           (the cherry-pick-through-a-worktree signature, runbook §38), OR it is --trust'ed
           by a human who verified it.  Otherwise it is UNIQUE and sync refuses.
   file    dirty/untracked is "stale" iff its bytes equal origin/main's copy, or equal a
-          blob origin committed for that path in its last 600 commits.  Otherwise it is
+          blob origin committed for that path in its last 600 commits (widened to reach this
+          tree's HEAD when it is further behind — §107a).  Otherwise it is
           WIP: kept as-is; if origin ALSO changed that file since our HEAD, sync refuses
           (git reset --keep would refuse too — nothing is ever overwritten).
 
@@ -110,17 +111,30 @@ def hash_file(cwd, path):
 
 
 _hist_cache = {}
+_depth_cache = {}
+
+
+def history_depth(cwd):
+    """How far back to scan origin/main for a path's blobs: HISTORY_DEPTH, widened to reach this
+    tree's HEAD when it is further behind.  Runbook §107a: a fixed 600-commit window on a tree
+    3,706 commits behind called docs/sw.js "WIP that COLLIDES" although it was byte-identical to
+    an August origin commit — every stale copy older than the window looks like unique work.
+    `rev-list --count` is tree-level (no blob fetch in this partial clone)."""
+    if cwd not in _depth_cache:
+        behind = out(["rev-list", "--count", "HEAD.." + TARGET], cwd).strip()
+        _depth_cache[cwd] = max(HISTORY_DEPTH, int(behind) + 200) if behind.isdigit() else HISTORY_DEPTH
+    return _depth_cache[cwd]
 
 
 def history_blobs(cwd, path):
-    """Blob ids origin/main ever committed for `path` (last HISTORY_DEPTH commits).
+    """Blob ids origin/main ever committed for `path` (last history_depth(cwd) commits).
     Uses `log --raw` (tree diffs only): this repo is a PARTIAL CLONE (blob:none), so anything
     that touches blob CONTENT (cat-file, patch-id, diff) lazily fetches from GitHub and stalls."""
     key = (cwd, path)
     if key in _hist_cache:
         return _hist_cache[key]
     raw = out(
-        ["log", "-n", str(HISTORY_DEPTH), "--format=", "--raw", "--no-abbrev", "--no-renames", TARGET, "--", path],
+        ["log", "-n", str(history_depth(cwd)), "--format=", "--raw", "--no-abbrev", "--no-renames", TARGET, "--", path],
         cwd,
         timeout=120,
     )

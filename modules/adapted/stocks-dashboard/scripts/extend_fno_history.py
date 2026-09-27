@@ -132,12 +132,16 @@ hist.sort(key=lambda s: s["effectiveDate"])
 HIST.write_text(json.dumps(hist, separators=(",", ":")))
 print("fno_history.json snapshots:", len(hist), "| appended:", added)
 
-# patch stock_data.bin in place (preserve everything else; just swap fnoHistory)
+# patch stock_data.bin in place (preserve everything else; just swap fnoHistory). Unchanged ->
+# leave the file untouched, and write with mtime=0 — same reasons as build_membership_v2.py (§103a).
 D = json.loads(gzip.decompress(BIN.read_bytes()))
-D["fnoHistory"] = hist
-BIN.write_bytes(gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6))
-print(
-    "patched docs/stock_data.bin fnoHistory -> latest",
-    hist[-1]["effectiveDate"],
-    f"({len(hist[-1]['symbols'])} stocks)",
-)
+if json.dumps(D.get("fnoHistory"), separators=(",", ":")) == json.dumps(hist, separators=(",", ":")):
+    print("docs/stock_data.bin fnoHistory unchanged — not rewritten (latest", hist[-1]["effectiveDate"] + ")")
+else:
+    D["fnoHistory"] = hist
+    BIN.write_bytes(gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6, mtime=0))
+    print(
+        "patched docs/stock_data.bin fnoHistory -> latest",
+        hist[-1]["effectiveDate"],
+        f"({len(hist[-1]['symbols'])} stocks)",
+    )

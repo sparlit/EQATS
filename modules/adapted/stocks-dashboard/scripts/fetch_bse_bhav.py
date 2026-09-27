@@ -44,6 +44,10 @@ whose bhavcopy 404s (holiday/not-published-yet) is skipped. Weekend/holiday fetc
 Run:  python -X utf8 scripts/fetch_bse_bhav.py [--since YYYYMMDD] [--days N] [--dv-budget N]
       (default: from existing end+1, else last 400 calendar days, up to today)
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import bisect
 import csv
 import datetime
@@ -53,6 +57,8 @@ import json
 import os
 import sys
 import time
+
+import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
@@ -81,6 +87,35 @@ def ensure_dv(s):
     return dvl
 
 
+# Every equity scrip BSE printed, with its latest trade day (§172): BSE's ListofScripData "Active" list — the source of
+# bse_universe.json — omits scrips that still trade (surveillance names printing once a week: 77 on 21-Sep-2026 had no
+# presence anywhere on the site). build_bse_universe.py adds scrips seen here within its window. {code: [tk, name,
+# isin, group, last YYYYMMDD]} — ISIN INE…01… / IN9 only, so bonds, debentures and fund units never enter.
+SEEN_OUT = os.path.join(HERE, "bse_seen_scrips.json")
+SEEN = {}
+
+
+def note_seen(code, tk, name, isin, grp, ymd):
+    if not ((isin.startswith("INE") and isin[7:9] == "01") or isin.startswith("IN9")):
+        return
+    old = SEEN.get(code)
+    if not old or ymd >= old[4]:
+        SEEN[code] = [tk, name, isin, grp, ymd]
+
+
+def save_seen():
+    if not SEEN:
+        return
+    try:
+        cur = json.load(open(SEEN_OUT, encoding="utf-8"))
+    except (OSError, ValueError):
+        cur = {}
+    for code, row in SEEN.items():
+        if code not in cur or row[4] >= cur[code][4]:
+            cur[code] = row
+    json.dump(cur, open(SEEN_OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
 def save_prices(d):
     # keep every scrip's series in ascending date order (backfill may add OLDER dates than existing)
     for s in d["px"].values():
@@ -90,6 +125,7 @@ def save_prices(d):
             for f in ("d", "c", "v", "dv"):
                 s[f] = [s[f][i] for i in order]
     open(OUT, "wb").write(gzip.compress(json.dumps(d, separators=(",", ":")).encode("utf8"), 6))
+    save_seen()
 
 
 def bse_only_codes():
@@ -206,6 +242,20 @@ def day_closes(op, d):
         except Exception:
             v = 0
         out[code] = (c, v)
+        if (r.get("FinInstrmTp") or "STK").strip() == "STK":
+            try:
+                ymd = int((r.get("TradDt") or "").replace("-", ""))
+            except ValueError:
+                ymd = 0
+            if ymd:
+                note_seen(
+                    code,
+                    (r.get("TckrSymb") or "").strip(),
+                    (r.get("FinInstrmNm") or "").strip(),
+                    (r.get("ISIN") or "").strip(),
+                    (r.get("SctySrs") or "").strip(),
+                    ymd,
+                )
     return out if len(out) > 500 else None
 
 
@@ -329,6 +379,55 @@ def main():
             ins += 1
         print("  weekend %s: inserted %d scrips" % (wd, ins))
         time.sleep(0.15)
+
+    # --- catch-up for scrips the store has NEVER seen (new listings) ----------------------------
+    # The forward walk only fetches days after `end`, and `codes` comes from bse_universe.json, which
+    # picks up new listings on its own schedule. A scrip that joins the universe AFTER its first
+    # sessions were walked therefore never got those sessions — measured 2026-09-23: 4 new BSE
+    # listings (544930 Injecto, 544931 Vama, 544928 Century Business Media, 544907 Seksaria) trading
+    # on BSE with no series at all, so the dashboard had no price for them (DATA_RUNBOOK §145).
+    # Each such code is scanned back CATCHUP_DAYS calendar days ONCE (marked in data["catchup"], so a
+    # scrip that simply never trades is not rescanned every run; later trades arrive via the forward walk).
+    catch = data.setdefault("catchup", {})
+    fresh = sorted(c for c in codes if c not in px and c not in catch)
+    if fresh:
+        cdays = int(sys.argv[sys.argv.index("--catchup-days") + 1]) if "--catchup-days" in sys.argv else 180
+        earliest = min((s["d"][0] for s in px.values() if s["d"]), default=None)
+        lo = today - datetime.timedelta(days=cdays)
+        if earliest:
+            lo = max(lo, datetime.date(earliest // 10000, earliest // 100 % 100, earliest % 100))
+        fset = set(fresh)
+        d = today
+        scanned = hits = 0
+        while d >= lo:
+            cl = day_closes(op, d)
+            scanned += 1
+            if cl:
+                di = int(d.strftime("%Y%m%d"))
+                for code in fset:
+                    t = cl.get(code)
+                    if not t:
+                        continue
+                    s = px.get(code)
+                    if s is None:
+                        s = px[code] = {"d": [], "c": [], "v": []}
+                        have[code] = set()
+                    if di in have.get(code, ()):
+                        continue
+                    s["d"].append(di)
+                    s["c"].append(t[0])
+                    s["v"].append(t[1])
+                    have.setdefault(code, set()).add(di)
+                    hits += 1
+            time.sleep(0.15)
+            d -= datetime.timedelta(days=1)
+        stamp = int(today.strftime("%Y%m%d"))
+        for c in fresh:
+            catch[c] = stamp
+        print(
+            "  catch-up: %d never-seen scrips, scanned %d calendar days back to %s, %d bars added, %d scrips now have a series"
+            % (len(fresh), scanned, lo, hits, sum(1 for c in fresh if c in px))
+        )
 
     # --- bounded backward history backfill (optional, resumable) ------------------------------
     # The forward walk only extends `end` toward today, so a store that begins in (say) 2025 never

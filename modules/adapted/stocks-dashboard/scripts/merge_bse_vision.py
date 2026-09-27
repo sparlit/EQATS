@@ -26,8 +26,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from the OCR-fail ledger (so build_bse_results promotes them from 'PDF only' to real numbered rows).
 
 Input: a JSON file (arg1) that is a list of
-  {"ticker","scrip","ok":bool,"basis":"C|S","jun2026":{"rev","pat"},"jun2025":{"rev","pat"},"note"}
-Values are ₹ crore. jun2025 is stored so YoY computes. ann date defaults per-quarter (filing month).
+  {"exch","sym","scrip","ok":bool,"basis":"C|S","qe":"YYYYMMDD",
+   "cur":{"rev","op","pat"},"prev":{...},"yago":{...},"note"}
+where qe is the quarter the reader was asked for (bse_vision_prep's manifest carries it per company),
+prev = the quarter before it and yago = the same quarter a year earlier. Values are ₹ crore.
+The pre-2026-09-27 shape keyed "jun2026"/"mar2026"/"jun2025" is still accepted (Jun-2026 season only).
+
+FILL-ONLY: a stored cell is never replaced or re-dated. A read may only add a figure the stored cell
+lacks, and only on the same basis (C/S). Until 2026-09-27 this merge overwrote whole cells.
 
 Run: python -X utf8 scripts/merge_bse_vision.py <results.json> [--qefix <outdir>/qe_fix_run.json]
 """
@@ -35,32 +41,82 @@ import json
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import qe_util as QU
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 FUND = os.path.join(HERE, "..", "docs", "bse_fundamentals.json")
 FAILS = os.path.join(HERE, "_bse_fund_fail.json")
 DONE = os.path.join(HERE, "_bse_fund_done.json")
 VFILLS = os.path.join(HERE, "..", "docs", "vision_fills.json")  # NSE overlay the page applies to empty cells
 QFIX = os.path.join(HERE, "..", "docs", "feed_qe_fix.json")  # "SYM|YYYY-MM-DD" -> real quarter-end
-# nominal ann dates (filing months): current quarter shows this; year-ago ann unused for YoY
-ANN = {"20260630": 20260715, "20260331": 20260615, "20250630": 0}
 
 
 def feed_ann():
-    """Real filing date (YYYYMMDD int) per ticker from the results feed — so the result-day price
-    reaction computes off the actual announcement day, not a hardcoded date."""
+    """{(TICKER, quarter-end int): earliest filing date YYYYMMDD int} from the results feed — the day that
+    QUARTER was first declared. Keyed by quarter: the ticker's newest row is often another quarter (a late
+    March result, a re-submission), which gave every late-filer read ann=0 and could stamp a June read with
+    a September re-filing's date (2026-09-27 audit)."""
     try:
         rows = json.load(open(os.path.join(HERE, "..", "docs", "results_feed.json"), encoding="utf-8"))["rows"]
     except Exception:
         return {}
     out = {}
     for r in rows:
-        d = int(r[2][:10].replace("-", ""))
-        if r[0] not in out or d > out[r[0]]:
-            out[r[0]] = d
+        try:
+            d = int(r[2][:10].replace("-", ""))
+            q = int(r[3] or 0)
+        except (ValueError, TypeError, IndexError):
+            continue
+        if not q:
+            continue
+        k = (str(r[0]).upper(), q)
+        if k not in out or d < out[k]:
+            out[k] = d
     return out
 
 
-QMAP = [("jun2026", "20260630"), ("mar2026", "20260331"), ("jun2025", "20250630")]
+LEGACY = [("jun2026", 20260630), ("mar2026", 20260331), ("jun2025", 20250630)]  # old reader output keys
+
+
+def quarters_of(it):
+    """[(qe_str, figures), ...] for one read, current quarter FIRST. [] when the read names no quarter."""
+    try:
+        q = int(str(it.get("qe") or "0"))
+    except ValueError:
+        q = 0
+    if QU.is_qe(q):
+        return [
+            (str(q), it.get("cur") or {}),
+            (str(QU.prevq(q)), it.get("prev") or {}),
+            (str(QU.yago(q)), it.get("yago") or {}),
+        ]
+    if any(k in it for k, _ in LEGACY):
+        return [(str(qe), it.get(k) or {}) for k, qe in LEGACY]
+    return []
+
+
+def fill(cells, qe, rec, basis, ann=0, src="vision"):
+    """Fill-only merge of one quarter's figures into cells[qe]. Returns True if anything was added."""
+    new = {k: _num(rec.get(k)) for k in ("rev", "op", "pat") if rec.get(k) is not None}
+    if not new:
+        return False
+    old = cells.get(qe)
+    if old is None:
+        d = {"pat": new.get("pat"), "ann": ann or 0, "basis": basis, "src": src}
+        d.update({k: v for k, v in new.items() if k != "pat"})
+        cells[qe] = d
+        return True
+    if old.get("basis", basis) != basis:
+        return False  # never mix C and S figures in one cell
+    added = False
+    for k, v in new.items():
+        if old.get(k) is None:
+            old[k] = v
+            added = True
+    if added and not old.get("ann") and ann:
+        old["ann"] = ann
+    return added
 
 
 def reapply_qefix(path):
@@ -98,16 +154,21 @@ def reapply_qefix(path):
 
 
 def _num(v):
-    return round(float(v), 2) if v is not None else None
-
-
-def put(px, scrip, qe, rec, basis, ann=None):
-    d = {"pat": _num(rec.get("pat")), "ann": ann or ANN.get(qe, 0), "basis": basis, "src": "vision"}
-    if rec.get("rev") is not None:
-        d["rev"] = _num(rec["rev"])
-    if rec.get("op") is not None:
-        d["op"] = _num(rec["op"])
-    px.setdefault(scrip, {})[qe] = d
+    """A reader's figure -> float rounded to 2 dp, or None. Tolerates '1,234.50' and '(2.10)' (a bracket =
+    negative); anything else unreadable is None for THAT figure only — one bad value used to raise and abort
+    the whole merge, losing every good read in the batch."""
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return round(float(v), 2)
+    s = str(v).strip().replace(",", "").replace("₹", "")
+    neg = s.startswith("(") and s.endswith(")")
+    try:
+        x = float(s.strip("()"))
+    except ValueError:
+        print(f"  ⚠ unreadable figure {v!r} — skipped")
+        return None
+    return round(-x if neg else x, 2)
 
 
 def main():
@@ -129,47 +190,44 @@ def main():
             continue
         basis = it.get("basis", "S") or "S"
         sym = (it.get("ticker") or it.get("sym") or "").upper()
-        j26 = it.get("jun2026") or {}
-        if j26.get("pat") is None and j26.get("rev") is None:
+        qs = quarters_of(it)
+        if not qs:
+            print("  ? %-11s read names no quarter (no qe / legacy keys) — skipped" % sym)
+            continue
+        cq, cur = qs[0]
+        if cur.get("pat") is None and cur.get("rev") is None:
             continue
         # NSE entries (exch=="NSE", or no BSE scrip) → overlay file the page applies only to EMPTY cells,
         # so real XBRL always supersedes this vision estimate once it lands. BSE-only → bse_fundamentals.
         if str(it.get("exch", "")).upper() == "NSE" or not str(it.get("scrip") or "").strip():
             e = vfills.setdefault(sym, {})
-            for key, qe in QMAP:
-                q = it.get(key) or {}
-                if q.get("pat") is None and q.get("rev") is None and q.get("op") is None:
-                    continue
-                e[qe] = {
-                    k: v
-                    for k, v in {
-                        "rev": _num(q.get("rev")),
-                        "op": _num(q.get("op")),
-                        "pat": _num(q.get("pat")),
-                        "basis": basis,
-                        "src": "vision",
-                    }.items()
-                    if v is not None
-                }
+            added = 0
+            for qe, q in qs:
+                if fill(e, qe, q, basis):  # overlay cells carry no date and no nulls
+                    added += 1
+                    e[qe] = {k: v for k, v in e[qe].items() if k != "ann" and v is not None}
+            if not e:
+                vfills.pop(sym, None)
             nn += 1
             print(
-                "  ✓ NSE %-11s Jun26 rev=%s pat=%s op=%s (overlay)"
-                % (sym, j26.get("rev"), j26.get("pat"), j26.get("op"))
+                "  ✓ NSE %-11s %s rev=%s pat=%s op=%s (overlay, %d quarter(s) filled)"
+                % (sym, cq, cur.get("rev"), cur.get("pat"), cur.get("op"), added)
             )
         else:
             scrip = str(it["scrip"])
-            ann = fann.get(sym)  # real filing date → reaction computes
-            for key, qe in QMAP:
-                q = it.get(key) or {}
-                if q.get("pat") is None and q.get("rev") is None and q.get("op") is None:
-                    continue
-                put(px, scrip, qe, q, basis, ann=(ann if qe == "20260630" else None))
-            fails.pop(scrip, None)
-            done.add(scrip)
+            # real filing date → reaction computes; only when the feed's newest filing IS this quarter's
+            ann = fann.get((sym, int(cq)), 0)  # the day THIS quarter was declared (0 = not in the feed window)
+            cells = px.setdefault(scrip, {})
+            added = sum(fill(cells, qe, q, basis, ann=(ann if qe == cq else 0)) for qe, q in qs)
+            if not cells:
+                px.pop(scrip, None)
+            if added:  # a rejected read (other basis / nothing new) must not
+                fails.pop(scrip, None)
+                done.add(scrip)  # clear the fail count or mark the scrip handled
             nb += 1
             print(
-                "  ✓ BSE %-11s (%s) Jun26 rev=%s pat=%s op=%s"
-                % (sym, scrip, j26.get("rev"), j26.get("pat"), j26.get("op"))
+                "  ✓ BSE %-11s (%s) %s rev=%s pat=%s op=%s (%d quarter(s) filled)"
+                % (sym, scrip, cq, cur.get("rev"), cur.get("pat"), cur.get("op"), added)
             )
     json.dump(data, open(FUND, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     json.dump(fails, open(FAILS, "w"))

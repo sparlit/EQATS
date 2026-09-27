@@ -244,7 +244,7 @@ pub fn patch_openclaw() {
     );
 }
 
-// ─── OpenCode Patcher ───
+// ─── OpenCode v1 Patcher (legacy npm compatibility) ───
 
 const OPENCODE_MARKER: &str = "/* [Echobird-OpenCode-Patched] */";
 
@@ -290,7 +290,8 @@ const OPENCODE_INJECT: &str = r#"
 } catch(_e) { console.warn("[EchoBird] OpenCode inject error:", _e.message); } })();
 "#;
 
-/// Patch OpenCode CLI tool
+/// Patch the legacy `opencode-ai` launcher. OpenCode v2 ships a native binary
+/// and reads the config written by `tool_config_manager` directly.
 pub fn patch_opencode() {
     let install_dir = match find_npm_global_module("opencode-ai") {
         Some(d) => d,

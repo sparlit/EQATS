@@ -1,0 +1,336 @@
+use reqwest::Client;
+use std::sync::Arc;
+use tracing::error;
+
+use crate::arch::{
+    market_assets::{
+        api_data::{account_data::*, utils_data::*},
+        api_general::{RequestMethod, parse_json_response},
+        base_data::*,
+        exchange::binance::binance_rest_msg::RestResBinance,
+    },
+    task_execution::task_ws::*,
+    traits::{
+        conversion::IntoInfraData,
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
+    },
+};
+use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_key::{BinanceKey, read_binance_env_key},
+    api_utils::*,
+    config_assets::*,
+    schemas::cm_futures_rest::{
+        account_balance::RestAccountBalBinanceCM, exchange_info::RestExchangeInfoBinanceCM,
+        open_interest_statistics::RestOpenInterestBinanceCM,
+    },
+};
+
+#[derive(Clone, Debug)]
+pub struct BinanceCmCli {
+    pub client: Arc<Client>,
+    pub api_key: Option<BinanceKey>,
+}
+
+impl Default for BinanceCmCli {
+    fn default() -> Self {
+        Self::new(Arc::new(Client::new()))
+    }
+}
+
+impl MarketLobApi for BinanceCmCli {}
+
+impl LobPublicRest for BinanceCmCli {
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
+
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        self._get_live_instruments(inst_type).await
+    }
+}
+
+impl LobPrivateRest for BinanceCmCli {
+    fn init_api_key(&mut self) {
+        match read_binance_env_key() {
+            Ok(binance_key) => {
+                self.api_key = Some(binance_key);
+            },
+            Err(e) => {
+                error!("Failed to read BINANCE env key: {:?}", e);
+            },
+        };
+    }
+
+    async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        self._get_balance(assets).await
+    }
+}
+
+impl LobWebsocket for BinanceCmCli {
+    async fn get_public_sub_msg(
+        &self,
+        channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        self._get_public_sub_msg(channel, insts)
+    }
+
+    async fn get_private_sub_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(String::new())
+    }
+
+    async fn get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_public_connect_msg(channel)
+    }
+
+    async fn get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_connect_msg(channel).await
+    }
+}
+
+impl BinanceCmCli {
+    pub fn new(shared_client: Arc<Client>) -> Self {
+        Self {
+            client: shared_client,
+            api_key: None,
+        }
+    }
+
+    pub async fn create_listen_key(&self) -> InfraResult<BinanceListenKey> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let res: RestResBinance<BinanceListenKey> = api_key
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                BINANCE_CM_FUTURES_BASE_URL,
+                BINANCE_CM_FUTURES_LISTEN_KEY,
+            )
+            .await?;
+
+        let listen_key = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM listen key data returned".into(),
+            ))?;
+
+        Ok(listen_key)
+    }
+
+    pub async fn renew_listen_key(&self) -> InfraResult<BinanceListenKey> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let res: RestResBinance<BinanceListenKey> = api_key
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Put,
+                None,
+                BINANCE_CM_FUTURES_BASE_URL,
+                BINANCE_CM_FUTURES_LISTEN_KEY,
+            )
+            .await?;
+
+        let listen_key = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM listen key data returned".into(),
+            ))?;
+
+        Ok(listen_key)
+    }
+
+    pub async fn get_open_interest_history(
+        &self,
+        inst: &str,
+        period: &str,
+        inst_type: InstrumentType,
+        limit: Option<u32>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+    ) -> InfraResult<Vec<OpenInterest>> {
+        let contract_type_str = match inst_type {
+            InstrumentType::Spot => "SPOT",
+            InstrumentType::Futures => "CURRENT_QUARTER",
+            InstrumentType::Perpetual => "PERPETUAL",
+            InstrumentType::Options => "OPTION",
+            InstrumentType::Unknown => {
+                return Err(InfraError::ApiCliError("Unknown instrument type".into()));
+            },
+        };
+
+        let mut url = format!(
+            "{}/futures/data/openInterestHist?pair={}&contractType={}&period={}",
+            BINANCE_CM_FUTURES_BASE_URL,
+            cli_perp_to_binance_cm_pair(inst),
+            contract_type_str,
+            period,
+        );
+
+        if let Some(l) = limit {
+            url.push_str(&format!("&limit={}", l));
+        }
+        if let Some(s) = start_time {
+            url.push_str(&format!("&startTime={}", s));
+        }
+        if let Some(e) = end_time {
+            url.push_str(&format!("&endTime={}", e));
+        }
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestOpenInterestBinanceCM> =
+            parse_json_response("BinanceCmFutures open_interest_hist", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(OpenInterest::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let url = [
+            BINANCE_CM_FUTURES_BASE_URL,
+            BINANCE_CM_FUTURES_EXCHANGE_INFO,
+        ]
+        .concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResBinance<RestExchangeInfoBinanceCM> =
+            parse_json_response("BinanceCmFutures instrument_info", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No CM exchange info data returned".into(),
+            ))?
+            .symbols
+            .into_iter()
+            .map(InstrumentInfo::from)
+            .filter(|i| i.inst_type == inst_type)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        let data = self
+            ._get_instrument_info(inst_type)
+            .await?
+            .into_iter()
+            .filter(|inst| inst.state == InstrumentStatus::Live)
+            .map(|inst| inst.inst)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        let res: RestResBinance<RestAccountBalBinanceCM> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                BINANCE_CM_FUTURES_BASE_URL,
+                BINANCE_CM_FUTURES_BALANCE_INFO,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|b| match assets {
+                Some(list) if !list.is_empty() => list.contains(&b.asset),
+                _ => true,
+            })
+            .map(BalanceData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    fn _get_public_sub_msg(
+        &self,
+        ws_channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        match ws_channel {
+            WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
+            WsChannel::Trades(_) => Err(InfraError::Unimplemented),
+            WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+
+    fn _get_public_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let url = match channel {
+            WsChannel::Candles(_) | WsChannel::Trades(_) => BINANCE_CM_FUTURES_WS_MKT,
+            WsChannel::Lob(_) => BINANCE_CM_FUTURES_WS_PUB,
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        Ok(url.into())
+    }
+
+    async fn _get_private_connect_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let events = match channel {
+            WsChannel::AccountOrders => "ORDER_TRADE_UPDATE",
+            WsChannel::AccountPositions | WsChannel::AccountBalAndPos => "ACCOUNT_UPDATE",
+            _ => return Err(InfraError::Unimplemented),
+        };
+
+        let listen_key = self.create_listen_key().await?;
+
+        Ok(format!(
+            "{}?listenKey={}&events={}",
+            BINANCE_CM_FUTURES_WS_PRI, listen_key.listenKey, events
+        ))
+    }
+
+    fn _ws_subscribe_candle(
+        &self,
+        candle_param: &Option<CandleParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let interval = candle_param.as_ref().map(|p| p.as_str()).unwrap_or("1m");
+
+        let channel = format!("kline_{}", interval);
+
+        Ok(ws_subscribe_msg_binance(&channel, insts))
+    }
+
+    fn _ws_subscribe_lob(
+        &self,
+        lob_param: &Option<LobParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let channel = binance_lob_stream(lob_param)?;
+
+        Ok(ws_subscribe_msg_binance_cm(&channel, insts))
+    }
+}

@@ -58,14 +58,24 @@ def rows_of(qs):
     return qs if isinstance(qs, list) else list(qs.values())
 
 
-def classify():
-    """Return (qe, rows) where rows = [{sym,name,exch,scrip,mcap,status,ann,pdf}] for every
-    company that declared a result for the current quarter."""
+def _has_pat(cells, qe):
+    """A quarter counts as filled only when its PAT is stored — a revenue-only read (PAT unreadable) must stay
+    pending so the next reader can add the profit, not drop off the queue."""
+    return ((cells or {}).get(str(qe)) or {}).get("pat") is not None
+
+
+def classify(qe=None, unknown=True):
+    """Return (qe, rows) where rows = [{sym,name,exch,scrip,mcap,status,ann,pdf,qe}] for every
+    company that declared a result for quarter `qe` (default: the current quarter). The qe==0
+    (period-unread) rows are appended only when `unknown` is true — they belong to the current pass."""
+    import bse_resolve
+
     qr = _load("quarterly_results.json") or {}
-    qe = qr["quarters"][0]
+    qe = qe or qr["quarters"][0]
     CO = qr["co"]
     feed = (_load("results_feed.json") or {"rows": []})["rows"]
-    univ = {r[1].upper(): r for r in (_load("bse_universe.json") or {"rows": []})["rows"]}
+    # keyed the way the feed files a BSE-only company: 'GSTL-BSE' when GSTL is an unrelated NSE symbol
+    univ = {bse_resolve.bse_key(r[1]): r for r in (_load("bse_universe.json") or {"rows": []})["rows"]}
     bf = (_load("bse_fundamentals.json") or {}).get("px", {})
     sf = _load("sf_fundamentals.json") or {}
     vf = _load("vision_fills.json") or {}
@@ -95,7 +105,7 @@ def classify():
         if sym in univ:  # BSE-only name
             u = univ[sym]
             scrip = str(u[0])
-            filled = scrip in bf and str(qe) in bf[scrip]
+            filled = _has_pat(bf.get(scrip), qe)
             e = {
                 "sym": sym,
                 "name": u[2],
@@ -107,7 +117,7 @@ def classify():
                 "pdf": pdf,
             }
         elif sym in CO and not CO[sym].get("bse"):  # NSE name with a price-universe row
-            filled = sym in nse_have or (sym in vf and str(qe) in vf.get(sym, {}))
+            filled = sym in nse_have or _has_pat(vf.get(sym), qe)
             e = {
                 "sym": sym,
                 "name": CO[sym]["n"],
@@ -119,7 +129,7 @@ def classify():
                 "pdf": pdf,
             }
         elif sym not in CO:  # orphan NSE (no price row, not BSE-listed)
-            filled = sym in vf and str(qe) in vf.get(sym, {})
+            filled = _has_pat(vf.get(sym), qe)
             e = {
                 "sym": sym,
                 "name": r[1],
@@ -146,8 +156,11 @@ def classify():
         # filename does not block them; NSE names are fetched from the feed's own PDF path.
         if e["status"] == "pending" and e["exch"] == "NSE" and not e["pdf"]:
             e["status"] = "no_pdf"
+        e["qe"] = qe
         seen[sym] = e
         out.append(e)
+    if not unknown:
+        return qe, out
 
     # qe==0 rows: the filing's stated period couldn't be parsed (headline had no "ended <date>"
     # clause). Before 2026-07-21 these were counted NOWHERE — not pending, not declared, invisible
@@ -185,6 +198,7 @@ def classify():
                 "ann": ann,
                 "pdf": pdf,
             }
+        e["qe"] = 0
         seen[sym] = e
         out.append(e)
     return qe, out
@@ -198,9 +212,7 @@ def find_unknown_qe(limit=12):
     return un[:limit]
 
 
-def find_pending(limit):
-    """(qe, nse, bse) in the shape bse_vision_prep expects — biggest-mcap first."""
-    qe, rows = classify()
+def _split(rows, limit):
     nse = [
         (e["sym"], e["name"], e["mcap"], e["pdf"], e["ann"])
         for e in rows
@@ -211,4 +223,25 @@ def find_pending(limit):
     ]
     nse.sort(key=lambda x: -(x[2] or 0))
     bse.sort(key=lambda kv: -(kv[1][2] or 0))
-    return qe, nse[:limit], bse[:limit]
+    return nse[:limit], bse[:limit]
+
+
+def find_pending(limit):
+    """(qe, nse, bse) in the shape bse_vision_prep expects — biggest-mcap first."""
+    qe, rows = classify()
+    nse, bse = _split(rows, limit)
+    return qe, nse, bse
+
+
+def find_pending_late(limit, depth=2):
+    """[(qe, nse, bse)] for the `depth` quarters BEFORE the current one: late filers. When the newest
+    quarter flips (Jun -> Sep), every Jun filing still unread used to fall off the vision to-do list,
+    because only quarters[0] was ever classified (2026-09-27: 18 older-quarter feed rows unqueued)."""
+    qr = _load("quarterly_results.json") or {}
+    out = []
+    for qe in (qr.get("quarters") or [])[1 : 1 + depth]:
+        _, rows = classify(qe, unknown=False)
+        nse, bse = _split(rows, limit)
+        if nse or bse:
+            out.append((qe, nse, bse))
+    return out

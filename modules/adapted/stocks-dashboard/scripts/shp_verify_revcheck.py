@@ -56,15 +56,15 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import bse_headers as BH  # noqa: E402  honest BSE header set (§181)
 import fetch_shareholding as F  # noqa: E402
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 MON = {"March": "03-31", "June": "06-30", "September": "09-30", "December": "12-31"}
 SLOTKEY = {"prom": "prom", "fii": "fii", "dii": "dii", "mf": "mf", "ins": "ins", "nsh": "nsh"}
 
 
 def get(u):
-    req = urllib.request.Request(u, headers={"User-Agent": UA, "Accept": "*/*", "Referer": "https://www.bseindia.com/"})
+    req = urllib.request.Request(u, headers=BH.HEADERS)
     return urllib.request.urlopen(req, timeout=60).read()
 
 

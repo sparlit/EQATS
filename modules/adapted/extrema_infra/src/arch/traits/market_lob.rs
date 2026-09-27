@@ -1,0 +1,328 @@
+use std::future::{Future, ready};
+
+use crate::arch::{
+    market_assets::{
+        api_data::{account_data::*, price_data::*, utils_data::*},
+        api_general::{CancelOrderParams, OrderParams},
+        base_data::InstrumentType,
+    },
+    strategy_base::{
+        command::command_core::WsConnectTarget,
+        handler::{events::InfraMsg, task_channel::TaskEvent},
+    },
+    task_execution::task_ws::{CandleParam, WsChannel},
+    traits::conversion::IntoWsData,
+};
+use crate::errors::{InfraError, InfraResult};
+
+/// Marker trait for a limit-order-book market client with public and private
+/// REST support.
+///
+/// Implement this for exchange clients that satisfy both [`LobPublicRest`] and
+/// [`LobPrivateRest`].
+pub trait MarketLobApi: LobPublicRest + LobPrivateRest {}
+
+/// Public REST operations for LOB-style exchanges.
+///
+/// Methods default to [`InfraError::Unimplemented`], so an exchange client can
+/// implement only the endpoints it supports.
+pub trait LobPublicRest: Send + Sync {
+    /// Fetches tickers, optionally restricted by instruments and instrument type.
+    fn get_tickers(
+        &self,
+        _insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> impl Future<Output = InfraResult<Vec<TickerData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches mark prices, optionally restricted by instruments and instrument type.
+    fn get_mark_prices(
+        &self,
+        _insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> impl Future<Output = InfraResult<Vec<MarkPriceData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches one order book snapshot.
+    fn get_orderbook(
+        &self,
+        _inst: &str,
+        _inst_type: InstrumentType,
+        _depth: usize,
+    ) -> impl Future<Output = InfraResult<OrderBookData>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches historical candles for one instrument.
+    fn get_candles(
+        &self,
+        _inst: &str,
+        _inst_type: InstrumentType,
+        _interval: CandleParam,
+        _limit: Option<u32>,
+        _start_time_us: Option<u64>,
+        _end_time_us: Option<u64>,
+    ) -> impl Future<Output = InfraResult<Vec<CandleData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches exchange instrument metadata.
+    fn get_instrument_info(
+        &self,
+        _inst_type: InstrumentType,
+    ) -> impl Future<Output = InfraResult<Vec<InstrumentInfo>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches currently live instruments.
+    fn get_live_instruments(
+        &self,
+        _inst_type: InstrumentType,
+    ) -> impl Future<Output = InfraResult<Vec<String>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+}
+
+/// Private REST operations for LOB-style exchanges.
+///
+/// Exchange clients should initialize credentials with [`init_api_key`] before
+/// private calls are made.
+///
+/// [`init_api_key`]: LobPrivateRest::init_api_key
+pub trait LobPrivateRest: Send + Sync {
+    /// Loads API credentials into the exchange client.
+    fn init_api_key(&mut self);
+
+    /// Places one order.
+    fn place_order(
+        &self,
+        _order_params: OrderParams,
+    ) -> impl Future<Output = InfraResult<OrderAckData>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Places multiple orders through one exchange-native batch request.
+    fn place_orders(
+        &self,
+        _order_params: Vec<OrderParams>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderAckData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Cancels one order by exchange order id or client order id.
+    fn cancel_order(
+        &self,
+        _inst: &str,
+        _order_id: Option<&str>,
+        _cli_order_id: Option<&str>,
+    ) -> impl Future<Output = InfraResult<OrderAckData>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Cancels multiple orders through one exchange-native batch request.
+    fn cancel_orders(
+        &self,
+        _cancel_params: Vec<CancelOrderParams>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderAckData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches open orders for one instrument.
+    ///
+    /// `limit` caps the total number of returned orders. `None` requests all
+    /// available pages.
+    fn get_open_orders(
+        &self,
+        _inst: &str,
+        _limit: Option<u32>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderDetailData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches account balances.
+    fn get_balance(
+        &self,
+        _insts: Option<&[String]>,
+    ) -> impl Future<Output = InfraResult<Vec<BalanceData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches open positions.
+    fn get_positions(
+        &self,
+        _insts: Option<&[String]>,
+    ) -> impl Future<Output = InfraResult<Vec<PositionData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches historical orders from the venue's order-history list endpoint.
+    ///
+    /// `start_time_us` and `end_time_us` are Unix timestamps in microseconds.
+    /// Exchange adapters convert them to the precision required by the venue.
+    /// Use [`get_order`](LobPrivateRest::get_order) to look one order up by id.
+    fn get_order_history(
+        &self,
+        _inst: &str,
+        _start_time_us: Option<u64>,
+        _end_time_us: Option<u64>,
+        _limit: Option<u32>,
+    ) -> impl Future<Output = InfraResult<Vec<OrderDetailData>>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Fetches one order by exchange order id.
+    ///
+    /// Queries the venue's single-order endpoint and returns the order's
+    /// current state.
+    fn get_order(
+        &self,
+        _inst: &str,
+        _order_id: &str,
+    ) -> impl Future<Output = InfraResult<OrderDetailData>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+}
+
+/// Websocket message builder for LOB-style exchanges.
+///
+/// Implementations return exchange-specific connect and subscription payloads.
+/// Authentication or login payloads are exchange-specific helper APIs on the
+/// concrete client. The websocket relay task owns IO; strategies send these
+/// payloads to the relay through command handles.
+pub trait LobWebsocket: Send + Sync {
+    /// Builds a public subscription message.
+    fn get_public_sub_msg(
+        &self,
+        _channel: &WsChannel,
+        _insts: Option<&[String]>,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Builds a private subscription message.
+    fn get_private_sub_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Returns a public websocket endpoint using the URL-only string form.
+    ///
+    /// This form cannot carry HTTP upgrade headers. Use
+    /// [`LobWebsocket::get_public_connect_target`] when the venue requires
+    /// connection metadata.
+    fn get_public_connect_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Builds a structured public websocket connection target.
+    ///
+    /// The target can include connection metadata such as HTTP headers.
+    fn get_public_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<WsConnectTarget>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Returns a private websocket endpoint using the URL-only string form.
+    ///
+    /// This form cannot carry HTTP upgrade headers. Use
+    /// [`LobWebsocket::get_private_connect_target`] when the venue requires
+    /// connection metadata.
+    fn get_private_connect_msg(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<String>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+
+    /// Builds a structured private websocket connection target.
+    ///
+    /// The target can include connection metadata such as HTTP headers.
+    fn get_private_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> impl Future<Output = InfraResult<WsConnectTarget>> + Send {
+        ready(Err(InfraError::Unimplemented))
+    }
+}
+
+/// Websocket frame decoder for a venue implemented outside this crate.
+///
+/// Register an implementation with
+/// [`EnvBuilder::with_ws_decoder`](crate::arch::infra_core::env_builder::EnvBuilder::with_ws_decoder)
+/// and declare websocket tasks on `Market::Custom(Self::ID)`. The relay
+/// owns connection IO, reconnects, keepalive, and command handling. On every
+/// connection it calls [`ws_channel`](LobWsDecoder::ws_channel) once; the implementation
+/// matches the task channel and hands the selected decode function to
+/// [`WsFrameRunner::ws_loop`], the same way built-in venues select their decoder
+/// before entering the websocket loop:
+///
+/// ```rust,ignore
+/// async fn ws_channel<R: WsFrameRunner>(&self, channel: &WsChannel, runner: R) {
+///     match channel {
+///         WsChannel::Lob(_) => runner.ws_loop(TaskEvent::Lob, MyWsData::<MyLob>::decode).await,
+///         WsChannel::Other(_) => runner.ws_loop(TaskEvent::WsOther, decode_raw_ws).await,
+///         _ => {},
+///     }
+/// }
+/// ```
+///
+/// Returning without calling the runner ends the connection; the relay then
+/// reconnects through `on_ws_event`.
+pub trait LobWsDecoder: Clone + Send + Sync + 'static {
+    /// Id carried by `Market::Custom`, unique among registered decoders.
+    const ID: u16;
+
+    /// Venue name used in logs and errors.
+    const NAME: &'static str;
+
+    /// Selects the decoder for `channel` and runs the websocket loop with it.
+    fn ws_channel<R: WsFrameRunner>(
+        &self,
+        channel: &WsChannel,
+        runner: R,
+    ) -> impl Future<Output = ()> + Send;
+}
+
+/// Websocket loop handed to [`LobWsDecoder::ws_channel`] for one connection.
+pub trait WsFrameRunner: Send {
+    /// Runs the websocket loop until the connection ends, decoding every text
+    /// or binary frame with `decode` and publishing it through `into_event`.
+    ///
+    /// Frames that fail to decode are logged unless the task sets
+    /// `filter_channels`, and dropped either way.
+    fn ws_loop<WsData, IntoEvent, Decode>(
+        self,
+        into_event: IntoEvent,
+        decode: Decode,
+    ) -> impl Future<Output = ()> + Send
+    where
+        WsData: IntoWsData + Send + 'static,
+        WsData::Output: Send + Sync + 'static,
+        IntoEvent: Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
+        Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send;
+}
+
+/// Static list of [`LobWsDecoder`] implementations held by the runtime.
+///
+/// Implemented for the list built by `EnvBuilder::with_ws_decoder`.
+pub trait WsDecoders: Clone + Send + Sync + 'static {
+    /// Custom market ids and names in list order.
+    fn markets(&self) -> Vec<(u16, &'static str)>;
+
+    /// Runs the decoder at `index` in list order for one connection.
+    fn ws_channel_at<R: WsFrameRunner>(
+        &self,
+        index: usize,
+        channel: &WsChannel,
+        runner: R,
+    ) -> impl Future<Output = ()> + Send;
+}

@@ -1,0 +1,162 @@
+use criterion::Criterion;
+use optionstratlib::ExpirationDate;
+use optionstratlib::chains::OptionData;
+use optionstratlib::chains::utils::OptionDataPriceParams;
+use positive::{Positive, pos_or_panic, spos};
+use rust_decimal_macros::dec;
+use std::hint::black_box;
+
+pub fn benchmark_option_data(c: &mut Criterion) {
+    let mut group = c.benchmark_group("OptionData Operations");
+
+    // Basic operations benchmarks
+    benchmark_basic_operations(&mut group);
+
+    // Price calculation benchmarks with different parameters
+    benchmark_price_calculations(&mut group);
+
+    // Complex operations benchmarks
+    benchmark_complex_operations(&mut group);
+
+    group.finish();
+}
+
+fn benchmark_basic_operations(
+    group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
+) {
+    // Benchmark creation with minimal data
+    group.bench_function("create minimal option data", |b| {
+        b.iter(|| {
+            let option_data = OptionData::new(
+                black_box(Positive::new(100.0).unwrap()),
+                None,
+                None,
+                None,
+                None,
+                Positive::new(0.2).unwrap(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some("TEST".to_string()),                        // symbol
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))), // expiration_date
+                Some(Box::new(Positive::HUNDRED)),               // underlying_price
+                Some(dec!(0.05)),                                // risk_free_rate
+                Some(pos_or_panic!(0.02)),                       // dividend_yield
+                None,
+                None,
+            );
+            black_box(option_data)
+        })
+    });
+
+    // Benchmark creation with full data
+    group.bench_function("create full option data", |b| {
+        b.iter(|| {
+            let option_data = OptionData::new(
+                black_box(Positive::new(100.0).unwrap()),
+                Some(Positive::new(10.0).unwrap()),
+                Some(Positive::new(11.0).unwrap()),
+                Some(Positive::new(9.0).unwrap()),
+                Some(Positive::new(10.0).unwrap()),
+                Positive::new(0.2).unwrap(),
+                Some(dec!(0.5)),
+                Some(dec!(0.5)),
+                Some(dec!(0.5)),
+                Some(Positive::new(1000.0).unwrap()),
+                Some(100),
+                Some("TEST".to_string()),                        // symbol
+                Some(ExpirationDate::Days(pos_or_panic!(30.0))), // expiration_date
+                Some(Box::new(Positive::HUNDRED)),               // underlying_price
+                Some(dec!(0.05)),                                // risk_free_rate
+                Some(pos_or_panic!(0.02)),                       // dividend_yield
+                None,
+                None,
+            );
+            black_box(option_data)
+        })
+    });
+
+    let option_data = create_test_option_data();
+    group.bench_function("validate option data", |b| {
+        b.iter(|| black_box(option_data.validate()))
+    });
+}
+
+fn benchmark_price_calculations(
+    group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
+) {
+    let option_data = create_test_option_data();
+
+    // Standard price calculation
+    let _standard_params = create_standard_price_params();
+    group.bench_function("calculate standard prices", |b| {
+        b.iter(|| {
+            let mut data = option_data.clone();
+            black_box(data.calculate_prices(None))
+        })
+    });
+}
+
+fn benchmark_complex_operations(
+    group: &mut criterion::BenchmarkGroup<'_, criterion::measurement::WallTime>,
+) {
+    let option_data = create_test_option_data();
+
+    // Combined operations benchmark
+    group.bench_function("complete option processing", |b| {
+        b.iter(|| {
+            let mut data = option_data.clone();
+            black_box(data.validate());
+            let _ = black_box(data.calculate_prices(None));
+            black_box(data)
+        })
+    });
+
+    // Simulated large chain processing
+    let chain_data: Vec<OptionData> = (0..50).map(|_| create_test_option_data()).collect();
+    group.bench_function("process 50 option data items", |b| {
+        b.iter(|| {
+            let mut processed = chain_data.clone();
+            for item in processed.iter_mut() {
+                let _ = black_box(item.calculate_prices(None));
+            }
+            black_box(processed)
+        })
+    });
+}
+
+// Helper functions to create test data
+fn create_test_option_data() -> OptionData {
+    OptionData::new(
+        Positive::new(100.0).unwrap(),
+        Some(Positive::new(10.0).unwrap()),
+        Some(Positive::new(11.0).unwrap()),
+        Some(Positive::new(9.0).unwrap()),
+        Some(Positive::new(10.0).unwrap()),
+        Positive::new(0.2).unwrap(),
+        Some(dec!(0.5)),
+        None,
+        None,
+        None,
+        None,
+        Some("TEST".to_string()),                        // symbol
+        Some(ExpirationDate::Days(pos_or_panic!(30.0))), // expiration_date
+        Some(Box::new(Positive::HUNDRED)),               // underlying_price
+        Some(dec!(0.05)),                                // risk_free_rate
+        Some(pos_or_panic!(0.02)),                       // dividend_yield
+        None,
+        None,
+    )
+}
+
+fn create_standard_price_params() -> OptionDataPriceParams {
+    OptionDataPriceParams::new(
+        Some(Box::new(Positive::HUNDRED)),
+        Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+        Some(dec!(0.05)),
+        spos!(0.02),
+        Some("AAPL".to_string()),
+    )
+}

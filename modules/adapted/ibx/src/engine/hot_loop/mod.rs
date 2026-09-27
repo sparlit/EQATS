@@ -361,7 +361,23 @@ impl HotLoop {
 
             // 6. Wake any waiting consumers (e.g. Python event loop)
             self.shared.notify();
+
+            // 7. With every transport down there is nothing to poll, and the
+            //    spin pinned a core for the whole outage (ibx#399). Park 1ms in
+            //    that state only; reconnects run on a seconds-scale backoff and
+            //    the connected path is unchanged.
+            if self.all_transports_down() {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
         }
+    }
+
+    /// True when the farm and auth connections are down and no historical
+    /// connection is up.
+    fn all_transports_down(&self) -> bool {
+        self.farm.disconnected
+            && self.ccp.disconnected
+            && (self.hmds_conn.is_none() || self.hmds.disconnected)
     }
 
     fn emit_hmds_unavailable(&self, req_id: u32, from_historical: bool) {
@@ -603,6 +619,17 @@ impl HotLoop {
                 ControlCommand::SubscribePnl { req_id, account } => {
                     self.ccp.send_pnl_subscribe(req_id, &account, &mut self.ccp_conn, &mut self.hb);
                 }
+                ControlCommand::SetInstrumentCurrency { con_id, currency } => {
+                    if let Some(id) = self.context.market.instrument_by_con_id(con_id) {
+                        self.context.market.set_currency(id, &currency);
+                    }
+                }
+                ControlCommand::SubscribeAccountSummary { sr_id, tags, group } => {
+                    self.ccp.send_account_summary(&sr_id, Some((&tags, &group)), &mut self.ccp_conn, &mut self.hb);
+                }
+                ControlCommand::CancelAccountSummary { sr_id } => {
+                    self.ccp.send_account_summary(&sr_id, None, &mut self.ccp_conn, &mut self.hb);
+                }
                 ControlCommand::CancelPnl { req_id } => {
                     let _ = req_id; // Server auto-cancels on disconnect; no explicit cancel message needed
                 }
@@ -723,6 +750,7 @@ impl HotLoop {
         }
 
         // --- Historical heartbeat (skip if disconnected or no historical activity) ---
+        let mut hmds_dead = false;
         if !self.hmds.disconnected && self.hmds_conn.is_some() {
         if let Some(conn) = self.hmds_conn.as_mut() {
             let since_sent = now.duration_since(self.hb.last_hmds_sent).as_secs();
@@ -741,6 +769,7 @@ impl HotLoop {
                 if since_recv > LIVENESS_DEAD_SECS {
                     log::error!("HMDS liveness timeout ({}s silent) — connection lost", since_recv);
                     self.hmds.disconnected = true;
+                    hmds_dead = true;
                 } else if self.hb.pending_hmds_test.is_none() {
                     let test_id = self.hb.next_test_id();
                     let _ = conn.send_fix(&[
@@ -753,6 +782,11 @@ impl HotLoop {
                 }
             }
         }
+        }
+        // Drop the dead socket so the HMDS reconnect loop, which only runs
+        // with no connection held, re-dials it (ibx#399).
+        if hmds_dead {
+            self.hmds_conn = None;
         }
     }
 
@@ -790,6 +824,11 @@ impl HotLoop {
     /// Set cached auth credentials for farm auto-reconnect.
     pub fn set_reconnect_auth(&mut self, auth: ReconnectAuth) {
         self.reconnect_auth = Some(auth);
+    }
+
+    /// Whether auto-reconnect has a host to dial (ibx#399).
+    pub fn has_reconnect_host(&self) -> bool {
+        self.reconnect_auth.as_ref().is_some_and(|a| !a.host.is_empty())
     }
 
     /// Update caller-specific fields on the reconnect auth (host, username, password, paper).
@@ -1077,6 +1116,26 @@ impl HotLoop {
         self.farm.handle_disconnect_for_test();
     }
 
+    /// Test-only: lose the farm connection through the same path as a real
+    /// loss (subscription state cleared, socket dropped).
+    pub fn lose_farm_for_test(&mut self) {
+        self.farm.handle_disconnect(&mut self.context, &self.event_tx);
+        self.farm_conn = None;
+    }
+
+    /// Test-only: the engine's instrument table.
+    pub fn market_for_test(&mut self) -> &mut crate::engine::market_state::MarketState {
+        &mut self.context.market
+    }
+
+    /// Test-only: poll the farm socket once.
+    pub fn poll_farm_for_test(&mut self) {
+        self.farm.poll_market_data(
+            &mut self.farm_conn, &mut self.context, &self.shared,
+            &self.event_tx, &mut self.hb,
+        );
+    }
+
     /// Test-only: trigger farm reconnect spawn.
     pub fn spawn_farm_reconnect_for_test(&mut self) {
         self.spawn_farm_reconnect();
@@ -1127,12 +1186,12 @@ impl HotLoop {
     /// Simulate a fill for testing. Updates position and notifies.
     pub fn inject_fill(&mut self, fill: &Fill) {
         let delta = match fill.side {
-            crate::types::Side::Buy => fill.qty,
-            crate::types::Side::Sell | crate::types::Side::ShortSell => -fill.qty,
+            crate::types::Side::Buy => fill.qty_fixed,
+            crate::types::Side::Sell | crate::types::Side::ShortSell => -fill.qty_fixed,
         };
-        self.context.update_position(fill.instrument, delta);
+        self.context.update_position_fixed(fill.instrument, delta);
         self.shared.orders.push_fill(*fill);
-        self.shared.portfolio.set_position(fill.instrument, self.context.position(fill.instrument));
+        self.shared.portfolio.set_position_fixed(fill.instrument, self.context.position_fixed(fill.instrument));
         emit(&self.event_tx, Event::Fill(*fill));
     }
 }
@@ -1344,8 +1403,16 @@ pub(crate) fn parse_price_tag(val: Option<&String>) -> Price {
 pub(crate) fn decode_tif(tif: u8) -> &'static str {
     match tif {
         b'0' => "DAY", b'1' => "GTC", b'2' => "OPG", b'3' => "IOC",
-        b'4' => "FOK", b'6' => "GTD", b'8' => "AUC", _ => "",
+        b'4' => "FOK", b'6' => "GTD", b'8' => "AUC",
+        crate::types::TIF_DTC => "DTC", _ => "",
     }
+}
+
+/// Parse a decimal quantity ("1", "0.5") into a fixed-point Qty
+/// (QTY_SCALE = 10^4). A fraction such as a partial share is kept: reading
+/// it as a whole number dropped the fill (ibx#313).
+pub(crate) fn parse_qty(s: &str) -> Option<Qty> {
+    s.parse::<f64>().ok().filter(|v| v.is_finite()).map(|v| (v * QTY_SCALE as f64).round() as Qty)
 }
 
 /// Format a fixed-point Qty (QTY_SCALE = 10^4) to a decimal string. Zero alloc.
@@ -1529,17 +1596,18 @@ mod tests {
         engine.context_mut().market.register(265598);
 
         let fill = Fill {
+            cum_qty_fixed: (0) as i64 * crate::types::QTY_SCALE, avg_price: 0,
             instrument: 0,
             order_id: 1001,
             side: Side::Buy,
             price: 150_00000000,
-            qty: 100,
-            remaining: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            remaining_fixed: (0) as i64 * crate::types::QTY_SCALE,
             commission: 1_00000000,
             timestamp_ns: 0,
         };
         engine.inject_fill(&fill);
-        assert_eq!(engine.context_mut().position(0), 100);
+        assert_eq!(engine.context_mut().position_fixed(0) / crate::types::QTY_SCALE, 100);
     }
 
     #[test]
@@ -1722,6 +1790,152 @@ mod tests {
         // Saturating math survives degenerate inputs.
         assert_eq!(hmds_reconnect_backoff(0), Duration::from_secs(3));
         assert_eq!(hmds_reconnect_backoff(u32::MAX), Duration::from_secs(64));
+    }
+
+    fn reconnect_auth_with_host(host: &str) -> ReconnectAuth {
+        ReconnectAuth {
+            host: host.into(),
+            username: "user".into(),
+            password: zeroize::Zeroizing::new("pass".into()),
+            paper: true,
+            session_key: num_bigint::BigUint::default(),
+            session_token: num_bigint::BigUint::default(),
+            server_session_id: String::new(),
+            hw_info: String::new(),
+            encoded: String::new(),
+            hmds_host: "hmds.example".into(),
+            hmds_farm: "ushmds".into(),
+        }
+    }
+
+    // ibx#399: with every transport down the loop spun at ~1M passes/s and
+    // pinned a core for the whole outage. Parked, 60ms is ~60 passes.
+    #[test]
+    fn a_loop_with_every_transport_down_does_not_spin() {
+        let shared = Arc::new(SharedState::new());
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let mut engine = HotLoop::new(shared, None, None);
+        engine.set_control_rx(rx);
+        engine.force_farm_disconnect();
+        engine.ccp.disconnected = true;
+        assert!(engine.all_transports_down());
+
+        let handle = std::thread::spawn(move || { engine.run(); engine });
+        std::thread::sleep(Duration::from_millis(60));
+        tx.send(ControlCommand::Shutdown).unwrap();
+        let engine = handle.join().unwrap();
+        let passes = engine.context.loop_iterations;
+        assert!(passes < 1_000, "loop spun {} times in 60ms while every transport was down", passes);
+    }
+
+    // ibx#399: the park applies only when nothing is up.
+    #[test]
+    fn a_loop_with_any_transport_up_is_not_parked() {
+        let shared = Arc::new(SharedState::new());
+        let mut engine = HotLoop::new(shared, None, None);
+        assert!(!engine.all_transports_down(), "all up");
+        engine.force_farm_disconnect();
+        assert!(!engine.all_transports_down(), "auth still up");
+        engine.farm.disconnected = false;
+        engine.ccp.disconnected = true;
+        assert!(!engine.all_transports_down(), "farm still up");
+    }
+
+    // ibx#399: a mid-session historical loss set the flag but kept the dead
+    // socket, and the reconnect loop only runs with no socket held, so the
+    // historical connection never came back.
+    #[test]
+    fn a_lost_hmds_socket_is_dropped_and_reconnect_is_scheduled() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        drop(server);
+
+        let shared = Arc::new(SharedState::new());
+        let mut engine = HotLoop::new(shared.clone(), None, None);
+        engine.set_reconnect_auth(reconnect_auth_with_host("gw.example"));
+        engine.hmds_conn = Some(Connection::new_raw(client).unwrap());
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !engine.hmds.disconnected && Instant::now() < deadline {
+            engine.hmds.poll(&mut engine.hmds_conn, &shared, &None, &mut engine.hb);
+        }
+        assert!(engine.hmds.disconnected, "peer close must be detected");
+        assert!(engine.hmds_conn.is_none(), "dead socket must be dropped");
+
+        engine.maybe_spawn_hmds_reconnect();
+        assert!(engine.hmds_next_attempt_at.is_some(), "reconnect must be scheduled");
+    }
+
+    fn socket_pair() -> (std::net::TcpStream, std::net::TcpStream) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        (client, server)
+    }
+
+    /// Every compressed message the engine wrote to `server`, as inner text.
+    fn farm_messages_sent(server: &mut std::net::TcpStream) -> Vec<String> {
+        use std::io::Read;
+        server.set_read_timeout(Some(Duration::from_millis(300))).unwrap();
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 8192];
+        while let Ok(n) = server.read(&mut chunk) {
+            if n == 0 { break; }
+            buf.extend_from_slice(&chunk[..n]);
+        }
+        let mut out = Vec::new();
+        let mut rest = &buf[..];
+        while let Some(len) = crate::protocol::fixcomp::fixcomp_length(rest) {
+            for m in crate::protocol::fixcomp::fixcomp_decompress(&rest[..len]).unwrap() {
+                out.push(String::from_utf8_lossy(&m).replace('\x01', "|"));
+            }
+            rest = &rest[len..];
+        }
+        out
+    }
+
+    // ibx#288: handle_disconnect cleared the request-id maps and reconnect
+    // rebuilt its list from them, so no subscription came back after a farm
+    // reconnect. A subscription cancelled while the farm was down must still
+    // stay cancelled.
+    #[test]
+    fn farm_reconnect_reissues_every_live_subscription() {
+        let shared = Arc::new(SharedState::new());
+        let mut engine = HotLoop::new(shared, None, None);
+        let (c1, _s1) = socket_pair();
+        engine.farm_conn = Some(Connection::new_raw(c1).unwrap());
+        let aapl = engine.context.market.register(265598);
+        let msft = engine.context.market.register(272093);
+        let spy = engine.context.market.register(756733);
+        for (con_id, sym, inst, mode) in [(265598, "AAPL", aapl, 0), (272093, "MSFT", msft, 0), (756733, "SPY", spy, 3)] {
+            engine.farm.send_mktdata_subscribe(
+                con_id, sym, "SMART", "STK", "", 0.0, "", "", inst, mode,
+                &mut engine.farm_conn, &mut engine.hb,
+            );
+        }
+
+        engine.farm.handle_disconnect(&mut engine.context, &None);
+        engine.farm.send_mktdata_unsubscribe(msft, &mut engine.farm_conn, &mut engine.hb);
+
+        let (c2, mut s2) = socket_pair();
+        engine.reconnect_farm(Connection::new_raw(c2).unwrap());
+
+        let sent = farm_messages_sent(&mut s2);
+        assert_eq!(sent.len(), 2, "one subscribe per live instrument: {:?}", sent);
+        let aapl_sub = sent.iter().find(|m| m.contains("6008=265598")).expect("AAPL re-subscribed");
+        assert!(aapl_sub.contains("264=442|") && aapl_sub.contains("264=443|"), "realtime keeps both entries");
+        let spy_sub = sent.iter().find(|m| m.contains("6008=756733")).expect("SPY re-subscribed");
+        assert!(spy_sub.contains("9887=3|"), "delayed mode kept: {}", spy_sub);
+        assert!(!sent.iter().any(|m| m.contains("6008=272093")), "MSFT was cancelled while down");
+        assert_eq!(engine.farm.instrument_md_reqs.len(), 2);
+        assert_eq!(engine.farm.md_req_to_instrument.len(), 3);
+
+        // A second drop and reconnect re-issues them again.
+        engine.farm.handle_disconnect(&mut engine.context, &None);
+        let (c3, mut s3) = socket_pair();
+        engine.reconnect_farm(Connection::new_raw(c3).unwrap());
+        assert_eq!(farm_messages_sent(&mut s3).len(), 2);
     }
 
     #[test]

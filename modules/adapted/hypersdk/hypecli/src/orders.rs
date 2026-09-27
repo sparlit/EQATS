@@ -17,11 +17,12 @@ use clap::{Args, Subcommand, ValueEnum};
 use hypersdk::hypercore::{
     BatchCancel, BatchCancelCloid, BatchOrder, Cancel, CancelByCloid, Cloid, HttpClient,
     OrderGrouping, OrderRequest, OrderTypePlacement, TimeInForce,
+    api::{Action, OkResponse},
 };
 use rust_decimal::Decimal;
 
-use crate::SignerArgs;
-use crate::utils::{find_signer_sync, resolve_asset};
+use crate::action::ActionArgs;
+use crate::utils::resolve_asset;
 
 /// Order management commands.
 #[derive(Subcommand)]
@@ -86,7 +87,7 @@ impl From<Tif> for TimeInForce {
 pub struct LimitOrderCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Asset name. Formats:
     /// - "BTC" for BTC perpetual
@@ -123,17 +124,14 @@ pub struct LimitOrderCmd {
 impl LimitOrderCmd {
     pub async fn run(self) -> anyhow::Result<()> {
         let client = HttpClient::new(self.chain);
-        let signer = find_signer_sync(&self.signer)?;
 
         let asset_index = resolve_asset(&client, &self.asset).await?;
 
         let cloid = parse_cloid(self.cloid.as_deref())?;
 
         println!(
-            "Placing limit order for {} (index {}) with signer {}",
-            self.asset,
-            asset_index,
-            signer.address()
+            "Placing limit order for {} (index {})",
+            self.asset, asset_index
         );
         println!("CLOID: 0x{}", hex::encode(cloid.as_slice()));
 
@@ -155,23 +153,11 @@ impl LimitOrderCmd {
             builder: None,
         };
 
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_millis() as u64;
-
-        let result = client.place(&signer, batch, nonce, None, None).await;
-
-        match result {
-            Ok(statuses) => {
-                println!("Order placed successfully:");
-                for (i, status) in statuses.iter().enumerate() {
-                    println!("  Order {}: {:?}", i, status);
-                }
-            }
-            Err(err) => {
-                anyhow::bail!("Order failed: {}", err.message());
-            }
-        }
+        let response = self
+            .signer
+            .execute(client, |_, _| Action::Order(batch))
+            .await?;
+        print_statuses(response, false)?;
 
         Ok(())
     }
@@ -182,7 +168,7 @@ impl LimitOrderCmd {
 pub struct MarketOrderCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Asset name. Formats:
     /// - "BTC" for BTC perpetual
@@ -215,17 +201,14 @@ pub struct MarketOrderCmd {
 impl MarketOrderCmd {
     pub async fn run(self) -> anyhow::Result<()> {
         let client = HttpClient::new(self.chain);
-        let signer = find_signer_sync(&self.signer)?;
 
         let asset_index = resolve_asset(&client, &self.asset).await?;
 
         let cloid = parse_cloid(self.cloid.as_deref())?;
 
         println!(
-            "Placing market order for {} (index {}) with signer {}",
-            self.asset,
-            asset_index,
-            signer.address()
+            "Placing market order for {} (index {})",
+            self.asset, asset_index
         );
         println!("CLOID: 0x{}", hex::encode(cloid.as_slice()));
 
@@ -248,23 +231,11 @@ impl MarketOrderCmd {
             builder: None,
         };
 
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_millis() as u64;
-
-        let result = client.place(&signer, batch, nonce, None, None).await;
-
-        match result {
-            Ok(statuses) => {
-                println!("Market order placed successfully:");
-                for (i, status) in statuses.iter().enumerate() {
-                    println!("  Order {}: {:?}", i, status);
-                }
-            }
-            Err(err) => {
-                anyhow::bail!("Market order failed: {}", err.message());
-            }
-        }
+        let response = self
+            .signer
+            .execute(client, |_, _| Action::Order(batch))
+            .await?;
+        print_statuses(response, false)?;
 
         Ok(())
     }
@@ -277,7 +248,7 @@ impl MarketOrderCmd {
 pub struct CancelOrderCmd {
     #[deref]
     #[command(flatten)]
-    pub signer: SignerArgs,
+    pub signer: ActionArgs,
 
     /// Asset name. Formats:
     /// - "BTC" for BTC perpetual
@@ -305,84 +276,62 @@ impl CancelOrderCmd {
         }
 
         let client = HttpClient::new(self.chain);
-        let signer = find_signer_sync(&self.signer)?;
 
         let asset_index = resolve_asset(&client, &self.asset).await?;
 
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_millis() as u64;
-
-        if let Some(cloid) = &self.cloid {
-            // Cancel by CLOID
+        let action = if let Some(cloid) = &self.cloid {
             let cloid_bytes = parse_cloid_required(cloid)?;
-
-            println!(
-                "Canceling order by CLOID for {} (index {}) with signer {}",
-                self.asset,
-                asset_index,
-                signer.address()
-            );
-            println!("CLOID: {}", cloid);
-
-            let batch = BatchCancelCloid {
+            println!("Canceling {} order with CLOID {}", self.asset, cloid);
+            Action::CancelByCloid(BatchCancelCloid {
                 cancels: vec![CancelByCloid {
                     asset: asset_index as u32,
                     cloid: cloid_bytes,
                 }],
                 fast: false,
-            };
-
-            let result = client
-                .cancel_by_cloid(&signer, batch, nonce, None, None)
-                .await;
-
-            match result {
-                Ok(statuses) => {
-                    println!("Order canceled successfully:");
-                    for (i, status) in statuses.iter().enumerate() {
-                        println!("  Cancel {}: {:?}", i, status);
-                    }
-                }
-                Err(err) => {
-                    anyhow::bail!("Cancel failed: {}", err.message());
-                }
-            }
-        } else if let Some(oid) = self.oid {
-            // Cancel by OID
-            println!(
-                "Canceling order by OID for {} (index {}) with signer {}",
-                self.asset,
-                asset_index,
-                signer.address()
-            );
-            println!("OID: {}", oid);
-
-            let batch = BatchCancel {
+            })
+        } else {
+            let oid = self.oid.expect("validated above");
+            println!("Canceling {} order with OID {}", self.asset, oid);
+            Action::Cancel(BatchCancel {
                 cancels: vec![Cancel {
                     asset: asset_index,
                     oid,
                 }],
                 fast: false,
-            };
-
-            let result = client.cancel(&signer, batch, nonce, None, None).await;
-
-            match result {
-                Ok(statuses) => {
-                    println!("Order canceled successfully:");
-                    for (i, status) in statuses.iter().enumerate() {
-                        println!("  Cancel {}: {:?}", i, status);
-                    }
-                }
-                Err(err) => {
-                    anyhow::bail!("Cancel failed: {}", err.message());
-                }
-            }
-        }
+            })
+        };
+        let response = self.signer.execute(client, |_, _| action).await?;
+        print_statuses(response, true)?;
 
         Ok(())
     }
+}
+
+/// Preserve the inner order/cancel result for both ordinary and multisig requests.
+fn print_statuses(response: OkResponse, cancel: bool) -> anyhow::Result<()> {
+    let statuses = match response {
+        OkResponse::Order { statuses } if !cancel => statuses,
+        OkResponse::Cancel { statuses } if cancel => statuses,
+        other => anyhow::bail!("Unexpected response: {other:?}"),
+    };
+    anyhow::ensure!(!statuses.is_empty(), "No order statuses returned");
+    for (i, status) in statuses.iter().enumerate() {
+        println!(
+            "  {} {}: {:?}",
+            if cancel { "Cancel" } else { "Order" },
+            i,
+            status
+        );
+    }
+    for status in &statuses {
+        if let Some(error) = status.error() {
+            anyhow::bail!(
+                "{} failed: {error}",
+                if cancel { "Cancel" } else { "Order" }
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Parse an optional CLOID string into a B128.
@@ -399,4 +348,41 @@ fn parse_cloid_required(cloid: &str) -> anyhow::Result<B128> {
     cloid
         .parse()
         .map_err(|e| anyhow::anyhow!("Invalid CLOID: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hypersdk::hypercore::OrderResponseStatus;
+
+    #[test]
+    fn reports_inner_rejections_and_unexpected_responses_as_errors() {
+        for cancel in [false, true] {
+            let response = |statuses| {
+                if cancel {
+                    OkResponse::Cancel { statuses }
+                } else {
+                    OkResponse::Order { statuses }
+                }
+            };
+            print_statuses(response(vec![OrderResponseStatus::Success]), cancel).unwrap();
+            let error = print_statuses(
+                response(vec![OrderResponseStatus::Error("rejected".into())]),
+                cancel,
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("rejected"));
+            assert!(print_statuses(response(vec![]), cancel).is_err());
+            assert!(print_statuses(OkResponse::Default, cancel).is_err());
+        }
+        assert!(
+            print_statuses(
+                OkResponse::Cancel {
+                    statuses: vec![OrderResponseStatus::Success]
+                },
+                false,
+            )
+            .is_err()
+        );
+    }
 }

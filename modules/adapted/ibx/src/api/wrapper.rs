@@ -57,6 +57,12 @@ pub trait Wrapper {
     fn account_summary_end(&mut self, req_id: i64) {}
     fn position(&mut self, account: &str, contract: &Contract, pos: f64, avg_cost: f64) {}
     fn position_end(&mut self) {}
+    /// A row of `req_account_updates_multi` (ibx#476).
+    fn account_update_multi(&mut self, req_id: i64, account: &str, model_code: &str, key: &str, value: &str, currency: &str) {}
+    fn account_update_multi_end(&mut self, req_id: i64) {}
+    /// A row of `req_positions_multi` (ibx#476).
+    fn position_multi(&mut self, req_id: i64, account: &str, model_code: &str, contract: &Contract, pos: f64, avg_cost: f64) {}
+    fn position_multi_end(&mut self, req_id: i64) {}
     fn pnl(&mut self, req_id: i64, daily_pnl: f64, unrealized_pnl: f64, realized_pnl: f64) {}
     fn pnl_single(&mut self, req_id: i64, pos: f64, daily_pnl: f64, unrealized_pnl: f64, realized_pnl: f64, value: f64) {}
 
@@ -263,6 +269,12 @@ pub mod tests {
         }
         fn exec_details(&mut self, req_id: i64, _contract: &Contract, execution: &Execution) {
             self.events.push(format!("exec_details:{req_id}:{}:{}", execution.side, execution.shares));
+        }
+        fn exec_details_end(&mut self, req_id: i64) {
+            self.events.push(format!("exec_details_end:{req_id}"));
+        }
+        fn commission_and_fees_report(&mut self, report: &CommissionAndFeesReport) {
+            self.events.push(format!("commission:{}:{}:{}", report.exec_id, report.commission_and_fees, report.currency));
         }
         fn historical_data(&mut self, req_id: i64, bar: &BarData) {
             self.events.push(format!("historical_data:{req_id}:{}", bar.date));

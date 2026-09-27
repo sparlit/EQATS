@@ -225,10 +225,17 @@ def session_start(h):
             "worth reviewing/clearing when idle." % len(stashes)
         )
     counts = git(["rev-list", "--left-right", "--count", "main...origin/main"]).split()
-    if len(counts) == 2 and counts[0].isdigit() and int(counts[0]) >= 3:
+    if len(counts) == 2 and all(c.isdigit() for c in counts) and (int(counts[0]) >= 3 or int(counts[1]) >= 50):
+        # Runbook 107a: these are STALENESS counts. A session once read the old wording here and told
+        # the user 25 commits were "unpushed" and a push "would wipe thousands of commits" - measured:
+        # 0 unique commits, 0 unique WIP, and a plain push is simply rejected (non-fast-forward).
         notes.append(
-            f"Local main is {counts[0]} commits ahead of origin/main (as of last fetch) - "
-            "possible unpushed or duplicate commits; see runbook 38."
+            f"Local main: {counts[0]} ahead / {counts[1]} behind origin/main (as of last fetch). These are STALENESS "
+            "counts, NOT stranded work - 'ahead' commits are almost always twins already on origin "
+            "under other hashes, and a plain `git push` from a behind branch is REJECTED as "
+            "non-fast-forward (it cannot wipe anything; --force is never used here). Do not write "
+            "'unpushed', 'lost', 'left' or 'wiped' about this checkout without quoting "
+            "`python3 scripts/sync_checkout.py status` (runbook 107/107a)."
         )
     if notes:
         emit(

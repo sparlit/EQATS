@@ -1,0 +1,165 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Integration tests for nse_scraper - End-to-end functionality
+"""
+import os
+import sys
+import unittest
+from pathlib import Path
+
+
+class TestProjectStructure(unittest.TestCase):
+    """Test project file structure and imports"""
+
+    def test_project_root_exists(self):
+        """Test project root directory exists"""
+        project_root = Path(__file__).parent.parent
+        assert project_root.exists()
+
+    def test_nse_scraper_package_exists(self):
+        """Test nse_scraper package is importable"""
+        try:
+            import nse_scraper
+
+            assert True
+        except ImportError:
+            self.fail("nse_scraper package not importable")
+
+    def test_spider_module_exists(self):
+        """Test spider module can be imported"""
+        try:
+            from nse_scraper.spiders import afx_scraper
+
+            assert True
+        except ImportError:
+            self.fail("Spider module not found")
+
+    def test_items_module_exists(self):
+        """Test items module can be imported"""
+        try:
+            from nse_scraper import items
+
+            assert True
+        except ImportError:
+            self.fail("Items module not found")
+
+    def test_settings_module_exists(self):
+        """Test settings module can be imported"""
+        try:
+            from nse_scraper import settings
+
+            assert True
+        except ImportError:
+            self.fail("Settings module not found")
+
+    def test_pipelines_module_exists(self):
+        """Test pipelines module can be imported"""
+        try:
+            from nse_scraper import pipelines
+
+            assert True
+        except ImportError:
+            self.fail("Pipelines module not found")
+
+
+class TestDependencies(unittest.TestCase):
+    """Test required dependencies are installed"""
+
+    def test_scrapy_installed(self):
+        """Test Scrapy is installed"""
+        try:
+            import scrapy
+
+            assert True
+        except ImportError:
+            self.fail("Scrapy not installed")
+
+    def test_pymongo_installed(self):
+        """Test PyMongo is installed"""
+        try:
+            import pymongo
+
+            assert True
+        except ImportError:
+            self.fail("PyMongo not installed")
+
+    def test_africastalking_installed(self):
+        """Test Africa's Talking is installed"""
+        try:
+            import africastalking
+
+            assert True
+        except ImportError:
+            self.fail("Africa's Talking not installed")
+
+    def test_python_dotenv_installed(self):
+        """Test python-dotenv is installed"""
+        try:
+            import dotenv
+
+            assert True
+        except ImportError:
+            self.fail("python-dotenv not installed")
+
+    def test_requests_installed(self):
+        """Test requests is installed"""
+        try:
+            import requests
+
+            assert True
+        except ImportError:
+            self.fail("requests not installed")
+
+
+class TestConfigurationFiles(unittest.TestCase):
+    """Test configuration files exist"""
+
+    def test_requirements_file_exists(self):
+        """Test requirements.txt exists"""
+        project_root = Path(__file__).parent.parent
+        requirements_file = project_root / "requirements.txt"
+        assert requirements_file.exists()
+
+    def test_scrapy_config_exists(self):
+        """Test scrapy.cfg exists"""
+        project_root = Path(__file__).parent.parent
+        scrapy_config = project_root / "scrapy.cfg"
+        assert scrapy_config.exists()
+
+    def test_dockerfile_exists(self):
+        """Test Dockerfile exists"""
+        project_root = Path(__file__).parent.parent
+        dockerfile = project_root / "Dockerfile"
+        assert dockerfile.exists()
+
+    def test_docker_compose_exists(self):
+        """Test docker-compose.yml exists"""
+        project_root = Path(__file__).parent.parent
+        docker_compose = project_root / "docker-compose.yml"
+        assert docker_compose.exists()
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,500 @@
+use anyhow::{bail, Result};
+
+use super::{output::print_table, OutputFormat};
+use crate::utils::datetime::fmt_rfc3339;
+
+/// Return `s` truncated to `max` chars with a trailing `…`, or the original if it fits.
+pub(crate) fn truncate_display(s: &str, max: usize) -> String {
+    if s.chars().count() > max {
+        format!("{}…", s.chars().take(max).collect::<String>())
+    } else {
+        s.to_owned()
+    }
+}
+
+/// Fetch news articles for a symbol.
+pub async fn cmd_news(symbol: String, count: usize, format: &OutputFormat) -> Result<()> {
+    let items = crate::openapi::content().news(&symbol).await?;
+
+    if items.is_empty() {
+        println!("No news found for {symbol}.");
+        return Ok(());
+    }
+
+    let items: Vec<_> = items.into_iter().take(count).collect();
+
+    if matches!(format, OutputFormat::Json) {
+        let records: Vec<serde_json::Value> = items
+            .iter()
+            .map(|item| {
+                let title = if item.title.is_empty() {
+                    truncate_display(&item.description, 70)
+                } else {
+                    item.title.clone()
+                };
+                serde_json::json!({
+                    "id": item.id,
+                    "title": title,
+                    "url": item.url,
+                    "published_at": fmt_rfc3339(item.published_at),
+                    "likes_count": item.likes_count,
+                    "comments_count": item.comments_count,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&records).unwrap_or_default()
+        );
+        return Ok(());
+    }
+
+    let headers = &["id", "title", "published_at", "likes", "comments"];
+    let rows = items
+        .iter()
+        .map(|item| {
+            let display = if item.title.is_empty() {
+                &item.description
+            } else {
+                &item.title
+            };
+            vec![
+                item.id.clone(),
+                truncate_display(display, 70),
+                fmt_rfc3339(item.published_at),
+                item.likes_count.to_string(),
+                item.comments_count.to_string(),
+            ]
+        })
+        .collect();
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+/// Fetch regulatory filings for a symbol.
+pub async fn cmd_filings(symbol: String, count: usize, format: &OutputFormat) -> Result<()> {
+    let items = crate::openapi::quote_cmd().filings(&symbol).await?;
+
+    if items.is_empty() {
+        println!("No filings found for {symbol}.");
+        return Ok(());
+    }
+
+    let items: Vec<_> = items.into_iter().take(count).collect();
+
+    if matches!(format, OutputFormat::Json) {
+        let records: Vec<serde_json::Value> = items
+            .iter()
+            .map(|item| {
+                serde_json::json!({
+                    "id": item.id,
+                    "title": item.title,
+                    "description": item.description,
+                    "file_name": item.file_name,
+                    "publish_at": fmt_rfc3339(item.published_at),
+                    "file_count": item.file_urls.len(),
+                    "file_urls": item.file_urls,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&records).unwrap_or_default()
+        );
+        return Ok(());
+    }
+
+    let headers = &["id", "title", "file_name", "files", "publish_at"];
+    let rows = items
+        .iter()
+        .map(|item| {
+            vec![
+                item.id.clone(),
+                truncate_display(&item.title, 60),
+                item.file_name.clone(),
+                item.file_urls.len().to_string(),
+                fmt_rfc3339(item.published_at),
+            ]
+        })
+        .collect();
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+const FILING_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+
+/// Fetch and convert a regulatory filing to Markdown (HTML/TXT only).
+///
+/// Calls the filings list API to resolve the download URL for the given id,
+/// then fetches the document with browser-like headers and converts HTML to
+/// Markdown. TXT files are printed as-is. Returns an error for HTTP failures
+/// (e.g. 403 from SEC EDGAR) or unsupported formats (e.g. PDF).
+pub async fn cmd_filing_detail(
+    symbol: String,
+    id: String,
+    list_files: bool,
+    file_index: usize,
+) -> Result<()> {
+    let items = crate::openapi::quote_cmd().filings(&symbol).await?;
+
+    let filing = items
+        .into_iter()
+        .find(|item| item.id == id)
+        .ok_or_else(|| anyhow::anyhow!("Filing '{id}' not found"))?;
+
+    if list_files {
+        for (i, url) in filing.file_urls.iter().enumerate() {
+            println!("{i}: {url}");
+        }
+        println!("\n> Usage: longbridge filing-detail {symbol} {id} --file-index <N>");
+        return Ok(());
+    }
+
+    let url = filing
+        .file_urls
+        .get(file_index)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "File index {file_index} out of range (filing has {} file(s))",
+                filing.file_urls.len()
+            )
+        })?
+        .clone();
+
+    let total_files = filing.file_urls.len();
+
+    let client = reqwest::Client::new();
+    let file_resp = client
+        .get(&url)
+        .header("User-Agent", FILING_UA)
+        .header(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        .header("Accept-Language", "en-US,en;q=0.9")
+        .header("Accept-Encoding", "gzip, deflate, br")
+        .header("Cache-Control", "max-age=0")
+        .header("Connection", "keep-alive")
+        .header("Upgrade-Insecure-Requests", "1")
+        .header("Sec-Fetch-Dest", "document")
+        .header("Sec-Fetch-Mode", "navigate")
+        .header("Sec-Fetch-Site", "none")
+        .header("Sec-Fetch-User", "?1")
+        .send()
+        .await?;
+
+    if !file_resp.status().is_success() {
+        let status = file_resp.status();
+        return Err(anyhow::anyhow!("failed to fetch {url} (HTTP {status})"));
+    }
+
+    let content_type = file_resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let path = url.split('?').next().unwrap_or(&url);
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    let ext = ext.as_deref().unwrap_or("");
+    let is_text = content_type.contains("html")
+        || content_type.contains("text/plain")
+        || ext == "html"
+        || ext == "htm"
+        || ext == "xml"
+        || ext == "txt";
+
+    if !is_text {
+        return Err(anyhow::anyhow!(
+            "unsupported format for {url} (content-type: {content_type})"
+        ));
+    }
+
+    let body = file_resp.text().await?;
+
+    let is_html = content_type.contains("html") || ext == "html" || ext == "htm" || ext == "xml";
+
+    let output = if is_html {
+        sec2md::convert(&body)
+    } else {
+        body
+    };
+
+    print!("{output}");
+
+    println!("\n---\nSource: {url}");
+    if total_files > 1 && file_index == 0 {
+        println!(
+            "Note: this filing has {total_files} files. Use --file-index N (0..{}) to fetch others.",
+            total_files - 1
+        );
+    }
+
+    Ok(())
+}
+
+/// Fetch community discussion topics for a symbol.
+pub async fn cmd_topics(symbol: String, count: usize, format: &OutputFormat) -> Result<()> {
+    let items = crate::openapi::content().topics(&symbol).await?;
+
+    if items.is_empty() {
+        println!("No topics found for {symbol}.");
+        return Ok(());
+    }
+
+    let items: Vec<_> = items.into_iter().take(count).collect();
+
+    if matches!(format, OutputFormat::Json) {
+        let records: Vec<serde_json::Value> = items
+            .iter()
+            .map(|item| {
+                serde_json::json!({
+                    "id": item.id,
+                    "title": item.title,
+                    "excerpt": crate::cli::topic::format_topic_contents(&item.description),
+                    "url": item.url,
+                    "published_at": fmt_rfc3339(item.published_at),
+                    "likes_count": item.likes_count,
+                    "comments_count": item.comments_count,
+                    "shares_count": item.shares_count,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&records).unwrap_or_default()
+        );
+        return Ok(());
+    }
+
+    let headers = &["id", "title", "published_at", "likes", "comments", "shares"];
+    let rows = items
+        .iter()
+        .map(|item| {
+            let display = if item.title.is_empty() {
+                &item.description
+            } else {
+                &item.title
+            };
+            vec![
+                item.id.clone(),
+                truncate_display(display, 60),
+                fmt_rfc3339(item.published_at),
+                item.likes_count.to_string(),
+                item.comments_count.to_string(),
+                item.shares_count.to_string(),
+            ]
+        })
+        .collect();
+
+    print_table(headers, rows, format);
+    Ok(())
+}
+
+/// Fetch full topic content as Markdown: GET <https://longbridge.com/topics/{id}.md>
+pub async fn cmd_topic_detail(id: String) -> Result<()> {
+    let url = format!("https://longbridge.com/topics/{id}.md");
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&url)
+        .header("User-Agent", "Mozilla/5.0")
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        bail!("Failed to fetch topic detail: HTTP {}", resp.status());
+    }
+
+    let content = resp.text().await?;
+    print!("{content}");
+    Ok(())
+}
+
+/// Fetch one news article's full detail: `GET /v1/content/news/{id}`.
+pub async fn cmd_news_detail(id: String, format: &OutputFormat, verbose: bool) -> Result<()> {
+    let id: i64 = id
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid news id: {id} (expected a numeric article ID)"))?;
+    if verbose {
+        eprintln!("* GET /v1/content/news/{id}");
+    }
+    let item = crate::openapi::news::news_detail(id).await?;
+    // A 200 with an empty/absent `item` means the article doesn't exist —
+    // don't print an empty shell with exit code 0. (Some gateways echo the
+    // requested id back in an otherwise-empty object, so don't rely on id.)
+    if item.id == 0
+        || (item.title.is_empty() && item.body.is_empty() && item.description.is_empty())
+    {
+        bail!("News article {id} not found");
+    }
+
+    // RFC3339, matching the `news` list output (which an agent chains from).
+    // A missing/invalid timestamp is treated as absent, not 1970-01-01.
+    let published_at = (item.published_at > 0)
+        .then(|| {
+            time::OffsetDateTime::from_unix_timestamp(item.published_at)
+                .map(fmt_rfc3339)
+                .ok()
+        })
+        .flatten();
+
+    if matches!(format, OutputFormat::Json) {
+        // Same field representations as the `news` list: string id, RFC3339
+        // timestamp — so list → detail chaining needs no type juggling.
+        let record = serde_json::json!({
+            "id": item.id.to_string(),
+            "published_at": published_at,
+            "title": item.title,
+            "description": item.description,
+            "body": item.body,
+            "url": item.url,
+            "author": {
+                "id": item.author.id.to_string(),
+                "name": item.author.name,
+                "avatar": item.author.avatar,
+            },
+            "images": item.images,
+            "comments_count": item.comments_count,
+            "likes_count": item.likes_count,
+            "shares_count": item.shares_count,
+            "tickers": item.tickers,
+        });
+        println!("{}", serde_json::to_string_pretty(&record)?);
+        return Ok(());
+    }
+
+    let title = if item.title.is_empty() {
+        truncate_display(&item.description, 70)
+    } else {
+        item.title.clone()
+    };
+    println!("# {title}");
+    let mut meta = Vec::new();
+    if let Some(published_at) = &published_at {
+        meta.push(published_at.clone());
+    }
+    if !item.author.name.is_empty() {
+        meta.push(item.author.name.clone());
+    }
+    if !item.tickers.is_empty() {
+        meta.push(item.tickers.join(" "));
+    }
+    println!("{}", meta.join(" · "));
+    if !item.url.is_empty() {
+        println!("{}", item.url);
+    }
+    println!();
+    if item.body.is_empty() {
+        println!("{}", item.description);
+    } else {
+        println!("{}", item.body);
+    }
+    Ok(())
+}
+
+pub(crate) fn schema_for_path(path: &[String]) -> Option<super::schema::ResponseSchema> {
+    use super::schema::{array, text};
+
+    let command = path.join(" ");
+    let schema = match command.as_str() {
+        "news" => array(
+            "Latest news articles",
+            &[
+                "id",
+                "title",
+                "url",
+                "published_at",
+                "likes_count",
+                "comments_count",
+            ],
+        ),
+        "news detail" => super::schema::schema(
+            "Full news article detail",
+            super::schema::RootKind::Object,
+            vec![
+                super::schema::field("id", "string", "News article ID (numeric string)"),
+                super::schema::field("title", "string", "Title"),
+                super::schema::field("description", "string", "Plain-text excerpt, no HTML"),
+                super::schema::field("body", "string", "Markdown content"),
+                super::schema::field("url", "string", "Full article page URL"),
+                super::schema::field("author", "object", "{id, name, avatar}"),
+                super::schema::field("images", "object[]", "{url, width, height}"),
+                super::schema::field("comments_count", "number", "Comments count"),
+                super::schema::field("likes_count", "number", "Likes count"),
+                super::schema::field("shares_count", "number", "Shares count"),
+                super::schema::field(
+                    "published_at",
+                    "string | null",
+                    "Published time (RFC3339); null when absent",
+                ),
+                super::schema::field(
+                    "tickers",
+                    "string[]",
+                    "Related tickers, {symbol}.{market} e.g. [\"AAPL.US\", \"700.HK\"]",
+                ),
+            ],
+        ),
+        "news search" => array(
+            "News search results",
+            &["id", "title", "url", "source_name", "time", "excerpt"],
+        ),
+        "filing" => array(
+            "Regulatory filing list",
+            &[
+                "id",
+                "title",
+                "description",
+                "file_name",
+                "file_count",
+                "file_urls",
+                "publish_at",
+            ],
+        ),
+        "filing detail" => text("Full regulatory filing Markdown content or file list"),
+        _ => return None,
+    };
+    Some(schema)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_short_string_unchanged() {
+        assert_eq!(truncate_display("hello", 10), "hello");
+    }
+
+    #[test]
+    fn truncate_exact_length_unchanged() {
+        let s = "a".repeat(10);
+        assert_eq!(truncate_display(&s, 10), s);
+    }
+
+    #[test]
+    fn truncate_long_string_adds_ellipsis() {
+        let s = "a".repeat(11);
+        let result = truncate_display(&s, 10);
+        assert!(result.ends_with('…'));
+        assert_eq!(result.chars().count(), 11); // 10 chars + ellipsis
+    }
+
+    #[test]
+    fn truncate_multibyte_chars() {
+        let s = "中文测试内容标题超过限制的长度"; // 14 chars
+        let result = truncate_display(s, 5);
+        assert!(result.starts_with("中文测试内"));
+        assert!(result.ends_with('…'));
+    }
+
+    #[test]
+    fn truncate_empty_string_unchanged() {
+        assert_eq!(truncate_display("", 5), "");
+    }
+}

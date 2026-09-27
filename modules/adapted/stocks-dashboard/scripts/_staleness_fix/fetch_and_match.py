@@ -62,17 +62,22 @@ Output: {SYMBOL: {"matches": {"qe|basis": [news_dt, newssub, cls, [dates_in_row]
                   "candidates_seen": N, "scripcode": N|null, "scripcode_src": str|null,
                   "error": str|null}}
 """
-import csv
-import datetime
-import gzip
-import http.cookiejar
+import os as _o
+import sys as _s
+
+_s.path.append(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
+import bse_headers as BH  # §181 BSE headers (append: never shadow local modules)
 import json
 import os
-import re
 import sys
 import time
-import urllib.error
+import datetime
+import csv
+import re
 import urllib.request
+import urllib.error
+import gzip
+import http.cookiejar
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from classify import classify_row, row_dates  # THE shared rules — never re-implement
@@ -84,12 +89,17 @@ OUT_PATH = os.path.join(HERE, "fetch_results.json")
 PROGRESS_PATH = os.path.join(HERE, "progress.log")
 RAW_PATH = os.path.join(HERE, "raw_rows.jsonl")
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120 Safari/537.36"
+)  # non-BSE hosts only; BSE gets BH.HEADERS (§181)
 
 CLASS_RANK = {"result": 0, "secondary": 1, "intimation": 2}
 
 
 def _req(u, ref="https://www.bseindia.com/corporates/ann.html"):
+    if BH.is_bse(u):  # honest BSE header set (§181) -- no browser impersonation
+        return urllib.request.Request(u, headers=dict(BH.HEADERS, Referer=ref))
     return urllib.request.Request(
         u, headers={"User-Agent": UA, "Accept": "*/*", "Referer": ref, "Origin": "https://www.bseindia.com"}
     )

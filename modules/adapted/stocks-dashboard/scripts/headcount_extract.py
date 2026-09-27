@@ -43,6 +43,10 @@ we cannot read stays absent.
 Fetch/list logic adapted from kpi_docs.py (the INSIGHTS-card BSE document ladder). Depends only on
 scripts/bse_scrips.json (symbol→BSE code) + PyMuPDF.
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import gzip
 import json
 import os
@@ -52,6 +56,8 @@ import time
 import urllib.error
 import urllib.request
 from datetime import date
+
+import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPS = os.path.join(HERE, "bse_scrips.json")
@@ -74,7 +80,7 @@ def _get(url, timeout=60, binary=False):
     if wait > 0:
         time.sleep(wait)
     PACE["last"] = time.time()
-    req = urllib.request.Request(url, headers=HDR)
+    req = urllib.request.Request(url, headers=BH.HEADERS if BH.is_bse(url) else HDR)  # honest BSE set (§181)
     r = urllib.request.urlopen(req, timeout=timeout)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":
@@ -531,6 +537,13 @@ def main():
     ap.add_argument("syms", nargs="*")
     ap.add_argument("--universe", action="store_true", help="sweep the whole survivorship-free N500")
     ap.add_argument("--skip-existing", action="store_true", help="skip symbols whose ledger already exists")
+    ap.add_argument(
+        "--refresh-latest",
+        action="store_true",
+        help="yearly refresh: only symbols whose ledger lacks the newest fiscal year (default target: "
+        "this calendar year from June, else last year); ADDS that year, never overwrites",
+    )
+    ap.add_argument("--target-fy", type=int, default=0, help="with --refresh-latest: the FY-end year to fill")
     ap.add_argument("--limit", type=int, default=0, help="cap number of symbols this run")
     ap.add_argument("--since-fy", type=int, default=2020, help="fill FY-end years >= this")
     ap.add_argument("--max-reports", type=int, default=3)
@@ -544,6 +557,20 @@ def main():
         syms = n500_universe()
     if a.skip_existing:
         syms = [s for s in syms if not os.path.exists(os.path.join(LEDGER_DIR, s + ".json"))]
+    if a.refresh_latest:
+        # Yearly refresh (seasonal CI, June-Nov): FY ends 31 March and the annual report is filed by the
+        # 30 September AGM deadline, so from June the newest fiscal year is this calendar year. Select only
+        # the names whose ledger lacks it (a missing ledger lacks it too, so new roster names are covered).
+        t = date.today()
+        target = a.target_fy or (t.year if t.month >= 6 else t.year - 1)
+        want = {target}
+
+        def _lacks(s):
+            p = os.path.join(LEDGER_DIR, s + ".json")
+            return not os.path.exists(p) or str(target) not in (json.load(open(p)).get("fy") or {})
+
+        syms = [s for s in syms if _lacks(s)]
+        print("refresh-latest: target FY%d, %d symbols lack it" % (target, len(syms)), flush=True)
     if a.limit:
         syms = syms[: a.limit]
     print("processing %d symbols (max_reports=%d)" % (len(syms), a.max_reports), flush=True)
@@ -580,7 +607,20 @@ def main():
                 )
             print("     FY%d: %-8s [%s%s p%s]%s" % (y, c["count"], c.get("basis"), "", c["src"]["page"], extra))
         if a.save or a.universe:
-            json.dump(led, open(os.path.join(LEDGER_DIR, s + ".json"), "w"), indent=1, default=str)
+            path = os.path.join(LEDGER_DIR, s + ".json")
+            if a.refresh_latest and os.path.exists(path):
+                # merge-ADD only: a refresh must never clobber years already in the ledger (hand-verified
+                # vision / Section-197 / prose reads live there) — the plain save below overwrites everything
+                old = json.load(open(path))
+                old.setdefault("fy", {})
+                added = [y for y in led["fy"] if str(y) not in old["fy"]]
+                for y in added:
+                    old["fy"][str(y)] = led["fy"][y]
+                old.setdefault("reports_read", []).extend(led.get("reports_read", []))
+                json.dump(old, open(path, "w"), indent=1, default=str)
+                print(f"     merged: added FY{added}" if added else "     merged: nothing new", flush=True)
+            else:
+                json.dump(led, open(path, "w"), indent=1, default=str)
 
 
 if __name__ == "__main__":

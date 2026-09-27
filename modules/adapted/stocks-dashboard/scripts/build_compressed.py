@@ -48,7 +48,24 @@ compact_series = {}
 end_ts = payload["endTs"]
 year_ago_ts = end_ts - 365 * DAY
 h52_count = 0
+last_close = {}  # every priced ticker's last close — the mcap fill below needs it for names with <30 bars in a year
+# FROZEN PRICES (§145): Yahoo keeps printing a scrip that stopped trading years ago, repeating its last
+# close every session (TVOLCON/BENTCOM/ESQRMON/PUNCTRD/ZJEETMAC/PETPLST: frozen since 2001-2011, no row
+# in BSE's own bhavcopy). The table showed them as live 0.00% moves. A series still printing within
+# FROZEN_LIVE_DAYS of the end whose close has not changed for FROZEN_MIN_DAYS is flagged with the
+# date its price last changed; the page shows "not traded since" instead of a change.
+FROZEN_MIN_DAYS, FROZEN_LIVE_DAYS = 365, 10
+frozen = 0
 for tkr, pairs in payload["series"].items():
+    if pairs:
+        last_close[tkr] = pairs[-1][1]
+    if pairs and (payload["endTs"] - pairs[-1][0]) <= FROZEN_LIVE_DAYS * DAY:
+        i = len(pairs) - 1
+        while i > 0 and pairs[i - 1][1] == pairs[i][1]:
+            i -= 1
+        if pairs[-1][0] - pairs[i][0] >= FROZEN_MIN_DAYS * DAY and tkr in payload["meta"]:
+            payload["meta"][tkr]["frozenSince"] = datetime.fromtimestamp(pairs[i][0]).strftime("%Y-%m-%d")
+            frozen += 1
     ds, ps = [], []
     for ts, close in pairs:
         ds.append(int((ts - start_ts) // DAY))
@@ -84,23 +101,64 @@ print(f"52w-high attached to {h52_count} stocks")
 # median 0.08% on a 20-name check, so the two sources are interchangeable in practice.
 # Fill-only: a real BSE mcap is never overwritten.
 shares_path = ROOT / "scripts" / "shares_outstanding.json"
+# Fallback counts for SME listings with no filing yet (screener-derived, §145) — used only when
+# shares_outstanding.json has no count, so a real filing always wins.
+try:
+    screener_fill = (
+        json.loads((ROOT / "scripts" / "shares_fill_screener.json").read_text(encoding="utf-8")).get("fills") or {}
+    )
+except Exception:
+    screener_fill = {}
+# BSE-only rows with no BSE market cap: the scrip's own newest BSE shareholding filing
+# (scripts/fill_bse_share_counts.py), keyed by dashboard TICKER — a BSE scrip_id can equal an
+# unrelated NSE symbol, so the two NSE-keyed ledgers above are never used for a .BO row (§76).
+try:
+    bse_fill = json.loads((ROOT / "scripts" / "shares_bse_only.json").read_text(encoding="utf-8")).get("fills") or {}
+except Exception:
+    bse_fill = {}
+print(f"frozen-price rows (no change for >= {FROZEN_MIN_DAYS}d while still printing): {frozen}")
 if shares_path.exists():
     try:
         shares = json.loads(shares_path.read_text(encoding="utf-8"))
-        filled = 0
+        filled = filled_sc = filled_bse = 0
         for tkr, meta in payload["meta"].items():
-            if meta.get("mcap") or not meta.get("latest"):
+            if meta.get("mcap"):
                 continue
-            got = shares.get(str(meta.get("symbol") or tkr.split(".")[0]).upper())
-            if not got or not got[0]:
+            # `latest` is only written by the 52w pass (>= 30 bars in the last year), so a new or thinly
+            # traded listing had none and was skipped — 21 of 25 cap-less SME rows on 2026-09-23 had a
+            # share count AND a price series. Fall back to the series' own last close.
+            px = meta.get("latest") or last_close.get(tkr) or (meta.get("lastTrade") or {}).get("p")
+            if not px:
                 continue
-            mcap = got[0] * meta["latest"] / 1e7  # shares x rupees -> rupees crore
+            sym = str(meta.get("symbol") or tkr.split(".")[0]).upper()
+            src = None
+            if tkr.endswith(".BO"):
+                bf = bse_fill.get(tkr) or {}
+                if bf.get("shares"):
+                    n, src = bf["shares"], "bse-shp:" + str(bf.get("qtr") or bf.get("filed"))
+            else:
+                got = shares.get(sym)
+                if got and got[0]:
+                    n, src = got[0], "shp:" + got[1]  # provenance — not a BSE-reported cap
+                elif (screener_fill.get(sym) or {}).get("shares"):
+                    n, src = screener_fill[sym]["shares"], "screener:" + str(screener_fill[sym].get("asof"))
+            if not src:
+                continue
+            mcap = n * px / 1e7  # shares x rupees -> rupees crore
             if mcap <= 0:
                 continue
-            meta["mcap"] = round(mcap, 2)
-            meta["mcapSrc"] = "shp:" + got[1]  # provenance — not a BSE-reported cap
-            filled += 1
-        print(f"mcap from SHP share counts: {filled} filled ({len(shares)} counts on file)")
+            meta["mcap"] = round(mcap, 2) if mcap >= 0.01 else round(mcap, 6)  # a Rs 4,980 cap is not "0.00" (§145)
+            meta["mcapSrc"] = src
+            if src.startswith("screener"):
+                filled_sc += 1
+            elif src.startswith("bse-shp"):
+                filled_bse += 1
+            else:
+                filled += 1
+        print(
+            f"mcap from SHP share counts: {filled} filled ({len(shares)} counts on file); "
+            f"{filled_sc} from the screener fallback ledger; {filled_bse} BSE-only from their BSE filings"
+        )
     except Exception as e:
         print(f"WARN shares_outstanding unusable ({e}) — NSE-only caps stay blank")
 
@@ -393,9 +451,29 @@ let META = {}, SERIES = {}, UNIVERSE = [], START_TS = 0, END_TS = 0,
 // before it triggers a one-time lazy fetch of the full history from stock_data.bin.
 let RECENT_CUTOFF_OFF = 0, FULL_LOADED = false, FULL_LOADING = null;
 async function gunzipFetch(url) {
-  const buf = await (await fetch(url)).arrayBuffer();
+  // cache:'no-cache' = always ask the server whether the file changed (an unchanged file costs a
+  // 304, not a re-download). A plain fetch let the browser reuse an OLD build: on 2026-09-23 a
+  // reload got the 12:08 IST dash_slim.bin from cache (0 bytes transferred) while Pages served
+  // the 13:16 build — a fix that was live read as "still broken" (runbook §145).
+  const buf = await (await fetch(url, {cache: 'no-cache'})).arrayBuffer();
   const stream = new Blob([new Uint8Array(buf)]).stream().pipeThrough(new DecompressionStream('gzip'));
   return JSON.parse(await new Response(stream).text());
+}
+// base = full history, overlay = the series already loaded (slim, fresher). Overlay wins on
+// overlapping day offsets; tickers present only in the overlay are kept whole.
+function mergeSeries(base, overlay) {
+  const merged = {};
+  for (const t in base) merged[t] = base[t];
+  for (const t in overlay) {
+    const ov = overlay[t], ba = merged[t];
+    if (!ba || !ba.d || !ba.d.length) { merged[t] = ov; continue; }
+    const byOff = new Map();
+    for (let i = 0; i < ba.d.length; i++) byOff.set(ba.d[i], ba.p[i]);
+    for (let i = 0; i < ov.d.length; i++) byOff.set(ov.d[i], ov.p[i]);
+    const offs = [...byOff.keys()].sort((a, b) => a - b);
+    merged[t] = { d: offs, p: offs.map(o => byOff.get(o)) };
+  }
+  return merged;
 }
 // Lazily pull the FULL price history (only when a long-range query / backtest needs it).
 async function ensureFull(statusFn) {
@@ -403,7 +481,12 @@ async function ensureFull(statusFn) {
   if (!FULL_LOADING) FULL_LOADING = (async () => {
     if (statusFn) statusFn('Loading full history…');
     const D = await gunzipFetch('./stock_data.bin');   // full series, already built + cacheable
-    SERIES = D.series;                                  // superset of the slim recent series
+    // MERGE, never replace (the sectors.html guard, runbook §103/§145): stock_data.bin is committed
+    // on its own cadence, so it can lag dash_slim.bin — on 2026-09-22 it still carried the 4,929-name
+    // universe while the slim file had 5,527, and `SERIES = D.series` silently dropped every SME name
+    // for the rest of the session (all bars, even inside the slim window). Slim (fresher) wins on
+    // any overlapping day; a ticker only the slim file knows keeps its slim bars.
+    SERIES = mergeSeries(D.series, SERIES);
     FULL_LOADED = true;
   })().catch(e => { FULL_LOADING = null; throw e; });
   await FULL_LOADING;
@@ -457,6 +540,19 @@ async function loadAndInit() {
     UNIVERSE = Object.keys(META);
     // Historical index membership (per-rebalance snapshots). Optional.
     INDICES_HISTORY = D.indicesHistory || {};
+    // BSE SME IPO (runbook §195): its point-in-time history lives in its own file (BSE notices + BSE's daily official
+    // list, 2020→), merged here in the browser — never into indices_history.json, whose ~30 builders expect NSE symbols.
+    // Its symbols are full "<BSE ID>.BO" keys, which the filter below looks up whole.
+    try {
+      const hx = await (await fetch('./bse_sme_ipo/history.json', { cache: 'no-store' })).json();
+      if (hx && Array.isArray(hx['BSE SME IPO']) && hx['BSE SME IPO'].length) {
+        // a BSE-only row can be keyed by its scrip CODE ("544671.BO") rather than its id ("ATIL.BO") — map id → key
+        const boKey = {};
+        for (const k of UNIVERSE) if (k.endsWith('.BO') && META[k] && META[k].symbol) boKey[META[k].symbol + '.BO'] = k;
+        INDICES_HISTORY['BSE SME IPO'] = hx['BSE SME IPO'].map(s => ({ effectiveDate: s.effectiveDate,
+          symbols: s.symbols.map(x => META[x] ? x : (boKey[x] || x)) }));
+      }
+    } catch (e) { console.warn('BSE SME IPO history unavailable', e); }
     FNO_TODAY = new Set(D.fnoToday || []);
     FNO_HISTORY = D.fnoHistory || [];
 
@@ -480,18 +576,29 @@ async function loadAndInit() {
         sectorSel.appendChild(opt);
       });
 
-    // Index dropdown — fed by per-stock `indices` arrays (Nifty 500, etc.)
+    // Index dropdown — every index with membership history (the roster in force today, counted over stocks this
+    // page carries), plus any per-stock `indices` tags. META.indices is empty in today's feed, so the history is what
+    // actually lists Nifty 50/500/… here (before this the menu offered only "All indices").
     const indexCounts = {};
     for (const t of UNIVERSE) {
       const arr = META[t].indices || [];
       for (const ix of arr) indexCounts[ix] = (indexCounts[ix] || 0) + 1;
+    }
+    const todayISO = new Date().toISOString().slice(0, 10);
+    for (const ix of Object.keys(INDICES_HISTORY)) {
+      if (indexCounts[ix]) continue;
+      const mem = getIndexMembersAt(ix, todayISO);
+      if (!mem) continue;
+      let n = 0;
+      for (const s of mem) if (META[s] || META[s + '.NS']) n++;
+      if (n) indexCounts[ix] = n;
     }
     const indexSel = document.getElementById('indexFilter');
     // Preferred ordering so the most common picks surface at the top
     const PREFERRED = ['Nifty 50','Nifty Next 50','Nifty 100','Nifty 200','Nifty 500',
                        'Nifty Midcap 50','Nifty Midcap 100','Nifty Midcap 150',
                        'Nifty Smallcap 50','Nifty Smallcap 100','Nifty Smallcap 250',
-                       'Nifty LargeMidcap 250','Nifty MidSmallcap 400'];
+                       'Nifty LargeMidcap 250','Nifty MidSmallcap 400','BSE SME IPO'];
     const inPref = PREFERRED.filter(x => indexCounts[x]);
     const rest   = Object.keys(indexCounts).filter(x => !PREFERRED.includes(x)).sort();
     for (const ix of inPref.concat(rest)) {
@@ -621,6 +728,8 @@ async function loadData() {
       sector: indKey,                       // shown in the table chip
       sectorBroad: m.sector || '',           // kept for tooltip / CSV
       mcap: m.mcap,
+      frozenSince: m.frozenSince || null,   // price unchanged for >= 1 year while Yahoo still prints it (§145)
+      lastTrade: m.lastTrade || null,       // BSE's last trade for a row with no price series {d, p} (§145)
       fromPrice: null, toPrice: null, changePercent: null,
       fromDate: null,  toDate: null,  noData: true,
       // 52-week-high distance, anchored at snapshot date (constant per stock)
@@ -658,14 +767,18 @@ async function loadData() {
           row.staleDays = Math.max(0, toDayOffset - ser.d[iTo]);
           row.fromGapDays = Math.max(0, (fromDayOffset - 1) - ser.d[iFrom]);
         }
-      } else if (iFrom !== -1 && iFrom === iTo && iFrom === 0) {
+      } else if (iTo === 0 && (iFrom === -1 || iFrom === 0)) {
+        // (iFrom === -1 too: a stock whose ONLY bar is inside the window — it listed within it, e.g. today
+        // — resolved no from-bar at all and the row went blank; §145, HEROMOTORS 23-Sep-2026.)
         // Listing-day edge case: stock has only one entry inside the window
         // and there's nothing earlier. Show the listing-day price as "Day 1"
         // with no change figure, instead of an empty row.
-        row.fromPrice = ser.p[iFrom] / 100;
-        row.toPrice   = ser.p[iFrom] / 100;
+        // Read the bar at iTo (always 0 here): iFrom is -1 in the listing-within-window case, and
+        // ser.d[-1] made an Invalid Date that threw and blanked the whole table (caught in testing).
+        row.fromPrice = ser.p[iTo] / 100;
+        row.toPrice   = ser.p[iTo] / 100;
         row.changePercent = null;
-        row.fromDate = row.toDate = new Date((START_TS + ser.d[iFrom] * DAY) * 1000).toISOString().slice(0, 10);
+        row.fromDate = row.toDate = new Date((START_TS + ser.d[iTo] * DAY) * 1000).toISOString().slice(0, 10);
         row.firstDay = true;
         row.noData = false;
       }
@@ -702,7 +815,14 @@ function compareRows(a, b, key, dir) {
   return dir === 'asc' ? cmp : -cmp;
 }
 
-function renderResults(results) {
+// Rows are drawn in pages of ROW_PAGE (drawing all 5,500 at once is slow on phones); a row at the
+// foot of the table reveals the next page or everything. The old hard cap of 500 hid every stock
+// ranked below it with no way to scroll to it — SUNLITE ranked 654th for 31-Mar→today (runbook §145).
+const ROW_PAGE = 500;
+let ROW_LIMIT = ROW_PAGE;
+function showMoreRows(all) { ROW_LIMIT = all ? Infinity : ROW_LIMIT + ROW_PAGE; renderResults(lastResults, true); }
+function renderResults(results, keepLimit) {
+  if (!keepLimit) ROW_LIMIT = ROW_PAGE;           // new data / search / sort starts at the first page
   const q = document.getElementById('searchBox').value.toLowerCase().trim();
   let f = results;
   if (q) f = f.filter(r => r.symbol.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || (r.sector || '').toLowerCase().includes(q));
@@ -710,9 +830,8 @@ function renderResults(results) {
   f.sort((a, b) => compareRows(a, b, SORT_STATE.key, SORT_STATE.dir));
 
   const tbody = document.getElementById('resultsBody');
-  const MAX_ROWS = 500;
-  const truncated = f.length > MAX_ROWS;
-  const view = f.slice(0, MAX_ROWS);
+  const truncated = f.length > ROW_LIMIT;
+  const view = f.slice(0, ROW_LIMIT);
 
   if (view.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" class="text-center text-slate-400 py-16 text-sm">No matching stocks. Adjust filters or search.</td></tr>';
@@ -721,9 +840,19 @@ function renderResults(results) {
     const DASH = '<span class="text-slate-400">\u2014</span>';
     for (let i = 0; i < view.length; i++) {
       const r = view[i];
-      const mcap = r.mcap > 0 ? r.mcap.toLocaleString('en-IN', {maximumFractionDigits: 0}) : '\u2014';
+      // Whole crores hid real sub-crore caps as "0" (BENTCOM 0.40, ZJEETMAC 0.13 — §145): under 10 Cr keep 2 dp.
+      const mcap = r.mcap > 0 ? (r.mcap < 0.01 ? '&lt;0.01' : r.mcap.toLocaleString('en-IN', r.mcap < 10 ? {minimumFractionDigits: 2, maximumFractionDigits: 2} : {maximumFractionDigits: 0})) : '\u2014';
       let fromCell, toCell, chgCell;
-      if (r.noData) {
+      if (r.noData && r.lastTrade) {
+        // Listed but no trade in our price stores: show BSE's own last trade, or say there is none (§145).
+        const lt = r.lastTrade;
+        fromCell = DASH;
+        toCell = lt.p ? '&#8377;' + Number(lt.p).toFixed(2) : DASH;
+        const when = lt.d ? new Date(lt.d + 'T00:00:00Z').toLocaleDateString('en-IN', {month: 'short', year: 'numeric', timeZone: 'UTC'}) : null;
+        chgCell = '<span class="inline-flex items-center bg-amber-50 text-amber-700 rounded-md px-2 py-0.5 font-semibold text-xs" title="' +
+          (lt.p ? 'Last BSE trade ' + lt.d + ' at \u20b9' + lt.p + (lt.src === 'bse-archive' ? ' (BSE daily archive)' : ' (BSE quote page)') : (lt.since ? 'No trade in BSE\u2019s daily files since ' + lt.since + ' (BSE serves no file for 28 sessions in that span) and none on its quote page' : 'BSE shows no trade on record for this scrip')) + '">' +
+          (lt.p ? 'not traded since ' + when : (lt.since ? 'no BSE trade since ' + lt.since.slice(0, 4) : 'no trades on record')) + '</span>';
+      } else if (r.noData) {
         fromCell = toCell = chgCell = DASH;
       } else if (r.firstDay) {
         // Stock has only one trading day inside the window (its listing day);
@@ -744,6 +873,11 @@ function renderResults(results) {
           ? '<span class="inline-flex items-center bg-amber-50 text-amber-700 rounded-md px-1.5 py-0.5 font-medium text-[10px] ml-1" title="Stock\'s last trade in this window was ' + r.staleDays + ' days before your To Date">stale</span>'
           : '';
         chgCell  = '<span class="inline-flex items-center gap-1 ' + cls + ' rounded-md px-2 py-0.5 font-semibold text-xs tabular-nums">' + arr + ' ' + sgn + r.changePercent.toFixed(2) + '%</span>' + staleNote;
+        if (r.frozenSince) {
+          // The exchange has no trade for this scrip; the "price" is the last trade repeated (§145).
+          const fs = new Date(r.frozenSince + 'T00:00:00Z').toLocaleDateString('en-IN', {month: 'short', year: 'numeric', timeZone: 'UTC'});
+          chgCell = '<span class="inline-flex items-center bg-amber-50 text-amber-700 rounded-md px-2 py-0.5 font-semibold text-xs" title="No trades since ' + r.frozenSince + ' — the price shown is the last traded price">not traded since ' + fs + '</span>';
+        }
       }
       // Screener.in URL: NSE symbols use the symbol itself; BSE-only stocks use
       // the numeric scrip code (Screener accepts both formats).
@@ -778,18 +912,29 @@ function renderResults(results) {
         '</tr>'
       );
     }
+    if (truncated) {
+      const left = f.length - view.length;
+      // Pinned to the LEFT edge (position:sticky): on a phone the table is wider than the screen, and a
+      // centred cell spanning the whole table put these buttons off-screen to the right.
+      out.push('<tr><td colspan="9" class="py-4 text-left text-sm">' +
+        '<div style="position:sticky;left:12px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 12px;max-width:calc(100vw - 72px)">' +
+        '<span class="text-slate-500">Showing ' + view.length.toLocaleString('en-IN') + ' of ' + f.length.toLocaleString('en-IN') + '</span>' +
+        '<button type="button" onclick="showMoreRows(false)" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold text-xs">Show ' + Math.min(ROW_PAGE, left).toLocaleString('en-IN') + ' more</button>' +
+        '<button type="button" onclick="showMoreRows(true)" class="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 font-semibold text-xs">Show all</button>' +
+        '</div></td></tr>');
+    }
     tbody.innerHTML = out.join('');
   }
   const noDataCount = f.filter(r => r.noData).length;
   const noDataNote  = noDataCount ? ' &middot; <span class="text-slate-400">' + noDataCount.toLocaleString('en-IN') + ' without price data</span>' : '';
   document.getElementById('resultCount').innerHTML =
     '<span class="font-semibold text-slate-700">' + f.length.toLocaleString('en-IN') + '</span> stocks' + noDataNote +
-    (truncated ? ' (showing top ' + MAX_ROWS + ' \u2014 use sort/search/filters to narrow)' : '');
+    (truncated ? ' (showing first ' + view.length.toLocaleString('en-IN') + ' \u2014 "Show more" at the bottom of the table, or search)' : '');
 }
 
 function updateStats(results) {
   if (!results.length) { document.getElementById('statsGrid').innerHTML = ''; return; }
-  const priced    = results.filter(r => !r.noData);
+  const priced    = results.filter(r => !r.noData && !r.frozenSince);   // frozen = no trades, not a 0% move
   const gainers   = priced.filter(r => r.changePercent > 0).length;
   const losers    = priced.filter(r => r.changePercent < 0).length;
   const unchanged = priced.length - gainers - losers;

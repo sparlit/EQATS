@@ -29,22 +29,27 @@ audit's suspect population is full of them. ListofScripData/w with a blank statu
 10,800-row universe. §0: VALIDATE THE ROW COUNT, a 162-byte body is BSE's rate-limit 302 stub and
 curl/urllib exit cleanly on it.
 """
+import os as _o
+import sys as _s
+
+_s.path.append(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
 import json
 import os
 import sys
 import time
 import urllib.request
 
+import bse_headers as BH  # §181 BSE headers (append: never shadow local modules)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CACHE = os.path.join(HERE, "_scrip_master.json")
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 URL = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=%s"
 FLOOR = 3000
 
 
 def _fetch(status):
-    req = urllib.request.Request(URL % status, headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"})
+    req = urllib.request.Request(URL % status, headers=BH.HEADERS)
     with urllib.request.urlopen(req, timeout=60) as r:
         raw = r.read()
     if len(raw) < 1000:  # the 162-byte "Object Moved" stub

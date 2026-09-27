@@ -72,6 +72,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contextlib
 
 import scale_fix
+import xbrl_symbol
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # XBRL_CACHE override: the nightly top-up routine runs from its OWN worktree (one writer per
@@ -95,6 +96,14 @@ NS = r"in-(?:bse-fin|capmkt)"
 # when the same (symbol, quarter, basis) shows up in a cache file, and a full rebuild seeds itself
 # from them so a --fresh run cannot drop the pre-2018 block.
 SRC_KEY = "src"
+# Filenames fetched from NSE's SME board (index=sme) by fetch_sme_xbrl.py (§148). Older SME
+# "Yearly" files carry NO DateOfStartOfReportingPeriod fact and a context block that says Jan-Mar
+# while OneD holds the 6-month H2 — so for these files a Half-yearly/Yearly filing is BS-only.
+SME_FILES_PATH = os.path.join(HERE, "xbrl_sme_files.json")
+try:
+    SME_FILES = set(json.load(open(SME_FILES_PATH)))
+except (OSError, ValueError):
+    SME_FILES = set()
 
 RE_SYM = re.compile(r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>')
 RE_SYM2 = re.compile(r"<" + NS + r':Symbol contextRef="OneD"[^>]*>([^<]+)<')
@@ -174,16 +183,31 @@ RATIO = {  # quarter, % / ratio as filed
 }
 BS = {  # instant, ₹ -> cr; tuple entries are summed when at least one part is present
     "assets": ["Assets"],
-    "eq": ["EquityAttributableToOwnersOfParent", "Equity"],
+    "eq": ["EquityAttributableToOwnersOfParent", "Equity", "ShareholdersFunds"],
     "sc": ["EquityShareCapital", "ShareCapital"],  # Screener "Equity Capital"
-    "oeq": ["OtherEquity"],  # Screener "Reserves"
+    "oeq": ["OtherEquity", "ReservesAndSurplus"],  # Screener "Reserves"
     "cash": ["CashAndCashEquivalents"],
     "invnt": ["Inventories"],
-    "ppe": ["PropertyPlantAndEquipment"],
-    "cwip": ["CapitalWorkInProgress"],
+    # trailing names = the NON-Ind-AS (in-bse-fin "NONINDAS") spellings SME and older small
+    # filers use (runbook §148) — facts_by_ctx takes the first name with any facts, so they only
+    # apply where the Ind-AS tag is absent
+    "ppe": ["PropertyPlantAndEquipment", "TangibleAssets"],
+    "cwip": [
+        "CapitalWorkInProgress",
+        "TangibleAssetsCapitalWorkInProgress",
+        "PropertyPlantAndEquipmentCapitalWorkInProgress",
+    ],  # INTEGRATED non-Ind-AS spelling
     "gw": ["Goodwill"],
-    "intg": ["OtherIntangibleAssets"],
-    "iuad": ["IntangibleAssetsUnderDevelopment"],
+    "intg": ["OtherIntangibleAssets", "IntangibleAssets"],
+    "iuad": ["IntangibleAssetsUnderDevelopment", "IntangibleAssetsUnderDevelopmentOrWorkInProgress"],
+    # Screener's "Fixed Assets" = PP&E + Investment Property + Goodwill + Other Intangibles (measured
+    # 2026-09-23 against screener on DBREALTY/OBEROIRLTY/PHOENIXLTD/DLF/INA/TCS/RELIANCE, runbook §148c)
+    "invprop": ["InvestmentProperty"],
+    # also inside Screener's Fixed Assets (measured 2026-09-23: LLOYDSENGG FY26 con 355.1 + biological 75.8 =
+    # Screener 431; ASPINWALL 84.6 + 4.8 = 89; non-Ind-AS ProducingProperties closes the 5 SME subtotals
+    # PropertyPlantAndEquipmentAndIntangibleAssets that our parts missed)
+    "bio": ["BiologicalAssetsOtherThanBearerPlants"],
+    "prodprop": ["ProducingProperties"],
 }
 BS_SUM = {
     "borr": ["BorrowingsCurrent", "BorrowingsNoncurrent"],
@@ -198,6 +222,18 @@ BS_SUM = {
     ],
     "invst": ["CurrentInvestments", "NoncurrentInvestments"],
 }
+# NON-Ind-AS spellings of the BS_SUM groups — used ONLY when no part of the Ind-AS group is
+# present in the filing, so a filing carrying both vocabularies can never be double-counted (§148)
+BS_SUM_ALT = {
+    "borr": ["LongTermBorrowings", "ShortTermBorrowings"],
+    "blt": ["LongTermBorrowings"],
+    "bst": ["ShortTermBorrowings"],
+    "rec": ["TradeReceivables"],
+    "pay": [
+        "OutstandingDuesOfMicroEnterprisesAndSmallEnterprises",
+        "OutstandingDuesOfCreditorsOtherThanMicroEnterprisesAndSmallEnterprises",
+    ],
+}
 CF = {  # duration ending at the quarter end; ₹ -> cr
     "cfo": ["CashFlowsFromUsedInOperatingActivities"],
     "cfi": ["CashFlowsFromUsedInInvestingActivities"],
@@ -209,7 +245,7 @@ RE_CAPEX = re.compile(r"<" + NS + r':(PurchaseOfPropertyPlantAndEquipment\w*) co
 
 ALL_NAMES = sorted(
     {n for d in (PNL, EPS, RATIO, BS, CF) for names in d.values() for n in names}
-    | {n for names in BS_SUM.values() for n in names}
+    | {n for d in (BS_SUM, BS_SUM_ALT) for names in d.values() for n in names}
 )
 RE_FACT = {n: re.compile(r"<" + NS + r":" + n + r' contextRef="([^"]+)"[^>]*>([-0-9.eE+]+)<') for n in ALL_NAMES}
 RE_SEGDESC = re.compile(r'DescriptionOfReportableSegment contextRef="([^"]+)"[^>]*>([^<]+)<')
@@ -249,14 +285,79 @@ def facts_by_ctx(xml, names):
     return {}
 
 
-def parse_file(path, fname):
+def bs_sums(xml, icid, row, money):
+    """BS_SUM groups at instant context icid; the NON-Ind-AS group only when the Ind-AS one is absent."""
+    for key, parts in BS_SUM.items():
+        for group in (parts, BS_SUM_ALT.get(key) or []):
+            tot, seen = 0.0, False
+            for n in group:
+                f = facts_by_ctx(xml, [n])
+                if icid in f:
+                    tot += f[icid]
+                    seen = True
+            if seen:
+                row[key] = money(tot)
+                break
+
+
+def parse_bs_only(xml, fname, sym, ctx, end):
+    """A filing whose OWN reporting-period facts span > 100 days (SME half-year / yearly results,
+    INTEGRATED half-year statements — runbook §148). Its P&L / cash flow are 6- or 12-month figures
+    and must never be filed under a quarter, but its balance sheet is an instant dated at the period
+    end and is exactly as valid as a quarterly filer's. Emits ONLY BS fields, from the OneI/FourI
+    instants dated `end`; basis from NatureOfReport on the matching D context."""
+    qe = int(end.replace("-", ""))
+    if not (MIN_QE <= qe <= MAX_QE):
+        return None
+    nat = {cid: v.strip().lower() for cid, v in RE_NAT.findall(xml)}
+    sc = scale_fix.factor(fname) or 1.0
+    out = {"sym": sym, "qe": qe, "ts": ts_key(fname), "s": {}, "c": {}, "bso": True}
+
+    def money(v):
+        return round(v / sc / CR, 2)
+
+    used = set()
+    for dcid in ("OneD", "FourD"):
+        icid = dcid[:-1] + "I"
+        inst = ctx.get(icid)
+        if not (inst and inst[0] == "I" and inst[1] == end):
+            continue
+        b = "c" if "consol" in nat.get(dcid, nat.get("OneD", "")) else "s"
+        if b in used:
+            continue  # same basis twice — the first (OneI) wins
+        used.add(b)
+        row = out[b]
+        if "NONINDAS" in fname.upper():
+            row["tx"] = "na"
+        for key, names in BS.items():
+            f = facts_by_ctx(xml, names)
+            if icid in f:
+                row[key] = money(f[icid])
+        bs_sums(xml, icid, row, money)
+    for b in ("s", "c"):
+        if out[b] == {"tx": "na"}:
+            out[b] = {}
+    if not out["s"] and not out["c"]:
+        return None
+    return out
+
+
+def parse_file(path, fname, sym_override=None):
     xml = open(path, encoding="utf-8", errors="replace").read()
     sm = RE_SYM.search(xml) or RE_SYM2.search(xml)
-    if not sm:
+    if not sm and not sym_override:
         return None
     # XBRL escapes '&' — upper-casing the RAW capture keyed M&M as "M&AMP;M" (13 ledger keys, 267
     # Nifty-500 quarters invisible; the §115 phantom class, fixed in build_revop but not here).
-    sym = html_lib.unescape(sm.group(1).strip()).upper()
+    # sym_override: the caller already proved the company (fetch_bse_results_xbrl: the file's own ScripCode) —
+    # BSE result files carry no NSE symbol ("NOTLISTED"/"NA"/absent).
+    sym = sym_override or html_lib.unescape(sm.group(1).strip()).upper()
+    sym = (
+        sym if sym_override else xbrl_symbol.resolve(sym, xml)
+    )  # §177: "NOTLISTED"/"NA" placeholder -> NSE symbol by ISIN, else skip
+    if not sym:
+        return None
+    sym = sym.upper()
 
     # ---- contexts --------------------------------------------------------------------------
     ctx = {}  # cid -> ('I', date) | ('D', start, end)
@@ -326,6 +427,20 @@ def parse_file(path, fname):
     nat = {cid: v.strip().lower() for cid, v in RE_NAT.findall(xml)}
     bases = {}  # cid -> 's'|'c'
     one = ctx.get("OneD")
+    # The filing's OWN reporting-period facts outrank the context block: SME half-year files
+    # declare OneD as Jul-Sep in the block while DateOf{Start,End}OfReportingPeriod say Apr-Sep
+    # and the money is the 6-month figure (measured 2026-09-23, TRUST/GGBL Sep-2024, §148).
+    fs_, fe_ = RE_DATE["OneD"]["Start"].search(xml), RE_DATE["OneD"]["End"].search(xml)
+    if fs_ and fe_ and days_between(fs_.group(1), fe_.group(1)) > 100:
+        return parse_bs_only(xml, fname, sym, ctx, fe_.group(1))
+    if one and one[0] == "D" and days_between(one[1], one[2]) > 100:
+        return parse_bs_only(xml, fname, sym, ctx, one[2])
+    if fname in SME_FILES:
+        rq = RE_RQ.search(xml).group(1).strip().lower() if RE_RQ.search(xml) else ""
+        if rq.startswith(("half", "yearly", "annual")):
+            inst = ctx.get("OneI")
+            end = fe_.group(1) if fe_ else (inst[1] if inst and inst[0] == "I" else None)
+            return parse_bs_only(xml, fname, sym, ctx, end) if end else None
     if not (one and one[0] == "D" and 0 < days_between(one[1], one[2]) <= 100):
         return None
     qe = int(one[2].replace("-", ""))
@@ -344,13 +459,19 @@ def parse_file(path, fname):
         del bases["FourD"]  # same basis twice — trust OneD
 
     sc = scale_fix.factor(fname) or 1.0
+    # per-share tags keep their filed value unless the entry says the filer scaled them too —
+    # 36 of 37 armed filings filed a correct EPS beside x10^k money (scale_fix.eps_factor)
+    sc_eps = scale_fix.eps_factor(fname) or 1.0
     out = {"sym": sym, "qe": qe, "ts": ts_key(fname), "s": {}, "c": {}}
 
     def money(v):
         return round(v / sc / CR, 2)
 
+    na = "NONINDAS" in fname.upper()
     for cid, b in bases.items():
         row = out[b]
+        if na:
+            row["tx"] = "na"
         for key, names in PNL.items():
             f = facts_by_ctx(xml, names)
             if cid in f:
@@ -358,7 +479,7 @@ def parse_file(path, fname):
         for key, names in EPS.items():
             f = facts_by_ctx(xml, names)
             if cid in f:
-                row[key] = round(f[cid] / sc, 2)
+                row[key] = round(f[cid] / sc_eps, 2)
         for key, names in RATIO.items():
             f = facts_by_ctx(xml, names)
             if cid in f:
@@ -384,15 +505,7 @@ def parse_file(path, fname):
                 f = facts_by_ctx(xml, names)
                 if icid in f:
                     row[key] = money(f[icid])
-            for key, parts in BS_SUM.items():
-                tot, seen = 0.0, False
-                for n in parts:
-                    f = facts_by_ctx(xml, [n])
-                    if icid in f:
-                        tot += f[icid]
-                        seen = True
-                if seen:
-                    row[key] = money(tot)
+            bs_sums(xml, icid, row, money)
 
     # ---- cash flow: any plain D context ending at the quarter end; longest period wins ------
     cf_ctx = {}  # cid -> days
@@ -478,6 +591,9 @@ def parse_file(path, fname):
         for b in bases.values():
             out[b]["qual"] = 1
 
+    for b in ("s", "c"):
+        if out[b] == {"tx": "na"}:
+            out[b] = {}
     if not out["s"] and not out["c"]:
         return None
     return out
@@ -607,6 +723,14 @@ def main():
         if not r:
             return
         cell = data.setdefault(r["sym"], {}).setdefault(str(r["qe"]), {})
+        if r.get("bso"):
+            # BS-only rows (long-period filings, §148) FILL ONLY: a quarterly filing's value for
+            # the same instant always wins — measured 98% identical, and the 2% were filer errors
+            # (GULFOILLUB Sep-25 assets x10, CGCL mis-dated period) or restatements
+            for b in ("s", "c"):
+                for k, v in r[b].items():
+                    cell.setdefault(b, {}).setdefault(k, v)
+            return
         for b in ("s", "c"):
             if r[b]:
                 if SRC_KEY in cell.get(b, {}):

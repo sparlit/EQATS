@@ -1,0 +1,860 @@
+use reqwest::Client;
+use serde_json::json;
+use std::sync::Arc;
+use tracing::error;
+
+use crate::arch::{
+    market_assets::{
+        api_data::{
+            account_data::{BalanceData, OrderAckData, OrderDetailData},
+            price_data::TickerData,
+            utils_data::InstrumentInfo,
+        },
+        api_general::{
+            OrderParams, RequestMethod, get_seconds_timestamp, micros_to_seconds,
+            parse_json_response,
+        },
+        base_data::{InstrumentType, OrderSide, OrderType, SUBSCRIBE_LOWER, TimeInForce},
+        exchange::gate::{
+            config_assets::*,
+            gate_rest_msg::RestResGate,
+            schemas::{
+                spot_rest::{
+                    account_balance::RestAccountBalGateSpot,
+                    currency_pair::RestCurrencyPairGateSpot, order::RestOrderGateSpot,
+                    order_history::RestOrderHistoryGateSpot, ticker::RestTickerGateSpot,
+                },
+                wallet_rest::{
+                    currency_chains::RestCurrencyChainGate,
+                    deposit_address::RestDepositAddressGate,
+                    deposit_history::RestDepositHistoryGate,
+                    saved_address::RestSavedAddressGate,
+                    sub_account_to_sub_account::RestSubAccountToSubAccountTransferGate,
+                    sub_account_transfer::{
+                        RestSubAccountTransferGate, RestSubAccountTransferHistoryGate,
+                    },
+                    transfer_order_status::RestTransferOrderStatusGate,
+                    withdraw::RestWithdrawGate,
+                    withdraw_history::RestWithdrawHistoryGate,
+                },
+            },
+        },
+    },
+    strategy_base::command::command_core::WsConnectTarget,
+    task_execution::task_ws::WsChannel,
+    traits::{
+        conversion::IntoInfraData,
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
+    },
+};
+use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_key::{GateKey, read_gate_env_key},
+    api_utils::*,
+};
+
+const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
+
+#[derive(Clone, Debug)]
+pub struct GateSpotCli {
+    pub client: Arc<Client>,
+    pub api_key: Option<GateKey>,
+}
+
+impl Default for GateSpotCli {
+    fn default() -> Self {
+        Self::new(Arc::new(Client::new()))
+    }
+}
+
+impl MarketLobApi for GateSpotCli {}
+
+impl LobPublicRest for GateSpotCli {
+    async fn get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
+
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        self._get_live_instruments(inst_type).await
+    }
+}
+
+impl LobPrivateRest for GateSpotCli {
+    fn init_api_key(&mut self) {
+        match read_gate_env_key() {
+            Ok(gate_key) => {
+                self.api_key = Some(gate_key);
+            },
+            Err(e) => {
+                error!("Failed to read GATE env key: {:?}", e);
+            },
+        };
+    }
+
+    async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        self._place_order(order_params).await
+    }
+
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
+    async fn get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        self._get_balance(assets).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
+            .await
+    }
+}
+
+impl LobWebsocket for GateSpotCli {
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_sub_msg(channel)
+    }
+
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(GATE_WS_BASE_URL.into())
+    }
+
+    async fn get_private_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        Ok(WsConnectTarget::new(GATE_WS_BASE_URL))
+    }
+}
+
+impl GateSpotCli {
+    pub fn new(shared_client: Arc<Client>) -> Self {
+        Self {
+            client: shared_client,
+            api_key: None,
+        }
+    }
+
+    pub async fn withdraw(&self, req: GateWithdrawReq) -> InfraResult<RestWithdrawGate> {
+        let res: RestResGate<RestWithdrawGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&req.to_body_string()),
+                GATE_BASE_URL,
+                GATE_WITHDRAWALS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No withdraw response data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_withdraw_history(
+        &self,
+        req: GateWithdrawHistoryReq,
+    ) -> InfraResult<Vec<RestWithdrawHistoryGate>> {
+        let query = req.to_query_string();
+
+        let res: RestResGate<RestWithdrawHistoryGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_WITHDRAWALS_LIST,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_deposit_history(
+        &self,
+        req: GateDepositHistoryReq,
+    ) -> InfraResult<Vec<RestDepositHistoryGate>> {
+        let query = req.to_query_string();
+
+        let res: RestResGate<RestDepositHistoryGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_DEPOSITS_LIST,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn sub_account_transfer(
+        &self,
+        req: GateSubAccountTransferReq,
+    ) -> InfraResult<RestSubAccountTransferGate> {
+        let res: RestResGate<RestSubAccountTransferGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&req.to_body_string()),
+                GATE_BASE_URL,
+                GATE_WALLET_SUB_ACCOUNT_TRANSFERS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No sub-account transfer response data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_sub_account_transfer_history(
+        &self,
+        req: GateSubAccountTransferHistoryReq,
+    ) -> InfraResult<Vec<RestSubAccountTransferHistoryGate>> {
+        let query = req.to_query_string();
+
+        let res: RestResGate<RestSubAccountTransferHistoryGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                query.as_deref(),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_SUB_ACCOUNT_TRANSFERS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn sub_account_to_sub_account_transfer(
+        &self,
+        req: GateSubAccountToSubAccountTransferReq,
+    ) -> InfraResult<RestSubAccountToSubAccountTransferGate> {
+        let res: RestResGate<RestSubAccountToSubAccountTransferGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&req.to_body_string()),
+                GATE_BASE_URL,
+                GATE_WALLET_SUB_ACCOUNT_TO_SUB_ACCOUNT,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No sub-account to sub-account transfer data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_transfer_order_status(
+        &self,
+        req: GateTransferOrderStatusReq,
+    ) -> InfraResult<RestTransferOrderStatusGate> {
+        let query = req.to_query_string().ok_or_else(|| {
+            InfraError::ApiCliError(
+                "Gate wallet/order_status requires client_order_id or tx_id".into(),
+            )
+        })?;
+
+        let res: RestResGate<RestTransferOrderStatusGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_ORDER_STATUS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No transfer order status data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_currency_chains(
+        &self,
+        currency: &str,
+    ) -> InfraResult<Vec<RestCurrencyChainGate>> {
+        let query = format!("currency={}", currency.to_uppercase());
+        let res: RestResGate<RestCurrencyChainGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_CURRENCY_CHAINS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_deposit_address(&self, currency: &str) -> InfraResult<RestDepositAddressGate> {
+        let query = format!("currency={}", currency.to_uppercase());
+        let res: RestResGate<RestDepositAddressGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_DEPOSIT_ADDRESS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No deposit address data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_saved_addresses(
+        &self,
+        currency: &str,
+        chain: Option<&str>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<RestSavedAddressGate>> {
+        let mut query_parts = vec![format!("currency={}", currency.to_uppercase())];
+        if let Some(chain) = chain {
+            query_parts.push(format!("chain={chain}"));
+        }
+        if let Some(limit) = limit {
+            query_parts.push(format!("limit={limit}"));
+        }
+
+        let query = query_parts.join("&");
+        let res: RestResGate<RestSavedAddressGate> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query),
+                None,
+                GATE_BASE_URL,
+                GATE_WALLET_SAVED_ADDRESS,
+            )
+            .await?;
+
+        res.into_vec()
+    }
+
+    fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let timestamp = get_seconds_timestamp();
+        let auth = api_key.ws_auth(channel, SUBSCRIBE_LOWER, timestamp)?;
+        let payload = vec!["!all".to_string()];
+
+        let msg = json!({
+            "time": timestamp,
+            "channel": channel,
+            "event": SUBSCRIBE_LOWER,
+            "payload": payload,
+            "auth": auth,
+        });
+
+        Ok(msg.to_string())
+    }
+
+    async fn _get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        let url = [GATE_BASE_URL, GATE_SPOT_TICKERS].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestTickerGateSpot> =
+            parse_json_response("GateSpot tickers", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|t| match insts {
+                Some(list) => list.contains(&t.currency_pair), // BTC_USDT
+                None => true,
+            })
+            .map(TickerData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_instrument_info(
+        &self,
+        _inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let url = [GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestCurrencyPairGateSpot> =
+            parse_json_response("GateSpot instrument_info", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(InstrumentInfo::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        let url = [GATE_BASE_URL, GATE_SPOT_CURRENCY_PAIRS].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestCurrencyPairGateSpot> =
+            parse_json_response("GateSpot live_instruments", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|p| p.trade_status.as_str() == "tradable")
+            .map(|p| p.id)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_balance(&self, assets: Option<&[String]>) -> InfraResult<Vec<BalanceData>> {
+        let res: RestResGate<RestAccountBalGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                GATE_SPOT_ACCOUNTS,
+            )
+            .await?;
+
+        let balances: Vec<BalanceData> =
+            res.into_vec()?.into_iter().map(BalanceData::from).collect();
+        let filtered = match assets {
+            Some(list) if !list.is_empty() => balances
+                .into_iter()
+                .filter(|b| {
+                    list.iter()
+                        .any(|asset| asset.eq_ignore_ascii_case(&b.asset))
+                })
+                .collect(),
+            _ => balances,
+        };
+
+        Ok(filtered)
+    }
+
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let page_limit = limit
+            .unwrap_or(OPEN_ORDERS_PAGE_LIMIT)
+            .min(OPEN_ORDERS_PAGE_LIMIT);
+        let mut data = Vec::new();
+        let mut page = 1;
+
+        loop {
+            let page_data = self._get_open_orders_page(inst, page, page_limit).await?;
+            let page_len = page_data.len();
+            data.extend(page_data);
+
+            if let Some(limit) = limit
+                && data.len() >= limit as usize
+            {
+                data.truncate(limit as usize);
+                break;
+            }
+            if page_len < page_limit as usize {
+                break;
+            }
+
+            page += 1;
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_open_orders_page(
+        &self,
+        inst: &str,
+        page: u32,
+        limit: u32,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let currency_pair = inst.to_uppercase();
+        let query_string =
+            format!("currency_pair={currency_pair}&status=open&page={page}&limit={limit}");
+        let res: RestResGate<RestOrderHistoryGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                GATE_SPOT_ORDERS,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.currency_pair.eq_ignore_ascii_case(&currency_pair))
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let currency_pair = inst.to_uppercase();
+        let endpoint = GATE_SPOT_ORDER.replace("{order_id}", order_id);
+        let query_string = format!("currency_pair={currency_pair}");
+
+        let res: RestResGate<RestOrderHistoryGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res.into_one().map(OrderDetailData::from)?;
+
+        Ok(data)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let currency_pair = inst.to_uppercase();
+        let mut query_string = format!("currency_pair={currency_pair}&status=finished");
+        if let Some(start_time_us) = start_time_us {
+            query_string.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
+        }
+        if let Some(end_time_us) = end_time_us {
+            query_string.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
+        }
+        if let Some(limit) = limit {
+            query_string.push_str(&format!("&limit={limit}"));
+        }
+
+        let res: RestResGate<RestOrderHistoryGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                GATE_SPOT_ORDERS,
+            )
+            .await?;
+
+        let data: Vec<OrderDetailData> = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.currency_pair.eq_ignore_ascii_case(&currency_pair))
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
+        let mut body = json!({
+            "currency_pair": order_params.inst,
+            "side": match order_params.side {
+                OrderSide::BUY => "buy",
+                OrderSide::SELL => "sell",
+                _ => "buy",
+            },
+            "amount": order_params.size,
+            "type": match order_params.order_type {
+                OrderType::Market => "market",
+                _ => "limit",
+            },
+        });
+
+        if matches!(order_params.order_type, OrderType::Market) {
+            if let Some(price) = order_params.price {
+                body["price"] = json!(price);
+            }
+        } else {
+            let price = order_params.price.ok_or(InfraError::ApiCliError(
+                "Price required for limit order".into(),
+            ))?;
+            body["price"] = json!(price);
+        }
+
+        let mut extra = order_params.extra;
+        let gate_channel_id = take_gate_channel_id(&mut extra)?;
+        if let Some(account) = extra.remove("account") {
+            body["account"] = json!(account);
+        } else {
+            body["account"] = json!("spot");
+        }
+
+        let tif = if matches!(order_params.order_type, OrderType::Market) {
+            match order_params.time_in_force.as_ref() {
+                Some(TimeInForce::IOC) => Some("ioc"),
+                Some(TimeInForce::FOK) => Some("fok"),
+                _ => Some("ioc"),
+            }
+        } else {
+            match order_params.order_type {
+                OrderType::PostOnly => Some("poc"),
+                OrderType::Fok => Some("fok"),
+                OrderType::Ioc => Some("ioc"),
+                _ => None,
+            }
+            .or_else(|| {
+                order_params.time_in_force.as_ref().map(|t| match t {
+                    TimeInForce::GTC => "gtc",
+                    TimeInForce::IOC => "ioc",
+                    TimeInForce::FOK => "fok",
+                    TimeInForce::GTD => "gtd",
+                    TimeInForce::Unknown => "gtc",
+                })
+            })
+        };
+        if let Some(tif_val) = tif {
+            body["time_in_force"] = json!(tif_val);
+        }
+
+        if let Some(cl_id) = order_params.client_order_id {
+            body["text"] = json!(normalize_gate_text(&cl_id));
+        }
+
+        for (k, v) in extra {
+            body[k] = json!(v);
+        }
+
+        let res: RestResGate<RestOrderGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_post_request_with_channel_id(
+                &self.client,
+                None,
+                Some(&body.to_string()),
+                GATE_BASE_URL,
+                GATE_SPOT_ORDERS,
+                gate_channel_id.as_deref(),
+            )
+            .await?;
+
+        let data: OrderAckData = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        let order_id = match (order_id, cli_order_id) {
+            (Some(order_id), _) => order_id.to_string(),
+            (None, Some(cli_order_id)) => normalize_gate_text(cli_order_id),
+            (None, None) => {
+                return Err(InfraError::ApiCliError(
+                    "Gate Spot cancel_order requires order_id or cli_order_id".into(),
+                ));
+            },
+        };
+        let currency_pair = inst.to_uppercase();
+        let endpoint = GATE_SPOT_ORDER.replace("{order_id}", &order_id);
+        let query_string = format!("currency_pair={currency_pair}");
+
+        let res: RestResGate<RestOrderGateSpot> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Delete,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Gate Spot cancel ack data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let topic = match channel {
+            WsChannel::AccountOrders => GATE_WS_SPOT_ORDERS_V2,
+            _ => return Err(InfraError::Unimplemented),
+        };
+        self.ws_subscribe_private(topic)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::arch::{
+        market_assets::exchange::gate::{
+            config_assets::GATE_WS_BASE_URL, gate_spot_cli::GateSpotCli,
+        },
+        task_execution::task_ws::WsChannel,
+        traits::market_lob::LobWebsocket,
+    };
+
+    #[tokio::test]
+    async fn gate_spot_private_connect_target_uses_plain_ws_url() {
+        let cli = GateSpotCli::default();
+
+        let target = cli
+            .get_private_connect_target(&WsChannel::AccountOrders)
+            .await
+            .unwrap();
+
+        assert_eq!(target.url, GATE_WS_BASE_URL);
+        assert!(target.headers.is_empty());
+    }
+}

@@ -29,43 +29,18 @@ values" work UNATTENDED in CI — GitHub Actions has no Claude, so the grind cal
 Requires ANTHROPIC_API_KEY in the environment (a repo secret in CI). Cost is a few cents per company
 (Haiku 4.5 vision). Returns None when the key is absent, so the grind degrades gracefully to OCR-only.
 
-Public: vision_extract(name, pngs) -> {"jun2026":{"rev","pat"},"jun2025":{"rev","pat"},"ok","basis"} | None
+Public: vision_extract_periods(name, pngs) -> {ok, basis, unit, periods:[{end,kind,rev,pat}]} | None — every
+period column the P&L prints, values AS PRINTED; convert with TO_CRORE[unit]. (The Jun-2026-only
+vision_extract() was removed 2026-09-27: its quarter was hard-coded.)
 """
 import base64
 import json
 import os
 
 _MODEL = os.environ.get("BSE_VISION_MODEL", "claude-haiku-4-5")  # vision-capable, cheap
-_SCHEMA = {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "ok": {"type": "boolean"},
-        "basis": {"type": "string", "enum": ["C", "S"]},
-        "jun2026": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {"rev": {"type": ["number", "null"]}, "pat": {"type": ["number", "null"]}},
-            "required": ["rev", "pat"],
-        },
-        "jun2025": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {"rev": {"type": ["number", "null"]}, "pat": {"type": ["number", "null"]}},
-            "required": ["rev", "pat"],
-        },
-    },
-    "required": ["ok", "basis", "jun2026", "jun2025"],
-}
-_PROMPT = (
-    "These images are a BSE-listed company's own quarterly result filing (scanned — OCR fails, so READ "
-    "the image). Company: %s.\nExtract, in ₹ CRORE, for the quarter ended 30 June 2026 (Q1 FY27) and the "
-    "year-ago quarter ended 30 June 2025:\n- Revenue from Operations (use Total Income only if 'from "
-    "operations' isn't shown)\n- Profit After Tax / Profit for the period.\nMind the unit note: 'in Lakhs' "
-    "→ divide by 100; 'in Thousands' → /1e5; absolute ₹ → /1e7; 'in Crores' → keep. Prefer CONSOLIDATED if "
-    "both shown. If the images are a different company or you can't find the P&L, set ok=false and null the "
-    "figures. Return ONLY the JSON object."
-)
+# ₹ crore per 1 printed unit — THE conversion for vision_extract_periods' `unit` (callers import it; do not
+# copy it). 1 crore = 1e7 rupees, so 'thousand' is 1e3/1e7 = 1e-4.
+TO_CRORE = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-4, "absolute": 1e-7}
 
 
 def _client():
@@ -76,33 +51,6 @@ def _client():
 
         return anthropic.Anthropic()
     except Exception:
-        return None
-
-
-def vision_extract(name, pngs):
-    """pngs: list of PNG byte strings (P&L pages). Returns the parsed dict, or None if unavailable/failed."""
-    cli = _client()
-    if not cli or not pngs:
-        return None
-    content = [
-        {
-            "type": "image",
-            "source": {"type": "base64", "media_type": "image/png", "data": base64.standard_b64encode(p).decode()},
-        }
-        for p in pngs[:5]
-    ]
-    content.append({"type": "text", "text": _PROMPT % name})
-    try:
-        resp = cli.messages.create(
-            model=_MODEL,
-            max_tokens=1024,
-            output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
-            messages=[{"role": "user", "content": content}],
-        )
-        txt = next((b.text for b in resp.content if b.type == "text"), None)
-        return json.loads(txt) if txt else None
-    except Exception as ex:
-        print("    vision-api err:", str(ex)[:80])
         return None
 
 

@@ -380,9 +380,9 @@ impl TwapCmd {
                         None => anyhow::bail!("websocket closed"),
                     };
 
-                    if state.update_bbo(&msg) && state.has_book && slice_started {
-                        if let Some(new_px) = state.top_of_book_price(self.side) {
-                            if state.last_quote_px != Some(new_px) {
+                    if state.update_bbo(&msg) && state.has_book && slice_started
+                        && let Some(new_px) = state.top_of_book_price(self.side)
+                            && state.last_quote_px != Some(new_px) {
                                 state.throttle().await;
                                 if let Some(oid) = state.resting_oid {
                                     self.modify_quote(client, signer, asset, state, oid, new_px).await?;
@@ -390,8 +390,6 @@ impl TwapCmd {
                                     self.place_quote(client, signer, asset, state, new_px).await?;
                                 }
                             }
-                        }
-                    }
 
                     if let Incoming::OrderUpdates(updates) = &msg {
                         for update in updates {

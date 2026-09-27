@@ -47,18 +47,32 @@ Resumable: fills ledger + scripts/_ann_date_skips.json are consulted on rerun. A
 consecutive empty windows = BSE rate-limit stub (162-byte-bse.json lesson) -> abort, nothing
 recorded for the burst, rerun later.
 
+BSE-ONLY MODE (--bse, 2026-09-27, runbook §192): the same FETCH + MATCH over docs/bse_fundamentals.json
+(keyed by BSE scrip code — no symbol resolution needed): cells with PAT present and ann==0, optionally
+one quarter (--qe). Own ledger scripts/ann_date_fills_bse.json ("scrip|qe" -> {ann, src}), own skips
+scripts/_ann_date_skips_bse.json; applied FILL-ONLY (ann==0) to bse_fundamentals.json. Built to restore
+the 1,805 Mar-2026 dates §187 cleared (they carried the old merge default 2026-06-15).
+
 Run:
+  python -X utf8 scripts/backfill_ann_dates_bse.py --bse --qe 20260331 --limit 30   # BSE-only trial
+  python -X utf8 scripts/backfill_ann_dates_bse.py --bse --reapply                   # BSE ledger -> file
   python -X utf8 scripts/backfill_ann_dates_bse.py --limit 30      # trial
   python -X utf8 scripts/backfill_ann_dates_bse.py                 # full sweep
   python -X utf8 scripts/backfill_ann_dates_bse.py --reapply       # ledger -> files, no fetching
   python -X utf8 scripts/backfill_ann_dates_bse.py --retry-skips   # re-attempt skipped keys
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import argparse
 import datetime
 import json
 import os
 import sys
 import time
+
+import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -84,6 +98,13 @@ def jsave(p, obj):
     tmp = p + ".tmp"
     json.dump(obj, open(tmp, "w", encoding="utf-8"), separators=(",", ":"))
     os.replace(tmp, p)
+
+
+def today_ist():
+    """BSE refuses a window ending after today ('To Date cannot be greater than current Date.' — an
+    EMPTY reply, which the rate-limit guard then read as a block): every recent quarter's window must be
+    capped. IST, since BSE's calendar is India's and CI runners are UTC."""
+    return int((datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y%m%d"))
 
 
 def qe_date(qe):
@@ -131,6 +152,11 @@ def q_neighbors(qe):
     return prv, nxt
 
 
+# a notice BSE files under "Financial Results" that is NOT the results (522235 Mar-26, 2026-05-29:
+# "Intimation relating to Postponement of Board meeting") — never a first declaration
+_NOT_A_RESULT = __import__("re").compile(r"postpone|adjourn|intimation", __import__("re").I)
+
+
 def resolve(cands, qe, prev_ann=None, next_ann=None):
     """cands = [(ann_int, attachment, newssub), ...] -> (ann, how) or (None, reason).
     prev_ann/next_ann = KNOWN declared dates of the neighbouring quarters (bounds for the
@@ -139,8 +165,27 @@ def resolve(cands, qe, prev_ann=None, next_ann=None):
     if not cands:
         return None, "no-candidates"
     parsed = [(c[0], parse_qe(c[2])) for c in cands]
-    exact = [d for d, pq in parsed if pq == qe]
+    # a quarter's FIRST declaration can't come after the NEXT quarter's: a later filing naming this
+    # quarter is a re-submission (AJWAFUN Mar-26: 2026-09-12 re-filing vs the real 2026-05-29)
+    exact = [
+        d for d, pq in parsed if pq == qe and (not next_ann or d <= next_ann)
+    ]  # same day as the next quarter is legal (MINID Mar/Jun-20 both 20200731)
     if exact:
+        # An EARLIER filing BSE itself categorised "Financial Results" whose text names no period is the
+        # first declaration when it sits in the band before the first period-naming one (542938 Mar-26:
+        # "Result Financial For 31.03.2026" on 05-28 — parse_qe can't read "For dd.mm.yyyy" — lost to a
+        # 07-09 delay letter naming March). Only with the [[FR]] marker (datebound with_headline).
+        fr = sorted(
+            c[0]
+            for c, (_, pq) in zip(cands, parsed, strict=False)
+            if pq == 0
+            and "[[FR]]" in (c[2] or "")
+            and not _NOT_A_RESULT.search(c[2] or "")
+            and plus(qe, 5) <= c[0] < min(exact)
+            and (not prev_ann or c[0] > prev_ann)
+        )
+        if fr:
+            return fr[0], "exact-fr"
         return min(exact), "exact"
     stated = [(d, pq) for d, pq in parsed if pq not in (0, qe)]  # states a DIFFERENT period
     stated_dates = {d for d, _ in stated}  # same-day twin = same board
@@ -185,10 +230,12 @@ def apply_ledger(ledger):
                             (SUZLON Mar-2020: a tier-2 seq override matched a debt-restructuring
                             board outcome, 80 days before the results; TASTYBITE Mar-2021 /
                             NMDC Jun-2019: the board-meeting INTIMATION stamped as the result
-                            date). Unlike raw-BSE override dates, an exact date is the GATED
-                            (15:30/weekend-aware, runbook §12) value — write the date the engine
-                            should compare against, so no buffer applies. Reviewed entries only:
-                            each needs the BSE announcement timestamp in its src note."""
+                            date). An exact date is the date the engine should compare against —
+                            since 2026-09-23 (midnight visibility rule, runbook §149) that is the
+                            filing's CALENDAR day; the 813 entries the retired 15:30 gate had
+                            pushed to the next trading day were rewritten to the raw day, with the
+                            gated value kept as `ann_1530`. Reviewed entries only: each needs the
+                            BSE announcement timestamp in its src note."""
     counts = []
     for path in (SF, MASTER):
         data = jload(path, None)
@@ -222,17 +269,14 @@ def apply_ledger(ledger):
                     q[4] = ann
                     n += 1
                 if ovr:  # earlier-only correction of populated dates.
-                    # GATE BUFFER (adjudicated 2026-08-23): ledger dates here are RAW BSE filing
-                    # dates, but the engine's PIT convention gates post-15:30/weekend/holiday
-                    # filings to the next trading day (runbook §12) — up to +4 calendar days
-                    # (Fri evening + Mon holiday). A stored date within [ann, ann+4] is the GATED
-                    # form of the same event, not a lag: overriding it re-introduces a half-day
-                    # look-ahead and ping-pongs with the nightly gate_1530 pass. Only a stored
-                    # date > ann+4 is a genuine NSE-broadcast-lag.
-                    if q[1] is not None and isinstance(q[2], int) and q[2] > plus(ann, 4):
+                    # Ledger dates here are RAW BSE filing days. Under the midnight visibility rule
+                    # (runbook §149, 2026-09-23) the raw day IS the visibility date, so ANY stored
+                    # date later than it is a lag and moves back. (The +4-day "gate buffer" that
+                    # protected the retired 15:30 gate's next-trading-day form is gone with it.)
+                    if q[1] is not None and isinstance(q[2], int) and q[2] > ann:
                         q[2] = ann
                         n += 1
-                    if q[3] is not None and isinstance(q[4], int) and q[4] > plus(ann, 4):
+                    if q[3] is not None and isinstance(q[4], int) and q[4] > ann:
                         q[4] = ann
                         n += 1
         if n:
@@ -243,6 +287,102 @@ def apply_ledger(ledger):
 
 
 RSKIPS = os.path.join(HERE, "_ann_recon_skips.json")
+
+BSEF = os.path.join(ROOT, "docs", "bse_fundamentals.json")
+BLEDGER = os.path.join(HERE, "ann_date_fills_bse.json")
+BSKIPS = os.path.join(HERE, "_ann_date_skips_bse.json")
+
+
+def apply_bse_ledger(ledger):
+    """BSE ledger -> docs/bse_fundamentals.json, FILL-ONLY: a cell gets the date only while its ann is
+    0 and its PAT is present; never an impossible pair (ann <= qe)."""
+    data = jload(BSEF, None)
+    if data is None:
+        print("WARN missing", BSEF)
+        return 0
+    px, n = data.get("px") or {}, 0
+    for key, rec in ledger.items():
+        scrip, qe = key.split("|")
+        ann = int(rec["ann"])
+        c = (px.get(scrip) or {}).get(qe)
+        if c and c.get("pat") is not None and not c.get("ann") and ann > int(qe):
+            c["ann"] = ann
+            n += 1
+    if n:
+        json.dump(data, open(BSEF, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    print("applied %d cells -> %s" % (n, os.path.normpath(BSEF)))
+    return n
+
+
+def run_bse(args):
+    ledger = jload(BLEDGER, {})
+    if args.reapply:
+        apply_bse_ledger(ledger)
+        return
+    skips = jload(BSKIPS, {})
+    px = (jload(BSEF, {}) or {}).get("px") or {}
+    todo = sorted(
+        (s, int(q))
+        for s, qs in px.items()
+        for q, c in qs.items()
+        if q.isdigit() and c.get("pat") is not None and not c.get("ann") and (not args.qe or int(q) == args.qe)
+    )
+    if args.only:
+        only = {s.strip() for s in args.only.split(",")}
+        todo = [t for t in todo if t[0] in only]
+    todo = [t for t in todo if "%s|%d" % t not in ledger and (args.retry_skips or "%s|%d" % t not in skips)]
+    if args.limit:
+        todo = todo[: args.limit]
+    print("BSE targets: %d cells across %d scrips" % (len(todo), len({s for s, _ in todo})))
+    known = {(s, int(q)): c["ann"] for s, qs in px.items() for q, c in qs.items() if q.isdigit() and c.get("ann")}
+    o = FI.bse_session()
+    t0 = time.time()
+    done = filled = 0
+    empty_streak = 0
+    streak_keys = []
+    for scrip, qe in todo:
+        if args.max_minutes and (time.time() - t0) / 60 > args.max_minutes:
+            print("time budget reached — stopping (resumable)")
+            break
+        key = "%s|%d" % (scrip, qe)
+        try:
+            cands = FI.datebound(o, scrip, str(plus(qe, 1)), str(min(plus(qe, 240), today_ist())), with_headline=True)
+        except Exception as ex:
+            print(f"  {key} fetch err: {str(ex)[:80]}")
+            cands = []
+        if not cands:
+            empty_streak += 1
+            streak_keys.append(key)
+        else:
+            empty_streak = 0
+            streak_keys = []
+        if empty_streak >= 8:
+            for k in streak_keys:
+                skips.pop(k, None)
+            print(
+                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst not recorded), rerun later"
+            )
+            break
+        prv, nxt = q_neighbors(qe)
+        ann, how = resolve(cands, qe, known.get((scrip, prv)), known.get((scrip, nxt)))
+        if ann:
+            ledger[key] = {"ann": ann, "src": "bse:" + how}
+            known[(scrip, qe)] = ann
+            filled += 1
+            print("  %-8s %d -> %d (%s)" % (scrip, qe, ann, how))
+        elif cands or how == "no-candidates":
+            skips[key] = how
+        done += 1
+        if done % 25 == 0:
+            jsave(BLEDGER, ledger)
+            jsave(BSKIPS, skips)
+            print("… %d/%d done, %d filled" % (done, len(todo), filled))
+        time.sleep(0.6)
+    jsave(BLEDGER, ledger)
+    jsave(BSKIPS, skips)
+    print("BSE fetched: %d cells, %d dates recovered, %d skipped-this-run" % (done, filled, done - filled))
+    if filled:
+        apply_bse_ledger(ledger)
 
 
 def reconcile_recent(ledger, args):
@@ -361,7 +501,12 @@ def main():
         "gate window), write an "
         "override ledger entry and apply. Stops the NSE-lag class regrowing.",
     )
+    ap.add_argument("--bse", action="store_true", help="BSE-only mode over docs/bse_fundamentals.json (runbook §192)")
+    ap.add_argument("--qe", type=int, default=0, help="--bse: only this quarter end (e.g. 20260331)")
     args = ap.parse_args()
+    if args.bse:
+        run_bse(args)
+        return
 
     ledger = jload(LEDGER, {})
     if args.reapply:
@@ -407,7 +552,7 @@ def main():
             done += 1
             continue
         try:
-            cands = FI.datebound(o, code, str(plus(qe, 1)), str(plus(qe, 240)))
+            cands = FI.datebound(o, code, str(plus(qe, 1)), str(min(plus(qe, 240), today_ist())))
         except Exception as ex:
             print(f"  {key} fetch err: {str(ex)[:80]}")
             cands = []

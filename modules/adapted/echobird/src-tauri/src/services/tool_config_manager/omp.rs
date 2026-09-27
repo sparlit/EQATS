@@ -193,8 +193,6 @@ fn read_at(dir: &Path) -> Option<ModelInfo> {
         protocol: Some(if is_anthropic { "anthropic" } else { "openai" }.into()),
         display_model: None,
         relay_mode: None,
-        responses_passthrough: None,
-        web_search: None,
         one_m_context: None,
     })
 }

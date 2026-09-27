@@ -61,7 +61,7 @@ sys.path.insert(0, HERE)
 import vintage111_read as RD  # noqa: E402
 from vintage111_adjudicate import prevq, quarter_of  # noqa: E402
 
-SCALES = (("crore", 1.0), ("lakh", 0.01), ("million", 0.1), ("thousand", 1e-5))
+SCALES = (("crore", 1.0), ("lakh", 0.01), ("million", 0.1), ("thousand", 1e-4))
 NEAR_A, NEAR_R = 0.06, 0.004  # tight: this is a READ, not a locator
 
 

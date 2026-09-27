@@ -9,6 +9,16 @@ use std::time::Duration;
 
 pub struct MiniMaxProvider;
 
+fn usage_url(base_url: &str) -> &'static str {
+    if base_url.contains("api.minimax.cn") {
+        "https://api.minimax.cn/v1/usage"
+    } else if base_url.contains("api.minimaxi.com") {
+        "https://api.minimaxi.com/v1/usage"
+    } else {
+        "https://api.minimax.io/v1/usage"
+    }
+}
+
 /// Extract reset time from JSON value
 fn extract_reset_time(value: &serde_json::Value) -> Option<i64> {
     if let Some(s) = value.as_str() {
@@ -33,16 +43,8 @@ impl UsageProvider for MiniMaxProvider {
     async fn query_usage(&self, api_key: &str, base_url: &str) -> Result<UsageResult, String> {
         let client = reqwest::Client::new();
 
-        // Construct usage API URL
-        // MiniMax API structure similar to other providers
-        let usage_url = if base_url.contains("api.minimaxi.com") {
-            "https://api.minimaxi.com/v1/usage"
-        } else {
-            "https://api.minimax.io/v1/usage"
-        };
-
         let resp = client
-            .get(usage_url)
+            .get(usage_url(base_url))
             .header("Authorization", format!("Bearer {}", api_key))
             .header("Accept", "application/json")
             .timeout(Duration::from_secs(15))
@@ -122,10 +124,50 @@ impl UsageProvider for MiniMaxProvider {
     }
 
     fn can_handle(&self, base_url: &str) -> bool {
-        base_url.contains("api.minimaxi.com") || base_url.contains("api.minimax.io")
+        base_url.contains("api.minimax.cn")
+            || base_url.contains("api.minimaxi.com")
+            || base_url.contains("api.minimax.io")
     }
 
     fn name(&self) -> &'static str {
         "MiniMax"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn minimax_recognizes_current_legacy_and_global_endpoints() {
+        for base_url in [
+            "https://api.minimax.cn/v1",
+            "https://api.minimax.cn/anthropic",
+            "https://api.minimaxi.com/v1",
+            "https://api.minimax.io/v1",
+        ] {
+            assert!(MiniMaxProvider.can_handle(base_url), "{base_url}");
+        }
+        assert!(!MiniMaxProvider.can_handle("https://api.openai.com/v1"));
+    }
+
+    #[test]
+    fn minimax_usage_keeps_china_keys_on_china_endpoints() {
+        assert_eq!(
+            usage_url("https://api.minimax.cn/v1"),
+            "https://api.minimax.cn/v1/usage"
+        );
+        assert_eq!(
+            usage_url("https://api.minimax.cn/anthropic"),
+            "https://api.minimax.cn/v1/usage"
+        );
+        assert_eq!(
+            usage_url("https://api.minimaxi.com/v1"),
+            "https://api.minimaxi.com/v1/usage"
+        );
+        assert_eq!(
+            usage_url("https://api.minimax.io/v1"),
+            "https://api.minimax.io/v1/usage"
+        );
     }
 }

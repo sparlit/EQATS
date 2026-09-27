@@ -1,0 +1,439 @@
+use serde_json::Value;
+use tabled::{builder::Builder, settings::Style};
+
+use super::OutputFormat;
+
+/// Resolve a security symbol from a gateway response object: prefer the
+/// `symbol` field, falling back to converting `counter_id` for the few
+/// endpoints whose response is not yet symbol-normalized by the gateway.
+pub fn item_symbol(item: &Value) -> String {
+    match item.get("symbol").and_then(Value::as_str) {
+        Some(s) if !s.is_empty() && s != "-" => s.to_string(),
+        _ => crate::utils::counter::counter_id_to_symbol(
+            item.get("counter_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+        ),
+    }
+}
+
+/// Recursively normalize a response for JSON output so no `counter_id` string
+/// leaks: for every object, ensure a `symbol` field (prefer an existing one,
+/// otherwise derive it from `counter_id`) then drop `counter_id`, and drop
+/// `leading_counter_id` outright (the leader is already named by
+/// `leading_ticker`). The gateway's `counterID2Symbol` rule adds `symbol` but
+/// leaves `counter_id` in place, so this makes CLI JSON consistently
+/// symbol-only across every command.
+pub fn strip_counter_ids(v: &mut Value) {
+    match v {
+        Value::Object(map) => {
+            if let Some(cid) = map.remove("counter_id") {
+                map.entry("symbol").or_insert_with(|| {
+                    Value::String(
+                        cid.as_str()
+                            .map(crate::utils::counter::counter_id_to_symbol)
+                            .unwrap_or_default(),
+                    )
+                });
+            }
+            map.remove("leading_counter_id");
+            for val in map.values_mut() {
+                strip_counter_ids(val);
+            }
+        }
+        Value::Array(arr) => {
+            for val in arr.iter_mut() {
+                strip_counter_ids(val);
+            }
+        }
+        _ => {}
+    }
+}
+
+// ANSI colors for the account-type banner.
+const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
+const RESET: &str = "\x1b[0m";
+
+/// Print a one-line account-type banner (paper vs. live) ahead of
+/// position/asset output so the reader can immediately tell whether the data
+/// belongs to a paper-trading or a live account.
+///
+/// Only rendered for `Pretty`; JSON output is intentionally left untouched so
+/// existing consumers keep parsing the top-level array/object unchanged.
+pub fn print_account_banner(format: &OutputFormat) {
+    if !matches!(format, OutputFormat::Pretty) {
+        return;
+    }
+    let is_paper = crate::auth::account_channel().as_deref() == Some("lb_papertrading");
+    let (color, label) = if is_paper {
+        (YELLOW, "Account: Demo A/C (simulated account)")
+    } else {
+        (GREEN, "Account: Live A/C (real account)")
+    };
+    println!("{color}{label}{RESET}");
+    println!();
+}
+
+fn print_markdown_table(headers: &[&str], rows: &[Vec<String>]) {
+    let mut builder = Builder::default();
+    builder.push_record(headers.iter().copied());
+    for row in rows {
+        builder.push_record(row.iter().map(String::as_str));
+    }
+    println!("{}", builder.build().with(Style::markdown()));
+}
+
+/// Print data as table or JSON depending on format
+/// Derive a JSON object key from a table header label. Single source of truth
+/// so JSON built by `print_table` and by callers that merge extra records
+/// (e.g. `cmd_static` mixing crypto + stock) stay byte-identical.
+pub fn header_to_json_key(header: &str) -> String {
+    header.to_lowercase().replace(' ', "_")
+}
+
+/// Convert table headers + rows into JSON objects, one per row, keyed via
+/// [`header_to_json_key`].
+pub fn table_rows_to_json(headers: &[&str], rows: &[Vec<String>]) -> Vec<serde_json::Value> {
+    rows.iter()
+        .map(|row| {
+            let mut map = serde_json::Map::new();
+            for (i, val) in row.iter().enumerate() {
+                if let Some(&key) = headers.get(i) {
+                    map.insert(
+                        header_to_json_key(key),
+                        serde_json::Value::String(val.clone()),
+                    );
+                }
+            }
+            serde_json::Value::Object(map)
+        })
+        .collect()
+}
+
+pub fn print_table(headers: &[&str], rows: Vec<Vec<String>>, format: &OutputFormat) {
+    match format {
+        OutputFormat::Json => {
+            let records = table_rows_to_json(headers, &rows);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&records).unwrap_or_default()
+            );
+        }
+        OutputFormat::Pretty => {
+            print_markdown_table(headers, &rows);
+        }
+    }
+}
+
+/// Print a single JSON value (for commands that return a single object)
+pub fn print_json_value(value: &serde_json::Value, format: &OutputFormat) {
+    match format {
+        OutputFormat::Json => {
+            let mut v = value.clone();
+            strip_counter_ids(&mut v);
+            println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
+        }
+        OutputFormat::Pretty => {
+            if let serde_json::Value::Object(map) = value {
+                let rows: Vec<Vec<String>> = map
+                    .iter()
+                    .map(|(k, v)| {
+                        let val = match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Null => "-".to_string(),
+                            other => other.to_string(),
+                        };
+                        vec![k.clone(), val]
+                    })
+                    .collect();
+                print_markdown_table(&["Field", "Value"], &rows);
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(value).unwrap_or_default()
+                );
+            }
+        }
+    }
+}
+
+/// Format optional decimal as string with 3 decimal places
+pub fn fmt_decimal(v: &Option<rust_decimal::Decimal>) -> String {
+    v.map_or_else(|| "-".to_string(), |d| format!("{d:.3}"))
+}
+
+/// Format optional decimal divided by 100 with 3 decimal places (API returns percentage values, e.g. implied volatility, rho)
+pub fn fmt_decimal_div100(v: &Option<rust_decimal::Decimal>) -> String {
+    v.map_or_else(
+        || "-".to_string(),
+        |d| format!("{:.3}", d / rust_decimal::Decimal::ONE_HUNDRED),
+    )
+}
+
+/// Format decimal
+pub fn fmt_dec(v: rust_decimal::Decimal) -> String {
+    v.to_string()
+}
+
+/// Parse a date string (YYYY-MM-DD) into `time::Date`
+pub fn parse_date(s: &str) -> anyhow::Result<time::Date> {
+    let fmt = time::macros::format_description!("[year]-[month]-[day]");
+    time::Date::parse(s, &fmt).map_err(|e| anyhow::anyhow!("Invalid date '{s}': {e}"))
+}
+
+fn local_offset_for_datetime(dt: time::PrimitiveDateTime) -> time::UtcOffset {
+    let mut offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
+    for _ in 0..3 {
+        let candidate = dt.assume_offset(offset);
+        let Ok(next) = time::UtcOffset::local_offset_at(candidate) else {
+            break;
+        };
+        if next == offset {
+            break;
+        }
+        offset = next;
+    }
+    offset
+}
+
+fn assume_local(dt: time::PrimitiveDateTime) -> time::OffsetDateTime {
+    dt.assume_offset(local_offset_for_datetime(dt))
+}
+
+/// Parse a datetime string into `OffsetDateTime`.
+///
+/// Accepts RFC 3339 datetimes with an explicit offset, local `YYYY-MM-DD HH:MM`,
+/// or local `YYYY-MM-DD`. Date-only inputs use the supplied fallback time.
+fn parse_datetime_with_fallback(
+    s: &str,
+    fallback: time::Time,
+) -> anyhow::Result<time::OffsetDateTime> {
+    let s = s.trim();
+    if let Ok(dt) = time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339) {
+        return Ok(dt);
+    }
+
+    if s.contains(' ') {
+        let fmt = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]");
+        let dt = time::PrimitiveDateTime::parse(s, &fmt)
+            .map_err(|e| anyhow::anyhow!("Invalid datetime '{s}': {e}"))?;
+        Ok(assume_local(dt))
+    } else {
+        let date = parse_date(s)?;
+        Ok(assume_local(date.with_time(fallback)))
+    }
+}
+
+/// Parse a date/datetime string into `OffsetDateTime` at the local start of day.
+/// Accepts RFC 3339, YYYY-MM-DD, or YYYY-MM-DD HH:MM.
+pub fn parse_datetime_start(s: &str) -> anyhow::Result<time::OffsetDateTime> {
+    parse_datetime_with_fallback(s, time::Time::MIDNIGHT)
+}
+
+/// Parse a date/datetime string into `OffsetDateTime` at the local end of day.
+/// Accepts RFC 3339, YYYY-MM-DD, or YYYY-MM-DD HH:MM.
+pub fn parse_datetime_end(s: &str) -> anyhow::Result<time::OffsetDateTime> {
+    let end_of_day = time::Time::from_hms(23, 59, 59).unwrap();
+    parse_datetime_with_fallback(s, end_of_day)
+}
+
+pub fn parse_datetime_start_timestamp(s: &str) -> anyhow::Result<String> {
+    Ok(parse_datetime_start(s)?.unix_timestamp().to_string())
+}
+
+pub fn parse_datetime_end_timestamp(s: &str) -> anyhow::Result<String> {
+    Ok(parse_datetime_end(s)?.unix_timestamp().to_string())
+}
+
+/// Format a Date as string
+pub fn fmt_date(d: time::Date) -> String {
+    let fmt = time::macros::format_description!("[year]-[month]-[day]");
+    d.format(&fmt).unwrap_or_else(|_| d.to_string())
+}
+
+/// Format a unix timestamp (seconds) as `YYYY-MM-DD HH:MM`, or `-` for 0.
+pub fn fmt_unix_ts(ts: i64) -> String {
+    if ts == 0 {
+        return "-".to_string();
+    }
+    time::OffsetDateTime::from_unix_timestamp(ts).map_or_else(
+        |_| "-".to_string(),
+        |dt| {
+            let fmt = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]");
+            dt.format(&fmt).unwrap_or_else(|_| ts.to_string())
+        },
+    )
+}
+
+/// Recursively remove non-public internal fields from a JSON value.
+///
+/// Longbridge API responses may include fields like `aaid` that are internal
+/// identifiers not intended for external consumers. This function strips them
+/// in-place from any JSON object, at any nesting depth.
+pub fn strip_private_fields(v: &mut serde_json::Value) {
+    const PRIVATE_FIELDS: &[&str] = &["aaid", "account_channel"];
+    match v {
+        serde_json::Value::Object(map) => {
+            for key in PRIVATE_FIELDS {
+                map.remove(*key);
+            }
+            for val in map.values_mut() {
+                strip_private_fields(val);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for item in arr {
+                strip_private_fields(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        header_to_json_key, parse_datetime_end, parse_datetime_start, strip_private_fields,
+        table_rows_to_json,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn header_to_json_key_lowercases_and_underscores() {
+        assert_eq!(header_to_json_key("Symbol"), "symbol");
+        assert_eq!(header_to_json_key("EPS TTM"), "eps_ttm");
+        // Dot is preserved (regression: mixed-mode static once dropped it).
+        assert_eq!(header_to_json_key("Circ. Shares"), "circ._shares");
+    }
+
+    #[test]
+    fn table_rows_to_json_uses_shared_key_derivation() {
+        let headers = &["Symbol", "Circ. Shares"];
+        let rows = vec![vec!["AAPL.US".to_string(), "123".to_string()]];
+        let out = table_rows_to_json(headers, &rows);
+        let obj = out[0].as_object().unwrap();
+        assert_eq!(obj["symbol"], json!("AAPL.US"));
+        assert_eq!(obj["circ._shares"], json!("123"));
+        assert!(!obj.contains_key("circ_shares"));
+    }
+
+    #[test]
+    fn parse_datetime_accepts_rfc3339_with_offset() {
+        let actual = parse_datetime_start("2026-06-16T09:30:00+08:00").unwrap();
+        let expected = time::OffsetDateTime::parse(
+            "2026-06-16T09:30:00+08:00",
+            &time::format_description::well_known::Rfc3339,
+        )
+        .unwrap();
+
+        assert_eq!(actual.unix_timestamp(), expected.unix_timestamp());
+        assert_eq!(actual.offset(), expected.offset());
+    }
+
+    #[test]
+    fn parse_date_only_uses_current_local_offset_at_day_boundary() {
+        let local_offset = time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC);
+        if local_offset == time::UtcOffset::UTC {
+            return;
+        }
+
+        let local_date = time::OffsetDateTime::now_utc()
+            .to_offset(local_offset)
+            .date();
+        let input = local_date.to_string();
+
+        let start = parse_datetime_start(&input).unwrap();
+        let end = parse_datetime_end(&input).unwrap();
+
+        assert_eq!(start.offset(), local_offset);
+        assert_eq!(
+            start.unix_timestamp(),
+            local_date
+                .with_time(time::Time::MIDNIGHT)
+                .assume_offset(local_offset)
+                .unix_timestamp()
+        );
+        assert_eq!(end.offset(), local_offset);
+        assert_eq!(
+            end.unix_timestamp(),
+            local_date
+                .with_time(time::Time::from_hms(23, 59, 59).unwrap())
+                .assume_offset(local_offset)
+                .unix_timestamp()
+        );
+    }
+
+    #[test]
+    fn flat_object_aaid_removed() {
+        let mut v = json!({"aaid": "abc123", "name": "foo", "value": 42});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"name": "foo", "value": 42}));
+    }
+
+    #[test]
+    fn object_without_aaid_unchanged() {
+        let mut v = json!({"name": "foo", "value": 42});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"name": "foo", "value": 42}));
+    }
+
+    #[test]
+    fn nested_object_aaid_removed() {
+        let mut v = json!({"data": {"aaid": "secret", "price": "1.23"}, "total": 1});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"data": {"price": "1.23"}, "total": 1}));
+    }
+
+    #[test]
+    fn array_of_objects_aaid_removed() {
+        let mut v = json!([
+            {"aaid": "x", "symbol": "700.HK"},
+            {"aaid": "y", "symbol": "AAPL.US"}
+        ]);
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!([{"symbol": "700.HK"}, {"symbol": "AAPL.US"}]));
+    }
+
+    #[test]
+    fn deeply_nested_aaid_removed() {
+        let mut v = json!({"a": {"b": {"aaid": "deep", "c": 1}}});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"a": {"b": {"c": 1}}}));
+    }
+
+    #[test]
+    fn aaid_with_numeric_value_removed() {
+        let mut v = json!({"aaid": 99999, "name": "bar"});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"name": "bar"}));
+    }
+
+    #[test]
+    fn empty_object_no_panic() {
+        let mut v = json!({});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({}));
+    }
+
+    #[test]
+    fn scalar_value_unchanged() {
+        let mut v = json!("just a string");
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!("just a string"));
+    }
+
+    #[test]
+    fn array_nested_in_object_aaid_removed() {
+        let mut v = json!({"items": [{"aaid": "1", "x": 10}, {"aaid": "2", "x": 20}]});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"items": [{"x": 10}, {"x": 20}]}));
+    }
+
+    #[test]
+    fn account_channel_removed() {
+        let mut v = json!({"account_channel": "lb", "name": "foo", "aaid": "x"});
+        strip_private_fields(&mut v);
+        assert_eq!(v, json!({"name": "foo"}));
+    }
+}

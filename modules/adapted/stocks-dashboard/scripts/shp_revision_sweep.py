@@ -54,13 +54,18 @@ assumed a dict with a "stale" key and would have thrown on every Sunday run INSI
 continue-on-error: a guard that appears to run weekly and never reports. If this record shape
 ever changes, update the workflow summariser in the same commit.
 """
-import argparse
-import collections
-import json
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 import os
 import sys
-import threading
+import json
 import time
+import argparse
+import collections
+import threading
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
@@ -68,13 +73,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import fetch_shareholding as F  # noqa: E402
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 MON = {"March": "03-31", "June": "06-30", "September": "09-30", "December": "12-31"}
 TOL = {"prom": 0.06, "fii": 0.06, "dii": 0.06, "mf": 0.06, "ins": 0.06}
 
 
 def get(u, timeout=45):
-    req = urllib.request.Request(u, headers={"User-Agent": UA, "Accept": "*/*", "Referer": "https://www.bseindia.com/"})
+    req = urllib.request.Request(u, headers=BH.HEADERS)  # honest BSE header set (§181)
     return urllib.request.urlopen(req, timeout=timeout).read()
 
 

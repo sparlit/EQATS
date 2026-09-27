@@ -9,7 +9,7 @@ use bytes::Bytes;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-use crate::services::codex_proxy::AppState;
+use super::AppState;
 
 // Anthropic API version pinned by spec; Anthropic's docs say "the latest
 // version is automatically used if the header is missing on most
