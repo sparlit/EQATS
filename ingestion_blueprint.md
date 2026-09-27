@@ -173,7 +173,7 @@ Total Repositories: 410 | Current Index: 171
 | 168 | ishaan3h/india-sector-screener | Completed | https://github.com/sparlit/EQATS/pull/2752 |
 | 169 | itsnrk1/nse-scanner | Processed | https://github.com/sparlit/EQATS/pull/2753 |
 | 170 | jandginvestment/cci20-sma20-strategy | Completed | https://github.com/sparlit/EQATS/pull/2754 |
-| 171 | jayeshsrathod/nse-scanner | Completed | None |
+| 171 | jayeshsrathod/nse-scanner | Completed | https://github.com/sparlit/EQATS/pull/2755 |
 | 172 | jensnesten/rust_bt | pending | None |
 | 173 | jerryshell/midas | pending | None |
 | 174 | jinit24/nsedownload | pending | None |
