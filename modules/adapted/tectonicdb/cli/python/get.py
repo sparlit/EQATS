@@ -20,7 +20,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import sys
-if sys.version_info[0] < 3:
+if sys.version_info[0] < 3: 
     from StringIO import StringIO
 else:
     from io import StringIO
