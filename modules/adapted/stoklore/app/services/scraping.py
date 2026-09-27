@@ -26,8 +26,9 @@ the stock-detail routes."""
 from datetime import UTC, datetime, timezone
 
 import requests
-from app.core import classifier, db, llm, scraper, sentiment
 from fastapi import HTTPException
+
+from app.core import classifier, db, llm, scraper, sentiment
 
 
 def _embed_or_none(markdown):

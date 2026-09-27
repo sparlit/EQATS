@@ -27,12 +27,13 @@ Separate from chat.py because the two have different lifecycles. chat.py answers
 the browser waits; these start work that keeps going after the browser leaves, which needs a run
 id, a status, and a feed you can rejoin. See app/services/agent_runs.py.
 """
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+
 from app.core import db
 from app.deps import _sse
 from app.schemas import AgentRunRequest
 from app.services import agent_runs, workflow
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
 
 router = APIRouter(tags=["agent"])
 

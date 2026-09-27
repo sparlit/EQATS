@@ -23,9 +23,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 
+from fastapi import APIRouter
+
 from app.core import db, scraper
 from app.schemas import ScrapeRequest
-from fastapi import APIRouter
 
 router = APIRouter(tags=["system"])
 

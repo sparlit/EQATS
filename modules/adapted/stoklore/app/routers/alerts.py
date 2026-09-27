@@ -30,10 +30,11 @@ two levels, swept every few seconds by the live poller.
 The condition vocabulary and everything it means lives in app/core/alerts.py; this module only
 validates what arrives and hands it over.
 """
+from fastapi import APIRouter, HTTPException
+
 from app.core import alerts, db
 from app.schemas import AlertRequest, AlertUpdateRequest
 from app.services.quotes import paper_price
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["alerts"])
 

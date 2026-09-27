@@ -21,9 +21,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+from fastapi import APIRouter, HTTPException
+
 from app.core import db, trade_context
 from app.schemas import TradeAccountRequest
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["trade-accounts"])
 

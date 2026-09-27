@@ -41,6 +41,7 @@ import threading
 from datetime import datetime, timedelta
 
 import requests
+
 from app.core import alerts, db
 from app.core.config import IST
 

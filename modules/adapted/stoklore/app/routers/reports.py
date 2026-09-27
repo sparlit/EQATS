@@ -21,8 +21,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from app.core import db
 from fastapi import APIRouter
+
+from app.core import db
 
 router = APIRouter(tags=["reports"])
 
