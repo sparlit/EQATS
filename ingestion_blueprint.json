@@ -1438,8 +1438,8 @@
       "target": "julien-r44/cli-candlestick-chart",
       "url": "https://github.com/julien-r44/cli-candlestick-chart",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2610",
+      "merged": true
     },
     {
       "name": "trusted",
