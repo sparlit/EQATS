@@ -40,12 +40,28 @@ Tests cover:
 
 from ibx import Contract, EClient, EWrapper
 
+
+class NotConnectedWrapper(EWrapper):
+    """Records error(): a request on a client that is not connected is
+    answered with error 504 "Not connected" and no exception, as in the
+    reference client."""
+
+    def error(self, req_id, error_code, error_string, advanced_order_reject_json=""):
+        if not hasattr(self, "errors"):
+            self.errors = []
+        self.errors.append((req_id, error_code, error_string))
+
+
+def assert_not_connected(wrapper, expected_id):
+    assert getattr(wrapper, "errors", []) == [(expected_id, 504, "Not connected")]
+
+
 # ── Helper fixtures ──
 
 
 def make_client():
     """Create an unconnected EClient + EWrapper pair."""
-    w = EWrapper()
+    w = NotConnectedWrapper()
     c = EClient(w)
     return c, w
 
@@ -147,6 +163,7 @@ class SmartComponentsCapture(EWrapper):
 def test_req_smart_components_fires_callback():
     w = SmartComponentsCapture()
     c = EClient(w)
+    c._test_connect()
     c.req_smart_components(1, "a]AMEX")
     assert w.req_id == 1
     assert len(w.components) == 0  # Empty map (gateway-local data not available)
@@ -176,6 +193,7 @@ class SoftDollarTiersCapture(EWrapper):
 def test_req_soft_dollar_tiers_fires_callback():
     w = SoftDollarTiersCapture()
     c = EClient(w)
+    c._test_connect()
     c.req_soft_dollar_tiers(42)
     assert w.req_id == 42
     assert len(w.tiers) == 0  # Paper accounts return empty
@@ -203,11 +221,10 @@ class FamilyCodesCapture(EWrapper):
 def test_req_family_codes_fires_callback():
     w = FamilyCodesCapture()
     c = EClient(w)
+    c._test_connect()
     c.req_family_codes()
-    assert w.codes is not None
-    assert len(w.codes) == 1
-    # Each entry is (accountID, familyCodeStr)
-    assert w.codes[0][1] == ""  # Empty family code on unconnected
+    # The callback fires with a list; a test connection has no server data.
+    assert w.codes == []
 
 
 def test_req_family_codes_signature():
@@ -221,24 +238,16 @@ def test_req_family_codes_signature():
 
 
 def test_req_histogram_data_not_connected():
-    c, _w = make_client()
+    c, w = make_client()
     con = make_contract(con_id=265598, symbol="AAPL", sec_type="STK", exchange="SMART")
-    try:
-        c.req_histogram_data(1, con, True, "1 week")
-        msg = "Should raise"
-        raise AssertionError(msg)
-    except RuntimeError as e:
-        assert "Not connected" in str(e)
+    c.req_histogram_data(1, con, True, "1 week")
+    assert_not_connected(w, 1)
 
 
 def test_cancel_histogram_data_not_connected():
-    c, _w = make_client()
-    try:
-        c.cancel_histogram_data(1)
-        msg = "Should raise"
-        raise AssertionError(msg)
-    except RuntimeError as e:
-        assert "Not connected" in str(e)
+    c, w = make_client()
+    c.cancel_histogram_data(1)
+    assert_not_connected(w, -1)
 
 
 def test_histogram_data_signatures():
@@ -253,14 +262,10 @@ def test_histogram_data_signatures():
 
 
 def test_req_historical_schedule_not_connected():
-    c, _w = make_client()
+    c, w = make_client()
     con = make_contract(con_id=756733, symbol="SPY", sec_type="STK", exchange="SMART")
-    try:
-        c.req_historical_data(1, con, "", "5 D", "1 day", "SCHEDULE", 1)
-        msg = "Should raise"
-        raise AssertionError(msg)
-    except RuntimeError as e:
-        assert "Not connected" in str(e)
+    c.req_historical_data(1, con, "", "5 D", "1 day", "SCHEDULE", 1)
+    assert_not_connected(w, 1)
 
 
 def test_req_historical_schedule_signature():
@@ -311,6 +316,7 @@ class UserInfoCapture(EWrapper):
 def test_req_user_info_fires_callback():
     w = UserInfoCapture()
     c = EClient(w)
+    c._test_connect()
     c.req_user_info(7)
     assert w.req_id == 7
     assert w.white_branding_id == ""  # Empty on paper

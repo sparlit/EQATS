@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use crate::api::types::{
     Contract as ApiContract, Order as ApiOrder, ExecutionFilter,
 };
-use crate::client_core::ClientCore;
+use crate::client_core::{ClientCore, ModifyPlan};
 use crate::types::*;
 use super::EClient;
 use super::super::contract::{Contract, Order, CommissionAndFeesReport, Execution};
@@ -20,10 +20,17 @@ impl EClient {
         // Convert and validate order params first (fail fast, no connection needed)
         let mut api_order = order.to_api();
         api_order.conditions = order.convert_conditions(py);
+        // The reference's other names for an order type (ibx#469).
+        if let Some(name) = ClientCore::canonical_order_type(&api_order.order_type) {
+            api_order.order_type = name.to_string();
+        }
         ClientCore::validate_order(&api_order)
             .map_err(|e| PyRuntimeError::new_err(e))?;
         ClientCore::validate_order_contract(&contract.sec_type)
             .map_err(|e| PyRuntimeError::new_err(e))?;
+        // After the checks above, which refuse an invalid order even with no
+        // connection (ibx#115).
+        if let Some(r) = self.not_connected(order_id as i64) { return r; }
 
         let tx = self.tx()?;
 
@@ -33,18 +40,31 @@ impl EClient {
             self.next_order_id.fetch_add(1, Ordering::Relaxed)
         };
 
-        let instrument = self.find_or_register_instrument(contract)?;
+        // Refused before sending, like the reference: error() only.
+        if let Some((code, message)) = ClientCore::refusal_before_sending(&api_order)
+            .or_else(|| self.core.refusal_for_order_id(oid, &api_order))
+        {
+            self.shared_state()?.orders.push_order_error(oid, code, message);
+            return Ok(());
+        }
 
-        // If orderId is already tracked, this is a modification — emit Modify instead of Submit.
-        let cmd = if self.core.is_order_tracked(oid) {
-            let price = (api_order.lmt_price * crate::api::types::PRICE_SCALE_F) as i64;
-            let qty = api_order.total_quantity as u32;
-            ControlCommand::Order(OrderRequest::Modify {
-                new_order_id: oid,
-                order_id: oid,
-                price,
-                qty,
-            })
+        let instrument = self.find_or_register_instrument(contract)?;
+        self.core.note_currency(&tx, contract.con_id, &contract.currency);
+
+        // If orderId is already tracked, this is a modification: replace it
+        // with the full wanted state (ibx#247).
+        let cmd = if let Some(working_type) = self.core.tracked_order_type(oid) {
+            match ClientCore::build_modify_request(&api_order, oid, &working_type)
+                .map_err(|e| PyRuntimeError::new_err(e))?
+            {
+                ModifyPlan::Send(cmd) => cmd,
+                ModifyPlan::Refused { code, message } => {
+                    // Refused before sending, like the reference: the caller
+                    // gets error() and the tracked order keeps its old state.
+                    self.shared_state()?.orders.push_order_error(oid, code, message);
+                    return Ok(());
+                }
+            }
         } else {
             ClientCore::build_order_request(&api_order, oid, instrument)
                 .map_err(|e| PyRuntimeError::new_err(e))?
@@ -72,6 +92,7 @@ impl EClient {
     /// Cancel an order.
     #[pyo3(signature = (order_id, manual_order_cancel_time=""))]
     fn cancel_order(&self, order_id: i64, manual_order_cancel_time: &str) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let tx = self.tx()?;
         tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id: order_id as u64 }))
             .map_err(|e| PyRuntimeError::new_err(format!("Engine stopped: {}", e)))?;
@@ -81,6 +102,7 @@ impl EClient {
 
     /// Cancel all orders globally.
     fn req_global_cancel(&self) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let tx = self.tx()?;
         let shared = self.shared_state()?;
         let count = shared.market.instrument_count();
@@ -93,6 +115,7 @@ impl EClient {
     /// Request next valid order ID.
     #[pyo3(signature = (num_ids=1))]
     fn req_ids(&self, py: Python<'_>, num_ids: i32) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let next_id = self.next_order_id.load(Ordering::Relaxed) as i64;
         self.wrapper.call_method1(py, "next_valid_id", (next_id,))?;
         let _ = num_ids;
@@ -106,6 +129,7 @@ impl EClient {
 
     /// Request all open orders for this client.
     fn req_open_orders(&self, py: Python<'_>) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let shared = self.shared_state()?;
         let orders = self.core.collect_open_orders(&shared);
         for (order_id, tracked) in &orders {
@@ -153,12 +177,14 @@ impl EClient {
 
     /// Request all open orders across all clients.
     fn req_all_open_orders(&self, py: Python<'_>) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         self.req_open_orders(py)
     }
 
     /// Automatically bind future orders to this client.
     #[pyo3(signature = (b_auto_bind))]
     fn req_auto_open_orders(&self, b_auto_bind: bool) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let _ = b_auto_bind;
         Ok(())
     }
@@ -166,6 +192,7 @@ impl EClient {
     /// Request execution reports.
     #[pyo3(signature = (req_id, exec_filter=None))]
     fn req_executions(&self, py: Python<'_>, req_id: i64, exec_filter: Option<Py<PyAny>>) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let filter = if let Some(ref fobj) = exec_filter {
             let get = |attr: &str| -> String {
                 fobj.getattr(py, pyo3::types::PyString::new(py, attr))
@@ -178,7 +205,10 @@ impl EClient {
                 exchange: get("exchange"),
                 side: get("side"),
                 acct_code: get("acctCode"),
-                ..Default::default()
+                time: get("time"),
+                client_id: fobj.getattr(py, pyo3::types::PyString::new(py, "clientId"))
+                    .and_then(|v| v.extract::<i64>(py))
+                    .unwrap_or(0),
             }
         } else {
             ExecutionFilter::default()
@@ -211,7 +241,7 @@ impl EClient {
                 liquidation: se.execution.liquidation,
                 cum_qty: se.execution.cum_qty,
                 avg_price: se.execution.avg_price,
-                order_ref: String::new(),
+                order_ref: se.execution.order_ref.clone(),
                 ev_rule: se.execution.ev_rule.clone(),
                 ev_multiplier: se.execution.ev_multiplier,
                 model_code: se.execution.model_code.clone(),
@@ -226,16 +256,19 @@ impl EClient {
                 None,
             )?;
 
-            let report = CommissionAndFeesReport {
-                exec_id: se.commission_and_fees.exec_id.clone(),
-                commission_and_fees: se.commission_and_fees.commission_and_fees,
-                currency: se.commission_and_fees.currency.clone(),
-                realized_pnl: se.commission_and_fees.realized_pnl,
-                yield_amount: se.commission_and_fees.yield_amount,
-                yield_redemption_date: se.commission_and_fees.yield_redemption_date.clone(),
-            };
-            let report_py = Py::new(py, report)?.into_any();
-            self.wrapper.call_method1(py, "commission_and_fees_report", (&report_py,))?;
+            // The report exists once the server's commission frame came (ibx#471).
+            if let Some(cr) = &se.commission_and_fees {
+                let report = CommissionAndFeesReport {
+                    exec_id: cr.exec_id.clone(),
+                    commission_and_fees: cr.commission_and_fees,
+                    currency: cr.currency.clone(),
+                    realized_pnl: cr.realized_pnl,
+                    yield_amount: cr.yield_amount,
+                    yield_redemption_date: cr.yield_redemption_date.clone(),
+                };
+                let report_py = Py::new(py, report)?.into_any();
+                self.wrapper.call_method1(py, "commission_and_fees_report", (&report_py,))?;
+            }
         }
         self.wrapper.call_method1(py, "exec_details_end", (req_id,))?;
         Ok(())
@@ -244,6 +277,7 @@ impl EClient {
     /// Request completed orders.
     #[pyo3(signature = (api_only=false))]
     fn req_completed_orders(&self, py: Python<'_>, api_only: bool) -> PyResult<()> {
+        if let Some(r) = self.not_connected(-1) { return r; }
         let _ = api_only;
         if let Some(shared) = self.shared.lock().unwrap().clone() {
             let completed = shared.orders.drain_completed_orders();

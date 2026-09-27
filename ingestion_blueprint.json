@@ -1,5 +1,5 @@
 {
-  "current_index": 108,
+  "current_index": 109,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -869,9 +869,9 @@
       "name": "ibx",
       "target": "deepentropy/ibx",
       "url": "https://github.com/deepentropy/ibx",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2538",
+      "merged": true
     },
     {
       "name": "evpoly",

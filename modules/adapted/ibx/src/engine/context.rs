@@ -33,6 +33,35 @@ impl Clock {
 
 /// The context passed to strategy callbacks. Provides market data access and
 /// order management. All hot-path data is pre-allocated.
+/// Most finished orders kept for `Context::finished_status`.
+pub const FINISHED_ORDERS_MAX: usize = 65_536;
+
+/// What a server-reported status did to an order (ibx#212 ibx#473).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatusChange {
+    /// The status moved forward.
+    Changed,
+    /// The report restates the current status.
+    Same,
+    /// A stale or reordered report, dropped by the guard.
+    Stale,
+    /// The engine does not hold this order.
+    Unknown,
+}
+
+/// What the server last reported for a TRAIL LIMIT order. The offset is
+/// restated on its replace; all three fill the reports that omit them and
+/// show in openOrder (ib-agent#194, ib-agent#195, ibx#491). 0 = not reported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TrailLimitReported {
+    /// Limit offset (6370).
+    pub offset: Price,
+    /// Limit price (44).
+    pub limit: Price,
+    /// Stop price (6117), which the server moves as the market moves.
+    pub stop: Price,
+}
+
 pub struct Context {
     pub(crate) market: MarketState,
     positions: [i64; MAX_INSTRUMENTS],
@@ -47,6 +76,18 @@ pub struct Context {
     /// it appeared on the wire. Used as the OrigClOrdID on cancel/modify so that
     /// legacy orders recorded without a `.{ver}` suffix still match — see ibx#179.
     pub(crate) last_clord: HashMap<OrderId, String>,
+    /// ClOrdID of the cancel sent for each order, until the order ends or
+    /// the cancel is rejected. Reports carrying it are about the cancel, not
+    /// a new version of the order (ibx#464).
+    pub(crate) cancel_clord: HashMap<OrderId, String>,
+    /// The last limit offset, limit price and stop price the server
+    /// reported for a TRAIL LIMIT order (ib-agent#194, ibx#491).
+    pub(crate) trail_limit_reported: HashMap<OrderId, TrailLimitReported>,
+    /// Final status of orders that left the engine filled, cancelled or
+    /// rejected, for the reference's refusal of a later cancel (ibx#464).
+    /// Bounded: the oldest are dropped past `FINISHED_ORDERS_MAX`.
+    finished_orders: HashMap<OrderId, OrderStatus>,
+    finished_order_ids: std::collections::VecDeque<OrderId>,
     /// Timestamp when the last farm socket recv returned data (for decode latency measurement).
     pub(crate) recv_at: Instant,
     /// Total hot loop iterations since start.
@@ -62,6 +103,10 @@ impl Context {
             pending_orders: OrderBuffer::new(),
             modify_versions: HashMap::new(),
             last_clord: HashMap::new(),
+            cancel_clord: HashMap::new(),
+            trail_limit_reported: HashMap::new(),
+            finished_orders: HashMap::new(),
+            finished_order_ids: std::collections::VecDeque::new(),
             account: AccountState::default(),
             clock: Clock::new(),
             next_order_id: {
@@ -122,7 +167,8 @@ impl Context {
     // ── Positions & orders (read) ──
 
     #[inline(always)]
-    pub fn position(&self, id: InstrumentId) -> i64 {
+    /// Fixed-point (QTY_SCALE).
+    pub fn position_fixed(&self, id: InstrumentId) -> Qty {
         self.positions[id as usize]
     }
 
@@ -356,6 +402,7 @@ impl Context {
         let id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitTrailingStopLimit {
+            lmt_price: None,
             order_id: id,
             instrument,
             side,
@@ -572,6 +619,8 @@ impl Context {
             qty,
             price,
             priority,
+            tif: b'0',
+            attrs: OrderAttrs::default(),
         });
         id
     }
@@ -719,6 +768,7 @@ impl Context {
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitAlgo {
             order_id: id, instrument, side, qty, price, algo,
+            tif: b'0', attrs: OrderAttrs::default(),
         });
         id
     }
@@ -799,6 +849,7 @@ impl Context {
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::SubmitWhatIf {
             order_id: id, instrument, side, qty, price,
+            tif: b'0', attrs: OrderAttrs::default(),
         });
         id
     }
@@ -853,14 +904,25 @@ impl Context {
             .push(OrderRequest::CancelAll { instrument });
     }
 
-    pub fn modify(&mut self, order_id: OrderId, price: Price, qty: u32) -> OrderId {
+    /// Replace a working order with the full wanted state: quantity, order
+    /// kind with its prices, time-in-force and attributes (ibx#247).
+    pub fn modify(
+        &mut self,
+        order_id: OrderId,
+        qty: u32,
+        kind: OrderKind,
+        tif: u8,
+        attrs: OrderAttrs,
+    ) -> OrderId {
         let new_id = self.next_order_id;
         self.next_order_id += 1;
         self.pending_orders.push(OrderRequest::Modify {
             new_order_id: new_id,
             order_id,
-            price,
             qty,
+            kind,
+            tif,
+            attrs,
         });
         new_id
     }
@@ -912,7 +974,8 @@ impl Context {
         self.pending_orders.drain()
     }
 
-    pub fn update_position(&mut self, instrument: InstrumentId, delta: i64) {
+    /// `delta` is fixed-point (QTY_SCALE).
+    pub fn update_position_fixed(&mut self, instrument: InstrumentId, delta: Qty) {
         self.positions[instrument as usize] += delta;
     }
 
@@ -929,23 +992,29 @@ impl Context {
     /// lower-rank status never overwrites a higher one. Deliberate
     /// regressions go through `set_order_status_forced`.
     pub fn update_order_status(&mut self, order_id: OrderId, status: OrderStatus) -> bool {
-        if let Some(order) = self.open_orders.get_mut(&order_id) {
-            let prev = order.status;
-            if prev == status {
-                return false;
-            }
-            if prev.is_terminal() || status.rank() < prev.rank() {
-                log::debug!(
-                    "Order {} status guard: keeping {:?}, dropping stale {:?} (ibx#212)",
-                    order_id, prev, status,
-                );
-                return false;
-            }
-            order.status = status;
-            true
-        } else {
-            false
+        self.apply_order_status(order_id, status) == StatusChange::Changed
+    }
+
+    /// `update_order_status`, telling a report that restates the current
+    /// status apart from a stale one: the reference reports the first and
+    /// not the second (ibx#473).
+    pub fn apply_order_status(&mut self, order_id: OrderId, status: OrderStatus) -> StatusChange {
+        let Some(order) = self.open_orders.get_mut(&order_id) else {
+            return StatusChange::Unknown;
+        };
+        let prev = order.status;
+        if prev == status {
+            return StatusChange::Same;
         }
+        if prev.is_terminal() || status.rank() < prev.rank() {
+            log::debug!(
+                "Order {} status guard: keeping {:?}, dropping stale {:?} (ibx#212)",
+                order_id, prev, status,
+            );
+            return StatusChange::Stale;
+        }
+        order.status = status;
+        StatusChange::Changed
     }
 
     /// Set a status unconditionally — for deliberate lifecycle regressions
@@ -956,14 +1025,38 @@ impl Context {
         }
     }
 
-    pub fn update_order_filled(&mut self, order_id: OrderId, last_shares: u32) {
+    /// `last_qty` is fixed-point (QTY_SCALE).
+    pub fn update_order_filled_fixed(&mut self, order_id: OrderId, last_qty: Qty) {
         if let Some(order) = self.open_orders.get_mut(&order_id) {
-            order.filled += last_shares;
+            order.filled_fixed += last_qty;
         }
     }
 
     pub fn remove_order(&mut self, order_id: OrderId) {
         self.open_orders.remove(&order_id);
+    }
+
+    /// Remove an order that ended with `status`, and keep that status for a
+    /// later cancel of the same id (ibx#464).
+    pub fn finish_order(&mut self, order_id: OrderId, status: OrderStatus) {
+        if self.open_orders.remove(&order_id).is_none() {
+            return;
+        }
+        self.cancel_clord.remove(&order_id);
+        self.trail_limit_reported.remove(&order_id);
+        if self.finished_orders.insert(order_id, status).is_none() {
+            self.finished_order_ids.push_back(order_id);
+            while self.finished_order_ids.len() > FINISHED_ORDERS_MAX {
+                if let Some(old) = self.finished_order_ids.pop_front() {
+                    self.finished_orders.remove(&old);
+                }
+            }
+        }
+    }
+
+    /// Final status of an order that left the engine (ibx#464).
+    pub fn finished_status(&self, order_id: OrderId) -> Option<OrderStatus> {
+        self.finished_orders.get(&order_id).copied()
     }
 
     /// Mark all live open orders as Uncertain (auth disconnect — status may have changed).
@@ -1067,19 +1160,21 @@ mod tests {
     #[test]
     fn modify_drains_correctly() {
         let mut ctx = Context::new();
-        ctx.modify(7, 200 * PRICE_SCALE, 50);
+        ctx.modify(7, 50, OrderKind::Limit { price: 200 * PRICE_SCALE }, b'1', OrderAttrs::default());
 
         let orders: Vec<_> = ctx.drain_pending_orders().collect();
-        match orders[0] {
+        match &orders[0] {
             OrderRequest::Modify {
                 order_id,
-                price,
+                kind,
                 qty,
+                tif,
                 ..
             } => {
-                assert_eq!(order_id, 7);
-                assert_eq!(price, 200 * PRICE_SCALE);
-                assert_eq!(qty, 50);
+                assert_eq!(*order_id, 7);
+                assert!(matches!(kind, OrderKind::Limit { price } if *price == 200 * PRICE_SCALE));
+                assert_eq!(*qty, 50);
+                assert_eq!(*tif, b'1');
             }
             _ => panic!("expected Modify"),
         }
@@ -1111,28 +1206,28 @@ mod tests {
     #[test]
     fn position_starts_at_zero() {
         let ctx = Context::new();
-        assert_eq!(ctx.position(0), 0);
-        assert_eq!(ctx.position(255), 0);
+        assert_eq!(ctx.position_fixed(0) / crate::types::QTY_SCALE, 0);
+        assert_eq!(ctx.position_fixed(255) / crate::types::QTY_SCALE, 0);
     }
 
     #[test]
     fn update_position_accumulates() {
         let mut ctx = Context::new();
-        ctx.update_position(0, 100);
-        assert_eq!(ctx.position(0), 100);
-        ctx.update_position(0, -30);
-        assert_eq!(ctx.position(0), 70);
-        ctx.update_position(0, -70);
-        assert_eq!(ctx.position(0), 0);
+        ctx.update_position_fixed(0, (100) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ctx.position_fixed(0) / crate::types::QTY_SCALE, 100);
+        ctx.update_position_fixed(0, (-30) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ctx.position_fixed(0) / crate::types::QTY_SCALE, 70);
+        ctx.update_position_fixed(0, (-70) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ctx.position_fixed(0) / crate::types::QTY_SCALE, 0);
     }
 
     #[test]
     fn positions_per_instrument() {
         let mut ctx = Context::new();
-        ctx.update_position(0, 100);
-        ctx.update_position(1, -50);
-        assert_eq!(ctx.position(0), 100);
-        assert_eq!(ctx.position(1), -50);
+        ctx.update_position_fixed(0, (100) as i64 * crate::types::QTY_SCALE);
+        ctx.update_position_fixed(1, (-50) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ctx.position_fixed(0) / crate::types::QTY_SCALE, 100);
+        assert_eq!(ctx.position_fixed(1) / crate::types::QTY_SCALE, -50);
     }
 
     // --- Open orders ---
@@ -1145,8 +1240,8 @@ mod tests {
             instrument: 0,
             side: Side::Buy,
             price: 150 * PRICE_SCALE,
-            qty: 100,
-            filled: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2',
             tif: b'0',
@@ -1154,7 +1249,7 @@ mod tests {
         };
         ctx.insert_order(order);
         assert!(ctx.order(1).is_some());
-        assert_eq!(ctx.order(1).unwrap().qty, 100);
+        assert_eq!(ctx.order(1).unwrap().qty_fixed / crate::types::QTY_SCALE, 100);
     }
 
     #[test]
@@ -1165,8 +1260,8 @@ mod tests {
             instrument: 0,
             side: Side::Buy,
             price: 150 * PRICE_SCALE,
-            qty: 100,
-            filled: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2',
             tif: b'0',
@@ -1177,8 +1272,8 @@ mod tests {
             instrument: 1,
             side: Side::Sell,
             price: 400 * PRICE_SCALE,
-            qty: 50,
-            filled: 0,
+            qty_fixed: (50) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2',
             tif: b'0',
@@ -1198,8 +1293,8 @@ mod tests {
             instrument: 0,
             side: Side::Buy,
             price: 150 * PRICE_SCALE,
-            qty: 100,
-            filled: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2',
             tif: b'0',
@@ -1217,7 +1312,7 @@ mod tests {
     fn submitted_order(ctx: &mut Context, oid: u64) {
         ctx.insert_order(Order {
             order_id: oid, instrument: 0, side: Side::Buy, price: 100,
-            qty: 100, filled: 0, status: OrderStatus::Submitted,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE, status: OrderStatus::Submitted,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
     }
@@ -1291,8 +1386,8 @@ mod tests {
             instrument: 0,
             side: Side::Buy,
             price: 150 * PRICE_SCALE,
-            qty: 100,
-            filled: 0,
+            qty_fixed: (100) as i64 * crate::types::QTY_SCALE,
+            filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2',
             tif: b'0',
@@ -1462,19 +1557,19 @@ mod tests {
 
         ctx.insert_order(Order {
             order_id: 1, instrument: 0, side: Side::Buy,
-            price: 150 * PRICE_SCALE, qty: 100, filled: 0,
+            price: 150 * PRICE_SCALE, qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
         ctx.insert_order(Order {
             order_id: 2, instrument: 0, side: Side::Sell,
-            price: 155 * PRICE_SCALE, qty: 50, filled: 0,
+            price: 155 * PRICE_SCALE, qty_fixed: (50) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Submitted,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
         ctx.insert_order(Order {
             order_id: 3, instrument: 0, side: Side::Buy,
-            price: 149 * PRICE_SCALE, qty: 200, filled: 0,
+            price: 149 * PRICE_SCALE, qty_fixed: (200) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Filled,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
@@ -1523,14 +1618,14 @@ mod tests {
         let mut ctx = Context::new();
         ctx.insert_order(Order {
             order_id: 1, instrument: 0, side: Side::Buy,
-            price: PRICE_SCALE, qty: 100, filled: 0,
+            price: PRICE_SCALE, qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::PendingSubmit,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
-        ctx.update_order_filled(1, 30);
-        assert_eq!(ctx.order(1).unwrap().filled, 30);
-        ctx.update_order_filled(1, 50);
-        assert_eq!(ctx.order(1).unwrap().filled, 80);
+        ctx.update_order_filled_fixed(1, (30) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ctx.order(1).unwrap().filled_fixed / crate::types::QTY_SCALE, 30);
+        ctx.update_order_filled_fixed(1, (50) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ctx.order(1).unwrap().filled_fixed / crate::types::QTY_SCALE, 80);
     }
 
     #[test]
@@ -1538,19 +1633,19 @@ mod tests {
         let mut ctx = Context::new();
         ctx.insert_order(Order {
             order_id: 1, instrument: 0, side: Side::Buy,
-            price: PRICE_SCALE, qty: 100, filled: 0,
+            price: PRICE_SCALE, qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (0) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::PendingSubmit,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
         ctx.insert_order(Order {
             order_id: 2, instrument: 0, side: Side::Buy,
-            price: PRICE_SCALE, qty: 100, filled: 50,
+            price: PRICE_SCALE, qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (50) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::PartiallyFilled,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
         ctx.insert_order(Order {
             order_id: 3, instrument: 0, side: Side::Buy,
-            price: PRICE_SCALE, qty: 100, filled: 100,
+            price: PRICE_SCALE, qty_fixed: (100) as i64 * crate::types::QTY_SCALE, filled_fixed: (100) as i64 * crate::types::QTY_SCALE,
             status: OrderStatus::Filled,
             ord_type: b'2', tif: b'0', stop_price: 0,
         });
@@ -1641,7 +1736,7 @@ mod tests {
         let orders: Vec<_> = ctx.drain_pending_orders().collect();
         assert_eq!(orders.len(), 1);
         match &orders[0] {
-            OrderRequest::SubmitWhatIf { order_id, instrument, side, qty, price } => {
+            OrderRequest::SubmitWhatIf { order_id, instrument, side, qty, price, .. } => {
                 assert_eq!(*order_id, id);
                 assert_eq!(*instrument, 0);
                 assert_eq!(*side, Side::Buy);

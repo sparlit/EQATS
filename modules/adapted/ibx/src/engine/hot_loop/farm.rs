@@ -169,10 +169,7 @@ impl FarmState {
             }
             b"L" => self.handle_ticker_setup(msg, context),
             b"UT" | b"UM" | b"RL" => super::ccp::handle_account_update(msg, context, shared),
-            b"UP" => {
-                let parsed = fix::fix_parse(msg);
-                super::ccp::handle_position_update(&parsed, context, shared, event_tx);
-            }
+            b"UP" => super::ccp::handle_portfolio_message(msg, context, shared, event_tx),
             b"Y" => self.handle_depth_35y(msg, shared),
             b"G" => self.handle_tick_news(msg, context, shared, event_tx),
             other => {
@@ -264,9 +261,19 @@ impl FarmState {
         let text = String::from_utf8_lossy(body);
         let text = text.split("\x018349=").next().unwrap_or(&text);
         let parts: Vec<&str> = text.trim().split(',').collect();
-        if parts.len() < 3 { return; }
-        let server_tag: u32 = match parts[0].parse() { Ok(v) => v, Err(_) => return };
-        let req_id: u32 = match parts[1].parse() { Ok(v) => v, Err(_) => return };
+        // An ack dropped here leaves the subscription with no server tag, so
+        // its ticks are never routed: say why.
+        if parts.len() < 3 {
+            log::warn!("Farm 35=Q ack not understood (fewer than 3 fields): {:?}", text);
+            return;
+        }
+        let (server_tag, req_id): (u32, u32) = match (parts[0].parse(), parts[1].parse()) {
+            (Ok(t), Ok(r)) => (t, r),
+            _ => {
+                log::warn!("Farm 35=Q ack not understood (tag or request id): {:?}", text);
+                return;
+            }
+        };
         let min_tick: f64 = parts[2].parse().unwrap_or(0.01);
 
         // Depth ack: always map the server_tag if this req_id is a depth subscription,
@@ -293,7 +300,11 @@ impl FarmState {
                 let (_, instr) = self.md_req_to_instrument.remove(idx);
                 instr
             }
-            None => return,
+            None => {
+                log::warn!("Farm 35=Q ack for request id {} (server tag {}) matches no pending subscription; pending: {:?}",
+                    req_id, server_tag, self.md_req_to_instrument.iter().map(|(id, _)| *id).collect::<Vec<_>>());
+                return;
+            }
         };
 
         context.market.register_server_tag(server_tag, instrument);
@@ -462,6 +473,10 @@ impl FarmState {
         farm_conn: &mut Option<Connection>,
         hb: &mut HeartbeatState,
     ) {
+        // Before the lookup: while the farm is down the request ids are
+        // already cleared, and the subscription must still not come back on
+        // reconnect (ibx#288).
+        self.md_resub_info.retain(|(id, ..)| *id != instrument);
         let reqs = match self.instrument_md_reqs.iter()
             .position(|(id, _)| *id == instrument)
         {
@@ -471,7 +486,6 @@ impl FarmState {
             }
             None => return,
         };
-        self.md_resub_info.retain(|(id, ..)| *id != instrument);
 
         let conn = match farm_conn.as_mut() {
             Some(c) => c,
@@ -914,24 +928,21 @@ impl FarmState {
         hb.pending_farm_test = None;
 
         // Snapshot active subscriptions and re-issue them on the new connection.
-        let active: Vec<(InstrumentId, i64, String, String, String, String, f64, String, String, i32)> = self.instrument_md_reqs.iter()
-            .filter_map(|(id, _)| {
+        // md_resub_info is the list to use: handle_disconnect already cleared
+        // the request-id maps, so reading them re-issued nothing (ibx#288).
+        let active: Vec<(InstrumentId, i64, String, String, String, String, f64, String, String, i32)> = self.md_resub_info.iter()
+            .filter_map(|(id, s, e, st, l, k, r, m, mode)| {
                 context.market.con_id(*id).map(|con_id| {
-                    let (sym, exch, st, ltd, strike, right, mult, mode) = self.md_resub_info.iter()
-                        .find(|(iid, ..)| *iid == *id)
-                        .map(|(_, s, e, st, l, k, r, m, mode)| (s.clone(), e.clone(), st.clone(), l.clone(), *k, r.clone(), m.clone(), *mode))
-                        .unwrap_or_default();
-                    (*id, con_id, sym, exch, st, ltd, strike, right, mult, mode)
+                    (*id, con_id, s.clone(), e.clone(), st.clone(), l.clone(), *k, r.clone(), m.clone(), *mode)
                 })
             })
             .collect();
         self.md_req_to_instrument.clear();
         self.instrument_md_reqs.clear();
-        let old_resub = std::mem::take(&mut self.md_resub_info);
+        self.md_resub_info.clear();
         for (instrument, con_id, sym, exch, st, ltd, strike, right, mult, mode) in active {
             self.send_mktdata_subscribe(con_id, &sym, &exch, &st, &ltd, strike, &right, &mult, instrument, mode, farm_conn, hb);
         }
-        drop(old_resub);
 
         // Re-subscribe depth subscriptions (depth_resub_info survived disconnect)
         let depth_params: Vec<_> = self.depth_resub_info.drain(..).collect();

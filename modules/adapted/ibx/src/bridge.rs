@@ -34,6 +34,25 @@ pub struct RichOrderInfo {
     pub last_exec: api::Execution,
 }
 
+/// What a fill report says about its execution, beyond the `Fill` numbers
+/// (ibx#471 ibx#474). Carried with each fill, so two fills of one order in
+/// the same batch keep their own values.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FillExec {
+    /// Server execution id (tag 17).
+    pub exec_id: String,
+    /// Execution time, Unix seconds: tag 6699, else 60, else 52.
+    pub time_secs: Option<i64>,
+    /// Tag 100, else 207.
+    pub exchange: String,
+    /// Placing client (tag 6119); 0 when absent.
+    pub client_id: i64,
+    /// Tag 6700.
+    pub model_code: String,
+    /// Tag 6010.
+    pub order_ref: String,
+}
+
 /// Events emitted by the IB engine.
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -62,7 +81,8 @@ pub enum Event {
     /// End of contract details for a request.
     ContractDetailsEnd(u32),
     /// Position update.
-    PositionUpdate { instrument: InstrumentId, con_id: i64, position: i64, avg_cost: Price },
+    /// `position` is fixed-point (QTY_SCALE).
+    PositionUpdate { instrument: InstrumentId, con_id: i64, position_fixed: Qty, avg_cost: Price },
     /// Connection lost.
     Disconnected,
     /// Gateway logon completed. `ccp_session_id` matches the `x-ccp-session-id` header
@@ -242,9 +262,14 @@ impl MarketDataState {
 
 /// Fills, order status updates, cancel rejects, what-if responses, and order cache.
 pub struct OrderState {
-    fills: Mutex<Vec<Fill>>,
+    /// Fills with what the report says about each execution.
+    fills: Mutex<Vec<(Fill, FillExec)>>,
+    /// Commission reports from the server's commission frame (ibx#471).
+    commission_reports: Mutex<Vec<api::CommissionAndFeesReport>>,
     order_updates: Mutex<Vec<OrderUpdate>>,
     cancel_rejects: Mutex<Vec<CancelReject>>,
+    /// Order errors raised before sending, keyed by the full order id (ibx#349).
+    order_errors: Mutex<Vec<(u64, i64, String)>>,
     what_if_responses: Mutex<Vec<WhatIfResponse>>,
     completed_orders: Mutex<Vec<CompletedOrder>>,
     /// Enriched order info from CCP exec reports (order_id -> RichOrderInfo).
@@ -255,8 +280,10 @@ impl OrderState {
     fn new() -> Self {
         Self {
             fills: Mutex::new(Vec::with_capacity(64)),
+            commission_reports: Mutex::new(Vec::with_capacity(64)),
             order_updates: Mutex::new(Vec::with_capacity(64)),
             cancel_rejects: Mutex::new(Vec::with_capacity(16)),
+            order_errors: Mutex::new(Vec::new()),
             what_if_responses: Mutex::new(Vec::with_capacity(8)),
             completed_orders: Mutex::new(Vec::with_capacity(64)),
             order_cache: Mutex::new(HashMap::new()),
@@ -264,7 +291,16 @@ impl OrderState {
     }
 
     pub fn drain_fills(&self) -> Vec<Fill> {
+        self.fills.lock().unwrap().drain(..).map(|(fill, _)| fill).collect()
+    }
+
+    /// Fills with their execution details (empty when injected without).
+    pub fn drain_fills_with_exec(&self) -> Vec<(Fill, FillExec)> {
         self.fills.lock().unwrap().drain(..).collect()
+    }
+
+    pub fn drain_commission_reports(&self) -> Vec<api::CommissionAndFeesReport> {
+        self.commission_reports.lock().unwrap().drain(..).collect()
     }
 
     pub fn drain_order_updates(&self) -> Vec<OrderUpdate> {
@@ -273,6 +309,11 @@ impl OrderState {
 
     pub fn drain_cancel_rejects(&self) -> Vec<CancelReject> {
         self.cancel_rejects.lock().unwrap().drain(..).collect()
+    }
+
+    /// Order errors raised before anything was sent: (order id, code, message).
+    pub fn drain_order_errors(&self) -> Vec<(u64, i64, String)> {
+        self.order_errors.lock().unwrap().drain(..).collect()
     }
 
     pub fn drain_what_if_responses(&self) -> Vec<WhatIfResponse> {
@@ -309,7 +350,15 @@ impl OrderState {
     // ── Hot-loop-side writers ──
 
     #[doc(hidden)] pub fn push_fill(&self, fill: Fill) {
-        self.fills.lock().unwrap().push(fill);
+        self.fills.lock().unwrap().push((fill, FillExec::default()));
+    }
+
+    #[doc(hidden)] pub fn push_fill_with_exec(&self, fill: Fill, exec: FillExec) {
+        self.fills.lock().unwrap().push((fill, exec));
+    }
+
+    #[doc(hidden)] pub fn push_commission_report(&self, report: api::CommissionAndFeesReport) {
+        self.commission_reports.lock().unwrap().push(report);
     }
 
     #[doc(hidden)] pub fn push_order_update(&self, update: OrderUpdate) {
@@ -318,6 +367,10 @@ impl OrderState {
 
     #[doc(hidden)] pub fn push_cancel_reject(&self, reject: CancelReject) {
         self.cancel_rejects.lock().unwrap().push(reject);
+    }
+
+    #[doc(hidden)] pub fn push_order_error(&self, order_id: u64, code: i64, message: String) {
+        self.order_errors.lock().unwrap().push((order_id, code, message));
     }
 
     #[doc(hidden)] pub fn push_what_if(&self, response: WhatIfResponse) {
@@ -356,6 +409,8 @@ pub struct ReferenceState {
     depth_exchanges_pending: Mutex<bool>,
     /// Contract cache from CCP exec reports (con_id -> api::Contract).
     contract_cache: Mutex<HashMap<i64, api::Contract>>,
+    /// Market names from contract details, by conId.
+    market_names: Mutex<HashMap<i64, String>>,
     /// Gateway-local init data (populated during connection, read-only after).
     smart_components: Mutex<Vec<crate::types::SmartComponent>>,
     news_providers: Mutex<Vec<crate::types::NewsProvider>>,
@@ -389,6 +444,7 @@ impl ReferenceState {
             depth_exchanges_cache: Mutex::new(Vec::new()),
             depth_exchanges_pending: Mutex::new(false),
             contract_cache: Mutex::new(HashMap::new()),
+            market_names: Mutex::new(HashMap::new()),
             smart_components: Mutex::new(Vec::new()),
             news_providers: Mutex::new(Vec::new()),
             soft_dollar_tiers: Mutex::new(Vec::new()),
@@ -468,6 +524,18 @@ impl ReferenceState {
     /// Get cached contract by con_id.
     pub fn get_contract(&self, con_id: i64) -> Option<api::Contract> {
         self.contract_cache.lock().unwrap().get(&con_id).cloned()
+    }
+
+    /// Market name of a contract from its contract details (for example
+    /// NMS for AAPL), when they were received.
+    pub fn market_name(&self, con_id: i64) -> Option<String> {
+        self.market_names.lock().unwrap().get(&con_id).cloned()
+    }
+
+    #[doc(hidden)] pub fn cache_market_name(&self, con_id: i64, market_name: &str) {
+        if !market_name.is_empty() {
+            self.market_names.lock().unwrap().insert(con_id, market_name.to_string());
+        }
     }
 
     // ── Hot-loop-side writers ──
@@ -641,34 +709,142 @@ impl ReferenceState {
 }
 
 /// Account snapshot, per-position info, and atomic instrument positions.
+/// One account value as the server sends it (ibx#475): the key, the value
+/// text unchanged, and the row currency (empty when the row has none).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountRow {
+    pub key: String,
+    pub value: String,
+    pub currency: String,
+    /// A per-currency ledger key (from a ledger frame).
+    pub ledger: bool,
+}
+
+/// Account values of the account stream, by key and currency, in the order
+/// first seen (ibx#475).
+#[derive(Clone, Debug, Default)]
+pub struct AccountRows {
+    pub rows: Vec<AccountRow>,
+    /// Bumped on every change, so a reader can skip an unchanged store.
+    pub generation: u64,
+    /// The first full image ended (the stream's end marker came).
+    pub image_complete: bool,
+    /// Latest row time, Unix seconds.
+    pub time_secs: i64,
+}
+
+impl AccountRows {
+    /// Set a row; returns true when the value is new or changed.
+    pub fn set(&mut self, key: &str, currency: &str, value: &str) -> bool {
+        self.set_row(key, currency, value, false)
+    }
+
+    /// Set a row, marking whether it is a ledger key (ibx#476).
+    pub fn set_row(&mut self, key: &str, currency: &str, value: &str, ledger: bool) -> bool {
+        match self.rows.iter_mut().find(|r| r.key == key && r.currency == currency) {
+            // A key the ledger also sends (AccruedCash) stays a ledger key.
+            Some(r) if r.value == value => {
+                r.ledger |= ledger;
+                false
+            }
+            Some(r) => {
+                r.ledger |= ledger;
+                r.value = value.to_string();
+                self.generation += 1;
+                true
+            }
+            None => {
+                self.rows.push(AccountRow { key: key.into(), value: value.into(), currency: currency.into(), ledger });
+                self.generation += 1;
+                true
+            }
+        }
+    }
+}
+
+/// Rows or the end of a batch for one account summary subscription
+/// (ibx#479), keyed by the id the server echoes (`SR.Socket.{n}`).
+#[derive(Clone, Debug)]
+pub struct AccountSummaryEvent {
+    pub sr_id: String,
+    pub rows: Vec<AccountRow>,
+    /// The rows came from a ledger frame (per-currency keys).
+    pub ledger: bool,
+    /// The server's end marker of a batch.
+    pub end: bool,
+}
+
 pub struct PortfolioState {
     account: Mutex<AccountState>,
+    /// Account summary rows and ends, in arrival order (ibx#479).
+    account_summary_events: Mutex<Vec<AccountSummaryEvent>>,
+    /// Account values as the server sends them (ibx#475).
+    account_rows: Mutex<AccountRows>,
     /// True once the first gateway account message ("UT"/"UM"/"RL") has been received.
     account_data_received: AtomicBool,
     /// True once the CCP init burst has been fully processed.
     account_download_complete: AtomicBool,
     /// Position info (conId -> PositionInfo) for reqPositions and P&L.
     position_infos: Mutex<HashMap<i64, PositionInfo>>,
+    /// Bumped when a position or its average cost changes (ibx#477).
+    position_generation: AtomicU64,
     positions: [AtomicU64; MAX_INSTRUMENTS],
     /// Midnight seeds from 6040=143 for client-side daily P&L computation.
     midnight_seeds: Mutex<HashMap<i64, MidnightSeed>>,
+    /// Realized P&L of this session's fills since the last seed, by conId,
+    /// from the commission frames (ibx#478). A new seed includes them.
+    realized_since_seed: Mutex<HashMap<i64, f64>>,
+    /// Signed cash of this session's fills since the last seed, by conId
+    /// (sell positive, buy negative, like the seed's money traded).
+    money_since_seed: Mutex<HashMap<i64, f64>>,
 }
 
 impl PortfolioState {
     fn new() -> Self {
         Self {
             account: Mutex::new(AccountState::default()),
+            account_rows: Mutex::new(AccountRows::default()),
+            account_summary_events: Mutex::new(Vec::new()),
             account_data_received: AtomicBool::new(false),
             account_download_complete: AtomicBool::new(false),
             position_infos: Mutex::new(HashMap::new()),
+            position_generation: AtomicU64::new(0),
             positions: std::array::from_fn(|_| AtomicU64::new(0)),
             midnight_seeds: Mutex::new(HashMap::new()),
+            realized_since_seed: Mutex::new(HashMap::new()),
+            money_since_seed: Mutex::new(HashMap::new()),
         }
     }
 
     /// Read account state snapshot.
     pub fn account(&self) -> AccountState {
         *self.account.lock().unwrap()
+    }
+
+    /// Generation of the account rows (changes whenever a row does),
+    /// whether the first image is complete, and the latest row time.
+    pub fn account_rows_generation(&self) -> (u64, bool, i64) {
+        let rows = self.account_rows.lock().unwrap();
+        (rows.generation, rows.image_complete, rows.time_secs)
+    }
+
+    #[doc(hidden)]
+    pub fn push_account_summary_event(&self, event: AccountSummaryEvent) {
+        self.account_summary_events.lock().unwrap().push(event);
+    }
+
+    pub fn drain_account_summary_events(&self) -> Vec<AccountSummaryEvent> {
+        self.account_summary_events.lock().unwrap().drain(..).collect()
+    }
+
+    /// Copy of the account rows.
+    pub fn account_rows(&self) -> AccountRows {
+        self.account_rows.lock().unwrap().clone()
+    }
+
+    #[doc(hidden)]
+    pub fn update_account_rows(&self, f: impl FnOnce(&mut AccountRows)) {
+        f(&mut self.account_rows.lock().unwrap());
     }
 
     /// Get all position infos (for reqPositions).
@@ -682,7 +858,8 @@ impl PortfolioState {
     }
 
     /// Read current position for an instrument.
-    pub fn position(&self, id: InstrumentId) -> i64 {
+    /// Fixed-point (QTY_SCALE).
+    pub fn position_fixed(&self, id: InstrumentId) -> Qty {
         self.positions[id as usize].load(Ordering::Relaxed) as i64
     }
 
@@ -708,11 +885,40 @@ impl PortfolioState {
         self.account_download_complete.load(Ordering::Acquire)
     }
 
+    /// Changes whenever a position or its average cost changes (ibx#477).
+    pub fn position_generation(&self) -> u64 {
+        self.position_generation.load(Ordering::Acquire)
+    }
+
+    /// Move a position by a fill of this session (`delta` fixed-point,
+    /// signed). The reference's position store moves with the execution, so
+    /// the position row and the P&L see the fill at once; the server's
+    /// average cost comes with the next position feed. A position opened by
+    /// the fill takes the fill price as average cost, as the reference's
+    /// first row did (captured 25/09/2026: avgCost 336.25, then 336.260003).
+    #[doc(hidden)] pub fn apply_fill_to_position(&self, con_id: i64, delta: Qty, price: Price) {
+        if delta == 0 {
+            return;
+        }
+        let mut map = self.position_infos.lock().unwrap();
+        let entry = map.entry(con_id).or_insert_with(|| PositionInfo { con_id, ..Default::default() });
+        if entry.position_fixed == 0 {
+            entry.avg_cost = price;
+        }
+        entry.position_fixed += delta;
+        self.position_generation.fetch_add(1, Ordering::AcqRel);
+    }
+
     #[doc(hidden)] pub fn set_position_info(&self, info: PositionInfo) {
         let mut map = self.position_infos.lock().unwrap();
+        let changed = map.get(&info.con_id)
+            .is_none_or(|e| e.position_fixed != info.position_fixed || e.avg_cost != info.avg_cost);
+        if changed {
+            self.position_generation.fetch_add(1, Ordering::AcqRel);
+        }
         match map.get_mut(&info.con_id) {
             Some(existing) => {
-                existing.position = info.position;
+                existing.position_fixed = info.position_fixed;
                 existing.avg_cost = info.avg_cost;
                 if !info.symbol.is_empty() { existing.symbol = info.symbol; }
                 if !info.sec_type.is_empty() { existing.sec_type = info.sec_type; }
@@ -737,17 +943,41 @@ impl PortfolioState {
         entry.realized_pnl = realized_pnl;
     }
 
-    #[doc(hidden)] pub fn set_position(&self, id: InstrumentId, pos: i64) {
+    #[doc(hidden)] pub fn set_position_fixed(&self, id: InstrumentId, pos: Qty) {
         self.positions[id as usize].store(pos as u64, Ordering::Relaxed);
     }
 
     /// Store midnight seeds from 6040=143 P&L response.
     #[doc(hidden)] pub fn set_midnight_seeds(&self, seeds: Vec<MidnightSeed>) {
+        // The seed's realized P&L includes the fills so far (ibx#478).
+        self.realized_since_seed.lock().unwrap().clear();
+        self.money_since_seed.lock().unwrap().clear();
         let mut map = self.midnight_seeds.lock().unwrap();
         map.clear();
         for s in seeds {
             map.insert(s.con_id, s);
         }
+    }
+
+    /// Add realized P&L of a fill for `con_id` (ibx#478).
+    #[doc(hidden)] pub fn add_realized_since_seed(&self, con_id: i64, amount: f64) {
+        *self.realized_since_seed.lock().unwrap().entry(con_id).or_insert(0.0) += amount;
+    }
+
+    /// Add the signed cash of a fill for `con_id`: sell positive, buy
+    /// negative.
+    #[doc(hidden)] pub fn add_money_since_seed(&self, con_id: i64, cash: f64) {
+        *self.money_since_seed.lock().unwrap().entry(con_id).or_insert(0.0) += cash;
+    }
+
+    /// Signed cash of fills since the last seed, by conId.
+    pub fn money_since_seed(&self) -> HashMap<i64, f64> {
+        self.money_since_seed.lock().unwrap().clone()
+    }
+
+    /// Realized P&L of fills since the last seed, by conId (ibx#478).
+    pub fn realized_since_seed(&self) -> HashMap<i64, f64> {
+        self.realized_since_seed.lock().unwrap().clone()
     }
 
     /// Read midnight seeds for client-side P&L computation.
@@ -879,13 +1109,15 @@ mod tests {
     fn shared_state_fills_drain() {
         let ss = SharedState::new();
         ss.orders.push_fill(Fill {
+            cum_qty_fixed: (0) as i64 * crate::types::QTY_SCALE, avg_price: 0,
             instrument: 0, order_id: 1, side: Side::Buy,
-            price: 100 * PRICE_SCALE, qty: 10, remaining: 0,
+            price: 100 * PRICE_SCALE, qty_fixed: (10) as i64 * crate::types::QTY_SCALE, remaining_fixed: (0) as i64 * crate::types::QTY_SCALE,
             commission: 0, timestamp_ns: 0,
         });
         ss.orders.push_fill(Fill {
+            cum_qty_fixed: (0) as i64 * crate::types::QTY_SCALE, avg_price: 0,
             instrument: 0, order_id: 2, side: Side::Sell,
-            price: 101 * PRICE_SCALE, qty: 5, remaining: 0,
+            price: 101 * PRICE_SCALE, qty_fixed: (5) as i64 * crate::types::QTY_SCALE, remaining_fixed: (0) as i64 * crate::types::QTY_SCALE,
             commission: 0, timestamp_ns: 0,
         });
         let fills = ss.orders.drain_fills();
@@ -898,8 +1130,9 @@ mod tests {
     fn shared_state_order_updates_drain() {
         let ss = SharedState::new();
         ss.orders.push_order_update(OrderUpdate {
+            avg_fill_price: 0,
             order_id: 1, instrument: 0, status: OrderStatus::Submitted,
-            filled_qty: 0, remaining_qty: 100, perm_id: 0, parent_id: 0, timestamp_ns: 0,
+            filled_qty_fixed: (0) as i64 * crate::types::QTY_SCALE, remaining_qty_fixed: (100) as i64 * crate::types::QTY_SCALE, perm_id: 0, parent_id: 0, timestamp_ns: 0,
         });
         let updates = ss.orders.drain_order_updates();
         assert_eq!(updates.len(), 1);
@@ -909,11 +1142,11 @@ mod tests {
     #[test]
     fn shared_state_position_roundtrip() {
         let ss = SharedState::new();
-        assert_eq!(ss.portfolio.position(0), 0);
-        ss.portfolio.set_position(0, 42);
-        assert_eq!(ss.portfolio.position(0), 42);
-        ss.portfolio.set_position(0, -10);
-        assert_eq!(ss.portfolio.position(0), -10);
+        assert_eq!(ss.portfolio.position_fixed(0) / crate::types::QTY_SCALE, 0);
+        ss.portfolio.set_position_fixed(0, (42) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ss.portfolio.position_fixed(0) / crate::types::QTY_SCALE, 42);
+        ss.portfolio.set_position_fixed(0, (-10) as i64 * crate::types::QTY_SCALE);
+        assert_eq!(ss.portfolio.position_fixed(0) / crate::types::QTY_SCALE, -10);
     }
 
     #[test]
