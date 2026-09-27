@@ -35,6 +35,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from src.config import get_settings
 from src.market.simulated_data import SimulatedMarketData
 from src.market.websocket_feed import (
     NSE_WATCHLIST,
@@ -44,8 +45,6 @@ from src.market.websocket_feed import (
 )
 from src.market.yfinance_feed import YFinanceFeed, YFinanceQuote
 from src.utils.market_time import MARKET_CLOSE, MARKET_OPEN, is_market_hours, now_ist
-
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
