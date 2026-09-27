@@ -1,5 +1,5 @@
 {
-  "current_index": 183,
+  "current_index": 184,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1469,9 +1469,9 @@
       "name": "nsemine",
       "target": "kbizme/nsemine",
       "url": "https://github.com/kbizme/nsemine",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2768",
+      "merged": true
     },
     {
       "name": "nse-stock-scraper",
