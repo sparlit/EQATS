@@ -1,5 +1,5 @@
 {
-  "current_index": 157,
+  "current_index": 158,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1261,7 +1261,7 @@
       "name": "india-trade-cli",
       "target": "hopit-ai/india-trade-cli",
       "url": "https://github.com/hopit-ai/india-trade-cli",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
