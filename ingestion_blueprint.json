@@ -902,8 +902,8 @@
       "target": "deshpanda/nse-screener-data",
       "url": "https://github.com/deshpanda/nse-screener-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2542",
+      "merged": true
     },
     {
       "name": "nse-stock-scanner",

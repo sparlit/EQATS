@@ -115,7 +115,7 @@ Total Repositories: 411 | Current Index: 113
 | 110 | degenapetrader/evpoly | Completed | https://github.com/sparlit/EQATS/pull/2539 |
 | 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2540 |
 | 112 | deshpanda/nse-screener | Completed | https://github.com/sparlit/EQATS/pull/2541 |
-| 113 | deshpanda/nse-screener-data | Processed | None |
+| 113 | deshpanda/nse-screener-data | Processed | https://github.com/sparlit/EQATS/pull/2542 |
 | 114 | deshwalmahesh/nse-stock-scanner | pending | None |
 | 115 | devagam/chartink-to-tradingview-extension | pending | None |
 | 116 | devangmukherjee/top-gainers-and-losers-nse | pending | None |
