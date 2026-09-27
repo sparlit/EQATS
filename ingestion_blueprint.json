@@ -1,5 +1,5 @@
 {
-  "current_index": 186,
+  "current_index": 187,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1493,9 +1493,9 @@
       "name": "optionworkstation",
       "target": "khakhasshi/optionworkstation",
       "url": "https://github.com/khakhasshi/optionworkstation",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2617",
+      "merged": true
     },
     {
       "name": "nse-option-chain",
