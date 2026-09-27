@@ -1,5 +1,5 @@
 {
-  "current_index": 133,
+  "current_index": 134,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1069,7 +1069,7 @@
       "name": "btrader",
       "target": "gabriel-milan/btrader",
       "url": "https://github.com/gabriel-milan/btrader",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
