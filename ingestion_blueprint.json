@@ -1,5 +1,5 @@
 {
-  "current_index": 107,
+  "current_index": 105,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -838,7 +838,7 @@
       "target": "day0market/geger",
       "url": "https://github.com/day0market/geger",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2643",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2657",
       "merged": true
     },
     {
@@ -846,7 +846,7 @@
       "target": "daydy-dev/moon-dev-ai-agents-for-trading",
       "url": "https://github.com/daydy-dev/moon-dev-ai-agents-for-trading",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2535",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2652",
       "merged": true
     },
     {
@@ -854,7 +854,7 @@
       "target": "debaonline4u/nse-data",
       "url": "https://github.com/debaonline4u/nse-data",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2536",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2653",
       "merged": true
     },
     {
