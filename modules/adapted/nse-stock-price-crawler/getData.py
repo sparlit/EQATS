@@ -1,4 +1,3 @@
-Crawler = None
 import datetime
 
 import pytz
