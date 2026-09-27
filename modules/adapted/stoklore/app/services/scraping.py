@@ -1,0 +1,118 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""On-demand scrape/analyze helpers shared by the chat agent, the sentiment endpoint and
+the stock-detail routes."""
+from datetime import UTC, datetime, timezone
+
+import requests
+from app.core import classifier, db, llm, scraper, sentiment
+from fastapi import HTTPException
+
+
+def _embed_or_none(markdown):
+    """Embeddings always need local Ollama regardless of the active chat model - if it's not
+    running, the report itself (already scraped/generated) shouldn't be thrown away over it, just
+    stored without a vector (skips similarity_search, everything else about it still works)."""
+    try:
+        return llm.embed(markdown)
+    except RuntimeError:
+        return None
+
+
+def _live_scrape(symbol, model):
+    """Scrapes+analyzes a symbol on demand from the user's prompt and caches it like a normal
+    scan. Reuses the existing report instead of re-scraping if one was made within the last 24h -
+    matters a lot for chat, where the same ticker can be mentioned across many turns."""
+    if db.has_recent_item(symbol):
+        return db.latest_item_markdown(symbol)
+    news = scraper.get_news(symbol)
+    financials = scraper.get_financials(symbol)
+    # shortName counts as "this stock exists": SME stocks have no sector on Yahoo and often no
+    # news, and requiring either one rejected every one of them.
+    if not news and not (financials.get("sector") or financials.get("shortName")):
+        return None
+    markdown = llm.build_markdown(symbol, financials, news, model=model)
+    db.insert_scraped_item(symbol, markdown, _embed_or_none(markdown))
+    return markdown
+
+
+def _analyze_url(url, model):
+    """Scrapes an arbitrary news/blog URL, finds which NSE stocks it's about, and scores its
+    sentiment with the local FinRoBERTa model. Whole-article sentiment, not per-ticker - fine for
+    single-company articles; multi-company articles with opposing sentiment need per-snippet
+    scoring, which isn't implemented yet."""
+    try:
+        article = scraper.scrape_article(url)
+    except requests.RequestException as e:
+        msg = f"Couldn't fetch that URL: {e}"
+        raise RuntimeError(msg) from e
+    if not article["text"]:
+        raise HTTPException(status_code=422, detail="Couldn't extract article text from that URL")
+    tickers = llm.extract_tickers(article["text"], model)
+    score = sentiment.analyze(article["text"])
+    reasoning = llm.explain_sentiment(article["text"], score["label"], model)
+    return {"title": article["title"], "url": url, "tickers": tickers, "sentiment": score, "reasoning": reasoning}
+
+
+def _cached_news(symbol):
+    """Serves news from Postgres if scraped within the last day, otherwise re-scrapes and refreshes it.
+    Merges in Cogencis news (Settings > Cogencis) when a token is configured - it's keyed by ISIN
+    rather than NSE symbol and often surfaces different sources than yfinance, so both are kept
+    (deduped by url) rather than one replacing the other."""
+    cached = db.get_cached_news(symbol)
+    if cached is not None:
+        return cached
+    try:
+        fresh = scraper.get_news(symbol)
+    except Exception:
+        fresh = []
+
+    token = db.get_cogencis_token()
+    if token:
+        try:
+            isin = scraper.get_isin(symbol)
+            if isin:
+                fresh += scraper.get_cogencis_news(isin, token)
+        except Exception:
+            pass  # token likely expired/invalid - yfinance news still shown
+
+    seen_urls = set()
+    deduped = []
+    for item in fresh:
+        if item["url"] and item["url"] in seen_urls:
+            continue
+        seen_urls.add(item["url"])
+        deduped.append(item)
+    deduped.sort(key=lambda i: i["published_at"] or datetime.min.replace(tzinfo=UTC), reverse=True)
+    fresh = deduped
+
+    for item in fresh:
+        try:
+            score = sentiment.analyze(f"{item['title']}. {item['summary']}")
+            item["sentiment_label"], item["sentiment_score"] = score["label"], score["score"]
+        except Exception:
+            pass
+    db.save_news(symbol, fresh)
+    classifier.tag_pending_async()  # tags show up on the next read; this one isn't held up
+    return fresh

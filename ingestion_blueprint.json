@@ -1,5 +1,5 @@
 {
-  "current_index": 183,
+  "current_index": 184,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1469,9 +1469,9 @@
       "name": "stoklore",
       "target": "karthik002002/stoklore",
       "url": "https://github.com/karthik002002/stoklore",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2614",
+      "merged": true
     },
     {
       "name": "nsemine",
