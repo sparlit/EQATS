@@ -1,5 +1,5 @@
 {
-  "current_index": 185,
+  "current_index": 186,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1485,7 +1485,7 @@
       "name": "optionworkstation",
       "target": "khakhasshi/optionworkstation",
       "url": "https://github.com/khakhasshi/optionworkstation",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
