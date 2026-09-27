@@ -1,5 +1,5 @@
 {
-  "current_index": 187,
+  "current_index": 188,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1501,7 +1501,7 @@
       "name": "nse-option-chain",
       "target": "kishanlalchoudhary/nse-option-chain",
       "url": "https://github.com/kishanlalchoudhary/nse-option-chain",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
