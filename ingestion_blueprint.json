@@ -1,13 +1,5 @@
 {
-<<<<<<< HEAD
-<<<<<<< HEAD
-  "current_index": 207,
-=======
-  "current_index": 155,
->>>>>>> integrate/stock-nse-india
-=======
-  "current_index": 156,
->>>>>>> integrate/rakshaquant
+  "current_index": 104,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -838,7 +830,7 @@
       "target": "dallyshalla/tropix",
       "url": "https://github.com/dallyshalla/tropix",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2642",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2650",
       "merged": true
     },
     {

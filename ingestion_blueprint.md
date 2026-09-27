@@ -1,13 +1,4 @@
 # EQATS Master Integration Blueprint
-<<<<<<< HEAD
-<<<<<<< HEAD
-Total Repositories: 411 | Current Index: 207
-=======
-Total Repositories: 411 | Current Index: 155
->>>>>>> integrate/stock-nse-india
-=======
-Total Repositories: 411 | Current Index: 156
->>>>>>> integrate/rakshaquant
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -114,8 +105,8 @@ Total Repositories: 411 | Current Index: 156
 | 101 | cutupdev/solana-copytrading-bot | Processed | https://github.com/sparlit/EQATS/pull/2638 |
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
 | 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2641 |
-| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2642 |
-| 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2643 |
+| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2650 |
+| 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2534 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
 | 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
@@ -217,11 +208,7 @@ Total Repositories: 411 | Current Index: 156
 | 204 | longbridge/longbridge-terminal | Processed | https://github.com/sparlit/EQATS/pull/2635 |
 | 205 | lqz13th/extrema_infra | Processed | https://github.com/sparlit/EQATS/pull/2636 |
 | 206 | maanavshah/stock-market-india | Processed | https://github.com/sparlit/EQATS/pull/2637 |
-<<<<<<< HEAD
 | 207 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/2649 |
-=======
-| 207 | maheshcharig/financial-data | pending | None |
->>>>>>> integrate/stock-nse-india
 | 208 | mailbagrahul/nseoptionalpha | pending | None |
 | 209 | manavgupta83/nse-factor-engine | pending | None |
 | 210 | mandarl/nsedata | pending | None |
