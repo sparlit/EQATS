@@ -1,3 +1,4 @@
+config = None
 import datetime
 
 import pytz

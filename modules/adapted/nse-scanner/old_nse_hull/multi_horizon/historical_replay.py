@@ -29,6 +29,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from typing import TYPE_CHECKING
 
 import pandas as pd
+
 from old_nse_hull.discovery import discover
 
 from .comparison import summarize
