@@ -870,7 +870,7 @@
       "target": "deepentropy/ibx",
       "url": "https://github.com/deepentropy/ibx",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2538",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2670",
       "merged": true
     },
     {
@@ -1678,8 +1678,8 @@
       "target": "mandarl/nsedata",
       "url": "https://github.com/mandarl/nsedata",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2664",
-      "merged": true
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "open-interest-data-extractor",
@@ -1693,9 +1693,9 @@
       "name": "nifty50_data_analysis_nsetools_nsepy_python",
       "target": "manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "url": "https://github.com/manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "option_chain_analyzer",

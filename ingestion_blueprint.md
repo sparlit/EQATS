@@ -111,7 +111,7 @@ Total Repositories: 411 | Current Index: 107
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2663 |
 | 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2668 |
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
-| 109 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2538 |
+| 109 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2670 |
 | 110 | degenapetrader/evpoly | Completed | https://github.com/sparlit/EQATS/pull/2539 |
 | 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2540 |
 | 112 | deshpanda/nse-screener | Completed | https://github.com/sparlit/EQATS/pull/2541 |
@@ -212,9 +212,9 @@ Total Repositories: 411 | Current Index: 107
 | 207 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/2649 |
 | 208 | mailbagrahul/nseoptionalpha | Skipped: Private/Non-Existent (404/403) | None |
 | 209 | manavgupta83/nse-factor-engine | Completed | None |
-| 210 | mandarl/nsedata | Processed | https://github.com/sparlit/EQATS/pull/2664 |
+| 210 | mandarl/nsedata | Processed | None |
 | 211 | manddar/open-interest-data-extractor | Completed | https://github.com/sparlit/EQATS/pull/2665 |
-| 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | pending | None |
+| 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | Processed | None |
 | 213 | manishn32/option_chain_analyzer | pending | None |
 | 214 | manitgupta/nse-mcp | pending | None |
 | 215 | mapsx/nse | pending | None |
