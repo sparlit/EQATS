@@ -1,0 +1,323 @@
+use std::sync::Arc;
+
+use crate::arch::{
+    strategy_base::{
+        command::command_core::CommandRegistry,
+        handler::{
+            alt_events::*,
+            lob_events::*,
+            task_channel::{InfraMsg, TaskChannels},
+            ws_events::*,
+        },
+    },
+    task_execution::{
+        TaskKey,
+        task_alt::AltTaskInfo,
+        task_ws::{WsChannel, WsTaskInfo},
+    },
+    traits::{
+        market_lob::{LobWsDecoder, WsDecoders, WsFrameRunner},
+        strategy::*,
+    },
+};
+
+#[derive(Clone)]
+pub struct HNil;
+
+impl Strategy for HNil {
+    async fn initialize(&mut self) {}
+
+    async fn _spawn_strategy_tasks(&self, _task_channels: &Arc<TaskChannels>) {}
+}
+impl CommandEmitter for HNil {
+    fn command_init(&mut self, _command_handle: Arc<CommandRegistry>) {}
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        Arc::new(CommandRegistry::default())
+    }
+}
+impl EventHandler for HNil {}
+
+#[derive(Clone)]
+pub struct HCons<Head, Tail> {
+    pub head: Head,
+    pub tail: Tail,
+}
+
+impl<Head, Tail> Strategy for HCons<Head, Tail>
+where
+    Head: Strategy + Send + Sync + Clone + 'static,
+    Tail: Strategy + Send + Sync + Clone + 'static,
+{
+    async fn initialize(&mut self) {
+        let fut_head = self.head.initialize();
+        let fut_tail = self.tail.initialize();
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn _spawn_strategy_tasks(&self, task_channels: &Arc<TaskChannels>) {
+        let HCons { head, tail } = self;
+        head._spawn_strategy_tasks(task_channels).await;
+        tail._spawn_strategy_tasks(task_channels).await;
+    }
+}
+impl<Head, Tail> CommandEmitter for HCons<Head, Tail>
+where
+    Head: CommandEmitter,
+    Tail: CommandEmitter,
+{
+    fn command_init(&mut self, registry: Arc<CommandRegistry>) {
+        self.head.command_init(registry.clone());
+        self.tail.command_init(registry);
+    }
+
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        self.head.command_registry()
+    }
+}
+
+impl<Head, Tail> EventHandler for HCons<Head, Tail>
+where
+    Head: Strategy,
+    Tail: Strategy,
+{
+    async fn on_alt_event(&mut self, task_info: InfraMsg<AltTaskInfo>) {
+        let fut_head = self.head.on_alt_event(task_info.clone());
+        let fut_tail = self.tail.on_alt_event(task_info);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_order_execution(&mut self, msg: InfraMsg<Vec<AltOrder>>) {
+        let fut_head = self.head.on_order_execution(msg.clone());
+        let fut_tail = self.tail.on_order_execution(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_inst_intent(&mut self, msg: InfraMsg<AltIntent>) {
+        let fut_head = self.head.on_inst_intent(msg.clone());
+        let fut_tail = self.tail.on_inst_intent(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_preds(&mut self, msg: InfraMsg<AltTensor>) {
+        let fut_head = self.head.on_preds(msg.clone());
+        let fut_tail = self.tail.on_preds(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
+        let fut_head = self.head.on_schedule(msg.clone());
+        let fut_tail = self.tail.on_schedule(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_ws_event(&mut self, task_info: InfraMsg<WsTaskInfo>) {
+        let fut_head = self.head.on_ws_event(task_info.clone());
+        let fut_tail = self.tail.on_ws_event(task_info);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_trade(&mut self, msg: InfraMsg<Vec<WsTrade>>) {
+        let fut_head = self.head.on_trade(msg.clone());
+        let fut_tail = self.tail.on_trade(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_lob(&mut self, msg: InfraMsg<Vec<WsLob>>) {
+        let fut_head = self.head.on_lob(msg.clone());
+        let fut_tail = self.tail.on_lob(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_lob_mbo(&mut self, msg: InfraMsg<Vec<WsLobMbo>>) {
+        let fut_head = self.head.on_lob_mbo(msg.clone());
+        let fut_tail = self.tail.on_lob_mbo(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_candle(&mut self, msg: InfraMsg<Vec<WsCandle>>) {
+        let fut_head = self.head.on_candle(msg.clone());
+        let fut_tail = self.tail.on_candle(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_acc_order(&mut self, msg: InfraMsg<Vec<WsAccOrder>>) {
+        let fut_head = self.head.on_acc_order(msg.clone());
+        let fut_tail = self.tail.on_acc_order(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_acc_bal_pos(&mut self, msg: InfraMsg<Vec<WsAccBalPos>>) {
+        let fut_head = self.head.on_acc_bal_pos(msg.clone());
+        let fut_tail = self.tail.on_acc_bal_pos(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_lagged(&mut self, key: TaskKey, skipped: u64) {
+        let fut_head = self.head.on_lagged(key.clone(), skipped);
+        let fut_tail = self.tail.on_lagged(key, skipped);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_acc_pos(&mut self, msg: InfraMsg<Vec<WsAccPosition>>) {
+        let fut_head = self.head.on_acc_pos(msg.clone());
+        let fut_tail = self.tail.on_acc_pos(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+
+    async fn on_ws_other(&mut self, msg: InfraMsg<Vec<WsOtherMessage>>) {
+        let fut_head = self.head.on_ws_other(msg.clone());
+        let fut_tail = self.tail.on_ws_other(msg);
+        tokio::join!(fut_head, fut_tail);
+    }
+}
+
+impl WsDecoders for HNil {
+    fn markets(&self) -> Vec<(u16, &'static str)> {
+        Vec::new()
+    }
+
+    async fn ws_channel_at<R: WsFrameRunner>(&self, _: usize, _: &WsChannel, _: R) {}
+}
+
+impl<Head, Tail> WsDecoders for HCons<Head, Tail>
+where
+    Head: LobWsDecoder,
+    Tail: WsDecoders,
+{
+    fn markets(&self) -> Vec<(u16, &'static str)> {
+        let mut markets = vec![(Head::ID, Head::NAME)];
+        markets.extend(self.tail.markets());
+        markets
+    }
+
+    async fn ws_channel_at<R: WsFrameRunner>(&self, index: usize, channel: &WsChannel, runner: R) {
+        if index == 0 {
+            self.head.ws_channel(channel, runner).await;
+        } else {
+            self.tail.ws_channel_at(index - 1, channel, runner).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    use super::*;
+    use crate::arch::{
+        strategy_base::handler::task_channel::TaskEvent, traits::conversion::IntoWsData,
+    };
+
+    #[derive(Clone)]
+    struct ProbeStrategy {
+        spawn_count: Arc<AtomicUsize>,
+    }
+
+    impl Strategy for ProbeStrategy {
+        async fn initialize(&mut self) {}
+
+        async fn _spawn_strategy_tasks(&self, _task_channels: &Arc<TaskChannels>) {
+            self.spawn_count.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    impl CommandEmitter for ProbeStrategy {
+        fn command_init(&mut self, _command_handle: Arc<CommandRegistry>) {}
+
+        fn command_registry(&self) -> Arc<CommandRegistry> {
+            Arc::new(CommandRegistry::default())
+        }
+    }
+
+    impl EventHandler for ProbeStrategy {}
+
+    #[tokio::test]
+    async fn hlist_delegates_spawn_once_per_head() {
+        let spawn_count = Arc::new(AtomicUsize::new(0));
+        let strategies = HCons {
+            head: ProbeStrategy {
+                spawn_count: spawn_count.clone(),
+            },
+            tail: HCons {
+                head: ProbeStrategy {
+                    spawn_count: spawn_count.clone(),
+                },
+                tail: HNil,
+            },
+        };
+
+        let task_channels = Arc::new(TaskChannels::new(Vec::new()).unwrap());
+        strategies._spawn_strategy_tasks(&task_channels).await;
+
+        assert_eq!(spawn_count.load(Ordering::SeqCst), 2);
+    }
+
+    #[derive(Clone)]
+    struct NamedDecoder<const ID: usize> {
+        runs: Arc<AtomicUsize>,
+    }
+
+    impl LobWsDecoder for NamedDecoder<0> {
+        const ID: u16 = 0;
+        const NAME: &'static str = "first";
+
+        async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {
+            self.runs.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    impl LobWsDecoder for NamedDecoder<1> {
+        const ID: u16 = 1;
+        const NAME: &'static str = "second";
+
+        async fn ws_channel<R: WsFrameRunner>(&self, _: &WsChannel, _: R) {
+            self.runs.fetch_add(10, Ordering::SeqCst);
+        }
+    }
+
+    struct NoopRunner;
+
+    impl WsFrameRunner for NoopRunner {
+        async fn ws_loop<WsData, IntoEvent, Decode>(self, _: IntoEvent, _: Decode)
+        where
+            WsData: IntoWsData + Send + 'static,
+            WsData::Output: Send + Sync + 'static,
+            IntoEvent: Fn(InfraMsg<WsData::Output>) -> TaskEvent + Copy + Send,
+            Decode: Fn(&[u8]) -> serde_json::Result<WsData> + Copy + Send,
+        {
+        }
+    }
+
+    fn decoders(runs: &Arc<AtomicUsize>) -> HCons<NamedDecoder<0>, HCons<NamedDecoder<1>, HNil>> {
+        HCons {
+            head: NamedDecoder { runs: runs.clone() },
+            tail: HCons {
+                head: NamedDecoder { runs: runs.clone() },
+                tail: HNil,
+            },
+        }
+    }
+
+    #[test]
+    fn decoder_list_reports_markets_in_list_order() {
+        let runs = Arc::new(AtomicUsize::new(0));
+
+        assert_eq!(decoders(&runs).markets(), vec![(0, "first"), (1, "second")]);
+    }
+
+    #[tokio::test]
+    async fn decoder_list_runs_the_decoder_at_index() {
+        let runs = Arc::new(AtomicUsize::new(0));
+        let decoders = decoders(&runs);
+        let channel = WsChannel::Lob(None);
+
+        decoders.ws_channel_at(1, &channel, NoopRunner).await;
+        assert_eq!(runs.load(Ordering::SeqCst), 10);
+
+        decoders.ws_channel_at(0, &channel, NoopRunner).await;
+        assert_eq!(runs.load(Ordering::SeqCst), 11);
+    }
+}

@@ -1,0 +1,223 @@
+use data_encoding::HEXUPPER;
+use hmac::{KeyInit, Mac};
+
+use reqwest::{Client, Response};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+use crate::arch::{
+    market_assets::api_general::*,
+    redaction::{redact_identifier, redact_secret},
+};
+use crate::errors::{InfraError, InfraResult};
+
+#[allow(dead_code)]
+pub fn read_binance_env_key() -> InfraResult<BinanceKey> {
+    let _ = dotenvy::dotenv();
+
+    let api_key = std::env::var("BINANCE_API_KEY")
+        .map_err(|_| InfraError::EnvVarMissing("BINANCE_API_KEY".into()))?;
+    let secret_key = std::env::var("BINANCE_SECRET_KEY")
+        .map_err(|_| InfraError::EnvVarMissing("BINANCE_SECRET_KEY".into()))?;
+
+    Ok(BinanceKey::new(&api_key, &secret_key))
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct BinanceKey {
+    pub api_key: String,
+    pub secret_key: String,
+}
+
+impl std::fmt::Debug for BinanceKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BinanceKey")
+            .field("api_key", &redact_identifier(&self.api_key))
+            .field("secret_key", &redact_secret())
+            .finish()
+    }
+}
+
+impl BinanceKey {
+    fn new(api_key: &str, secret_key: &str) -> Self {
+        Self {
+            api_key: api_key.into(),
+            secret_key: secret_key.into(),
+        }
+    }
+
+    fn sign(&self, query_string: &str, timestamp: u64) -> InfraResult<Signature<u64>> {
+        let mut mac = HmacSha256::new_from_slice(self.secret_key.as_bytes())
+            .map_err(|_| InfraError::SecretKeyLength)?;
+        mac.update(query_string.as_bytes());
+
+        Ok(Signature {
+            signature: HEXUPPER.encode(&mac.finalize().into_bytes()),
+            timestamp,
+        })
+    }
+
+    fn sign_now(&self, query_string: Option<&str>) -> InfraResult<Signature<u64>> {
+        let timestamp = get_mills_timestamp();
+
+        let query_with_timestamp = match query_string {
+            Some(query) => format!("{}&timestamp={}", query, timestamp),
+            None => format!("timestamp={}", timestamp),
+        };
+
+        self.sign(&query_with_timestamp, timestamp)
+    }
+
+    pub fn ws_sign(&self, query_string: &str) -> InfraResult<Signature<u64>> {
+        let timestamp = get_mills_timestamp();
+        let query_with_timestamp = format!("{}&timestamp={}", query_string, timestamp);
+        let mut sign = self.sign(&query_with_timestamp, timestamp)?;
+        sign.signature = sign.signature.to_lowercase();
+        Ok(sign)
+    }
+
+    pub(crate) async fn get_request(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        query_string: Option<&str>,
+        url: &str,
+    ) -> InfraResult<Response> {
+        let full_url = binance_build_full_url(url, query_string, signature);
+
+        let res = client
+            .get(&full_url)
+            .header("X-MBX-APIKEY", &self.api_key)
+            .send()
+            .await?;
+
+        Ok(res)
+    }
+
+    pub(crate) async fn post_request(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        query_string: Option<&str>,
+        url: &str,
+    ) -> InfraResult<Response> {
+        let full_url = binance_build_full_url(url, query_string, signature);
+
+        let res = client
+            .post(&full_url)
+            .header("X-MBX-APIKEY", &self.api_key)
+            .send()
+            .await?;
+
+        Ok(res)
+    }
+
+    pub(crate) async fn put_request(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        query_string: Option<&str>,
+        url: &str,
+    ) -> InfraResult<Response> {
+        let full_url = binance_build_full_url(url, query_string, signature);
+
+        let res = client
+            .put(&full_url)
+            .header("X-MBX-APIKEY", &self.api_key)
+            .send()
+            .await?;
+
+        Ok(res)
+    }
+
+    pub(crate) async fn delete_request(
+        &self,
+        client: &Client,
+        signature: &Signature<u64>,
+        query_string: Option<&str>,
+        url: &str,
+    ) -> InfraResult<Response> {
+        let full_url = binance_build_full_url(url, query_string, signature);
+
+        let res = client
+            .delete(&full_url)
+            .header("X-MBX-APIKEY", &self.api_key)
+            .send()
+            .await?;
+
+        Ok(res)
+    }
+
+    pub(crate) async fn send_signed_request<T>(
+        &self,
+        client: &Client,
+        method: RequestMethod,
+        query_string: Option<&str>,
+        base_url: &str,
+        endpoint: &str,
+    ) -> InfraResult<T>
+    where
+        T: DeserializeOwned + Send,
+    {
+        let encoded_query = encode_query_string(query_string);
+        let signature = self.sign_now(encoded_query.as_deref())?;
+        let url = [base_url, endpoint].concat();
+
+        let response = match method {
+            RequestMethod::Get => {
+                self.get_request(client, &signature, encoded_query.as_deref(), &url)
+                    .await?
+            },
+            RequestMethod::Put => {
+                self.put_request(client, &signature, encoded_query.as_deref(), &url)
+                    .await?
+            },
+            RequestMethod::Post => {
+                self.post_request(client, &signature, encoded_query.as_deref(), &url)
+                    .await?
+            },
+            RequestMethod::Delete => {
+                self.delete_request(client, &signature, encoded_query.as_deref(), &url)
+                    .await?
+            },
+        };
+
+        let label = format!("Binance {:?} {}", method, endpoint);
+        parse_json_response(&label, response).await
+    }
+}
+
+fn binance_build_full_url(
+    url: &str,
+    query_string: Option<&str>,
+    signature: &Signature<u64>,
+) -> String {
+    match query_string {
+        Some(query) => format!(
+            "{}?{}&timestamp={}&signature={}",
+            url, query, signature.timestamp, signature.signature
+        ),
+        None => format!(
+            "{}?{}timestamp={}&signature={}",
+            url, "", signature.timestamp, signature.signature
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_binance_key_secrets() {
+        let key = BinanceKey::new(
+            "binance_api_key_1234567890",
+            "binance_secret_key_1234567890",
+        );
+        let debug = format!("{:?}", key);
+
+        assert!(debug.contains("binanc...7890"));
+        assert!(!debug.contains("binance_api_key_1234567890"));
+        assert!(!debug.contains("binance_secret_key_1234567890"));
+        assert!(debug.contains("[REDACTED]"));
+    }
+}

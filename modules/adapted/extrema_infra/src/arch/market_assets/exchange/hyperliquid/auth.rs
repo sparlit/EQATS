@@ -1,0 +1,700 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use data_encoding::HEXLOWER;
+use reqwest::Client;
+use rmp_serde::to_vec_named;
+use secp256k1::{Message, SecretKey, ecdsa::RecoverableSignature};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use sha3::{Digest, Keccak256};
+
+use crate::arch::{
+    market_assets::api_general::{get_mills_timestamp, parse_json_response},
+    redaction::{redact_identifier, redact_secret},
+};
+use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_utils::{
+        HyperliquidSendToEvmWithDataAction, HyperliquidSendToEvmWithDataParams,
+        HyperliquidWithdraw3Action,
+    },
+    config_assets::*,
+};
+
+pub fn read_hyperliquid_env_auth() -> InfraResult<HyperliquidAuth> {
+    let _ = dotenvy::dotenv();
+
+    let owner_address = std::env::var("HYPERLIQUID_OWNER_ADDRESS")
+        .map_err(|_| InfraError::EnvVarMissing("HYPERLIQUID_OWNER_ADDRESS".into()))?
+        .to_ascii_lowercase();
+    let agent_private_key = std::env::var("HYPERLIQUID_AGENT_PRIVATE_KEY")
+        .map_err(|_| InfraError::EnvVarMissing("HYPERLIQUID_AGENT_PRIVATE_KEY".into()))?;
+    let withdraw_private_key = std::env::var("HYPERLIQUID_WITHDRAW_PRIVATE_KEY")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let vault_address = std::env::var("HYPERLIQUID_VAULT_ADDRESS")
+        .ok()
+        .map(|address| address.to_ascii_lowercase());
+
+    Ok(HyperliquidAuth {
+        owner_address,
+        agent_private_key,
+        owner_private_key: withdraw_private_key,
+        vault_address,
+    })
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct HyperliquidAuth {
+    pub owner_address: String,
+    pub agent_private_key: String,
+    pub owner_private_key: Option<String>,
+    pub vault_address: Option<String>,
+}
+
+impl std::fmt::Debug for HyperliquidAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HyperliquidAuth")
+            .field("owner_address", &redact_identifier(&self.owner_address))
+            .field("agent_private_key", &redact_secret())
+            .field(
+                "withdraw_private_key",
+                &self.owner_private_key.as_ref().map(|_| redact_secret()),
+            )
+            .field(
+                "vault_address",
+                &self.vault_address.as_deref().map(redact_identifier),
+            )
+            .finish()
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct HyperliquidSignature {
+    pub r: String,
+    pub s: String,
+    pub v: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct HyperliquidAgent {
+    source: String,
+    #[serde(rename = "connectionId")]
+    connection_id: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct HyperliquidExchangeRequest<'a, A>
+where
+    A: Serialize,
+{
+    action: &'a A,
+    nonce: u64,
+    signature: HyperliquidSignature,
+    #[serde(rename = "vaultAddress", skip_serializing_if = "Option::is_none")]
+    vault_address: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct HyperliquidUserSignedExchangeRequest<'a, A>
+where
+    A: Serialize,
+{
+    action: &'a A,
+    nonce: u64,
+    signature: HyperliquidSignature,
+    #[serde(rename = "vaultAddress")]
+    vault_address: Option<&'a str>,
+    #[serde(rename = "expiresAfter")]
+    expires_after: Option<u64>,
+}
+
+static LAST_NONCE: AtomicU64 = AtomicU64::new(0);
+
+/// Millisecond wall clock that never repeats or moves backwards within the
+/// process, so concurrent signers and clock adjustments cannot reuse a nonce.
+pub(crate) fn next_nonce() -> u64 {
+    let now = get_mills_timestamp();
+    let mut last = LAST_NONCE.load(Ordering::Relaxed);
+    loop {
+        let candidate = now.max(last + 1);
+        match LAST_NONCE.compare_exchange_weak(last, candidate, Ordering::AcqRel, Ordering::Relaxed)
+        {
+            Ok(_) => return candidate,
+            Err(actual) => last = actual,
+        }
+    }
+}
+
+impl HyperliquidAuth {
+    pub async fn send_withdraw3_raw<T>(
+        &self,
+        client: &Client,
+        destination: &str,
+        amount: &str,
+    ) -> InfraResult<T>
+    where
+        T: DeserializeOwned + Send + std::fmt::Debug,
+    {
+        let nonce = next_nonce();
+        let action = HyperliquidWithdraw3Action {
+            kind: "withdraw3",
+            destination: normalize_evm_address(destination)?,
+            amount: amount.to_string(),
+            time: nonce,
+            signature_chain_id: HYPERLIQUID_DEFAULT_SIGNATURE_CHAIN_ID.to_string(),
+            hyperliquid_chain: HYPERLIQUID_MAINNET_CHAIN.to_string(),
+        };
+        let signature = self.sign_withdraw3_action(&action)?;
+        let body = HyperliquidExchangeRequest {
+            action: &action,
+            nonce,
+            signature,
+            vault_address: self.vault_address.as_deref(),
+        };
+        let body_string = serde_json::to_string(&body).map_err(|e| {
+            InfraError::ApiCliError(format!(
+                "Serialize Hyperliquid withdraw3 body failed: {}",
+                e
+            ))
+        })?;
+        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_EXCHANGE].concat();
+
+        let response = client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await?;
+
+        parse_json_response("Hyperliquid POST withdraw3", response).await
+    }
+
+    pub fn sign_withdraw3_action(
+        &self,
+        action: &HyperliquidWithdraw3Action,
+    ) -> InfraResult<HyperliquidSignature> {
+        let digest = withdraw3_eip712_digest(action)?;
+        let secret_key = parse_secret_key(self.owner_private_key.as_deref().ok_or_else(|| {
+            InfraError::EnvVarMissing("HYPERLIQUID_WITHDRAW_PRIVATE_KEY".into())
+        })?)?;
+        sign_digest(&secret_key, &digest)
+    }
+
+    pub async fn send_to_evm_with_data_raw<T>(
+        &self,
+        client: &Client,
+        params: HyperliquidSendToEvmWithDataParams,
+    ) -> InfraResult<T>
+    where
+        T: DeserializeOwned + Send + std::fmt::Debug,
+    {
+        let nonce = next_nonce();
+        let action = HyperliquidSendToEvmWithDataAction {
+            kind: "sendToEvmWithData",
+            hyperliquid_chain: HYPERLIQUID_MAINNET_CHAIN.to_string(),
+            signature_chain_id: HYPERLIQUID_DEFAULT_SIGNATURE_CHAIN_ID.to_string(),
+            token: params.token,
+            amount: params.amount,
+            source_dex: params.source_dex,
+            destination_recipient: normalize_evm_address(&params.destination_recipient)?,
+            address_encoding: "hex",
+            destination_chain_id: params.destination_chain_id,
+            gas_limit: params.gas_limit,
+            data: normalize_hex_data(&params.data)?,
+            nonce,
+        };
+        let signature = self.sign_send_to_evm_with_data_action(&action)?;
+        let body = HyperliquidUserSignedExchangeRequest {
+            action: &action,
+            nonce,
+            signature,
+            vault_address: None,
+            expires_after: None,
+        };
+        let body_string = serde_json::to_string(&body).map_err(|e| {
+            InfraError::ApiCliError(format!(
+                "Serialize Hyperliquid sendToEvmWithData body failed: {}",
+                e
+            ))
+        })?;
+        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_EXCHANGE].concat();
+
+        let response = client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await?;
+
+        parse_json_response("Hyperliquid POST sendToEvmWithData", response).await
+    }
+
+    pub(crate) fn sign_send_to_evm_with_data_action(
+        &self,
+        action: &HyperliquidSendToEvmWithDataAction,
+    ) -> InfraResult<HyperliquidSignature> {
+        let digest = send_to_evm_with_data_eip712_digest(action)?;
+        let secret_key = parse_secret_key(self.owner_private_key.as_deref().ok_or_else(|| {
+            InfraError::EnvVarMissing("HYPERLIQUID_WITHDRAW_PRIVATE_KEY".into())
+        })?)?;
+        sign_digest(&secret_key, &digest)
+    }
+
+    pub async fn send_signed_exchange_action_raw<T, A>(
+        &self,
+        client: &Client,
+        action: &A,
+    ) -> InfraResult<T>
+    where
+        T: DeserializeOwned + Send + std::fmt::Debug,
+        A: Serialize,
+    {
+        let nonce = next_nonce();
+        let signature = self.sign_l1_action(action, nonce, self.vault_address.as_deref())?;
+        let body = HyperliquidExchangeRequest {
+            action,
+            nonce,
+            signature,
+            vault_address: self.vault_address.as_deref(),
+        };
+        let body_string = serde_json::to_string(&body).map_err(|e| {
+            InfraError::ApiCliError(format!("Serialize Hyperliquid exchange body failed: {}", e))
+        })?;
+        let url = [HYPERLIQUID_BASE_URL, HYPERLIQUID_EXCHANGE].concat();
+
+        let response = client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await?;
+
+        parse_json_response("Hyperliquid POST exchange", response).await
+    }
+
+    pub fn sign_l1_action<A>(
+        &self,
+        action: &A,
+        nonce: u64,
+        vault_address: Option<&str>,
+    ) -> InfraResult<HyperliquidSignature>
+    where
+        A: Serialize,
+    {
+        let connection_id = self.action_hash(action, nonce, vault_address)?;
+        let agent = HyperliquidAgent {
+            source: HYPERLIQUID_MAINNET_SOURCE.to_string(),
+            connection_id: format!("0x{}", HEXLOWER.encode(&connection_id)),
+        };
+        let digest = eip712_agent_digest(&agent)?;
+        let secret_key = parse_secret_key(&self.agent_private_key)?;
+        sign_digest(&secret_key, &digest)
+    }
+
+    fn action_hash<A>(
+        &self,
+        action: &A,
+        nonce: u64,
+        vault_address: Option<&str>,
+    ) -> InfraResult<[u8; 32]>
+    where
+        A: Serialize,
+    {
+        let mut bytes = to_vec_named(action).map_err(|e| {
+            InfraError::ApiCliError(format!("Serialize Hyperliquid action failed: {}", e))
+        })?;
+        bytes.extend(nonce.to_be_bytes());
+
+        match vault_address {
+            Some(address) => {
+                bytes.push(1);
+                bytes.extend(parse_address_bytes(address)?);
+            },
+            None => {
+                bytes.push(0);
+            },
+        }
+
+        Ok(keccak256(&bytes))
+    }
+}
+
+fn withdraw3_eip712_digest(action: &HyperliquidWithdraw3Action) -> InfraResult<[u8; 32]> {
+    let domain_type_hash = keccak256(
+        b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+    );
+    let mut domain = Vec::with_capacity(32 * 5);
+    domain.extend(domain_type_hash);
+    domain.extend(keccak256(b"HyperliquidSignTransaction"));
+    domain.extend(keccak256(b"1"));
+    domain.extend(u256_bytes(parse_hex_u64(&action.signature_chain_id)?));
+    domain.extend(address_to_word([0u8; 20]));
+    let domain_separator = keccak256(&domain);
+
+    let type_hash = keccak256(
+        b"HyperliquidTransaction:Withdraw(string hyperliquidChain,string destination,string amount,uint64 time)",
+    );
+    let mut payload = Vec::with_capacity(32 * 5);
+    payload.extend(type_hash);
+    payload.extend(keccak256(action.hyperliquid_chain.as_bytes()));
+    payload.extend(keccak256(action.destination.as_bytes()));
+    payload.extend(keccak256(action.amount.as_bytes()));
+    payload.extend(u256_bytes(action.time));
+    let struct_hash = keccak256(&payload);
+
+    let mut digest_input = Vec::with_capacity(66);
+    digest_input.extend(b"\x19\x01");
+    digest_input.extend(domain_separator);
+    digest_input.extend(struct_hash);
+    Ok(keccak256(&digest_input))
+}
+
+fn send_to_evm_with_data_eip712_digest(
+    action: &HyperliquidSendToEvmWithDataAction,
+) -> InfraResult<[u8; 32]> {
+    let domain_type_hash = keccak256(
+        b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+    );
+    let mut domain = Vec::with_capacity(32 * 5);
+    domain.extend(domain_type_hash);
+    domain.extend(keccak256(b"HyperliquidSignTransaction"));
+    domain.extend(keccak256(b"1"));
+    domain.extend(u256_bytes(parse_hex_u64(&action.signature_chain_id)?));
+    domain.extend(address_to_word([0u8; 20]));
+    let domain_separator = keccak256(&domain);
+
+    let type_hash = keccak256(
+        b"HyperliquidTransaction:SendToEvmWithData(string hyperliquidChain,string token,string amount,string sourceDex,string destinationRecipient,string addressEncoding,uint32 destinationChainId,uint64 gasLimit,bytes data,uint64 nonce)",
+    );
+    let data = decode_hex(&action.data, "Hyperliquid calldata")?;
+    let mut payload = Vec::with_capacity(32 * 11);
+    payload.extend(type_hash);
+    payload.extend(keccak256(action.hyperliquid_chain.as_bytes()));
+    payload.extend(keccak256(action.token.as_bytes()));
+    payload.extend(keccak256(action.amount.as_bytes()));
+    payload.extend(keccak256(action.source_dex.as_bytes()));
+    payload.extend(keccak256(action.destination_recipient.as_bytes()));
+    payload.extend(keccak256(action.address_encoding.as_bytes()));
+    payload.extend(u256_bytes(u64::from(action.destination_chain_id)));
+    payload.extend(u256_bytes(action.gas_limit));
+    payload.extend(keccak256(&data));
+    payload.extend(u256_bytes(action.nonce));
+    let struct_hash = keccak256(&payload);
+
+    let mut digest_input = Vec::with_capacity(66);
+    digest_input.extend(b"\x19\x01");
+    digest_input.extend(domain_separator);
+    digest_input.extend(struct_hash);
+    Ok(keccak256(&digest_input))
+}
+
+fn eip712_agent_digest(agent: &HyperliquidAgent) -> InfraResult<[u8; 32]> {
+    let domain_type_hash = keccak256(
+        b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
+    );
+    let name_hash = keccak256(b"Exchange");
+    let version_hash = keccak256(b"1");
+
+    let mut domain = Vec::with_capacity(32 * 5);
+    domain.extend(domain_type_hash);
+    domain.extend(name_hash);
+    domain.extend(version_hash);
+    domain.extend(u256_bytes(1337));
+    domain.extend(address_to_word([0u8; 20]));
+    let domain_separator = keccak256(&domain);
+
+    let agent_type_hash = keccak256(b"Agent(string source,bytes32 connectionId)");
+    let source_hash = keccak256(agent.source.as_bytes());
+    let connection_id = parse_bytes32(&agent.connection_id)?;
+
+    let mut struct_bytes = Vec::with_capacity(32 * 3);
+    struct_bytes.extend(agent_type_hash);
+    struct_bytes.extend(source_hash);
+    struct_bytes.extend(connection_id);
+    let struct_hash = keccak256(&struct_bytes);
+
+    let mut digest_input = Vec::with_capacity(66);
+    digest_input.extend(b"\x19\x01");
+    digest_input.extend(domain_separator);
+    digest_input.extend(struct_hash);
+
+    Ok(keccak256(&digest_input))
+}
+
+fn sign_digest(secret_key: &SecretKey, digest: &[u8; 32]) -> InfraResult<HyperliquidSignature> {
+    let message = Message::from_digest(*digest);
+    let signature = RecoverableSignature::sign_ecdsa_recoverable(message, secret_key);
+    let (recid, compact) = signature.serialize_compact();
+    let (r, s) = compact.split_at(32);
+
+    Ok(HyperliquidSignature {
+        r: format!("0x{}", HEXLOWER.encode(r)),
+        s: format!("0x{}", HEXLOWER.encode(s)),
+        v: u64::from(recid.to_u8()) + 27,
+    })
+}
+
+fn parse_secret_key(secret: &str) -> InfraResult<SecretKey> {
+    let bytes = decode_hex(secret, "Hyperliquid private key")?;
+    let len = bytes.len();
+    let key_bytes: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| InfraError::ApiCliError(format!("Invalid secret key length: {}", len)))?;
+    SecretKey::from_secret_bytes(key_bytes)
+        .map_err(|e| InfraError::ApiCliError(format!("Invalid secret key: {}", e)))
+}
+
+fn parse_address_bytes(address: &str) -> InfraResult<[u8; 20]> {
+    let bytes = decode_hex(address, "Hyperliquid address")?;
+    if bytes.len() != 20 {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Hyperliquid address length: {}",
+            bytes.len()
+        )));
+    }
+
+    let mut out = [0u8; 20];
+    out.copy_from_slice(&bytes);
+    Ok(out)
+}
+
+fn parse_bytes32(hex_string: &str) -> InfraResult<[u8; 32]> {
+    let bytes = decode_hex(hex_string, "Hyperliquid bytes32")?;
+    if bytes.len() != 32 {
+        return Err(InfraError::ApiCliError(format!(
+            "Invalid Hyperliquid bytes32 length: {}",
+            bytes.len()
+        )));
+    }
+
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Ok(out)
+}
+
+fn normalize_evm_address(address: &str) -> InfraResult<String> {
+    let bytes = parse_address_bytes(address)?;
+    Ok(format!("0x{}", HEXLOWER.encode(&bytes)))
+}
+
+fn normalize_hex_data(data: &str) -> InfraResult<String> {
+    let bytes = decode_hex(data, "Hyperliquid calldata")?;
+    Ok(format!("0x{}", HEXLOWER.encode(&bytes)))
+}
+
+fn decode_hex(input: &str, field: &'static str) -> InfraResult<Vec<u8>> {
+    let cleaned = input.trim_start_matches("0x");
+    let bytes = cleaned.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len().div_ceil(2));
+    let mut offset = 0;
+
+    if !bytes.len().is_multiple_of(2) {
+        out.push(hex_value(bytes[0], field, 0)?);
+        offset = 1;
+    }
+
+    while offset < bytes.len() {
+        out.push(
+            (hex_value(bytes[offset], field, offset)? << 4)
+                | hex_value(bytes[offset + 1], field, offset + 1)?,
+        );
+        offset += 2;
+    }
+
+    Ok(out)
+}
+
+fn hex_value(b: u8, field: &'static str, offset: usize) -> InfraResult<u8> {
+    match b {
+        b'0'..=b'9' => Ok(b - b'0'),
+        b'a'..=b'f' => Ok(b - b'a' + 10),
+        b'A'..=b'F' => Ok(b - b'A' + 10),
+        _ => Err(InfraError::ApiCliError(format!(
+            "{field}: non-hex digit at offset {offset}"
+        ))),
+    }
+}
+
+fn parse_hex_u64(value: &str) -> InfraResult<u64> {
+    u64::from_str_radix(value.trim_start_matches("0x"), 16)
+        .map_err(|e| InfraError::ApiCliError(format!("Invalid hex u64 {}: {}", value, e)))
+}
+
+fn keccak256(input: &[u8]) -> [u8; 32] {
+    let mut hasher = Keccak256::new();
+    hasher.update(input);
+    hasher.finalize().into()
+}
+
+fn u256_bytes(value: u64) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out[24..].copy_from_slice(&value.to_be_bytes());
+    out
+}
+
+fn address_to_word(address: [u8; 20]) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out[12..].copy_from_slice(&address);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_redacts_hyperliquid_auth_secrets() {
+        let auth = HyperliquidAuth {
+            owner_address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
+            agent_private_key:
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                    .to_string(),
+            owner_private_key: Some(
+                "0x1111111111111111111111111111111111111111111111111111111111111111".to_string(),
+            ),
+            vault_address: Some("0xfedcba0987654321fedcba0987654321fedcba09".to_string()),
+        };
+        let debug = format!("{:?}", auth);
+
+        assert!(debug.contains("0x1234...5678"));
+        assert!(debug.contains("0xfedc...ba09"));
+        assert!(!debug.contains("0x1234567890abcdef1234567890abcdef12345678"));
+        assert!(
+            !debug.contains(
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+            )
+        );
+        assert!(
+            !debug.contains("0x1111111111111111111111111111111111111111111111111111111111111111")
+        );
+        assert!(!debug.contains("0xfedcba0987654321fedcba0987654321fedcba09"));
+        assert!(debug.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn signs_withdraw3_like_official_python_sdk() {
+        let auth = HyperliquidAuth {
+            owner_address: "0x5e9ee1089755c3435139848e47e6635505d5a13a".to_string(),
+            agent_private_key:
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                    .to_string(),
+            owner_private_key: Some(
+                "0x0123456789012345678901234567890123456789012345678901234567890123".to_string(),
+            ),
+            vault_address: None,
+        };
+        let action = HyperliquidWithdraw3Action {
+            kind: "withdraw3",
+            destination: "0x5e9ee1089755c3435139848e47e6635505d5a13a".to_string(),
+            amount: "1".to_string(),
+            time: 1687816341423,
+            signature_chain_id: HYPERLIQUID_DEFAULT_SIGNATURE_CHAIN_ID.to_string(),
+            hyperliquid_chain: "Testnet".to_string(),
+        };
+
+        let signature = auth.sign_withdraw3_action(&action).unwrap();
+
+        assert_eq!(
+            signature.r,
+            "0x8363524c799e90ce9bc41022f7c39b4e9bdba786e5f9c72b20e43e1462c37cf9"
+        );
+        assert_eq!(
+            signature.s,
+            "0x58b1411a775938b83e29182e8ef74975f9054c8e97ebf5ec2dc8d51bfc893881"
+        );
+        assert_eq!(signature.v, 28);
+    }
+
+    #[test]
+    fn signs_send_to_evm_with_data_like_live_request() {
+        let auth = HyperliquidAuth {
+            owner_address: "0x5e9ee1089755c3435139848e47e6635505d5a13a".to_string(),
+            agent_private_key:
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                    .to_string(),
+            owner_private_key: Some(
+                "0x0123456789012345678901234567890123456789012345678901234567890123".to_string(),
+            ),
+            vault_address: None,
+        };
+        let action = HyperliquidSendToEvmWithDataAction {
+            kind: "sendToEvmWithData",
+            hyperliquid_chain: HYPERLIQUID_MAINNET_CHAIN.to_string(),
+            signature_chain_id: HYPERLIQUID_DEFAULT_SIGNATURE_CHAIN_ID.to_string(),
+            token: "USDC".to_string(),
+            amount: "0.3".to_string(),
+            source_dex: "spot".to_string(),
+            destination_recipient: "0x41b92ff49b859401b56cf0fed31bbdf8149eced7".to_string(),
+            address_encoding: "hex",
+            destination_chain_id: 3,
+            gas_limit: 200_000,
+            data: "0x".to_string(),
+            nonce: 1_787_028_633_431,
+        };
+
+        let signature = auth.sign_send_to_evm_with_data_action(&action).unwrap();
+        assert_eq!(
+            signature.r,
+            "0xe4f489741b946d9a2dcc78377899ef25cb6f0122916beefccb6122de91d86157"
+        );
+        assert_eq!(
+            signature.s,
+            "0x46e11cf2964af984963a7340ea613545cafc80a89c58e8b2ad7619d5baa29c70"
+        );
+        assert_eq!(signature.v, 27);
+
+        let action_json = serde_json::to_value(&action).unwrap();
+        assert_eq!(action_json["type"], "sendToEvmWithData");
+        assert_eq!(action_json["destinationChainId"], 3);
+        assert_eq!(action_json["gasLimit"], 200_000);
+        assert_eq!(action_json["data"], "0x");
+    }
+
+    #[test]
+    fn normalizes_send_to_evm_hex_fields() {
+        assert_eq!(
+            normalize_evm_address("0x41B92fF49B859401B56cF0fEd31BBdf8149EceD7").unwrap(),
+            "0x41b92ff49b859401b56cf0fed31bbdf8149eced7"
+        );
+        assert_eq!(normalize_hex_data("0x").unwrap(), "0x");
+        assert_eq!(normalize_hex_data("0x0102").unwrap(), "0x0102");
+        assert_eq!(normalize_hex_data("0xabc").unwrap(), "0x0abc");
+        assert!(
+            normalize_hex_data("0x1z2")
+                .unwrap_err()
+                .to_string()
+                .contains("Hyperliquid calldata: non-hex digit at offset 1")
+        );
+    }
+
+    #[test]
+    fn next_nonce_is_unique_and_increasing_across_threads() {
+        let start = get_mills_timestamp();
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                std::thread::spawn(|| {
+                    let mut seen = Vec::with_capacity(1_000);
+                    for _ in 0..1_000 {
+                        seen.push(next_nonce());
+                    }
+                    seen
+                })
+            })
+            .collect();
+        let mut all: Vec<u64> = Vec::new();
+        for handle in handles {
+            let seen = handle.join().unwrap();
+            assert!(
+                seen.windows(2).all(|w| w[1] > w[0]),
+                "per-thread sequence must increase"
+            );
+            all.extend(seen);
+        }
+        let unique: std::collections::HashSet<u64> = all.iter().copied().collect();
+        assert_eq!(unique.len(), all.len());
+        assert!(all.iter().all(|n| *n >= start));
+        // A burst runs ahead of the clock by at most its own size.
+        assert!(all.iter().max().unwrap() - start <= 8_000 + 1_000);
+    }
+}
