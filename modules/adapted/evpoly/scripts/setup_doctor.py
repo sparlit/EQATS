@@ -27,7 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """EVPOLY setup doctor.
 
 Checks the current env against the baseline public V2 runtime fields that a
-healthy EVPOLY setup should have, confirms alpha self-onboarding posture, and
+healthy EVPOLY setup should have and
 reports any remaining manual fields that still need user input.
 """
 
@@ -86,7 +86,7 @@ def _parse_signature_type(raw: str) -> int:
         value = int((raw or "").strip())
     except Exception:
         return 0
-    return value if value in (0, 1, 2) else 0
+    return value if value in (0, 1, 2, 3) else 0
 
 
 def _parse_env_bool(raw: str, default: bool) -> bool:
@@ -112,10 +112,9 @@ def _collect_audit(env_path: Path) -> dict[str, Any]:
     private_key = _env_value(env_path, "POLY_PRIVATE_KEY")
     signature_type = _parse_signature_type(_env_value(env_path, "POLY_SIGNATURE_TYPE"))
     proxy_wallet = _env_value(env_path, "POLY_PROXY_WALLET_ADDRESS")
+    deposit_wallet = _env_value(env_path, "POLY_DEPOSIT_WALLET_ADDRESS")
     relayer_key = _env_value(env_path, "RELAYER_API_KEY")
     relayer_address = _env_value(env_path, "RELAYER_API_KEY_ADDRESS")
-    alpha_key = _env_value(env_path, "EVPOLY_ALPHA_KEY")
-    alpha_auto_onboard = _parse_env_bool(_env_value(env_path, "EVPOLY_ALPHA_AUTO_ONBOARD"), True)
 
     if not private_key:
         items.append(
@@ -152,59 +151,39 @@ def _collect_audit(env_path: Path) -> dict[str, Any]:
         blocking_missing_labels.append("Proxy Wallet")
         manual_missing_labels.append("Proxy Wallet")
 
-    if not relayer_key:
+    if signature_type == 3 and not deposit_wallet:
+        items.append(
+            _status_item(
+                "POLY_DEPOSIT_WALLET_ADDRESS",
+                "Deposit Wallet",
+                "missing_user",
+                "Deposit mode requires POLY_DEPOSIT_WALLET_ADDRESS in .env.",
+            )
+        )
+        blocking_missing_labels.append("Deposit Wallet")
+        manual_missing_labels.append("Deposit Wallet")
+
+    if signature_type in (1, 2) and not relayer_key:
         items.append(
             _status_item(
                 "RELAYER_API_KEY",
                 "Relayer API Key",
                 "missing_user",
-                "Get RELAYER_API_KEY from https://polymarket.com/settings?tab=api-keys and add it to .env. EVPOLY can still use remote signer fallback where supported.",
+                "Get RELAYER_API_KEY from https://polymarket.com/settings?tab=api-keys and add it to .env. These credentials are required for gasless approvals, merge, and redeem; order signing remains local.",
             )
         )
         manual_missing_labels.append("Relayer API Key")
 
-    if not relayer_address:
+    if signature_type in (1, 2) and not relayer_address:
         items.append(
             _status_item(
                 "RELAYER_API_KEY_ADDRESS",
                 "Relayer API Key Address",
                 "missing_user",
-                "Get RELAYER_API_KEY_ADDRESS from https://polymarket.com/settings?tab=api-keys and add it to .env. EVPOLY can still use remote signer fallback where supported.",
+                "Get RELAYER_API_KEY_ADDRESS from https://polymarket.com/settings?tab=api-keys and add it to .env. These credentials are required for gasless approvals, merge, and redeem; order signing remains local.",
             )
         )
         manual_missing_labels.append("Relayer API Key Address")
-
-    if alpha_key:
-        items.append(
-            _status_item(
-                "EVPOLY_ALPHA_KEY",
-                "Alpha Access",
-                "ok",
-                "EVPOLY_ALPHA_KEY is already present.",
-            )
-        )
-    elif alpha_auto_onboard:
-        items.append(
-            _status_item(
-                "EVPOLY_ALPHA_KEY",
-                "Alpha Access",
-                "ok",
-                (
-                    "EVPOLY_ALPHA_KEY is blank; runtime will auto-register it on first start "
-                    "when POLY_PROXY_WALLET_ADDRESS and the official builder code are present."
-                ),
-            )
-        )
-    else:
-        items.append(
-            _status_item(
-                "EVPOLY_ALPHA_KEY",
-                "Alpha Access",
-                "missing_user",
-                "Set EVPOLY_ALPHA_KEY manually or set EVPOLY_ALPHA_AUTO_ONBOARD=true.",
-            )
-        )
-        manual_missing_labels.append("Alpha Access")
 
     if not items:
         items.append(
@@ -236,7 +215,7 @@ def _popup_for_needs_you(audit: dict[str, Any], relayer_only: bool) -> dict[str,
             "body": (
                 "Get RELAYER_API_KEY and RELAYER_API_KEY_ADDRESS from "
                 "https://polymarket.com/settings?tab=api-keys and add them to .env. "
-                "EVPOLY can still use remote signer fallback where supported."
+                "These credentials are required for gasless approvals, merge, and redeem; order signing remains local."
             ),
         }
     missing = _missing_sentence(audit["manual_missing_labels"])
@@ -247,7 +226,7 @@ def _popup_for_needs_you(audit: dict[str, Any], relayer_only: bool) -> dict[str,
         }
     return {
         "title": "Finish Setup Doctor",
-        "body": "Setup Doctor finished, but some baseline remote credentials are still missing.",
+        "body": "Setup Doctor finished, but some wallet fields are still missing.",
     }
 
 

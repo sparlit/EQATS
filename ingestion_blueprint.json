@@ -1,5 +1,5 @@
 {
-  "current_index": 109,
+  "current_index": 110,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -877,9 +877,9 @@
       "name": "evpoly",
       "target": "degenapetrader/evpoly",
       "url": "https://github.com/degenapetrader/evpoly",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2539",
+      "merged": true
     },
     {
       "name": "openbook",
