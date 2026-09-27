@@ -40,13 +40,18 @@ Output: {"updated","count", "rows":[[scrip_cd, ticker, name, isin, group, faceva
 
 Run: python -X utf8 scripts/build_bse_universe.py [--sector-budget N]
 """
-import csv
-import datetime
-import io
-import json
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 import os
 import sys
+import json
+import io
+import csv
 import time
+import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
@@ -119,6 +124,63 @@ def sector_of(op, code, cache):
     return sec
 
 
+SEEN = os.path.join(HERE, "bse_seen_scrips.json")
+SEEN_DAYS = 120
+
+
+def nse_tape_meta():
+    """(symbols, ISINs) of the NSE tape from the committed docs/sf_stock_data.bin — only its trailing "meta" object is
+    decoded (0.5 s; the bars are never parsed). Empty sets if the file is absent."""
+    p = os.path.join(HERE, "..", "docs", "sf_stock_data.bin")
+    try:
+        import gzip
+
+        b = gzip.decompress(open(p, "rb").read())
+        m, _ = json.JSONDecoder().raw_decode(b[b.rfind(b'"meta":') + 7 :].decode("utf-8"))
+    except (OSError, ValueError):
+        return set(), set()
+    return {k.upper() for k in m}, {v["isin"] for v in m.values() if v.get("isin")}
+
+
+def seen_extra(allbse, nse, today=None):
+    """Rows for BSE equities that TRADED within SEEN_DAYS (scripts/bse_seen_scrips.json, written by fetch_bse_bhav from
+    each day's bhavcopy) but are absent from the Active list, ISIN not on NSE (exact, or the issuer of an NSE equity ISIN).
+    §172: 77 such scrips traded on 21-Sep-2026 (groups XT/Z, once-a-week surveillance) with no presence on the site.
+    Same shape as an API row; Mktcap 0 (unknown), FACE_VALUE 0, name/group from the bhavcopy."""
+    try:
+        seen = json.load(open(SEEN, encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    today = today or datetime.date.today()
+    floor = int((today - datetime.timedelta(days=SEEN_DAYS)).strftime("%Y%m%d"))
+    have = {str(x.get("SCRIP_CD")) for x in allbse}
+    tape_keys, tape_isin = nse_tape_meta()
+    nse = set(nse) | tape_isin
+    nse_iss = {i[:7] for i in nse if i.startswith("INE") and i[7:9] == "01"}
+    out = []
+    for code, (tk, name, isin, grp, last) in sorted(seen.items()):
+        if code in have or last < floor or isin in nse or isin[:7] in nse_iss:
+            continue
+        # a symbol the NSE tape already owns (dead on NSE but still printing on BSE: RAMAPETRO, KANDAGIRI; BZ names
+        # outside EQUITY_L: BLUECHIP, LASA) is not BSE-only — never a second page for it. A ticker coincidence with an
+        # unrelated NSE key also lands here: that errs toward leaving a scrip out, never toward a duplicate.
+        if tk.upper() in tape_keys:
+            continue
+        out.append(
+            {
+                "SCRIP_CD": int(code),
+                "scrip_id": tk,
+                "Scrip_Name": name,
+                "ISIN_NUMBER": isin,
+                "GROUP": grp,
+                "FACE_VALUE": 0,
+                "Mktcap": 0,
+                "_seen": last,
+            }
+        )
+    return out
+
+
 def mcap(x):
     try:
         return round(float(x.get("Mktcap") or 0), 2)
@@ -137,8 +199,13 @@ def main():
     bse_only = [
         x for x in allbse if (x.get("ISIN_NUMBER") or "").strip() and (x.get("ISIN_NUMBER") or "").strip() not in nse
     ]
+    extra = seen_extra(allbse, nse)
+    bse_only += extra
     bse_only.sort(key=mcap, reverse=True)
-    print("BSE active equity %d; BSE-only %d" % (len(allbse), len(bse_only)))
+    print(
+        "BSE active equity %d; BSE-only %d (incl. %d traded but not on the Active list)"
+        % (len(allbse), len(bse_only), len(extra))
+    )
 
     cache = json.load(open(SEC_CACHE)) if os.path.exists(SEC_CACHE) else {}
     spent = 0
@@ -146,7 +213,7 @@ def main():
     for x in bse_only:
         code = x["SCRIP_CD"]
         sec = cache.get(str(code), "")
-        if not sec and spent < budget and mcap(x) > 0:  # enrich biggest-first within budget
+        if not sec and spent < budget and (mcap(x) > 0 or x.get("_seen")):  # enrich biggest-first within budget
             sec = sector_of(op, code, cache)
             spent += 1
             if spent % 50 == 0:

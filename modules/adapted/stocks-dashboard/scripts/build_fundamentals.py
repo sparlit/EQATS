@@ -580,7 +580,22 @@ def main():
         # may have left out of order. Idempotent. (audit 2026-09-01)
         fund_dup_guard.assert_ok(data, "build_fundamentals")
         json.dump(data, open(OUT, "w"), separators=(",", ":"))
-        json.dump(data, open(docs, "w"), separators=(",", ":"))  # web copy stays usable mid-build
+        # The web copy is a FILL-MERGE, never a replacement: `data` is the master mirror
+        # (scripts/fundamentals.json), which lags docs by ~800 symbols / ~27,000 quarter rows that other
+        # writers add straight to docs (2026-09-27 measure) — the old json.dump(data, docs) would have
+        # erased all of them on any manual `build_fundamentals.py SYM` run. Add what docs lacks; keep the rest.
+        try:
+            web = json.load(open(docs))
+        except Exception:
+            web = {}
+        for _s, _rows in data.items():
+            _have = {r[0] for r in web.get(_s, []) if isinstance(r, list) and r}
+            _new = [r for r in _rows if isinstance(r, list) and r and r[0] not in _have]
+            if _new:
+                web.setdefault(_s, []).extend(_new)
+        fund_dup_guard.sort_rows(web)
+        fund_dup_guard.assert_ok(web, "build_fundamentals(web)")
+        json.dump(web, open(docs, "w"), separators=(",", ":"))  # web copy stays usable mid-build
         json.dump(sorted(attempted), open(ATT, "w"))
 
     lock = threading.Lock()

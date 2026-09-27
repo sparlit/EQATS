@@ -160,7 +160,9 @@ def main():
             n_rejected += 1
             print("REJECT {} {}: {}".format(e.get("sym"), e.get("qe"), err))
             continue
-        sym, qe, con, ann, force = e["sym"], e["qe"], float(e["con"]), str(e["ann"]), bool(e.get("force"))
+        # ann as INT: the store holds announce dates as ints; a str here crashed fill_ann_dates.py
+        # ("'<=' not supported between str and int", run 35648665228, 2026-09-22) and failed the job.
+        sym, qe, con, ann, force = e["sym"], e["qe"], float(e["con"]), int(str(e["ann"])), bool(e.get("force"))
         cur = next((r for r in docs.get(sym, []) if r[0] == qe), None)
         if cur is not None and cur[3] is not None and not force:
             e["rejected"] = f"already filled ({cur[3]:.2f} cr) — tick overwrite to correct"

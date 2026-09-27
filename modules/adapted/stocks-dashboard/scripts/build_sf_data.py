@@ -192,7 +192,15 @@ def parse_rows(text):
         # carries the same OPEN/HIGH/LOW/CLOSE/PREV_CLOSE/TTL_TRD_QNTY/TURNOVER_LACS/NO_OF_TRADES
         # as an EQ row. Mid-series holes were the same defect: UNITECH went BZ 2020-03 -> 2025-10
         # and traded Rs16 cr on a sampled day inside the hole. See DATA_RUNBOOK §80.
-        if ser not in ("EQ", "BE", "BZ"):
+        # THE SME PLATFORM (NSE Emerge) IS ALSO LISTED EQUITY. SM = SME rolling, ST = SME
+        # trade-for-trade, SZ = SME surveillance — ordinary companies (SUNLITE, 571 symbols on
+        # 2026-09-22) trading every session in the same cash-segment file with the same columns.
+        # They were dropped with the debt/ETF/rights rows until 2026-09-22, so no SME name had a
+        # series, a stock page or a search row; the history since the platform's first listing
+        # (2012-09) rides in on scripts/sme_backfill.json.gz (update_sf_data.insert_sme_history,
+        # built by build_sme_backfill.py). Consumers that must tell the boards apart read
+        # meta[sym]["sme"], never the series letter. See DATA_RUNBOOK §145.
+        if ser not in ("EQ", "BE", "BZ", "SM", "ST", "SZ"):
             continue
         c = num(r, iC)
         if c <= 0:
@@ -205,10 +213,12 @@ def parse_rows(text):
         if ser in ("BE", "BZ") and iD >= 0 and dlv == 0:
             dlv = 100.0
         # FULL row cached so future factor additions never need a refetch:
-        # [sym, close, prevclose, turnover, high, low, open, volume, deliv%, vwap, trades, isin, series]
-        # `series` is last and is also the CACHE VERSION MARKER — fetch_day/needs_fetch require >=13
-        # columns, so any day cached under the old EQ/BE-only filter is refetched instead of being
-        # replayed BZ-less. Append new columns at the END only; readers index by position.
+        # [sym, close, prevclose, turnover, high, low, open, volume, deliv%, vwap, trades, isin, series, seg]
+        # The LAST column is the CACHE VERSION MARKER — fetch_day/needs_fetch require >=14 columns
+        # (v4 = 13 with `series` under the EQ/BE/BZ filter; v5 = 14 with `seg`, parsed WITH the SME
+        # series), so any day cached under an older filter is refetched instead of being replayed
+        # without the rows that filter dropped. Append new columns at the END only; readers index
+        # by position. `seg` = "SME" for SM/ST/SZ rows, "MAIN" otherwise.
         out.append(
             [
                 r[iS].strip(),
@@ -224,6 +234,7 @@ def parse_rows(text):
                 num(r, iN),
                 (r[iI].strip() if 0 <= iI < len(r) else ""),
                 ser,
+                "SME" if ser in ("SM", "ST", "SZ") else "MAIN",
             ]
         )
     return out
@@ -307,14 +318,47 @@ def apply_dv_overwrite(data):
     return n
 
 
+def file_date(text):
+    """The trading date INSIDE a bhavcopy — sec_bhavdata_full `DATE1`, old-zip `TIMESTAMP`, UDiFF
+    `TradDt` — read off the first data rows. None when the file has no recognisable date column
+    (callers must then fall back to trusting the URL date, never reject).
+
+    Why it exists (DATA_RUNBOOK §89f, 2026-09-21): NSE re-serves the PRIOR session's file under a
+    non-session date's URL, and it does so per ROUTE — the old zip 404s on Sunday 2019-10-06 while
+    sec_bhavdata_full_06102019.csv answers 200 with `DATE1 = 04-Oct-2019` in every row. A whole-file
+    signature dedup cannot see that when Friday came from the zip (1,682 rows) and Sunday from the
+    csv (1,670 rows): different row set, different hash, and 12 phantom Sunday bars reached the
+    live bin for the two symbols a calendar-walking rebuild happened to be tracking. The date
+    inside the file is the only thing that identifies a re-serve regardless of format."""
+    lines = text.splitlines()
+    if len(lines) < 2:
+        return None
+    hdr = [h.strip().strip('"').upper() for h in lines[0].split(",")]
+    col = next((c for c in ("DATE1", "TIMESTAMP", "TRADDT") if c in hdr), None)
+    if col is None:
+        return None
+    i = hdr.index(col)
+    for line in lines[1:4]:
+        f = line.split(",")
+        if i >= len(f):
+            continue
+        s = f[i].strip().strip('"')
+        for fmt in ("%d-%b-%Y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                return datetime.datetime.strptime(s, fmt).date()
+            except ValueError:
+                pass
+    return None
+
+
 def fetch_day(d, j):
     cf = os.path.join(CACHE, d.strftime("%Y%m%d") + ".json")
     if os.path.exists(cf):
         try:
             rows = json.load(open(cf))
-            # older cache rows lack the full column set (v3 = 12 cols, v4 = 13 with `series`, which
+            # older cache rows lack the full column set (v3 = 12 cols, v4 = 13 with `series` under the EQ/BE/BZ filter, v5 = 14 with `seg` incl. SME rows;
             # is also the marker for "parsed under the EQ/BE/BZ filter") — refetch; holiday [] reusable
-            if not rows or len(rows[0]) >= 13:
+            if not rows or len(rows[0]) >= 14:
                 return rows
         except Exception:
             pass
@@ -327,6 +371,7 @@ def fetch_day(d, j):
         MON[d.month - 1],
         d.year,
     )
+    misdirect = None
     for url in [new, old] if d.year >= 2020 else [old, new]:
         try:
             blob = get(url, j)
@@ -338,11 +383,24 @@ def fetch_day(d, j):
                 else blob.decode("utf-8", "replace")
             )
             if "SYMBOL" in text[:200].upper():
+                # HOLIDAY MISDIRECT (§89f): the date INSIDE the file decides, not the URL. A file
+                # stamped with another date is the prior session re-served — not this day's file;
+                # try the other route (2021-11-04: the csv route serves the 03-Nov copy while the
+                # zip is the real muhurat session), else it is a "no file" day.
+                fd = file_date(text)
+                if fd is not None and fd != d:
+                    misdirect = fd
+                    continue
                 rows = parse_rows(text)
                 json.dump(rows, open(cf, "w"))
                 return rows
         except Exception:
             continue
+    if misdirect is not None:
+        print(
+            f"  {d}: NSE re-served the {misdirect} file under this date's URL — treated as no session (DATA_RUNBOOK §89f)",
+            flush=True,
+        )
     # cache the miss (holiday) so we don't refetch — but NOT for the last few days:
     # a same-evening build can run before NSE publishes today's file (~7 pm IST),
     # and a cached empty marker would wrongly freeze that day as a holiday forever.
@@ -357,7 +415,7 @@ def needs_fetch(d):
         return True
     try:
         rows = json.load(open(cf))
-        return bool(rows) and len(rows[0]) < 13  # pre-v4 cache (no `series` col / BZ-less) -> refetch
+        return bool(rows) and len(rows[0]) < 14  # pre-v5 cache (no `seg` col / SME-less, or BZ-less) -> refetch
     except Exception:
         return True
 
@@ -610,6 +668,11 @@ def main():
     applied_off = bad_recon = demerger_skipped = open_rescued = 0
     skip_log = []
     open_log = []
+    # §161: split/bonus inference is allowed ONLY before the official NSE feed's dense era (split and
+    # bonus subjects are only dense from 2006 — DATA_RUNBOOK §87b). From then on, no record = no action.
+    OFFICIAL_FEED_FROM = 20060101
+    kept_unconfirmed = inferred_pre = 0
+    unconf_log = []
     data, meta, dead = {}, {}, 0
     for sym, obs in acc.items():
         obs.sort()
@@ -659,7 +722,9 @@ def main():
                         if len(open_log) < 40:
                             open_log.append((sym, ymd, cand, round(r, 4), round((o / base) / cand, 4)))
                     else:
-                        bad_recon += 1  # official ratio doesn't reconcile with the drop -> use inference
+                        bad_recon += (
+                            1  # official ratio doesn't reconcile with the drop -> falls to the no-record rule below
+                        )
                 if f is None:
                     nd = NOADJ.get(sym)
                     if nd and not (0.75 <= r <= 1.30) and any(ymd - 3 <= e <= ymd for e in nd):
@@ -669,8 +734,22 @@ def main():
                         if len(skip_log) < 80:
                             skip_log.append((sym, ymd, round(r, 3)))
                         f = 1.0
+                    elif ymd >= OFFICIAL_FEED_FROM:
+                        # §161: inside the official feed's dense era an action NSE never filed is not an
+                        # action — keep the raw move. ca_factor() here split POLICYBZR's -36% crash
+                        # (2026-09-24) into a phantom 2/3 in the daily updater; the rebuild must agree.
+                        f = 1.0
+                        if not (0.75 <= r <= 1.30):
+                            kept_unconfirmed += 1
+                            if len(unconf_log) < 60:
+                                unconf_log.append((sym, ymd, round(r, 4)))
                     else:
+                        # Before 2006 NSE's feed carries almost no split/bonus rows (§87b), so absence
+                        # there proves nothing: the verified corp_actions_hist.json layer + inference is
+                        # all that exists. Counted and printed so the residue is never silent.
                         f = ca_factor(r)
+                        if f != 1.0:
+                            inferred_pre += 1
                 adj = adj * (r / f)
             if ymd >= df:
                 keep = True  # daily for recent
@@ -732,6 +811,14 @@ def main():
         for s, y, cf, rr, og in open_log:
             print("    %-12s %d  f=%.6f  close r=%.4f  open/prev/f=%.4f" % (s, y, cf, rr, og), flush=True)
     apply_dv_fill(data)
+    print(
+        "  §161: %d big move(s) since %d with NO official record kept RAW; %d pre-%d move(s) still "
+        "inferred as splits (no dense official feed that early)"
+        % (kept_unconfirmed, OFFICIAL_FEED_FROM, inferred_pre, OFFICIAL_FEED_FROM // 10000),
+        flush=True,
+    )
+    for s, y, rr in unconf_log:
+        print("    kept raw %-12s %d  ratio=%.4f" % (s, y, rr), flush=True)
     if skip_log:
         print("  demerger/scheme ex-dates kept as real drops (sym, date, ratio):", flush=True)
         for s, y, rr in skip_log:

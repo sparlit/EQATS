@@ -40,7 +40,7 @@ TWO RULES, BOTH NON-NEGOTIABLE:
 1. NEVER fabricate: only return a value you ANCHOR-VERIFIED (a source's comparative column EQUALS a stored quarter, OR a 9M/H1/FY reconciliation ties, OR PBT-tax=PAT on the page, OR two INDEPENDENT sources agree to the paisa). Never guess/interpolate/annual-÷4.
 2. NEVER skip lazily: the number almost ALWAYS EXISTS somewhere. A SKIP is a LAST RESORT only after you have ACTUALLY OPENED AND READ every source in the SOURCES list below and shown the quarter is in none of them. "Not in the NSE filing" is NOT a reason to skip — it means go to the next source. Do NOT write a skip reason that names a source you did not actually fetch. Most past skips were WRONG because the agent stopped at NSE; e.g. GOCOLORS/LATENTVIEW were "unrecoverable" until someone opened the RHP. Assume the data is gettable and prove otherwise by exhaustion.
 
-ALL commands run from: C:/Users/dhruv/stocks-dashboard/scripts  (cd there first, every Bash call). You may use curl_cffi (impersonate='chrome', headers={'Accept-Encoding':'identity'}) to fetch ANY url, fitz to render PDF pages, and WebSearch/WebFetch to FIND documents.
+ALL commands run from: C:/Users/dhruv/stocks-dashboard/scripts  (cd there first, every Bash call). Fetch *.bseindia.com ONLY through scripts/bse_headers.py (BH.get / BH.Session: honest own User-Agent, never browser impersonation — runbook §181/§190); other hosts with plain urllib, fitz to render PDF pages, and WebSearch/WebFetch to FIND documents.
 
 SOURCES (exhaust ALL before any skip — a pre-listing quarter lives in at least one):
   S1 NSE filings (fetch_nse.py) — post-listing quarterlies + their year-ago/preceding comparative columns.

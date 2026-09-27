@@ -193,16 +193,20 @@ def fetch():
     h = {"User-Agent": F.UA, "Accept": "application/json", "Referer": "https://www.nseindia.com/"}
     cmap = {}
     demap = {}
-    for yr in range(2016, datetime.date.today().year + 1):
+    # NSE files main-board and SME-platform (Emerge) corporate actions on SEPARATE boards —
+    # `index=equities` never returns an SM/ST symbol's split or bonus. The bin ingests the SME
+    # series since DATA_RUNBOOK §145, so ask both; a failed SME year falls through to inference
+    # for those names exactly as a failed main-board year does.
+    for yr, board in [(y, b) for y in range(2016, datetime.date.today().year + 1) for b in ("equities", "sme")]:
         url = (
-            "https://www.nseindia.com/api/corporates-corporateActions?index=equities"
-            "&from_date=01-01-%d&to_date=31-12-%d" % (yr, yr)
+            "https://www.nseindia.com/api/corporates-corporateActions?index=%s"
+            "&from_date=01-01-%d&to_date=31-12-%d" % (board, yr, yr)
         )
         try:
             d = json.loads(F._get(url, headers=h, jar=jar, timeout=40))
             rows = d if isinstance(d, list) else d.get("data", [])
         except Exception as e:
-            print("  %d: fetch failed (%s)" % (yr, str(e)[:40]))
+            print("  %d [%s]: fetch failed (%s)" % (yr, board, str(e)[:40]))
             continue
         n = dm = 0
         for r in rows:
@@ -222,7 +226,7 @@ def fetch():
             elif is_demerger(subj):
                 demap.setdefault(r.get("symbol"), set()).add(int(ex))
                 dm += 1
-        print("  %d: %d split/bonus, %d demerger/scheme events" % (yr, n, dm))
+        print("  %d [%s]: %d split/bonus, %d demerger/scheme events" % (yr, board, n, dm))
     return cmap, demap
 
 

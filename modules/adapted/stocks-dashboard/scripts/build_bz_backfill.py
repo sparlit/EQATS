@@ -511,6 +511,28 @@ def build(D, byday, sessions, cal, ca_path):
                         )
                     )
                     continue
+                # The PREV_CLOSE test above is raw-vs-raw: it proves NSE saw no action in the hole,
+                # NOT that the bin's resumption bar sits on the block's scale. A non-official factor
+                # the pipeline applied YEARS later (CALSOFT 2025-01-15, KESORAMIND 2019/2021) leaves
+                # s_pre == s_post; `pre` would then rescale history across the hole and the block
+                # would land on a scale its right-hand neighbour does not share (CALSOFT: a fake
+                # -42% at the exit). Require the resumption bar's own scale to equal the block's.
+                # DATA_RUNBOOK §165.
+                xc = xr[0] if isinstance(xr, list) and xr and xr[0] else None
+                if xc:
+                    s_post = cs[j_after] / xc
+                    if not (0.98 <= s_post / _p(block[-1][0]) <= 1.02):
+                        skipped.append(
+                            (
+                                sym,
+                                y0,
+                                (
+                                    f"bin scale after the hole {s_post:.4f} != block scale {_p(block[-1][0]):.4f} "
+                                    "(non-official factor outside the hole)"
+                                ),
+                            )
+                        )
+                        continue
                 exitchk["verified"] += 1
             else:
                 exitchk["unverified"] += 1

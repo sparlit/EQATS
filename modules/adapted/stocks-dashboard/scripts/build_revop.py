@@ -70,6 +70,7 @@ import re
 import sys
 
 import scale_fix
+import xbrl_symbol
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "_xbrl_cache")
@@ -427,21 +428,26 @@ def xbrl_revop(xml, basis_hint=None):
     fin = 1 if ("InterestEarned" in xml or "NetPremiumIncome" in xml or "PremiumEarned" in xml) else 0
     rev_std = op_std = ebit_std = rev_con = op_con = ebit_con = None
     one_nat = nat.get("OneD", "") or hint
+    # build_fundamentals.is_con_basis, never `"consol" in …`: NSE's hint label "Non-Consolidated" CONTAINS
+    # "consol", so a standalone filing without the nature tag put its rev/op/EBIT in the con slots (KOHINOOR
+    # Jun-25, runbook §194). Imported here, not at module scope (build_fundamentals imports this module lazily).
+    from build_fundamentals import is_con_basis
+
     # Only read a context whose period IS a quarter -- a 182-day OneD is the half-year cumulative
     # and storing it as the quarter is the Sep-2025 bug (see is_quarter_ctx).
     if is_quarter_ctx(xml, "OneD"):
         rev, op, ebit, _, _ = metrics_for(xml, "OneD")
         if rev is not None or op is not None:
-            if "consol" in one_nat:
+            if is_con_basis(one_nat):
                 rev_con, op_con, ebit_con = rev, op, ebit
             else:
                 rev_std, op_std, ebit_std = rev, op, ebit
     four_nat = nat.get("FourD", "")
     if four_nat and four_nat != one_nat and is_quarter_ctx(xml, "FourD"):
         rev, op, ebit, _, _ = metrics_for(xml, "FourD")  # combined filing: FourD is the OTHER basis
-        if "consol" in four_nat and rev_con is None:
+        if is_con_basis(four_nat) and rev_con is None:
             rev_con, op_con, ebit_con = rev, op, ebit
-        elif "consol" not in four_nat and rev_std is None:
+        elif not is_con_basis(four_nat) and rev_std is None:
             rev_std, op_std, ebit_std = rev, op, ebit
 
     def r2(x):
@@ -485,6 +491,12 @@ def parse_file(path, fname):
     # unescape BEFORE upper(): `&amp;` -> `&` -> `M&M`. (Upper-first also happens to work because
     # HTML5 defines `&AMP;`, but relying on that is how the bug reads as harmless.)
     sym = html.unescape(sm.group(1)).strip().upper()
+    # §177: a filer not (yet) listed on NSE tags its symbol "NOTLISTED"/"NA" — resolve it by the file's ISIN, or skip
+    # the file (never key a bogus record that merges several companies).
+    sym = xbrl_symbol.resolve(sym, xml)
+    if not sym:
+        return None
+    sym = sym.upper()
     fin = (
         1
         if (

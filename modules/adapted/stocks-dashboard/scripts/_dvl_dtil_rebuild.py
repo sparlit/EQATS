@@ -118,6 +118,7 @@ def build():
     ser = {"DVL": [], "DTIL": []}  # bars: [ymd,c,t,h,l,op,v,dv,vw]
     multi = []
     prev_sig = None
+    prev_close = {}
     for d in days():
         rows = B.fetch_day(d, j)
         if not rows:
@@ -127,7 +128,20 @@ def build():
         sig = hash(tuple((r[0], r[1]) for r in rows))
         if sig == prev_sig:
             continue
+        # §89f: that signature is FORMAT-sensitive. Friday 2019-10-04 came from the old zip (1,682
+        # rows) and Sunday 2019-10-06's re-served copy from sec_bhavdata_full (1,670 rows, DATE1 =
+        # 04-Oct-2019): different row set, different hash — 12 phantom Sunday bars (Oct–Dec 2019)
+        # reached the ledger and the live bin that way. fetch_day now rejects a file whose own date
+        # is another day; this per-symbol identity test (update_sf_data's day-loop guard) is the
+        # second line, and apply_series_surgery's market-calendar gate is the hard stop.
+        if prev_close:
+            common = [r for r in rows if r[0] in prev_close]
+            same = sum(1 for r in common if abs(prev_close[r[0]] - r[1]) < 0.005)
+            if len(common) > 500 and same / len(common) > 0.99:
+                print("  %s: re-served prior session (%d/%d closes identical) — skipped" % (d, same, len(common)))
+                continue
         prev_sig = sig
+        prev_close = {r[0]: r[1] for r in rows}
         ymd = int(d.strftime("%Y%m%d"))
         got = {}
         for r in rows:
@@ -275,6 +289,13 @@ def build():
         print("{} raw CA-like jumps (excl. DTIL's official bonus): {}".format(tgt, hits or "none"))
         if hits:
             fails.append(f"{tgt} unexplained CA-like jumps: {hits}")
+
+    # 6) weekend-dated bars: every one must be a confirmed special session (update_sf_data's
+    #    WEEKEND_SESSIONS list); anything else is the §89f re-serve class. Listed for the human
+    #    eye here — apply_series_surgery's market-calendar gate is the hard stop at splice time.
+    for tgt in ("DVL", "DTIL"):
+        wk = [b[0] for b in ser[tgt] if datetime.date(b[0] // 10000, b[0] // 100 % 100, b[0] % 100).weekday() >= 5]
+        print("{} weekend-dated bars (each must be a confirmed special session): {}".format(tgt, wk or "none"))
 
     if fails:
         raise SystemExit("VALIDATION FAILED — ledger NOT written:\n  " + "\n  ".join(map(str, fails)))

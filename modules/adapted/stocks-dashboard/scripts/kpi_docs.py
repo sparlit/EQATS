@@ -43,6 +43,11 @@ BSE facts measured 2026-09-06 (do not assume — re-measure if a call returns 0 
 Every download is validated on `%PDF-` magic + a size floor — a 162-byte body is BSE's 302 stub,
 never a document (feedback-validate-downloads-not-exit-codes).
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 import gzip
 import json
 import os
@@ -72,7 +77,7 @@ def _get(url, timeout=60, binary=False):
     if wait > 0:
         time.sleep(wait)
     PACE["last"] = time.time()
-    req = urllib.request.Request(url, headers=HDR)
+    req = urllib.request.Request(url, headers=BH.HEADERS if BH.is_bse(url) else HDR)  # honest BSE set (§181)
     r = urllib.request.urlopen(req, timeout=timeout)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":

@@ -66,6 +66,7 @@ ALIAS = {
     "GMRINFRA": "GMRAIRPORT",
     "GUJFLUORO": "GFLLIMITED",
     "GUJGASLTD": "GUJENERGY",
+    "HEG": "HEGAM",
     "HOTELEELA": "HLVLTD",
     "HSIL": "AGI",
     "IBREALEST": "EMBDL",
@@ -103,6 +104,7 @@ ALIAS = {
     "RDEL": "RNAVAL",
     "SEINV": "PAISALO",
     "SEQUENT": "VIYASH",
+    "SILLYMONKS": "CRESTO",
     "SKSMICRO": "BHARATFIN",
     "SMLISUZU": "SMLMAH",
     "SRTRANSFIN": "SHRIRAMFIN",
@@ -161,6 +163,16 @@ for _lg, _key in (("con_copy_heals.json", ("now", "value")), ("owners_basis_heal
                 HEALS["{}|{}".format(_k.split("|")[0], _k.split("|")[1])] = _val
     except Exception:
         pass
+# attr_swap_fixes.json (the 2026-07-30 owners/NCI tag-swap sweep) is a LIST journal no applier replayed,
+# so this script reverted 6 of its 7 cells every night from the swapped _reattr cache (GLENMARK Mar-26 served
+# -0.1 for 301.41 until 2026-09-27, runbook §194). Its npCon fixes outrank the cache too (a pinned
+# owners_basis_heals / con_copy_heals entry for the same cell wins — setdefault).
+try:
+    for _f in json.load(open(os.path.join(HERE, "attr_swap_fixes.json"))).get("fixes") or []:
+        if _f.get("field") == "npCon" and _f.get("correct") is not None:
+            HEALS.setdefault("{}|{}".format(_f["sym"], _f["qe"]), _f["correct"])
+except Exception:
+    pass
 src_own = src_bf = src_ren = src_heal = 0
 for sym, arr in live.items():
     for r in arr:

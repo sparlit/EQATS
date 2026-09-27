@@ -91,12 +91,49 @@ def main():
 
     fund = json.load(open(os.path.join(DOCS, "sf_fundamentals.json")))
     events, dates = set(), set()
-    for sym, rows in fund.items():
-        for r in rows:
-            for idx in (2, 4):
-                if len(r) > idx and isinstance(r[idx], int) and r[idx] in me_days:
-                    events.add((sym, r[idx]))
-                    dates.add(r[idx])
+    if "--ungate" in argv:
+        # §149 (midnight visibility rule, 2026-09-23): the retired 15:30 gate pushed an after-close
+        # month-end filing to the NEXT trading day (gate_1530.py) or next WEEKDAY (gated_ann). The
+        # mirror, ungate_1530.py, needs every cell sitting on such a day, keyed by the month-end it
+        # may have been pushed from — the BSE broadcast times are fetched per MONTH-END date.
+        # §149 addendum (2026-09-23 22:00): EVERY calendar day after the month-end up to and including
+        # the next trading day maps to it — not just the next trading day / weekday. An after-close
+        # FRIDAY filing is often stored on the SATURDAY or SUNDAY (NSE-archive-dated writers, NSE's
+        # next-morning broadcast); measured 206 such cells (55 Nifty-500) sitting on weekend/holiday
+        # days the first mirror never looked at. Same evidence (BSE broadcasts on the month-end).
+        import bisect
+        import datetime
+
+        tdl = sorted(tdays)
+        after = {}  # stored date -> the month-end it would have been pushed from
+        for me in me_days:
+            i = bisect.bisect_right(tdl, me)
+            nt = tdl[i] if i < len(tdl) else None
+            d0 = datetime.date(me // 10000, me // 100 % 100, me % 100)
+            for k in range(1, 8):
+                x = d0 + datetime.timedelta(days=k)
+                xi = x.year * 10000 + x.month * 100 + x.day
+                if nt is None:  # newest month-end: no next bar yet -> next weekday only
+                    if x.weekday() < 5:
+                        after.setdefault(xi, me)
+                        break
+                    continue
+                if xi > nt:
+                    break
+                after.setdefault(xi, me)
+        for sym, rows in fund.items():
+            for r in rows:
+                for idx in (2, 4):
+                    if len(r) > idx and isinstance(r[idx], int) and r[idx] in after:
+                        events.add((sym, after[r[idx]]))
+                        dates.add(after[r[idx]])
+    else:
+        for sym, rows in fund.items():
+            for r in rows:
+                for idx in (2, 4):
+                    if len(r) > idx and isinstance(r[idx], int) and r[idx] in me_days:
+                        events.add((sym, r[idx]))
+                        dates.add(r[idx])
 
     json.dump(tdays, open(os.path.join(HERE, "_trading_days.json"), "w"), separators=(",", ":"))
     json.dump(sorted(me_days), open(os.path.join(HERE, "_me_days.json"), "w"), separators=(",", ":"))

@@ -55,6 +55,11 @@ FILL2020_CAMPAIGN.md).
 
 Run:  python -X utf8 scripts/fill2020_tools/fill_std_rev_detres.py [--apply] [--only SYM,SYM]
 """
+import os as _o
+import sys as _s
+
+_s.path.append(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
+import bse_headers as BH  # §181 BSE headers (append: never shadow local modules)
 import json
 import os
 import sys
@@ -73,7 +78,6 @@ TARGETS = os.path.join(HERE, "_revstd_targets.json")
 LEDGER = os.path.join(SCRIPTS, "std_rev_detres_fills.json")
 
 API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 PAT_ABS, PAT_REL = 2.0, 0.03  # §42 landing rule
 MONTHS = {
     "Jan": 1,
@@ -113,7 +117,7 @@ def qid(qe):
 
 
 def get(scrip, q):
-    req = urllib.request.Request(API % (scrip, q), headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"})
+    req = urllib.request.Request(API % (scrip, q), headers=BH.HEADERS)
     with urllib.request.urlopen(req, timeout=40) as r:
         return json.loads(r.read().decode("utf-8", "replace"))
 

@@ -43,6 +43,10 @@ Stages:
   python3 fetch_shp_bse_aspx.py harvest    # full frontier -> ledger shp_fill_bse_aspx.json.gz
 Writes ONLY inside its --dir (default: alongside this script). Read-only on the repo.
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import argparse
 import datetime
 import gzip
@@ -56,7 +60,7 @@ import time
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
-from curl_cffi import requests as cr
+import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = "/Users/dhruvan/stocks-dashboard"
@@ -156,12 +160,11 @@ def cmd_frontier(dirp, q_from="2002-12-31", q_to="2016-03-31"):
     if os.path.exists(mfile) and os.path.getsize(mfile) > 1e6:
         master = json.load(open(mfile))
     else:
-        r = cr.get(
+        r = BH.get(
             "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=",
             headers=H_API,
-            impersonate="chrome",
             timeout=120,
-        )
+        )  # honest headers, no impersonation (§190)
         master = json.loads(r.text)
         json.dump(master, open(mfile, "w"))
     by_id = {}
@@ -214,7 +217,7 @@ def fetch_page(dirp, code, qtrid, flag):
     )
     for attempt in range(3):
         try:
-            r = cr.get(u, headers=H_HTML, impersonate="chrome", timeout=45)
+            r = BH.get(u, headers=H_HTML, timeout=45)
             if r.status_code == 200 and len(r.text) > 3000:  # 162-byte 302 trap: never trust tiny bodies
                 os.makedirs(os.path.dirname(cf), exist_ok=True)
                 with gzip.open(cf, "wt", encoding="utf-8") as fh:

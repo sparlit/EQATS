@@ -37,6 +37,7 @@ import os
 import re
 import statistics
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.abspath(os.path.join(HERE, "..", "docs"))
@@ -45,7 +46,9 @@ SNAPS = os.path.join(HERE, "_wb_n500_snaps.json")
 MASTER = os.path.join(HERE, "_bse_master_all.json")
 SECTORS = os.path.join(HERE, "_bse_sectors.json")
 RENAME = os.path.join(HERE, "_rename_map.json")
+KEEP = os.path.join(HERE, "headcount_keep.json")  # {sym: {fy: reason}} — verified real jumps the cliff guard must keep
 START_FY = 2020
+_KEEP = {k: v for k, v in (json.load(open(KEEP)) if os.path.exists(KEEP) else {}).items() if not k.startswith("_")}
 
 
 def _max_ratio(series):
@@ -171,6 +174,8 @@ def main():
             # banks) keep on-roll untouched.
             emp = etot if (_max_ratio(onroll) > 1.8 and _max_ratio(etot) < _max_ratio(onroll)) else onroll
         for y in implausible_years(emp):  # drop spikes rather than ship a wrong headcount
+            if str(y) in _KEEP.get(sym, {}):  # …unless the ledger says this jump is real (SEQUENT FY26 merger)
+                continue
             emp.pop(y, None)
             total.pop(y, None)
             mf.pop(y, None)
@@ -204,7 +209,7 @@ def main():
             }
         )
     payload = {
-        "updated": datetime.now().strftime("%Y-%m-%d %H:%M IST"),
+        "updated": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M IST"),  # CI runners are UTC
         "basis": "Employee headcount — permanent on-roll employees (permanent employees + permanent "
         "workers), or total reported employees where that gives a consistent year-on-year series. "
         "Source: company annual reports on BSE (BRSR 'Employees and workers' table). "

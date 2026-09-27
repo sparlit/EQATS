@@ -52,8 +52,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 SP = os.path.dirname(os.path.abspath(__file__))
 HERE = os.environ.get("ZFII_WORKDIR") or SP  # caches + json outputs land here
 sys.path.insert(0, SP)
+import os as _o
+import sys as _s
+
 import fetch_shareholding as FS
-from curl_cffi import requests as cr
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 
 QCACHE = os.path.join(HERE, "qcache")
 os.makedirs(QCACHE, exist_ok=True)
@@ -98,7 +103,7 @@ def get(url, tries=4, timeout=45):
     last = None
     for i in range(tries):
         try:
-            r = cr.get(url, headers={"Referer": "https://www.bseindia.com/"}, impersonate="chrome", timeout=timeout)
+            r = BH.get(url, headers={"Referer": "https://www.bseindia.com/"}, timeout=timeout)  # honest headers (§190)
             if r.status_code == 200:
                 return r.content
             last = Exception("HTTP %d" % r.status_code)

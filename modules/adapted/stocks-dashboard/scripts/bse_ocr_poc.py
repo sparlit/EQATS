@@ -55,8 +55,8 @@ from rapidocr_onnxruntime import RapidOCR
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B  # for quarters(): the ONE guarded reader of FinancialResult
+import bse_headers as BH  # honest BSE header set (§181)
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 OCR = RapidOCR()
 
 # (symbol, BSE scripcode) — major insurers, all missing from our NSE-sourced data
@@ -74,15 +74,7 @@ INSURERS = [
 
 
 def get(url, b=False):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": UA,
-            "Accept": "*/*",
-            "Referer": "https://www.bseindia.com/",
-            "Origin": "https://www.bseindia.com",
-        },
-    )
+    req = urllib.request.Request(url, headers=BH.HEADERS)
     r = urllib.request.urlopen(req, timeout=45)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":

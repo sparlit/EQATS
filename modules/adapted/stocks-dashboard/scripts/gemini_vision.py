@@ -88,7 +88,7 @@ WHICH ROW (this is where mistakes happen):
 - STANDALONE (std): the standalone Shareholders' A/c Profit after tax. If the filing shows only ONE
   statement, put that value in BOTH cur_std and cur_con and set has_subsidiary=false.
 
-UNIT — convert to Rs CRORE: "in Lakhs" ÷100; "in Thousands" ÷100000; "in Millions" ÷10; "in Crores" keep;
+UNIT — convert to Rs CRORE: "in Lakhs" ÷100; "in Thousands" ÷10000; "in Millions" ÷10; "in Crores" keep;
 bare Rupees ÷10000000. A quarterly insurer net profit is tens to a few thousand crore.
 
 IDENTITY: if these images are NOT %(company)s or you can't find the Shareholders' P&L, set
@@ -192,7 +192,7 @@ Owners of the parent / Equity holders" line if printed; else (profit after tax) 
 (non-controlling / minority interest). DO NOT use: profit before tax, total comprehensive income,
 segment results, or EPS. If the filing has only ONE statement, put its values in BOTH _std and _con.
 
-UNIT — convert to Rs CRORE: "in Lakhs" ÷100; "in Millions" ÷10; "in Thousands" ÷100000;
+UNIT — convert to Rs CRORE: "in Lakhs" ÷100; "in Millions" ÷10; "in Thousands" ÷10000;
 "in Crores" keep; bare Rupees ÷10000000. Losses are NEGATIVE (figures in brackets are negative).
 
 IDENTITY: if these images are NOT %(company)s or you cannot find the results table, set

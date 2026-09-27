@@ -48,12 +48,17 @@ Output verdicts:
 
   python3 -X utf8 scripts/shp_verify_arbitrate.py --quorum p3/quorum_p3.jsonl --out p5/arbitration.jsonl
 """
-import argparse
-import collections
-import json
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+import bse_headers as BH  # §181 BSE headers
 import os
 import sys
+import json
 import time
+import argparse
+import collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # parse_shp + fetch_master from THIS tree
@@ -94,15 +99,9 @@ def bse_quarters(code, cache):
         return cache[code]
     import urllib.request
 
-    UA = (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124 Safari/537.36"
-    )
     url = f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}&qtrid=0.00&QryType=0"
     try:
-        req = urllib.request.Request(
-            url, headers={"User-Agent": UA, "Accept": "application/json", "Referer": "https://www.bseindia.com/"}
-        )
+        req = urllib.request.Request(url, headers=BH.HEADERS)  # honest BSE header set (§181)
         rows = json.loads(urllib.request.urlopen(req, timeout=45).read()).get("Table", [])
     except Exception:
         rows = []
@@ -125,14 +124,9 @@ def bse_quarters(code, cache):
 def bse_fetch(xf):
     import urllib.request
 
-    UA = (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124 Safari/537.36"
-    )
     req = urllib.request.Request(
-        "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + xf,
-        headers={"User-Agent": UA, "Accept": "*/*", "Referer": "https://www.bseindia.com/"},
-    )
+        "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + xf, headers=BH.HEADERS
+    )  # honest BSE header set (§181)
     body = urllib.request.urlopen(req, timeout=60).read()
     time.sleep(2.0)
     if len(body) < 5000:  # BSE blocks with a tiny redirect body, not an error

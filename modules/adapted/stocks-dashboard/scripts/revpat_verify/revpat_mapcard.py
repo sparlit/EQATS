@@ -62,7 +62,7 @@ SCALES = [
     ("crore", 1.0),
     ("million", 0.1),
     ("lakh", 0.01),
-    ("thousand", 0.001),
+    ("thousand", 1e-4),
     ("rupees", 1e-7),
     ("x10", 10.0),
     ("x100", 100.0),
