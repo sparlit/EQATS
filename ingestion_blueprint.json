@@ -1,5 +1,5 @@
 {
-  "current_index": 131,
+  "current_index": 132,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1053,7 +1053,7 @@
       "name": "dingir-exchange",
       "target": "fluidex/dingir-exchange",
       "url": "https://github.com/fluidex/dingir-exchange",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
