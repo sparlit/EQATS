@@ -1406,8 +1406,8 @@
       "target": "joaquinbejar/optionstratlib",
       "url": "https://github.com/joaquinbejar/optionstratlib",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2606",
+      "merged": true
     },
     {
       "name": "nse-scanner",
