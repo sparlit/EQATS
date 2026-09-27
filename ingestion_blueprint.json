@@ -1,5 +1,5 @@
 {
-  "current_index": 126,
+  "current_index": 127,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1013,7 +1013,7 @@
       "name": "botvana",
       "target": "featherenvy/botvana",
       "url": "https://github.com/featherenvy/botvana",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
