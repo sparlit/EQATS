@@ -1,5 +1,5 @@
 {
-  "current_index": 180,
+  "current_index": 181,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1445,9 +1445,9 @@
       "name": "marketinsight",
       "target": "kalyanm45/marketinsight",
       "url": "https://github.com/kalyanm45/marketinsight",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2765",
+      "merged": true
     },
     {
       "name": "stock-research-assistant",
