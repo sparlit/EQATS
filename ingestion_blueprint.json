@@ -1,5 +1,5 @@
 {
-  "current_index": 204,
+  "current_index": 205,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1637,9 +1637,9 @@
       "name": "stock-market-india",
       "target": "maanavshah/stock-market-india",
       "url": "https://github.com/maanavshah/stock-market-india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2789",
+      "merged": true
     },
     {
       "name": "financial-data",
