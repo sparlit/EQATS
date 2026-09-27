@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 101
+Total Repositories: 411 | Current Index: 102
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -103,11 +103,7 @@ Total Repositories: 411 | Current Index: 101
 | 98 | conteurshadow/polymarket-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2525 |
 | 99 | crazygirl437/hyper-grid | Skipped: Private/Non-Existent (404/403) | None |
 | 100 | crypto-crawler/coinsignal | Processed | None |
-<<<<<<< HEAD
-| 101 | cutupdev/solana-copytrading-bot | Processed | None |
-=======
 | 101 | cutupdev/solana-copytrading-bot | Processed | https://github.com/sparlit/EQATS/pull/2638 |
->>>>>>> integrate/solana-copytrading-bot
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2530 |
 | 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2532 |
 | 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2533 |
