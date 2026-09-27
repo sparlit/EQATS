@@ -1,0 +1,458 @@
+use hmac::Hmac;
+use serde::{Deserialize, Deserializer, Serialize, de, de::DeserializeOwned};
+use serde_json::Value;
+use sha2::{Sha256, Sha512};
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
+use tracing::warn;
+
+use crate::arch::{
+    market_assets::base_data::{MarginMode, OrderSide, OrderType, PositionSide, TimeInForce},
+    task_execution::task_ws::CandleParam,
+};
+use crate::errors::{InfraError, InfraResult};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Signature<T> {
+    pub signature: String,
+    pub timestamp: T,
+}
+
+pub type HmacSha256 = Hmac<Sha256>;
+pub type HmacSha512 = Hmac<Sha512>;
+
+#[derive(Debug)]
+pub enum RequestMethod {
+    Get,
+    Put,
+    Post,
+    Delete,
+}
+
+pub fn get_seconds_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
+}
+
+pub fn get_mills_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis() as u64
+}
+
+pub fn get_micros_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_micros() as u64
+}
+
+pub fn encode_query_string(query_string: Option<&str>) -> Option<String> {
+    let query = query_string?.trim();
+    if query.is_empty() {
+        return None;
+    }
+
+    let encoded = query
+        .split('&')
+        .filter(|part| !part.is_empty())
+        .map(|part| match part.split_once('=') {
+            Some((key, value)) => format!(
+                "{}={}",
+                percent_encode_query_component(key),
+                percent_encode_query_component(value)
+            ),
+            None => percent_encode_query_component(part),
+        })
+        .collect::<Vec<_>>()
+        .join("&");
+
+    if encoded.is_empty() {
+        None
+    } else {
+        Some(encoded)
+    }
+}
+
+fn percent_encode_query_component(input: &str) -> String {
+    let mut encoded = String::with_capacity(input.len());
+
+    for &byte in input.as_bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push(hex_upper(byte >> 4));
+            encoded.push(hex_upper(byte & 0x0F));
+        }
+    }
+
+    encoded
+}
+
+fn hex_upper(nibble: u8) -> char {
+    match nibble {
+        0..=9 => (b'0' + nibble) as char,
+        10..=15 => (b'A' + (nibble - 10)) as char,
+        _ => unreachable!(),
+    }
+}
+
+pub fn ts_to_micros(ts: u64) -> u64 {
+    match ts {
+        0..=9_999_999_999 => ts * 1_000_000,
+        10_000_000_000..=9_999_999_999_999 => ts * 1_000,
+        _ => ts,
+    }
+}
+
+#[cfg(any(feature = "binance", feature = "okx", test))]
+pub(crate) fn micros_to_millis(timestamp_us: u64) -> u64 {
+    timestamp_us / 1_000
+}
+
+#[cfg(any(feature = "gate", test))]
+pub(crate) fn micros_to_seconds(timestamp_us: u64) -> u64 {
+    timestamp_us / 1_000_000
+}
+
+pub fn candle_interval_millis(interval: &CandleParam) -> InfraResult<u64> {
+    match interval {
+        CandleParam::OneSecond => Ok(1_000),
+        CandleParam::OneMinute => Ok(60_000),
+        CandleParam::FiveMinutes => Ok(5 * 60_000),
+        CandleParam::FifteenMinutes => Ok(15 * 60_000),
+        CandleParam::OneHour => Ok(60 * 60_000),
+        CandleParam::FourHours => Ok(4 * 60 * 60_000),
+        CandleParam::OneDay => Ok(24 * 60 * 60_000),
+        CandleParam::OneWeek => Ok(7 * 24 * 60 * 60_000),
+        CandleParam::Custom(value) => Err(InfraError::ApiCliError(format!(
+            "Candle interval duration is unknown for custom interval: {}",
+            value
+        ))),
+    }
+}
+
+pub fn value_to_f64(v: &Value) -> f64 {
+    v.as_f64()
+        .or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok()))
+        .unwrap_or(0.0)
+}
+
+pub fn normalize_to_string(value: f64, step: f64) -> String {
+    if step <= 0.0 {
+        return format!("{}", value);
+    }
+
+    let precision = step
+        .to_string()
+        .split('.')
+        .nth(1)
+        .map(|s| s.len())
+        .unwrap_or(0);
+    let units = value / step;
+    let tolerance = f64::EPSILON * units.abs().max(1.0) * 8.0;
+
+    format!("{:.*}", precision, (units + tolerance).floor() * step)
+}
+
+pub fn normalize_to_string_reduce_only(value: f64, step: f64) -> String {
+    if step <= 0.0 {
+        return format!("{}", value);
+    }
+
+    let precision = step
+        .to_string()
+        .split('.')
+        .nth(1)
+        .map(|s| s.len())
+        .unwrap_or(0);
+    let units = value / step;
+    let tolerance = f64::EPSILON * units.abs().max(1.0) * 8.0;
+
+    format!("{:.*}", precision, (units - tolerance).ceil() * step)
+}
+
+pub fn de_string_from_any<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(s),
+        Value::Number(n) => Ok(n.to_string()),
+        Value::Bool(b) => Ok(b.to_string()),
+        Value::Null => Ok(String::new()),
+        other => Err(de::Error::custom(format!(
+            "invalid string type: {:?}",
+            other
+        ))),
+    }
+}
+
+pub fn de_u64_from_string_or_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Number(n) => {
+            if let Some(u) = n.as_u64() {
+                Ok(u)
+            } else if let Some(f) = n.as_f64() {
+                Ok(f as u64)
+            } else {
+                Err(de::Error::custom("invalid u64 number"))
+            }
+        },
+        Value::String(s) => s.trim().parse::<u64>().map_err(de::Error::custom),
+        Value::Null => Ok(0),
+        other => Err(de::Error::custom(format!("invalid u64 type: {:?}", other))),
+    }
+}
+
+pub fn de_opt_u64_from_string_or_number<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Null => Ok(None),
+        Value::Number(n) => {
+            if let Some(u) = n.as_u64() {
+                Ok((u > 0).then_some(u))
+            } else if let Some(f) = n.as_f64() {
+                let value = f as u64;
+                Ok((value > 0).then_some(value))
+            } else {
+                Err(de::Error::custom("invalid optional u64 number"))
+            }
+        },
+        Value::String(s) => {
+            let trimmed = s.trim();
+            if trimmed.is_empty() || trimmed == "0" {
+                return Ok(None);
+            }
+            trimmed.parse::<u64>().map(Some).map_err(de::Error::custom)
+        },
+        other => Err(de::Error::custom(format!(
+            "invalid optional u64 type: {:?}",
+            other
+        ))),
+    }
+}
+
+pub fn de_micros_from_int<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(ts_to_micros(de_u64_from_string_or_number(deserializer)?))
+}
+
+pub fn describe_reqwest_error(e: &reqwest::Error) -> String {
+    let mut out = e.to_string();
+    let mut source = std::error::Error::source(e);
+    while let Some(inner) = source {
+        out.push_str(": ");
+        out.push_str(&inner.to_string());
+        source = inner.source();
+    }
+    let flags: Vec<&str> = [
+        (e.is_timeout(), "timeout"),
+        (e.is_connect(), "connect"),
+        (e.is_request(), "request"),
+        (e.is_body(), "body"),
+        (e.is_decode(), "decode"),
+    ]
+    .into_iter()
+    .filter_map(|(hit, name)| hit.then_some(name))
+    .collect();
+    if !flags.is_empty() {
+        out.push_str(" [");
+        out.push_str(&flags.join(","));
+        out.push(']');
+    }
+    out
+}
+
+pub async fn parse_json_response<T>(label: &str, response: reqwest::Response) -> InfraResult<T>
+where
+    T: DeserializeOwned,
+{
+    let status = response.status();
+    let bytes = response.bytes().await.map_err(|e| {
+        InfraError::Msg(format!(
+            "[{label}] body read failed: {}",
+            describe_reqwest_error(&e)
+        ))
+    })?;
+
+    if !status.is_success() {
+        let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(500)]);
+        warn!("[{label}] non-2xx response status={status} body={preview:?}");
+    }
+
+    let mut body = bytes
+        .try_into_mut()
+        .unwrap_or_else(|bytes| bytes.as_ref().into());
+
+    simd_json::from_slice(&mut body).map_err(|e| {
+        let preview = String::from_utf8_lossy(&body[..body.len().min(500)]);
+        InfraError::Msg(format!(
+            "[{label}] JSON parse failed status={status} body={preview:?} err={e}"
+        ))
+    })
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct OrderParams {
+    pub inst: String,
+    pub side: OrderSide,
+    pub size: String,
+    pub order_type: OrderType,
+    pub price: Option<String>,
+    pub reduce_only: Option<bool>,
+    pub margin_mode: Option<MarginMode>,
+    pub position_side: Option<PositionSide>,
+    pub time_in_force: Option<TimeInForce>, // GTC, IOC, FOK, GTD
+    pub client_order_id: Option<String>,
+    pub extra: HashMap<String, String>, // general
+}
+
+impl OrderParams {
+    pub fn validate_side_and_type(&self) -> InfraResult<()> {
+        if matches!(&self.side, OrderSide::Unknown) {
+            return Err(InfraError::ApiCliError(
+                "Order side must be explicitly set".into(),
+            ));
+        }
+
+        if matches!(&self.order_type, OrderType::Unknown) {
+            return Err(InfraError::ApiCliError(
+                "Order type must be explicitly set".into(),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CancelOrderParams {
+    pub inst: String,
+    pub order_id: Option<String>,
+    pub cli_order_id: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn describe_reqwest_error_keeps_the_source_chain_and_flags() {
+        let err = reqwest::Client::new()
+            .get("http://127.0.0.1:9/")
+            .send()
+            .await
+            .expect_err("closed port must fail");
+        let described = describe_reqwest_error(&err);
+        assert!(described.starts_with(&err.to_string()));
+        assert!(described.len() > err.to_string().len(), "{described}");
+        assert!(
+            described.contains("[") && described.contains("connect"),
+            "{described}"
+        );
+    }
+
+    #[test]
+    fn maps_supported_candle_intervals_to_millis() {
+        assert_eq!(
+            candle_interval_millis(&CandleParam::OneSecond).unwrap(),
+            1_000
+        );
+        assert_eq!(
+            candle_interval_millis(&CandleParam::OneMinute).unwrap(),
+            60_000
+        );
+        assert_eq!(
+            candle_interval_millis(&CandleParam::OneWeek).unwrap(),
+            7 * 24 * 60 * 60_000
+        );
+    }
+
+    #[test]
+    fn converts_microsecond_timestamps_to_exchange_precision() {
+        let timestamp_us = 1_783_580_000_123_456;
+
+        assert_eq!(micros_to_millis(timestamp_us), 1_783_580_000_123);
+        assert_eq!(micros_to_seconds(timestamp_us), 1_783_580_000);
+    }
+
+    #[test]
+    fn rejects_custom_candle_interval_without_known_duration() {
+        assert!(candle_interval_millis(&CandleParam::Custom("2m".into())).is_err());
+    }
+
+    #[test]
+    fn rejects_order_without_explicit_side_or_type() {
+        let missing_side = OrderParams {
+            order_type: OrderType::Market,
+            ..Default::default()
+        };
+        assert!(missing_side.validate_side_and_type().is_err());
+
+        let missing_type = OrderParams {
+            side: OrderSide::BUY,
+            ..Default::default()
+        };
+        assert!(missing_type.validate_side_and_type().is_err());
+    }
+
+    #[test]
+    fn accepts_order_with_explicit_side_and_type() {
+        let order = OrderParams {
+            side: OrderSide::SELL,
+            order_type: OrderType::Limit,
+            ..Default::default()
+        };
+
+        assert!(order.validate_side_and_type().is_ok());
+    }
+
+    #[test]
+    fn normalizes_values_already_on_decimal_steps() {
+        for (value, step, expected) in [
+            (0.3, 0.1, "0.3"),
+            (0.6, 0.1, "0.6"),
+            (5.1, 0.1, "5.1"),
+            (0.15, 0.05, "0.15"),
+            (1.23, 0.01, "1.23"),
+            (1.234, 0.001, "1.234"),
+        ] {
+            assert_eq!(normalize_to_string(value, step), expected);
+        }
+    }
+
+    #[test]
+    fn normalizes_real_off_step_values_down() {
+        assert_eq!(normalize_to_string(0.299_999, 0.1), "0.2");
+        assert_eq!(normalize_to_string(0.35, 0.1), "0.3");
+    }
+
+    #[test]
+    fn normalizes_reduce_only_values_already_on_decimal_steps() {
+        assert_eq!(normalize_to_string_reduce_only(0.1 + 0.2, 0.1), "0.3");
+        assert_eq!(normalize_to_string_reduce_only(0.15, 0.05), "0.15");
+    }
+
+    #[test]
+    fn normalizes_real_off_step_reduce_only_values_up() {
+        assert_eq!(normalize_to_string_reduce_only(0.300_001, 0.1), "0.4");
+        assert_eq!(normalize_to_string_reduce_only(0.35, 0.1), "0.4");
+    }
+}

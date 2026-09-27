@@ -6,6 +6,7 @@
 use alloy::sol;
 
 sol! {
+    #[derive(serde::Serialize)]
     struct Agent {
         string source;
         bytes32 connectionId;
@@ -147,8 +148,9 @@ sol! {
     struct TokenDelegate {
         string hyperliquidChain;
         address validator;
-        bool isUndelegate;
         uint64 wei;
+        bool isUndelegate;
+        uint64 nonce;
     }
 }
 

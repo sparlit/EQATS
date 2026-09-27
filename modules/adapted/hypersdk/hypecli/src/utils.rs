@@ -13,22 +13,28 @@
 use std::path::PathBuf;
 use std::{env::home_dir, str::FromStr};
 
-use alloy::signers::{self, Signer, ledger::LedgerSigner, trezor::TrezorSigner};
+use alloy::{
+    primitives::Address,
+    signers::{self, Signer, ledger::LedgerSigner},
+};
 use anyhow::Context;
 use clap::ValueEnum;
-use hypersdk::{Address, hypercore::PrivateKeySigner};
+use hypersdk::hypercore::PrivateKeySigner;
 use iroh::{
     Endpoint, SecretKey,
     address_lookup::{dns::DnsAddressLookup, pkarr::PkarrPublisher},
-    endpoint::presets::Empty,
+    endpoint::presets::Minimal,
 };
 use iroh_mdns_address_lookup::MdnsAddressLookup;
 use iroh_tickets::endpoint::EndpointTicket;
 use strsim::levenshtein;
 
-use hypersdk::hypercore::{HttpClient, PerpMarket, PriceTick, SpotMarket};
+use hypersdk::hypercore::{HttpClient, PerpMarket, PriceTick, SpotMarket, SpotToken};
 
-use crate::SignerArgs;
+use crate::{
+    SignerArgs,
+    trezor::{self, TrezorArgs},
+};
 
 /// Find similar symbols to a given input string.
 ///
@@ -118,7 +124,7 @@ pub async fn start_gossip(
     key: iroh::SecretKey,
     wait_online: bool,
 ) -> anyhow::Result<(Endpoint, EndpointTicket)> {
-    let endpoint = Endpoint::builder(Empty)
+    let endpoint = Endpoint::builder(Minimal)
         .secret_key(key)
         .relay_mode(iroh::RelayMode::Default)
         .address_lookup(DnsAddressLookup::n0_dns())
@@ -134,6 +140,23 @@ pub async fn start_gossip(
     }
 
     Ok((endpoint, ticket))
+}
+
+#[cfg(test)]
+mod gossip_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn gossip_endpoint_binds_with_crypto_provider() {
+        let (endpoint, _) = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            start_gossip(SecretKey::generate(), false),
+        )
+        .await
+        .expect("gossip endpoint binding timed out")
+        .expect("gossip endpoint should bind with a compatible TLS provider");
+        endpoint.close().await;
+    }
 }
 
 /// Finds and loads a synchronous signer (private key or keystore only).
@@ -187,7 +210,7 @@ pub fn find_signer_sync(cmd: &SignerArgs) -> anyhow::Result<PrivateKeySigner> {
 /// 1. Private key (if provided via `--private-key`)
 /// 2. Foundry keystore (if provided via `--keystore`)
 /// 3. Ledger hardware wallet (scans first 10 derivation paths)
-/// 4. Trezor hardware wallet (scans first 10 derivation paths)
+/// 4. Trezor hardware wallet (explicit path, cached paths, then local xpub discovery)
 ///
 /// For hardware wallets, the function searches through derivation paths
 /// until it finds one that matches an address in `searching_for`.
@@ -206,7 +229,7 @@ pub fn find_signer_sync(cmd: &SignerArgs) -> anyhow::Result<PrivateKeySigner> {
 /// Returns an error if:
 /// - Private key is invalid
 /// - Keystore file not found or password incorrect
-/// - No matching Ledger/Trezor key found in first 10 paths
+/// - No matching hardware wallet key found within the configured discovery range
 /// - No signer source provided
 pub async fn find_signer(
     cmd: &SignerArgs,
@@ -233,7 +256,7 @@ pub async fn find_signer(
             PrivateKeySigner::decrypt_keystore(keypath, password).context("decrypt_keystore")?,
         ) as Box<_>)
     } else {
-        for i in 0..10 {
+        for i in 0..if cmd.trezor.is_explicit() { 0 } else { 10 } {
             if let Ok(ledger) =
                 LedgerSigner::new(signers::ledger::HDPath::LedgerLive(i), Some(1)).await
             {
@@ -246,18 +269,11 @@ pub async fn find_signer(
                 }
             }
         }
-        for i in 0..10 {
-            if let Ok(trezor) =
-                TrezorSigner::new(signers::trezor::HDPath::TrezorLive(i), Some(1)).await
-            {
-                if let Some(filter_by) = filter_by {
-                    if filter_by.contains(&trezor.address()) {
-                        return Ok(Box::new(trezor) as Box<_>);
-                    }
-                } else {
-                    return Ok(Box::new(trezor) as Box<_>);
-                }
-            }
+        if let Some(trezor) = trezor::find_signers(&cmd.trezor, filter_by, true)?
+            .into_iter()
+            .next()
+        {
+            return Ok(Box::new(trezor));
         }
         Err(anyhow::anyhow!(
             "unable to find matching key in ledger or trezor"
@@ -272,7 +288,7 @@ pub async fn find_signer(
 /// a single CLI invocation to contribute multiple signatures (e.g. when
 /// a user controls several authorized hardware wallet keys).
 ///
-/// Sources checked: private key, keystore, Ledger (10 paths), Trezor (10 paths).
+/// Sources checked: private key, keystore, Ledger (10 paths), Trezor (configured discovery).
 pub async fn find_signers(
     cmd: &SignerArgs,
     filter_by: &[Address],
@@ -313,25 +329,7 @@ pub async fn find_signers(
         }
     }
 
-    for i in 0..10 {
-        if let Ok(ledger) = LedgerSigner::new(signers::ledger::HDPath::LedgerLive(i), Some(1)).await
-            && filter_by.contains(&ledger.address())
-            && !found.contains(&ledger.address())
-        {
-            found.push(ledger.address());
-            signers.push(Box::new(ledger));
-        }
-    }
-
-    for i in 0..10 {
-        if let Ok(trezor) = TrezorSigner::new(signers::trezor::HDPath::TrezorLive(i), Some(1)).await
-            && filter_by.contains(&trezor.address())
-            && !found.contains(&trezor.address())
-        {
-            found.push(trezor.address());
-            signers.push(Box::new(trezor));
-        }
-    }
+    signers.extend(scan_hw_signers(&cmd.trezor, filter_by, &found).await?);
 
     anyhow::ensure!(!signers.is_empty(), "no matching signers found");
     Ok(signers)
@@ -342,30 +340,34 @@ pub async fn find_signers(
 /// Used for the "swap device and rescan" flow during multisig signing.
 /// Returns any new signers whose addresses are in `filter_by` but not in `already_found`.
 pub async fn scan_hw_signers(
+    trezor_args: &TrezorArgs,
     filter_by: &[Address],
     already_found: &[Address],
-) -> Vec<Box<dyn Signer + Send + Sync + 'static>> {
+) -> anyhow::Result<Vec<Box<dyn Signer + Send + Sync + 'static>>> {
     let mut signers: Vec<Box<dyn Signer + Send + Sync + 'static>> = Vec::new();
+    let mut remaining: Vec<Address> = filter_by
+        .iter()
+        .copied()
+        .filter(|address| !already_found.contains(address))
+        .collect();
 
-    for i in 0..10 {
+    for i in 0..if trezor_args.is_explicit() { 0 } else { 10 } {
+        if remaining.is_empty() {
+            break;
+        }
         if let Ok(ledger) = LedgerSigner::new(signers::ledger::HDPath::LedgerLive(i), Some(1)).await
-            && filter_by.contains(&ledger.address())
-            && !already_found.contains(&ledger.address())
+            && remaining.contains(&ledger.address())
         {
+            remaining.retain(|address| *address != ledger.address());
             signers.push(Box::new(ledger));
         }
     }
 
-    for i in 0..10 {
-        if let Ok(trezor) = TrezorSigner::new(signers::trezor::HDPath::TrezorLive(i), Some(1)).await
-            && filter_by.contains(&trezor.address())
-            && !already_found.contains(&trezor.address())
-        {
-            signers.push(Box::new(trezor));
-        }
+    for trezor in trezor::find_signers(trezor_args, Some(&remaining), false)? {
+        signers.push(Box::new(trezor));
     }
 
-    signers
+    Ok(signers)
 }
 
 /// Parsed asset specification.
@@ -736,5 +738,56 @@ pub async fn resolve_asset_for_subscription(
                 coin: perp.name.clone(),
             })
         }
+    }
+}
+
+/// Resolve symbols using the selected chain's metadata, preserving numeric indexes.
+pub fn resolve_token<'a>(tokens: &'a [SpotToken], selector: &str) -> anyhow::Result<&'a SpotToken> {
+    let selector = selector.trim();
+    let index = selector.parse::<u32>().ok();
+    let mut matches = tokens.iter().filter(|token| match index {
+        Some(index) => token.index == index,
+        None => token.name.eq_ignore_ascii_case(selector),
+    });
+    let token = matches
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("unknown token '{selector}' on the selected chain"))?;
+    anyhow::ensure!(
+        matches.next().is_none(),
+        "ambiguous token symbol '{selector}'; use a numeric token index"
+    );
+    Ok(token)
+}
+
+#[cfg(test)]
+mod token_tests {
+    use super::{SpotToken, resolve_token};
+
+    fn token(name: &str, index: u32) -> SpotToken {
+        SpotToken {
+            name: name.into(),
+            index,
+            token_id: Default::default(),
+            evm_contract: None,
+            cross_chain_address: None,
+            sz_decimals: 2,
+            wei_decimals: 8,
+            evm_extra_decimals: 0,
+        }
+    }
+
+    #[test]
+    fn resolves_symbols_and_indexes_from_chain_metadata() {
+        // Deliberately use a different USDT0 index to catch hardcoded mappings.
+        let tokens = [token("USDC", 0), token("USDT0", 42), token("HYPE", 150)];
+        for (selector, expected) in [("USDC", 0), ("usdt0", 42), ("HyPe", 150), ("42", 42)] {
+            assert_eq!(resolve_token(&tokens, selector).unwrap().index, expected);
+        }
+        for selector in ["USDT", "999", ""] {
+            assert!(resolve_token(&tokens, selector).is_err());
+        }
+        let duplicates = [token("USDT0", 42), token("USDT0", 43)];
+        assert!(resolve_token(&duplicates, "USDT0").is_err());
+        assert_eq!(resolve_token(&duplicates, "43").unwrap().index, 43);
     }
 }

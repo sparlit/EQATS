@@ -1,0 +1,1374 @@
+use reqwest::Client;
+use serde_json::json;
+use std::sync::Arc;
+use tracing::error;
+
+use crate::arch::{
+    market_assets::{
+        api_data::{
+            account_data::{OrderAckData, OrderDetailData, PositionData},
+            price_data::{CandleData, MarkPriceData, OrderBookData, TickerData},
+            utils_data::{FundingRateData, FundingRateInfo, InstrumentInfo},
+        },
+        api_general::{
+            CancelOrderParams, OrderParams, RequestMethod, get_seconds_timestamp,
+            micros_to_seconds, parse_json_response, value_to_f64,
+        },
+        base_data::{InstrumentType, MarginMode, OrderSide, OrderType, SUBSCRIBE_LOWER},
+    },
+    strategy_base::command::command_core::WsConnectTarget,
+    task_execution::task_ws::{CandleParam, LobParam, WsChannel},
+    traits::{
+        conversion::IntoInfraData,
+        market_lob::{LobPrivateRest, LobPublicRest, LobWebsocket, MarketLobApi},
+    },
+};
+use crate::errors::{InfraError, InfraResult};
+
+use super::{
+    api_key::{GateKey, read_gate_env_key},
+    api_utils::*,
+    config_assets::*,
+    gate_rest_msg::RestResGate,
+    schemas::futures_rest::{
+        account_position::RestAccountPosGateFutures,
+        adl_risk_state::RestAdlRiskStatesGateFutures,
+        candle::RestCandleGateFutures,
+        contract_futures::RestContractGateFutures,
+        funding_rate::RestFundingRateGateFutures,
+        order::{
+            RestBatchCancelOrderGateFutures, RestBatchOrderGateFutures, RestFuturesOrderGateFutures,
+        },
+        order_history::RestFuturesOrderHistoryGateFutures,
+        orderbook::RestOrderBookGateFutures,
+        ticker::RestTickerGateFutures,
+    },
+};
+
+const OPEN_ORDERS_PAGE_LIMIT: u32 = 100;
+const GATE_FUTURES_BATCH_PLACE_LIMIT: usize = 10;
+const GATE_FUTURES_BATCH_CANCEL_LIMIT: usize = 20;
+
+#[derive(Clone, Debug)]
+pub struct GateFuturesCli {
+    pub client: Arc<Client>,
+    pub api_key: Option<GateKey>,
+    public_settles: Vec<String>,
+}
+
+impl Default for GateFuturesCli {
+    fn default() -> Self {
+        Self::new(Arc::new(Client::new()))
+    }
+}
+
+impl MarketLobApi for GateFuturesCli {}
+
+impl LobPublicRest for GateFuturesCli {
+    async fn get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        self._get_tickers(insts, inst_type).await
+    }
+
+    async fn get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        self._get_mark_prices(insts, inst_type).await
+    }
+
+    async fn get_candles(
+        &self,
+        inst: &str,
+        _inst_type: InstrumentType,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        self._get_candles(inst, interval, limit, start_time_us, end_time_us)
+            .await
+    }
+
+    async fn get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        self._get_orderbook(inst, inst_type, depth).await
+    }
+
+    async fn get_instrument_info(
+        &self,
+        inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        self._get_instrument_info(inst_type).await
+    }
+
+    async fn get_live_instruments(&self, inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        self._get_live_instruments(inst_type).await
+    }
+}
+
+impl LobPrivateRest for GateFuturesCli {
+    fn init_api_key(&mut self) {
+        match read_gate_env_key() {
+            Ok(gate_key) => {
+                self.api_key = Some(gate_key);
+            },
+            Err(e) => {
+                error!("Failed to read GATE env key: {:?}", e);
+            },
+        };
+    }
+
+    async fn place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        self._place_order(order_params).await
+    }
+
+    async fn place_orders(&self, order_params: Vec<OrderParams>) -> InfraResult<Vec<OrderAckData>> {
+        self._place_orders(order_params).await
+    }
+
+    async fn cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        self._cancel_order(inst, order_id, cli_order_id).await
+    }
+
+    async fn cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        self._cancel_orders(cancel_params).await
+    }
+
+    async fn get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_open_orders(inst, limit).await
+    }
+
+    async fn get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
+        self._get_positions(insts).await
+    }
+
+    async fn get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        self._get_order(inst, order_id).await
+    }
+
+    async fn get_order_history(
+        &self,
+        inst: &str,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        self._get_order_history(inst, start_time_us, end_time_us, limit)
+            .await
+    }
+}
+
+impl LobWebsocket for GateFuturesCli {
+    async fn get_public_sub_msg(
+        &self,
+        channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        self._get_public_sub_msg(channel, insts)
+    }
+
+    async fn get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        self._get_private_sub_msg(channel)
+    }
+
+    async fn get_public_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(GATE_FUTURES_WS_USDT.into())
+    }
+
+    async fn get_private_connect_msg(&self, _channel: &WsChannel) -> InfraResult<String> {
+        Ok(GATE_FUTURES_WS_USDT.into())
+    }
+
+    async fn get_public_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        Ok(gate_futures_connect_target())
+    }
+
+    async fn get_private_connect_target(
+        &self,
+        _channel: &WsChannel,
+    ) -> InfraResult<WsConnectTarget> {
+        Ok(gate_futures_connect_target())
+    }
+}
+
+fn gate_futures_connect_target() -> WsConnectTarget {
+    WsConnectTarget::new(GATE_FUTURES_WS_USDT)
+        .with_header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
+}
+
+impl GateFuturesCli {
+    pub fn new(shared_client: Arc<Client>) -> Self {
+        Self {
+            client: shared_client,
+            api_key: None,
+            public_settles: vec!["usdt".into(), "btc".into()],
+        }
+    }
+
+    pub fn with_public_settles(mut self, settles: &[&str]) -> Self {
+        self.public_settles = settles.iter().map(|settle| (*settle).into()).collect();
+        self
+    }
+
+    pub fn ws_subscribe_private(&self, channel: &str) -> InfraResult<String> {
+        let api_key = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?;
+
+        let timestamp = get_seconds_timestamp();
+        let auth = api_key.ws_auth(channel, SUBSCRIBE_LOWER, timestamp)?;
+        let payload = vec![api_key.user_id.clone(), "!all".into()];
+
+        let msg = json!({
+            "time": timestamp,
+            "channel": channel,
+            "event": SUBSCRIBE_LOWER,
+            "payload": payload,
+            "auth": auth,
+        });
+
+        Ok(msg.to_string())
+    }
+
+    pub async fn get_positions_raw(
+        &self,
+        settle: &str,
+    ) -> InfraResult<Vec<RestAccountPosGateFutures>> {
+        let endpoint = GATE_FUTURES_POSITIONS.replace("{settle}", settle);
+        let res: RestResGate<RestAccountPosGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        match res {
+            RestResGate::Error { label, message }
+                if label == "USER_NOT_FOUND"
+                    || message
+                        .contains("please transfer funds first to create futures account") =>
+            {
+                Ok(Vec::new())
+            },
+            other => other.into_vec(),
+        }
+    }
+
+    pub async fn get_funding_rate_history(
+        &self,
+        settle: &str,
+        inst: &str,
+        limit: Option<u32>,
+        start_time: Option<u64>,
+        end_time: Option<u64>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let endpoint = GATE_FUTURES_FUNDING_RATE.replace("{settle}", settle);
+
+        let mut params: Vec<String> = Vec::new();
+        params.push(format!("contract={}", cli_perp_to_gate_inst(inst)));
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(s) = start_time {
+            params.push(format!("from={}", s));
+        }
+        if let Some(e) = end_time {
+            params.push(format!("to={}", e));
+        }
+
+        let url = if params.is_empty() {
+            [GATE_BASE_URL, &endpoint].concat()
+        } else {
+            format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
+        };
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestFundingRateGateFutures> =
+            parse_json_response("GateFutures funding_rate_history", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| FundingRateData::from((entry, inst)))
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn set_leverage(
+        &self,
+        inst: &str,
+        leverage: u32,
+        margin_mode: MarginMode,
+    ) -> InfraResult<RestAccountPosGateFutures> {
+        let settle = infer_settle_from_inst(inst);
+        let contract = cli_perp_to_gate_inst(inst);
+        let endpoint = GATE_FUTURES_SET_LEVERAGE
+            .replace("{settle}", &settle)
+            .replace("{contract}", &contract);
+
+        let mut params = Vec::new();
+        match margin_mode {
+            MarginMode::Cross => {
+                params.push("leverage=0".to_string());
+                params.push(format!("cross_leverage_limit={}", leverage));
+            },
+            MarginMode::Isolated => {
+                params.push(format!("leverage={}", leverage));
+            },
+            MarginMode::Unknown => {
+                return Err(InfraError::ApiCliError(format!(
+                    "unsupported Gate futures margin_mode: {:?}",
+                    margin_mode
+                )));
+            },
+        }
+
+        let res: RestResGate<RestAccountPosGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                Some(&params.join("&")),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError("No position data returned".into()))?;
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_info(
+        &self,
+        settle: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> InfraResult<Vec<FundingRateInfo>> {
+        let endpoint = GATE_FUTURES_CONTRACTS.replace("{settle}", settle);
+
+        let mut params: Vec<String> = Vec::new();
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(o) = offset {
+            params.push(format!("offset={}", o));
+        }
+
+        let url = if params.is_empty() {
+            [GATE_BASE_URL, &endpoint].concat()
+        } else {
+            format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
+        };
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures funding_rate_info", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateInfo::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_live_all(
+        &self,
+        settle: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let endpoint = GATE_FUTURES_CONTRACTS.replace("{settle}", settle);
+
+        let mut params: Vec<String> = Vec::new();
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(o) = offset {
+            params.push(format!("offset={}", o));
+        }
+
+        let url = if params.is_empty() {
+            [GATE_BASE_URL, &endpoint].concat()
+        } else {
+            format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
+        };
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures funding_rate_live_all", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    pub async fn get_funding_rate_live(
+        &self,
+        settle: &str,
+        inst: &str,
+    ) -> InfraResult<Vec<FundingRateData>> {
+        let endpoint = GATE_FUTURES_CONTRACT
+            .replace("{settle}", settle)
+            .replace("{contract}", &cli_perp_to_gate_inst(inst));
+
+        let url = [GATE_BASE_URL, &endpoint].concat();
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures funding_rate_live", response).await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(FundingRateData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_futures_contracts(
+        &self,
+        settle: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> InfraResult<Vec<RestContractGateFutures>> {
+        let endpoint = GATE_FUTURES_CONTRACTS.replace("{settle}", settle);
+
+        let mut params: Vec<String> = Vec::new();
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(o) = offset {
+            params.push(format!("offset={}", o));
+        }
+
+        let url = if params.is_empty() {
+            [GATE_BASE_URL, &endpoint].concat()
+        } else {
+            format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"))
+        };
+
+        let response = self
+            .client
+            .get(url)
+            .header(GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE)
+            .send()
+            .await?;
+        let res: RestResGate<RestContractGateFutures> =
+            parse_json_response("GateFutures futures_contracts", response).await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_futures_contracts_raw(
+        &self,
+        settle: &str,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> InfraResult<Vec<RestContractGateFutures>> {
+        self._get_futures_contracts(settle, limit, offset).await
+    }
+
+    pub async fn get_tickers_raw(&self, settle: &str) -> InfraResult<Vec<RestTickerGateFutures>> {
+        let endpoint = GATE_FUTURES_TICKERS.replace("{settle}", settle);
+        let url = [GATE_BASE_URL, &endpoint].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestTickerGateFutures> =
+            parse_json_response("GateFutures tickers", response).await?;
+
+        res.into_vec()
+    }
+
+    pub async fn get_adl_risk_states(
+        &self,
+        settle: &str,
+    ) -> InfraResult<RestAdlRiskStatesGateFutures> {
+        let endpoint = GATE_FUTURES_ADL_RISK_STATES.replace("{settle}", settle);
+        let url = [GATE_BASE_URL, &endpoint].concat();
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestAdlRiskStatesGateFutures> =
+            parse_json_response("GateFutures adl_risk_states", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Gate ADL risk states returned".into(),
+            ))
+    }
+
+    async fn _get_tickers(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<TickerData>> {
+        let mut data: Vec<TickerData> = Vec::new();
+
+        for settle in &self.public_settles {
+            data.extend(
+                self.get_tickers_raw(settle)
+                    .await?
+                    .into_iter()
+                    .filter(|t| match insts {
+                        Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
+                        None => true,
+                    })
+                    .map(TickerData::from),
+            );
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_mark_prices(
+        &self,
+        insts: Option<&[String]>,
+        _inst_type: Option<InstrumentType>,
+    ) -> InfraResult<Vec<MarkPriceData>> {
+        let mut data: Vec<MarkPriceData> = Vec::new();
+
+        for settle in &self.public_settles {
+            data.extend(
+                self.get_tickers_raw(settle)
+                    .await?
+                    .into_iter()
+                    .filter(|t| match insts {
+                        Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
+                        None => true,
+                    })
+                    .map(MarkPriceData::from),
+            );
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_candles(
+        &self,
+        inst: &str,
+        interval: CandleParam,
+        limit: Option<u32>,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+    ) -> InfraResult<Vec<CandleData>> {
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_CANDLESTICKS.replace("{settle}", &settle);
+        let mut params = vec![
+            format!("contract={}", cli_perp_to_gate_inst(inst)),
+            format!("interval={}", interval.as_str()),
+        ];
+        let has_time_window = start_time_us.is_some() || end_time_us.is_some();
+        if !has_time_window && let Some(limit) = limit {
+            params.push(format!("limit={limit}"));
+        }
+        if let Some(start_time_us) = start_time_us {
+            params.push(format!("from={}", start_time_us / 1_000_000));
+        }
+        if let Some(end_time_us) = end_time_us {
+            params.push(format!("to={}", end_time_us / 1_000_000));
+        }
+
+        let url = format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"));
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestCandleGateFutures> =
+            parse_json_response("GateFutures candles", response).await?;
+
+        let mut data: Vec<CandleData> = res
+            .into_vec()?
+            .into_iter()
+            .map(|entry| entry.into_candle_data(inst))
+            .filter(|entry| start_time_us.is_none_or(|start| entry.timestamp >= start))
+            .filter(|entry| end_time_us.is_none_or(|end| entry.timestamp <= end))
+            .collect();
+        data.sort_by_key(|candle| candle.timestamp);
+
+        if has_time_window
+            && let Some(limit) = limit
+            && data.len() > limit as usize
+        {
+            data.drain(..data.len() - limit as usize);
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_orderbook(
+        &self,
+        inst: &str,
+        inst_type: InstrumentType,
+        depth: usize,
+    ) -> InfraResult<OrderBookData> {
+        if !matches!(
+            inst_type,
+            InstrumentType::Perpetual | InstrumentType::Futures
+        ) {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate futures orderbook supports futures/perpetual instruments only, got {:?}",
+                inst_type
+            )));
+        }
+
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_ORDER_BOOK.replace("{settle}", &settle);
+        let depth = gate_lob_depth(&nonzero_depth_u16(depth)?)?;
+        let params = [
+            format!("contract={}", cli_perp_to_gate_inst(inst)),
+            format!("limit={depth}"),
+        ];
+        let url = format!("{}{}?{}", GATE_BASE_URL, endpoint, params.join("&"));
+
+        let response = self.client.get(url).send().await?;
+        let res: RestResGate<RestOrderBookGateFutures> =
+            parse_json_response("GateFutures orderbook", response).await?;
+
+        res.into_vec()?
+            .into_iter()
+            .next()
+            .map(|entry| entry.into_orderbook_data(inst))
+            .ok_or_else(|| {
+                InfraError::ApiCliError("No Gate futures orderbook data returned".into())
+            })
+    }
+
+    async fn _get_instrument_info(
+        &self,
+        _inst_type: InstrumentType,
+    ) -> InfraResult<Vec<InstrumentInfo>> {
+        let mut data: Vec<InstrumentInfo> = Vec::new();
+
+        for settle in &self.public_settles {
+            let contracts = self._get_futures_contracts(settle, None, None).await?;
+            data.extend(contracts.into_iter().map(InstrumentInfo::from));
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_live_instruments(&self, _inst_type: InstrumentType) -> InfraResult<Vec<String>> {
+        let mut data: Vec<String> = Vec::new();
+
+        let now_secs = get_seconds_timestamp();
+
+        for settle in &self.public_settles {
+            let contracts = self._get_futures_contracts(settle, None, None).await?;
+            data.extend(
+                contracts
+                    .into_iter()
+                    .filter(|c| c.is_live(now_secs))
+                    .map(|c| gate_fut_inst_to_cli(&c.name)),
+            );
+        }
+
+        Ok(data)
+    }
+
+    async fn _place_order(&self, order_params: OrderParams) -> InfraResult<OrderAckData> {
+        order_params.validate_side_and_type()?;
+
+        let mut extra = order_params.extra;
+        let gate_channel_id = take_gate_channel_id(&mut extra)?;
+        let settle = extra
+            .remove("settle")
+            .unwrap_or_else(|| infer_settle_from_inst(&order_params.inst));
+
+        let contract = cli_perp_to_gate_inst(&order_params.inst);
+        let size_raw = order_params.size.trim();
+        if size_raw.is_empty() {
+            return Err(InfraError::ApiCliError("Invalid order size".into()));
+        }
+        let unsigned_size = size_raw.trim_start_matches(['+', '-']);
+        if unsigned_size.is_empty() {
+            return Err(InfraError::ApiCliError("Invalid order size".into()));
+        }
+        let signed_size = match order_params.side {
+            OrderSide::SELL => format!("-{unsigned_size}"),
+            _ => unsigned_size.to_string(),
+        };
+
+        let mut body = json!({
+            "contract": contract,
+            "size": signed_size,
+        });
+
+        let tif = match order_params.order_type {
+            OrderType::PostOnly => Some("poc"),
+            OrderType::Fok => Some("fok"),
+            OrderType::Ioc => Some("ioc"),
+            OrderType::Market => Some("ioc"),
+            _ => None,
+        };
+
+        if matches!(order_params.order_type, OrderType::Market) {
+            body["price"] = json!("0");
+            body["tif"] = json!(tif.unwrap_or("ioc"));
+        } else {
+            let price = order_params.price.ok_or(InfraError::ApiCliError(
+                "Price required for limit order".into(),
+            ))?;
+            body["price"] = json!(price);
+            let tif_val = tif.unwrap_or("gtc");
+            body["tif"] = json!(tif_val);
+        }
+
+        if let Some(reduce_only) = order_params.reduce_only {
+            body["reduce_only"] = json!(reduce_only);
+        }
+
+        if let Some(cl_id) = order_params.client_order_id {
+            body["text"] = json!(normalize_gate_text(&cl_id));
+        }
+
+        for (k, v) in extra {
+            body[k] = json!(v);
+        }
+
+        let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
+        let res: RestResGate<RestFuturesOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_post_request_with_channel_id(
+                &self.client,
+                None,
+                Some(&body.to_string()),
+                GATE_BASE_URL,
+                &endpoint,
+                gate_channel_id.as_deref(),
+            )
+            .await?;
+
+        let data: OrderAckData = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError("No order ack data returned".into()))?;
+
+        Ok(data)
+    }
+
+    async fn _place_orders(
+        &self,
+        order_params: Vec<OrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if order_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if order_params.len() > GATE_FUTURES_BATCH_PLACE_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch place supports at most {GATE_FUTURES_BATCH_PLACE_LIMIT} orders"
+            )));
+        }
+
+        let orders = order_params
+            .iter()
+            .map(GateFuturesBatchOrderParams::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let settle = orders[0].settle.clone();
+        let channel_id = orders[0].channel_id.clone();
+        if orders
+            .iter()
+            .any(|order| order.settle != settle || order.channel_id != channel_id)
+        {
+            return Err(InfraError::ApiCliError(
+                "Gate Futures batch place requires one settle and channel id".into(),
+            ));
+        }
+
+        let endpoint = GATE_FUTURES_BATCH_ORDERS.replace("{settle}", &settle);
+        let body = serde_json::to_string(
+            &orders
+                .into_iter()
+                .map(|order| order.order)
+                .collect::<Vec<_>>(),
+        )?;
+        let res: RestResGate<RestBatchOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_post_request_with_channel_id(
+                &self.client,
+                None,
+                Some(&body),
+                GATE_BASE_URL,
+                &endpoint,
+                channel_id.as_deref(),
+            )
+            .await?;
+
+        let responds = res.into_vec()?;
+        if responds.len() != order_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch place returned {} result(s) for {} order(s)",
+                responds.len(),
+                order_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds
+            .into_iter()
+            .zip(order_params)
+            .map(|(ack, order)| ack.into_order_ack(order.client_order_id))
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _cancel_order(
+        &self,
+        inst: &str,
+        order_id: Option<&str>,
+        cli_order_id: Option<&str>,
+    ) -> InfraResult<OrderAckData> {
+        let order_id = match (order_id, cli_order_id) {
+            (Some(order_id), _) => order_id.to_string(),
+            (None, Some(cli_order_id)) => normalize_gate_text(cli_order_id),
+            (None, None) => {
+                return Err(InfraError::ApiCliError(
+                    "Gate Futures cancel_order requires order_id or cli_order_id".into(),
+                ));
+            },
+        };
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_ORDER
+            .replace("{settle}", &settle)
+            .replace("{order_id}", &order_id);
+
+        let res: RestResGate<RestFuturesOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Delete,
+                None,
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .map(OrderAckData::from)
+            .next()
+            .ok_or(InfraError::ApiCliError(
+                "No Gate Futures cancel ack data returned".into(),
+            ))?;
+
+        Ok(data)
+    }
+
+    async fn _cancel_orders(
+        &self,
+        cancel_params: Vec<CancelOrderParams>,
+    ) -> InfraResult<Vec<OrderAckData>> {
+        if cancel_params.is_empty() {
+            return Ok(Vec::new());
+        }
+        if cancel_params.len() > GATE_FUTURES_BATCH_CANCEL_LIMIT {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch cancel supports at most {GATE_FUTURES_BATCH_CANCEL_LIMIT} orders"
+            )));
+        }
+
+        let orders = cancel_params
+            .iter()
+            .map(GateFuturesBatchCancelParams::try_from)
+            .collect::<InfraResult<Vec<_>>>()?;
+        let settle = orders[0].settle.clone();
+        if orders.iter().any(|order| order.settle != settle) {
+            return Err(InfraError::ApiCliError(
+                "Gate Futures batch cancel requires one settle".into(),
+            ));
+        }
+
+        let endpoint = GATE_FUTURES_BATCH_CANCEL_ORDERS.replace("{settle}", &settle);
+        let body = serde_json::to_string(
+            &orders
+                .into_iter()
+                .map(|order| order.order_id)
+                .collect::<Vec<_>>(),
+        )?;
+        let res: RestResGate<RestBatchCancelOrderGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Post,
+                None,
+                Some(&body),
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let responds = res.into_vec()?;
+        if responds.len() != cancel_params.len() {
+            return Err(InfraError::ApiCliError(format!(
+                "Gate Futures batch cancel returned {} result(s) for {} order(s)",
+                responds.len(),
+                cancel_params.len()
+            )));
+        }
+
+        let data: Vec<OrderAckData> = responds
+            .into_iter()
+            .zip(cancel_params)
+            .map(|(ack, cancel)| ack.into_order_ack(cancel.cli_order_id))
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_positions(&self, insts: Option<&[String]>) -> InfraResult<Vec<PositionData>> {
+        let settles: Vec<String> = if let Some(list) = insts {
+            let mut s = Vec::new();
+            for inst in list {
+                let settle = infer_settle_from_inst(inst);
+                if !s.contains(&settle) {
+                    s.push(settle);
+                }
+            }
+            if s.is_empty() { vec!["usdt".into()] } else { s }
+        } else {
+            vec!["usdt".into(), "btc".into()]
+        };
+
+        let mut data: Vec<PositionData> = Vec::new();
+        for settle in settles {
+            data.extend(
+                self.get_positions_raw(&settle)
+                    .await?
+                    .into_iter()
+                    .filter(|p| value_to_f64(&p.size) != 0.0)
+                    .filter(|t| match insts {
+                        Some(list) => list.contains(&gate_fut_inst_to_cli(&t.contract)),
+                        None => true,
+                    })
+                    .map(PositionData::from),
+            );
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_open_orders(
+        &self,
+        inst: &str,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        if limit == Some(0) {
+            return Ok(Vec::new());
+        }
+
+        let page_limit = limit
+            .unwrap_or(OPEN_ORDERS_PAGE_LIMIT)
+            .min(OPEN_ORDERS_PAGE_LIMIT);
+        let mut data = Vec::new();
+        let mut last_id = None;
+
+        loop {
+            let page_data = self
+                ._get_open_orders_page(inst, page_limit, last_id.as_deref())
+                .await?;
+            let page_len = page_data.len();
+            let next_last_id = page_data.last().map(|order| order.order_id.clone());
+            data.extend(page_data);
+
+            if let Some(limit) = limit
+                && data.len() >= limit as usize
+            {
+                data.truncate(limit as usize);
+                break;
+            }
+            if page_len < page_limit as usize {
+                break;
+            }
+            if next_last_id == last_id {
+                return Err(InfraError::ApiCliError(
+                    "Gate Futures open-order cursor did not advance".into(),
+                ));
+            }
+
+            last_id = next_last_id;
+        }
+
+        Ok(data)
+    }
+
+    async fn _get_open_orders_page(
+        &self,
+        inst: &str,
+        limit: u32,
+        last_id: Option<&str>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let settle = infer_settle_from_inst(inst);
+        let contract = cli_perp_to_gate_inst(inst);
+        let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
+        let mut query_string = format!("status=open&contract={contract}&limit={limit}");
+        if let Some(last_id) = last_id {
+            query_string.push_str(&format!("&last_id={last_id}"));
+        }
+
+        let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.contract == contract)
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    async fn _get_order(&self, inst: &str, order_id: &str) -> InfraResult<OrderDetailData> {
+        let settle = infer_settle_from_inst(inst);
+        let endpoint = GATE_FUTURES_ORDER
+            .replace("{settle}", &settle)
+            .replace("{order_id}", order_id);
+
+        let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                None,
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data = res.into_one().map(OrderDetailData::from)?;
+
+        Ok(data)
+    }
+
+    async fn _get_order_history(
+        &self,
+        inst: &str,
+        start_time_us: Option<u64>,
+        end_time_us: Option<u64>,
+        limit: Option<u32>,
+    ) -> InfraResult<Vec<OrderDetailData>> {
+        let settle = infer_settle_from_inst(inst);
+        let contract = cli_perp_to_gate_inst(inst);
+
+        let endpoint = GATE_FUTURES_ORDERS.replace("{settle}", &settle);
+        let mut query_string = format!("status=finished&contract={}", contract);
+        if let Some(start_time_us) = start_time_us {
+            query_string.push_str(&format!("&from={}", micros_to_seconds(start_time_us)));
+        }
+        if let Some(end_time_us) = end_time_us {
+            query_string.push_str(&format!("&to={}", micros_to_seconds(end_time_us)));
+        }
+        if let Some(limit) = limit {
+            query_string.push_str(&format!("&limit={}", limit));
+        }
+
+        let res: RestResGate<RestFuturesOrderHistoryGateFutures> = self
+            .api_key
+            .as_ref()
+            .ok_or(InfraError::ApiCliNotInitialized)?
+            .send_signed_request(
+                &self.client,
+                RequestMethod::Get,
+                Some(&query_string),
+                None,
+                GATE_BASE_URL,
+                &endpoint,
+            )
+            .await?;
+
+        let data: Vec<OrderDetailData> = res
+            .into_vec()?
+            .into_iter()
+            .filter(|order| order.contract == contract)
+            .map(OrderDetailData::from)
+            .collect();
+
+        Ok(data)
+    }
+
+    fn _get_public_sub_msg(
+        &self,
+        ws_channel: &WsChannel,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        match ws_channel {
+            WsChannel::Candles(channel) => self._ws_subscribe_candle(channel, insts),
+            WsChannel::Trades(_) => self._ws_subscribe_trades(insts),
+            WsChannel::Lob(lob_param) => self._ws_subscribe_lob(lob_param, insts),
+            WsChannel::Other(channel) if channel == GATE_WS_FUTURES_ADL_WARNING => {
+                ws_subscribe_adl_warning_msg_gate_futures(insts)
+            },
+            _ => Err(InfraError::Unimplemented),
+        }
+    }
+
+    fn _ws_subscribe_candle(
+        &self,
+        candle_param: &Option<CandleParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        let interval = candle_param.as_ref().map(|p| p.as_str()).unwrap_or("1m");
+        let contract = gate_first_contract(insts)?;
+        let payload = vec![interval.into(), contract];
+        Ok(ws_subscribe_msg_gate_futures(
+            GATE_WS_FUTURES_CANDLES,
+            payload,
+        ))
+    }
+
+    fn _ws_subscribe_trades(&self, insts: Option<&[String]>) -> InfraResult<String> {
+        let contracts = gate_contracts_from_insts(insts)?;
+        Ok(ws_subscribe_msg_gate_futures(
+            GATE_WS_FUTURES_TRADES,
+            contracts,
+        ))
+    }
+
+    fn _ws_subscribe_lob(
+        &self,
+        lob_param: &Option<LobParam>,
+        insts: Option<&[String]>,
+    ) -> InfraResult<String> {
+        match lob_param {
+            Some(LobParam::Bbo { frequency }) => {
+                gate_lob_bbo_frequency(frequency)?;
+                let contracts = gate_contracts_from_insts(insts)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_BOOK_TICKER,
+                    contracts,
+                ))
+            },
+            Some(LobParam::Snapshot { depth, frequency }) => {
+                gate_lob_snapshot_frequency(frequency)?;
+                let contract = gate_first_contract(insts)?;
+                let depth = gate_lob_depth(depth)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_ORDER_BOOK,
+                    vec![contract, depth.to_string(), "0".into()],
+                ))
+            },
+            None => {
+                let contract = gate_first_contract(insts)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_ORDER_BOOK_UPDATE,
+                    vec![contract, "100ms".into(), "20".into()],
+                ))
+            },
+            Some(LobParam::Incremental { depth, frequency }) => {
+                let contract = gate_first_contract(insts)?;
+                let depth = gate_lob_depth(depth)?;
+                let frequency = gate_lob_update_frequency(frequency, depth)?;
+                Ok(ws_subscribe_msg_gate_futures(
+                    GATE_WS_FUTURES_ORDER_BOOK_UPDATE,
+                    vec![contract, frequency.into(), depth.to_string()],
+                ))
+            },
+        }
+    }
+
+    fn _get_private_sub_msg(&self, channel: &WsChannel) -> InfraResult<String> {
+        let topic = match channel {
+            WsChannel::AccountOrders => GATE_WS_FUTURES_ORDERS,
+            WsChannel::AccountPositions => GATE_WS_FUTURES_POSITIONS,
+            _ => return Err(InfraError::Unimplemented),
+        };
+        self.ws_subscribe_private(topic)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    use crate::arch::{
+        market_assets::exchange::gate::{
+            api_utils::{GATE_SIZE_DECIMAL_HEADER, GATE_SIZE_DECIMAL_HEADER_VALUE},
+            config_assets::GATE_WS_FUTURES_ADL_WARNING,
+            gate_futures_cli::GateFuturesCli,
+        },
+        task_execution::task_ws::{LobFrequency, LobParam, WsChannel},
+        traits::market_lob::LobWebsocket,
+    };
+
+    #[test]
+    fn builds_gate_adl_warning_subscribe_messages() {
+        let cli = GateFuturesCli::default();
+        let channel = WsChannel::Other(GATE_WS_FUTURES_ADL_WARNING.to_string());
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+
+        let all: Value =
+            serde_json::from_str(&cli._get_public_sub_msg(&channel, None).unwrap()).unwrap();
+        assert_eq!(all["channel"], "futures.adl_warning");
+        assert_eq!(all["event"], "subscribe");
+        assert_eq!(all["payload"], serde_json::json!(["!all"]));
+
+        let one: Value =
+            serde_json::from_str(&cli._get_public_sub_msg(&channel, Some(&insts)).unwrap())
+                .unwrap();
+        assert_eq!(one["payload"], serde_json::json!(["BTC_USDT"]));
+    }
+
+    #[tokio::test]
+    async fn gate_futures_connect_target_requests_decimal_sizes() {
+        let cli = GateFuturesCli::default();
+
+        let public = cli
+            .get_public_connect_target(&WsChannel::Lob(Some(LobParam::Bbo { frequency: None })))
+            .await
+            .unwrap();
+        let private = cli
+            .get_private_connect_target(&WsChannel::AccountPositions)
+            .await
+            .unwrap();
+
+        for target in [public, private] {
+            assert!(target.headers.iter().any(|(name, value)| {
+                name == GATE_SIZE_DECIMAL_HEADER && value == GATE_SIZE_DECIMAL_HEADER_VALUE
+            }));
+        }
+    }
+
+    #[tokio::test]
+    async fn builds_gate_lob_subscription_messages() {
+        let cli = GateFuturesCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string(), "ETH_USDT_PERP".to_string()];
+
+        let bbo = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Bbo {
+                    frequency: Some(LobFrequency::Realtime),
+                })),
+                Some(&insts),
+            )
+            .await
+            .unwrap();
+        assert!(bbo.contains("\"channel\":\"futures.book_ticker\""));
+        assert!(bbo.contains("\"BTC_USDT\""));
+        assert!(bbo.contains("\"ETH_USDT\""));
+
+        let snapshot = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Snapshot {
+                    depth: Some(50),
+                    frequency: None,
+                })),
+                Some(&insts),
+            )
+            .await
+            .unwrap();
+        assert!(snapshot.contains("\"channel\":\"futures.order_book\""));
+        assert!(snapshot.contains("\"payload\":[\"BTC_USDT\",\"50\",\"0\"]"));
+
+        let incremental = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(20),
+                    frequency: Some(LobFrequency::Ms20),
+                })),
+                Some(&insts),
+            )
+            .await
+            .unwrap();
+        assert!(incremental.contains("\"channel\":\"futures.order_book_update\""));
+        assert!(incremental.contains("\"payload\":[\"BTC_USDT\",\"20ms\",\"20\"]"));
+    }
+
+    #[tokio::test]
+    async fn rejects_unsupported_gate_lob_subscription_params() {
+        let cli = GateFuturesCli::default();
+        let insts = vec!["BTC_USDT_PERP".to_string()];
+
+        let err = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Snapshot {
+                    depth: Some(20),
+                    frequency: Some(LobFrequency::Ms100),
+                })),
+                Some(&insts),
+            )
+            .await;
+        assert!(err.is_err());
+
+        let err = cli
+            .get_public_sub_msg(
+                &WsChannel::Lob(Some(LobParam::Incremental {
+                    depth: Some(50),
+                    frequency: Some(LobFrequency::Ms20),
+                })),
+                Some(&insts),
+            )
+            .await;
+        assert!(err.is_err());
+    }
+}

@@ -1,0 +1,539 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""Every Pydantic request model in one place.
+
+Kept together rather than per-router because several are genuinely shared - TradeAccountRequest
+is used by both the journal and paper-trading routers, and splitting them would have one router
+importing another's schemas.
+"""
+from datetime import date
+from typing import Literal
+
+from app.core import price_sources
+from pydantic import BaseModel, Field
+
+
+class ChatRequest(BaseModel):
+    sessionId: str
+    messages: list[dict]
+    model: str | None = None
+
+
+class AddStockRequest(BaseModel):
+    symbol: str
+
+
+class ScrapeRequest(BaseModel):
+    url: str
+
+
+class ActiveModelRequest(BaseModel):
+    model: str
+
+
+class SentimentRequest(BaseModel):
+    url: str
+
+
+class BulkMaxCollectRequest(BaseModel):
+    symbols: list[str]
+    source: str = price_sources.DEFAULT_SOURCE
+    model: str | None = None
+
+
+class WatchlistRequest(BaseModel):
+    list_name: str
+
+
+class WatchlistListRequest(BaseModel):
+    name: str
+
+
+class RenameWatchlistRequest(BaseModel):
+    new_name: str
+
+
+class ReorderWatchlistsRequest(BaseModel):
+    names: list[str]
+
+
+class LiteLLMConfigRequest(BaseModel):
+    base_url: str
+    api_key: str | None = None  # None (omitted) leaves the previously-saved key untouched
+
+
+class OmniRouteConfigRequest(BaseModel):
+    base_url: str = ""  # "" = the default local gateway at http://localhost:20128/v1
+    api_key: str | None = None  # None (omitted) leaves the previously-saved key untouched
+
+
+class AgentRunRequest(BaseModel):
+    session_id: str
+    message: str
+    model: str | None = None
+    #: The already-windowed conversation the client has on screen. Passed in rather than read from
+    #: chat_messages because the client is the only side that knows what it is actually showing.
+    history: list[dict] | None = None
+
+
+class WorkflowRequest(BaseModel):
+    name: str
+    description: str | None = None
+    #: {"nodes": [...], "edges": [...]} - React Flow's own shape, stored and returned whole.
+    graph: dict = {"nodes": [], "edges": []}
+    trigger: dict = {"kind": "manual"}
+    enabled: bool = False
+    #: How many runs' worth of collected rows to keep. Per workflow, because a daily scan and an
+    #: hourly one mean very different things by "the last 30".
+    retain_runs: int = 30
+
+
+class DashboardRequest(BaseModel):
+    name: str
+    description: str | None = None
+    #: [{id, type, title, query, options, layout: {x, y, w, h}}] - see app/services/dashboards.py
+    panels: list = []
+    #: [{name, label, query, field, default}]
+    variables: list = []
+    #: {from, to, refresh}
+    settings: dict = {}
+
+
+class HomeBoardRequest(BaseModel):
+    #: [{id, dashboard_id, panel_id | None, layout: {x, y, w, h}}]
+    items: list = []
+
+
+class DashboardQueryRequest(BaseModel):
+    query: dict
+    variables: dict = {}
+    time_from: str | None = "now-7d"
+    time_to: str | None = "now"
+
+
+class DashboardDrillRequest(DashboardQueryRequest):
+    #: What was clicked: {group?, bucket?}
+    point: dict = {}
+
+
+class DashboardValuesRequest(DashboardQueryRequest):
+    field: str
+
+
+class DashboardParamsRequest(BaseModel):
+    source: str
+    params: dict = {}
+
+
+class TriggerPreviewRequest(BaseModel):
+    trigger: dict
+
+
+class WorkflowNotifyRequest(BaseModel):
+    #: See app/services/workflow_notify.py DEFAULT_NOTIFY for the keys.
+    notify: dict
+
+
+class NotificationReadRequest(BaseModel):
+    #: None marks every unread notification of the workflow read.
+    ids: list[int] | None = None
+
+
+class ScreenerConfigRequest(BaseModel):
+    #: The `sessionid` cookie from the user's own signed-in screener.in session. Blank keeps the
+    #: saved one - the field is write-only in the UI.
+    session_cookie: str = ""
+
+
+class TelegramConfigRequest(BaseModel):
+    #: Blank keeps the saved token - the field is write-only in the UI.
+    bot_token: str = ""
+    chat_id: str = ""
+
+
+class ScreenWorkflowRequest(BaseModel):
+    url: str
+    #: IST "HH:MM". Evening by default - screener's numbers move after the close, not during it.
+    time: str = "19:00"
+    #: Pages of 50 per run. A 344-result screen is 7 pages; an alert about 350 companies isn't one.
+    max_pages: int = 2
+
+
+class CogencisConfigRequest(BaseModel):
+    token: str
+
+
+class WatchRuleRequest(BaseModel):
+    name: str
+    text: str
+
+
+class ActiveBrokerRequest(BaseModel):
+    broker: str
+
+
+class DhanConfigRequest(BaseModel):
+    client_id: str
+    access_token: str
+
+
+class KiteConfigRequest(BaseModel):
+    api_key: str
+    api_secret: str
+
+
+class BacktestRunRequest(BaseModel):
+    symbol: str
+    short: int = 20
+    long: int = 50
+    from_date: str | None = None
+    to_date: str | None = None
+
+
+class BacktestSaveRequest(BacktestRunRequest):
+    lessons: str | None = None
+
+
+class BacktestLessonsRequest(BaseModel):
+    lessons: str
+
+
+class AutoBacktestScriptRequest(BaseModel):
+    name: str
+    script: str
+
+
+class ManualTradeRequest(BaseModel):
+    symbol: str
+    direction: str  # "long" | "short"
+    quantity: float
+    entry_price: float
+    exit_price: float | None = None
+    stop_loss: float | None = None
+    target: float | None = None
+    is_open: bool = False
+    result: str | None = None  # "profit" | "loss" | "neutral"
+    emotion: str | None = None
+    tags: list[str] = []
+    notes: str | None = None
+    traded_at: str | None = None  # ISO datetime; omitted -> now()
+    image_filename: str | None = None  # already-uploaded file (e.g. from the Bulk Trades import)
+    setup: str | None = None  # freeform strategy/setup label, e.g. "Breakout" - see manual-backtesting plan
+    ideal_risk_amount: float | None = None  # planned risk in rupees, for Expected-R / risk-deviation
+    account_id: int | None = None  # which trade_accounts row this belongs to; None = unassigned
+    # When the position was actually opened and closed. Both optional; `entried_at` defaults to
+    # traded_at (for a hand-logged trade they are the same moment), and without `exited_at` MAE/MFE
+    # can't be bounded, so those two metrics are left out of the snapshot rather than guessed at.
+    entried_at: str | None = None
+    exited_at: str | None = None
+    # The review (see the manual_trades column comments). On a PUT these are applied only when
+    # actually sent - omitting them leaves the stored review alone - so a caller that predates them
+    # (bulk edit, the paper engine) can't wipe one. Send null/[] explicitly to clear.
+    mistakes: list[str] | None = None
+    execution_checks: dict[str, bool] | None = None
+    execution_score: int | None = Field(default=None, ge=1, le=10)
+    pre_trade_checks: dict[str, bool] | None = None
+
+
+class TradeReviewRequest(BaseModel):
+    account_id: int | None = None
+    period_start: date
+    period_end: date
+    keep: str | None = None
+    stop: str | None = None
+    improve: str | None = None
+    test: str | None = None
+    change: str | None = None  # the ONE rule change this review commits to
+    change_from: date | None = None  # when it takes effect - the before/after split
+
+
+class TradeAccountRequest(BaseModel):
+    name: str
+    strategy: str | None = None  # exactly one strategy per account, by design
+    strategy_explanation: str | None = None
+    opening_balance: float = 0
+    max_position_size: float | None = None
+    max_position_size_type: Literal["currency", "percentage"] = "currency"
+    max_position_count: int | None = None
+    # Trading costs, charged per side of a round trip - see db.py's trade_accounts comment and
+    # frontend/src/lib/tradeCosts.js. All default to zero, so an account created before these
+    # existed (or by a caller that doesn't know about them) simply has no costs.
+    slippage_value: float = 0
+    slippage_type: Literal["per_share", "bps"] = "per_share"
+    brokerage_flat: float = 0
+    brokerage_pct: float = 0
+    other_charges_pct: float = 0
+    # Volume-spike scan for trades filed under this account - see trade_context.volume_spike. A bar
+    # trading at least `multiple` times its own 20-bar average volume, anywhere in the
+    # `lookback` bars before entry, counts as a spike.
+    vol_spike_multiple: float = 2
+    vol_spike_lookback: int = 10
+    # Losing trades in a row before Bar Replay interrupts with a reminder. None = off.
+    loss_streak_alert: int | None = None
+
+    def settings(self):
+        """Cost + volume-spike fields as one dict - everything on the account that is a stored
+        setting rather than an identity field."""
+        return {
+            "slippage_value": self.slippage_value,
+            "slippage_type": self.slippage_type,
+            "brokerage_flat": self.brokerage_flat,
+            "brokerage_pct": self.brokerage_pct,
+            "other_charges_pct": self.other_charges_pct,
+            "vol_spike_multiple": self.vol_spike_multiple,
+            "vol_spike_lookback": self.vol_spike_lookback,
+            "loss_streak_alert": self.loss_streak_alert,
+        }
+
+
+class SetupRequest(BaseModel):
+    """Creating the account, and changing it. `username` is a display label, not a credential. The
+    `current_*` fields are only read by /api/auth/change, which re-proves the existing password and
+    PIN before replacing them."""
+
+    username: str
+    password: str
+    pin: str
+    current_password: str | None = None
+    current_pin: str | None = None
+
+
+class LoginRequest(BaseModel):
+    """The full login - and the re-proof before handing out a new recovery code."""
+
+    password: str
+    pin: str
+
+
+class UnlockRequest(BaseModel):
+    """The PIN alone, on a browser that already holds a valid device token."""
+
+    pin: str
+
+
+class RecoverRequest(BaseModel):
+    code: str
+    password: str
+    pin: str
+
+
+class ClassifierConfigRequest(BaseModel):
+    enabled: bool
+
+
+class ReviewSuggestRequest(BaseModel):
+    notes: str
+    mistakes: list[str] = []  # the vocabulary to pick from - the form's own list
+    emotions: list[str] = []
+
+
+class ManualBacktestSettingsRequest(BaseModel):
+    setups: list[str] = []
+    mistakes: list[str] | None = None  # None = keep the stored list
+    risk_deviation_tolerance_pct: float = 10
+    opening_balance: float = 0
+
+
+class TradingGoalRequest(BaseModel):
+    id: str
+    metric: str  # key into the frontend's GOAL_METRICS - unknown keys simply render as unscored
+    operator: Literal["gt", "lt"]  # "gt" = a target to reach, "lt" = a limit to stay under
+    target: float
+    period: Literal["daily", "weekly", "monthly"]
+    mode: Literal["continuous", "binary"] = "continuous"
+    label: str | None = None
+
+
+class BalanceAdjustmentRequest(BaseModel):
+    amount: float
+    type: str  # "add" (deposit) | "subtract" (withdrawal)
+    reason: str | None = None
+    notes: str | None = None
+    adjusted_at: str | None = None  # ISO datetime; omitted -> now()
+    account_id: int | None = None  # which account's wallet this moves
+
+
+class ActivityPingRequest(BaseModel):
+    kind: str  # "analyze" | "review"
+
+
+class ActivityDay(BaseModel):
+    date: str  # "YYYY-MM-DD", the CLIENT's local calendar day - see routers/activity.py
+    seconds: int
+
+
+class ActivityTimeRequest(BaseModel):
+    days: list[ActivityDay] = []
+
+
+class ActivitySettingsRequest(BaseModel):
+    qualifiers: dict[str, bool]
+    daily_goal_minutes: int
+
+
+class PaperLegRequest(BaseModel):
+    id: str
+    price: float
+    qty: float
+
+
+class PaperOrderRequest(BaseModel):
+    account_id: int
+    symbol: str
+    direction: str  # "long" | "short"
+    order_type: Literal["market", "limit"] = "market"
+    quantity: float
+    limit_price: float | None = None  # required for a limit order; ignored for a market one
+    # Laddered exits: each leg covers part of the quantity, so "50% at target 1, the rest at
+    # target 2" is two legs. Same shape Bar Replay uses.
+    stop_losses: list[PaperLegRequest] = []
+    targets: list[PaperLegRequest] = []
+    notes: str | None = None
+
+
+class PaperModifyRequest(BaseModel):
+    stop_losses: list[PaperLegRequest] = []
+    targets: list[PaperLegRequest] = []
+
+
+class PaperCloseRequest(BaseModel):
+    quantity: float | None = None  # partial close; omitted = the whole remaining position
+
+
+class LiveOrderRequest(BaseModel):
+    """One real order. `stop_price`/`target_price` turn it into a Dhan Super Order, which is the
+    shape worth wanting: the exits then live at the broker instead of in this app's poller."""
+
+    symbol: str
+    direction: str  # "long" | "short"
+    quantity: int
+    limit_price: float | None = None  # omitted = market order
+    stop_price: float | None = None
+    target_price: float | None = None
+    trailing_jump: float | None = None
+    product: Literal["INTRADAY", "CNC", "MARGIN", "MTF"] | None = None
+    # What the UI showed the user when they pressed the button. Sizing guardrails are checked
+    # against this for a market order, so the cap means something before the fill price exists.
+    reference_price: float | None = None
+
+
+class LiveModifyRequest(BaseModel):
+    leg: Literal["ENTRY_LEG", "TARGET_LEG", "STOP_LOSS_LEG"]
+    price: float | None = None
+    quantity: int | None = None
+    target_price: float | None = None
+    stop_price: float | None = None
+    trailing_jump: float | None = None
+
+
+class LiveSettingsRequest(BaseModel):
+    enabled: bool | None = None
+    max_order_value: float | None = None
+    max_orders_per_day: int | None = None
+    daily_loss_limit: float | None = None
+    max_position_pct: float | None = None
+    product: Literal["INTRADAY", "CNC", "MARGIN", "MTF"] | None = None
+    account_id: int | None = None
+    api_base_url: str | None = None  # set to Dhan's sandbox while testing; blank = live
+
+
+#: Kept in step with alerts.CONDITIONS - the module is the authority on what each one means, this
+#: is only the door. 'above'/'below' are the two the app shipped with; they map onto
+#: greater/less on the way in so old clients and old rows keep working.
+AlertCondition = Literal[
+    "crossing",
+    "crossing_up",
+    "crossing_down",
+    "greater",
+    "less",
+    "entering_channel",
+    "exiting_channel",
+    "inside_channel",
+    "outside_channel",
+    "moving_up",
+    "moving_down",
+    "moving_up_pct",
+    "moving_down_pct",
+    "above",
+    "below",
+]
+
+
+class AlertRequest(BaseModel):
+    symbol: str
+    condition: AlertCondition
+    #: The level, or the first bound of a channel, or the size of the move for the moving_* ones.
+    price: float
+    #: The channel's other bound. Required by the four channel conditions, ignored by the rest.
+    price2: float | None = None
+    note: str | None = None
+    trigger_mode: Literal["once", "once_per_day", "every_time"] = "once"
+    #: ISO datetime. Omitted means it watches until it fires or is deleted.
+    expires_at: str | None = None
+    #: Legacy: the old spelling of trigger_mode == 'every_time'.
+    recurring: bool = False
+
+
+class AlertUpdateRequest(BaseModel):
+    """Every field optional - this is also how an alert is paused (`active: false`) and resumed."""
+
+    symbol: str | None = None
+    condition: AlertCondition | None = None
+    price: float | None = None
+    price2: float | None = None
+    note: str | None = None
+    trigger_mode: Literal["once", "once_per_day", "every_time"] | None = None
+    expires_at: str | None = None
+    active: bool | None = None
+
+
+class EngineBacktestRequest(BaseModel):
+    strategy: str
+    symbols: list[str]
+    interval: str = "5m"
+    # every value list is one axis of the sweep; the run count is the product of their lengths
+    params: dict[str, list[float]] = {}
+    cost_bps: float = Field(3, ge=0, le=100)
+    label: str | None = None
+
+
+class EngineSweepRequest(BaseModel):
+    strategy: str
+    symbols: list[str]
+    interval: str = "5m"
+    # "oat" = one param at a time around the base values; "grid" = every combination
+    mode: Literal["oat", "grid"] = "oat"
+    # as typed: "9" | "5,9,13" | "5:20:5"; a param with several values is swept, one value is fixed
+    params: dict[str, str] = {}
+    # oat only: base value for a swept param (default: the strategy's default)
+    base: dict[str, float] = {}
+    cost_bps: float = Field(3, ge=0, le=100)
+    label: str | None = None
+
+
+class EngineSettingsRequest(BaseModel):
+    name: str = ""
+    engine_dir: str = ""
+    vps: str = ""
+    vps_reports: str = ""

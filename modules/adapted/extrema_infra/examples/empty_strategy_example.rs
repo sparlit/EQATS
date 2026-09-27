@@ -1,0 +1,61 @@
+//! Minimal scheduler strategy example.
+//!
+//! This example shows the smallest useful `EnvBuilder` setup: one strategy
+//! module and one time scheduler task.
+//!
+//! Run it with:
+//!
+//! ```text
+//! cargo run --example empty_strategy_example
+//! ```
+
+use std::{sync::Arc, time::Duration};
+use tracing::info;
+
+use extrema_infra::prelude::*;
+
+#[derive(Clone)]
+struct EmptyStrategy;
+
+impl Strategy for EmptyStrategy {
+    async fn initialize(&mut self) {
+        info!("[EmptyStrategy] Executing...");
+    }
+}
+
+impl CommandEmitter for EmptyStrategy {
+    fn command_init(&mut self, _registry: Arc<CommandRegistry>) {
+        info!("[EmptyStrategy] Command channel initialized");
+    }
+
+    fn command_registry(&self) -> Arc<CommandRegistry> {
+        // Safe here because this example never sends commands.
+        Arc::new(CommandRegistry::default())
+    }
+}
+
+impl EventHandler for EmptyStrategy {
+    async fn on_schedule(&mut self, msg: InfraMsg<AltScheduleEvent>) {
+        info!("[EmptyStrategy] AltEventHandler: {:?}", msg);
+    }
+}
+
+#[tokio::main]
+async fn main() -> InfraResult<()> {
+    tracing_subscriber::fmt::init();
+    info!("Logger initialized");
+
+    let alt_task = AltTaskInfo {
+        alt_task_type: AltTaskType::TimeScheduler(Duration::from_secs(5)),
+        chunk: 1,
+        task_base_id: None,
+    };
+
+    let env = EnvBuilder::new()
+        .with_task(alt_task)
+        .with_strategy_module(EmptyStrategy)
+        .build()?;
+
+    env.execute().await;
+    Ok(())
+}

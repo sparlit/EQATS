@@ -1,0 +1,202 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+from random import choice
+
+# HEADERS
+# initial headers
+default_headers = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+    "Connection": "keep-alive",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept": "*/*",
+    "Referer": "https://www.nseindia.com/",
+}
+
+####### NSEIndia #######
+
+most_active = "live-analysis-most-active-securities?index=volume"
+most_valued = "live-analysis-most-active-securities?index=value"
+advance = "live-analysis-advance"
+decline = "live-analysis-decline"
+unchanged = "live-analysis-unchanged"
+all_gainers = "live-analysis-variations?index=gainers"
+all_losers = "live-analysis-variations?index=loosers"
+
+base_nse_api = "https://www.nseindia.com/api/"
+next_api_f = "https://www.nseindia.com/api/NextApi/apiClient?functionName={}"
+first_boy = "https://www.nseindia.com/get-quote/equity/RELIANCE/Reliance-Industries-Limited"
+
+market_status = "https://www.nseindia.com/api/marketStatus"
+holiday_list = "https://www.nseindia.com/api/holiday-master?type=trading"
+
+nse_chart_url = "https://charting.nseindia.com/v1/charts/symbolHistoricalData"
+search_token_url = "https://charting.nseindia.com/v1/exchanges/symbolsDynamic"
+
+
+nse_chart_symbol = "https://charting.nseindia.com//Charts/symbolhistoricaldata/"  # to delete
+nse_all_stocks_live = "https://www.nseindia.com/api/live-analysis-stocksTraded"
+al_indices = "https://www.nseindia.com/api/allIndices"
+nse_equity_quote = "https://www.nseindia.com/api/NextApi/apiClient/GetQuoteApi?functionName=getSymbolData&marketType=N&series={}&symbol={}"
+ticks_chart = "https://www.nseindia.com/api/chart-databyindex-dynamic?index={}EQN&type=symbol"
+underlying = "https://www.nseindia.com/api/underlying-information"
+oi_spurts_underlying = "https://www.nseindia.com/api/live-analysis-oi-spurts-underlyings"
+# DERIVATIVES
+stk_opt_url = "https://www.nseindia.com/api/option-chain-contract-info?symbol={}"
+
+# SECURITIES ANALYSIS
+new_year_high = "https://www.nseindia.com/api/live-analysis-data-52weekhighstock"
+new_year_low = "https://www.nseindia.com/api/live-analysis-data-52weeklowstock"
+pre_open = "https://www.nseindia.com/api/market-data-pre-open?key={}"
+
+# CSV
+nse_equity_list = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+nse_sme_stocks = "https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv"
+
+# Archives
+full_bhavcopy_cm = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{session_date}.csv"  # 01102025
+historic_bhavcopy_cm = "https://www.nseindia.com/api/reports?archives=%5B%7B%22name%22%3A%22Full%20Bhavcopy%20and%20Security%20Deliverable%20data%22%2C%22type%22%3A%22daily-reports%22%2C%22category%22%3A%22capital-market%22%2C%22section%22%3A%22equities%22%7D%5D&date={session_date}&type=equities&mode=single"
+
+####### NiftyIndices #######
+nifty_index_maping = "https://iislliveblob.niftyindices.com/assets/json/IndexMapping.json"
+index_watch = "https://iislliveblob.niftyindices.com/jsonfiles/LiveIndicesWatch.json"
+live_index_watch_json = "https://www.nseindia.com/api/allIndices"
+live_indices = "https://www.nseindia.com/api/NextApi/apiClient?functionName=getIndexData&&type=All"
+
+######## Index Constituents #######
+nse_equity_index = "https://www.nseindia.com/api/NextApi/apiClient/indexTrackerApi?functionName=getConstituents&&index={}&&noofrecords=0"
+
+
+####### NIFTY HEADERS #######
+def get_nse_headers(profile: str = "api"):
+    """
+    Returns randomized headers for NSE requests.
+
+    Args:
+        profile (str): "page" → For HTML pages like first_boy
+                       "api"  → For JSON/XHR API endpoints
+
+    Returns:
+        dict: Headers dictionary ready for requests
+    """
+
+    # User-Agent options with platform
+    user_agents = [
+        # Windows
+        (
+            (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/139.0 Safari/537.36 OPR/120"
+            ),
+            "Windows",
+        ),
+        (
+            (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/139.0 Safari/537.36 Edg/139"
+            ),
+            "Windows",
+        ),
+        ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0", "Windows"),
+        # macOS
+        (
+            (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_6) AppleWebKit/605.1.15 "
+                "(KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+            ),
+            "macOS",
+        ),
+        (
+            (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_6) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/139.0 Safari/537.36 Edg/139"
+            ),
+            "macOS",
+        ),
+        (
+            (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_6) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/139.0 Safari/537.36 Vivaldi/7.5"
+            ),
+            "macOS",
+        ),
+        # Linux
+        (
+            ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0 Safari/537.36"),
+            "Linux",
+        ),
+        ("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0", "Linux"),
+    ]
+
+    # Accept-Language options
+    accept_languages = [
+        "en-US,en;q=0.9",
+        "en-GB,en;q=0.9",
+        "en-IN,en;q=0.8",
+        "en;q=0.9,fr;q=0.8,de;q=0.7,ro;q=0.6",
+    ]
+
+    # Accept header options for API
+    accept_api = [
+        "application/json, text/javascript, */*; q=0.01",
+        "application/json, */*; q=0.01",
+        "application/json, text/plain, */*; q=0.01",
+    ]
+
+    # Pick random User-Agent and platform
+    user_agent, platform = choice(user_agents)
+
+    # Determine sec-ch-ua based on browser type in User-Agent
+    if "Edg" in user_agent:
+        sec_ch_ua = '"Chromium";v="139", "Not.A/Brand";v="8", "Microsoft Edge";v="139"'
+    elif "OPR" in user_agent or "Vivaldi" in user_agent:
+        sec_ch_ua = '"Chromium";v="139", "Not.A/Brand";v="8", "Opera";v="120"'
+    elif "Firefox" in user_agent:
+        sec_ch_ua = '"Mozilla Firefox";v="141"'
+    else:  # Chrome fallback
+        sec_ch_ua = '"Chromium";v="139", "Not.A/Brand";v="8", "Chrome";v="139"'
+
+    # Base headers
+    headers = {
+        "Accept-Language": choice(accept_languages),
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Connection": "keep-alive",
+        "Cache-Control": "max-age=0",
+        "User-Agent": user_agent,
+        "sec-ch-ua": sec_ch_ua,
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": platform,
+        "Referer": "https://www.nseindia.com/",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
+    # Profile-specific headers
+    if profile == "page":
+        headers["Accept"] = (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/png,image/webp,*/*;q=0.8"
+        )
+        headers["Upgrade-Insecure-Requests"] = "1"
+    else:  # "api"
+        headers["Accept"] = choice(accept_api)
+
+    return headers

@@ -2673,9 +2673,12 @@ impl Client {
         expires_after: Option<DateTime<Utc>>,
     ) -> Result<()> {
         let action = Action::TokenDelegate(TokenDelegateAction {
+            signature_chain_id: self.chain.arbitrum_id().to_owned(),
+            hyperliquid_chain: self.chain,
             validator,
             is_undelegate,
             wei,
+            nonce,
         });
         let req = action.sign_sync(signer, nonce, vault_address, expires_after, self.chain)?;
         self.send(req).await?.into_default()
@@ -3554,13 +3557,15 @@ where
     ) -> Result<Vec<OrderResponseStatus>, ActionError<Cloid>> {
         let cloids: Vec<_> = batch.orders.iter().map(|req| req.cloid).collect();
 
-        let action = multisig_collect_signatures(
+        let action = multisig_collect_signatures_with_context(
             self.lead.address(),
             self.multi_sig_user,
             self.signers.iter().copied(),
             self.signatures.iter().copied(),
             Action::Order(batch),
             self.nonce,
+            vault_address,
+            expires_after,
             self.client.chain,
         )
         .await
