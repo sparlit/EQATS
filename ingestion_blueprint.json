@@ -1678,8 +1678,8 @@
       "target": "mandarl/nsedata",
       "url": "https://github.com/mandarl/nsedata",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2664",
+      "merged": true
     },
     {
       "name": "open-interest-data-extractor",
