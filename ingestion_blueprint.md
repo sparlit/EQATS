@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 207
+Total Repositories: 411 | Current Index: 208
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -105,7 +105,7 @@ Total Repositories: 411 | Current Index: 207
 | 100 | crypto-crawler/coinsignal | Processed | None |
 | 101 | cutupdev/solana-copytrading-bot | Processed | https://github.com/sparlit/EQATS/pull/2638 |
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
-| 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2640 |
+| 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2641 |
 | 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2642 |
 | 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2643 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
@@ -157,7 +157,7 @@ Total Repositories: 411 | Current Index: 207
 | 152 | henry-richard7/nse-tool-stocks-aerial-view | Processed | https://github.com/sparlit/EQATS/pull/2581 |
 | 153 | hermanodecastro/arbitrage-trading | Processed | https://github.com/sparlit/EQATS/pull/2583 |
 | 154 | hgsujay/nsedata | Processed | https://github.com/sparlit/EQATS/pull/2646 |
-| 155 | hi-imcodeman/stock-nse-india | Processed | https://github.com/sparlit/EQATS/pull/2585 |
+| 155 | hi-imcodeman/stock-nse-india | Processed | https://github.com/sparlit/EQATS/pull/2645 |
 | 156 | himanshumohanty-git24/rakshaquant | Completed | https://github.com/sparlit/EQATS/pull/2586 |
 | 157 | hirawatt/bse_nse_announcement | Processed | https://github.com/sparlit/EQATS/pull/2587 |
 | 158 | hmerro3/indian-trading-skills | Processed | https://github.com/sparlit/EQATS/pull/2588 |
@@ -210,7 +210,7 @@ Total Repositories: 411 | Current Index: 207
 | 205 | lqz13th/extrema_infra | Processed | https://github.com/sparlit/EQATS/pull/2636 |
 | 206 | maanavshah/stock-market-india | Processed | https://github.com/sparlit/EQATS/pull/2637 |
 | 207 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/2649 |
-| 208 | mailbagrahul/nseoptionalpha | pending | None |
+| 208 | mailbagrahul/nseoptionalpha | Skipped: Private/Non-Existent (404/403) | None |
 | 209 | manavgupta83/nse-factor-engine | pending | None |
 | 210 | mandarl/nsedata | pending | None |
 | 211 | manddar/open-interest-data-extractor | pending | None |
