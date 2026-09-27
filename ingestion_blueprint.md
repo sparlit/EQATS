@@ -123,7 +123,7 @@ Total Repositories: 410 | Current Index: 121
 | 118 | dkraj0612/nse-delivery-data | Completed | https://github.com/sparlit/EQATS/pull/2701 |
 | 119 | dpeachpeach/kalshi-rust | Processed | https://github.com/sparlit/EQATS/pull/2702 |
 | 120 | edison7009/echobird | Processed | https://github.com/sparlit/EQATS/pull/2703 |
-| 121 | edtechre/pybroker | Completed | None |
+| 121 | edtechre/pybroker | Completed | https://github.com/sparlit/EQATS/pull/2704 |
 | 122 | eggmasonvalue/mtfdb | pending | None |
 | 123 | ej9909-create/nse_52wk_screener | pending | None |
 | 124 | ekanshsinghal/indian-stock-market | pending | None |
