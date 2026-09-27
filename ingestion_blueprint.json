@@ -1,5 +1,5 @@
 {
-  "current_index": 188,
+  "current_index": 189,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1509,9 +1509,9 @@
       "name": "dailyvaultrates",
       "target": "kislayykumar/dailyvaultrates",
       "url": "https://github.com/kislayykumar/dailyvaultrates",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2619",
+      "merged": true
     },
     {
       "name": "nse-momentum-dashboard",
