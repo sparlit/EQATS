@@ -1,5 +1,5 @@
 {
-  "current_index": 199,
+  "current_index": 200,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1597,7 +1597,7 @@
       "name": "nse-intraday-bot",
       "target": "lavakus/nse-intraday-bot",
       "url": "https://github.com/lavakus/nse-intraday-bot",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
