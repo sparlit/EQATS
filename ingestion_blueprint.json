@@ -1,5 +1,5 @@
 {
-  "current_index": 170,
+  "current_index": 171,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1365,7 +1365,7 @@
       "name": "cci20-sma20-strategy",
       "target": "jandginvestment/cci20-sma20-strategy",
       "url": "https://github.com/jandginvestment/cci20-sma20-strategy",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
