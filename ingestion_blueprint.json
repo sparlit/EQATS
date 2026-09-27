@@ -1,5 +1,5 @@
 {
-  "current_index": 175,
+  "current_index": 176,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1405,9 +1405,9 @@
       "name": "optionstratlib",
       "target": "joaquinbejar/optionstratlib",
       "url": "https://github.com/joaquinbejar/optionstratlib",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2606",
+      "merged": true
     },
     {
       "name": "nse-scanner",
