@@ -136,7 +136,7 @@ Total Repositories: 410 | Current Index: 134
 | 131 | finstacklabs/finstack-mcp | Completed | https://github.com/sparlit/EQATS/pull/2714 |
 | 132 | fluidex/dingir-exchange | Processed | https://github.com/sparlit/EQATS/pull/2715 |
 | 133 | gabriel-milan/btrader | Processed | https://github.com/sparlit/EQATS/pull/2716 |
-| 134 | gadiyar/nsebhavcopy | Processed | None |
+| 134 | gadiyar/nsebhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2717 |
 | 135 | ganeshbiyer/nse_historical_data | pending | None |
 | 136 | georgiag7652/kronos-india | pending | None |
 | 137 | get10101/10101 | pending | None |
