@@ -1,5 +1,5 @@
 {
-  "current_index": 101,
+  "current_index": 102,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -813,7 +813,7 @@
       "name": "nsefinance-python",
       "target": "cyberomin/nsefinance-python",
       "url": "https://github.com/cyberomin/nsefinance-python",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
