@@ -1,5 +1,5 @@
 {
-  "current_index": 122,
+  "current_index": 123,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -981,7 +981,7 @@
       "name": "mtfdb",
       "target": "eggmasonvalue/mtfdb",
       "url": "https://github.com/eggmasonvalue/mtfdb",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
