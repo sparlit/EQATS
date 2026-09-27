@@ -136,7 +136,7 @@ Total Repositories: 411 | Current Index: 134
 | 131 | ferrumfix/ferrumfix | Processed | https://github.com/sparlit/EQATS/pull/2560 |
 | 132 | finstacklabs/finstack-mcp | Completed | https://github.com/sparlit/EQATS/pull/2561 |
 | 133 | fluidex/dingir-exchange | Processed | https://github.com/sparlit/EQATS/pull/2562 |
-| 134 | gabriel-milan/btrader | Processed | None |
+| 134 | gabriel-milan/btrader | Processed | https://github.com/sparlit/EQATS/pull/2563 |
 | 135 | gadiyar/nsebhavcopy | pending | None |
 | 136 | ganeshbiyer/nse_historical_data | pending | None |
 | 137 | georgiag7652/kronos-india | pending | None |
