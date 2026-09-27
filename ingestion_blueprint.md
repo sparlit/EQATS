@@ -104,7 +104,7 @@ Total Repositories: 411 | Current Index: 102
 | 99 | crazygirl437/hyper-grid | Skipped: Private/Non-Existent (404/403) | None |
 | 100 | crypto-crawler/coinsignal | Processed | https://github.com/sparlit/EQATS/pull/2527 |
 | 101 | cutupdev/solana-copytrading-bot | Processed | None |
-| 102 | cyberomin/nsefinance-python | Processed | None |
+| 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2530 |
 | 103 | d-e-s-o/apcacli | pending | None |
 | 104 | dallyshalla/tropix | pending | None |
 | 105 | day0market/geger | pending | None |
