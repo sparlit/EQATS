@@ -1,5 +1,5 @@
 {
-  "current_index": 155,
+  "current_index": 154,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1230,7 +1230,7 @@
       "target": "hgsujay/nsedata",
       "url": "https://github.com/hgsujay/nsedata",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2584",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2646",
       "merged": true
     },
     {
