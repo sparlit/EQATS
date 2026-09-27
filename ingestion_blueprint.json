@@ -1646,8 +1646,8 @@
       "target": "maheshcharig/financial-data",
       "url": "https://github.com/maheshcharig/financial-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2790",
+      "merged": true
     },
     {
       "name": "nseoptionalpha",
