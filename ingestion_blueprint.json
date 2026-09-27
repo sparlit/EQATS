@@ -1,5 +1,5 @@
 {
-  "current_index": 189,
+  "current_index": 190,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1517,9 +1517,9 @@
       "name": "nse-bse-event-driven-quant-research-platform",
       "target": "kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
       "url": "https://github.com/kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2774",
+      "merged": true
     },
     {
       "name": "backtest",
