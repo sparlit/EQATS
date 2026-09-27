@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 107
+Total Repositories: 411 | Current Index: 209
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -106,7 +106,7 @@ Total Repositories: 411 | Current Index: 107
 | 101 | cutupdev/solana-copytrading-bot | Processed | https://github.com/sparlit/EQATS/pull/2638 |
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
 | 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2641 |
-| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2650 |
+| 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2642 |
 | 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2643 |
 | 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
 | 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
@@ -210,8 +210,8 @@ Total Repositories: 411 | Current Index: 107
 | 205 | lqz13th/extrema_infra | Processed | https://github.com/sparlit/EQATS/pull/2636 |
 | 206 | maanavshah/stock-market-india | Processed | https://github.com/sparlit/EQATS/pull/2637 |
 | 207 | maheshcharig/financial-data | Processed | https://github.com/sparlit/EQATS/pull/2649 |
-| 208 | mailbagrahul/nseoptionalpha | pending | None |
-| 209 | manavgupta83/nse-factor-engine | pending | None |
+| 208 | mailbagrahul/nseoptionalpha | Skipped: Private/Non-Existent (404/403) | None |
+| 209 | manavgupta83/nse-factor-engine | Completed | None |
 | 210 | mandarl/nsedata | pending | None |
 | 211 | manddar/open-interest-data-extractor | pending | None |
 | 212 | manishkr1754/nifty50_data_analysis_nsetools_nsepy_python | pending | None |
