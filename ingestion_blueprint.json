@@ -1,5 +1,5 @@
 {
-  "current_index": 193,
+  "current_index": 194,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1549,9 +1549,9 @@
       "name": "algo-trader",
       "target": "kuldeeepy/algo-trader",
       "url": "https://github.com/kuldeeepy/algo-trader",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2625",
+      "merged": true
     },
     {
       "name": "nse-stock-price-crawler",
