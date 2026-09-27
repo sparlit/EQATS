@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "current_index": 207,
+=======
+  "current_index": 155,
+>>>>>>> integrate/stock-nse-india
   "repositories": [
     {
       "name": "tectonicdb",
