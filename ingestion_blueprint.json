@@ -1,5 +1,5 @@
 {
-  "current_index": 106,
+  "current_index": 107,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -853,7 +853,7 @@
       "name": "nse-data",
       "target": "debaonline4u/nse-data",
       "url": "https://github.com/debaonline4u/nse-data",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
