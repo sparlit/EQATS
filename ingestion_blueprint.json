@@ -1,5 +1,5 @@
 {
-  "current_index": 135,
+  "current_index": 136,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1085,7 +1085,7 @@
       "name": "kronos-india",
       "target": "georgiag7652/kronos-india",
       "url": "https://github.com/georgiag7652/kronos-india",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
