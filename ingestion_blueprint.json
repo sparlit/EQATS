@@ -1414,8 +1414,8 @@
       "target": "joshiadvait8/nse-data",
       "url": "https://github.com/joshiadvait8/nse-data",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2761",
+      "merged": true
     },
     {
       "name": "master-data",
