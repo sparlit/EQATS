@@ -41,7 +41,6 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Final, Optional
 
 from diskcache import Cache
-
 from pybroker.scope import StaticScope
 
 if TYPE_CHECKING:

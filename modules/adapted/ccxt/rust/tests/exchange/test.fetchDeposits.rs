@@ -16,13 +16,8 @@ pub async fn testFetchDeposits(mut exchange: Value, mut skippedProperties: Value
     let mut now: Value = exchange.milliseconds();
     {
                 let mut i: Value = Value::Int(0);
-<<<<<<< HEAD
         let mut __for_first_1444: bool = true;
         while { if !__for_first_1444 { i = add(&i, &Value::Int(1)); } __for_first_1444 = false; is_less_than(&i, &get_array_length(&transactions)) } {
-=======
-        let mut __for_first_1443: bool = true;
-        while { if !__for_first_1443 { i = add(&i, &Value::Int(1)); } __for_first_1443 = false; is_less_than(&i, &get_array_length(&transactions)) } {
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         testDepositWithdrawal(exchange.clone(), skippedProperties.clone(), method.clone(), get_value(&transactions, &i), code.clone(), now.clone());
     }
     }

@@ -52,6 +52,7 @@ understand produces no message rather than a wrong one.
 """
 
 
+import contextlib
 import json
 import logging
 import os
@@ -150,7 +151,7 @@ def _write_cache(latest: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"latest": latest, "checked_at": time.time()}))
     except Exception:
-        return
+        pass
 
 
 def _fetch_latest() -> str | None:
@@ -187,10 +188,8 @@ def _thread_body(installed: str) -> None:
     call; the cost of not having it is the one outcome this module promises
     cannot happen.
     """
-    try:
+    with contextlib.suppress(BaseException):
         _run(installed)
-    except BaseException:
-        return
 
 
 def _run(installed: str) -> None:
@@ -212,7 +211,7 @@ def _run(installed: str) -> None:
                 _OPT_OUT_ENV,
             )
     except Exception:
-        return
+        pass
 
 
 def check_for_update(installed: str, blocking: bool = False) -> None:
@@ -243,4 +242,4 @@ def check_for_update(installed: str, blocking: bool = False) -> None:
             daemon=True,
         ).start()
     except Exception:
-        return
+        pass

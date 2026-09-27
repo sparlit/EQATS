@@ -137,19 +137,19 @@ class BrokerAdapter(ABC):
 
         Returns True if authenticated, False otherwise.
         """
-        return None
+        ...
 
     @property
     @abstractmethod
     def is_connected(self) -> bool:
         """True if the adapter has a valid, authenticated session."""
-        return None
+        ...
 
     @property
     @abstractmethod
     def broker_name(self) -> str:
         """Human-readable broker name for display (e.g. 'Zerodha', 'Paper')."""
-        return None
+        ...
 
     # ── Order Placement ───────────────────────────────────────────────
 
@@ -165,7 +165,7 @@ class BrokerAdapter(ABC):
         Must NOT raise on order rejection — return OrderResponse with
         status=REJECTED and the rejection message.
         """
-        return None
+        ...
 
     @abstractmethod
     def modify_order(
@@ -177,29 +177,29 @@ class BrokerAdapter(ABC):
         order_type: OrderType | None = None,
     ) -> OrderResponse:
         """Modify an existing open order (e.g. update SL trigger price)."""
-        return None
+        ...
 
     @abstractmethod
     def cancel_order(self, order_id: str) -> OrderResponse:
         """Cancel an existing open order."""
-        return None
+        ...
 
     # ── Position & Order Queries ──────────────────────────────────────
 
     @abstractmethod
     def get_positions(self) -> list[Position]:
         """Return all open positions from the broker."""
-        return None
+        ...
 
     @abstractmethod
     def get_order_status(self, order_id: str) -> OrderResponse:
         """Get the current status of a specific order."""
-        return None
+        ...
 
     @abstractmethod
     def get_orders_today(self) -> list[OrderResponse]:
         """Return all orders placed today (for reconciliation)."""
-        return None
+        ...
 
     # ── Safety ────────────────────────────────────────────────────────
 
@@ -221,7 +221,7 @@ class BrokerAdapter(ABC):
           - Max daily loss circuit breaker
           - Manual API call: POST /api/broker/kill
         """
-        return None
+        ...
 
     # ── Convenience ───────────────────────────────────────────────────
 

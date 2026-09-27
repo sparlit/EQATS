@@ -22,22 +22,16 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import datetime as dt
-import os
 import sys
 
 import db
+import gspread
 
 KEY = "data/gcp_key.json"
 SID_FILE = "data/sheet_id.txt"
 
 
-def _available():
-    return os.path.exists(KEY) and os.path.exists(SID_FILE)
-
-
 def get_sh():
-    import gspread
-
     gc = gspread.service_account(filename=KEY)
     with open(SID_FILE) as f:
         sid = f.read().strip()
@@ -57,15 +51,6 @@ def write_tab(sh, title, header, rows):
 
 
 def sync():
-    if not _available():
-        print(f"[sheets] skipping — missing {KEY} or {SID_FILE}")
-        return 0
-    try:
-        import gspread
-    except ImportError:
-        print("[sheets] skipping — gspread not installed")
-        return 0
-
     conn = db.get_conn()
     sh = get_sh()
 
@@ -98,11 +83,75 @@ def sync():
     ]
     write_tab(sh, "Pipeline", ["Symbol", "Status", "Added", "Reason", "Notes"], prows)
 
+    wsq = None
+    for w in sh.worksheets():
+        if w.title == "ResearchQueue":
+            wsq = w
+    if wsq is None:
+        wsq = sh.add_worksheet(title="ResearchQueue", rows=100, cols=3)
+        wsq.append_rows([["Symbol", "Note", "Processed"]])
+    qrows = wsq.get_all_values()
+    body = qrows[1:] if len(qrows) > 1 else []
+
+    import sentiment
+
+    new_body = []
+    reports = []
+    for r in body:
+        while len(r) < 3:
+            r.append("")
+        sym = (r[0] or "").strip().upper()
+        if sym and not r[2]:
+            try:
+                sentiment.score_symbol(sym)
+            except Exception as e:
+                print(sym, "sentiment failed:", e)
+            srow = conn.execute(
+                "SELECT sentiment_score FROM sentiment_results WHERE symbol=? ORDER BY created_at DESC LIMIT 1", (sym,)
+            ).fetchone()
+            sent = srow[0] if srow else None
+            frow = conn.execute(
+                "SELECT fundamental_score FROM scan_results "
+                "WHERE symbol=? AND scan_date=(SELECT MAX(scan_date) "
+                "FROM scan_results)",
+                (sym,),
+            ).fetchone()
+            fund = frow[0] if frow else None
+            mrow = conn.execute(
+                "SELECT final_ml_score FROM ml_predictions "
+                "WHERE symbol=? AND prediction_date=(SELECT "
+                "MAX(prediction_date) FROM ml_predictions)",
+                (sym,),
+            ).fetchone()
+            ml = mrow[0] if mrow else None
+            overall = None
+            if fund is not None and sent is not None:
+                overall = round(0.8 * fund + 0.2 * sent, 1)
+            r[2] = dt.date.today().isoformat()
+            reports.append([sym, r[2], fund, ml, sent, overall])
+        new_body.append(r)
+    if body or new_body:
+        wsq.clear()
+        wsq.append_rows([["Symbol", "Note", "Processed"], *new_body])
+
+    if reports:
+        wsrep = None
+        for w in sh.worksheets():
+            if w.title == "Reports":
+                wsrep = w
+        if wsrep is None:
+            wsrep = sh.add_worksheet(title="Reports", rows=200, cols=6)
+        old = wsrep.get_all_values()[1:] if wsrep else []
+        if wsrep is None:
+            wsrep = sh.add_worksheet(title="Reports", rows=200, cols=6)
+            old = []
+        wsrep.clear()
+        wsrep.append_rows([["Symbol", "Date", "Fund", "ML", "Sentiment", "Overall"], *old, *reports])
+
     write_tab(sh, "SyncLog", ["Time", "Scores", "Recommended"], [[dt.datetime.now().isoformat(), len(rows), len(rec)]])
-    print(f"Sheets synced: {len(rows)} scores | {len(rec)} recommended")
+    print("Sheets synced:", len(rows), "scores |", len(rec), "recommended |", len(reports), "queue reports")
     conn.close()
-    return len(rows)
 
 
-if __name__ == "__main__":
+if len(sys.argv) > 1 and sys.argv[1] == "run":
     sync()

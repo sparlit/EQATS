@@ -39,13 +39,8 @@ order follows the merged event schedule.
 """
 
 
-try:
-    from raptorbt._raptorbt import BarAggregator
-    from raptorbt.strategy.context import CompositeBar
-except ImportError:
-    # Fallback for environments where raptorbt is not installed
-    BarAggregator = object  # type: ignore
-    CompositeBar = object  # type: ignore
+from raptorbt._raptorbt import BarAggregator
+from raptorbt.strategy.context import CompositeBar
 
 
 def enumerate_subscriptions(subscriptions):
@@ -81,3 +76,73 @@ class StreamState:
             ]
             for key in keys
         }
+
+        # Indicator routing, indexed once rather than scanned per bar.
+        self._primary: dict[str | None, list] = {key: [] for key in keys}
+        self._composite: dict[tuple[str | None, int], list] = {}
+        self._unrouted = False
+        for indicator, stream_id, symbol in strategy._indicators:
+            if symbol is None:
+                self._unrouted = True
+            # An unrouted registration listens on every symbol; see
+            # `Strategy.register_indicator` for why that is rarely wanted.
+            if symbols is not None and symbol is not None and symbol not in self._primary:
+                known = ", ".join(str(k) for k in keys)
+                msg = (
+                    f"register_indicator(symbol={symbol!r}) names a symbol that is "
+                    f"not in this run; known symbols: {known}"
+                )
+                raise ValueError(msg)
+            targets = [symbol] if symbol is not None else keys
+            for key in targets:
+                if stream_id is None:
+                    self._primary[key].append(indicator)
+                else:
+                    self._composite.setdefault((key, stream_id), []).append(indicator)
+
+    @property
+    def has_unrouted_indicators(self) -> bool:
+        """Whether any indicator was registered without a symbol."""
+        return self._unrouted
+
+    def primary_indicators(self, symbol: str | None = None):
+        """Indicators listening on a symbol's primary stream."""
+        return self._primary.get(symbol, ())
+
+    def push_trade(self, strategy, ctx, ts, price, size, symbol: str | None = None) -> None:
+        """Feed one trade print into the symbol's composite aggregators.
+
+        The trade-driven twin of :meth:`push`. Primary-stream indicators are
+        *not* updated here — in a tick run they are fed by the runner's
+        primary bar aggregator, not by every print.
+        """
+        for stream_id, step, unit, aggregator in self._aggregators[symbol]:
+            completed = aggregator.push_trade(ts, price, size)
+            self._dispatch(strategy, ctx, aggregator, completed, stream_id, step, unit, symbol)
+
+    def _dispatch(self, strategy, ctx, aggregator, completed, stream_id, step, unit, symbol) -> None:
+        """Dispatch a completed bar and everything queued behind it.
+
+        Renko completes several bricks from one record; ``push`` returns
+        only the first, so the rest must be drained or they are lost.
+        """
+        while completed is not None:
+            bar = CompositeBar(stream_id, step, unit, *completed, symbol=symbol)
+            for indicator in self._composite.get((symbol, stream_id), ()):
+                indicator.update_bar(bar.open, bar.high, bar.low, bar.close)
+            strategy.on_composite_bar(ctx, bar)
+            completed = aggregator.next_pending()
+
+    def push(self, strategy, ctx, ts, o, h, l, c, v, symbol: str | None = None) -> None:
+        """Feed one primary bar: aggregate, dispatch, update indicators.
+
+        Call after the clock advance and before ``on_bar``, so composite
+        bars and indicator values are current when handlers see the bar.
+        """
+        for stream_id, step, unit, aggregator in self._aggregators[symbol]:
+            completed = aggregator.push_bar(ts, o, h, l, c, v)
+            self._dispatch(strategy, ctx, aggregator, completed, stream_id, step, unit, symbol)
+
+        # Primary-registered indicators update before on_bar sees the bar.
+        for indicator in self._primary[symbol]:
+            indicator.update_bar(o, h, l, c)

@@ -3,26 +3,14 @@ name: Autonomous Repository Integration & Self-Healing Factory Engine
 on:
   push:
     branches: [ main ]
-<<<<<<< HEAD
-  schedule:
-    - cron: '*/15 * * * *' # Accelerate automation loop to every 15 minutes
-  workflow_dispatch:
-=======
   workflow_dispatch:
   schedule:
     - cron: '0 */6 * * *'
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 
 permissions:
   contents: write
   pull-requests: write
   actions: write
-<<<<<<< HEAD
-  checks: write
-  statuses: write
-  security-events: write
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 
 jobs:
   run-autonomous-integration:
@@ -64,36 +52,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-<<<<<<< HEAD
-          GOOGLE_JULES_API_KEY: ${{ secrets.GOOGLE_JULES_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CHATGPT_API_KEY: ${{ secrets.CHATGPT_API_KEY }}
-          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
         run: |
           echo "[+] Starting Autonomous Integration & Self-Healing Cycle..."
           python3 .github/scripts/autonomous_repo_integrator.py --batch 1
-
-<<<<<<< HEAD
-      - name: Execute Automated AI Workflow Review
-        continue-on-error: true
-        env:
-          GOOGLE_JULES_API_KEY: ${{ secrets.GOOGLE_JULES_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CHATGPT_API_KEY: ${{ secrets.CHATGPT_API_KEY }}
-          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        run: |
-          echo "[*] Executing Automated AI Workflow & Integration Review..."
-          python3 .github/scripts/ai_workflow_reviewer.py
 
       - name: Generate Interactive HTML/Markdown Dashboard
         continue-on-error: true
@@ -112,8 +73,6 @@ jobs:
           echo "[*] Dispatching real-time integration alerts..."
           python3 .github/scripts/alert_dispatcher.py "PROGRESS" "EQATS Integration Factory Update" "Batch processing cycle completed."
 
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
       - name: Enforce Zero-Stub & Quality Gates
         continue-on-error: true
         run: |

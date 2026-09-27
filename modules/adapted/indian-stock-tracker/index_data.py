@@ -237,7 +237,7 @@ def _fetch_stock_details(symbol: str) -> dict[str, Any]:
             stock_data["sector"] = STOCK_SECTOR_MAP.get(symbol, "Other")
         session.close()
     except Exception:
-        return None
+        pass
 
     return stock_data
 

@@ -1,12 +1,12 @@
 {
-  "current_index": 71,
+  "current_index": 90,
   "repositories": [
     {
       "name": "tectonicdb",
       "target": "0b01/tectonicdb",
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2190",
       "merged": true
     },
     {
@@ -14,7 +14,7 @@
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2192",
       "merged": true
     },
     {
@@ -22,7 +22,7 @@
       "target": "0xramm/indian-stock-market-api",
       "url": "https://github.com/0xramm/indian-stock-market-api",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2193",
       "merged": true
     },
     {
@@ -30,7 +30,7 @@
       "target": "0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
       "url": "https://github.com/0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2194",
       "merged": true
     },
     {
@@ -38,7 +38,7 @@
       "target": "0xtan1319/hyperliquid-trading-bot-rust",
       "url": "https://github.com/0xtan1319/hyperliquid-trading-bot-rust",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2195",
       "merged": true
     },
     {
@@ -46,7 +46,7 @@
       "target": "85599/banknifty-golden-ratio-strategy",
       "url": "https://github.com/85599/banknifty-golden-ratio-strategy",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2196",
       "merged": true
     },
     {
@@ -54,7 +54,7 @@
       "target": "aadityatamrakar/option_chain_analysis",
       "url": "https://github.com/aadityatamrakar/option_chain_analysis",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2197",
       "merged": true
     },
     {
@@ -62,7 +62,7 @@
       "target": "aaryansinha16/ai-trader",
       "url": "https://github.com/aaryansinha16/ai-trader",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2198",
       "merged": true
     },
     {
@@ -70,7 +70,7 @@
       "target": "abhiwalia15/ai-for-finance-stocks-real-time-analysis-",
       "url": "https://github.com/abhiwalia15/ai-for-finance-stocks-real-time-analysis-",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2199",
       "merged": true
     },
     {
@@ -78,7 +78,7 @@
       "target": "abuhurairalakdawala/indian-share-market",
       "url": "https://github.com/abuhurairalakdawala/indian-share-market",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2200",
       "merged": true
     },
     {
@@ -86,7 +86,7 @@
       "target": "adavarski/devsecops-full-integration-chain",
       "url": "https://github.com/adavarski/devsecops-full-integration-chain",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2201",
       "merged": true
     },
     {
@@ -94,7 +94,7 @@
       "target": "adityazerodha/holiday-calendar.github.io",
       "url": "https://github.com/adityazerodha/holiday-calendar.github.io",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2203",
       "merged": true
     },
     {
@@ -102,7 +102,7 @@
       "target": "aeron7/nsepython",
       "url": "https://github.com/aeron7/nsepython",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2204",
       "merged": true
     },
     {
@@ -110,7 +110,7 @@
       "target": "aeron7/nsepythonserver",
       "url": "https://github.com/aeron7/nsepythonserver",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2205",
       "merged": true
     },
     {
@@ -118,7 +118,7 @@
       "target": "affaan-m/dprc-autotrader-v2",
       "url": "https://github.com/affaan-m/dprc-autotrader-v2",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2206",
       "merged": true
     },
     {
@@ -126,7 +126,7 @@
       "target": "agrawalarnav129-ui/jarvis-trading",
       "url": "https://github.com/agrawalarnav129-ui/jarvis-trading",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2207",
       "merged": true
     },
     {
@@ -134,7 +134,7 @@
       "target": "ai4finance-foundation/finrl-trading",
       "url": "https://github.com/ai4finance-foundation/finrl-trading",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2208",
       "merged": true
     },
     {
@@ -142,7 +142,7 @@
       "target": "ajakaiye33/ngrcoydisclosures",
       "url": "https://github.com/ajakaiye33/ngrcoydisclosures",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2209",
       "merged": true
     },
     {
@@ -150,7 +150,7 @@
       "target": "ajeeshworkspace/indian-trading-skills",
       "url": "https://github.com/ajeeshworkspace/indian-trading-skills",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2210",
       "merged": true
     },
     {
@@ -158,7 +158,7 @@
       "target": "akashnag/scripwatch",
       "url": "https://github.com/akashnag/scripwatch",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2211",
       "merged": true
     },
     {
@@ -166,7 +166,7 @@
       "target": "akashyadavv/algotradingnse",
       "url": "https://github.com/akashyadavv/algotradingnse",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2212",
       "merged": true
     },
     {
@@ -174,7 +174,7 @@
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2213",
       "merged": true
     },
     {
@@ -182,7 +182,7 @@
       "target": "akshayraje/get-nse-bhavcopy",
       "url": "https://github.com/akshayraje/get-nse-bhavcopy",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2214",
       "merged": true
     },
     {
@@ -190,7 +190,7 @@
       "target": "akshayz14/indian-stock-tracker",
       "url": "https://github.com/akshayz14/indian-stock-tracker",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2215",
       "merged": true
     },
     {
@@ -198,7 +198,7 @@
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2216",
       "merged": true
     },
     {
@@ -206,7 +206,7 @@
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2217",
       "merged": true
     },
     {
@@ -214,7 +214,7 @@
       "target": "algotrading-lab/ai-algotrading-agent",
       "url": "https://github.com/algotrading-lab/ai-algotrading-agent",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2218",
       "merged": true
     },
     {
@@ -222,15 +222,15 @@
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2219",
       "merged": true
     },
     {
       "name": "raptorbt",
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
-      "status": "Completed",
-      "pr_url": null,
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2220",
       "merged": true
     },
     {
@@ -238,7 +238,7 @@
       "target": "althk/zerobha",
       "url": "https://github.com/althk/zerobha",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2221",
       "merged": true
     },
     {
@@ -246,7 +246,7 @@
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2222",
       "merged": true
     },
     {
@@ -254,7 +254,7 @@
       "target": "amitashwinibhagat/nse-swing-scanner",
       "url": "https://github.com/amitashwinibhagat/nse-swing-scanner",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2223",
       "merged": true
     },
     {
@@ -262,7 +262,7 @@
       "target": "amv-dev/yata",
       "url": "https://github.com/amv-dev/yata",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2224",
       "merged": true
     },
     {
@@ -270,7 +270,7 @@
       "target": "aneesh540/vse",
       "url": "https://github.com/aneesh540/vse",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2225",
       "merged": true
     },
     {
@@ -278,7 +278,7 @@
       "target": "animesh4002/ai-stock-screener",
       "url": "https://github.com/animesh4002/ai-stock-screener",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2226",
       "merged": true
     },
     {
@@ -286,7 +286,7 @@
       "target": "aniruddhsujish/nsetradeagents",
       "url": "https://github.com/aniruddhsujish/nsetradeagents",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2227",
       "merged": true
     },
     {
@@ -294,7 +294,7 @@
       "target": "anjulgarg/sharewatch",
       "url": "https://github.com/anjulgarg/sharewatch",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2228",
       "merged": true
     },
     {
@@ -302,7 +302,7 @@
       "target": "ankitchaudhary6886/nse-system",
       "url": "https://github.com/ankitchaudhary6886/nse-system",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2229",
       "merged": true
     },
     {
@@ -310,7 +310,7 @@
       "target": "ankitsny/nse_scrapper",
       "url": "https://github.com/ankitsny/nse_scrapper",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2230",
       "merged": true
     },
     {
@@ -318,7 +318,7 @@
       "target": "anshulk/nse",
       "url": "https://github.com/anshulk/nse",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2231",
       "merged": true
     },
     {
@@ -326,7 +326,7 @@
       "target": "anshuthopsee/nse-oi-visualizer",
       "url": "https://github.com/anshuthopsee/nse-oi-visualizer",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2232",
       "merged": true
     },
     {
@@ -334,7 +334,7 @@
       "target": "anthdm/rust-trading-engine",
       "url": "https://github.com/anthdm/rust-trading-engine",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2233",
       "merged": true
     },
     {
@@ -342,7 +342,7 @@
       "target": "anurag-roy/kite-option-chain",
       "url": "https://github.com/anurag-roy/kite-option-chain",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2234",
       "merged": true
     },
     {
@@ -350,7 +350,7 @@
       "target": "anurag-roy/shoonya-option-chain",
       "url": "https://github.com/anurag-roy/shoonya-option-chain",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2235",
       "merged": true
     },
     {
@@ -358,7 +358,7 @@
       "target": "api-evangelist/nse-india",
       "url": "https://github.com/api-evangelist/nse-india",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2236",
       "merged": true
     },
     {
@@ -366,7 +366,7 @@
       "target": "aravin/algo-trade",
       "url": "https://github.com/aravin/algo-trade",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2237",
       "merged": true
     },
     {
@@ -374,7 +374,7 @@
       "target": "aravin/nse-data",
       "url": "https://github.com/aravin/nse-data",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2238",
       "merged": true
     },
     {
@@ -382,7 +382,7 @@
       "target": "arishhassan/nse-live_testing",
       "url": "https://github.com/arishhassan/nse-live_testing",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2239",
       "merged": true
     },
     {
@@ -390,7 +390,7 @@
       "target": "arvchahal/kalshi-rs",
       "url": "https://github.com/arvchahal/kalshi-rs",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2240",
       "merged": true
     },
     {
@@ -398,7 +398,7 @@
       "target": "asavinov/intelligent-trading-bot",
       "url": "https://github.com/asavinov/intelligent-trading-bot",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2241",
       "merged": true
     },
     {
@@ -406,15 +406,15 @@
       "target": "ashayk003/nse-sentiment-analyzer",
       "url": "https://github.com/ashayk003/nse-sentiment-analyzer",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2242",
       "merged": true
     },
     {
       "name": "nsedataanalytics",
       "target": "ashgen/nsedataanalytics",
       "url": "https://github.com/ashgen/nsedataanalytics",
-      "status": "Completed",
-      "pr_url": null,
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2243",
       "merged": true
     },
     {
@@ -422,7 +422,7 @@
       "target": "ashishkumar30/stock_market_live_trading_using_ai",
       "url": "https://github.com/ashishkumar30/stock_market_live_trading_using_ai",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2244",
       "merged": true
     },
     {
@@ -430,7 +430,7 @@
       "target": "ashok-kollipara/options-oi",
       "url": "https://github.com/ashok-kollipara/options-oi",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2245",
       "merged": true
     },
     {
@@ -438,7 +438,7 @@
       "target": "ashokkumar3502/nse-quant-trading",
       "url": "https://github.com/ashokkumar3502/nse-quant-trading",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2246",
       "merged": true
     },
     {
@@ -446,7 +446,7 @@
       "target": "ashutosh0x/rust-finance",
       "url": "https://github.com/ashutosh0x/rust-finance",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2247",
       "merged": true
     },
     {
@@ -454,7 +454,7 @@
       "target": "ashwanthkumar/live-nse-stock",
       "url": "https://github.com/ashwanthkumar/live-nse-stock",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2248",
       "merged": true
     },
     {
@@ -462,7 +462,7 @@
       "target": "athreysethumadhavan-finance/nse-var-dashboard",
       "url": "https://github.com/athreysethumadhavan-finance/nse-var-dashboard",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2249",
       "merged": true
     },
     {
@@ -470,7 +470,7 @@
       "target": "atilaahmettaner/tradingview-mcp",
       "url": "https://github.com/atilaahmettaner/tradingview-mcp",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2250",
       "merged": true
     },
     {
@@ -478,7 +478,7 @@
       "target": "atrybyme/open-interest-nse-live-analysis",
       "url": "https://github.com/atrybyme/open-interest-nse-live-analysis",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2251",
       "merged": true
     },
     {
@@ -486,15 +486,15 @@
       "target": "atul-anand-jha/time-series-forecast-nsepy",
       "url": "https://github.com/atul-anand-jha/time-series-forecast-nsepy",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2252",
       "merged": true
     },
     {
       "name": "sectoral-breadth-dashboard",
       "target": "augmentalphawealth/sectoral-breadth-dashboard",
       "url": "https://github.com/augmentalphawealth/sectoral-breadth-dashboard",
-      "status": "Processed",
-      "pr_url": null,
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2253",
       "merged": true
     },
     {
@@ -502,7 +502,7 @@
       "target": "avhz/rustquant",
       "url": "https://github.com/avhz/rustquant",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2254",
       "merged": true
     },
     {
@@ -510,7 +510,7 @@
       "target": "avin1311/nse-bse-dashboard",
       "url": "https://github.com/avin1311/nse-bse-dashboard",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2255",
       "merged": true
     },
     {
@@ -518,7 +518,7 @@
       "target": "avirichie/nse-closing-stock-price-prediction-using-lstm",
       "url": "https://github.com/avirichie/nse-closing-stock-price-prediction-using-lstm",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2256",
       "merged": true
     },
     {
@@ -526,7 +526,7 @@
       "target": "ayushmaanbhav/stockmart",
       "url": "https://github.com/ayushmaanbhav/stockmart",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2257",
       "merged": true
     },
     {
@@ -534,7 +534,7 @@
       "target": "azhagesan-dev/orderflowmap",
       "url": "https://github.com/azhagesan-dev/orderflowmap",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2259",
       "merged": true
     },
     {
@@ -542,7 +542,7 @@
       "target": "barathgb007/nse-options-data-collector",
       "url": "https://github.com/barathgb007/nse-options-data-collector",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2260",
       "merged": true
     },
     {
@@ -550,7 +550,7 @@
       "target": "barathgb007/upstox-python-data",
       "url": "https://github.com/barathgb007/upstox-python-data",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2261",
       "merged": true
     },
     {
@@ -566,160 +566,160 @@
       "target": "beinghorizontal/bhavfno",
       "url": "https://github.com/beinghorizontal/bhavfno",
       "status": "Completed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2262",
       "merged": true
     },
     {
       "name": "advanced-nse-momentum-terminal",
       "target": "benimward9621/advanced-nse-momentum-terminal",
       "url": "https://github.com/benimward9621/advanced-nse-momentum-terminal",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "eod2",
       "target": "bennythadikaran/eod2",
       "url": "https://github.com/bennythadikaran/eod2",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2263",
+      "merged": true
     },
     {
       "name": "eod2_data",
       "target": "bennythadikaran/eod2_data",
       "url": "https://github.com/bennythadikaran/eod2_data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2264",
+      "merged": true
     },
     {
       "name": "nseindiaapi",
       "target": "bennythadikaran/nseindiaapi",
       "url": "https://github.com/bennythadikaran/nseindiaapi",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2265",
+      "merged": true
     },
     {
       "name": "nse-trading-skills",
       "target": "bhala-srinivash/nse-trading-skills",
       "url": "https://github.com/bhala-srinivash/nse-trading-skills",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2266",
+      "merged": true
     },
     {
       "name": "stock_prediction",
       "target": "bhumi008007/stock_prediction",
       "url": "https://github.com/bhumi008007/stock_prediction",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2267",
+      "merged": true
     },
     {
       "name": "tradingview-rs",
       "target": "bitbytelabio/tradingview-rs",
       "url": "https://github.com/bitbytelabio/tradingview-rs",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "netstrat",
       "target": "blitzarx1/netstrat",
       "url": "https://github.com/blitzarx1/netstrat",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "xcrypto",
       "target": "bohr1005/xcrypto",
       "url": "https://github.com/bohr1005/xcrypto",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2268",
+      "merged": true
     },
     {
       "name": "nse",
       "target": "braverock/nse",
       "url": "https://github.com/braverock/nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2269",
+      "merged": true
     },
     {
       "name": "nse-bse-api",
       "target": "bshada/nse-bse-api",
       "url": "https://github.com/bshada/nse-bse-api",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2270",
+      "merged": true
     },
     {
       "name": "nse-bse-mcp",
       "target": "bshada/nse-bse-mcp",
       "url": "https://github.com/bshada/nse-bse-mcp",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2271",
+      "merged": true
     },
     {
       "name": "algo_trading_strategies_india",
       "target": "buzzsubash/algo_trading_strategies_india",
       "url": "https://github.com/buzzsubash/algo_trading_strategies_india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2272",
+      "merged": true
     },
     {
       "name": "in-stock-screener",
       "target": "c3point/in-stock-screener",
       "url": "https://github.com/c3point/in-stock-screener",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2273",
+      "merged": true
     },
     {
       "name": "nse-support-tools",
       "target": "c3point/nse-support-tools",
       "url": "https://github.com/c3point/nse-support-tools",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2274",
+      "merged": true
     },
     {
       "name": "rotala",
       "target": "calumrussell/rotala",
       "url": "https://github.com/calumrussell/rotala",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2275",
+      "merged": true
     },
     {
       "name": "ccxt",
       "target": "ccxt/ccxt",
       "url": "https://github.com/ccxt/ccxt",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "financial-info-extractor",
       "target": "chaitanyarahalkar/financial-info-extractor",
       "url": "https://github.com/chaitanyarahalkar/financial-info-extractor",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2276",
+      "merged": true
     },
     {
       "name": "nse-daily-volatility-reports",
       "target": "chartiny/nse-daily-volatility-reports",
       "url": "https://github.com/chartiny/nse-daily-volatility-reports",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2277",
+      "merged": true
     },
     {
       "name": "nse-stock-bulk-deals-",

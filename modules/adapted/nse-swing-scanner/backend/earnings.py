@@ -111,7 +111,7 @@ def _extract_next_earnings_date(yf_ticker: str) -> str | None:
         if future:
             return min(future).isoformat()
     except Exception:
-        return None
+        pass
 
     # Fallback: get_earnings_dates() returns a DatetimeIndex of past + future dates.
     try:
@@ -121,7 +121,7 @@ def _extract_next_earnings_date(yf_ticker: str) -> str | None:
             if future:
                 return min(future).isoformat()
     except Exception:
-        return None
+        pass
 
     return None
 

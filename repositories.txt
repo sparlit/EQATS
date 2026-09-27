@@ -408,4 +408,3 @@ yongkangc/lighter-rust
 yswa-var/rrg
 yusuf4030/the-data-analyst-toolkit
 yutiansut/qaaccount-rs
-Gercucho/Python-MT5-Hydra-Comander

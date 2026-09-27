@@ -133,7 +133,7 @@ def write_marker(path: str, now: datetime.datetime) -> None:
     except OSError:
         # Best-effort marker: if we can't write it, worst case is one extra
         # trigger per tick — same as pre-1.3.3 behaviour, never worse.
-        return
+        pass
 
 
 def is_scan_late(

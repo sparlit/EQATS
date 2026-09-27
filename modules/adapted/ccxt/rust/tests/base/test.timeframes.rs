@@ -27,7 +27,6 @@ pub fn testRoundTimeframe() {
     assert!(ccxt::runtime::is_true(&(Value::Bool(is_equal(&exchange.round_timeframe(Value::Str("30m".to_string()), testDate.clone(), Value::Int(ccxt::runtime::ROUND_UP)), &exchange.parse8601(Value::Str("2019-08-12 13:30:00".to_string())))))));
     assert!(ccxt::runtime::is_true(&(Value::Bool(is_equal(&exchange.round_timeframe(Value::Str("1h".to_string()), testDate.clone(), Value::Int(ccxt::runtime::ROUND_UP)), &exchange.parse8601(Value::Str("2019-08-12 14:00:00".to_string())))))));
     assert!(ccxt::runtime::is_true(&(Value::Bool(is_equal(&exchange.round_timeframe(Value::Str("1d".to_string()), testDate.clone(), Value::Int(ccxt::runtime::ROUND_UP)), &exchange.parse8601(Value::Str("2019-08-13 00:00:00".to_string())))))));
-<<<<<<< HEAD
     let mut calendarDate: Value = exchange.parse8601(Value::Str("2026-09-02T00:00:00Z".to_string()));
     if is_equal(&calendarDate, &Value::Null) {
         return;
@@ -48,8 +47,6 @@ pub fn testRoundTimeframe() {
     }
     assert!(ccxt::runtime::is_true(&(Value::Bool(is_equal(&exchange.round_timeframe(Value::Str("2w".to_string()), preEpochDate.clone(), Value::Int(ccxt::runtime::ROUND_DOWN)), &exchange.parse8601(Value::Str("1960-06-06T00:00:00Z".to_string())))))));
     assert!(ccxt::runtime::is_true(&(Value::Bool(is_equal(&exchange.round_timeframe(Value::Str("2w".to_string()), preEpochDate.clone(), Value::Int(ccxt::runtime::ROUND_UP)), &exchange.parse8601(Value::Str("1960-06-20T00:00:00Z".to_string())))))));
-=======
->>>>>>> 4c648d36 (docs: record PR metadata in state ledger)
 }
 pub fn testParseTimeframe() {
     let mut exchange = crate::tests_support::make_exchange(Value::Map({
