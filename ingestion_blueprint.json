@@ -1150,8 +1150,8 @@
       "target": "gurudayal37/nse-data-syncer",
       "url": "https://github.com/gurudayal37/nse-data-syncer",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2727",
+      "merged": true
     },
     {
       "name": "prediction-markets-trading-bot-toolkits",
