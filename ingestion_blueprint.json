@@ -1703,7 +1703,7 @@
       "url": "https://github.com/manishn32/option_chain_analyzer",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "nse-mcp",
