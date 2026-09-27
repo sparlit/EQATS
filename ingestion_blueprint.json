@@ -1,5 +1,5 @@
 {
-  "current_index": 138,
+  "current_index": 139,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1109,7 +1109,7 @@
       "name": "shoonya-php",
       "target": "ghostjat/shoonya-php",
       "url": "https://github.com/ghostjat/shoonya-php",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
