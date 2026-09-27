@@ -1,5 +1,5 @@
 {
-  "current_index": 141,
+  "current_index": 142,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1133,7 +1133,7 @@
       "name": "live-nse-bse-mcp",
       "target": "girishkumardv/live-nse-bse-mcp",
       "url": "https://github.com/girishkumardv/live-nse-bse-mcp",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
