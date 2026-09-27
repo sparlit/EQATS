@@ -1,5 +1,5 @@
 {
-  "current_index": 148,
+  "current_index": 149,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1189,9 +1189,9 @@
       "name": "trendmaster",
       "target": "hemangjoshi37a/trendmaster",
       "url": "https://github.com/hemangjoshi37a/trendmaster",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2733",
+      "merged": true
     },
     {
       "name": "getbhavcopy",
