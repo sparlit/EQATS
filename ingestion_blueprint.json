@@ -1,5 +1,5 @@
 {
-  "current_index": 192,
+  "current_index": 193,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1541,7 +1541,7 @@
       "name": "kraken-cli",
       "target": "krakenfx/kraken-cli",
       "url": "https://github.com/krakenfx/kraken-cli",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
