@@ -1,5 +1,5 @@
 {
-  "current_index": 175,
+  "current_index": 176,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1405,9 +1405,9 @@
       "name": "nse-scanner",
       "target": "johnebe2020-trade/nse-scanner",
       "url": "https://github.com/johnebe2020-trade/nse-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2760",
+      "merged": true
     },
     {
       "name": "nse-data",
