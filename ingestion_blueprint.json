@@ -1510,8 +1510,8 @@
       "target": "kislayykumar/dailyvaultrates",
       "url": "https://github.com/kislayykumar/dailyvaultrates",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2619",
+      "merged": true
     },
     {
       "name": "nse-momentum-dashboard",
