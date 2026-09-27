@@ -207,7 +207,7 @@ Total Repositories: 410 | Current Index: 205
 | 202 | llc-993/matching-core | Processed | https://github.com/sparlit/EQATS/pull/2786 |
 | 203 | longbridge/longbridge-terminal | Processed | https://github.com/sparlit/EQATS/pull/2787 |
 | 204 | lqz13th/extrema_infra | Processed | https://github.com/sparlit/EQATS/pull/2788 |
-| 205 | maanavshah/stock-market-india | Processed | None |
+| 205 | maanavshah/stock-market-india | Processed | https://github.com/sparlit/EQATS/pull/2789 |
 | 206 | maheshcharig/financial-data | pending | None |
 | 207 | mailbagrahul/nseoptionalpha | pending | None |
 | 208 | manavgupta83/nse-factor-engine | pending | None |
