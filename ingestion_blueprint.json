@@ -1326,8 +1326,8 @@
       "target": "infinitefield/hypersdk",
       "url": "https://github.com/infinitefield/hypersdk",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2750",
+      "merged": true
     },
     {
       "name": "coinbase-pro-rs",
