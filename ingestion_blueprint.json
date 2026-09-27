@@ -1,5 +1,5 @@
 {
-  "current_index": 190,
+  "current_index": 191,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1525,7 +1525,7 @@
       "name": "nse-bse-event-driven-quant-research-platform",
       "target": "kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
       "url": "https://github.com/kondaiahpola1-wq/nse-bse-event-driven-quant-research-platform",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
