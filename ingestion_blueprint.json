@@ -1,5 +1,5 @@
 {
-  "current_index": 211,
+  "current_index": 212,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1693,9 +1693,9 @@
       "name": "nifty50_data_analysis_nsetools_nsepy_python",
       "target": "manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "url": "https://github.com/manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "option_chain_analyzer",
