@@ -107,13 +107,13 @@ Total Repositories: 411 | Current Index: 212
 | 102 | cyberomin/nsefinance-python | Processed | https://github.com/sparlit/EQATS/pull/2639 |
 | 103 | d-e-s-o/apcacli | Processed | https://github.com/sparlit/EQATS/pull/2641 |
 | 104 | dallyshalla/tropix | Processed | https://github.com/sparlit/EQATS/pull/2650 |
-| 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2643 |
-| 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2535 |
-| 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2536 |
+| 105 | day0market/geger | Processed | https://github.com/sparlit/EQATS/pull/2657 |
+| 106 | daydy-dev/moon-dev-ai-agents-for-trading | Completed | https://github.com/sparlit/EQATS/pull/2663 |
+| 107 | debaonline4u/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2668 |
 | 108 | debopam-d/project-nifty | Processed | https://github.com/sparlit/EQATS/pull/2537 |
 | 109 | deepentropy/ibx | Completed | https://github.com/sparlit/EQATS/pull/2670 |
 | 110 | degenapetrader/evpoly | Completed | https://github.com/sparlit/EQATS/pull/2539 |
-| 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2540 |
+| 111 | degensugarboo/openbook | Processed | https://github.com/sparlit/EQATS/pull/2677 |
 | 112 | deshpanda/nse-screener | Completed | https://github.com/sparlit/EQATS/pull/2541 |
 | 113 | deshpanda/nse-screener-data | Processed | https://github.com/sparlit/EQATS/pull/2542 |
 | 114 | deshwalmahesh/nse-stock-scanner | Completed | https://github.com/sparlit/EQATS/pull/2543 |
