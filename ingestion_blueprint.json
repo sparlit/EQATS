@@ -1695,7 +1695,7 @@
       "url": "https://github.com/manishkr1754/nifty50_data_analysis_nsetools_nsepy_python",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "option_chain_analyzer",
