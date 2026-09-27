@@ -80,14 +80,29 @@ def _daysdiff(ann_i, qe_i):
     return (a - q).days
 
 
-def result_filings(op, code, from_ymd, to_ymd):
-    """Result-category filings (with attachment) in a <=1yr [from,to], best-P&L-candidate first."""
-    out, page = [], 1
+def result_filings(op, code, from_ymd, to_ymd, status=None):
+    """Result-category filings (with attachment) in a <=1yr [from,to], best-P&L-candidate first.
+
+    A CONFIRMED-empty window and a FAILED listing both return [] -- pass a dict as `status` to tell
+    them apart: status["ok"] is True only when every page came back from BSE as a JSON object that
+    carries its "Table" key (so an empty result is BSE's own answer and the window is safe to step
+    past); a network error, an HTML/stub page or an error object leaves it False (retry, never skip).
+    status["rows"] counts every listed row, with or without an attachment."""
+    out, page, ok = [], 1, True
+    if status is not None:
+        status.update(ok=False, rows=0)
     while page <= 20:
         try:
-            tab = json.loads(B.get(op, ANN_URL % (page, from_ymd, to_ymd, code))).get("Table", []) or []
+            d = json.loads(B.get(op, ANN_URL % (page, from_ymd, to_ymd, code)))
+            if not isinstance(d, dict) or "Table" not in d:
+                msg = "not a BSE listing object"
+                raise ValueError(msg)
+            tab = d.get("Table") or []
         except Exception:
+            ok = False
             break
+        if status is not None:
+            status["rows"] += len(tab)
         if not tab:
             break
         for r in tab:
@@ -99,11 +114,13 @@ def result_filings(op, code, from_ymd, to_ymd):
             break
         page += 1
         time.sleep(0.12)
+    if status is not None:
+        status["ok"] = ok
     out.sort(key=lambda x: (x[3], -(int(x[0].replace("-", "")) if x[0] else 0)))  # strong+newest first
     return out
 
 
-UNIT_CR = {"crore": 1.0, "lakh": 0.01, "million": 0.1, "thousand": 1e-5, "absolute": 1e-7}
+from bse_vision_api import TO_CRORE as UNIT_CR  # the one unit table (runbook §183)
 
 
 def render_pl_pngs(doc, max_pages=4):

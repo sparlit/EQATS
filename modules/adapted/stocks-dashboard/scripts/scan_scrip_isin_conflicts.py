@@ -53,31 +53,50 @@ OUT = os.path.join(HERE, "bse_scrip_isin_conflicts.json")
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 NSE_CSV_URL = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
 CSV_CACHE = os.path.join(HERE, "_equity_l.csv")
+# NSE Emerge (SME) listings are NOT in EQUITY_L: without this list every SME ticker was "uncheckable",
+# which is how GSTL/MAL/SEL/RAJPUTANA/ZEAL (SME) kept pointing at unrelated BSE companies (2026-09-27).
+SME_CSV_URL = "https://nsearchives.nseindia.com/emerge/corporates/content/SME_EQUITY_L.csv"
+SME_CACHE = os.path.join(HERE, "_sme_equity_l.csv")
 
 
-def nse_symbol_isin():
-    """{SYMBOL: ISIN} from NSE's own equity master. Cached locally; the cache is only used when
-    the download fails, so a stale copy can never silently drive a heal."""
-    raw = None
+def _master(url, cache, min_bytes):
+    """Raw CSV bytes of an NSE equity master; the local cache only when the download fails."""
     try:
-        req = urllib.request.Request(NSE_CSV_URL, headers={"User-Agent": UA, "Accept": "*/*"})
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
         raw = urllib.request.urlopen(req, timeout=60).read()
         if raw[:2] == b"\x1f\x8b":
             raw = gzip.decompress(raw)
-        if len(raw) < 100000:
-            raise RuntimeError("EQUITY_L.csv too small (%d bytes) — rate limited?" % len(raw))
-        open(CSV_CACHE, "wb").write(raw)
+        if len(raw) < min_bytes:
+            raise RuntimeError("%s too small (%d bytes) — rate limited?" % (os.path.basename(url), len(raw)))
+        open(cache, "wb").write(raw)
+        return raw
     except Exception as e:
-        print(f"  [EQUITY_L download failed: {e}]")
-        if not os.path.exists(CSV_CACHE):
-            return {}
-        print(f"  [falling back to cached {CSV_CACHE}]")
-        raw = open(CSV_CACHE, "rb").read()
+        print(f"  [{os.path.basename(url)} download failed: {e}]")
+        if not os.path.exists(cache):
+            return None
+        print(f"  [falling back to cached {cache}]")
+        return open(cache, "rb").read()
+
+
+def nse_symbol_isin():
+    """{SYMBOL: ISIN} from NSE's own equity masters — main board (EQUITY_L) AND SME (SME_EQUITY_L).
+    Cached locally; a cache is only used when its download fails, so a stale copy can never silently
+    drive a heal. {} when the main board is unavailable (nothing checkable)."""
     out = {}
-    for row in csv.DictReader(raw.decode("utf-8", "replace").splitlines()):
-        row = {k.strip(): (v or "").strip() for k, v in row.items()}
-        if row.get("SYMBOL") and row.get("ISIN NUMBER"):
-            out[row["SYMBOL"].upper()] = row["ISIN NUMBER"]
+    for url, cache, min_bytes, required in (
+        (NSE_CSV_URL, CSV_CACHE, 100000, True),
+        (SME_CSV_URL, SME_CACHE, 10000, False),
+    ):
+        raw = _master(url, cache, min_bytes)
+        if raw is None:
+            if required:
+                return {}
+            continue
+        for row in csv.DictReader(raw.decode("utf-8", "replace").splitlines()):
+            row = {(k or "").strip(): (v or "").strip() for k, v in row.items()}
+            isin = row.get("ISIN NUMBER") or row.get("ISIN_NUMBER")  # the SME file spells it with _
+            if row.get("SYMBOL") and isin:
+                out[row["SYMBOL"].upper()] = isin
     return out
 
 
@@ -99,7 +118,9 @@ def main():
             rec[c] = m
 
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json"), encoding="utf-8"))
-    universe = sorted(s for s in fund if not s.startswith("_"))
+    # + every symbol the results page shows (SME names can have results rows without fundamentals)
+    qrco = json.load(open(os.path.join(ROOT, "docs", "quarterly_results.json"), encoding="utf-8")).get("co") or {}
+    universe = sorted({s for s in fund if not s.startswith("_")} | set(qrco))
 
     conflicts, agreed, unmapped, uncheckable = {}, 0, 0, 0
     for sym in universe:
@@ -115,7 +136,10 @@ def main():
         if not bisin:
             uncheckable += 1
             continue
-        if bisin == nisin:
+        # an ISIN is INE + a 4-char ISSUER code + security type + serial + check digit; a split or
+        # re-denomination changes only the tail (KIRLPNU INE811A01038 vs BSE master INE811A01020 = the
+        # same company). A different company has a different issuer code.
+        if bisin == nisin or bisin[:7] == nisin[:7]:
             agreed += 1
             continue
         conflicts[sym] = {

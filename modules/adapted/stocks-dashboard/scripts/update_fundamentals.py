@@ -25,7 +25,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """
 Daily INCREMENTAL refresh for docs/sf_fundamentals.json (the backtest's quarterly
 net-profit dataset). Instead of re-fetching all 5,000+ stocks, it asks NSE's
-integrated-filing-results endpoint for everything filed in the last ~21 days
+integrated-filing-results endpoint for everything filed in the last WINDOW_DAYS (120) days
 (ALL companies, one date-range call), parses net profit from each new filing, and
 upserts the quarter into the dataset. Light: one list call + a handful of XBRL
 fetches during earnings season, ~nothing otherwise.
@@ -42,6 +42,12 @@ KNOWN BLIND SPOT (fill manually when it shows gaps):
      GODIGIT/NIVABUPA) file IRDAI-format results (Revenue A/c + Shareholders' P&L)
      that xbrl_profit can't parse -> they get NEITHER std nor con here. Extract per
      scripts/INSURER_EXTRACTION_PLAYBOOK.md.
+  2. FILERS ABSENT FROM NSE's FEED. 2026-09-21: MCX, ABBOTINDIA and BAYERCROP filed Jun-2026
+     results on BSE (4/5/12 Aug) but NSE's integrated-filing-results API returned ZERO rows for
+     them all season (per-symbol and unfiltered queries) — this script never saw them, and
+     nothing else looked. Both blind spots are now caught nightly by
+     scripts/reconcile_missing_quarters.py (BSE announcement stream = primary record, §58 read,
+     double-anchored fill, PENDING list for what it cannot read) — runbook §143.
 
 Run: python -X utf8 update_fundamentals.py
 """
@@ -58,26 +64,18 @@ import fund_dup_guard  # ONE row per (sym, quarter-end) -- the sibling-basis ann
 
 
 def gated_ann(bstr):
-    """15:30 IST availability gate (memory project-stocks-1530-gate).
+    """MIDNIGHT VISIBILITY RULE (user decision 2026-09-23, runbook §149) — the announce date is the
+    CALENDAR DAY of NSE's `broadcast_Date` ("16-Jan-2025 20:20" -> 20250116), whatever the time.
 
-    NSE `broadcast_Date` looks like "16-Jan-2025 20:20" — it carries the filing
-    TIME. The backtest rebalances at the 15:30 close and checks `annDate <= rebalanceDate`
-    at DATE granularity, so a result broadcast AFTER 15:30 on a rebalance day would be
-    wrongly treated as available that day (same-day look-ahead). So: if the broadcast
-    time is after 15:30, the result is only actionable from the NEXT trading day — return
-    that date. (Next *weekday* is engine-equivalent to next *trading day* here: rebalance
-    dates are always trading days, so a `<=` test against one never lands on a skipped
-    weekend/holiday.) Returns YYYYMMDD str, or "99999999" when no date is present."""
+    The user sells at the rebalance close and buys at the next session's open, so anything public
+    by midnight on the rebalance day is actionable: a result broadcast at 20:20 on day R counts for
+    R. The engines compare `annDate <= rebalanceDate` at date granularity, so no engine change.
+    This RETIRES the §12 15:30 gate (2026-07-08 → 2026-09-23), which pushed an after-close filing to
+    the next weekday; the historical shifts it made were reversed by scripts/ungate_1530.py and the
+    nightly now runs that mirror instead. Name kept (one call site); guard_visibility_rule.py asserts
+    this behaviour on every fundamentals run. Returns YYYYMMDD str, or "99999999" when no date."""
     d = B.iso(bstr)  # YYYYMMDD (date part) or None
-    if not d:
-        return "99999999"
-    m = re.search(r"\b(\d{1,2}):(\d{2})\b", bstr or "")
-    if m and int(m.group(1)) * 60 + int(m.group(2)) > 15 * 60 + 30:
-        nd = datetime.date(int(d[:4]), int(d[4:6]), int(d[6:])) + datetime.timedelta(days=1)
-        while nd.weekday() >= 5:  # skip Sat/Sun
-            nd += datetime.timedelta(days=1)
-        return nd.strftime("%Y%m%d")
-    return d
+    return d or "99999999"
 
 
 from build_revop import strip_lender_ebit, xbrl_revop  # revenue + operating profit from the SAME filing XBRL

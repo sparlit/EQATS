@@ -120,6 +120,10 @@ def load_renames():
         ("ADANITRANS", "ADANIENSOL"),
         ("MOTHERSUMI", "MOTHERSON"),
         ("MAHINDCIE", "CIEINDIA"),
+        # 2026-09-23 (§141d): NSE renamed HEG -> HEGAM ("HEG Advanced Materials Ltd.", new ISIN
+        # INE545A01024) after demerging its graphite business (ind_prs03092026); today's live
+        # lists carry HEGAM, the price bin ends HEG on 2026-09-21 and opens HEGAM on 2026-09-22.
+        ("HEG", "HEGAM"),
     ]:  # MAHINDCIE 2026-08-11: in LargeMidcap250 history; bin key merged into CIEINDIA (orphan-series batch)
         ren.setdefault(old, (new, None))
     return ren
@@ -144,13 +148,27 @@ def resolve_supplement_dates(ren):
 
 REN = resolve_supplement_dates(load_renames())  # old -> (new, date)
 FWD = {}  # canonical resolution old->latest
+# 2026-09-23 (runbook §141e): the roster arithmetic runs in ONE identity space — NSE's symchg chain
+# (REN) AND the price build's same-company folds (_rename_map.json). With REN alone, one company under
+# two era tickers split into two members: an exit recorded as PHILIPCARB never cancelled an entry
+# recorded as PCBL (renamed 2021), BURGERKING/RBA, GESHIPPING/GESHIP — each one walked back for years.
+# Emission is unchanged: emit() still picks the ticker whose tape trades on the date (era_key).
+try:
+    _RENAME_ID = json.load(open(os.path.join(HERE, "_rename_map.json")))
+except Exception:
+    _RENAME_ID = {}
 
 
 def canon(s):
     seen = set()
-    while s in REN and s not in seen:
+    while s not in seen:
         seen.add(s)
-        s = REN[s][0]
+        if s in REN:
+            s = REN[s][0]
+        elif s in _RENAME_ID:
+            s = _RENAME_ID[s]
+        else:
+            break
     return s
 
 
@@ -204,15 +222,25 @@ def merge_same_eff(events):
     return [by[k] for k in sorted(by)]
 
 
-def reconstruct(anchor_today, events, checkpoints=None):
+def reconstruct(anchor_today, events, checkpoints=None, today=None):
     """Backward walk from today's anchor; returns {eff: set(canonical members)}.
-    checkpoints {date: set} are pinned exact afterwards."""
+    checkpoints {date: set} are pinned exact afterwards.
+    An event dated AFTER today (an announced reshuffle) is applied FORWARD: today's anchor is the
+    list BEFORE it, so its snapshot is anchor + included - excluded and the walk continues from the
+    anchor unchanged. (2026-09-21, runbook §141b: the old code assigned the anchor itself to the
+    future date, so every announced reshuffle read as "no change" until the week after it took
+    effect — the Nifty 500's 2026-09-30 snapshot was byte-identical to 2026-07-17 for that reason,
+    not because NSE re-anchored an unchanged list.)"""
     ev = merge_same_eff(events)
     snaps = {}
     m = {canon(s) for s in anchor_today}
+    today = today or datetime.date.today().isoformat()
     for c in reversed(ev):
         inc = {canon(x) for x in c["included"]}
         exc = {canon(x) for x in c["excluded"]}
+        if c["eff"] > today:
+            snaps[c["eff"]] = (m | inc) - exc  # announced: the anchor is the PRE-event list
+            continue
         snaps[c["eff"]] = set(m)  # membership in force FROM c.eff
         m = (m - inc) | exc  # roll back to before this event
     snaps["1900-01-01"] = set(m)  # pre-changelog baseline
@@ -312,17 +340,19 @@ def validate_n500(snaps, wb):
     return worst
 
 
-def load_inclexcl_register():
+def load_inclexcl_register(fname="_n500_inclexcl_events.json"):
     """NSE's own dated inclusion/exclusion register (IndexInclExcl.xls -> Nifty 500 sheet,
     parsed by scripts/_staleness_fix/gen_inclexcl_events.py). 1,765 mapped events, 1998-2020.
     Added 2026-08-23 (DATA_RUNBOOK §102 finding 1): _changelog.json starts 2015-03-23, so the
     backward walk never rolled pre-2015 joiners out of the past — 24 externally-flagged trades
     entered stocks NSE had excluded years earlier (PCBL excluded 2002-01-17 was screenable in
-    2017). Returns ({sym: [(iso_date, 'inc'|'exc'), ...] sorted}, [event dicts]) or ({}, [])."""
+    2017). Returns ({sym: [(iso_date, 'inc'|'exc'), ...] sorted}, [event dicts]) or ({}, []).
+    `fname` selects the sheet's ledger: the same register's "Nifty Bank" sheet is
+    _bank_inclexcl_events.json (gen_bank_inclexcl_events.py, 28 events 2000-2020, runbook §141a)."""
     try:
-        reg = json.load(open(os.path.join(HERE, "_n500_inclexcl_events.json")))
+        reg = json.load(open(os.path.join(HERE, fname)))
     except Exception as e:
-        print(f"(_n500_inclexcl_events.json not loaded: {e} — membership keeps changelog-only events)")
+        print(f"({fname} not loaded: {e} — membership keeps changelog-only events)")
         return {}, []
     by_sym = {}
     by_date = {}
@@ -339,6 +369,169 @@ def load_inclexcl_register():
     for s in by_sym:
         by_sym[s].sort()
     return by_sym, [by_date[d] for d in sorted(by_date)]
+
+
+def merge_register_events(idx, events, reg_events):
+    """Merge a register's events into an index's changelog events (2026-09-21, Nifty Bank; the same
+    rule the Nifty 500 block in main() applies inline): events dated BEFORE the first changelog event
+    go in wholesale — the changelog has nothing there — and in-window register events are added only
+    when the changelog has no same-symbol same-direction event within ±10 days (eff conventions
+    differ by a day or two). Returns the merged list and prints what it added."""
+    if not reg_events or not events:
+        return events + list(reg_events) if reg_events else events
+    first_cl = min(c["eff"] for c in events)
+    cl_keys = set()
+    for c in events:
+        for s in c["included"]:
+            cl_keys.add((canon(s), "inc", c["eff"]))
+        for s in c["excluded"]:
+            cl_keys.add((canon(s), "exc", c["eff"]))
+
+    def _cl_has(sym, kind, eff):
+        lo = (datetime.date.fromisoformat(eff) - datetime.timedelta(days=10)).isoformat()
+        hi = (datetime.date.fromisoformat(eff) + datetime.timedelta(days=10)).isoformat()
+        return any(k[0] == canon(sym) and k[1] == kind and lo <= k[2] <= hi for k in cl_keys)
+
+    out = list(events)
+    added_pre = added_gap = 0
+    for ev in reg_events:
+        if ev["eff"] < first_cl:
+            out.append(ev)
+            added_pre += 1
+        else:
+            inc = [s for s in ev["included"] if not _cl_has(s, "inc", ev["eff"])]
+            exc = [s for s in ev["excluded"] if not _cl_has(s, "exc", ev["eff"])]
+            if inc or exc:
+                out.append({"eff": ev["eff"], "included": inc, "excluded": exc, "src": "IndexInclExcl-gap"})
+                added_gap += 1
+                for s in inc:
+                    print(f"  {idx}: register fills changelog HOLE: +{s} eff {ev['eff']}")
+                for s in exc:
+                    print(f"  {idx}: register fills changelog HOLE: -{s} eff {ev['eff']}")
+    print(
+        f"  {idx}: IndexInclExcl register merged: {added_pre} pre-changelog event-days, {added_gap} in-window gap event-days"
+    )
+    return out
+
+
+def fill_holes(idx, events, supp):
+    """Add hole_fill notice events (build_changelog SUPPLEMENT, runbook §141e) only where the merged
+    changelog + register has no same-symbol same-direction event within ±10 days. Never re-routes the
+    register: unlike a changelog event it does not move the index's first-changelog date."""
+    if not supp:
+        return events
+    keys = set()
+    for c in events:
+        for s in c["included"]:
+            keys.add((canon(s), "inc", c["eff"]))
+        for s in c["excluded"]:
+            keys.add((canon(s), "exc", c["eff"]))
+
+    def _has(sym, kind, eff):
+        lo = (datetime.date.fromisoformat(eff) - datetime.timedelta(days=10)).isoformat()
+        hi = (datetime.date.fromisoformat(eff) + datetime.timedelta(days=10)).isoformat()
+        return any(k[0] == canon(sym) and k[1] == kind and lo <= k[2] <= hi for k in keys)
+
+    out = list(events)
+    for c in sorted(supp, key=lambda c: c["eff"]):
+        inc = [x for x in c["included"] if not _has(x, "inc", c["eff"])]
+        exc = [x for x in c["excluded"] if not _has(x, "exc", c["eff"])]
+        if inc or exc:
+            out.append({"eff": c["eff"], "included": inc, "excluded": exc, "src": c.get("src")})
+            for x in inc:
+                keys.add((canon(x), "inc", c["eff"]))
+            for x in exc:
+                keys.add((canon(x), "exc", c["eff"]))
+            print(f"  {idx}: notice {c.get('src')} fills register HOLE {c['eff']}: +{inc} -{exc}")
+    return out
+
+
+def pin_report(idx, walk, checkpoints, key=None):
+    """MEASURE the walk against every official pin BEFORE the pins overwrite it: for each pin date,
+    the walked roster in force (latest walked snapshot <= pin date) vs the archived list. A mismatch
+    means an event is missing or mis-dated between that pin and the next — the pin then corrects its
+    own date but nothing in between (runbook §141a). Prints one line per pin; returns total off-by."""
+    if not checkpoints:
+        return 0
+    # compare in the key space the builder EMITS (rename-map folded), else one company under two tickers
+    # (GESHIPPING/GESHIP, DALBHARAT/DALMIABHA, PCBL/PHILIPCARB) reads as two errors (2026-09-23, §141d)
+    # key(sym, date) = the key the builder EMITS for sym on that date (era-aware, 2026-09-23 §141e): one
+    # company under two era tickers (KPIT/BSOFT, HEXAWARE/HEXT, DHFL/PIRAMALFIN) is one member, not two
+    # errors. NSE's DUMMY* placeholders (a demerged entity held at zero price for a few days) are not
+    # members of our rosters and are left out of the comparison.
+    key = key or (lambda x, d: x)
+    dates = sorted(walk)
+    tot = 0
+    for d in sorted(checkpoints):
+        best = None
+        for k in dates:
+            if k <= d:
+                best = k
+        rec = {key(x, d) for x in walk[best] if not str(x).upper().startswith("DUMMY")} if best else set()
+        off = {key(canon(x), d) for x in checkpoints[d] if not str(x).upper().startswith("DUMMY")}
+        diff = off ^ rec
+        tot += len(diff)
+        print(
+            f"  {idx} pin {d}: walk {len(rec)} vs official {len(off)} — off-by {len(diff)}"
+            + (f" (walk-only {sorted(rec - off)}, official-only {sorted(off - rec)})" if diff else "")
+        )
+    return tot
+
+
+def drop_prepublished_pins(idx, walk, checkpoints, events, days=7, lag=90):
+    """NSE publishes a reshuffled constituent CSV a few days BEFORE the press-release effective date
+    (measured 2026-09-21: the 2024-09-28 Nifty Bank capture already carries CANBK for BANDHANBNK,
+    effective 2024-09-30). Pinning such a capture dates the swap at the capture day. Rule: a pin that
+    disagrees with the walk but EQUALS the walked roster in force right after an event dated within
+    `days` after it is a pre-published list — skip it (the event's own snapshot carries the change on
+    the true date). Returns the filtered checkpoints; prints each drop."""
+    if not checkpoints or not events:
+        return checkpoints
+    ev = merge_same_eff(events)
+    keep = {}
+    dates = sorted(walk)
+    for d, S in checkpoints.items():
+        off = {canon(x) for x in S}
+        best = None
+        for k in dates:
+            if k <= d:
+                best = k
+        rec = walk[best] if best else set()
+        if off == rec:
+            keep[d] = S
+            continue
+        nxt = [
+            c
+            for c in ev
+            if d < c["eff"] <= (datetime.date.fromisoformat(d) + datetime.timedelta(days=days)).isoformat()
+        ]
+        if nxt and nxt[0]["eff"] in walk and walk[nxt[0]["eff"]] == off:
+            print(f"  {idx} pin {d}: pre-published list (equals the roster effective {nxt[0]['eff']}) — not pinned")
+            continue
+        # LAGGING capture (2026-09-23, runbook §141e) — the mirror case: a capture taken weeks AFTER a dated
+        # notice that still EQUALS the roster in force just BEFORE it, while the NEXT archived list agrees
+        # with the walk (so the notice's change demonstrably happened and persisted). Nifty Healthcare
+        # 2021-05-25 still held GLAXO / lacked LAURUSLABS although ind_prs23022021 swapped them from
+        # 2021-03-31, no notice revokes it, and the 2023-08-13 list has the swap. Pinning it re-dated the
+        # swap to after May 2021. Window `lag` days; never applied without a confirming later pin.
+        lo = (datetime.date.fromisoformat(d) - datetime.timedelta(days=lag)).isoformat()
+        later = sorted(k for k in checkpoints if k > d)
+        if later:
+            lb = max((k for k in dates if k <= later[0]), default=None)
+            later_ok = lb is not None and {canon(x) for x in checkpoints[later[0]]} == walk[lb]
+            for c in (c for c in ev if lo <= c["eff"] <= d):
+                pre = max((k for k in dates if k < c["eff"]), default=None)
+                if later_ok and pre is not None and walk[pre] == off:
+                    print(
+                        f"  {idx} pin {d}: LAGGING capture (equals the roster before the {c['eff']} change; "
+                        f"the {later[0]} list confirms the change) — not pinned"
+                    )
+                    break
+            else:
+                keep[d] = S
+            continue
+        keep[d] = S
+    return keep
 
 
 def register_inc_is_live(reg_by_sym, sym, iso_date, official):
@@ -380,6 +573,32 @@ def main():
     changelog = json.load(open(os.path.join(HERE, "_changelog.json")))
     wb = json.load(open(os.path.join(HERE, "_wb_n500_snaps.json")))
     REG_BY_SYM, REG_EVENTS = load_inclexcl_register()
+    # Other sheets of the same NSE register, one ledger per index (runbook §141a/§141b). Each index
+    # listed here merges its register events into the walk exactly like the Nifty 500 block below.
+    REGISTER_LEDGERS = {
+        "Nifty Bank": "_bank_inclexcl_events.json",  # 28 events 2000-2020 (§141a)
+        "Nifty 50": "_nifty50_inclexcl_events.json",  # 196 events 1996-2020 (§141b)
+        # 2026-09-21 (§141c): every other sheet of the register, gen_register_events.py
+        "Nifty Next 50": "_niftynext50_inclexcl_events.json",
+        "Nifty 100": "_nifty100_inclexcl_events.json",
+        "Nifty 200": "_nifty200_inclexcl_events.json",
+        "Nifty Midcap 50": "_niftymidcap50_inclexcl_events.json",
+        "Nifty Midcap 100": "_niftymidcap100_inclexcl_events.json",
+        "Nifty Smallcap 50": "_niftysmallcap50_inclexcl_events.json",
+        "Nifty Smallcap 100": "_niftysmallcap100_inclexcl_events.json",
+        "Nifty LargeMidcap 250": "_niftylargemidcap250_inclexcl_events.json",
+        "Nifty IT": "_niftyit_inclexcl_events.json",
+        "Nifty Pharma": "_niftypharma_inclexcl_events.json",
+        "Nifty Auto": "_niftyauto_inclexcl_events.json",
+        "Nifty FMCG": "_niftyfmcg_inclexcl_events.json",
+        "Nifty Metal": "_niftymetal_inclexcl_events.json",
+        "Nifty Energy": "_niftyenergy_inclexcl_events.json",
+        "Nifty Realty": "_niftyrealty_inclexcl_events.json",
+        "Nifty Media": "_niftymedia_inclexcl_events.json",
+        "Nifty PSU Bank": "_niftypsubank_inclexcl_events.json",
+        "Nifty MNC": "_niftymnc_inclexcl_events.json",
+    }
+    REG_EXTRA = {idx: load_inclexcl_register(f)[1] for idx, f in REGISTER_LEDGERS.items()}
     # Official archived sub-index constituent CSVs (ground truth) pinned as hard
     # checkpoints for the 8 broad tiers, exactly like wb does for Nifty 500. Keys
     # are Wayback YYYYMMDD (or "LIVE") -> convert to ISO; LIVE == today's anchor, skip.
@@ -390,6 +609,25 @@ def main():
     OFFICIAL = {}
     for _tier, _snaps in _off.items():
         OFFICIAL[_tier] = {(f"{d[:4]}-{d[4:6]}-{d[6:8]}"): set(v) for d, v in _snaps.items() if d != "LIVE"}
+    # STALE CAPTURES (2026-09-23, runbook §141d): a mirror can keep serving an old constituent file —
+    # Wayback's 2026-09-08 MidSmallcap 400 capture is byte-identical to the 2023-08-12 one although the
+    # changelog records 382 membership changes between them, and pinning it dragged the September 2026
+    # roster back to 2023. A capture identical to an EARLIER capture of the same tier while the
+    # changelog records >= 3 changes between them is not pinned.
+    for _tier, _pins in OFFICIAL.items():
+        _ds = sorted(_pins)
+        for _i, _b in enumerate(_ds):
+            for _a in _ds[:_i]:
+                if _a in _pins and _b in _pins and _pins[_a] == _pins[_b]:
+                    _n = sum(
+                        len(c["included"]) + len(c["excluded"]) for c in changelog.get(_tier, []) if _a < c["eff"] <= _b
+                    )
+                    if _n >= 3:
+                        print(
+                            f"  {_tier} pin {_b}: STALE capture (identical to {_a}, {_n} changelog changes between) — not pinned"
+                        )
+                        _pins.pop(_b, None)
+                        break
     hist_path = os.path.join(HERE, "indices_history.json")
     H = json.load(open(hist_path, encoding="utf-8"))
     # old->current map from the PRICE build (build_sf_data merges renamed series by ISIN). Membership
@@ -427,10 +665,14 @@ def main():
     # listing continued as CHOLAHLDNG) and "Ispat Industries" to JSWISPL (Monnet's successor — a
     # different company, whose only reverse chain is MONNETISPA, so the generic fallback would land on
     # the wrong tape). Each applies only before the date the true successor's own tape begins.
+    # (2026-09-23, §141e) "JSWISPL": ("JSWISPAT", "2018-09-14") RETIRED: the register ledgers now map
+    # "Ispat Industries"/"JSW Ispat Steel" to JSWISPAT directly, and once canon() folds MONNETISPA ->
+    # JSWISPL (same company, the price build's rename map) the override rewrote MONNET's 2004-2015
+    # Nifty 500 slots to JSW Ispat — 169 snapshot-slots of the wrong company. No ledger, pin or press
+    # release names JSWISPL before 2018 (measured), so nothing needs the override any more.
     ERA_OVERRIDES = {
         "KPITTECH": ("KPIT", "2019-02-26"),
         "TIINDIA": ("TUBEINVEST", "2017-11-02"),
-        "JSWISPL": ("JSWISPAT", "2018-09-14"),
         # Three more of the same class, measured 2026-08-24 (evidence in
         # scripts/_n500_norow_handoff.json; each boundary = the wrong successor's own
         # first bar / the true era's end):
@@ -469,6 +711,12 @@ def main():
         _c = to_current(_o)
         if _c != _o:
             _REV.setdefault(_c, []).append(_o)
+    # also the symchg/supplement chain (REN): a rename the PRICE build has not folded yet (HEG -> HEGAM,
+    # an ISIN seam) must still emit the OLD tape for dates before the new key trades (2026-09-23, §141d)
+    for _o in REN:
+        _c = to_current(canon(_o))
+        if _c != _o and _o not in _REV.get(_c, []):
+            _REV.setdefault(_c, []).append(_o)
     import datetime as _dt
 
     def _plus_days(ymd, n):
@@ -499,8 +747,19 @@ def main():
     def emit(s, iso_date):
         return era_key(to_current(canon(era_fix(s, iso_date))), iso_date)
 
+    def _era_events(evs):
+        return [
+            dict(
+                c,
+                included=[era_fix(x, c["eff"]) for x in c["included"]],
+                excluded=[era_fix(x, c["eff"]) for x in c["excluded"]],
+            )
+            for c in evs
+        ]
+
     for idx, slug in SLUGS.items():
-        events = changelog.get(idx, [])
+        events = [c for c in changelog.get(idx, []) if not c.get("hole_fill")]
+        supp = [c for c in changelog.get(idx, []) if c.get("hole_fill")]  # §141e: added after the register
         if not events:
             print(f"{idx}: no change events — left as-is")
             continue
@@ -598,7 +857,44 @@ def main():
             except FileNotFoundError:
                 pass
         else:
+            if REG_EXTRA.get(idx):
+                # 2026-09-21 (§141a/§141b): Nifty Bank had NO pins and no events before 2021, so its
+                # 2017-2020 rosters were the old scrapbook (PAYTM, KINDIA, 15 names); Nifty 50's history
+                # began 2015-09-28. NSE's register carries each index's dated changes back to 1996/2000;
+                # with the archived official lists pinned below, the walk reproduces every list
+                # (pin_report prints the proof per pin).
+                events = merge_register_events(idx, events, REG_EXTRA[idx])
+            events = _era_events(fill_holes(idx, events, supp))
             cps = OFFICIAL.get(idx) or None  # official archived CSVs pinned exact
+            if cps:
+                cps = {d: {era_fix(x, d) for x in S} for d, S in cps.items()}
+            if cps:
+                _walk = reconstruct(anchor, events, None)
+                cps = drop_prepublished_pins(idx, _walk, cps, events)
+                pin_report(idx, _walk, cps, key=emit)
+        # ERA_OVERRIDES in the ROSTER ARITHMETIC too (2026-09-23, §141e), not only at emission: each one
+        # names a key that did not exist yet on the date (FRETAIL before its 2016 listing = the Pantaloon
+        # company, TIINDIA before 2017-11-02 = old Tube Investments). Rewritten only at output, the event
+        # still counted under the new key, so the old company's entry and exit landed in two identities and
+        # each half walked back for years (Midcap 50 2013: inc FEL / exc FRETAIL). Idempotent.
+        events = _era_events(fill_holes(idx, events, supp))  # no-op where the sub-index branch already filled
+        if cps:
+            cps = {d: {era_fix(x, d) for x in S} for d, S in cps.items()}
+        _tr = os.environ.get("MEMBERSHIP_TRACE", "")  # debug: "Nifty Smallcap 100:PCBL,RBA"
+        if _tr.startswith(idx + ":"):
+            _want = set(_tr.split(":", 1)[1].split(","))
+
+            def _hit(x):
+                return canon(x) in _want or to_current(canon(x)) in _want or x in _want
+
+            print(f"  TRACE {idx}: anchor has {[a for a in anchor if _hit(a)]}")
+            for _c in sorted(events, key=lambda c: c["eff"]):
+                for _k in ("included", "excluded"):
+                    for _x in _c[_k]:
+                        if _hit(_x):
+                            print(f"  TRACE {idx}: {_c['eff']} {_k[:3]} {_x} (canon {canon(_x)}) src={_c.get('src')}")
+            for _d, _S in sorted((cps or {}).items()):
+                print(f"  TRACE {idx}: pin {_d} has {[x for x in _S if _hit(x)]}")
         snaps = reconstruct(anchor, events, cps)
         # Nifty 500 only: its checkpoints are dense enough for the invariant to be safe, and it
         # is the index whose backward walk provably decays (see checkpoint_continuity). The
@@ -609,6 +905,12 @@ def main():
             print(f"  segment re-anchor: {nr} between-pin snapshots re-derived from their later pin")
             n = checkpoint_continuity(snaps, cps, events)
             print(f"  continuity repair: restored {n} member-slots between pinned checkpoints")
+        elif cps:
+            # 2026-09-21 (§141c): the same bounded walk for every pinned sub-index — a between-pin
+            # snapshot is derived from the LATER pin through that window's events only, so a missing
+            # event costs its own window, not every earlier year. (checkpoint_continuity stays N500-only.)
+            nr = reanchor_segments(snaps, cps, events)
+            print(f"  {idx}: segment re-anchor: {nr} between-pin snapshots re-derived from their later pin")
         if idx == "Nifty 500":
             worst = validate_n500(snaps, wb)
             if worst < 99.0:  # SAFETY GATE: never overwrite good membership with a degraded rebuild
@@ -657,21 +959,33 @@ def main():
     if _sf is not None and "Nifty 500" in H:
         first_trade = {s: str(o["d"][0]) for s, o in _sf.items() if o.get("d")}  # YYYYMMDD
         dropped = {}
-        for snap in H["Nifty 500"]:
-            if snap["effectiveDate"] < "2011-01-01":
-                continue  # pre-dataset — data coverage incomplete
-            dint = snap["effectiveDate"].replace("-", "")
-            keep = []
-            for sym in snap["symbols"]:
-                ft = first_trade.get(sym)
-                if ft is not None and ft > dint:  # not yet trading => impossible => phantom
-                    dropped.setdefault(sym, []).append(snap["effectiveDate"])
-                else:
-                    keep.append(sym)
-            snap["symbols"] = keep
+        # 2026-09-21 (§141c): every index, not only Nifty 500 — the sub-index walks carried IRFC (listed
+        # 2021) and BSE (2017) into 2006-2019 Midcap rosters whenever their inclusion event was missing.
+        for h_idx, h_snaps in H.items():
+            for snap in h_snaps:
+                dint = snap["effectiveDate"].replace("-", "")
+                # Before 2011 the bin's first bar can be a coverage artefact (weekly-era tapes), so a
+                # pre-2011 snapshot is only floored by first-trade dates INSIDE the reliable daily era:
+                # a name whose tape begins in 2016 cannot sit in a 1999 IT roster (LTTS, HEXT, GLAND,
+                # LAURUSLABS did, 2026-09-22 spot-check), while a 2004 first bar says nothing certain.
+                early = snap["effectiveDate"] < "2011-01-01"
+                # Nifty 500 keeps its pre-2011 rows untouched: its walk is register-built and validated
+                # 100% at 39 archived lists, and the names this rule would drop there (Ambalal Sarabhai,
+                # Provogue, Digjam ... 184 rows / 8 names, measured 2026-09-22) are real members whose
+                # old tape our bin lacks under the current key — a §132 era-key question, not a phantom.
+                if early and h_idx == "Nifty 500":
+                    continue
+                keep = []
+                for sym in snap["symbols"]:
+                    ft = first_trade.get(sym)
+                    if ft is not None and ft > dint and (not early or ft >= "20110101"):  # not yet trading => phantom
+                        dropped.setdefault(sym, []).append(h_idx + " " + snap["effectiveDate"])
+                    else:
+                        keep.append(sym)
+                snap["symbols"] = keep
         json.dump(dict(sorted(dropped.items())), open(os.path.join(HERE, "_phantom_dropped.json"), "w"), indent=0)
         print(
-            "  PHANTOM FLOOR (listing): dropped %d pre-listing rows across %d stocks (see _phantom_dropped.json)"
+            "  PHANTOM FLOOR (listing): dropped %d pre-listing rows across %d stocks, all indices (see _phantom_dropped.json)"
             % (sum(len(v) for v in dropped.values()), len(dropped))
         )
 
@@ -744,9 +1058,17 @@ def main():
     print(f"\nWrote {hist_path}")
     binp = os.path.join(ROOT, "docs", "stock_data.bin")
     D = json.loads(gzip.decompress(open(binp, "rb").read()))
+    old_ih = json.dumps(D.get("indicesHistory", {}), separators=(",", ":"))
     D["indicesHistory"] = {**D.get("indicesHistory", {}), **{k: H[k] for k in SLUGS if k in H}}
-    open(binp, "wb").write(gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6))
-    print(f"Wrote {binp} ({os.path.getsize(binp) / 1048576:.1f} MB)")
+    # Runbook §103a: an unchanged roster must leave the file UNTOUCHED, or refresh-membership.yml's
+    # "membership unchanged" guard never fires and every run commits another 18 MB blob. Two causes:
+    # gzip.compress stamps the current time into header bytes 4-8 (hence mtime=0), and refresh.yml
+    # writes this file at level 9, so even a byte-stable level-6 rewrite of the same content differs.
+    if json.dumps(D["indicesHistory"], separators=(",", ":")) == old_ih:
+        print(f"{binp}: indicesHistory unchanged — not rewritten")
+    else:
+        open(binp, "wb").write(gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6, mtime=0))
+        print(f"Wrote {binp} ({os.path.getsize(binp) / 1048576:.1f} MB)")
 
     # spot checks
     n5 = H["Nifty 500"]

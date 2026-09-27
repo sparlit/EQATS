@@ -170,10 +170,8 @@ def main():
         return datetime.date(ymd // 10000, ymd // 100 % 100, ymd % 100).toordinal()
 
     new_syms = {s: e["d"][0] for s, e in data.items() if e.get("d") and od(end) - od(e["d"][0]) <= WINDOW_NEW}
-    if not new_syms:
-        print("no new series in the last %d days — nothing to check" % WINDOW_NEW)
-        json.dump({"checked": D["end"], "pairs": []}, open(OUT, "w"), indent=1)
-        return
+    # no early exit when new_syms is empty: an official pair whose new key carries a prepended older tape is not
+    # a "new series" by first bar, and branch (a) below still has to see it (§199)
     ended = {
         s: e["d"][-1]
         for s, e in data.items()
@@ -189,35 +187,54 @@ def main():
 
     suspects = []
 
-    def add(old, new, via, oname, nname):
+    def add(old, new, via, oname, nname, old_last=None, new_first=None, note=None):
         key = f"{old}|{new}"
         if key in ack:
             return
         if any(p["old"] == old and p["new"] == new for p in suspects):
             return
-        suspects.append(
-            {
-                "old": old,
-                "new": new,
-                "via": via,
-                "oldName": oname,
-                "newName": nname,
-                "oldLast": ended.get(old),
-                "newFirst": new_syms.get(new),
-                "oldIsin": (meta.get(old) or {}).get("isin", ""),
-                "newIsin": (meta.get(new) or {}).get("isin", "") or (eq.get(new, ("", ""))[1]),
-            }
-        )
+        p = {
+            "old": old,
+            "new": new,
+            "via": via,
+            "oldName": oname,
+            "newName": nname,
+            "oldLast": old_last or ended.get(old),
+            "newFirst": new_first or new_syms.get(new),
+            "oldIsin": (meta.get(old) or {}).get("isin", ""),
+            "newIsin": (meta.get(new) or {}).get("isin", "") or (eq.get(new, ("", ""))[1]),
+        }
+        if note:
+            p["note"] = note
+        suspects.append(p)
 
-    # (a) official symbol-change pairs where BOTH series exist separately (auto-merge didn't fire)
-    for old, new, _d in changes:
-        if new in new_syms and old in ended and ended[old] < new_syms[new]:
+    # (a) official symbol-change pairs where BOTH series exist separately (auto-merge didn't fire). Judged on
+    # NSE's own effective DATE, not on where the new key's tape happens to start: the old tape ends before the
+    # change date and the new key trades on/after it. The tape-start test (old last < new first) went blind on
+    # 2026-09-26 when a §171 BSE prepend put bars in front of HEGAM / AEROPLANE / ASHIKAG (DATA_RUNBOOK §199).
+    for old, new, d in changes:
+        eo, en = data.get(old), data.get(new)
+        if not (eo and en and eo.get("d") and en.get("d")) or od(end) - od(d) > WINDOW_NEW:
+            continue
+        if eo["d"][-1] < d <= en["d"][-1]:
+            first_own = next(x for x in en["d"] if x >= d)
+            before = sum(1 for x in en["d"] if x < d)
             add(
                 old,
                 new,
                 "symbolchange.csv",
                 (meta.get(old) or {}).get("name", old),
                 eq.get(new, ((meta.get(new) or {}).get("name", new), ""))[0],
+                old_last=eo["d"][-1],
+                new_first=first_own,
+                note=(
+                    "%s holds %d bar(s) before the %d change date — another tape was prepended (newFirst is only "
+                    "the first bar on/after the change date and may be from that tape too): find %s's first OWN NSE "
+                    "session in the bhavcopy and drop the earlier bars in the merge (MANUAL_MERGE new_from, §199)"
+                    % (new, before, d, new)
+                )
+                if before
+                else None,
             )
 
     # (b) fuzzy company-name match: dead series' bin name vs new series' EQUITY_L name

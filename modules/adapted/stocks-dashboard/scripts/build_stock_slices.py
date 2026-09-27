@@ -260,7 +260,31 @@ def fill_missing_mcaps(core, data):
             {"mcap": round(n * closes[-1] / 1e7, 2), "latest": closes[-1], "mcapSrc": "shp:" + str(rec[1])}
         )
         filled += 1
-    print("  mcap from SHP share counts: %d filled" % filled, flush=True)
+    # SME listings with no filing yet: screener-derived counts (scripts/shares_fill_screener.json,
+    # §145), used only for symbols the filing ledger above has no count for.
+    sc = (jload(os.path.join(HERE, "shares_fill_screener.json"), "screener share-count fallback") or {}).get(
+        "fills"
+    ) or {}
+    for sym, rec in sc.items():
+        n = (rec or {}).get("shares")
+        if not n or sym in (shares or {}):
+            continue
+        key = sym + ".NS" if (sym + ".NS") in core else (sym if sym in core else sym + ".NS")
+        cm = core.get(key)
+        if cm and cm.get("mcap"):
+            continue
+        closes = (data.get(sym) or {}).get("c") or ()
+        if not closes or not closes[-1]:
+            continue
+        core.setdefault(key, {"symbol": sym}).update(
+            {
+                "mcap": round(n * closes[-1] / 1e7, 2),
+                "latest": closes[-1],
+                "mcapSrc": "screener:" + str(rec.get("asof")),
+            }
+        )
+        filled += 1
+    print("  mcap from SHP share counts (+ screener fallback): %d filled" % filled, flush=True)
 
 
 def build_peer_stats(data, meta, core, end):
@@ -385,6 +409,8 @@ def build_slice(sym, o, m, end, ts, chips, fno, core):
         "p": p,
         "k": k,
     }
+    if m.get("sme"):
+        out["sme"] = 1  # NSE SME platform (Emerge) listing — series SM/ST/SZ, DATA_RUNBOOK §145
 
     # --- tail arrays: passed through VERBATIM ------------------------------------------------
     # The client applies the very same transform loadSF() does, so a slice cannot drift from the

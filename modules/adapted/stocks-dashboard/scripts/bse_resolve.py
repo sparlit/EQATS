@@ -96,6 +96,15 @@ def guard_map(m):
     return {k: v for k, v in m.items() if str(k).upper() not in bad}
 
 
+def bse_key(tkr):
+    """The key a BSE-only company is filed under in the results feed / payloads. Normally its BSE
+    ticker; but when that ticker is ALSO an unrelated NSE company's symbol (a known conflict), the
+    ticker would put one company's filing on the other's row (GSTL, MAL, SEL, RAJPUTANA, ZEAL,
+    2026-09-27) — so the BSE company gets its own key, '<TICKER>-BSE'."""
+    t = str(tkr or "").upper()
+    return t + "-BSE" if t in conflicts() else t
+
+
 def by_id(path=None):
     """bse_scrips.json['by_id'], ISIN-guarded. This is the call every fundamentals-feeding
     consumer should use instead of json.load(...)['by_id']."""

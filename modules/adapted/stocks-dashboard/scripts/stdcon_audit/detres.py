@@ -37,6 +37,11 @@ calibrated for THIS scrip before it is believed:
 Either calibration passing makes the endpoint's basis established for that scrip; both failing
 means the read is reported but never used to clear a cell.
 """
+import os as _o
+import sys as _s
+
+_s.path.append(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
+import bse_headers as BH  # §181 BSE headers (append: never shadow local modules)
 import json
 import os
 import sys
@@ -46,7 +51,6 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 MONTHS = {
     "Jan": 1,
     "Feb": 2,
@@ -77,9 +81,7 @@ def _get(scrip, q):
     out = {}
     for attempt in (1, 2, 3):
         try:
-            req = urllib.request.Request(
-                API % (scrip, q), headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"}
-            )
+            req = urllib.request.Request(API % (scrip, q), headers=BH.HEADERS)
             with urllib.request.urlopen(req, timeout=40) as r:
                 js = json.loads(r.read().decode("utf-8", "replace"))
             for row in js.get("table1") or []:

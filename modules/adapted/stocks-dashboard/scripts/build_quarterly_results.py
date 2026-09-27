@@ -30,9 +30,11 @@ announce date, result-day price reaction and since-result drift (from the price 
 sector / industry / mcap / index-membership tags and a cadence-PREDICTED next result date.
 
 Price bin: env SF_BIN if set, else docs/sf_stock_data.bin. In CI the workflow downloads the fresh
-`data` release asset first (the committed docs bin is a stale snapshot — runbook §0). Reaction uses
-the 15:30-gated ann-date (runbook §12), so close(annDay)/close(prev trading day) is look-ahead-clean
-for pre-close AND post-close filings alike.
+`data` release asset first (the committed docs bin is a stale snapshot — runbook §0). Reaction =
+close(annDay)/close(prev trading day), where ann is the CALENDAR filing day (midnight rule, runbook
+§149 — the old 15:30 gate is retired). So for a filing made after 15:30 this is the move on the day
+it was filed, before the market could trade on it; whether to measure the next session instead is an
+open question for the user (runbook §187), not yet changed. Both closes must lie within 10 days.
 
 Output (compact):
 {"updated","asof","quarters":[QE ints newest-first ×13],
@@ -44,13 +46,18 @@ rx = % move close(annDay) vs prior close; sr = % drift close(annDay) -> asof (re
 
 Run: python -X utf8 scripts/build_quarterly_results.py
 """
-import contextlib
 import datetime
 import gzip
 import json
 import os
 import statistics
+import sys as _sys
 from bisect import bisect_left
+
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contextlib
+
+import reaction_timing as RT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "..", "docs")
@@ -180,6 +187,13 @@ def main():
     sr_cut = int((today - datetime.timedelta(days=SR_WINDOW_DAYS)).strftime("%Y%m%d"))
 
     out_co, n_rx, n_sr = {}, 0, 0
+    n_after = n_known = 0
+    try:
+        import bse_resolve  # NSE symbol -> BSE scrip, ISIN-guarded, for broadcast times
+
+        _scrips = bse_resolve.by_id()
+    except Exception:
+        _scrips = {}
     syms = set(fund) | set(revop)
     for sym in sorted(syms):
         pdata = px.get(sym)
@@ -255,16 +269,26 @@ def main():
         if all(r is None for r in rows):
             continue
 
-        # price reaction + drift
+        # price reaction + drift. A filing broadcast after the 15:30 close is first traded the NEXT session
+        # (runbook §193): its reaction = close(next session) / close(filing day). ann itself stays the
+        # calendar filing day (midnight visibility rule, §149). No broadcast record -> the filing day, as before.
         for qe, ann in anns.items():
             i = qidx[qe]
-            j = bisect_left(d, ann)
-            if j <= 0 or j >= len(d):
+            ac = RT.after_close(ann, scrip=_scrips.get(sym), sym=sym)
+            n_after += bool(ac)
+            n_known += ac is not None
+            j = RT.reaction_index(d, ann, ac)
+            if j is None or j <= 0:
                 continue
             # reaction day must be within ~10 calendar days of ann (suspended names drop out)
             dd = datetime.date(d[j] // 10000, (d[j] // 100) % 100, d[j] % 100)
             ad = datetime.date(ann // 10000, (ann // 100) % 100, ann % 100)
             if (dd - ad).days > 10:
+                continue
+            # …and so must the PRIOR close: a gap before the filing (suspension, IPO, sparse tape) made the
+            # "result-day move" span years (MODTHREAD Dec-23 +2000% vs a close from 2000-12-21)
+            pd_ = datetime.date(d[j - 1] // 10000, (d[j - 1] // 100) % 100, d[j - 1] % 100)
+            if (ad - pd_).days > 10:
                 continue
             if c[j - 1]:
                 rows[i][7] = round((c[j] / c[j - 1] - 1) * 100, 2)
@@ -315,6 +339,10 @@ def main():
     print(
         "WROTE %s: %d companies, %.1f MB (reactions %d, drift %d, latest-qtr reporters %d)"
         % (os.path.normpath(OUT), len(out_co), mb, n_rx, n_sr, n_lq)
+    )
+    print(
+        "  broadcast time known for %d filings; %d after the 15:30 close -> reaction read on the next session"
+        % (n_known, n_after)
     )
 
 

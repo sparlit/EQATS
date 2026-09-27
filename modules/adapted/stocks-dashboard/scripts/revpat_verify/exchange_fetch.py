@@ -72,13 +72,18 @@ api.bseindia.com (no impersonation needed there -- measured, see capability_card
 note). Minimum 2s between live requests. Every response is cached to ./_cache/ by URL so a
 re-run, or a second (symbol,quarter) that reuses the same filing, costs zero network calls.
 """
-import json
+import os as _o
+import sys as _s
+
+_s.path.append(_o.path.dirname(_o.path.dirname(_o.path.abspath(__file__))))
+import bse_headers as BH  # §181 BSE headers (append: never shadow local modules)
 import os
 import re
 import sys
+import json
 import time
-import urllib.parse
 import urllib.request
+import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "_cache")
@@ -90,7 +95,6 @@ REF_SCRIPTS = "/Users/dhruvan/stocks-wt/revpat-verify/scripts"
 sys.path.insert(0, REF_SCRIPTS)
 import build_revop as BR  # noqa: E402  -- the nightly's own XBRL parser + ctx_period/RE_NAT helpers
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 MIN_INTERVAL = 2.0  # seconds between LIVE requests (campaign hard constraint)
 _last_request_t = [0.0]
 
@@ -157,7 +161,7 @@ def _bse_scrip_master():
             "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w"
             "?Group=&Scripcode=&industry=&segment=Equity&status=Active"
         )
-        req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"})
+        req = urllib.request.Request(url, headers=BH.HEADERS)
         with urllib.request.urlopen(req, timeout=40) as r:
             data = r.read()
         js = json.loads(data.decode("utf-8", "replace"))
@@ -184,7 +188,7 @@ def _bse_detres_fetch(scrip_cd, qid):
         return json.loads(open(path, encoding="utf-8").read())
     _throttle()
     url = BSE_API % (scrip_cd, qid)
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"})
+    req = urllib.request.Request(url, headers=BH.HEADERS)
     with urllib.request.urlopen(req, timeout=30) as r:
         data = r.read()
     js = json.loads(data.decode("utf-8", "replace"))

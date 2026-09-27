@@ -55,6 +55,16 @@ _TITLE = re.compile(r"Employees\s+and\s+workers", re.IGNORECASE)
 _ROWS = re.compile(
     r"Permanent\s*\(?\s*[D-H]|Other\s+than\s+[Pp]ermanent|Total\s+employees|Total\s+workers", re.IGNORECASE
 )
+# Outside a table, the row letter must be a real standalone capital: under re.I "Permanent\s*[D-H]" also matches
+# the prose words "permanent employees"/"permanent health" (HATHWAY FY26 well-being page won on them,
+# 2026-09-13). But filers that drop the letters label the rows "Permanent Employees/Workers" (ASAHIINDIA FY26),
+# so the loose form still counts on a page carrying the grid's "Total (A)" column header — prose never does.
+_ROWS_STRICT = re.compile(
+    r"Permanent\s*\(?\s*(?-i:[D-H])(?![A-Za-z])|Other\s+than\s+[Pp]ermanent|"
+    r"Total\s+employees|Total\s+workers",
+    re.IGNORECASE,
+)
+_GRID_HDR = re.compile(r"Total\s*\(\s*A\s*\)", re.IGNORECASE)
 
 
 _SECTION = re.compile(r"section\s+a\b|general\s+disclosures|business\s+responsibility|BRSR", re.IGNORECASE)
@@ -75,17 +85,21 @@ def brsr_pages(doc):
         t = doc[i].get_text("text")
         if not t.strip():
             continue
-        a = (5 if _TITLE.search(t) else 0) + len(_ROWS.findall(t))
+        rows = len((_ROWS if _GRID_HDR.search(t) else _ROWS_STRICT).findall(t))
+        # the title alone is NOT a signal: "For all employees and workers" sits in GRI assurance appendices
+        # (RELIANCE FY25/26 p51/p64 scored 5 on the title alone and won with no grid anywhere in the report)
+        a = (5 if rows and _TITLE.search(t) else 0) + rows
         if re.search(r"Total\s+employees", t, re.IGNORECASE) and re.search(r"Permanent", t):
             a += 3
         b = 0
         if re.search(r"details\s+as\s+at\s+the\s+end\s+of\s+(the\s+)?financial\s+year", t, re.IGNORECASE):
             b += 8  # the BRSR Q18/20 heading — the strongest, most specific signal
         b += 3 * len(re.findall(r"other\s+than\s+permanent", t, re.IGNORECASE))
-        if re.search(r"differently\s+abled\s+employees", t, re.IGNORECASE):
-            b += 5
-        if re.search(r"employees\s+and\s+workers", t, re.IGNORECASE):
-            b += 2  # generic — also appears in GRI injury tables / prose, so needs corroboration
+        if b or rows:  # generic headings count only beside a grid-specific signal: "differently abled
+            if re.search(r"differently\s+abled\s+employees", t, re.IGNORECASE):  # employees and workers" is also
+                b += 5  # well-being prose (HATHWAY FY26)
+            if re.search(r"employees\s+and\s+workers", t, re.IGNORECASE):
+                b += 2  # generic — also appears in GRI injury tables / prose, so needs corroboration
         # demote governance / GRI / well-being pages that merely mention "employees and workers"
         if re.search(
             r"corporate\s+governance|board\s+of\s+directors|GRI\s+30|work[- ]related\s+injur|"
@@ -112,9 +126,11 @@ def brsr_pages(doc):
 # column-major or imaged. Public-sector banks give it as an Officers/Clerks/Subordinate-staff cadre table;
 # old (pre-2023) BRR reports as "Total number of employees: N". This one line cracked the 2026-09-07 hard
 # tail (banks, PSUs, recent IPOs, distressed names) — see [[project-stocks-employee-headcount]].
+# MD&A phrasings too: "had 260 and 179 employees on their rolls" / "303 & 212 employees on roll in the
+# Company" (HATHWAY FY26/FY25) — neither says "on the rolls of the Company"
 _ROLLS = re.compile(
     r"on\s+the\s+rolls\s+of\s+(?:the\s+)?(?:compan|bank)|"
-    r"employees?\s+(?:were\s+|are\s+)?on\s+the\s+roll",
+    r"employees?\s+(?:were\s+|are\s+)?on\s+(?:the\s+|their\s+|its\s+)?rolls?\b",
     re.IGNORECASE,
 )
 _CADRE = (
@@ -166,6 +182,91 @@ def locate(doc):
         if p not in out:
             out.append(p)
     return out[:4]
+
+
+# Some filers keep the BRSR OUT of the annual report they file on BSE and print only a link to it —
+# RELIANCE ("BRSR 2024-25 can be accessed here: https://www.ril.com/reports/BRSR202425.pdf") and HATHWAY
+# ("...is available on the Company's website and can be accessed at https://www.hathway.com/documents/
+# Annual_Report/Business_Responsibility_and_Sustainability_Report_2025-26.pdf"). No page of such a report
+# holds the grid, so the locator must follow the company's OWN printed link (2026-09-13).
+_BRSR_URL = re.compile(r"brsr|business[\W_]*responsib", re.IGNORECASE)  # [\W_]: "Business_Responsibility" (HATHWAY)
+_URL_TXT = re.compile(r"https?://\S+?(?:\s*\n\s*\S+?){0,4}?\.pdf\b", re.IGNORECASE)
+
+
+def brsr_links(doc):
+    """BRSR PDF URLs the report itself prints: link annotations first (exact, immune to line wraps), then
+    the visible text with its line-wraps re-joined. Only URLs whose own path names the BRSR are kept — a
+    generic 'sustainability report' is a different document."""
+    from urllib.parse import unquote
+
+    out = []
+
+    def add(u):
+        u = u.strip().rstrip(".,;)")
+        if (
+            u.lower().startswith(("http://", "https://"))
+            and u.lower().endswith(".pdf")
+            and _BRSR_URL.search(unquote(u))
+            and u not in out
+        ):
+            out.append(u)
+
+    for pg in doc:
+        for ln in pg.get_links():
+            add(ln.get("uri") or "")
+    for pg in doc:
+        for m in _URL_TXT.finditer(pg.get_text("text")):
+            add(re.sub(r"\s+", "", m.group(0)))
+    return out
+
+
+def fetch_linked(url, sym):
+    """Download a linked BRSR PDF into the doc cache (keyed by URL); None unless it is a real PDF."""
+    import hashlib
+
+    d = os.path.join(H.CACHE, sym)
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, f"brsr_{hashlib.sha1(url.encode()).hexdigest()[:16]}.pdf")
+    if os.path.exists(path) and os.path.getsize(path) > 2000:
+        return path
+    try:
+        raw = H._get(url.replace(" ", "%20"), timeout=180, binary=True)
+    except Exception as ex:
+        print(f"  brsr link {url} ERR {str(ex)[:90]}", flush=True)
+        return None
+    if not H._valid_pdf(raw):
+        print(f"  brsr link {url}: not a PDF", flush=True)
+        return None
+    with open(path, "wb") as fh:
+        fh.write(raw)
+    return path
+
+
+def find_pages(doc, sym):
+    """[(fitz_doc, page_index, url_or_None)] to render for one annual report. The report's own pages come
+    from locate(); when the report holds NO BRSR grid page, the BRSR it links to is fetched and its grid
+    page(s) go FIRST (the reader prefers the grid), the report's §197 on-roll line(s) after. Capped at 4.
+    Close any doc other than `doc` via close_linked()."""
+    own = [(doc, p, None) for p in locate(doc)]
+    if brsr_pages(doc):
+        return own
+    linked = []
+    for url in brsr_links(doc):
+        p = fetch_linked(url, sym)
+        if not p:
+            continue
+        ld = fitz.open(p)
+        gp = brsr_pages(ld)
+        if gp:
+            linked = [(ld, x, url) for x in gp]
+            break
+        ld.close()
+    return (linked + own)[:4]
+
+
+def close_linked(doc, pages):
+    for d in {id(d): d for d, _, _ in pages if d is not doc}.values():
+        d.close()
 
 
 def render(doc, pno, dpi=170):
@@ -303,34 +404,47 @@ def process(sym, want_fys, max_reports=4, verbose=True):
         if not p:
             continue
         doc = fitz.open(p)
-        pgs = locate(doc)
+        pgs = find_pages(doc, sym)
         led["reports_read"].append(
-            {"fy": a["fy"], "att": a["att"], "pages": len(doc), "brsr_pages": [x + 1 for x in pgs]}
+            {
+                "fy": a["fy"],
+                "att": a["att"],
+                "pages": len(doc),
+                "brsr_pages": [x + 1 for d, x, _ in pgs if d is doc],
+                "brsr_link": next((u for _, _, u in pgs if u), None),
+            }
         )
         if not pgs:
             doc.close()
             continue
-        pngs = [render(doc, x) for x in pgs]
+        pngs = [render(d, x) for d, x, _ in pgs]
+        close_linked(doc, pgs)
         doc.close()
         rec = validate(read_employees(sym, a["fy"], pngs))
         if rec:
-            rec["src"] = {"fy": a["fy"], "page": pgs[0] + 1, "method": "vision"}
+            rec["src"] = {"fy": a["fy"], "page": pgs[0][1] + 1, "method": "vision"}
+            if pgs[0][2]:
+                rec["src"]["url"] = pgs[0][2]
             led["fy"][a["fy"]] = rec
             if verbose:
                 print(
                     "  %s FY%d: onroll=%s emp_total=%s (vision p%d)"
-                    % (sym, a["fy"], rec["count"], rec["brsr"]["emp_total"], pgs[0] + 1),
+                    % (sym, a["fy"], rec["count"], rec["brsr"]["emp_total"], pgs[0][1] + 1),
                     flush=True,
                 )
     return led
 
 
 def uncovered_syms():
-    out = []
-    for f in sorted(glob.glob(os.path.join(H.LEDGER_DIR, "*.json"))):
-        if not json.load(open(f)).get("fy"):
-            out.append(os.path.basename(f)[:-5])
-    return out
+    """Every universe name with no headcount yet: an EMPTY ledger, or NO ledger file at all. The old
+    version only globbed existing ledgers, so a roster name the text sweep had never written (2026-09-13:
+    nine names whose BSE code the resolver missed — GEPIL/JCHAC/LAXMIMACH/SEQUENT/…) was invisible to
+    --uncovered forever and never retried. n500_universe() already drops names with no BSE code (nothing
+    to fetch), so BSE-less listings (BSE Ltd, CDSL) stay a documented external-source residue."""
+    have = {os.path.basename(f)[:-5]: f for f in glob.glob(os.path.join(H.LEDGER_DIR, "*.json"))}
+    out = {s for s, f in have.items() if not json.load(open(f)).get("fy")}
+    out |= {s for s in H.n500_universe() if s not in have}
+    return sorted(out)
 
 
 _NAME = {}
@@ -367,19 +481,27 @@ def prep(syms, want_fys, outdir, max_reports=3, verbose=True):
             if not p:
                 continue
             doc = fitz.open(p)
-            pgs = locate(doc)
+            pgs = find_pages(doc, sym)
             pngs = []
-            for pi in pgs:
-                fn = "%s_FY%d_p%d.png" % (sym, a["fy"], pi + 1)
+            for d, pi, url in pgs:  # a linked-BRSR page is named _brsr_ so it can't collide
+                fn = "%s_FY%d_%sp%d.png" % (sym, a["fy"], "brsr_" if url else "", pi + 1)
                 with open(os.path.join(outdir, fn), "wb") as fh:
-                    fh.write(render(doc, pi))
+                    fh.write(render(d, pi))
                 pngs.append(fn)
                 npng += 1
+            close_linked(doc, pgs)
             doc.close()
             if pngs:  # one manifest entry per (sym, fy): all candidate pages
-                manifest.append({"sym": sym, "name": name, "fy": a["fy"], "page": pgs[0] + 1, "pngs": pngs})
+                ent = {"sym": sym, "name": name, "fy": a["fy"], "page": pgs[0][1] + 1, "pngs": pngs}
+                if pgs[0][2]:
+                    ent["url"] = pgs[0][2]  # `page` is a page of this linked BRSR, not the report
+                manifest.append(ent)
             if verbose:
-                print("  %s FY%d -> pages %s" % (sym, a["fy"], [x + 1 for x in pgs]), flush=True)
+                print(
+                    "  %s FY%d -> pages %s"
+                    % (sym, a["fy"], ["%s%d" % ("brsr:" if u else "", x + 1) for _, x, u in pgs]),
+                    flush=True,
+                )
     json.dump(manifest, open(os.path.join(outdir, "manifest.json"), "w"), indent=1)
     print(
         "PREP DONE: %d entries / %d PNG pages for %d symbols -> %s" % (len(manifest), npng, len(syms), outdir),
@@ -393,6 +515,12 @@ def merge(reads_path):
     of one BRSR employees table). validate() drops anything where male+female doesn't reconcile to the
     total, permanent>total, or the count is implausible — so a mis-read never lands."""
     reads = json.load(open(reads_path))
+    mp = os.path.join(os.path.dirname(os.path.abspath(reads_path)), "manifest.json")
+    links = {}  # (sym, fy, page) -> linked BRSR url, for provenance
+    if os.path.exists(mp):
+        for e in json.load(open(mp)):
+            if e.get("url"):
+                links[(e["sym"], int(e["fy"]), e["page"])] = e["url"]
     landed = 0
     for r in reads:
         if not r.get("sym") or r.get("fy") is None:
@@ -406,6 +534,8 @@ def merge(reads_path):
             print("  REJECT {} FY{} (failed gate)".format(r["sym"], r["fy"]), flush=True)
             continue
         rec["src"] = {"fy": int(r["fy"]), "page": r.get("page"), "method": "vision"}
+        if links.get((r["sym"], int(r["fy"]), r.get("page"))):
+            rec["src"]["url"] = links[(r["sym"], int(r["fy"]), r.get("page"))]
         p = os.path.join(H.LEDGER_DIR, r["sym"] + ".json")
         led = json.load(open(p)) if os.path.exists(p) else {"sym": r["sym"], "bse": H.scripcode(r["sym"])}
         led.setdefault("fy", {})[str(int(r["fy"]))] = rec

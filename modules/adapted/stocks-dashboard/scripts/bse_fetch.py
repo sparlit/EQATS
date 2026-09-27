@@ -51,7 +51,8 @@ import time
 import urllib.request
 import zipfile
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+from bse_headers import HEADERS, UA  # §179: the full standard header set; importing also covers every urllib call
+
 # PyMuPDF (fitz) + RapidOCR load LAZILY on first PDF/OCR use: fetch_bse_results.py imports this
 # module for its network helpers alone, from workflows that install neither (a top-level import
 # crashed the BSE feed merge in every such run — silently, behind the workflows' `|| echo` guard).
@@ -102,15 +103,7 @@ def session():
 
 
 def _req(url):
-    return urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": UA,
-            "Accept": "*/*",
-            "Referer": "https://www.bseindia.com/",
-            "Origin": "https://www.bseindia.com",
-        },
-    )
+    return urllib.request.Request(url, headers=dict(HEADERS))
 
 
 def get(op, url, b=False):

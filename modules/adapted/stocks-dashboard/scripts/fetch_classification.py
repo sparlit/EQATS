@@ -39,6 +39,10 @@ the SAME ticker as docs/stock_data.bin's meta (e.g. "RELIANCE.NS", "500325.BO"),
 so the Sector-Index browser can group stocks at any level without touching the
 central stock_data.bin pipeline. Additive + isolated by design.
 """
+import os as _o
+import sys as _s
+
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import concurrent.futures
 import csv
 import gzip
@@ -49,6 +53,8 @@ import tempfile
 import time
 from collections import Counter
 from pathlib import Path
+
+import bse_headers as BH  # §181 BSE headers
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "sector_classification.json"
@@ -61,7 +67,15 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 # --- 0. download the scrip masters (same URLs/headers as .github/workflows/refresh.yml) ---
 def dl(url, out, extra_headers=()):
     for _attempt in range(3):
-        cmd = ["curl", "-s", "--max-time", "40", "-A", UA]
+        cmd = [
+            "curl",
+            "-s",
+            "--max-time",
+            "40",
+            "-A",
+            BH.UA if BH.is_bse(url) else UA,
+            *BH.CURL_ARGS,
+        ]  # honest UA to BSE (§190)
         for h in extra_headers:
             cmd += ["-H", h]
         cmd += [url, "-o", out]
@@ -80,7 +94,6 @@ if not (os.path.exists(BSE_JSON) and os.path.getsize(BSE_JSON) > 1000):
     dl(
         "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=Active",
         BSE_JSON,
-        ["Referer: https://www.bseindia.com/"],
     )
 print(f"NSE master: {os.path.getsize(NSE_CSV)} bytes | BSE master: {os.path.getsize(BSE_JSON)} bytes", flush=True)
 
@@ -143,13 +156,8 @@ def fetch(code):
                 "--max-time",
                 "8",
                 "-A",
-                UA,
-                "-H",
-                "Referer: https://www.bseindia.com/",
-                "-H",
-                "Origin: https://www.bseindia.com",
-                "-H",
-                "Accept: application/json, text/plain, */*",
+                BH.UA,
+                *BH.CURL_ARGS,  # honest UA; CURL_ARGS has Accept (§190)
                 url,
             ],
             capture_output=True,
