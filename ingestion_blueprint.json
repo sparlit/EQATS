@@ -1,5 +1,5 @@
 {
-  "current_index": 194,
+  "current_index": 195,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1557,7 +1557,7 @@
       "name": "nse-stock-price-prediction",
       "target": "kwoshvick/nse-stock-price-prediction",
       "url": "https://github.com/kwoshvick/nse-stock-price-prediction",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
