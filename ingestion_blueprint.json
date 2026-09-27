@@ -838,8 +838,8 @@
       "target": "day0market/geger",
       "url": "https://github.com/day0market/geger",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2534",
+      "merged": true
     },
     {
       "name": "moon-dev-ai-agents-for-trading",
