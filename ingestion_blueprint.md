@@ -149,7 +149,7 @@ Total Repositories: 410 | Current Index: 147
 | 144 | gurudayal37/nse-data-syncer | Completed | https://github.com/sparlit/EQATS/pull/2727 |
 | 145 | harrieronchain/prediction-markets-trading-bot-toolkits | Processed | https://github.com/sparlit/EQATS/pull/2729 |
 | 146 | harshadannina/statistical-arbitrage-model | Processed | https://github.com/sparlit/EQATS/pull/2730 |
-| 147 | hash-it-out/stockchain | Processed | None |
+| 147 | hash-it-out/stockchain | Processed | https://github.com/sparlit/EQATS/pull/2731 |
 | 148 | hawkeyecoding/nse-oi-analysis | pending | None |
 | 149 | hemangjoshi37a/trendmaster | pending | None |
 | 150 | hemenkapadia/getbhavcopy | pending | None |
