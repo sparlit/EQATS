@@ -26,6 +26,7 @@ from datetime import date
 from io import StringIO
 
 import pandas as pd
+
 from nsemine.bin import scraper
 from nsemine.utilities import urls
 

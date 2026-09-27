@@ -1,5 +1,5 @@
 {
-  "current_index": 183,
+  "current_index": 184,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1469,7 +1469,7 @@
       "name": "nsemine",
       "target": "kbizme/nsemine",
       "url": "https://github.com/kbizme/nsemine",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
