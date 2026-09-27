@@ -1,5 +1,5 @@
 {
-  "current_index": 125,
+  "current_index": 126,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1005,7 +1005,7 @@
       "name": "rust-trade",
       "target": "erio-harrison/rust-trade",
       "url": "https://github.com/erio-harrison/rust-trade",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
