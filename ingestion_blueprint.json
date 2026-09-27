@@ -1,5 +1,5 @@
 {
-  "current_index": 103,
+  "current_index": 104,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -829,7 +829,7 @@
       "name": "tropix",
       "target": "dallyshalla/tropix",
       "url": "https://github.com/dallyshalla/tropix",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
