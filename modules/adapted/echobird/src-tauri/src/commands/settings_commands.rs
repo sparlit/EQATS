@@ -11,6 +11,8 @@ pub struct AppSettings {
     // the user's theme choice would silently reset on every restart.
     #[serde(default, rename = "themeMode")]
     pub theme_mode: Option<String>,
+    #[serde(default, rename = "colorTheme")]
+    pub color_theme: Option<String>,
     #[serde(default, rename = "closeToTray")]
     pub close_to_tray: Option<bool>,
     #[serde(default, rename = "closeWindowBehaviorSet")]

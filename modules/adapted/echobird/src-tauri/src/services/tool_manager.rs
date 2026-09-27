@@ -383,6 +383,16 @@ fn apply_user_path_overrides(paths_config: &mut PathsConfig, extra: &[String]) {
     let existing = slot.get_or_insert_with(Vec::new);
     let mut merged: Vec<String> = Vec::with_capacity(existing.len() + extra.len());
     for p in extra {
+        // Older EchoBird versions seeded CLI paths for the DSH desktop card.
+        // Keep custom desktop locations, but never launch an old npm shim.
+        if paths_config.name == "DeepSeek Harness"
+            && matches!(
+                p.rsplit(['/', '\\']).next(),
+                Some(name) if name.eq_ignore_ascii_case("dsh") || name.eq_ignore_ascii_case("dsh.cmd")
+            )
+        {
+            continue;
+        }
         if !merged.contains(p) {
             merged.push(p.clone());
         }
@@ -580,9 +590,13 @@ fn registry_display_name_matches(
     if names_lower.iter().any(|n| n == dn_lower) {
         return true;
     }
-    prefixes_lower
-        .iter()
-        .any(|p| dn_lower == p || dn_lower.starts_with(&format!("{p} ")))
+    prefixes_lower.iter().any(|p| {
+        if p == "workbuddy" && (dn_lower == "workbuddy ai" || dn_lower.starts_with("workbuddy ai "))
+        {
+            return false;
+        }
+        dn_lower == p || dn_lower.starts_with(&format!("{p} "))
+    })
 }
 
 /// Returns true when `path` has a Windows executable extension (`.exe`).
@@ -765,8 +779,8 @@ fn scan_windows_registry(hints: &InstallHints) -> Option<String> {
             }
             let dn_lower = display_name.to_lowercase();
             // EXACT case-insensitive match by default (windowsDisplayNames) —
-            // we don't blanket substring-match because "Trae" would then match
-            // "Trae CN" and the wrong card would claim a non-default install.
+            // we don't blanket substring-match because a base product would
+            // then match a regional edition and claim the wrong install.
             // Apps whose DisplayName embeds a version ("WorkBuddy 4.24.2") opt
             // into PREFIX matching via windowsDisplayNamePrefixes instead.
             if !registry_display_name_matches(&dn_lower, &names_lower, &prefixes_lower) {
@@ -1576,6 +1590,19 @@ pub fn merge_override_seed(
     }
 }
 
+pub(crate) fn model_config_paths() -> Vec<PathBuf> {
+    get_definitions()
+        .into_iter()
+        .flat_map(|def| {
+            [
+                expand_path(&def.config_mapping.config_file),
+                platform::echobird_dir().join(format!("{}.json", def.id)),
+            ]
+        })
+        .filter(|path| !path.as_os_str().is_empty())
+        .collect()
+}
+
 /// Get the config mapping for a specific tool
 pub fn get_tool_config_mapping(tool_id: &str) -> Option<(ToolDefinition, PathBuf)> {
     let defs = get_definitions();
@@ -1703,17 +1730,21 @@ pub fn is_managed_desktop_tool(tool_id: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Candidate process image names for a desktop tool on the current OS — the
-/// filenames of its declared exe paths (e.g. "Claude.exe" / "Codex.exe" on
-/// Windows, "Codex" on macOS). Used to terminate instances the *user* launched
-/// (which we have no tracked PID for) before relaunching with fresh config.
-/// Derived from paths.json so it needs no hardcoding, and matches MSIX/Store
-/// installs too — their running image name equals the declared exe filename.
+/// Candidate process image names for a desktop tool on the current OS. Most
+/// tools derive these from the filenames of their declared executable paths;
+/// `processNames` supplies an explicit override for wrappers such as AppImages
+/// whose installed filename differs from the running image.
 pub fn get_tool_process_names(tool_id: &str) -> Vec<String> {
     let defs = get_definitions();
     let Some(def) = defs.iter().find(|d| d.id == tool_id) else {
         return Vec::new();
     };
+    if let Some(names) = def.paths_config.process_names.as_ref() {
+        let configured = get_platform_paths(names);
+        if !configured.is_empty() {
+            return configured;
+        }
+    }
     filenames_of(&get_platform_paths(&def.paths_config.paths))
 }
 
@@ -2043,6 +2074,21 @@ mod tests {
         assert!(super::filenames_of(&[]).is_empty());
     }
 
+    #[test]
+    fn paths_config_accepts_explicit_process_names() {
+        let config = paths_config_from(serde_json::json!({
+            "name": "Wrapped Desktop",
+            "category": "Desktop",
+            "paths": { "linux": ["~/.local/bin/Wrapped.AppImage"] },
+            "processNames": { "linux": ["wrapped-runtime"] }
+        }));
+
+        assert_eq!(
+            config.process_names.unwrap().linux.unwrap(),
+            v(&["wrapped-runtime"])
+        );
+    }
+
     // ── config-dir detection: a lingering config dir must not count as
     //    "installed" when a stronger detector exists and already failed.
     //    Regression: WorkBuddy showed installed after uninstall because
@@ -2098,15 +2144,16 @@ mod tests {
 
     #[test]
     fn exact_name_matches() {
-        let names = v(&["trae cn"]);
-        assert!(registry_display_name_matches("trae cn", &names, &[]));
+        let names = v(&["editor cn"]);
+        assert!(registry_display_name_matches("editor cn", &names, &[]));
     }
 
     #[test]
     fn exact_name_does_not_substring_match() {
-        // The whole reason exact match exists: "trae" must NOT match "trae cn".
-        let names = v(&["trae"]);
-        assert!(!registry_display_name_matches("trae cn", &names, &[]));
+        // The whole reason exact match exists: a base name must not match a
+        // regional edition.
+        let names = v(&["editor"]);
+        assert!(!registry_display_name_matches("editor cn", &names, &[]));
     }
 
     #[test]
@@ -2117,6 +2164,30 @@ mod tests {
             "workbuddy 4.24.2",
             &[],
             &prefixes
+        ));
+    }
+
+    #[test]
+    fn workbuddy_editions_do_not_match_each_other() {
+        assert!(!registry_display_name_matches(
+            "workbuddy ai 5.5.2",
+            &[],
+            &v(&["workbuddy"])
+        ));
+        assert!(!registry_display_name_matches(
+            "workbuddy ai",
+            &[],
+            &v(&["workbuddy"])
+        ));
+        assert!(registry_display_name_matches(
+            "workbuddy ai 5.5.2",
+            &[],
+            &v(&["workbuddy ai"])
+        ));
+        assert!(!registry_display_name_matches(
+            "workbuddy 5.5.2",
+            &[],
+            &v(&["workbuddy ai"])
         ));
     }
 
@@ -2188,8 +2259,8 @@ mod tests {
 
     #[test]
     fn exe_stem_matches_exact_name() {
-        let names = v(&["trae cn"]);
-        assert!(exe_stem_matches_hints("trae cn", &names, &[]));
+        let names = v(&["editor cn"]);
+        assert!(exe_stem_matches_hints("editor cn", &names, &[]));
     }
 
     #[test]
@@ -2266,6 +2337,83 @@ mod tests {
             path.to_lowercase().ends_with(r"\zcode.exe"),
             "expected ...\\ZCode.exe, got {path}"
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "machine-specific: requires DeepSeek Harness Desktop to be installed"]
+    fn real_registry_finds_dsh_desktop() {
+        let definition: crate::models::tool::PathsConfig =
+            serde_json::from_str(include_str!("../../../tools/dsh/paths.json")).unwrap();
+        let path = super::scan_windows_registry(&definition.install_hints.unwrap())
+            .expect("DeepSeek Harness registry entry should resolve to an executable");
+        assert!(super::is_windows_exe(&path));
+        assert!(
+            path.to_lowercase().ends_with(r"\deepseek harness.exe"),
+            "{path}"
+        );
+        assert!(std::path::Path::new(&path).is_file());
+        println!("Detected DeepSeek Harness Desktop: {path}");
+    }
+
+    #[test]
+    fn dsh_desktop_ignores_legacy_cli_overrides() {
+        let mut definition: crate::models::tool::PathsConfig =
+            serde_json::from_str(include_str!("../../../tools/dsh/paths.json")).unwrap();
+        let custom = "E:/Apps/DeepSeek Harness/DeepSeek Harness.exe".to_string();
+        let legacy = vec![
+            r"%APPDATA%\npm\dsh.cmd".to_string(),
+            r"C:\custom\DSH.CMD".to_string(),
+            "/usr/local/bin/dsh".to_string(),
+            "~/.npm-global/bin/dsh".to_string(),
+        ];
+        let mut overrides = legacy.clone();
+        overrides.push(custom.clone());
+        super::apply_user_path_overrides(&mut definition, &overrides);
+        let paths = super::get_platform_paths(&definition.paths);
+        assert_eq!(paths.first(), Some(&custom));
+        assert!(legacy.iter().all(|path| !paths.contains(path)));
+        assert!(definition.command.is_empty());
+        assert!(definition.start_command.is_none());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "machine-specific: requires Xiaomi MiMo Desktop to be installed"]
+    fn real_registry_finds_mimodesktop() {
+        let definition: crate::models::tool::PathsConfig =
+            serde_json::from_str(include_str!("../../../tools/mimodesktop/paths.json")).unwrap();
+        let path = super::scan_windows_registry(&definition.install_hints.unwrap())
+            .expect("Xiaomi MiMo registry entry should resolve to an executable");
+        assert!(super::is_windows_exe(&path));
+        assert!(path.to_lowercase().ends_with(r"\xiaomi mimo.exe"), "{path}");
+        println!("Detected Xiaomi MiMo Desktop: {path}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "machine-specific: requires Kimi Desktop to be installed"]
+    fn real_registry_finds_kimidesktop() {
+        let definition: crate::models::tool::PathsConfig =
+            serde_json::from_str(include_str!("../../../tools/kimidesktop/paths.json")).unwrap();
+        let path = super::scan_windows_registry(&definition.install_hints.unwrap())
+            .expect("Kimi Desktop registry entry should resolve to an executable");
+        assert!(super::is_windows_exe(&path));
+        assert!(path.to_lowercase().ends_with(r"\kimi code.exe"), "{path}");
+        println!("Detected Kimi Desktop: {path}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "machine-specific: requires OpenScience Desktop to be installed"]
+    fn real_registry_finds_openscience_desktop() {
+        let definition: crate::models::tool::PathsConfig =
+            serde_json::from_str(include_str!("../../../tools/openscience/paths.json")).unwrap();
+        let path = super::scan_windows_registry(&definition.install_hints.unwrap())
+            .expect("OpenScience registry entry should resolve to an executable");
+        assert!(super::is_windows_exe(&path));
+        assert!(path.to_lowercase().ends_with(r"\openscience.exe"), "{path}");
+        println!("Detected OpenScience Desktop: {path}");
     }
 
     // ── tool-paths.json self-heal: a file seeded before a tool shipped (e.g.

@@ -3,7 +3,7 @@
 // its base_url domain.
 //
 // Why this exists: when Codex talks to a third-party Responses endpoint
-// directly (EchoBird's "Responses passthrough" toggle), `apply_codex` writes
+// directly, `apply_codex` writes
 // the provider's REAL base_url + REAL model id into `~/.codex/config.toml`.
 // For those direct connections Codex needs a model catalog
 // (`model_catalog_json = "<path>"` → a JSON file declaring the model's context
@@ -16,25 +16,26 @@
 // framework, apply_patch_tool_type, web_search_tool_type, supported_reasoning
 // levels, truncation_policy, input_modalities, …). `build_catalog` stamps the
 // selected model's identity onto that template (slug / display_name /
-// context_window / priority) and emits a single-entry `{"models":[...]}`. So
-// switching to `deepseek-v5-flash` or `mimo-v2.6` "just works" with zero
-// maintenance — we never enumerate a vendor's model versions. Matching is
-// domain-only, never by model brand (a reseller may not implement the same
-// capabilities — same rule cc-switch v3.19.1 uses).
+// context_window / priority) and emits a single-entry `{"models":[...]}`.
+// Unknown model versions remain usable with conservative text-only defaults;
+// image input is enabled only for model IDs documented by the vendor. Matching
+// is domain-only, never by model brand (a reseller may not implement the same
+// capabilities).
 //
 // Vendors we do NOT bundle keep the current behavior: no `model_catalog_json`
 // line, Codex talks to the upstream directly with the real id (its own default
 // catalog applies). If a vendor's model doesn't support the Responses protocol
-// at all, the user simply leaves the Responses toggle OFF and traffic goes
-// through our proxy (bridge translation) — no catalog is involved either way.
+// at all, it cannot be used by Codex through EchoBird.
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
+use url::Url;
 
 /// DeepSeek's Codex capability template. `base_instructions` /
 /// `model_messages.instructions_template` carry the full model-agnostic Codex
 /// agent prompt framework + `apply_patch_tool_type: "freeform"` (extracted
-/// verbatim from DeepSeek's official setup script). No model identity fields.
+/// verbatim from DeepSeek's official setup script). Model identity and the
+/// selected model's image capability are stamped by `build_catalog`.
 pub const DEEPSEEK_TEMPLATE: &str = include_str!("../../assets/codex-catalogs/deepseek.json");
 
 /// MiniMax Codex capability template (adaptive thinking, 1M window, text +
@@ -42,20 +43,34 @@ pub const DEEPSEEK_TEMPLATE: &str = include_str!("../../assets/codex-catalogs/de
 /// selected display name.
 pub const MINIMAX_TEMPLATE: &str = include_str!("../../assets/codex-catalogs/minimax.json");
 
-/// Xiaomi MiMo Codex capability template (1M window, text + image, NO
-/// web_search tool — MiMo rejects it with a hard 400). Mirrors the catalog
-/// cc-switch generates for MiMo.
+/// Xiaomi MiMo Codex capability template (1M window, NO web_search tool —
+/// MiMo rejects it with a hard 400). Model identity and the selected model's
+/// image capability are stamped by `build_catalog`.
 pub const MIMO_TEMPLATE: &str = include_str!("../../assets/codex-catalogs/mimo.json");
 
 /// Match a provider base_url to the bundled capability template that applies.
 /// Domain-only, never by model brand. Returns the template JSON string, or
 /// `None` for vendors we don't bundle (keep the existing no-catalog path).
+pub fn url_matches_domain(base_url: &str, domain: &str) -> bool {
+    let Some(host) = Url::parse(base_url).ok().and_then(|url| {
+        url.host_str()
+            .map(|host| host.trim_end_matches('.').to_ascii_lowercase())
+    }) else {
+        return false;
+    };
+    let domain = domain.trim_end_matches('.').to_ascii_lowercase();
+    host == domain || host.ends_with(&format!(".{domain}"))
+}
+
 pub fn template_for_url(base_url: &str) -> Option<&'static str> {
-    if base_url.contains("deepseek.com") {
+    if url_matches_domain(base_url, "deepseek.com") {
         Some(DEEPSEEK_TEMPLATE)
-    } else if base_url.contains("minimaxi.com") || base_url.contains("minimax.io") {
+    } else if url_matches_domain(base_url, "minimax.cn")
+        || url_matches_domain(base_url, "minimaxi.com")
+        || url_matches_domain(base_url, "minimax.io")
+    {
         Some(MINIMAX_TEMPLATE)
-    } else if base_url.contains("xiaomimimo.com") {
+    } else if url_matches_domain(base_url, "xiaomimimo.com") {
         Some(MIMO_TEMPLATE)
     } else {
         None
@@ -66,9 +81,8 @@ pub fn template_for_url(base_url: &str) -> Option<&'static str> {
 /// capability template. The template's model-agnostic fields (base_instructions
 /// framework, tool types, reasoning levels, truncation policy) are preserved;
 /// the model identity (slug / display_name / description / context_window /
-/// priority) is stamped from the caller. This is the key maintenance-saving
-/// step: we never enumerate a vendor's model versions, so a new `v6` or `v7`
-/// needs no bundled-asset change.
+/// priority) is stamped from the caller. Unknown model versions need no asset
+/// update for text use; capabilities that are unsafe to guess are opt-in.
 pub fn build_catalog(
     template: &Value,
     model_id: &str,
@@ -82,6 +96,23 @@ pub fn build_catalog(
     entry["context_window"] = json!(context_window);
     entry["max_context_window"] = json!(context_window);
     entry["priority"] = json!(0);
+
+    // The vendor catalogs are model-specific here: DeepSeek Flash and MiMo
+    // v2.5 accept images, while DeepSeek V4 Pro and MiMo v2.5 Pro are text
+    // only. Keep the bundled templates conservative and opt in only the
+    // model IDs documented by the vendors.
+    let supports_image = matches!(model_id, "deepseek-flash" | "mimo-v2.5");
+    if model_id.starts_with("deepseek-") || model_id.starts_with("mimo-") {
+        entry["input_modalities"] = if supports_image {
+            json!(["text", "image"])
+        } else {
+            json!(["text"])
+        };
+        entry["supports_image_detail_original"] = json!(supports_image);
+    }
+    if model_id.starts_with("deepseek-") {
+        entry["supports_search_tool"] = json!(model_id == "deepseek-flash");
+    }
     // MiniMax's base_instructions carries a `{model}` placeholder; substitute
     // the selected display name so the prompt names the actual model. Vendors
     // whose prompt is model-agnostic (DeepSeek) are unaffected.
@@ -97,9 +128,9 @@ pub fn build_catalog(
 /// every platform so the value stays valid inside config.toml's basic strings
 /// on Windows (backslashes would need TOML escaping). Honors
 /// `ECHOBIRD_CODEX_CONFIG_DIR` via `default_codex_dir` so tests can point at
-/// temp dirs — same override the relay/canonical config code uses.
+/// temp dirs — the same override the Codex runtime migration uses.
 pub fn models_json_path() -> PathBuf {
-    let codex_dir = crate::services::codex_proxy::default_codex_dir()
+    let codex_dir = crate::services::codex_runtime::default_codex_dir()
         .unwrap_or_else(|| dirs::home_dir().unwrap_or_default().join(".codex"));
     let raw = codex_dir.join("models.json");
     PathBuf::from(raw.to_string_lossy().replace('\\', "/"))
@@ -119,10 +150,15 @@ mod tests {
             template_for_url("https://api.deepseek.com"),
             Some(DEEPSEEK_TEMPLATE)
         );
+        assert_eq!(template_for_url("https://notdeepseek.com/v1"), None);
     }
 
     #[test]
     fn template_for_url_matches_minimax_domains() {
+        assert_eq!(
+            template_for_url("https://api.minimax.cn/v1"),
+            Some(MINIMAX_TEMPLATE)
+        );
         assert_eq!(
             template_for_url("https://api.minimaxi.com/v1"),
             Some(MINIMAX_TEMPLATE)
@@ -144,6 +180,7 @@ mod tests {
             template_for_url("https://token-plan-cn.xiaomimimo.com/v1"),
             Some(MIMO_TEMPLATE)
         );
+        assert_eq!(template_for_url("https://notxiaomimimo.com/v1"), None);
     }
 
     #[test]
@@ -191,26 +228,53 @@ mod tests {
     }
 
     #[test]
-    fn deepseek_and_mimo_templates_advertise_image_input() {
-        // Both vendors ship vision-capable models now; the capability template
-        // declares image input at the VENDOR level on purpose so Codex permits
-        // attachments in the composer for every model of the family — we never
-        // differentiate per model (that list would churn with each release).
+    fn deepseek_and_mimo_templates_default_to_text_only() {
+        // Unknown/new model IDs must not advertise image input until the
+        // vendor documents it. `build_catalog` opts known vision models in.
         for template in [DEEPSEEK_TEMPLATE, MIMO_TEMPLATE] {
             let v: Value = serde_json::from_str(template).unwrap();
             let modalities = v
                 .get("input_modalities")
                 .and_then(|x| x.as_array())
                 .expect("template must declare input_modalities");
-            assert!(
-                modalities.iter().any(|m| m.as_str() == Some("image")),
-                "template must advertise image input"
-            );
+            assert_eq!(modalities.len(), 1);
+            assert_eq!(modalities[0].as_str(), Some("text"));
             assert_eq!(
                 v.get("supports_image_detail_original")
                     .and_then(|x| x.as_bool()),
-                Some(true),
-                "template must allow original-resolution image detail"
+                Some(false)
+            );
+        }
+    }
+
+    #[test]
+    fn vendor_model_capabilities_match_official_catalogs() {
+        for (template, model_id, supports_image, supports_search) in [
+            (DEEPSEEK_TEMPLATE, "deepseek-flash", true, true),
+            (DEEPSEEK_TEMPLATE, "deepseek-v4-pro", false, false),
+            (MIMO_TEMPLATE, "mimo-v2.5", true, false),
+            (MIMO_TEMPLATE, "mimo-v2.5-pro", false, false),
+        ] {
+            let template: Value = serde_json::from_str(template).unwrap();
+            let catalog = build_catalog(&template, model_id, model_id, 1_048_576);
+            let entry = &catalog["models"][0];
+            let modalities = entry["input_modalities"].as_array().unwrap();
+            assert_eq!(
+                modalities
+                    .iter()
+                    .any(|value| value.as_str() == Some("image")),
+                supports_image,
+                "wrong image capability for {model_id}"
+            );
+            assert_eq!(
+                entry["supports_image_detail_original"].as_bool(),
+                Some(supports_image),
+                "wrong original-image capability for {model_id}"
+            );
+            assert_eq!(
+                entry["supports_search_tool"].as_bool(),
+                Some(supports_search),
+                "wrong search capability for {model_id}"
             );
         }
     }

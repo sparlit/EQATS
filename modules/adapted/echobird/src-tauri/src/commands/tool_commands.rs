@@ -1,6 +1,7 @@
 // Tauri Commands for tool operations — exposed to frontend via invoke()
 
 use crate::models::tool::DetectedTool;
+use crate::services::codex_accounts::{self, CodexAccountSummary};
 use crate::services::tool_config_manager::{self, ApplyResult, ModelInfo};
 use crate::services::tool_manager;
 
@@ -137,6 +138,41 @@ pub async fn apply_model_to_tool(
 #[tauri::command]
 pub async fn restore_tool_to_official(tool_id: String) -> Result<ApplyResult, String> {
     Ok(tool_config_manager::restore_tool_to_official(&tool_id).await)
+}
+
+#[tauri::command]
+pub fn list_codex_accounts() -> Result<Vec<CodexAccountSummary>, String> {
+    codex_accounts::list_accounts()
+}
+
+#[tauri::command]
+pub fn capture_current_codex_account() -> Result<CodexAccountSummary, String> {
+    codex_accounts::capture_current_account()
+}
+
+#[tauri::command]
+pub async fn add_codex_account_via_oauth(
+    app_handle: tauri::AppHandle,
+    callback_messages: codex_accounts::OAuthCallbackMessages,
+) -> Result<CodexAccountSummary, String> {
+    codex_accounts::add_account_via_oauth(app_handle, callback_messages).await
+}
+
+#[tauri::command]
+pub fn switch_codex_account(account_id: String) -> Result<CodexAccountSummary, String> {
+    codex_accounts::switch_account(&account_id)
+}
+
+#[tauri::command]
+pub async fn refresh_codex_account_quota(
+    account_id: String,
+) -> Result<CodexAccountSummary, String> {
+    codex_accounts::refresh_account_quota(&account_id).await
+}
+
+#[tauri::command]
+pub fn delete_codex_account(account_id: String) -> Result<(), String> {
+    codex_accounts::delete_account(&account_id)
 }
 
 /// Apply a model config to a user-authored project's models.json.
@@ -483,4 +519,171 @@ pub async fn open_tool_paths_config() -> Result<String, String> {
 
     #[cfg(not(target_os = "android"))]
     Ok(resolved)
+}
+
+#[tauri::command]
+pub async fn list_claude_code_accounts(
+) -> Result<Vec<crate::services::claude_code_accounts::ClaudeCodeAccount>, String> {
+    crate::services::claude_code_accounts::list().await
+}
+
+#[tauri::command]
+pub fn start_claude_code_login() -> Result<crate::services::claude_code_oauth::LoginStart, String> {
+    crate::services::claude_code_oauth::start()
+}
+
+#[tauri::command]
+pub async fn complete_claude_code_login(
+    login_id: String,
+    code: String,
+) -> Result<crate::services::claude_code_accounts::ClaudeCodeAccount, String> {
+    crate::services::claude_code_oauth::complete(&login_id, &code).await
+}
+
+#[tauri::command]
+pub fn cancel_claude_code_login(login_id: String) -> Result<(), String> {
+    crate::services::claude_code_oauth::cancel(&login_id)
+}
+
+#[tauri::command]
+pub async fn switch_claude_code_account(
+    account_id: String,
+) -> Result<crate::services::claude_code_accounts::ClaudeCodeAccount, String> {
+    crate::services::claude_code_accounts::switch(&account_id).await
+}
+
+#[tauri::command]
+pub async fn refresh_claude_code_account_quota(
+    account_id: String,
+) -> Result<crate::services::claude_code_accounts::ClaudeCodeAccount, String> {
+    crate::services::claude_code_accounts::refresh(&account_id).await
+}
+
+#[tauri::command]
+pub async fn delete_claude_code_account(account_id: String) -> Result<(), String> {
+    crate::services::claude_code_accounts::delete(&account_id).await
+}
+
+use crate::services::workbuddy_accounts::{
+    self, Account as WorkBuddyAccount, Edition as WorkBuddyEdition, LoginStart as WorkBuddyLogin,
+};
+
+#[tauri::command]
+pub async fn list_workbuddy_accounts(
+    edition: WorkBuddyEdition,
+) -> Result<Vec<WorkBuddyAccount>, String> {
+    workbuddy_accounts::list(edition).await
+}
+
+#[tauri::command]
+pub async fn start_workbuddy_login(edition: WorkBuddyEdition) -> Result<WorkBuddyLogin, String> {
+    workbuddy_accounts::start_login(edition).await
+}
+
+#[tauri::command]
+pub async fn poll_workbuddy_login(login_id: String) -> Result<Option<WorkBuddyAccount>, String> {
+    workbuddy_accounts::poll_login(&login_id).await
+}
+
+#[tauri::command]
+pub async fn cancel_workbuddy_login(login_id: String) -> Result<(), String> {
+    workbuddy_accounts::cancel_login(&login_id)
+}
+
+#[tauri::command]
+pub async fn switch_workbuddy_account(
+    edition: WorkBuddyEdition,
+    account_id: String,
+) -> Result<WorkBuddyAccount, String> {
+    workbuddy_accounts::switch(edition, &account_id).await
+}
+
+#[tauri::command]
+pub async fn refresh_workbuddy_account_quota(
+    edition: WorkBuddyEdition,
+    account_id: String,
+) -> Result<WorkBuddyAccount, String> {
+    workbuddy_accounts::refresh(edition, &account_id).await
+}
+
+#[tauri::command]
+pub async fn delete_workbuddy_account(
+    edition: WorkBuddyEdition,
+    account_id: String,
+) -> Result<(), String> {
+    workbuddy_accounts::delete(edition, &account_id).await
+}
+
+use crate::services::{deepseek_accounts, deepseek_oauth};
+#[tauri::command]
+pub async fn list_deepseek_accounts() -> Result<Vec<deepseek_accounts::Account>, String> {
+    deepseek_accounts::list()
+}
+#[tauri::command]
+pub async fn start_deepseek_login(locale: String) -> Result<deepseek_oauth::LoginStart, String> {
+    deepseek_oauth::start(&locale).await
+}
+#[tauri::command]
+pub async fn poll_deepseek_login(
+    login_id: String,
+) -> Result<Option<deepseek_accounts::Account>, String> {
+    deepseek_oauth::poll(&login_id).await
+}
+#[tauri::command]
+pub async fn cancel_deepseek_login(login_id: String) -> Result<(), String> {
+    deepseek_oauth::cancel(&login_id)
+}
+#[tauri::command]
+pub async fn switch_deepseek_account(
+    account_id: String,
+    locale: String,
+) -> Result<deepseek_accounts::Account, String> {
+    deepseek_accounts::switch(&account_id, &locale).await
+}
+#[tauri::command]
+pub async fn refresh_deepseek_account_quota(
+    account_id: String,
+    locale: String,
+) -> Result<deepseek_accounts::Account, String> {
+    deepseek_accounts::refresh(&account_id, &locale).await
+}
+#[tauri::command]
+pub async fn delete_deepseek_account(account_id: String) -> Result<(), String> {
+    deepseek_accounts::delete(&account_id).await
+}
+
+#[tauri::command]
+pub async fn start_grok_login() -> Result<serde_json::Value, String> {
+    let (id, expires) = crate::services::grok_accounts::start_login().await?;
+    Ok(serde_json::json!({"loginId":id,"expiresAt":expires}))
+}
+#[tauri::command]
+pub async fn poll_grok_login(
+    login_id: String,
+) -> Result<Option<crate::services::grok_accounts::Account>, String> {
+    crate::services::grok_accounts::poll_login(&login_id).await
+}
+#[tauri::command]
+pub fn cancel_grok_login(login_id: String) -> Result<(), String> {
+    crate::services::grok_accounts::cancel_login(&login_id)
+}
+#[tauri::command]
+pub fn list_grok_accounts() -> Result<Vec<crate::services::grok_accounts::Account>, String> {
+    crate::services::grok_accounts::list()
+}
+#[tauri::command]
+pub async fn switch_grok_account(
+    account_id: String,
+) -> Result<crate::services::grok_accounts::Account, String> {
+    crate::services::grok_accounts::switch(&account_id).await
+}
+#[tauri::command]
+pub async fn delete_grok_account(account_id: String) -> Result<(), String> {
+    crate::services::grok_accounts::delete(&account_id).await
+}
+#[tauri::command]
+pub async fn refresh_grok_account(
+    account_id: String,
+) -> Result<crate::services::grok_accounts::Account, String> {
+    crate::services::grok_accounts::refresh(&account_id).await
 }
