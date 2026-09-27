@@ -1,5 +1,5 @@
 {
-  "current_index": 165,
+  "current_index": 166,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1325,7 +1325,7 @@
       "name": "hypersdk",
       "target": "infinitefield/hypersdk",
       "url": "https://github.com/infinitefield/hypersdk",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
