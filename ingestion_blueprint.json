@@ -1470,8 +1470,8 @@
       "target": "kbizme/nsemine",
       "url": "https://github.com/kbizme/nsemine",
       "status": "Completed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2768",
+      "merged": true
     },
     {
       "name": "nse-stock-scraper",
