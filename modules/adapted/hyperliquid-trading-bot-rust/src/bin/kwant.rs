@@ -106,7 +106,7 @@ async fn ws_route(
 }
 
 #[derive(Message)]
-#[rtype(result = "()")]
+#[rtype(result = "()")] 
 struct ServerMessage(String);
 
 struct MyWebSocket {
@@ -143,7 +143,7 @@ impl Actor for MyWebSocket {
 }
 
 impl Handler<ServerMessage> for MyWebSocket {
-    type Result = ();
+    type Result = (); 
 
     fn handle(&mut self, msg: ServerMessage, ctx: &mut Self::Context) {
         if msg.0 == "__SERVER_CLOSED__" {
@@ -165,3 +165,4 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
         }
     }
 }
+

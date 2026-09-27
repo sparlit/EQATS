@@ -38,7 +38,7 @@ pub enum Strategy{
 #[serde(rename_all = "camelCase")]
 pub struct CustomStrategy {
    pub risk: Risk,
-   pub style: Style,
+   pub style: Style,    
    pub stance: Stance,
    pub follow_trend: bool,
 }
@@ -65,7 +65,7 @@ impl CustomStrategy{
         Self { risk, style, stance, follow_trend }
     }
 
-
+    
     pub fn get_rsi_threshold(&self) -> RsiRange{
         match self.risk{
             Risk::Low => RsiRange{low: 25.0, high: 78.0},
@@ -91,7 +91,7 @@ impl CustomStrategy{
         }
     }
 
-
+    
 
     pub fn update_risk(&mut self, risk: Risk){
         self.risk = risk;
@@ -104,7 +104,7 @@ impl CustomStrategy{
     pub fn update_direction(&mut self, stance: Stance){
         self.stance = stance;
     }
-
+    
     pub fn update_follow_trend(&mut self, follow_trend: bool){
         self.follow_trend = follow_trend;
     }
@@ -118,7 +118,7 @@ impl CustomStrategy{
     let mut ema_cross = None;
     let mut adx_value = None;
     let mut atr_value = None;
-
+    
     for value in data {
         match value {
             Value::RsiValue(rsi) => rsi_value = Some(rsi),
@@ -132,7 +132,7 @@ impl CustomStrategy{
             _ => {} // Handle other indicators as needed
         }
     }
-
+    
     //self.standard_strategy(rsi_value, stoch_rsi, ema_cross, adx_value, atr_value, price)
     if let Some(rsi) = rsi_value{
         if let Some(srsi) = srsi_value{
@@ -164,8 +164,8 @@ fn rsi_based_scalp(
         Risk::High => 37.0,
     };
 
-    const SRSI_OB: f64 = 80.0;
-    const SRSI_OS: f64 = 20.0;
+    const SRSI_OB: f64 = 80.0; 
+    const SRSI_OS: f64 = 20.0; 
 
     if self.stance != Stance::Bull {
         let rsi_short = rsi > 100.0 - rsi_dev;
@@ -216,7 +216,7 @@ fn standard_strategy(
     const ADX_TREND_THRESHOLD: f64 = 25.0;
     const BASE_POSITION_SIZE: f64 = 0.1; // 10% of available capital
     const SCALP_DURATION: u64 = 300; // 5 minutes for scalping
-
+    
     // Determine trend direction from EMA cross
     let trend_direction = if let Some((short_ema, long_ema, trend)) = ema_cross {
         if trend && short_ema > long_ema {
@@ -229,10 +229,10 @@ fn standard_strategy(
     } else {
         None
     };
-
+    
     // Check trend strength with ADX
     let strong_trend = adx.map_or(true, |adx| adx > ADX_TREND_THRESHOLD);
-
+    
     // Calculate position size based on ATR (volatility-adjusted sizing)
     let position_size = if let Some(atr) = atr {
         // Reduce position size in high volatility
@@ -241,9 +241,9 @@ fn standard_strategy(
     } else {
         BASE_POSITION_SIZE
     };
-
+    
     // Generate signals based on multiple confirmations
-
+    
     // LONG SIGNAL LOGIC
     if let Some(true) = trend_direction {
         if strong_trend {
@@ -257,7 +257,7 @@ fn standard_strategy(
                     });
                 }
             }
-
+            
             // StochRSI-based long entry (more sensitive for scalping)
             if let Some((k, d)) = stoch_rsi {
                 if k < STOCH_OVERSOLD && d < STOCH_OVERSOLD && k > d {
@@ -271,7 +271,7 @@ fn standard_strategy(
             }
         }
     }
-
+    
     // SHORT SIGNAL LOGIC
     if let Some(false) = trend_direction {
         if strong_trend {
@@ -285,7 +285,7 @@ fn standard_strategy(
                     });
                 }
             }
-
+            
             // StochRSI-based short entry
             if let Some((k, d)) = stoch_rsi {
                 if k > STOCH_OVERBOUGHT && d > STOCH_OVERBOUGHT && k < d {
@@ -299,7 +299,7 @@ fn standard_strategy(
             }
         }
     }
-
+    
     // MOMENTUM SCALPING (when no clear EMA trend)
     if trend_direction.is_none() {
         // Use StochRSI for quick momentum plays
@@ -316,7 +316,7 @@ fn standard_strategy(
                     }
                 }
             }
-
+            
             // Quick short on bearish momentum
             if k > 50.0 && d > 50.0 && k < d && (d - k) > 5.0 {
                 if let Some(rsi) = rsi {
@@ -331,7 +331,7 @@ fn standard_strategy(
             }
         }
     }
-
+    
     None // No signal generated
 }
 }
@@ -339,7 +339,7 @@ fn standard_strategy(
 
 impl Default for CustomStrategy{
     fn default() -> Self {
-        Self {
+        Self { 
             risk: Risk::Normal,
             style: Style::Scalp,
             stance: Stance::Neutral,
@@ -347,3 +347,15 @@ impl Default for CustomStrategy{
     }
 }
 }
+
+
+
+
+
+
+
+
+
+
+
+
