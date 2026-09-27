@@ -1182,8 +1182,8 @@
       "target": "hawkeyecoding/nse-oi-analysis",
       "url": "https://github.com/hawkeyecoding/nse-oi-analysis",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2732",
+      "merged": true
     },
     {
       "name": "trendmaster",
