@@ -1,5 +1,5 @@
 {
-  "current_index": 181,
+  "current_index": 182,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1453,9 +1453,9 @@
       "name": "stock-research-assistant",
       "target": "kalyanroyinfo/stock-research-assistant",
       "url": "https://github.com/kalyanroyinfo/stock-research-assistant",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2766",
+      "merged": true
     },
     {
       "name": "stoklore",
