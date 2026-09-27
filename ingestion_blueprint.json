@@ -1574,8 +1574,8 @@
       "target": "lakshaysinghal/bhavcopy",
       "url": "https://github.com/lakshaysinghal/bhavcopy",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2781",
+      "merged": true
     },
     {
       "name": "laminar-chain",
