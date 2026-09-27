@@ -1,5 +1,5 @@
 {
-  "current_index": 156,
+  "current_index": 157,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -1253,7 +1253,7 @@
       "name": "bse_nse_announcement",
       "target": "hirawatt/bse_nse_announcement",
       "url": "https://github.com/hirawatt/bse_nse_announcement",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
