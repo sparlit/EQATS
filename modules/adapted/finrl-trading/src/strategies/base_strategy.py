@@ -24,10 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 @dataclass
@@ -55,3 +54,25 @@ class BaseStrategy:
     def generate_weights(self, data: dict[str, pd.DataFrame], target_date: str | None = None) -> StrategyResult:
         msg = "generate_weights must be implemented by subclasses"
         raise NotImplementedError(msg)
+
+
+class EqualWeightStrategy(BaseStrategy):
+    """A strategy class that gives equal weight to all stocks"""
+
+    def generate_weights(self, data: dict[str, pd.DataFrame], target_date: str | None = None) -> StrategyResult:
+        tickers = data["fundamentals"]["gvkey"].unique()
+        weight = 1.0 / len(tickers)
+        weights_df = pd.DataFrame({"gvkey": tickers, "weight": [weight] * len(tickers)})
+        return StrategyResult(strategy_name=self.config.name, weights=weights_df)
+
+
+def create_strategy(strategy_type, config):
+    strategies = {
+        "equal_weight": EqualWeightStrategy,
+    }
+
+    strategy_class = strategies.get(strategy_type)
+    if strategy_class is None:
+        msg = f"Unknown strategy type: {strategy_type}"
+        raise ValueError(msg)
+    return strategy_class(config)
