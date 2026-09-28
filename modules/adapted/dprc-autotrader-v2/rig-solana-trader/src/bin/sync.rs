@@ -1,8 +1,8 @@
 //! Market Data Synchronization Service
-//!
+//! 
 //! This binary runs a service that continuously synchronizes market data from various sources
 //! (primarily BirdEye) into MongoDB for analysis and trading decisions. It handles:
-//!
+//! 
 //! - Fetching trending tokens at configurable intervals
 //! - Storing token states with price, volume, and market data
 //! - Detailed logging of all operations for monitoring
@@ -68,7 +68,7 @@ impl DataSyncService {
             data_provider,
             db,
         };
-
+        
         service.start_sync_tasks();
         info!("DataSyncService initialized successfully");
         service
@@ -84,14 +84,14 @@ impl DataSyncService {
             loop {
                 info!("Beginning new market data sync cycle");
                 debug!("Fetching trending tokens from data provider");
-
+                
                 match data_provider.as_ref().get_trending_tokens(100).await {
                     Ok(trends) => {
                         info!(
                             token_count = trends.len(),
                             "Successfully fetched trending tokens"
                         );
-
+                        
                         for trend in trends {
                             debug!(
                                 token.address = %trend.token_address,
@@ -169,7 +169,7 @@ async fn main() -> Result<()> {
 
     info!("Starting Solana trading bot...");
     dotenv().ok();
-
+    
     // Initialize MongoDB client
     let mongodb_uri = std::env::var("MONGODB_URI")
         .unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
@@ -183,7 +183,7 @@ async fn main() -> Result<()> {
         .expect("BIRDEYE_API_KEY must be set");
     let birdeye = Arc::new(BirdEyeProvider::new(birdeye_api_key));
     info!("BirdEye API client initialized successfully");
-
+    
     let data_provider = Arc::new(AggregatedDataProvider::new(vec![birdeye]));
     info!("Data provider aggregation complete");
 
@@ -199,6 +199,6 @@ async fn main() -> Result<()> {
     tokio::signal::ctrl_c().await?;
     info!("Shutdown signal received");
     info!("Shutting down gracefully...");
-
+    
     Ok(())
-}
+} 

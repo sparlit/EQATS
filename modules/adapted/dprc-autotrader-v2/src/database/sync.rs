@@ -63,7 +63,7 @@ impl<M: CompletionModel> DataSyncService<M> {
 
     pub async fn sync_market_data(&self) -> Result<()> {
         info!("Starting market data sync cycle");
-
+        
         // Fetch trending tokens
         info!("Fetching trending tokens from BirdEye");
         let trends = self.data_provider.get_trending_tokens(20).await?;
@@ -103,14 +103,14 @@ impl<M: CompletionModel> DataSyncService<M> {
                         "Received trade recommendation: Action={:?}, Amount={} SOL, Confidence={:.2}, Risk={}",
                         trade.action, trade.amount_in_sol, trade.confidence, trade.risk_assessment
                     );
-
+                    
                     // Execute trade if confidence is high enough
                     if trade.confidence >= 0.8 {
                         match trade.action {
                             TradeAction::Buy => {
-                                info!("Executing BUY order for {} SOL worth of {}",
+                                info!("Executing BUY order for {} SOL worth of {}", 
                                     trade.amount_in_sol, trend.metadata.symbol);
-
+                                
                                 if let Ok(signature) = self.dex.execute_swap(
                                     "So11111111111111111111111111111111111111112", // SOL
                                     &trade.token_address,
@@ -141,7 +141,7 @@ impl<M: CompletionModel> DataSyncService<M> {
                                             trade.market_analysis.momentum_indicators
                                         ),
                                     ).await?;
-
+                                    
                                     info!("Posting tweet: {}", tweet);
                                     if let Err(e) = self.twitter.post_tweet(&tweet).await {
                                         warn!("Failed to post trade tweet: {}", e);
@@ -154,7 +154,7 @@ impl<M: CompletionModel> DataSyncService<M> {
                                 info!("Skipping SELL action - not implemented yet");
                             },
                             TradeAction::Hold => {
-                                info!("Decision: HOLD {} - {}",
+                                info!("Decision: HOLD {} - {}", 
                                     trend.metadata.symbol, trade.reasoning);
                             }
                         }
@@ -172,4 +172,4 @@ impl<M: CompletionModel> DataSyncService<M> {
         info!("Market data sync cycle complete");
         Ok(())
     }
-}
+} 

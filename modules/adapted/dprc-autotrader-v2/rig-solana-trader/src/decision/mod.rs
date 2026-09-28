@@ -20,12 +20,12 @@ impl PPODecisionAgent {
         // Combine LLM analysis with PPO
         let llm_analysis = self.personality.analyze_state(state).await;
         let ppo_action = self.policy_network.forward(state);
-
+        
         // Risk management
         if state.risk_level > self.personality.risk_tolerance {
             return Action::Hold;
         }
-
+        
         // Combine signals
         match (llm_analysis, ppo_action) {
             (Analysis::Buy, Action::Buy) => Action::Buy,
@@ -33,4 +33,4 @@ impl PPODecisionAgent {
             _ => Action::Hold
         }
     }
-}
+} 

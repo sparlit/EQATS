@@ -16,4 +16,4 @@ impl DatabaseExt for Arc<Database> {
         collection.insert_one(document, None).await?;
         Ok(())
     }
-}
+} 

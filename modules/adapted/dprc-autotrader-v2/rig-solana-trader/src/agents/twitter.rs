@@ -25,7 +25,7 @@ impl TwitterAgent {
 impl Agent for TwitterAgent {
     async fn run(&self) -> anyhow::Result<()> {
         let mut receiver = self.bus.subscribe("trade_executed");
-
+        
         while let Ok(msg) = receiver.recv().await {
             if let Message::TradeExecuted(execution) = msg {
                 let tweet = self.personality
@@ -37,4 +37,4 @@ impl Agent for TwitterAgent {
         }
         Ok(())
     }
-}
+} 

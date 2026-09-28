@@ -33,7 +33,7 @@ impl SolanaExecutor {
     pub async fn execute_trade(&self, action: TradeAction) -> Result<Signature> {
         let program = anchor_spl::token::ID;
         let accounts = self.build_accounts(&action.params.mint);
-
+        
         let tx = Transaction::new_signed_with_payer(
             &[Instruction::new_with_bytes(
                 program,
@@ -46,7 +46,7 @@ impl SolanaExecutor {
         );
 
         self.validate_risk(&action).await?;
-
+        
         self.message_bus
             .publish(TradeEvent::new(action.clone()))
             .await;
@@ -102,4 +102,4 @@ pub struct TradeAnalysis {
     pub market_cap: f64,
     pub volume_ratio: f64,
     pub risk_assessment: f64,
-}
+} 

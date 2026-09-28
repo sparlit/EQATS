@@ -15,13 +15,13 @@ impl TransformerPredictor {
     async fn train(&self) {
         // Load time-series data from vector store
         let data = self.vector_store.get_embeddings("price_history").await;
-
+        
         // Implement transformer architecture
         let model = Transformer::new()
             .num_layers(6)
             .d_model(512)
             .train(data, AdamW::default());
-
+        
         model.save("weights.bin");
     }
 
@@ -30,4 +30,4 @@ impl TransformerPredictor {
         let mut model = Transformer::load("weights.bin");
         model.predict(context)
     }
-}
+} 

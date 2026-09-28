@@ -339,7 +339,7 @@ impl BirdEyeProvider {
             "https://public-api.birdeye.so/defi/v2/tokens/new_listing?time_to=10000000000&limit={}&meme_platform_enabled=true",
             limit
         );
-
+        
         let response = self.client
             .get(&url)
             .header("X-API-KEY", &self.api_key)
@@ -455,7 +455,7 @@ impl BirdEyeProvider {
     #[instrument(skip(self), fields(api = "birdeye"))]
     async fn get_trending_tokens_internal(&self, url: &str) -> Result<Vec<MarketTrend>> {
         debug!(url = %url, "Making API request");
-
+        
         let response = self.client
             .get(url)
             .header("X-API-KEY", &self.api_key)
@@ -524,7 +524,7 @@ impl DataProvider for BirdEyeProvider {
             .await?
             .json::<BirdEyeMarketDataResponse>()
             .await?;
-
+        
         Ok(TokenMetadata {
             address: metadata.address.clone(),
             symbol: metadata.symbol.clone(),
@@ -639,4 +639,4 @@ impl DataProvider for BirdEyeProvider {
         // BirdEye doesn't provide social metrics
         Err(anyhow::anyhow!("Social metrics not available from BirdEye"))
     }
-}
+} 

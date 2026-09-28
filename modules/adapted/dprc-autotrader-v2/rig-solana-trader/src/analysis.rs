@@ -3,4 +3,4 @@ pub enum Analysis {
     Buy,
     Sell,
     Hold
-}
+} 

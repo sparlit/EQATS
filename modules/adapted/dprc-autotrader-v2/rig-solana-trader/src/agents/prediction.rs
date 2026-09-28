@@ -26,7 +26,7 @@ impl PredictionAgent {
 impl Agent for PredictionAgent {
     async fn run(&self) -> anyhow::Result<()> {
         let mut receiver = self.bus.subscribe("processed_market");
-
+        
         while let Ok(msg) = receiver.recv().await {
             if let Message::ProcessedMarketData(data) = msg {
                 // Find similar historical patterns
@@ -44,4 +44,4 @@ impl Agent for PredictionAgent {
         }
         Ok(())
     }
-}
+} 

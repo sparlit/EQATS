@@ -41,13 +41,13 @@ pub struct DatabaseClient<T> where T: Serialize + DeserializeOwned {
 impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
     pub async fn new(connection_string: &str, database_name: &str) -> Result<Self> {
         debug!("Initializing MongoDB client with database: {}", database_name);
-
+        
         let mut client_options = ClientOptions::parse(connection_string).await?;
         client_options.app_name = Some("rig-solana-trader".to_string());
-
+        
         let client = Client::with_options(client_options)?;
         let db = client.database(database_name);
-
+        
         info!("MongoDB client initialized successfully");
         Ok(Self { db })
     }
@@ -80,7 +80,7 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
 
     async fn create_positions_indexes(&self) -> Result<()> {
         let collection = self.db.collection::<Document>(POSITIONS_COLLECTION);
-
+        
         // Unique index on token address
         let address_index = IndexModel::builder()
             .keys(doc! { "token.address": 1 })
@@ -101,7 +101,7 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
 
     async fn create_token_states_indexes(&self) -> Result<()> {
         let collection = self.db.collection::<Document>(TOKEN_STATES_COLLECTION);
-
+        
         // Compound index on address and timestamp
         let address_time_index = IndexModel::builder()
             .keys(doc! { "address": 1, "timestamp": -1 })
@@ -121,7 +121,7 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
 
     async fn create_trade_history_indexes(&self) -> Result<()> {
         let collection = self.db.collection::<Document>(TRADE_HISTORY_COLLECTION);
-
+        
         // Index on timestamp
         let timestamp_index = IndexModel::builder()
             .keys(doc! { "timestamp": -1 })
@@ -141,7 +141,7 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
 
     async fn create_social_indexes(&self) -> Result<()> {
         let collection = self.db.collection::<Document>(SOCIAL_INTERACTIONS_COLLECTION);
-
+        
         // Index on timestamp
         let timestamp_index = IndexModel::builder()
             .keys(doc! { "timestamp": -1 })
@@ -167,7 +167,7 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
 
     async fn create_token_analysis_indexes(&self) -> Result<()> {
         let collection = self.db.collection::<Document>(TOKEN_ANALYSIS_COLLECTION);
-
+        
         // Index on token address
         let address_index = IndexModel::builder()
             .keys(doc! { "token_address": 1 })
@@ -196,16 +196,16 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
         positions::PositionsCollection::new(&self.db)
     }
 
-    pub async fn insert_one<T>(&self, collection_name: &str, document: &T) -> Result<()>
-    where
-        T: serde::Serialize
+    pub async fn insert_one<T>(&self, collection_name: &str, document: &T) -> Result<()> 
+    where 
+        T: serde::Serialize 
     {
         debug!("Inserting document into collection: {}", collection_name);
-
+        
         self.db.collection(collection_name)
             .insert_one(mongodb::bson::to_document(document)?, None)
             .await?;
-
+            
         debug!("Document inserted successfully");
         Ok(())
     }
@@ -215,23 +215,23 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
         T: for<'de> serde::Deserialize<'de>
     {
         debug!("Finding document in collection: {} with filter: {:?}", collection_name, filter);
-
+        
         let result = self.db.collection(collection_name)
             .find_one(filter, None)
             .await?;
-
+            
         if result.is_some() {
             debug!("Document found");
         } else {
             debug!("No document found");
         }
-
+        
         Ok(result)
     }
 
     pub async fn save_token_analysis(&self, analysis: &TokenAnalysis, embedding: Vec<f32>) -> Result<()> {
         let collection = self.db.collection::<Document>(TOKEN_ANALYSIS_COLLECTION);
-
+        
         let doc = doc! {
             "token_address": &analysis.token_address,
             "symbol": &analysis.symbol,
@@ -249,10 +249,10 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
 
     pub async fn get_token_analysis(&self, token_address: &str) -> Result<Option<(TokenAnalysis, Vec<f32>)>> {
         let collection = self.db.collection::<Document>(TOKEN_ANALYSIS_COLLECTION);
-
+        
         let filter = doc! { "token_address": token_address };
         let result = collection.find_one(filter, None).await?;
-
+        
         if let Some(doc) = result {
             let analysis = TokenAnalysis {
                 token_address: doc.get_str("token_address")?.to_string(),
@@ -264,15 +264,15 @@ impl<T> DatabaseClient<T> where T: Serialize + DeserializeOwned {
                     .collect(),
                 market_sentiment: doc.get_str("market_sentiment")?.to_string(),
             };
-
+            
             let embedding = doc.get_array("embedding")?
                 .iter()
                 .map(|v| v.as_f64().unwrap_or_default() as f32)
                 .collect();
-
+                
             Ok(Some((analysis, embedding)))
         } else {
             Ok(None)
         }
     }
-}
+} 

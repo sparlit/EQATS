@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
         // 1. Load and analyze market data
         let market_report = data_loader.load_market_report("data/market_reports/latest.txt").await?;
         let whitepaper = data_loader.load_token_whitepaper("data/whitepapers/token.pdf").await?;
-
+        
         // 2. Get multi-agent analysis
         let token_data = format!(
             "Token: {}\nMarket Report:\n{}\nWhitepaper:\n{}",
@@ -73,4 +73,4 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
-}
+} 

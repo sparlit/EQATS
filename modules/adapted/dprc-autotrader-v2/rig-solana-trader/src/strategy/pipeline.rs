@@ -72,12 +72,12 @@ impl TradingPipeline {
             .add_try_op(MarketAnalysisOp::new(market_data))
             .add_try_op(StrategyOp::new(strategy))
             .add_try_op(ExecutionOp::new(execution));
-
+            
         Self { pipeline }
     }
-
+    
     pub async fn execute_trade(&self, token_address: String) -> Result<String> {
         info!("Starting trading pipeline for token {}", token_address);
         self.pipeline.try_run(token_address).await
     }
-}
+} 

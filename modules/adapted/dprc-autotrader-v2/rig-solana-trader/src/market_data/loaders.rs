@@ -18,13 +18,13 @@ impl MarketDataLoader {
 
     pub async fn load_market_report(&self, path: impl AsRef<Path>) -> Result<String> {
         debug!("Loading market report from {:?}", path.as_ref());
-
+        
         let content = if path.as_ref().extension().map_or(false, |ext| ext == "pdf") {
             self.pdf_loader.load(path).await?
         } else {
             self.file_loader.load(path).await?
         };
-
+        
         Ok(content)
     }
 
@@ -37,4 +37,4 @@ impl MarketDataLoader {
         debug!("Loading technical analysis from {:?}", path.as_ref());
         self.file_loader.load(path).await
     }
-}
+} 

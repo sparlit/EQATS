@@ -7,4 +7,4 @@ impl TwitterClient {
             access_secret: std::env::var("TWITTER_ACCESS_SECRET").unwrap(),
         }
     }
-}
+} 

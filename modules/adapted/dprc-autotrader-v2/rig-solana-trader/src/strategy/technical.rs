@@ -49,12 +49,12 @@ impl TechnicalAnalyzer {
     fn calculate_trend_strength(&self, token: &EnhancedTokenMetadata) -> f64 {
         let price_weight = if token.price_change_24h > 0.0 { 0.6 } else { 0.4 };
         let volume_weight = if token.volume_change_24h > 0.0 { 0.7 } else { 0.3 };
-
+        
         let price_score = (token.price_change_24h / 100.0).min(1.0).max(-1.0);
         let volume_score = (token.volume_change_24h / 200.0).min(1.0).max(-1.0);
-
+        
         let trend_score = (price_score * price_weight + volume_score * volume_weight).abs();
-
+        
         if let Some(rsi) = token.rsi_14 {
             let rsi_score = if rsi > 70.0 {
                 (100.0 - rsi) / 30.0
@@ -164,4 +164,4 @@ impl TechnicalAnalyzer {
             "Mixed Signals".to_string()
         }
     }
-}
+} 

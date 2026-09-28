@@ -178,7 +178,7 @@ impl RiskManager {
 
     pub fn validate_trade(&self, action: &TradeAction) -> Result<()> {
         let risk_score = self.calculate_risk_score(action);
-
+        
         if risk_score > self.personality.risk_tolerance {
             return Err(anyhow::anyhow!(
                 "Risk score {} exceeds tolerance {}",
@@ -193,7 +193,7 @@ impl RiskManager {
     fn calculate_risk_score(&self, action: &TradeAction) -> f64 {
         let market_risk = action.analysis.as_ref().map(|a| a.risk_assessment).unwrap_or(1.0);
         let position_risk = action.params.amount / self.personality.max_position_size;
-
+        
         market_risk * position_risk
     }
-}
+} 

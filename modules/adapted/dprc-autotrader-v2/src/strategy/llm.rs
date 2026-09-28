@@ -15,14 +15,14 @@ impl LLMStrategy {
     #[instrument(skip(self))]
     pub async fn analyze_trading_opportunity(&self, prompt: &str, sol_balance: f64) -> Result<String> {
         debug!("Analyzing trading opportunity with prompt: {}", prompt);
-
+        
         // Format the analysis with the available SOL balance
         let analysis = format!(
             "Available SOL: {}\n{}",
             sol_balance,
             prompt
         );
-
+        
         Ok(analysis)
     }
-}
+} 

@@ -171,7 +171,7 @@ impl ExecutionEngine {
 
     fn prepare_order(&self, decision: &TradingDecision, token: &EnhancedTokenMetadata) -> ActiveOrder {
         debug!("Preparing order for token: {}", token.symbol);
-
+        
         let order = ActiveOrder {
             token_address: decision.token_address.clone(),
             order_type: match decision.execution_params.entry_type.as_str() {
@@ -196,7 +196,7 @@ impl ExecutionEngine {
 
     async fn submit_order(&self, order: ActiveOrder) -> Result<ExecutionRecord> {
         info!("Submitting order: {:?}", order);
-
+        
         // TODO: Implement actual order submission through Jupiter DEX
         // For now, simulate a successful market order
         let record = ExecutionRecord {
@@ -227,4 +227,4 @@ impl ExecutionEngine {
     pub fn get_execution_history(&self) -> &Vec<ExecutionRecord> {
         &self.execution_history
     }
-}
+} 

@@ -123,11 +123,11 @@ Requirements:
 
     fn postprocess_tweet(&self, tweet: String) -> String {
         let mut processed = tweet.trim().to_string();
-
+        
         if !processed.contains("#StoicTrading") {
             processed.push_str("\n\n#StoicTrading #Solana #AlgoTrading");
         }
-
+        
         processed.chars().take(280).collect()
     }
 
@@ -200,11 +200,11 @@ Requirements:
     }
 
     pub async fn analyze_state(&self, state: &solana_sdk::nonce::State) -> Analysis {
-        let prompt = format!("{} Analyze market state:\n{}",
+        let prompt = format!("{} Analyze market state:\n{}", 
             self.base_prompt,
             state.to_markdown()
         );
-
+        
         self.agent.prompt(&prompt)
             .await
             .parse()
@@ -238,7 +238,7 @@ mod tests {
             .with_max_position_size(2.5)
             .with_risk_tolerance(0.3)
             .with_technical_indicators(vec!["EMA".into(), "OBV".into()]);
-
+        
         assert_eq!(personality.max_position_size, 2.5);
         assert_eq!(personality.risk_tolerance, 0.3);
         assert_eq!(personality.technical_indicators, vec!["EMA", "OBV"]);
@@ -253,12 +253,12 @@ mod tests {
             volatility: 0.15,
             // ... other fields ...
         };
-
+        
         let tweet = personality
             .generate_trade_tweet(&mock_agent, "Test trade", &market_data)
             .await
             .unwrap();
-
+        
         assert!(tweet.contains("#StoicTrading"));
         assert!(tweet.len() <= 280);
     }
@@ -268,9 +268,9 @@ mod tests {
         let mut personality = StoicPersonality::new();
         personality.market_context.insert("Liquidity".into(), 1.5);
         personality.market_context.insert("Funding Rate".into(), -0.02);
-
+        
         let formatted = personality.format_market_context();
         assert!(formatted.contains("Liquidity: 1.50"));
         assert!(formatted.contains("Funding Rate: -0.02"));
     }
-}
+} 
