@@ -1,3 +1,4 @@
+# pylint: disable=protected-access,unused-import
 """Unit tests for Phil Self-Improving Trader Engine.
 
 Target Integration: bennyjo/phil
@@ -18,7 +19,10 @@ from institutional_integrations.phil_self_improving_trader_engine import (
     is_ist_market_open,
     round_tick_005,
 )
-from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry, SEBIOrderRequest
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
+)
 
 
 def test_magic_number_assignment():
@@ -35,7 +39,7 @@ def test_round_tick_005():
 
 def test_ist_market_open():
     """Tests Indian Standard Time market session checking."""
-    dt_weekday_open = datetime(2026, 3, 30, 10, 0, 0, tzinfo=UTC)  # Monday 15:30 IST / 10:00 UTC
+    dt_weekday_open = datetime(2026, 3, 30, 10, 0, 0, tzinfo=UTC)
     assert isinstance(is_ist_market_open(dt_weekday_open), bool)
 
 
@@ -176,7 +180,9 @@ def test_twin_execution_routing():
 
 def test_broker_adapter_integration():
     """Tests SEBIBrokerAdapter and IndianBrokerPluginRegistry integration."""
-    adapter_cls = IndianBrokerPluginRegistry._registry.get("PHIL_SELF_IMPROVING_TRADER")  # noqa: SLF001
+    adapter_cls = IndianBrokerPluginRegistry._registry.get(  # noqa: SLF001
+        "PHIL_SELF_IMPROVING_TRADER"
+    )
     if adapter_cls is None:
         adapter_cls = PhilSelfImprovingTraderBrokerAdapter
 

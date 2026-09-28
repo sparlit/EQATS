@@ -1,3 +1,4 @@
+# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments,too-many-locals,arguments-renamed
 """Phil Self-Improving Trader Engine.
 
 Target Integration: bennyjo/phil
@@ -31,7 +32,7 @@ def round_tick_005(price: float) -> float:
 
 
 def is_ist_market_open(now_dt: datetime | None = None) -> bool:
-    """Checks whether current or provided datetime falls within Indian Stock Market hours.
+    """Checks whether current or provided datetime falls within Indian market hours.
 
     (Monday-Friday 09:15 - 15:30).
     """
@@ -130,6 +131,7 @@ class PhilSelfImprovingTraderEngine:
         max_price_bound: float = 0.95,
         min_resolution_minutes: float = 20.0,
     ) -> None:
+        """Initializes PhilSelfImprovingTraderEngine with risk limits."""
         self.max_open_positions: int = max_open_positions
         self.max_paper_bet_cap: float = max_paper_bet_cap
         self.max_real_twin_cap: float = max_real_twin_cap
@@ -193,19 +195,17 @@ class PhilSelfImprovingTraderEngine:
 
             if selected_outcome is not None:
                 sanitized_price = round_tick_005(selected_price)
-                results.append(
-                    {
-                        "market_id": q.market_id,
-                        "category": q.category,
-                        "symbol": q.symbol,
-                        "target_outcome": selected_outcome,
-                        "market_price": sanitized_price,
-                        "estimated_prob": round(q.estimated_prob, 4),
-                        "probability_edge": round(selected_edge, 4),
-                        "time_to_resolution_minutes": q.time_to_resolution_minutes,
-                        "magic_number": q.magic_number,
-                    }
-                )
+                results.append({
+                    "market_id": q.market_id,
+                    "category": q.category,
+                    "symbol": q.symbol,
+                    "target_outcome": selected_outcome,
+                    "market_price": sanitized_price,
+                    "estimated_prob": round(q.estimated_prob, 4),
+                    "probability_edge": round(selected_edge, 4),
+                    "time_to_resolution_minutes": q.time_to_resolution_minutes,
+                    "magic_number": q.magic_number,
+                })
 
         # Rank by probability edge descending
         results.sort(key=lambda x: x["probability_edge"], reverse=True)
@@ -217,7 +217,7 @@ class PhilSelfImprovingTraderEngine:
     ) -> dict[str, Any]:
         """Evaluates Brier Delta across a set of settled prediction market outcomes.
 
-        brier_delta = market_brier - agent_brier. Positive delta indicates agent superiority over market price.
+        brier_delta = market_brier - agent_brier. Positive delta indicates agent superiority.
         """
         evaluations: list[BrierEvaluationResult] = []
         total_agent_brier = 0.0
@@ -312,7 +312,7 @@ class PhilSelfImprovingTraderEngine:
         is_real_enabled: bool = False,  # noqa: FBT001, FBT002
         custom_max_bet: float | None = None,
     ) -> TradeTwinExecution:
-        """Executes paper bet and optional capped real twin bet via Pearl Connect / Broker Gateway."""
+        """Executes paper bet and optional capped real twin bet via Pearl Connect / Gateway."""
         if len(self.open_positions) >= self.max_open_positions:
             return TradeTwinExecution(
                 trade_id=f"PHIL-REJECTED-{int(datetime.now().timestamp())}",
@@ -435,7 +435,9 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
             success=True,
@@ -446,7 +448,9 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order parameters."""
         return True
 
