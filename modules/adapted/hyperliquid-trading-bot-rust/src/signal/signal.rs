@@ -28,7 +28,7 @@ pub struct SignalEngine{
     engine_rv: UnboundedReceiver<EngineCommand>,
     trade_tx: Sender<TradeCommand>,
     data_tx: Option<tokioSender<MarketCommand>>,
-    trackers: HashMap<TimeFrame, Box<Tracker>, BuildHasherDefault<FxHasher>>,
+    trackers: HashMap<TimeFrame, Box<Tracker>, BuildHasherDefault<FxHasher>>, 
     strategy: Strategy,
     exec_params: ExecParams,
 }
@@ -42,7 +42,7 @@ impl SignalEngine{
         trade_params: TradeParams,
         engine_rv: UnboundedReceiver<EngineCommand>,
         data_tx: Option<tokioSender<MarketCommand>>,
-        trade_tx: Sender<TradeCommand>,
+        trade_tx: Sender<TradeCommand>, 
         margin: f64,
     ) -> Self{
         let mut trackers:HashMap<TimeFrame, Box<Tracker>, BuildHasherDefault<FxHasher>> = HashMap::default();
@@ -52,15 +52,15 @@ impl SignalEngine{
             if !list.is_empty(){
                 for id in list{
                     if let Some(tracker) = &mut trackers.get_mut(&id.1){
-                        tracker.add_indicator(id.0, false);
+                        tracker.add_indicator(id.0, false); 
                     }else{
                     let mut new_tracker = Tracker::new(id.1);
-                    new_tracker.add_indicator(id.0, false);
+                    new_tracker.add_indicator(id.0, false); 
                     trackers.insert(id.1, Box::new(new_tracker));
                     }
                 }
             }};
-
+            
         SignalEngine{
             engine_rv,
             trade_tx,
@@ -75,28 +75,28 @@ impl SignalEngine{
         for (_tf, tracker) in &mut self.trackers{
             tracker.reset();
         }
-    }
-
-
+    } 
+    
+    
     pub fn add_indicator(&mut self, id: IndexId){
        if let Some(tracker) = &mut self.trackers.get_mut(&id.1){
-            tracker.add_indicator(id.0, true);
+            tracker.add_indicator(id.0, true); 
         }else{
             let mut new_tracker = Tracker::new(id.1);
-            new_tracker.add_indicator(id.0, false);
+            new_tracker.add_indicator(id.0, false); 
             self.trackers.insert(id.1, Box::new(new_tracker));
      }
     }
 
     pub fn remove_indicator(&mut self, id: IndexId){
         if let Some(tracker) = &mut self.trackers.get_mut(&id.1){
-            tracker.remove_indicator(id.0);
+            tracker.remove_indicator(id.0); 
         }
     }
 
     pub fn toggle_indicator(&mut self, id: IndexId){
         if let Some(tracker) = &mut self.trackers.get_mut(&id.1){
-            tracker.toggle_indicator(id.0);
+            tracker.toggle_indicator(id.0); 
     }
 }
 
@@ -115,7 +115,7 @@ impl SignalEngine{
     pub fn get_active_values(&self) -> Vec<Value>{
         let mut values = Vec::new();
             for (_tf, tracker) in &self.trackers{
-                values.extend(tracker.get_active_values());
+                values.extend(tracker.get_active_values()); 
             }
         values
     }
@@ -123,7 +123,7 @@ impl SignalEngine{
     pub fn get_indicators_data(&self) -> Vec<IndicatorData>{
         let mut values = Vec::new();
             for (_tf, tracker) in &self.trackers{
-                values.extend(tracker.get_indicators_data());
+                values.extend(tracker.get_indicators_data()); 
             }
         values
     }
@@ -137,7 +137,7 @@ impl SignalEngine{
             }
         }
     }
-
+    
     pub fn change_strategy(&mut self, strategy: Strategy){
         self.strategy = strategy;
         info!("Strategy changed to: {:?}", self.strategy);
@@ -155,7 +155,7 @@ impl SignalEngine{
 
 
     fn get_signal(&self, price: f64, values: Vec<Value>) -> Option<TradeCommand>{
-
+       
         match self.strategy{
             Strategy::Custom(brr) => brr.generate_signal(values, price, self.exec_params)
         }
@@ -168,9 +168,9 @@ impl SignalEngine{
     pub async fn start(&mut self){
 
             let mut tick: u64 = 0;
-
+            
             while let Some(cmd) = self.engine_rv.recv().await{
-
+           
             match cmd {
 
                 EngineCommand::UpdatePrice(price) => {
@@ -193,16 +193,16 @@ impl SignalEngine{
                     }
 
                     tick += 1;
-                },
+                }, 
 
                 EngineCommand::UpdateStrategy(new_strat) =>{
                     self.change_strategy(new_strat);
                  },
 
-
+                
                 EngineCommand::EditIndicators{indicators, price_data} =>{
-                    info!("Received Indicator Edit Vec of length : {}", indicators.len());
-
+                    info!("Received Indicator Edit Vec of length : {}", indicators.len()); 
+                    
 
                     for entry in indicators{
                         match entry.edit{
@@ -216,9 +216,9 @@ impl SignalEngine{
                             self.load(tf, prices);
                         }
                     }
-
+                   
                 }
-
+                
                 EngineCommand::UpdateExecParams(param)=>{
                     use ExecParam::*;
                     match param{
@@ -229,12 +229,12 @@ impl SignalEngine{
                                 self.exec_params.lev = l;
                         },
                             Tf(t) => {
-                                self.exec_params.tf = t;
+                                self.exec_params.tf = t;                                
                         },
                     }
                 },
 
-                EngineCommand::Stop =>{
+                EngineCommand::Stop =>{ 
                     return;
                 },
             }
@@ -243,9 +243,9 @@ impl SignalEngine{
 
     pub fn display_indicators(&mut self, price: f64){
             info!("\nPrice => {}\n", price);
-            //let vec = self.get_active_indicators();
-            self.display_values();
-            //Update
+            //let vec = self.get_active_indicators();      
+            self.display_values(); 
+            //Update 
         }
 
 
@@ -257,16 +257,16 @@ impl SignalEngine{
             if let Some(list) = config{
                 if !list.is_empty(){
                     for id in list{
-                        if let Some(tracker) = &mut trackers.get_mut(&id.1){
-                            tracker.add_indicator(id.0, false);
+                        if let Some(tracker) = &mut trackers.get_mut(&id.1){ 
+                            tracker.add_indicator(id.0, false); 
                         }else{
                             let mut new_tracker = Tracker::new(id.1);
-                            new_tracker.add_indicator(id.0, false);
+                            new_tracker.add_indicator(id.0, false); 
                             trackers.insert(id.1, Box::new(new_tracker));
                     }
                 }
             }}
-
+   
 
         //channels won't be used in backtesting, these are placeholders
         let (_tx, dummy_rv) = unbounded_channel::<EngineCommand>();
@@ -279,7 +279,7 @@ impl SignalEngine{
             trackers,
             strategy: trade_params.strategy,
             exec_params: ExecParams{margin, lev: trade_params.lev, tf: trade_params.time_frame},
-        }
+        }           
     }
 }
 
@@ -294,3 +294,11 @@ pub enum EngineCommand{
     UpdateExecParams(ExecParam),
     Stop,
 }
+
+
+
+
+
+
+
+

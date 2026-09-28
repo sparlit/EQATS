@@ -23,9 +23,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from datetime import date, timedelta
 
+from fastapi import APIRouter, HTTPException
+
 from app.core import db
 from app.schemas import ActivityPingRequest, ActivitySettingsRequest, ActivityTimeRequest
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["activity"])
 

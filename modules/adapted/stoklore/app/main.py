@@ -26,6 +26,11 @@ aggregated router. Every endpoint lives under app/routers/ - none are declared h
 import os
 import threading
 
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
 from app.core import auth, backup, classifier, db, live, llm, paper
 from app.core.config import UPLOAD_DIR
 from app.routers import router
@@ -35,10 +40,6 @@ from app.services.jobs import (
     _workflow_schedule_loop,
 )
 from app.services.quotes import paper_price
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Stoklore API")
 db.init_schema()

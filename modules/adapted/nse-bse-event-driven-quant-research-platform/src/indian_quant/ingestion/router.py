@@ -43,6 +43,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+
 from indian_quant.schemas import MarketBar, Timeframe
 
 if TYPE_CHECKING:

@@ -29,8 +29,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from datetime import date, datetime
 from typing import Any
 
-from indian_quant.schemas.enums import CorporateActionType
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from indian_quant.schemas.enums import CorporateActionType
 
 
 class CorporateAction(BaseModel):

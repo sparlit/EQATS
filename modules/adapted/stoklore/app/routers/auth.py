@@ -36,9 +36,10 @@ any page your browser happens to open - `fetch('http://localhost:8010/...', {mod
 sends the request whatever CORS says about reading the reply, and needs no cookie to do it. So the
 only way to wipe a forgotten login is the script on the machine: `python -m app.reset_login`.
 """
+from fastapi import APIRouter, HTTPException, Request, Response
+
 from app.core import auth
 from app.schemas import LoginRequest, RecoverRequest, SetupRequest, UnlockRequest
-from fastapi import APIRouter, HTTPException, Request, Response
 
 router = APIRouter(tags=["auth"])
 

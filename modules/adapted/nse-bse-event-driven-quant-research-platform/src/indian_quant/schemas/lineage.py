@@ -28,8 +28,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from datetime import UTC, datetime
 
-from indian_quant.schemas.enums import SCHEMA_VERSION
 from pydantic import BaseModel, Field
+
+from indian_quant.schemas.enums import SCHEMA_VERSION
 
 
 def utc_now() -> datetime:

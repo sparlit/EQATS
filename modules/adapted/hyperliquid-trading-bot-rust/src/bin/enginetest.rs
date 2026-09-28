@@ -48,13 +48,13 @@ async fn main() -> Result<(), Error>{
         };
         let wallet = load_wallet(BaseUrl::Mainnet).await?;
         let strat = Strategy::Custom(load_strategy("./config.toml"));
-
+        
         let trade_params = TradeParams{
         strategy: strat,
         lev: 20,
         trade_time: 300,
         time_frame: TimeFrame::from_str("5m").unwrap_or(TimeFrame::Min1),
-
+    
     };
 
     let config = Vec::from([
@@ -70,11 +70,11 @@ async fn main() -> Result<(), Error>{
         IndicatorKind::StochRsi{periods: 16,k_smoothing: Some(4), d_smoothing: Some(4)},
         TimeFrame::Hour4,
     ),
-
+      
     (
         IndicatorKind::EmaCross{short: 21, long: 200},
         TimeFrame::Day1,
-    ),
+    ),  
     (
         IndicatorKind::Adx {
             periods: 14,
@@ -91,7 +91,7 @@ async fn main() -> Result<(), Error>{
         TimeFrame::Hour1,
     ),
 ]);
-
+    
     let (app_tx, mut app_rv) = unbounded_channel::<UpdateFrontend>();
 
     let (mut bot, sender) = Bot::new(wallet).await?;
@@ -100,23 +100,23 @@ async fn main() -> Result<(), Error>{
         bot.start(app_tx).await;
     });
 
-
+    
 
     tokio::spawn(async move {
      let market_add = AddMarketInfo{
-        asset: COIN.to_string(),
+        asset: COIN.to_string(), 
         margin_alloc: MarginAllocation::Alloc(0.1),
         trade_params: trade_params.clone(),
         config: Some(config),
     };
         let market_add2 = AddMarketInfo{
-        asset: "SOL".to_string(),
+        asset: "SOL".to_string(), 
         margin_alloc: MarginAllocation::Alloc(0.1),
         trade_params: TradeParams::default(),
         config: None,
     };
         let market_add3 = AddMarketInfo{
-        asset: "xrp ".to_string(),
+        asset: "xrp ".to_string(), 
         margin_alloc: MarginAllocation::Amount(50.0),
         trade_params: trade_params,
         config: None,
@@ -138,7 +138,7 @@ async fn main() -> Result<(), Error>{
                                                         ])
                                                 ),
         };
-
+   
         let _ = sleep(Duration::from_secs(5)).await;
         sender.send(BotEvent::AddMarket(market_add.clone()));
         let _ = sleep(Duration::from_secs(5)).await;
@@ -168,7 +168,7 @@ async fn main() -> Result<(), Error>{
     }
 
 /*   tokio::spawn(async move{
-
+        
         /*let _ = sleep(Duration::from_secs(10)).await;
         sender.send(MarketCommand::UpdateLeverage(50)).await;
         let _ = sleep(Duration::from_secs(10)).await;
@@ -178,7 +178,7 @@ async fn main() -> Result<(), Error>{
         //sender.send(MarketCommand::Pause).await;
         let _ = sleep(Duration::from_secs(20)).await;
         //sender.send(MarketCommand::UpdateTimeFrame(TimeFrame::from_str("4h").unwrap())).await;
-        let _ = sender.send(MarketCommand::EditIndicators(Vec::from([Entry{id: (Ema(33), TimeFrame::Hour1),edit: EditType::Add},
+        let _ = sender.send(MarketCommand::EditIndicators(Vec::from([Entry{id: (Ema(33), TimeFrame::Hour1),edit: EditType::Add}, 
                                                             Entry{id: (SmaOnRsi{periods: 12, smoothing_length: 9}, TimeFrame::Min1),edit: EditType::Add}
         ]))).await;
 
@@ -190,7 +190,7 @@ async fn main() -> Result<(), Error>{
         let _ = sleep(Duration::from_secs(20)).await;
         let _ = sender.send(MarketCommand::EditIndicators(Vec::from([Entry{id: (Sma(10), TimeFrame::Min5),edit: EditType::Add}]))).await;
         let _ = sleep(Duration::from_secs(20)).await;
-        sender.send(MarketCommand::EditIndicators(Vec::from([Entry{id: (Ema(10), TimeFrame::Hour4),edit: EditType::Remove},
+        sender.send(MarketCommand::EditIndicators(Vec::from([Entry{id: (Ema(10), TimeFrame::Hour4),edit: EditType::Remove}, 
                                                             Entry{id: (Sma(10), TimeFrame::Min5),edit: EditType::Remove},
                                                             Entry{id: (Atr(14), TimeFrame::Min15),edit: EditType::Remove},
                                                             Entry{id: (Rsi(12), TimeFrame::Min1),edit: EditType::Toggle}
@@ -201,10 +201,10 @@ async fn main() -> Result<(), Error>{
         let _ = sleep(Duration::from_secs(100000)).await;
         sender.send(MarketCommand::Close).await;
         //let _ = sleep(Duration::from_secs(30)).await;
-        //let _ = sender.send(MarketCommand::Close).await;
+        //let _ = sender.send(MarketCommand::Close).await; 
 });
 */
-
+    
     Ok(())
 }
 
@@ -222,8 +222,15 @@ async fn load_wallet(url: BaseUrl) -> Result<Wallet, Error>{
         .parse();
 
     if let Err(ref e) = wallet{
-        return Err(Error::Custom(format!("Failed to load wallet: {}", e)));
+        return Err(Error::Custom(format!("Failed to load wallet: {}", e))); 
     }
     let pubkey: String = std::env::var("WALLET").expect("Error fetching WALLET address");
     Ok(Wallet::new(url , pubkey, wallet.unwrap()).await?)
 }
+
+
+
+
+
+
+

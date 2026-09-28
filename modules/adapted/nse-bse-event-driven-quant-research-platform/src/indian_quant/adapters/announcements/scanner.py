@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
+
 from indian_quant.adapters.announcements.filter import AnnouncementFilter
 
 if TYPE_CHECKING:

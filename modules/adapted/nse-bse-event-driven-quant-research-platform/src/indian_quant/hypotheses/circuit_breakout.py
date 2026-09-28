@@ -44,6 +44,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import sqlalchemy as sa
+
 from indian_quant.features.delivery import prepare_frame
 from indian_quant.hypotheses.base import BaseHypothesis, Signal
 from indian_quant.hypotheses.registry import register_hypothesis

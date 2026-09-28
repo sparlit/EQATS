@@ -29,11 +29,6 @@ Verified against nautilus_trader 1.231.0.
 """
 
 
-from indian_quant.schemas.instrument import (
-    InstrumentIdentity,
-    OptionInstrument,
-    to_nautilus_timestamp,
-)
 from nautilus_trader.model.currencies import INR
 from nautilus_trader.model.data import Bar, BarSpecification, BarType
 from nautilus_trader.model.enums import (
@@ -46,6 +41,12 @@ from nautilus_trader.model.enums import (
 from nautilus_trader.model.identifiers import InstrumentId, Symbol
 from nautilus_trader.model.instruments import Equity, OptionContract
 from nautilus_trader.model.objects import Price, Quantity
+
+from indian_quant.schemas.instrument import (
+    InstrumentIdentity,
+    OptionInstrument,
+    to_nautilus_timestamp,
+)
 
 
 def tick_precision(tick_size: float) -> int:

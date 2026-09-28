@@ -31,6 +31,8 @@ import threading
 from datetime import date
 
 import requests
+from fastapi import HTTPException
+
 from app.core import classifier, db, llm, prices, rules, scraper, sentiment
 from app.deps import _cached
 from app.services.holdings import _get_holdings
@@ -41,7 +43,6 @@ from app.services.jobs import (
     _run_price_sync,
 )
 from app.services.scraping import _live_scrape
-from fastapi import HTTPException
 
 
 def _format_rule_check(rule_name, symbol, result):

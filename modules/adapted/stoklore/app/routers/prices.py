@@ -23,6 +23,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import threading
 
+from fastapi import APIRouter, HTTPException
+
 from app.core import db, minute_data, price_sources, prices
 from app.schemas import BulkMaxCollectRequest
 from app.services.jobs import (
@@ -33,7 +35,6 @@ from app.services.jobs import (
     _run_max_collect,
     _run_price_sync,
 )
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["prices"])
 

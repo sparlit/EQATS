@@ -23,6 +23,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from datetime import datetime
 
+from fastapi import APIRouter, HTTPException
+
 from app.core import db, paper
 from app.core.config import DIRECTIONS, IST
 from app.schemas import (
@@ -32,7 +34,6 @@ from app.schemas import (
     TradeAccountRequest,
 )
 from app.services.quotes import paper_price, paper_quotes
-from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["paper-trading"])
 

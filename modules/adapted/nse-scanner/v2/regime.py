@@ -29,6 +29,7 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 import pandas as pd
+
 from v2.indicators import hma
 
 if TYPE_CHECKING:

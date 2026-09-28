@@ -12,7 +12,7 @@ pub async fn subscribe_candles(
     coin: &str,
     tf: &str,
 ) -> Result<(u32,UnboundedReceiver<Message>), Error> {
-
+    
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
 
 
@@ -49,7 +49,7 @@ fn get_time_now_and_candles_ago(candle_count: u64, tf: TimeFrame) -> (u64, u64) 
 
 
 async fn candles_snapshot(info_client: &InfoClient,coin: &str,time_frame: TimeFrame, start: u64, end: u64) -> Result<Vec<Price>, Error>{
-
+ 
     let vec = info_client
     .candles_snapshot(coin.to_string(), time_frame.to_string(), start, end)
     .await?;
@@ -125,3 +125,4 @@ pub fn get_time_now() -> u64{
         .unwrap()
         .as_millis() as u64
 }
+    
