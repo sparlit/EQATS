@@ -415,3 +415,4 @@ This document contains the sequential list of all 411 target GitHub repositories
 | 409 | yswa-var/rrg | Pending |
 | 410 | yusuf4030/the-data-analyst-toolkit | Pending |
 | 411 | yutiansut/qaaccount-rs | Pending |
+| 412 | bennyjo/phil | Adapted (Magic: 9100087) |
