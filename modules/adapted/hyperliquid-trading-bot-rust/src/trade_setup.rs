@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TradeParams {
-    pub strategy: Strategy,
+    pub strategy: Strategy, 
     pub lev: u32,
-    pub trade_time: u64,
+    pub trade_time: u64,  
     pub time_frame: TimeFrame,
 }
 
@@ -22,11 +22,11 @@ pub struct TradeParams {
 
 impl TradeParams{
 
-    pub async fn update_lev(&mut self, lev: u32, client: &ExchangeClient, asset: &str, first_time: bool) -> Result<u32, Error>{
+    pub async fn update_lev(&mut self, lev: u32, client: &ExchangeClient, asset: &str, first_time: bool) -> Result<u32, Error>{   
             if !first_time && self.lev == lev{
                 return Err(Error::Custom(format!("Leverage is unchanged")));
             }
-
+            
             let response = client
             .update_leverage(lev, asset, false, None)
             .await?;
@@ -117,7 +117,7 @@ pub struct TradeFillInfo{
     pub price: f64,
     pub fill_type: String,
     pub sz: f64,
-    pub oid: u64,
+    pub oid: u64,  
     pub is_long: bool, }
 
 impl From<LiquidationFillInfo> for TradeFillInfo{
@@ -132,7 +132,7 @@ impl From<LiquidationFillInfo> for TradeFillInfo{
             oid,
             is_long,
         }
-    }
+    } 
 }
 
 
@@ -141,7 +141,7 @@ impl From<LiquidationFillInfo> for TradeFillInfo{
 pub struct LiquidationFillInfo{
     pub price: f64,
     pub sz: f64,
-    pub oid: u64,
+    pub oid: u64,  
     pub is_long: bool, //was the user going long ?
 }
 
@@ -159,21 +159,21 @@ impl From<Vec<HLTradeInfo>> for LiquidationFillInfo{
 
         let mut sz: f64 = f64::from_bits(1);
         let mut total: f64 = f64::from_bits(1);
-
+        
         trades.iter().for_each(|t| {
             let size = t.sz.parse::<f64>().unwrap();
-            total += size * t.px.parse::<f64>().unwrap();
+            total += size * t.px.parse::<f64>().unwrap(); 
             sz += size;
         });
 
         let avg_px = total / sz;
-
+         
         Self{
             price: avg_px,
             sz,
             oid: 000000,
             is_long,
-        }
+        }   
     }
 }
 
@@ -205,7 +205,7 @@ pub enum TimeFrame {
 
 
 impl TimeFrame{
-
+    
     pub fn to_secs(&self) -> u64{
         match *self {
             TimeFrame::Min1   => 1 * 60,
@@ -250,10 +250,10 @@ impl TimeFrame {
         }
     }
     pub fn to_string(&self) -> String{
-
+        
         self.as_str().to_string()
 
-    }
+    } 
 
 }
 
@@ -288,3 +288,5 @@ impl std::str::FromStr for TimeFrame {
         }
     }
 }
+
+

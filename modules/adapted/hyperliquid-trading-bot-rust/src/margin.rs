@@ -27,7 +27,7 @@ pub struct MarginBook{
 impl MarginBook{
 
     pub fn new(user: Arc<Wallet>) -> Self{
-
+        
         Self{
             user,
             map: HashMap::default(),
@@ -44,7 +44,7 @@ impl MarginBook{
         let (asset, requested_margin) = update;
         self.sync().await?;
         let free = self.free();
-
+         
         if requested_margin > free{
             return Err(Error::InsufficientFreeMargin(free));
         }
@@ -84,7 +84,7 @@ impl MarginBook{
                 return Ok(amount);
             },
         }
-    }
+    } 
 
     pub fn remove(&mut self, asset: &String) {
         self.map.remove(asset);
@@ -106,3 +106,6 @@ impl MarginBook{
 
 
 pub type AssetMargin = (String, f64);
+
+
+

@@ -20,7 +20,7 @@ pub struct ExecParams{
     pub margin: f64,
     pub lev: u32,
     pub tf: TimeFrame,
-}
+} 
 
 impl ExecParams{
     pub fn new(margin: f64, lev:u32, tf: TimeFrame)-> Self{
@@ -28,7 +28,7 @@ impl ExecParams{
             margin,
             lev,
             tf,
-        }
+        } 
     }
 }
 
@@ -91,7 +91,7 @@ impl Handler{
     pub fn reset(&mut self){
         self.indicator.reset();
     }
-
+ 
 }
 
 
@@ -154,8 +154,8 @@ impl Tracker{
 
 
     pub fn digest(&mut self, price: Price){
-        let time = get_time_now();
-
+        let time = get_time_now(); 
+       
         if time >= self.next_close{
             self.next_close = Self::calc_next_close(self.tf);
             self.price_data.push_back(price);
@@ -163,7 +163,7 @@ impl Tracker{
         }else{
             self.update_indicators(price, false);
         }
-
+        
     }
 
     fn update_indicators(&mut self,price: Price, after_close: bool){
@@ -172,22 +172,22 @@ impl Tracker{
             handler.update(price, after_close);
         }
     }
-
+    
     fn calc_next_close(tf: TimeFrame)-> u64 {
         let now = get_time_now();
 
         let tf_ms = tf.to_millis();
         ((now / tf_ms) + 1) * tf_ms
     }
-
-
+    
+    
     pub async fn load<I: IntoIterator<Item=Price>>(&mut self, price_data: I){
         let buffer: Vec<Price> = price_data.into_iter().collect();
         let safe_buff: Arc<[Price]> = buffer.clone().into();
 
         let mut handles: Vec<tokio::task::JoinHandle<(IndicatorKind, Handler)>> = Vec::new();
         let mut temp_handlers = std::mem::take(&mut self.indicators);
-
+    
         for (kind, mut handler) in temp_handlers{
             let buff = safe_buff.clone();
 
@@ -203,8 +203,8 @@ impl Tracker{
         .await
         .into_iter()
         .map(Result::unwrap) // unwrap JoinHandle
-        .collect();
-
+        .collect();     
+        
         self.indicators = new_indicators;
         self.price_data.extend(buffer);
     }
@@ -220,7 +220,7 @@ impl Tracker{
 
     pub fn remove_indicator(&mut self, kind: IndicatorKind){
         self.indicators.remove(&kind);
-    }
+    } 
 
     pub fn toggle_indicator(&mut self, kind: IndicatorKind){
         if let Some(handler) = self.indicators.get_mut(&kind){
@@ -238,7 +238,7 @@ impl Tracker{
         values
     }
 
-
+    
     pub fn get_indicators_data(&self) -> Vec<IndicatorData>{
         let mut values = Vec::new();
         for (kind, handler) in &self.indicators{
@@ -253,14 +253,14 @@ impl Tracker{
         }
         values
     }
-
+  
     pub fn reset(&mut self){
         self.price_data.clear();
         for (_kind, handler) in &mut self.indicators{
             handler.reset();
         }
     }
-
+    
 }
 
 
@@ -281,3 +281,9 @@ pub enum EditType{
     Add,
     Remove,
 }
+
+
+
+
+
+
