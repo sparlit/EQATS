@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 import httpx
+
 from indian_quant.config.settings import UpstoxConfig
 
 if TYPE_CHECKING:

@@ -31,6 +31,7 @@ Source tables: key_ratios, company_profile (updated by pipeline.fundamentals)
 
 import pandas as pd
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 
 

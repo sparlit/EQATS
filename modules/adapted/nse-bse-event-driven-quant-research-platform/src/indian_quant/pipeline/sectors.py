@@ -37,6 +37,7 @@ import time
 from datetime import datetime
 
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 from indian_quant.utils import safe_float
 

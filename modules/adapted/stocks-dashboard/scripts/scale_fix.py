@@ -192,6 +192,33 @@ def _fix_fund(path, fixes):
     return n, "ok"
 
 
+def _fix_bse(path, fixes):
+    """Repair BSE-only cells in docs/bse_fundamentals.json (px[scrip][qe] = {rev, pat, basis, src, ...}).
+
+    Entries that carry `bse_code` are BSE XBRL filings (fetch_bse_results_xbrl.py) of a company with no NSE store row:
+    WORTH 538451 filed seven quarters in a "Lakhs" template with every money tag x100 (runbook §202). The route's
+    apply is fill-only, so a re-fetch never repairs a stored cell — this does, once, and only while the cell still
+    holds the value the entry RECORDS as scaled (was_revop rev / pat, raw precision), so it is idempotent."""
+    if not os.path.exists(path):
+        return 0, "missing"
+    bf = json.load(open(path, encoding="utf-8"))
+    px = bf.get("px", {})
+    n = 0
+    for e in fixes:
+        code = e.get("bse_code")
+        cell = code and (px.get(str(code)) or {}).get(str(e["qe"]))
+        if not isinstance(cell, dict) or cell.get("basis") != ("C" if e["basis"] == "con" else "S"):
+            continue
+        for name in ("rev", "pat"):
+            was = (e.get("was_revop") or {}).get(name)
+            if was is not None and _close(cell.get(name), was):
+                cell[name] = round(was / 10.0 ** e["k"], 2)
+                n += 1
+    if n:
+        json.dump(bf, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    return n, "ok"
+
+
 def _same(a, b):
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b, strict=False))
@@ -282,7 +309,8 @@ def apply_live():
         (os.path.join(HERE, "revop_fundamentals.json"), _fix_revop),
         (os.path.join(ROOT, "docs", "sf_fundamentals.json"), _fix_fund),
         (os.path.join(HERE, "fundamentals.json"), _fix_fund),
-    ]
+        (os.path.join(ROOT, "docs", "bse_fundamentals.json"), _fix_bse),
+    ]  # BSE-only filings (`bse_code`, §202)
     for path, fn in targets:
         n, status = fn(path, fixes)
         print("  %-46s %s, %d cell(s) repaired" % (os.path.basename(path), status, n))

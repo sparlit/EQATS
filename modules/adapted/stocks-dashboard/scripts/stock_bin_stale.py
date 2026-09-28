@@ -38,7 +38,7 @@ recency (DATA_RUNBOOK.md section 103, found 2026-08-20). This checks the ACTUAL
 last price date instead of trusting a schedule, so a missed or broken run can
 never cause a silent multi-week freeze again — the very next run self-corrects.
 
-Usage: stock_bin_stale.py COMMITTED_FILE MAX_AGE_DAYS [NEW_FILE]   (NEW_FILE: also commit when the symbol set changed)
+Usage: stock_bin_stale.py COMMITTED_FILE MAX_AGE_DAYS [NEW_FILE]   (NEW_FILE: also commit when the symbol set or a company name changed)
 """
 import gzip
 import json
@@ -63,14 +63,25 @@ def universe_changed(committed_path, new_path):
     (571 names) joined dash_slim.bin at 17:23 IST, but the committed stock_data.bin (15:31 IST,
     4,929 names) passed the age check for the rest of the day, so every dashboard range that
     pulls the full history dropped every SME name (DATA_RUNBOOK §145). A symbol-set diff is
-    the cheapest honest test; the file is committed whenever it moves."""
-    old = set(json.loads(gzip.decompress(open(committed_path, "rb").read())).get("meta") or {})
-    new = set(json.loads(gzip.decompress(open(new_path, "rb").read())).get("meta") or {})
-    added, gone = new - old, old - new
+    the cheapest honest test; the file is committed whenever it moves.
+    Company NAMES count too (§204): stock-backtest.html shows this file's meta names, and on
+    2026-09-27 it carried BSE's "-$" marker on 310 names while the fix could only reach it after
+    five days of price staleness. Measured over 59 consecutive dash_slim builds: once the marker is
+    cleaned, a name never changed without the symbol set also changing, so this adds no commits."""
+    old = json.loads(gzip.decompress(open(committed_path, "rb").read())).get("meta") or {}
+    new = json.loads(gzip.decompress(open(new_path, "rb").read())).get("meta") or {}
+    added, gone = set(new) - set(old), set(old) - set(new)
     if added or gone:
         print(
             f"docs/stock_data.bin universe changed: +{len(added)} symbols, -{len(gone)} "
             f"(e.g. +{sorted(added)[:3]} -{sorted(gone)[:3]}) — will commit fresh copy"
+        )
+        return True
+    renamed = sorted(k for k in new if (new[k] or {}).get("name") != (old[k] or {}).get("name"))
+    if renamed:
+        eg = [(k, (old[k] or {}).get("name"), (new[k] or {}).get("name")) for k in renamed[:3]]
+        print(
+            f"docs/stock_data.bin company names changed on {len(renamed)} symbols (e.g. {eg}) — will commit fresh copy"
         )
         return True
     return False

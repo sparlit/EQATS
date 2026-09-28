@@ -33,6 +33,7 @@ Source tables: fii_dii_daily, shareholding_history, bulk_deals,
 
 import pandas as pd
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 
 

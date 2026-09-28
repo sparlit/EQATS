@@ -23,8 +23,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Voice capture: WAV in, text out. The audio is transcribed locally (app/core/speech.py) and
 never stored - the bytes live only for the length of the request."""
-from app.core import speech
 from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from app.core import speech
 
 router = APIRouter(tags=["voice"])
 

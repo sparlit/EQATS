@@ -31,6 +31,7 @@ Source tables: portfolio_risk, stock_risk (updated by pipeline.risk)
 
 import pandas as pd
 import sqlalchemy as sa
+
 from indian_quant.config.connections import get_engine
 
 

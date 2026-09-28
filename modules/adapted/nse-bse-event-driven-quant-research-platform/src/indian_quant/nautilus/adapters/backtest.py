@@ -32,9 +32,6 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from indian_quant.nautilus.adapters.fees import IndiaDeliveryFeeModel
-from indian_quant.nautilus.data.catalog import CatalogBridge
-from indian_quant.strategies.sma_cross import SmaCross, SmaCrossConfig
 from nautilus_trader.backtest.engine import BacktestEngine
 from nautilus_trader.backtest.models import FillModel
 from nautilus_trader.config import BacktestEngineConfig, RiskEngineConfig
@@ -43,8 +40,13 @@ from nautilus_trader.model.enums import AccountType, OmsType
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.objects import Money
 
+from indian_quant.nautilus.adapters.fees import IndiaDeliveryFeeModel
+from indian_quant.nautilus.data.catalog import CatalogBridge
+from indian_quant.strategies.sma_cross import SmaCross, SmaCrossConfig
+
 if TYPE_CHECKING:
     import pandas as pd
+
     from indian_quant.config.settings import Settings
 
 

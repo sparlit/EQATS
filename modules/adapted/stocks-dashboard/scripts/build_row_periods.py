@@ -267,25 +267,37 @@ def main():
     }
     have = {f[:-5] for f in os.listdir(a.fin) if f.endswith(".json")}
     sys.path.insert(0, HERE)
+    import bse_resolve  # §203: a filing marks a page's rows only when ISIN says it is that company
     from build_stock_fin import nse_tape_isin, slug
 
+    tape_isin = nse_tape_isin()
+    bse_resolve.identities(tape_isin)
     isin2sym = {}
-    for s_, i_ in nse_tape_isin().items():
+    for s_, i_ in tape_isin.items():
         isin2sym.setdefault(i_, s_)
     files = defaultdict(list)  # (sym, qe) -> [fact]
-    unmatched = 0
+    unmatched = other_co = 0
     for (p, kind), x in zip(paths, facts, strict=False):
         if not x:
             continue
-        sym = None
+        sym = blocked_sym = None
         if kind == "bse":
             sym = code2tk.get(x["code"])
+            if sym and bse_resolve.bse_blocked_under(sym, x["isin"], x["code"]):
+                blocked_sym, sym = sym, None  # ZEAL's page is Zeal Global (NSE SME), not BSE 539963
         elif x["sym"] and x["sym"] not in ("NA", "NOTLISTED", "-"):
             sym = norm(x["sym"])
+            if bse_resolve.nse_blocked_under(sym, x["isin"]):
+                blocked_sym, sym = sym, None  # KEL's page is Kotia (BSE); this is Kundan Edifice's NSE filing
         if (not sym or slug(sym) not in have) and x["isin"]:
-            sym = isin2sym.get(x["isin"], sym)
+            sym = isin2sym.get(x["isin"], sym)  # the listing of the same ISIN, if the tape knows one
+            if sym and sym == blocked_sym:
+                sym = None
         if not sym or slug(sym) not in have:
-            unmatched += 1
+            if blocked_sym:
+                other_co += 1
+            else:
+                unmatched += 1
             continue
         files[(sym, x["qe"])].append(x)
 
@@ -476,7 +488,12 @@ def main():
     bf = json.load(open(os.path.join(ROOT, "docs", "bse_fundamentals.json"), encoding="utf-8")).get("px", {})
     for code, cells in sorted(bf.items()):
         sym = code2tk.get(str(code))
-        if not sym or slug(sym) not in have or not isinstance(cells, dict):
+        if (
+            not sym
+            or slug(sym) not in have
+            or not isinstance(cells, dict)
+            or bse_resolve.bse_blocked_under(sym, None, code)
+        ):
             continue
         rv = None
         for qe, c in sorted(cells.items()):
@@ -554,12 +571,14 @@ def main():
     dropped = sum(1 for s in old for q in old[s] if q not in out.get(s, {}))
     cnt = {m_: sum(1 for s in out for q in out[s] if out[s][q]["m"] == m_) for m_ in (3, 6, 12)}
     print(
-        "filings read %d (%d undated, %d not on a published page); rows proven %d (3-month %d, 6-month %d, "
-        "12-month %d) on %d symbols, %d of them from BSE h=1 proofs; carried forward %d; vs the committed list: +%d −%d"
+        "filings read %d (%d undated, %d not on a published page, %d another company's under a shared ticker — "
+        "§203); rows proven %d (3-month %d, 6-month %d, 12-month %d) on %d symbols, %d of them from BSE h=1 proofs; "
+        "carried forward %d; vs the committed list: +%d −%d"
         % (
             len(paths),
             sum(1 for x in facts if not x),
             unmatched,
+            other_co,
             n_rows + kept,
             cnt[3],
             cnt[6],

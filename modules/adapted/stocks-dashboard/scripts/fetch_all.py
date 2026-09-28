@@ -53,6 +53,7 @@ import time
 from pathlib import Path
 
 import bse_headers as BH  # §181 BSE headers
+import bse_names as BN  # §204: BSE's "-$" scrip-name marker never reaches a published name
 
 # Filter out non-stock instruments (ETFs, mutual fund schemes, REITs, InvITs).
 # Word-boundary regex so we don't false-positive on companies like
@@ -130,7 +131,7 @@ for b in bse_scrips:
         continue
     sid = (b.get("scrip_id") or "").strip()
     code = (b.get("SCRIP_CD") or "").strip()
-    name = (b.get("Scrip_Name") or "").strip()
+    name = BN.clean_scrip_name(b.get("Scrip_Name"))  # BSE alternates "UNO Minda Ltd-$" / "UNO Minda Ltd" (§204)
     isin = (b.get("ISIN_NUMBER") or "").strip()
     try:
         mcap = float(b.get("Mktcap") or 0)

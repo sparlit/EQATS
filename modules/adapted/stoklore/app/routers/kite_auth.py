@@ -23,9 +23,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import os
 
-from app.core import db, kite
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
+
+from app.core import db, kite
 
 router = APIRouter(tags=["kite-auth"])
 
