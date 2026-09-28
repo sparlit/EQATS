@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pandas as pd
+
     from indian_quant.instruments.calendar import NSECalendar
     from indian_quant.schemas import CorporateAction, MarketBar
 

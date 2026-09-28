@@ -46,13 +46,13 @@ rx = % move close(annDay) vs prior close; sr = % drift close(annDay) -> asof (re
 
 Run: python -X utf8 scripts/build_quarterly_results.py
 """
-import datetime
-import gzip
-import json
 import os
+import json
+import gzip
+import datetime
 import statistics
-import sys as _sys
 from bisect import bisect_left
+import sys as _sys
 
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contextlib

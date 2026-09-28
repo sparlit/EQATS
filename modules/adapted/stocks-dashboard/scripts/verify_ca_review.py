@@ -45,15 +45,14 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import datetime
-import json
+import bse_headers as BH  # §181 BSE headers
 import os
 import sys
+import json
 import time
-import urllib.parse
+import datetime
 import urllib.request
-
-import bse_headers as BH  # §181 BSE headers
+import urllib.parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)

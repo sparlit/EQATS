@@ -55,6 +55,7 @@ from collections import Counter
 from pathlib import Path
 
 import bse_headers as BH  # §181 BSE headers
+import bse_resolve  # §203: an NSE symbol and a BSE scrip_id can name two companies
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "sector_classification.json"
@@ -100,7 +101,7 @@ print(f"NSE master: {os.path.getsize(NSE_CSV)} bytes | BSE master: {os.path.gets
 bse = json.load(open(BSE_JSON, encoding="utf-8"))
 
 # --- 1. mapping tables: scrip_id->code, ISIN->code, NSE symbol->ISIN ---
-sid_to_code, isin_to_code = {}, {}
+sid_to_code, isin_to_code, code_isin = {}, {}, {}
 for b in bse:
     sid = (b.get("scrip_id") or "").strip()
     code = (b.get("SCRIP_CD") or "").strip()
@@ -109,6 +110,8 @@ for b in bse:
         sid_to_code[sid] = code
     if isin and code:
         isin_to_code[isin] = code
+    if code:
+        code_isin[code] = isin
 
 nse_sym_to_isin = {}
 with open(NSE_CSV, encoding="utf-8") as f:
@@ -131,11 +134,22 @@ for ticker in META:
     if suffix == "BO":
         code = sym if sym.isdigit() else sid_to_code.get(sym)
     else:  # .NS
-        code = sid_to_code.get(sym)
-        if not code:
-            isin = nse_sym_to_isin.get(sym)
-            if isin:
-                code = isin_to_code.get(isin)
+        # §203: BSE's scrip_id is a different namespace that merely COLLIDES with NSE symbols — ZEAL is Zeal Global
+        # (NSE SME) but BSE's "ZEAL" is Zeal Aqua (539963), and ONIDA / BAYERCROP / SKP matched delisted namesakes.
+        # The scrip_id code is used only when its ISIN issuer is this NSE company's, or when nothing contradicts it
+        # and no ISIN-proven code exists.
+        sid = sid_to_code.get(sym)
+        isin = nse_sym_to_isin.get(sym)
+        by_isin = isin_to_code.get(isin) if isin else None
+        nse_iss = {bse_resolve.issuer(i) for i in bse_resolve.identities()["nse"].get(sym, ())} | {
+            bse_resolve.issuer(isin)
+        }
+        nse_iss.discard(None)
+        sid_iss = bse_resolve.issuer(code_isin.get(sid)) if sid else None
+        if sid and not (sid_iss and sid_iss in nse_iss):
+            if (sid_iss and nse_iss and sid_iss not in nse_iss) or bse_resolve.blocked(sym) or by_isin:
+                sid = None
+        code = sid or by_isin
     if code:
         ticker_code[ticker] = code
 codes_needed = sorted(set(ticker_code.values()))

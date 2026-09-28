@@ -165,6 +165,88 @@ def bhavcopy(d):
     return out
 
 
+def nse_bhavcopy(d):
+    """NSE cash-market UDiFF bhavcopy for date d -> list of dict rows (same shape as bhavcopy()), or None.
+
+    Used to price ideas on names listed only on NSE (NSE Emerge SME), which BSE's files never carry.
+    Same UDiFF columns as BSE's file; every series is kept (EQ, BE, SM, ST ...). Honest headers as above.
+    """
+    fn = os.path.join(CACHE, f"nse_bhav_{d:%Y%m%d}.csv")
+    if not os.path.exists(fn):
+        if d.weekday() >= 5:
+            return None
+        url = f"https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{d:%Y%m%d}_F_0000.csv.zip"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+            with urllib.request.urlopen(req, timeout=60) as f:
+                data = f.read()
+            time.sleep(0.3)
+        except Exception:
+            return None  # 404 on holidays / not yet published; a network refusal also lands here
+        import zipfile
+
+        try:
+            z = zipfile.ZipFile(io.BytesIO(data))
+            raw = z.read(z.namelist()[0])
+        except Exception:
+            return None
+        if not raw.startswith(b"TradDt"):
+            return None
+        open(fn, "wb").write(raw)
+    out = []
+    for r in csv.DictReader(open(fn, encoding="utf-8", errors="ignore")):
+        if r.get("FinInstrmTp") != "STK":
+            continue
+        try:
+            out.append(
+                {
+                    "symbol": r["TckrSymb"].strip(),
+                    "isin": r["ISIN"].strip(),
+                    "series": r["SctySrs"].strip(),
+                    "open": float(r["OpnPric"] or 0),
+                    "high": float(r["HghPric"] or 0),
+                    "low": float(r["LwPric"] or 0),
+                    "close": float(r["ClsPric"] or 0),
+                    "prev_close": float(r["PrvsClsgPric"] or 0),
+                    "volume": float(r["TtlTradgVol"] or 0),
+                }
+            )
+        except Exception:
+            continue
+    return out
+
+
+def nse_bhav_history(symbols, d_from, d_to=None, max_days=800):
+    """Close history for NSE symbols from the daily NSE bhavcopies: {symbol: [dict(date, ...)]} oldest first.
+    A missing day is absent, never zero-filled."""
+    want = {str(s).strip().upper() for s in symbols}
+    d_to = d_to or ist.today()
+    out = {s: [] for s in want}
+    d, days = d_from, 0
+    while d <= d_to and days < max_days:
+        days += 1
+        cur = d
+        d += datetime.timedelta(days=1)
+        rows = nse_bhavcopy(cur)
+        if not rows:
+            continue
+        for r in rows:
+            if r["symbol"] in want and r["close"]:
+                out[r["symbol"]].append(
+                    {
+                        "date": cur,
+                        "open": r["open"],
+                        "high": r["high"],
+                        "low": r["low"],
+                        "close": r["close"],
+                        "volume": r["volume"],
+                    }
+                )
+    for s in out:
+        out[s].sort(key=lambda r: r["date"])
+    return out
+
+
 def trading_days_back(n, end=None):
     """Return the last n dates for which a bhavcopy exists, newest first (walks back over holidays)."""
     d = end or ist.today()

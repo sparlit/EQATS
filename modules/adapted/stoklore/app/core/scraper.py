@@ -34,9 +34,10 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 
 import yfinance as yf
-from app.core import db, netfetch
 from bs4 import BeautifulSoup
 from ddgs import DDGS
+
+from app.core import db, netfetch
 
 NSE_BASE = "https://www.nseindia.com"
 

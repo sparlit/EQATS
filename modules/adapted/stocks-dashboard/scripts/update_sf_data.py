@@ -607,6 +607,8 @@ except Exception as _e:
     print(f"  (rights_terp.json not loaded: {_e})")
 
 # --- §173 (2026-09-26, user-approved): Nifty-500 rights issues as ABSOLUTE bar-exact targets (scripts/rights_adj.json):
+# §206 (2026-09-28, user-approved): scope widened to the NSE SME board (feed index=sme) + main-board rights no ledger covered in
+# 2026 — same rule, same function; the SME store (sme_backfill.json.gz) itself stays raw across rights and is corrected here.
 # [sym, ex trading day, target = min(1, TERP/cum) with issue = face value AT THE EVENT + premium, NSE raw close ratio across
 # that bar]. rights_terp.json took the premium alone as the issue price (face value dropped: 3IINFOLTD 2025 0.8715 vs textbook
 # 0.9478), and its anchor-based apply mis-fired on rows dated after the real ex-date (NEULANDLAB 2014, SPARC 2016, M&MFIN 2020
@@ -2135,6 +2137,45 @@ def main():
         # new_from: HEGAM's bars before 20260922 are BSE 509631's (the §171 prepend of 2026-09-26) for sessions
         # NSE printed under HEG — they are dropped and HEG's own NSE bars take those dates.
         "HEGAM": {"old": "HEG", "new_from": 20260922, "name": "HEG Advanced Materials Limited"},
+        # --- 2026-09-27 (DATA_RUNBOOK §200): the other five §145 SME fragments created as dead keys beside
+        # their renamed main-board successor. Each measured on NSE's bhavcopy: same ISIN on the SM last day and
+        # the EQ first day (still filed under the old symbol), EQ PREVCLOSE == SM last close. Every fragment
+        # close == NSE raw x its in-life official factors (URAVI x0.5 20220711, WFL x0.625 20211006 already
+        # inside); the successor's official factors after the SME end == its stored/raw level at the join.
+        # "name"/"isin" = NSE's register (EQUITY_L 2026-09-26) — SONAMLTD/WEL have since minted a new ISIN of the
+        # same issuer (face-value change); AURIGROW is no longer in the register, so it keeps its ticker (§200).
+        "AURIGROW": {
+            "old": "GODHA",
+            "name": "AURIGROW",
+        },  # not in NSE's register any more: the ticker. INE925Y01010: SM 20201223 34.60 -> EQ 20201224 prev 34.60; adj 0.05 (0.5 x 0.1)
+        "GTECJAINX": {
+            "old": "KEERTI",
+            "name": "G-TEC JAINX EDUCATION LIMITED",
+        },  # INE586X01012: SM 20201112 30.90 -> EQ 20201113 prev 30.90; adj 1
+        "SONAMLTD": {
+            "old": "SONAMCLOCK",
+            "name": "SONAM LIMITED",
+            "isin": "INE00LM01029",
+        },  # INE00LM01011: SM 20220406 79.00 -> EQ 20220407 prev 79.00; adj 0.25 (0.5 x 0.5)
+        "URAVIDEF": "URAVI",  # INE568Z01015: SM 20230704 280.55 -> EQ 20230705 prev 280.55; adj 1
+        "WEL": {
+            "old": "WFL",
+            "isin": "INE02WG01024",
+        },  # INE02WG01016: SM 20220114 116.65 -> EQ 20220117 prev 116.65; adj 0.1
+        # --- 2026-09-28 (DATA_RUNBOOK §207, user: "merge both"): two NSE SME renames (symbolchange.csv) whose
+        # OLD ticker is a BSE company's page on this site — KEL = Kotia Enterprises (BSE 539599), DRL = Disha
+        # Resources (BSE 531553) — so the dead NSE fragment sat under another company's ticker. NSE chains each
+        # pair (bhavcopy PREV_CLOSE on the new symbol's first session == the old last close) and its SME list
+        # dates each new symbol's LISTING to the old fragment's first bar. Prices only: KEL / DRL fundamentals,
+        # SHP and pages stay the BSE companies' (no FUND_ALIAS — an old-symbol link must NOT redirect, §197).
+        # KEL (Kundan Edifice, INE0OWX01025, 620 bars == NSE raw) last 2026-08-05 81.55 -> VISDEM 2026-08-06
+        # PREV_CLOSE 81.55 (SME list: VISDEM listed 26-Sep-23); no official CAs -> adj 1.
+        "VISDEM": "KEL",
+        # DRL (INE704V01015) last 2026-01-01 19.90 -> DIRL 2026-02-09 PREV_CLOSE 19.90 (renamed 02-Jan-2026; SME
+        # list: DIRL listed 18-Oct-16). "inlife": NSE files the 2018-01-09 "BONUS 1:1" under DIRL (lot 3,000 ->
+        # 6,000 that day), so the fragment built under DRL never saw it and §145 inferred x0.6 from the raw
+        # 41.25 -> 24.75 step (the §161j audit's DRL NO_RECORD row); the merge re-bakes the official x0.5.
+        "DIRL": {"old": "DRL", "inlife": [[20180110, 0.5, 41.25, 24.75]]},
     }
     # --- 2026-08-23 ISIN-SEAM batch (DATA_RUNBOOK §95g's open queue, landed in §105): the 103 seams
     # the issuer-prefix sweep CONFIRMED as one company (scripts/_isin_seam_verdicts.json) were never
@@ -2323,6 +2364,31 @@ def main():
                             on[f] = [round(oo[f][i] * adj, 2) for i in idx] + on[f]
                         else:
                             on[f] = [oo[f][i] for i in idx] + on[f]
+                # "inlife" (§207): an official split/bonus of the NEW key dated INSIDE the old fragment's life. NSE files a
+                # renamed company's corporate actions under its CURRENT symbol, so a fragment built under the old key never
+                # saw them and got an inferred ratio instead (DRL x0.6 at DIRL's 2018-01-09 BONUS 1:1). Row = [first bar
+                # on/after the ex-date, official factor, NSE raw close of the bar before, NSE raw close of that bar]; the
+                # history before the bar is rescaled so the baked factor (raw ratio / stored ratio, reconcile_rights' test)
+                # reads the official one. Runs once, inside the merge; to the 2-decimal rounding floor.
+                for bar, fac, rprev, rbar in (spec.get("inlife") or []) if isinstance(spec, dict) else []:
+                    ds_ = on["d"]
+                    j = next((k for k in range(len(ds_)) if ds_[k] >= bar), None)
+                    if j is None or j < 1 or ds_[j] != bar or not on["c"][j] or not on["c"][j - 1]:
+                        print(
+                            "::warning::MANUAL RENAME MERGE %s -> %s: inlife bar %d not on the series - not applied"
+                            % (old, new, bar)
+                        )
+                        continue
+                    baked = (rbar / rprev) / (on["c"][j] / on["c"][j - 1])
+                    corr = fac / baked
+                    if abs(corr - 1) > max(0.0015, 0.011 / min(on["c"][j], on["c"][j - 1])):
+                        for f in ("c", "h", "l", "op", "vw"):
+                            if f in on:
+                                on[f] = [round(x * corr, 2) for x in on[f][:j]] + on[f][j:]
+                        print(
+                            "  MANUAL RENAME MERGE %s -> %s: in-life official factor at %d: baked %.4f -> %.4f "
+                            "(%d earlier bars x%.6f)" % (old, new, bar, baked, fac, j, corr)
+                        )
                 # The new ticker's stub meta is a placeholder (name=symbol, ind=Unknown, often no ISIN —
                 # that missing ISIN is usually WHY the auto-merge couldn't fire). Carry the predecessor's
                 # company attributes over so the merged series keeps its industry/ISIN (ISIN only when the
@@ -2330,7 +2396,9 @@ def main():
                 # PATANJALI already carry their new ISIN from the daily appends, so this never clobbers).
                 om = meta.get(old) or {}
                 nm = meta.setdefault(new, {})
-                if nm.get("name") in (None, new) and om.get("name"):
+                # (an old name that is only the old TICKER is a placeholder too — §145 SME stubs carry name=symbol —
+                # and copying it made AURIGROW read "GODHA" on its own page, §200)
+                if nm.get("name") in (None, new) and om.get("name") and om["name"] != old:
                     nm["name"] = om["name"]
                 if nm.get("ind") in (None, "Unknown") and om.get("ind"):
                     nm["ind"] = om["ind"]
@@ -2347,6 +2415,58 @@ def main():
                 meta.pop(old, None)
                 merged += 1
                 print("  MANUAL RENAME MERGE %s -> %s (%d pts prepended, adj=%.4f)" % (old, new, len(idx), adj))
+    # §200 META HEAL for merges that already ran: the first §200 run copied each fragment's placeholder name (the old
+    # ticker) onto its successor, so AURIGROW / GTECJAINX / SONAMLTD read "GODHA" / "KEERTI" / "SONAMCLOCK", and the
+    # carried ISIN was the SM-era one where NSE has since minted a new series (face-value change, same issuer). Once the
+    # OLD key is gone: a name equal to the old ticker (or to the new ticker, when the spec knows the register name) takes
+    # the spec's NSE register name (EQUITY_L) else the current ticker; a spec "isin" (EQUITY_L's current ISIN) replaces
+    # the carried one. Idempotent — a converged meta reports 0; counted in the publish gate (a heal outside it is lost).
+    # Only entries that SAY what they want (a spec "name" / "isin") are healed: 12 older merges (BANKADD, MORARJEE, NTL …)
+    # also carry their old ticker as a name from the same copy, measured 2026-09-27 and left for their own review.
+    mh = 0
+    for new, spec in MANUAL_MERGE.items():
+        if not isinstance(spec, dict) or not (spec.get("name") or spec.get("isin")):
+            continue
+        old = spec["old"]
+        nm = meta.get(new)
+        if old in data or not isinstance(nm, dict) or new not in data:
+            continue
+        want = spec.get("name")
+        if want and nm.get("name") in (None, new, old) and nm.get("name") != want:
+            nm["name"] = want
+            mh += 1
+            print("  MANUAL MERGE META {}: name -> {!r}".format(new, nm["name"]))
+        if spec.get("isin") and nm.get("isin") != spec["isin"]:
+            print("  MANUAL MERGE META {}: isin {} -> {}".format(new, nm.get("isin"), spec["isin"]))
+            nm["isin"] = spec["isin"]
+            isin2sym[nm["isin"]] = new
+            mh += 1
+    # §207 META FIX on the §203 collision tickers — a tape name / industry that is ANOTHER company's, or a bare ticker.
+    # Each field is replaced only while the meta still holds exactly the recorded value (idempotent: a converged meta
+    # reports 0; counted in the publish gate via mh). Values = NSE's register (EQUITY_L 2026-09-28).
+    #  FOCUS: an older full build_sf_data run let dash_slim's FOCUS.BO row (Focus Business Solution, BSE 543312,
+    #    INE0DXR01010, "Information Technology") name the NSE tape series of Focus Lighting and Fixtures — its "last row
+    #    wins" name map, fixed at source (build_sf_data.current_universe). ind = what that fixed map yields today
+    #    (dash_slim FOCUS.NS: industry "", sector "Uncategorized"); isin = the register's current series (FV 2).
+    #  KALYANI: a key the day loop appended (name = ticker); the register names it Kalyani Commercials.
+    META_FIX = {
+        "FOCUS": (
+            {"name": "Focus Business Solution Ltd", "ind": "Information Technology", "isin": "INE593W01010"},
+            {"name": "Focus Lighting and Fixtures Limited", "ind": "Uncategorized", "isin": "INE593W01028"},
+        ),
+        "KALYANI": ({"name": "KALYANI", "isin": None}, {"name": "Kalyani Commercials Limited", "isin": "INE610E01010"}),
+    }
+    for sym, (was, want) in META_FIX.items():
+        m_ = meta.get(sym)
+        if not isinstance(m_, dict) or sym not in data:
+            continue
+        for k_, v_ in want.items():
+            if m_.get(k_) == was.get(k_) and m_.get(k_) != v_:
+                print(f"  META FIX {sym} (§207): {k_} {m_.get(k_)!r} -> {v_!r}")
+                m_[k_] = v_
+                mh += 1
+                if k_ == "isin":
+                    isin2sym[v_] = sym
     # BEFORE anything that reads a bar's neighbours: the series-BZ history our old ("EQ","BE") filter
     # dropped. Runs after MANUAL_MERGE so the ledger's current tickers are already consolidated, and
     # before the day loop because appending today's BZ row onto a years-stale series would hand
@@ -2606,6 +2726,7 @@ def main():
         and not ph
         and not fx
         and not ra
+        and not mh
     ):
         print(
             f"No new day / heal / merge / manual-rights / rights-reconcile / open-arbitrated CA / dv-fill / dv-overwrite / weekend-insert / bar-insert / BZ-backfill / SME-backfill / series-surgery / turnover-unit fix / aliveness decay / industry fill / phantom-session drop / demerger ex-day flatten — rewrote merged base to {OUT} ({len(blob) / 1048576:.2f} MB); nothing to publish."

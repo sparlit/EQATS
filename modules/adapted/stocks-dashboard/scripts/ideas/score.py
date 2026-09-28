@@ -94,8 +94,34 @@ def row_from(idea, rows, events, source):
     return out
 
 
+def nse_only(idea):
+    """An idea on a name with no BSE scrip code (NSE Emerge SME and other NSE-only listings)."""
+    return idea.get("exchange") == "NSE" or not str(idea.get("scrip") or "").strip().isdigit()
+
+
+def score_from_nse(idea):
+    """Price an NSE-only idea from NSE's daily bhavcopies. A bonus or split after the call is caught by
+    the one-day-gap rule only (no corporate-action record is read), so the row says so."""
+    call = datetime.date.fromisoformat(idea["call_date"])
+    sym = (idea.get("nse") or idea.get("ticker") or "").strip().upper()
+    hist = bse.nse_bhav_history([sym], call - datetime.timedelta(days=10))
+    rows = hist.get(sym) or []
+    if not rows:
+        msg = f"no NSE bhavcopy rows for {sym}"
+        raise RuntimeError(msg)
+    rows, events = bse.apply_adjustments(rows, [])
+    out = row_from(idea, rows, events, "nse-bhavcopy")
+    out["adj_note"] = (
+        "priced from NSE daily bhavcopies (NSE-only listing); a bonus or split after the call "
+        "is caught only by the one-day-gap rule"
+    )
+    return out
+
+
 def score_idea(idea):
     """Price one idea from the per-scrip endpoint. Raises if that host is unreachable."""
+    if nse_only(idea):
+        return score_from_nse(idea)
     call = datetime.date.fromisoformat(idea["call_date"])
     rows, events = bse.adjusted_history(idea["scrip"], d_from=call - datetime.timedelta(days=10))
     return row_from(idea, rows, events, "api")
@@ -155,6 +181,7 @@ def main():
             retry.append(it)
 
     fallback = 0
+    retry = [it for it in retry if not nse_only(it)]
     if retry:
         print(f"{len(retry)} idea(s) could not be priced from api.bseindia.com; trying the bhavcopy route")
         try:

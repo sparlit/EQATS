@@ -23,12 +23,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from concurrent.futures import ThreadPoolExecutor
 
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
 from app.core import bse_master, db, prices, scraper, stocks_master
 from app.deps import _cached
 from app.schemas import AddStockRequest
 from app.services.quotes import MAX_QUOTE_WORKERS
 from app.services.scraping import _cached_news, _live_scrape
-from fastapi import APIRouter, File, HTTPException, UploadFile
 
 router = APIRouter(tags=["stocks"])
 

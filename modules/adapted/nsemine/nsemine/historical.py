@@ -26,6 +26,7 @@ import traceback
 from datetime import datetime
 
 import pandas as pd
+
 from nsemine.bin import scraper
 from nsemine.utilities import urls, utils
 

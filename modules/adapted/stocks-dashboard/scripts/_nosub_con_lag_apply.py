@@ -94,10 +94,11 @@ def fund_row(d, sym, qe):
 # ---------------- fund-side heals (the 17 screen cells + the companions) --------------------
 entries = []
 for k, e in sorted(V["cells"].items()):
-    if e.get("fix"):
+    if e.get("fix") and not e.get("retired"):  # retired: §203 — the verdict was another company's figure
         entries.append((k, e["fix"], "screen"))
 for k, e in sorted(V["companions"].items()):
-    entries.append((k, e["fix"], "companion"))
+    if not e.get("retired"):
+        entries.append((k, e["fix"], "companion"))
 
 for k, fix, kind in entries:
     sym, qe = k.split("|")
@@ -121,6 +122,8 @@ for k, fix, kind in entries:
 
 # ---------------- mirror-side heals (sf_revop patS/patC) ------------------------------------
 for k, fix in sorted(V["mirror"].items()):
+    if fix.get("retired"):  # §203 — another company's figure, see the note
+        continue
     sym, qe = k.split("|")
     for slot_name, (was, now) in sorted(fix.items()):
         idx = REVOP_SLOT[slot_name]

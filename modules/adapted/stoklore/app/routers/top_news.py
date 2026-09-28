@@ -24,8 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import threading
 import time
 
-from app.core import classifier, db, scraper
 from fastapi import APIRouter, HTTPException
+
+from app.core import classifier, db, scraper
 
 router = APIRouter(tags=["top-news"])
 

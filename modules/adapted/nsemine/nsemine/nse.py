@@ -29,6 +29,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+
 from nsemine.bin import scraper
 from nsemine.utilities import urls, utils
 

@@ -40,8 +40,9 @@ contract or a BSE scrip, regardless of what any upstream source calls it.
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from indian_quant.schemas.enums import Exchange, OptionType, SecurityType, Segment
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+
+from indian_quant.schemas.enums import Exchange, OptionType, SecurityType, Segment
 
 if TYPE_CHECKING:
     from indian_quant.schemas.lineage import Lineage

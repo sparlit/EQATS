@@ -52,10 +52,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 SP = os.path.dirname(os.path.abspath(__file__))
 HERE = os.environ.get("ZFII_WORKDIR") or SP  # caches + json outputs land here
 sys.path.insert(0, SP)
+import fetch_shareholding as FS
 import os as _o
 import sys as _s
-
-import fetch_shareholding as FS
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import bse_headers as BH  # §181 BSE headers
