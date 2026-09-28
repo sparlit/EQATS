@@ -19,13 +19,13 @@ impl SolanaIngestor {
         loop {
             let block = self.rpc_client.get_latest_blockhash().await.unwrap();
             let transactions = self.rpc_client.get_block(&block).await.unwrap();
-
+            
             self.message_bus.publish(Message::BlockData {
                 block_hash: block,
                 transactions,
                 timestamp: Utc::now()
             }).await;
-
+            
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
@@ -50,4 +50,4 @@ impl SentimentAnalyzer {
             .parse()
             .unwrap_or(0.0)
     }
-}
+} 

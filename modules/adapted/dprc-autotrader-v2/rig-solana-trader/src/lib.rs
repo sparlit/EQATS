@@ -1,5 +1,5 @@
 //! Rig Solana Trader is an autonomous trading bot for the Solana blockchain.
-//!
+//! 
 //! # Overview
 //! This bot uses LLM-powered analysis to make trading decisions on Solana tokens.
 //! It combines market data from multiple sources, technical analysis, and stoic
@@ -133,4 +133,4 @@ mod tests {
     }
 }
 
-// ... rest of the file ...
+// ... rest of the file ... 

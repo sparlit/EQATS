@@ -12,7 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 async fn main() -> Result<()> {
     // Load environment variables
     dotenv().ok();
-
+    
     // Initialize logging with timestamps
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
@@ -75,11 +75,11 @@ async fn main() -> Result<()> {
     // Start trading loop
     info!("Starting trading loop...");
     info!("Press Ctrl+C to stop the bot");
-
+    
     // Handle Ctrl+C gracefully
     let trader = Arc::new(trader);
     let trader_clone = Arc::clone(&trader);
-
+    
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("Received Ctrl+C, shutting down...");
@@ -93,4 +93,4 @@ async fn main() -> Result<()> {
 
     info!("Bot stopped successfully");
     Ok(())
-}
+} 

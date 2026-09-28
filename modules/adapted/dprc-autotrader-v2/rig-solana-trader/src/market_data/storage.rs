@@ -174,7 +174,7 @@ impl MarketDataStorage {
         social: Option<SocialMetrics>,
     ) -> Result<()> {
         let mut data = self.token_data.write().await;
-
+        
         let token_data = data.entry(address.to_string())
             .or_insert_with(|| TokenData {
                 metadata: metadata.clone().unwrap_or_else(|| TokenMetadata {
@@ -225,7 +225,7 @@ impl MarketDataStorage {
 
     pub async fn add_market_snapshot(&self, trends: Vec<MarketTrend>) -> Result<()> {
         let mut snapshots = self.market_snapshots.write().await;
-
+        
         snapshots.push(MarketSnapshot {
             timestamp: Utc::now(),
             trends,
@@ -291,7 +291,7 @@ impl MarketDataStorage {
                 .sum();
 
             let weights_sum: f64 = (1..=price_changes.len()).sum::<usize>() as f64;
-
+            
             Some(weighted_sum / weights_sum)
         } else {
             None
@@ -390,4 +390,4 @@ mod tests {
         assert_eq!(data.metadata.symbol, "TEST");
         assert_eq!(data.price_history.len(), 1);
     }
-}
+} 

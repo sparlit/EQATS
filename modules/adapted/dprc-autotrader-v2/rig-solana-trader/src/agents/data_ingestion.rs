@@ -26,7 +26,7 @@ impl DataIngestionAgent {
 impl Agent for DataIngestionAgent {
     async fn run(&self) -> anyhow::Result<()> {
         let mut receiver = self.bus.subscribe("market_data");
-
+        
         while let Ok(msg) = receiver.recv().await {
             if let Message::MarketData(data) = msg {
                 // Store raw data
@@ -36,7 +36,7 @@ impl Agent for DataIngestionAgent {
 
                 // Process with personality constraints
                 let processed = self.personality.process_market_data(data).await?;
-
+                
                 // Store processed data
                 self.storage
                     .insert("processed_market", processed.to_embedding())
@@ -48,4 +48,4 @@ impl Agent for DataIngestionAgent {
         }
         Ok(())
     }
-}
+} 

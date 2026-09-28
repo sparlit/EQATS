@@ -95,12 +95,12 @@ impl JupiterDex {
         // Decode and sign transaction
         let transaction_data = STANDARD.decode(response.data.transaction)?;
         let mut transaction: Transaction = bincode::deserialize(&transaction_data)?;
-
+        
         transaction.sign(&[wallet], self.rpc_client.get_latest_blockhash()?);
 
         // Send transaction
         let signature = self.rpc_client.send_transaction(&transaction)?;
-
+        
         Ok(signature.to_string())
     }
 
@@ -114,4 +114,4 @@ impl JupiterDex {
 
         Ok(to_token.is_ok() && from_token.is_ok())
     }
-}
+} 

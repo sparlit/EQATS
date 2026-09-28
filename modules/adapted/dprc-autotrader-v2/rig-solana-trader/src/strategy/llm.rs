@@ -23,11 +23,11 @@ impl LLMStrategy {
     #[instrument(skip(self))]
     pub async fn analyze_token(&self, token_address: &str) -> Result<String> {
         debug!("Analyzing token {}", token_address);
-
+        
         // Get token history and market data
         let token_history = self.birdeye.as_ref().get_historical_prices(token_address).await?;
         let market_data = self.birdeye.as_ref().get_token_metadata(token_address).await?;
-
+        
         let prompt = format!(
             "Analyze trading opportunity for token {}:\n\nMarket Data:\n{:#?}\n\nHistory:\n{:#?}",
             token_address,
@@ -37,4 +37,4 @@ impl LLMStrategy {
 
         Ok(prompt)
     }
-}
+} 

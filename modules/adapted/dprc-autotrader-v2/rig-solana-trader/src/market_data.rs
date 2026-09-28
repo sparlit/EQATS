@@ -11,4 +11,4 @@ pub struct MarketContext {
     pub market_trend: String,
     pub sector_performance: f64,
     pub sentiment_score: f64,
-}
+} 

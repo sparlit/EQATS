@@ -71,7 +71,7 @@ impl<M: CompletionModel> DataSyncService<M> {
 
     pub async fn sync_market_data(&self) -> Result<()> {
         info!("Starting market data sync cycle");
-
+        
         // Fetch trending tokens
         info!("Fetching trending tokens from BirdEye");
         let trends = self.data_provider.get_trending_tokens(20).await?;
@@ -111,14 +111,14 @@ impl<M: CompletionModel> DataSyncService<M> {
                         "Received trade recommendation: Action={:?}, Amount={} SOL, Confidence={:.2}, Risk={}",
                         trade.action, trade.amount_in_sol, trade.confidence, trade.risk_assessment
                     );
-
+                    
                     // Execute trade if confidence is high enough
                     if trade.confidence >= 0.8 {
                         match trade.action {
                             TradeAction::Buy => {
-                                info!("Executing BUY order for {} SOL worth of {}",
+                                info!("Executing BUY order for {} SOL worth of {}", 
                                     trade.amount_in_sol, trend.metadata.symbol);
-
+                                
                                 if let Ok(signature) = self.dex.execute_swap(
                                     "So11111111111111111111111111111111111111112", // SOL
                                     &trade.token_address,
@@ -164,7 +164,7 @@ Market Analysis:
                                             trade.market_analysis.momentum_indicators
                                         ),
                                     ).await?;
-
+                                    
                                     info!("Posting tweet: {}", tweet);
                                     if let Err(e) = self.twitter.post_tweet(&tweet).await {
                                         warn!("Failed to post trade tweet: {}", e);
@@ -174,9 +174,9 @@ Market Analysis:
                                 }
                             },
                             TradeAction::Sell => {
-                                info!("Executing SELL order for {} SOL worth of {}",
+                                info!("Executing SELL order for {} SOL worth of {}", 
                                     trade.amount_in_sol, trend.metadata.symbol);
-
+                                
                                 if let Ok(signature) = self.dex.execute_swap(
                                     &trade.token_address,
                                     "So11111111111111111111111111111111111111112", // SOL
@@ -222,7 +222,7 @@ Market Analysis:
                                             trade.market_analysis.momentum_indicators
                                         ),
                                     ).await?;
-
+                                    
                                     info!("Posting tweet: {}", tweet);
                                     if let Err(e) = self.twitter.post_tweet(&tweet).await {
                                         warn!("Failed to post trade tweet: {}", e);
@@ -232,7 +232,7 @@ Market Analysis:
                                 }
                             },
                             TradeAction::Hold => {
-                                info!("Decision: HOLD {} - {}",
+                                info!("Decision: HOLD {} - {}", 
                                     trend.metadata.symbol, trade.reasoning);
                             }
                         }
@@ -265,4 +265,4 @@ Market Analysis:
             timestamp: Utc::now(),
         }
     }
-}
+} 

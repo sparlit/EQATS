@@ -24,7 +24,7 @@ impl TwitterClient {
             &std::env::var("TWITTER_API_KEY")?,
             &std::env::var("TWITTER_API_SECRET")?,
         );
-
+        
         let access = Token::new(
             &std::env::var("TWITTER_ACCESS_TOKEN")?,
             &std::env::var("TWITTER_ACCESS_SECRET")?,
@@ -41,4 +41,4 @@ impl TwitterClient {
 
         Ok(())
     }
-}
+} 

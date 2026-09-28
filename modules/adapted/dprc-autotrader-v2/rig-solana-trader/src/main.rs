@@ -23,13 +23,13 @@ async fn main() -> anyhow::Result<()> {
     // Initialize shared components
     let message_bus = MessageBus::new();
     let personality = Arc::new(StoicPersonality::new());
-
+    
     // Configure MongoDB vector storage
     let vector_db = MongoVectorDB::new(VectorStorageConfig {
         uri: env::var("MONGODB_URI")?,
         database: "trader_agents",
         collections: vec![
-            "market_data",
+            "market_data", 
             "trade_history",
             "risk_models",
             "sentiment_analysis"
@@ -70,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Start all agents
     agent_system.run().await?;
-
+    
     Ok(())
 }
 
@@ -80,7 +80,7 @@ async fn trading_loop(
     twitter: Arc<TwitterClient>,
 ) -> Result<()> {
     let market_client = MarketDataClient::new(env::var("PUMPFUN_API_KEY")?);
-
+    
     loop {
         let token_data = market_client.get_token_data("TOKEN_MINT").await?;
         let analysis = TradeAnalysis {
@@ -101,10 +101,10 @@ async fn trading_loop(
         };
 
         risk_manager.validate_trade(&action)?;
-
+        
         let signature = executor.execute_trade(action.clone()).await?;
         twitter.post_trade(&action, &signature.to_string()).await?;
 
         tokio::time::sleep(Duration::from_secs(300)).await;
     }
-}
+} 

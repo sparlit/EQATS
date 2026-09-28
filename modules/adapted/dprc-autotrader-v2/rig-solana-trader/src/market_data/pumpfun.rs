@@ -39,7 +39,7 @@ impl MarketDataClient {
     pub fn analyze_market(&self, data: &PumpFunMarketData) -> f64 {
         let liquidity_ratio = data.bonding_market_cap / data.current_market_cap.max(1.0);
         let volume_ratio = data.buy_volume_4h / data.sell_volume_4h.max(1.0);
-
+        
         liquidity_ratio * volume_ratio
     }
-}
+} 

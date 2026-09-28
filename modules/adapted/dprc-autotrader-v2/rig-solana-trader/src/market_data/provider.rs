@@ -70,13 +70,13 @@ impl MarketDataProvider {
 
     pub async fn get_token_metadata(&self, token_address: &str) -> Result<TokenMetadata> {
         debug!("Fetching metadata for token {}", token_address);
-
+        
         // Get on-chain data
         let mint = self.solana_client.get_mint(token_address).await?;
-
+        
         // Get market data from external sources
         let market_data = self.solana_client.get_token_market_data(token_address).await?;
-
+        
         Ok(TokenMetadata {
             address: token_address.to_string(),
             symbol: mint.symbol,
@@ -91,21 +91,21 @@ impl MarketDataProvider {
 
     pub async fn get_market_data(&self, token_address: &str) -> Result<MarketData> {
         debug!("Fetching market data for token {}", token_address);
-
+        
         // Get token metadata
         let token = self.get_token_metadata(token_address).await?;
-
+        
         // Get price history
         let price_history = self.solana_client
             .get_token_price_history(token_address)
             .await?;
-
+            
         // Get social sentiment
         let social_sentiment = self.analyze_social_sentiment(&token.symbol).await?;
-
+        
         // Calculate technical indicators
         let technical_indicators = self.calculate_technical_indicators(&price_history)?;
-
+        
         Ok(MarketData {
             token,
             price_history,
@@ -116,21 +116,21 @@ impl MarketDataProvider {
 
     async fn analyze_social_sentiment(&self, symbol: &str) -> Result<Option<f64>> {
         debug!("Analyzing social sentiment for {}", symbol);
-
+        
         // Get recent tweets
         let tweets = self.twitter_client
             .search_tweets(&format!("${}", symbol))
             .await?;
-
+            
         if tweets.is_empty() {
             return Ok(None);
         }
-
+        
         // Analyze sentiment using OpenAI
         let sentiment = self.openai_client
             .analyze_sentiment(&tweets.join("\n"))
             .await?;
-
+            
         Ok(Some(sentiment))
     }
 
@@ -138,10 +138,10 @@ impl MarketDataProvider {
         if price_history.is_empty() {
             return Ok(TechnicalIndicators::default());
         }
-
+        
         // Calculate indicators
         let prices: Vec<f64> = price_history.iter().map(|p| p.price).collect();
-
+        
         Ok(TechnicalIndicators {
             rsi_14: Some(self.calculate_rsi(&prices, 14)?),
             macd: Some(self.calculate_macd(&prices)?),
@@ -164,8 +164,8 @@ impl MarketDataProvider {
         if prices.len() < period {
             return Ok(prices.last().copied().unwrap_or_default());
         }
-
+        
         let sum: f64 = prices.iter().rev().take(period).sum();
         Ok(sum / period as f64)
     }
-}
+} 

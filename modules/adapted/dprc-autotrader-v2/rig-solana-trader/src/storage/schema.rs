@@ -32,4 +32,4 @@ pub struct MarketAnalysis {
     pub volume_analysis: Document,
     pub vector_embedding: Vec<f32>,
     pub timestamp: DateTime,
-}
+} 

@@ -24,43 +24,43 @@ pub struct EnhancedTokenMetadata {
     pub symbol: String,
     pub name: String,
     pub decimals: u8,
-
+    
     // Price metrics
     pub price_usd: f64,
     pub price_sol: f64,
     pub price_change_1h: f64,
     pub price_change_24h: f64,
     pub price_change_7d: f64,
-
+    
     // Volume metrics
     pub volume_24h: f64,
     pub volume_change_24h: f64,
     pub volume_by_price_24h: f64, // Volume weighted by price
-
+    
     // Market metrics
     pub market_cap: f64,
     pub fully_diluted_market_cap: f64,
     pub circulating_supply: f64,
     pub total_supply: f64,
-
+    
     // Liquidity metrics
     pub liquidity_usd: f64,
     pub liquidity_sol: f64,
     pub liquidity_change_24h: f64,
-
+    
     // Technical indicators
     pub rsi_14: Option<f64>,
     pub macd: Option<f64>,
     pub macd_signal: Option<f64>,
     pub bollinger_upper: Option<f64>,
     pub bollinger_lower: Option<f64>,
-
+    
     // On-chain metrics
     pub unique_holders: u32,
     pub active_wallets_24h: u32,
     pub whale_transactions_24h: u32,
     pub average_transaction_size: f64,
-
+    
     // Sentiment metrics
     pub social_score: Option<f64>,
     pub social_volume: Option<u32>,
@@ -160,7 +160,7 @@ impl DataProvider for AggregatedDataProvider {
 
     async fn get_trending_tokens(&self, limit: usize) -> Result<Vec<MarketTrend>> {
         let mut all_trends = Vec::new();
-
+        
         // Collect trends from all providers
         for provider in &self.providers {
             if let Ok(mut trends) = provider.get_trending_tokens(limit).await {
@@ -234,7 +234,7 @@ pub struct MarketDataProvider {
 impl MarketDataProvider {
     pub async fn new(openai_api_key: &str, db_client: DatabaseClient) -> Result<Self> {
         let vector_store = TokenVectorStore::new(openai_api_key, db_client.clone()).await?;
-
+        
         Ok(Self {
             vector_store,
             db_client,
@@ -244,11 +244,11 @@ impl MarketDataProvider {
 
     pub async fn analyze_token(&mut self, token_address: &str) -> Result<()> {
         debug!("Analyzing token {}", token_address);
-
+        
         // Get token metadata and market data
         let metadata = self.get_token_metadata(token_address).await?;
         let market_data = self.get_market_data(token_address).await?;
-
+        
         // Create token analysis
         let analysis = TokenAnalysis {
             token_address: token_address.to_string(),
@@ -257,7 +257,7 @@ impl MarketDataProvider {
             recent_events: market_data.recent_events,
             market_sentiment: self.analyze_market_sentiment(&market_data).await?,
         };
-
+        
         // Add to vector store (which will also persist to database)
         self.vector_store.add_token_analysis(analysis).await?;
         Ok(())
@@ -414,4 +414,4 @@ mod tests {
         assert_eq!(onchain.unique_holders, 1000);
         assert_eq!(social.twitter_followers, 10000);
     }
-}
+} 

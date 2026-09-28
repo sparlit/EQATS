@@ -12,4 +12,4 @@ impl<'a> State<'a> {
     pub fn new(account: AccountInfo<'a>) -> Self {
         Self { account }
     }
-}
+} 

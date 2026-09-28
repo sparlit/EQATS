@@ -204,4 +204,4 @@ impl TradingAgentSystem {
         let plan: ExecutionPlan = serde_json::from_str(&response.content)?;
         Ok(plan)
     }
-}
+} 

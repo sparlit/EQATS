@@ -284,7 +284,7 @@ Provide trading analysis and recommendation in a concise format."#,
         let base_size = self.config.max_position_sol * 0.2;
         let risk_multiplier = 1.0 - risk_score;
         let trend_multiplier = trend_strength;
-
+        
         (base_size * risk_multiplier * trend_multiplier)
             .max(self.config.min_position_sol)
             .min(self.config.max_position_sol)
@@ -351,4 +351,4 @@ mod tests {
     async fn test_trading_strategy() {
         // Add tests with mock agent responses
     }
-}
+} 

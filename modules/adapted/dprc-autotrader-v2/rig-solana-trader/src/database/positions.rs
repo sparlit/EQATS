@@ -35,7 +35,7 @@ impl PositionsCollection {
 
     pub async fn upsert_position(&self, position: &PortfolioPosition, current_prices: (f64, f64)) -> Result<String> {
         let (current_price_sol, current_price_usd) = current_prices;
-
+        
         let unrealized_pnl = (current_price_sol - position.cost_basis_sol) * position.quantity;
         let realized_pnl: f64 = position.partial_sells.iter()
             .map(|sell| (sell.price_sol - position.cost_basis_sol) * sell.quantity)
@@ -107,7 +107,7 @@ impl PositionsCollection {
 
     pub async fn get_portfolio_stats(&self) -> Result<PortfolioStats> {
         let positions = self.get_all_positions().await?;
-
+        
         let mut stats = PortfolioStats {
             total_value_sol: 0.0,
             total_value_usd: 0.0,
@@ -122,7 +122,7 @@ impl PositionsCollection {
             stats.total_value_usd += pos.quantity * pos.current_price_usd;
             stats.total_realized_pnl_sol += pos.realized_pnl_sol;
             stats.total_unrealized_pnl_sol += pos.unrealized_pnl_sol;
-
+            
             if pos.unrealized_pnl_sol > 0.0 {
                 stats.profitable_positions += 1;
             }
@@ -140,4 +140,4 @@ pub struct PortfolioStats {
     pub total_unrealized_pnl_sol: f64,
     pub position_count: usize,
     pub profitable_positions: usize,
-}
+} 
