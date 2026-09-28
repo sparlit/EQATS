@@ -10,10 +10,10 @@ binary outcomes, Brier score calibration analytics, retrospective playbook strat
 and paper/live twin execution guardrails under TradingOS VERSION 7.0.0.
 """
 
+import zoneinfo
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
-import zoneinfo
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -32,7 +32,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks whether current or provided datetime falls within IST Indian Stock Market hours
     (Monday-Friday 09:15 - 15:30 IST).
@@ -116,7 +116,7 @@ class PhilSelfImprovingTraderEngine:
     - 0.05 INR price tick rounding & IST market session compliance.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         max_open_positions: int = 60,
         max_paper_bet_cap: float = 10.0,
@@ -131,7 +131,7 @@ class PhilSelfImprovingTraderEngine:
         self.min_price_bound: float = min_price_bound
         self.max_price_bound: float = max_price_bound
         self.min_resolution_minutes: float = min_resolution_minutes
-        self.open_positions: Dict[str, Dict[str, Any]] = {}
+        self.open_positions: dict[str, dict[str, Any]] = {}
 
     def calculate_brier_score(self, forecast_prob: float, actual_outcome: float) -> float:
         """Calculates Brier Score: (forecast_prob - actual_outcome)^2."""
@@ -141,14 +141,14 @@ class PhilSelfImprovingTraderEngine:
 
     def screen_prediction_markets(
         self,
-        quotes: List[PredictionMarketQuote],
-        rules: Optional[List[StrategyMutationRule]] = None,
-    ) -> List[Dict[str, Any]]:
+        quotes: list[PredictionMarketQuote],
+        rules: list[StrategyMutationRule] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Screens prediction markets for high-divergence probability edges.
         Filters out crypto coin-flips and markets resolving in under min_resolution_minutes.
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         rule_map = {r.category: r for r in rules} if rules else {}
 
         for q in quotes:
@@ -206,13 +206,13 @@ class PhilSelfImprovingTraderEngine:
 
     def evaluate_brier_delta(
         self,
-        quotes_with_outcomes: List[Tuple[PredictionMarketQuote, float]],
-    ) -> Dict[str, Any]:
+        quotes_with_outcomes: list[tuple[PredictionMarketQuote, float]],
+    ) -> dict[str, Any]:
         """
         Evaluates Brier Delta across a set of settled prediction market outcomes.
         brier_delta = market_brier - agent_brier. Positive delta indicates agent superiority over market price.
         """
-        evaluations: List[BrierEvaluationResult] = []
+        evaluations: list[BrierEvaluationResult] = []
         total_agent_brier = 0.0
         total_market_brier = 0.0
 
@@ -254,21 +254,21 @@ class PhilSelfImprovingTraderEngine:
 
     def evaluate_retrospective_mutation(
         self,
-        brier_summary: Dict[str, Any],
-        rules: List[StrategyMutationRule],
-    ) -> List[StrategyMutationRule]:
+        brier_summary: dict[str, Any],
+        rules: list[StrategyMutationRule],
+    ) -> list[StrategyMutationRule]:
         """
         Performs automated playbook retrospective analysis on strategy rules.
         If a rule category shows negative average Brier delta, sharpens threshold or deactivates.
         If positive, lowers threshold slightly or expands allocation.
         """
-        evaluations: List[BrierEvaluationResult] = brier_summary.get("evaluations", [])
-        category_deltas: Dict[str, List[float]] = {}
+        evaluations: list[BrierEvaluationResult] = brier_summary.get("evaluations", [])
+        category_deltas: dict[str, list[float]] = {}
 
         for ev in evaluations:
             category_deltas.setdefault(ev.category, []).append(ev.brier_delta)
 
-        updated_rules: List[StrategyMutationRule] = []
+        updated_rules: list[StrategyMutationRule] = []
         for rule in rules:
             deltas = category_deltas.get(rule.category, [])
             if not deltas:
@@ -295,15 +295,15 @@ class PhilSelfImprovingTraderEngine:
 
         return updated_rules
 
-    def route_twin_execution(
+    def route_twin_execution(  # noqa: PLR0917
         self,
         market_id: str,
         outcome_target: str,
         estimated_prob: float,
         market_price: float,
         bankroll: float,
-        is_real_enabled: bool = False,
-        custom_max_bet: Optional[float] = None,
+        is_real_enabled: bool = False,  # noqa: FBT001, FBT002
+        custom_max_bet: float | None = None,
     ) -> TradeTwinExecution:
         """
         Executes paper bet and optional capped real twin bet via Pearl Connect / Broker Gateway.
@@ -437,7 +437,7 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -449,13 +449,13 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 50.0, "ask": 50.05, "last": 50.0}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
