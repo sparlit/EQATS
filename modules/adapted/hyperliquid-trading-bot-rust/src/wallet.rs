@@ -28,7 +28,7 @@ impl Wallet{
         let user_fees = self.info_client.user_fees(user).await?;
         let add_fee: f64 = user_fees.user_add_rate.parse().unwrap();
         let cross_fee: f64 = user_fees.user_cross_rate.parse().unwrap();
-
+    
         Ok((add_fee, cross_fee))
     }
 
@@ -38,7 +38,7 @@ impl Wallet{
 
         return self.info_client.user_fills(user).await;
 
-
+    
     }
 
     pub async fn get_user_margin(&self) -> Result<f64, Error> {
@@ -57,7 +57,7 @@ impl Wallet{
             Some(u - f)
         }).sum();
 
-        Ok(res - upnl)
+        Ok(res - upnl) 
 }
 
 

@@ -52,7 +52,7 @@ impl Bot{
         let (update_tx, mut update_rv) = unbounded_channel::<MarketUpdate>();
 
         Ok((Self{
-            info_client,
+            info_client, 
             wallet: wallet.into(),
             markets: HashMap::default(),
             candle_subs: HashMap::new(),
@@ -68,7 +68,7 @@ impl Bot{
 
 
     pub async fn add_market(&mut self, info: AddMarketInfo, margin_book: &Arc<Mutex<MarginBook>>) -> Result<(), Error>{
-
+       
         let AddMarketInfo {
             asset,
             margin_alloc,
@@ -89,20 +89,20 @@ impl Bot{
 
         let mut book = margin_book.lock().await;
         let margin = book.allocate(asset.clone(), margin_alloc).await?;
-
+        
         let meta = get_asset(&self.info_client, asset_str).await?;
         let (sub_id, mut receiver) = subscribe_candles(&mut self.info_client,
                                                         asset_str,
                                                         trade_params.time_frame.as_str())
                                                         .await?;
 
-
+        
         let (market, market_tx) = Market::new(
             self.wallet.wallet.clone(),
             self.wallet.url,
             self.update_tx.clone(),
             receiver,
-            meta,
+            meta,     
             margin,
             self.fees,
             trade_params,
@@ -113,7 +113,7 @@ impl Bot{
         self.markets.insert(asset.clone(), market_tx);
         self.candle_subs.insert(asset.clone(), sub_id);
         let cancel_margin = margin_book.clone();
-        let app_tx = self.app_tx.clone();
+        let app_tx = self.app_tx.clone(); 
 
         tokio::spawn(async move {
             if let Err(e) = market.start().await {
@@ -123,9 +123,9 @@ impl Bot{
                 let mut book = cancel_margin.lock().await;
                 book.remove(&asset);
             }
-        });
+        });         
 
-
+        
 
         Ok(())
 
@@ -134,7 +134,7 @@ impl Bot{
 
     pub async fn remove_market(&mut self, asset: &String, margin_book: &Arc<Mutex<MarginBook>>) -> Result<(), Error>{
         let asset = asset.trim().to_uppercase();
-
+      
         if let Some(sub_id) = self.candle_subs.remove(&asset){
             let _ = self.info_client.unsubscribe(sub_id).await?;
             info!("Removed {} market successfully", asset);
@@ -148,12 +148,12 @@ impl Bot{
             let cmd = MarketCommand::Close;
             let close = tokio::spawn(async move {
                 if let Err(e) = tx.send(cmd).await{
-                    log::warn!("Failed to send Close command: {:?}", e);
+                    log::warn!("Failed to send Close command: {:?}", e); 
                     return false;
                 }
                 true
             }).await.unwrap();
-
+            
             if close{
                 let mut sess_guard = self.session.lock().await;
                 let _ = sess_guard.remove(&asset);
@@ -170,7 +170,7 @@ impl Bot{
 
     pub async fn pause_or_resume_market(&self, asset: &String){
         let asset = asset.trim().to_uppercase();
-
+        
         if let Some(tx) = self.markets.get(&asset){
             let tx = tx.clone();
             let cmd = MarketCommand::Toggle;
@@ -192,17 +192,17 @@ impl Bot{
     }
 
     pub async fn pause_all(&self){
-
+       
         info!("PAUSING ALL MARKETS");
         for (_asset, tx) in &self.markets{
             let _ = tx.send(MarketCommand::Pause).await;
         }
-
+        
         let mut session = self.session.lock().await;
         for (_asset, info) in session.iter_mut(){
-           info.is_paused = true;
+           info.is_paused = true; 
         }
-
+        
     }
     pub async fn resume_all(&self){
         info!("RESUMING ALL MARKETS");
@@ -214,12 +214,12 @@ impl Bot{
         info!("CLOSING ALL MARKETS");
         for (_asset, id) in self.candle_subs.drain(){
                 self.info_client.unsubscribe(id).await;
-            }
+            } 
         self.candle_subs.clear();
         for (_asset, tx) in self.markets.drain(){
             let _ = tx.send(MarketCommand::Close).await;
         }
-
+        
         let mut session = self.session.lock().await;
         session.clear();
     }
@@ -227,7 +227,7 @@ impl Bot{
 
     pub async fn send_cmd(&self, asset: &String, cmd: MarketCommand){
         let asset = asset.trim().to_uppercase();
-
+        
         if let Some(tx) = self.markets.get(&asset){
             let tx = tx.clone();
             tokio::spawn(async move{
@@ -251,14 +251,14 @@ impl Bot{
 
         let mut guard = self.session.lock().await;
         let session: Vec<MarketInfo> = guard.values().cloned().collect();
-
+        
         session
-
+        
     }
-
-
+    
+ 
     pub async fn start(mut self, app_tx: UnboundedSender<UpdateFrontend>) -> Result<(), Error>{
-        use BotEvent::*;
+        use BotEvent::*; 
         use MarketUpdate::*;
         use UpdateFrontend::*;
 
@@ -267,19 +267,19 @@ impl Bot{
 
         //safe
         let mut update_rv = self.update_rv.take().unwrap();
-
-
+             
+        
         let user = self.wallet.clone();
         let mut margin_book= MarginBook::new(user);
-        let margin_arc = Arc::new(Mutex::new(margin_book));
+        let margin_arc = Arc::new(Mutex::new(margin_book)); 
         let margin_sync = margin_arc.clone();
         let margin_user_edit = margin_arc.clone();
         let margin_market_edit = margin_arc.clone();
-
+        
         let app_tx_margin = app_tx.clone();
         let err_tx = app_tx.clone();
 
-        //keep marginbook in sync with DEX
+        //keep marginbook in sync with DEX 
         tokio::spawn(async move{
             let mut ticker = interval(Duration::from_secs(2));
            loop{
@@ -304,11 +304,11 @@ impl Bot{
                 }
             }
                 let _ = sleep(Duration::from_millis(500)).await;
-        }
+        } 
     });
 
-
-        //Market -> Bot
+        
+        //Market -> Bot 
         let session_adder = self.session.clone();
         tokio::spawn(async move{
                 while let Some(market_update) = update_rv.recv().await{
@@ -317,16 +317,16 @@ impl Bot{
                         InitMarket(info) => {
                             let mut session_guard = session_adder.lock().await;
                             session_guard.insert(info.asset.clone(), info.clone());
-                            let _ = app_tx.send(ConfirmMarket(info));
+                            let _ = app_tx.send(ConfirmMarket(info));     
                         },
                         PriceUpdate(asset_price) => {let _ = app_tx.send(UpdatePrice(asset_price));},
                         TradeUpdate(trade_info) => {
                             let _ = app_tx.send(NewTradeInfo(trade_info));
-
+                            
                     },
                         MarginUpdate(asset_margin) => {
                             let result = {
-                                let mut book = margin_market_edit.lock().await;
+                                let mut book = margin_market_edit.lock().await; 
                                 book.update_asset(asset_margin.clone()).await
                             };
 
@@ -350,7 +350,7 @@ impl Bot{
             let _id = self.info_client
                 .subscribe(Subscription::UserFills{user: address(&self.wallet.pubkey) }, liq_tx)
                 .await?;
-
+        
         loop{
             tokio::select!(
                 biased;
@@ -360,7 +360,7 @@ impl Bot{
                     if update.data.is_snapshot.is_some(){
                         continue;
                     }
-                    let mut liq_map: HashMap<String, Vec<HLTradeInfo>> = HashMap::new();
+                    let mut liq_map: HashMap<String, Vec<HLTradeInfo>> = HashMap::new(); 
 
                     for trade in update.data.fills.into_iter(){
                         if trade.liquidation.is_some(){
@@ -371,7 +371,7 @@ impl Bot{
                         }
                     }
                     println!("\nTRADES  |||||||||| {:?}\n\n", liq_map);
-
+        
                     for (coin, fills) in liq_map.into_iter(){
                         let to_send = LiquidationFillInfo::from(fills);
                         let cmd = MarketCommand::ReceiveLiquidation(to_send);
@@ -381,7 +381,7 @@ impl Bot{
 
 
                 Some(event) = self.bot_rv.recv() => {
-
+            
                     match event{
                         AddMarket(add_market_info) => {
                             if let Err(e) = self.add_market(add_market_info, &margin_user_edit).await{
@@ -408,18 +408,18 @@ impl Bot{
                             let mut book = margin_user_edit.lock().await;
                             book.reset();
                         },
-
+                        
                         GetSession =>{
                             let session = self.get_session().await;
-                            let _ = err_tx.send(LoadSession(session));
+                            let _ = err_tx.send(LoadSession(session));   
                         },
                     }
             },
 
-
+                
         )}
 
-    }
+    }   
 
 }
 
@@ -437,7 +437,7 @@ pub enum BotEvent{
     ResumeAll,
     PauseAll,
     CloseAll,
-    GetSession,
+    GetSession, 
 }
 
 
@@ -448,3 +448,9 @@ pub struct BotToMarket{
     pub asset: String,
     pub cmd: MarketCommand,
 }
+
+
+
+
+
+

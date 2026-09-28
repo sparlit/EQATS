@@ -3,7 +3,7 @@ mod executor;
 mod consts;
 mod assets;
 mod wallet;
-mod backtest;
+mod backtest; 
 
 
 pub mod frontend;
@@ -22,7 +22,7 @@ pub use market::{Market, MarketCommand, MarketUpdate, AssetPrice};
 pub use consts::{MAX_HISTORY};
 pub use assets::MARKETS;
 pub use executor::Executor;
-// pub use backtest::BackTester;
+// pub use backtest::BackTester; 
 pub use trade_setup::{TradeParams, TimeFrame, TradeCommand, TradeInfo, MarketTradeInfo, TradeFillInfo, LiquidationFillInfo};
 pub use margin::{AssetMargin, MarginAllocation};
 
