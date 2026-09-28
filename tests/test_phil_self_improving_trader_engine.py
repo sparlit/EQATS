@@ -1,5 +1,5 @@
-"""
-Unit tests for Phil Self-Improving Trader Engine.
+"""Unit tests for Phil Self-Improving Trader Engine.
+
 Target Integration: bennyjo/phil
 Magic Number: 9100087
 """
@@ -18,28 +18,29 @@ from institutional_integrations.phil_self_improving_trader_engine import (
     is_ist_market_open,
     round_tick_005,
 )
-from institutional_integrations.sebi_broker_adapter import (
-    IndianBrokerPluginRegistry,
-    SEBIOrderRequest,
-)
+from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry, SEBIOrderRequest
 
 
 def test_magic_number_assignment():
+    """Tests Magic Number assignment constant."""
     assert MAGIC_NUMBER_PHIL == 9100087
 
 
 def test_round_tick_005():
+    """Tests 0.05 price tick rounding function."""
     assert round_tick_005(100.02) == 100.00
     assert round_tick_005(100.03) == 100.05
     assert round_tick_005(100.08) == 100.10
 
 
 def test_ist_market_open():
+    """Tests Indian Standard Time market session checking."""
     dt_weekday_open = datetime(2026, 3, 30, 10, 0, 0, tzinfo=UTC)  # Monday 15:30 IST / 10:00 UTC
     assert isinstance(is_ist_market_open(dt_weekday_open), bool)
 
 
 def test_brier_score_calculation():
+    """Tests Brier Score probability error calculation."""
     engine = PhilSelfImprovingTraderEngine()
     # Forecast = 0.8, Actual = 1.0 -> (0.8 - 1.0)^2 = 0.04
     score_yes = engine.calculate_brier_score(0.8, 1.0)
@@ -51,6 +52,7 @@ def test_brier_score_calculation():
 
 
 def test_screen_prediction_markets():
+    """Tests prediction market probability divergence screening and filtering."""
     engine = PhilSelfImprovingTraderEngine(min_resolution_minutes=20.0)
 
     quotes = [
@@ -97,6 +99,7 @@ def test_screen_prediction_markets():
 
 
 def test_evaluate_brier_delta():
+    """Tests aggregate Brier delta calculation against market prices."""
     engine = PhilSelfImprovingTraderEngine()
 
     quote = PredictionMarketQuote(
@@ -118,6 +121,7 @@ def test_evaluate_brier_delta():
 
 
 def test_retrospective_mutation():
+    """Tests automated strategy playbook rule retrospective mutation."""
     engine = PhilSelfImprovingTraderEngine()
 
     brier_summary = {
@@ -152,6 +156,7 @@ def test_retrospective_mutation():
 
 
 def test_twin_execution_routing():
+    """Tests paper/real twin order execution routing and sizing caps."""
     engine = PhilSelfImprovingTraderEngine(max_paper_bet_cap=10.0, max_real_twin_cap=1.0)
 
     exec_res = engine.route_twin_execution(
@@ -170,6 +175,7 @@ def test_twin_execution_routing():
 
 
 def test_broker_adapter_integration():
+    """Tests SEBIBrokerAdapter and IndianBrokerPluginRegistry integration."""
     adapter_cls = IndianBrokerPluginRegistry._registry.get("PHIL_SELF_IMPROVING_TRADER")  # noqa: SLF001
     if adapter_cls is None:
         adapter_cls = PhilSelfImprovingTraderBrokerAdapter

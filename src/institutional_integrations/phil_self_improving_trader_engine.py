@@ -1,6 +1,4 @@
-"""
-Phil Self-Improving Trader Engine
-=================================
+"""Phil Self-Improving Trader Engine.
 
 Target Integration: bennyjo/phil
 Magic Number: 9100087
@@ -33,9 +31,9 @@ def round_tick_005(price: float) -> float:
 
 
 def is_ist_market_open(now_dt: datetime | None = None) -> bool:
-    """
-    Checks whether current or provided datetime falls within IST Indian Stock Market hours
-    (Monday-Friday 09:15 - 15:30 IST).
+    """Checks whether current or provided datetime falls within Indian Stock Market hours.
+
+    (Monday-Friday 09:15 - 15:30).
     """
     ist_tz = zoneinfo.ZoneInfo("Asia/Kolkata")
     if now_dt is None:
@@ -55,6 +53,8 @@ def is_ist_market_open(now_dt: datetime | None = None) -> bool:
 
 @dataclass
 class PredictionMarketQuote:
+    """Dataclass holding quote parameters for prediction markets."""
+
     market_id: str
     category: str
     symbol: str
@@ -70,6 +70,8 @@ class PredictionMarketQuote:
 
 @dataclass
 class BrierEvaluationResult:
+    """Dataclass storing Brier score calibration metrics."""
+
     market_id: str
     category: str
     estimated_prob: float
@@ -82,6 +84,8 @@ class BrierEvaluationResult:
 
 @dataclass
 class StrategyMutationRule:
+    """Dataclass storing strategy playbook mutation parameters."""
+
     rule_id: str
     category: str
     min_prob_divergence: float
@@ -93,6 +97,8 @@ class StrategyMutationRule:
 
 @dataclass
 class TradeTwinExecution:
+    """Dataclass storing paper/real twin execution results."""
+
     trade_id: str
     market_id: str
     outcome_target: str
@@ -106,14 +112,13 @@ class TradeTwinExecution:
 
 
 class PhilSelfImprovingTraderEngine:
-    """
-    Self-Improving Prediction & Binary Options Strategy Engine based on bennyjo/phil.
+    """Self-Improving Prediction & Binary Options Strategy Engine based on bennyjo/phil.
 
     Provides:
     - Brier Delta calibration scoring & probability edge calculation.
     - Automated strategy retrospective audits and playbook parameter mutation.
     - Paper/Real twin execution routing with strict safety caps ($10 paper, $1 real twin).
-    - 0.05 INR price tick rounding & IST market session compliance.
+    - 0.05 INR price tick rounding & session compliance.
     """
 
     def __init__(  # noqa: PLR0917
@@ -144,8 +149,8 @@ class PhilSelfImprovingTraderEngine:
         quotes: list[PredictionMarketQuote],
         rules: list[StrategyMutationRule] | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Screens prediction markets for high-divergence probability edges.
+        """Screens prediction markets for high-divergence probability edges.
+
         Filters out crypto coin-flips and markets resolving in under min_resolution_minutes.
         """
         results: list[dict[str, Any]] = []
@@ -188,17 +193,19 @@ class PhilSelfImprovingTraderEngine:
 
             if selected_outcome is not None:
                 sanitized_price = round_tick_005(selected_price)
-                results.append({
-                    "market_id": q.market_id,
-                    "category": q.category,
-                    "symbol": q.symbol,
-                    "target_outcome": selected_outcome,
-                    "market_price": sanitized_price,
-                    "estimated_prob": round(q.estimated_prob, 4),
-                    "probability_edge": round(selected_edge, 4),
-                    "time_to_resolution_minutes": q.time_to_resolution_minutes,
-                    "magic_number": q.magic_number,
-                })
+                results.append(
+                    {
+                        "market_id": q.market_id,
+                        "category": q.category,
+                        "symbol": q.symbol,
+                        "target_outcome": selected_outcome,
+                        "market_price": sanitized_price,
+                        "estimated_prob": round(q.estimated_prob, 4),
+                        "probability_edge": round(selected_edge, 4),
+                        "time_to_resolution_minutes": q.time_to_resolution_minutes,
+                        "magic_number": q.magic_number,
+                    }
+                )
 
         # Rank by probability edge descending
         results.sort(key=lambda x: x["probability_edge"], reverse=True)
@@ -208,8 +215,8 @@ class PhilSelfImprovingTraderEngine:
         self,
         quotes_with_outcomes: list[tuple[PredictionMarketQuote, float]],
     ) -> dict[str, Any]:
-        """
-        Evaluates Brier Delta across a set of settled prediction market outcomes.
+        """Evaluates Brier Delta across a set of settled prediction market outcomes.
+
         brier_delta = market_brier - agent_brier. Positive delta indicates agent superiority over market price.
         """
         evaluations: list[BrierEvaluationResult] = []
@@ -257,8 +264,8 @@ class PhilSelfImprovingTraderEngine:
         brier_summary: dict[str, Any],
         rules: list[StrategyMutationRule],
     ) -> list[StrategyMutationRule]:
-        """
-        Performs automated playbook retrospective analysis on strategy rules.
+        """Performs automated playbook retrospective analysis on strategy rules.
+
         If a rule category shows negative average Brier delta, sharpens threshold or deactivates.
         If positive, lowers threshold slightly or expands allocation.
         """
@@ -305,9 +312,7 @@ class PhilSelfImprovingTraderEngine:
         is_real_enabled: bool = False,  # noqa: FBT001, FBT002
         custom_max_bet: float | None = None,
     ) -> TradeTwinExecution:
-        """
-        Executes paper bet and optional capped real twin bet via Pearl Connect / Broker Gateway.
-        """
+        """Executes paper bet and optional capped real twin bet via Pearl Connect / Broker Gateway."""
         if len(self.open_positions) >= self.max_open_positions:
             return TradeTwinExecution(
                 trade_id=f"PHIL-REJECTED-{int(datetime.now().timestamp())}",
@@ -367,29 +372,34 @@ class PhilSelfImprovingTraderEngine:
 
 
 class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
-    """
-    SEBIBrokerAdapter compliance wrapper for Phil Self-Improving Trader Engine.
+    """SEBIBrokerAdapter compliance wrapper for Phil Self-Improving Trader Engine.
+
     Registered in IndianBrokerPluginRegistry under key PHIL_SELF_IMPROVING_TRADER.
     """
 
     def __init__(self, broker_name: str = "PHIL_SELF_IMPROVING_TRADER") -> None:
+        """Initializes PhilSelfImprovingTraderBrokerAdapter."""
         super().__init__()
         self.broker_name = broker_name
         self.engine = PhilSelfImprovingTraderEngine()
         self._is_connected = False
 
     def connect(self) -> bool:
+        """Connects the adapter."""
         self._is_connected = True
         return True
 
     def disconnect(self) -> bool:
+        """Disconnects the adapter."""
         self._is_connected = False
         return True
 
     def is_connected(self) -> bool:
+        """Returns connection state."""
         return self._is_connected
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
+        """Executes an order request."""
         if not self._is_connected:
             return SEBIOrderResponse(
                 success=False,
@@ -403,6 +413,7 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
         return self.place_order(request)
 
     def place_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
+        """Places an order through Phil twin execution engine."""
         sanitized_price = round_tick_005(request.price)
         ticket_id = f"PHIL-{int(datetime.now().timestamp() * 1000)}"
 
@@ -425,6 +436,7 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
         )
 
     def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+        """Closes an active order."""
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -435,9 +447,11 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
         )
 
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+        """Modifies order parameters."""
         return True
 
     def get_account_info(self) -> dict[str, Any]:
+        """Gets account balance & equity information."""
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -450,12 +464,15 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
+        """Gets price history for symbol."""
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
+        """Gets current bid/ask quote."""
         return {"bid": 50.0, "ask": 50.05, "last": 50.0}
 
     def get_open_orders(self) -> list[dict[str, Any]]:
+        """Gets list of open orders."""
         return []
 
 
