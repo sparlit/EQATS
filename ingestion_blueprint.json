@@ -1,5 +1,5 @@
 {
-  "current_index": 5,
+  "current_index": 135,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -38,11 +38,7 @@
       "target": "0xtan1319/hyperliquid-trading-bot-rust",
       "url": "https://github.com/0xtan1319/hyperliquid-trading-bot-rust",
       "status": "Processed",
-<<<<<<< HEAD
       "pr_url": "https://github.com/sparlit/EQATS/pull/2693",
-=======
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2791",
->>>>>>> integrate/hyperliquid-trading-bot-rust
       "merged": true
     },
     {
@@ -1082,7 +1078,7 @@
       "target": "ganeshbiyer/nse_historical_data",
       "url": "https://github.com/ganeshbiyer/nse_historical_data",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2718",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2728",
       "merged": true
     },
     {
