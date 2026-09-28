@@ -1,5 +1,5 @@
 {
-  "current_index": 6,
+  "current_index": 7,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -53,7 +53,7 @@
       "name": "option_chain_analysis",
       "target": "aadityatamrakar/option_chain_analysis",
       "url": "https://github.com/aadityatamrakar/option_chain_analysis",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
