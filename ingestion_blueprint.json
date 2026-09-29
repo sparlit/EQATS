@@ -3302,7 +3302,18 @@
       "magic_number": 9100088,
       "module_path": "src/institutional_integrations/jev_ai_decision_engine.py",
       "adapted_class": "JevAIDecisionEngine"
+    },
+    {
+      "name": "ai-native-sdlc",
+      "target": "bashebr/ai-native-sdlc",
+      "url": "https://github.com/bashebr/ai-native-sdlc",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100089,
+      "module_path": "src/institutional_integrations/ai_native_sdlc_governor.py",
+      "adapted_class": "AINativeSDLCGovernor"
     }
   ],
-  "total_repositories": 412
+  "total_repositories": 413
 }
