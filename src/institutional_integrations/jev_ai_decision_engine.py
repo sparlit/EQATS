@@ -1,4 +1,4 @@
-# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments,too-many-locals,arguments-renamed
+# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments,too-many-locals,arguments-renamed,line-too-long
 # codespell:ignore IST,ans
 """JEV AI Decision Engine for EQATS.
 
@@ -140,7 +140,7 @@ class JevAIDecisionEngine:
         enable_offline_fallback: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
         """Initializes JevAIDecisionEngine with API configuration and policies."""
-        self.api_key: str = api_key or os.getenv("JEV_API_KEY", "") or ""
+        self.api_key: str = api_key or os.getenv("JEV_API_KEY") or ""
         self.org_endpoint: str = org_endpoint
         self.systemone_endpoint: str = systemone_endpoint
         self.model: str = model
@@ -551,6 +551,7 @@ class JevAIDecisionEngine:
             TimeoutError,
             json.JSONDecodeError,
             OSError,
+            Exception,  # pylint: disable=broad-exception-caught
         ):
             if not self.enable_offline_fallback:
                 raise
@@ -558,10 +559,7 @@ class JevAIDecisionEngine:
 
 
 class JevAIDecisionBrokerAdapter(SEBIBrokerAdapter):
-    """SEBIBrokerAdapter compliance wrapper for JEV AI Decision Engine.
-
-    Registered in IndianBrokerPluginRegistry under key JEV_AI_DECISION_ENGINE.
-    """
+    """SEBIBrokerAdapter compliance wrapper for JEV AI Decision Engine."""
 
     def __init__(self, broker_name: str = "JEV_AI_DECISION_ENGINE") -> None:
         """Initializes JevAIDecisionBrokerAdapter."""
