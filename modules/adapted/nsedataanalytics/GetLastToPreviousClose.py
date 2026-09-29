@@ -46,14 +46,14 @@ query='10#`gapup %s gaplasttoopen:\
 ''' Query for Last 2'''
 query_1='10#`gapup %s gaplasttoopen:\
                 select gapup:100*(last %s - last %s)%%\
-                last %s  by symbol from fut_one_day where not %s=0'
+                last %s  by symbol from fut_one_day where not %s=0'                
 def __query__(xasc,compare,close):
     return query%(xasc,compare,close,close,close)
 
 def __query_1__(xasc,compare,close):
     return query_1%(xasc,compare,close,close,close)
 
-
+                
 def __print__(res,msg=None):
     ''' new print menthodolgy for '''
     msg=''if(msg==None) else msg
@@ -61,16 +61,16 @@ def __print__(res,msg=None):
     for k,v in (zip([k[0][0] for k in res.items()],[k[1][0] for k in res.items()])):
             msg+= ("%20s\t%20f\n"%(k,v))
     msg+=('-'*60)+"\n"
-    return msg
-
+    return msg        
+                            
 def OpenTOPreviousCloseTop10():
     with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
         qconn.open()
         res=qconn(__query__('xdesc','tickopen','tickclose'))
         qconn.close()
         return ("Highest Close to Open Change\n"+__print__(res))
-
-
+        
+        
 
 def OpenTOPreviousCloseBottom10():
     with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
@@ -78,8 +78,8 @@ def OpenTOPreviousCloseBottom10():
         res=qconn(__query__('xasc','tickopen','tickclose'))
         qconn.close()
         return ("Lowest Close to Open Change\n"+__print__(res))
-
-
+        
+        
 
 def LastTOOpenTop10():
     with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
@@ -87,7 +87,7 @@ def LastTOOpenTop10():
         res=qconn(__query__('xdesc','ticklast','tickopen'))
         qconn.close()
         return ("Highest Open to Current Price CHange\n"+__print__(res))
-
+        
 
 def LastTOOpenBottom10():
     with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
@@ -102,7 +102,7 @@ def LowToLastTop10():
         res=qconn(__query_1__('xdesc','ticklast','ticklow'))
         qconn.close()
         return ("Highest Low to Current Price CHange\n"+__print__(res))
-
+        
 
 def HighToLastBottom10():
     with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
@@ -117,8 +117,8 @@ def __sendmail__(msg):
     server.starttls()
     server.login(config.__username__,config.__password__)
     server.sendmail(fromaddr, toaddrs, msg)
-    server.quit()
-
+    server.quit()        
+        
 if __name__=='__main__':
     header="Subject:%s:Opening Day Analytics\n"%datetime.datetime.now()
     msg=header+OpenTOPreviousCloseTop10()+OpenTOPreviousCloseBottom10()+LastTOOpenBottom10()+LastTOOpenTop10()+LowToLastTop10()+HighToLastBottom10()

@@ -24,7 +24,7 @@ from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler
 from tweepy import Stream
 import json
-#Variables that contains the user credentials to access Twitter API
+#Variables that contains the user credentials to access Twitter API 
 access_token = "782730432-K7m6BlGBmWxRNhDBxO7WDXkGIE3N7vitnMwmQrT4"
 access_token_secret = "mN565FUoXQffNRPyf3meErRNoF8isyAkBsBnxQMDKFz1Y"
 consumer_key = "oxya7KmlE7yhLlS3m3Yc7BHEP"
@@ -42,7 +42,7 @@ class StdOutListener(StreamListener):
                  tf.write('\n')
         except KeyError:
             pass
-
+        
         return True
 
     def on_error(self, status):
@@ -57,6 +57,6 @@ if __name__ == '__main__':
     auth.set_access_token(access_token, access_token_secret)
     stream = Stream(auth, l)
     #stream.userstream(_with='followings')
-
+    
     #This line filter Twitter Streams to capture data by the keywords: 'python', 'javascript', 'ruby'
     stream.filter(follow=['81083096','68927629'])

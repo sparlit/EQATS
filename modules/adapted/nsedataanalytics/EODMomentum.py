@@ -23,7 +23,7 @@ from config import get_symbol_future,get_symbols
 import pandas as pd
 
 def calc_ema_slow_fast(data,sma,lma,symbol,threshold):
-
+    
     if data.empty:
         return
     data['SMA']=pd.ewma(data.CLOSE,span=sma)
@@ -39,13 +39,13 @@ def calc_ema_slow_fast(data,sma,lma,symbol,threshold):
         return ("Sell",selldiff)
     else:
         return ("Neutral",0)
-
+    
 
 if __name__=='__main__':
     sma=11
     lma=22
     threshold=0.02
-    symbols=get_symbols()
+    symbols=get_symbols() 
     result=pd.DataFrame()
     for symbol in symbols:
         data=get_symbol_future(symbol)
