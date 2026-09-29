@@ -3291,7 +3291,18 @@
       "magic_number": 9100087,
       "module_path": "src/institutional_integrations/phil_self_improving_trader_engine.py",
       "adapted_class": "PhilSelfImprovingTraderEngine"
+    },
+    {
+      "name": "jev-ai",
+      "target": "jev-ai/jev-ai",
+      "url": "https://github.com/jev-ai/jev-ai",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100088,
+      "module_path": "src/institutional_integrations/jev_ai_decision_engine.py",
+      "adapted_class": "JevAIDecisionEngine"
     }
   ],
-  "total_repositories": 411
+  "total_repositories": 412
 }
