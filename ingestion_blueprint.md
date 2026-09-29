@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 413 | Current Index: 23
+Total Repositories: 413 | Current Index: 22
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
