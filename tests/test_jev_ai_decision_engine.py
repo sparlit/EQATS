@@ -1,8 +1,5 @@
+# codespell:ignore IST,ans
 """Unit tests for JEV AI Decision Engine (Magic Number: 9100088)."""
-
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from institutional_integrations.jev_ai_decision_engine import (
     MAGIC_NUMBER_JEV_AI,
@@ -31,39 +28,57 @@ def test_round_tick_005() -> None:
 
 
 def test_ist_market_open() -> None:
-    """Tests IST market session validation."""
+    """Tests market session validation."""
     assert isinstance(is_ist_market_open(), bool)
 
 
 def test_classify_market_regime_fallback() -> None:
     """Tests offline heuristic fallback for market regime classification."""
     engine = JevAIDecisionEngine()
-    res = engine.classify_market_regime("RELIANCE", 2500.0, vix=25.0, atr=80.0, rsi=60.0)
+    res = engine.classify_market_regime(
+        "RELIANCE", 2500.0, vix=25.0, atr=80.0, rsi=60.0
+    )
     assert res["regime"] == "HIGH_VOLATILITY_BREAKOUT"
     assert res["is_fallback"] is True
 
-    res_bull = engine.classify_market_regime("INFY", 1500.0, vix=15.0, atr=10.0, rsi=60.0, trend_direction="UP")
+    res_bull = engine.classify_market_regime(
+        "INFY", 1500.0, vix=15.0, atr=10.0, rsi=60.0, trend_direction="UP"
+    )
     assert res_bull["regime"] == "BULLISH_TREND"
 
 
 def test_score_trade_risk_severity_fallback() -> None:
     """Tests trade risk severity score calculation in fallback mode."""
     engine = JevAIDecisionEngine()
-    res_low = engine.score_trade_risk_severity("TCS", position_size_inr=10000.0, portfolio_drawdown_pct=0.2, slippage_estimate_bps=5.0)
+    res_low = engine.score_trade_risk_severity(
+        "TCS",
+        position_size_inr=10000.0,
+        portfolio_drawdown_pct=0.2,
+        slippage_estimate_bps=5.0,
+    )
     assert res_low["score_label"] == "LOW"
 
-    res_crit = engine.score_trade_risk_severity("TCS", position_size_inr=600000.0, portfolio_drawdown_pct=2.5, slippage_estimate_bps=60.0)
+    res_crit = engine.score_trade_risk_severity(
+        "TCS",
+        position_size_inr=600000.0,
+        portfolio_drawdown_pct=2.5,
+        slippage_estimate_bps=60.0,
+    )
     assert res_crit["score_label"] == "CRITICAL"
 
 
 def test_evaluate_execution_safety_noul_fallback() -> None:
     """Tests Noul yes/no execution safety guardrail evaluation."""
     engine = JevAIDecisionEngine()
-    res_safe = engine.evaluate_execution_safety_noul("SBIN", "BUY", 800.0, vix=15.0, portfolio_drawdown_pct=0.5)
+    res_safe = engine.evaluate_execution_safety_noul(
+        "SBIN", "BUY", 800.0, vix=15.0, portfolio_drawdown_pct=0.5
+    )
     assert res_safe["is_safe"] is True
     assert res_safe["noul_prob"] >= 0.5
 
-    res_unsafe = engine.evaluate_execution_safety_noul("SBIN", "BUY", 800.0, vix=25.0, portfolio_drawdown_pct=2.5)
+    res_unsafe = engine.evaluate_execution_safety_noul(
+        "SBIN", "BUY", 800.0, vix=25.0, portfolio_drawdown_pct=2.5
+    )
     assert res_unsafe["is_safe"] is False
 
 

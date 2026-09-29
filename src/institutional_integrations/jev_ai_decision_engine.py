@@ -1,4 +1,5 @@
 # pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments,too-many-locals,arguments-renamed
+# codespell:ignore IST,ans
 """JEV AI Decision Engine for EQATS.
 
 Target Integration: jev-ai/jev-ai
@@ -12,9 +13,10 @@ Integrates JEV AI's typed decision model (Choice, Score, Noul) into EQATS for:
 - Order Safety & Tool Execution Guardrails (tool-guard / Noul)
 - Trade Completion & Order Execution Audit (completion-review)
 
-Supports live REST API requests to JEV AI endpoints (https://www.jevai.org/api/v1/decisions/
-and https://thejevai.com/v1/systemone) with automatic deterministic heuristic fallbacks for offline / zero-latency execution.
-Complies with TradingOS 0.05 INR price tick rounding and IST market session validation.
+Supports live REST API requests to JEV AI endpoints
+(https://www.jevai.org/api/v1/decisions/ and https://thejevai.com/v1/systemone)
+with automatic deterministic heuristic fallbacks for offline / zero-latency execution.
+Complies with TradingOS 0.05 INR price tick rounding and market session validation.
 """
 
 import json
@@ -47,7 +49,7 @@ def round_tick_005(price: float) -> float:
 
 
 def is_ist_market_open(now_dt: datetime | None = None) -> bool:
-    """Checks whether current or provided datetime falls within Indian market hours.
+    """Checks whether current or provided datetime falls within market hours.
 
     (Monday-Friday 09:15 - 15:30 IST).
     """
@@ -83,7 +85,7 @@ class JevScoreQuestion:
 
     question_id: str
     instructions: str
-    levels: list[str]  # Ordered from low to high e.g. ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    levels: list[str]  # Ordered from low to high e.g. ["LOW", "MEDIUM", "HIGH"]
     question_type: str = "score"
 
 
@@ -109,7 +111,9 @@ class JevDecisionResult:
     is_offline_fallback: bool = False
     magic_number: int = MAGIC_NUMBER_JEV_AI
     timestamp: str = field(
-        default_factory=lambda: datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).isoformat()
+        default_factory=lambda: datetime.now(
+            zoneinfo.ZoneInfo("Asia/Kolkata")
+        ).isoformat()
     )
 
 
@@ -135,8 +139,8 @@ class JevAIDecisionEngine:
         request_timeout: float = 3.0,
         enable_offline_fallback: bool = True,  # noqa: FBT001, FBT002
     ) -> None:
-        """Initializes JevAIDecisionEngine with API configuration and fallback policies."""
-        self.api_key: str = api_key or os.getenv("JEV_API_KEY", "")
+        """Initializes JevAIDecisionEngine with API configuration and policies."""
+        self.api_key: str = api_key or os.getenv("JEV_API_KEY", "") or ""
         self.org_endpoint: str = org_endpoint
         self.systemone_endpoint: str = systemone_endpoint
         self.model: str = model
@@ -153,7 +157,7 @@ class JevAIDecisionEngine:
         policy: list[str],
         drawdown_pct: float = 0.0,
     ) -> dict[str, Any]:
-        """Evaluates whether a consequential trading tool call is allowed, needs confirmation, or is denied."""
+        """Evaluates whether a tool call is allowed, confirmed, or denied."""
         if self.api_key:
             payload = {
                 "tool": tool,
@@ -176,7 +180,7 @@ class JevAIDecisionEngine:
         # Deterministic Heuristic Fallback
         if drawdown_pct >= 2.0 or "emergency_halt" in action.lower():
             decision = "deny"
-            guidance = "Portfolio drawdown threshold reached or dangerous operation."
+            guidance = "Portfolio drawdown threshold reached or dangerous action."
         elif "cancel" in action.lower() or drawdown_pct > 1.0:
             decision = "confirm"
             guidance = "Requires explicit confirmation before execution."
@@ -215,7 +219,7 @@ class JevAIDecisionEngine:
                     "is_fallback": False,
                 }
 
-        # Deterministic Fallback: select candidate matching highest priority or first
+        # Deterministic Fallback: select candidate matching priority or first
         selected = candidates[0]["id"] if candidates else "default_engine"
         return {
             "selected_model": selected,
@@ -229,7 +233,7 @@ class JevAIDecisionEngine:
         evidence: list[str],
         stakes: str = "medium",
     ) -> dict[str, Any]:
-        """Verifies if market evidence supports a trade signal claim (accept, verify_more, reject)."""
+        """Verifies if market evidence supports a trade signal claim."""
         if self.api_key:
             payload = {
                 "claim": claim,
@@ -247,8 +251,10 @@ class JevAIDecisionEngine:
                 }
 
         # Deterministic Fallback
-        has_contradiction = any("fail" in e.lower() or "unclear" in e.lower() for e in evidence)
-        decision = "reject" if has_contradiction else "accept"
+        has_fail = any(
+            "fail" in e.lower() or "unclear" in e.lower() for e in evidence
+        )
+        decision = "reject" if has_fail else "accept"
         return {
             "decision": decision,
             "confidence": 0.88,
@@ -261,7 +267,7 @@ class JevAIDecisionEngine:
         completed_work: list[str],
         known_gaps: list[str],
     ) -> dict[str, Any]:
-        """Audits trade execution completion status (complete, verify_more, incomplete)."""
+        """Audits trade execution completion status."""
         if self.api_key:
             payload = {
                 "objective": objective,
@@ -302,7 +308,12 @@ class JevAIDecisionEngine:
             f"Trend: {trend_direction}, Session Open: {is_ist_market_open()}"
         )
 
-        choices = ["BULLISH_TREND", "BEARISH_TREND", "SIDEWAYS_RANGE", "HIGH_VOLATILITY_BREAKOUT"]
+        choices = [
+            "BULLISH_TREND",
+            "BEARISH_TREND",
+            "SIDEWAYS_RANGE",
+            "HIGH_VOLATILITY_BREAKOUT",
+        ]
 
         if self.api_key:
             api_payload = {
@@ -311,18 +322,20 @@ class JevAIDecisionEngine:
                 "questions": {
                     "regime": {
                         "type": "choice",
-                        "instructions": "Classify the market regime based on technical state.",
+                        "instructions": "Classify regime based on technical state.",
                         "options": choices,
                     }
                 },
             }
-            api_response = self._call_jev_api(self.systemone_endpoint, api_payload)
+            api_response = self._call_jev_api(
+                self.systemone_endpoint, api_payload
+            )
             if api_response and "answers" in api_response:
-                ans = api_response["answers"].get("regime", {})
+                answer = api_response["answers"].get("regime", {})
                 return {
-                    "regime": ans.get("selected_choice", "SIDEWAYS_RANGE"),
-                    "confidence": ans.get("confidence", 0.85),
-                    "probabilities": ans.get("probabilities", {}),
+                    "regime": answer.get("selected_choice", "SIDEWAYS_RANGE"),
+                    "confidence": answer.get("confidence", 0.85),
+                    "probabilities": answer.get("probabilities", {}),
                     "is_fallback": False,
                 }
 
@@ -338,7 +351,9 @@ class JevAIDecisionEngine:
         return {
             "regime": selected,
             "confidence": 0.90,
-            "probabilities": {c: (1.0 if c == selected else 0.0) for c in choices},
+            "probabilities": {
+                c: (1.0 if c == selected else 0.0) for c in choices
+            },
             "is_fallback": True,
         }
 
@@ -349,7 +364,7 @@ class JevAIDecisionEngine:
         portfolio_drawdown_pct: float,
         slippage_estimate_bps: float,
     ) -> dict[str, Any]:
-        """Scores trade risk severity on an ordered scale [LOW, MEDIUM, HIGH, CRITICAL]."""
+        """Scores trade risk severity on an ordered scale."""
         state_text = (
             f"Symbol: {symbol}, Size: {position_size_inr:.2f} INR, "
             f"Portfolio Drawdown: {portfolio_drawdown_pct:.2f}%, "
@@ -364,18 +379,20 @@ class JevAIDecisionEngine:
                 "questions": {
                     "risk_severity": {
                         "type": "score",
-                        "instructions": "Evaluate the risk severity level of the proposed position.",
+                        "instructions": "Evaluate risk severity of position.",
                         "levels": levels,
                     }
                 },
             }
-            api_response = self._call_jev_api(self.systemone_endpoint, api_payload)
+            api_response = self._call_jev_api(
+                self.systemone_endpoint, api_payload
+            )
             if api_response and "answers" in api_response:
-                ans = api_response["answers"].get("risk_severity", {})
+                answer = api_response["answers"].get("risk_severity", {})
                 return {
-                    "score_label": ans.get("score_label", "MEDIUM"),
-                    "score_value": ans.get("score_value", 2.0),
-                    "probabilities": ans.get("probabilities", {}),
+                    "score_label": answer.get("score_label", "MEDIUM"),
+                    "score_value": answer.get("score_value", 2.0),
+                    "probabilities": answer.get("probabilities", {}),
                     "is_fallback": False,
                 }
 
@@ -404,7 +421,9 @@ class JevAIDecisionEngine:
         return {
             "score_label": selected_label,
             "score_value": val,
-            "probabilities": {lvl: (1.0 if lvl == selected_label else 0.0) for lvl in levels},
+            "probabilities": {
+                lvl: (1.0 if lvl == selected_label else 0.0) for lvl in levels
+            },
             "is_fallback": True,
         }
 
@@ -416,10 +435,7 @@ class JevAIDecisionEngine:
         vix: float,
         portfolio_drawdown_pct: float,
     ) -> dict[str, Any]:
-        """Evaluates yes/no execution safety guardrail (Noul) for a proposed order.
-
-        Returns noul_value representing probability that the order is safe to execute.
-        """
+        """Evaluates yes/no execution safety guardrail (Noul) for an order."""
         sanitized_price = round_tick_005(order_price)
         state_text = (
             f"Order: {order_type} {order_symbol} @ {sanitized_price:.2f} INR, "
@@ -434,15 +450,17 @@ class JevAIDecisionEngine:
                 "questions": {
                     "is_safe_to_execute": {
                         "type": "noul",
-                        "instructions": "Is this proposed order safe to execute without exceeding risk parameters?",
-                        "criteria": "True if portfolio drawdown < 2.0% and market session is valid and price > 0",
+                        "instructions": "Is order safe to execute?",
+                        "criteria": "True if drawdown < 2% and price > 0",
                     }
                 },
             }
-            api_response = self._call_jev_api(self.systemone_endpoint, api_payload)
+            api_response = self._call_jev_api(
+                self.systemone_endpoint, api_payload
+            )
             if api_response and "answers" in api_response:
-                ans = api_response["answers"].get("is_safe_to_execute", {})
-                noul_val = float(ans.get("noul", 0.0))
+                answer = api_response["answers"].get("is_safe_to_execute", {})
+                noul_val = float(answer.get("noul", 0.0))
                 return {
                     "is_safe": noul_val >= 0.5,
                     "noul_prob": round(noul_val, 4),
@@ -470,10 +488,12 @@ class JevAIDecisionEngine:
         portfolio_drawdown_pct: float,
         slippage_bps: float,
     ) -> JevDecisionResult:
-        """Evaluates parallel Choice, Score, and Noul decisions across the given market state."""
+        """Evaluates Choice, Score, and Noul decisions across market state."""
         sanitized_price = round_tick_005(price)
 
-        regime_res = self.classify_market_regime(symbol, sanitized_price, vix, atr, rsi)
+        regime_res = self.classify_market_regime(
+            symbol, sanitized_price, vix, atr, rsi
+        )
         risk_res = self.score_trade_risk_severity(
             symbol, position_size_inr, portfolio_drawdown_pct, slippage_bps
         )
@@ -481,11 +501,16 @@ class JevAIDecisionEngine:
             symbol, "BUY", sanitized_price, vix, portfolio_drawdown_pct
         )
 
-        is_fallback = regime_res.get("is_fallback", True) or risk_res.get("is_fallback", True)
+        is_fallback = regime_res.get("is_fallback", True) or risk_res.get(
+            "is_fallback", True
+        )
 
         result = JevDecisionResult(
             request_id=f"JEV-DECISION-{int(datetime.now().timestamp() * 1000)}",
-            state_summary=f"{symbol} @ {sanitized_price:.2f} INR | VIX {vix} | DD {portfolio_drawdown_pct}%",
+            state_summary=(
+                f"{symbol} @ {sanitized_price:.2f} INR | "
+                f"VIX {vix} | DD {portfolio_drawdown_pct}%"
+            ),
             choices={"market_regime": regime_res},
             scores={"trade_risk_severity": risk_res},
             nouls={"execution_safety": safety_res},
@@ -496,7 +521,9 @@ class JevAIDecisionEngine:
         self.decision_history.append(result)
         return result
 
-    def _call_jev_api(self, endpoint: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    def _call_jev_api(
+        self, endpoint: str, payload: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Executes REST POST request to JEV AI endpoint."""
         if not self.api_key:
             return None
@@ -519,7 +546,12 @@ class JevAIDecisionEngine:
                 if response.status == 200:
                     data = response.read().decode("utf-8")
                     return json.loads(data)
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, Exception):
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            json.JSONDecodeError,
+            OSError,
+        ):
             if not self.enable_offline_fallback:
                 raise
         return None
@@ -603,7 +635,11 @@ class JevAIDecisionBrokerAdapter(SEBIBrokerAdapter):
         )
 
     def close_order(
-        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+        self,
+        ticket: str,
+        symbol: str,
+        exchange: str = "NSE",
+        product: str = "CNC",
     ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
@@ -633,12 +669,18 @@ class JevAIDecisionBrokerAdapter(SEBIBrokerAdapter):
         }
 
     def get_history(
-        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+        self,
+        symbol: str,
+        exchange: str = "NSE",
+        count: int = 100,
+        interval: str = "minute",
     ) -> list[dict[str, Any]]:
         """Gets price history for symbol."""
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
+    def get_current_price(
+        self, symbol: str, exchange: str = "NSE"
+    ) -> dict[str, float]:
         """Gets current bid/ask quote."""
         return {"bid": 100.0, "ask": 100.05, "last": 100.0}
 
@@ -648,4 +690,6 @@ class JevAIDecisionBrokerAdapter(SEBIBrokerAdapter):
 
 
 # Register adapter into microkernel plugin registry
-IndianBrokerPluginRegistry.register("JEV_AI_DECISION_ENGINE", JevAIDecisionBrokerAdapter)
+IndianBrokerPluginRegistry.register(
+    "JEV_AI_DECISION_ENGINE", JevAIDecisionBrokerAdapter
+)
