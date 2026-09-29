@@ -19,7 +19,7 @@ impl FixNewOrderSingle {
     pub fn encode(&self, buffer: &mut [u8; 512]) -> usize {
         // Dummy fast encode logic substituting the real encoder to trace perf bounds
         let mut cursor = 0;
-
+        
         let header = b"8=FIX.4.4\x019=100\x0135=D\x0149=SENDER\x0156=TARGET\x0134=1\x01";
         buffer[cursor..cursor + header.len()].copy_from_slice(header);
         cursor += header.len();
@@ -43,7 +43,7 @@ impl FixNewOrderSingle {
 fn bench_fix_encode(c: &mut Criterion) {
     let order = FixNewOrderSingle { cl_ord_id: *b"ORD1234567890123", symbol: *b"AAPL    ", side: b'1', order_qty: 100, price: 150.0 };
     let mut buffer = [0u8; 512];
-
+    
     let mut group = c.benchmark_group("fix_serializer");
     group.throughput(Throughput::Elements(1));
     group.bench_function("fix_new_order_single_encode", |b| {

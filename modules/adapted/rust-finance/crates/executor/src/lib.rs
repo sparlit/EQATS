@@ -29,7 +29,7 @@ pub struct ExecutorService {
 impl ExecutorService {
     pub async fn new(selector: Arc<relay::NodeSelector>, signer: Option<LocalSigner>) -> Self {
         let rpc_url = selector.get_best().await;
-
+        
         let alpaca = if let (Ok(api), Ok(sec)) = (std::env::var("ALPACA_API_KEY"), std::env::var("ALPACA_SECRET_KEY")) {
             Some(ingestion::alpaca_broker::AlpacaBroker::new(api, sec))
         } else {
@@ -50,10 +50,10 @@ impl ExecutorService {
             Action::Sell { token, size, confidence } => (token.clone(), *size, *confidence),
             Action::Hold => return Ok(Signature::default()),
         };
-
+        
         // --- 1. ROUTING DIFFERENTIAL: CRYPTO VS EQUITIES ---
         let is_crypto = token.starts_with('$') || token.ends_with("USDC") || token.ends_with("SOL");
-
+        
         if !is_crypto {
             info!("Routing Equity/Fiat execution to Alpaca Broker for {}", token);
             if let Some(alpaca) = &self.alpaca {
@@ -62,7 +62,7 @@ impl ExecutorService {
                     Action::Sell { .. } => "sell",
                     _ => "",
                 };
-
+                
                 let req = ingestion::alpaca_broker::AlpacaOrderRequest {
                     symbol: token.clone(),
                     qty: size,
@@ -70,7 +70,7 @@ impl ExecutorService {
                     type_: "market".to_string(),
                     time_in_force: "gtc".to_string(),
                 };
-
+                
                 match alpaca.submit_order(req).await {
                     Ok(resp) => {
                         info!("Alpaca Order Filled: ID {} @ {}", resp.id, resp.status);
@@ -86,10 +86,10 @@ impl ExecutorService {
 
         // --- 2. CRYPTO ROUTE (SOLANA RPC) ---
         let signer = self.signer.as_ref().context("No signer configured for crypto execution")?;
-
+        
         // --- 2A. PRE-TRADE BALANCE CHECK ---
         let rpc_client = self.rpc_client.clone();
-
+        
         let pubkey = signer.pubkey();
         match timeout(Duration::from_secs(3), rpc_client.get_balance(&pubkey)).await {
             Ok(Ok(lamports)) => {
@@ -128,9 +128,9 @@ impl ExecutorService {
         // 1. Priority Fees (Compute Budget)
         ixs.push(solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_limit(200_000));
         ixs.push(solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(100_000)); // 100k microlamports
-
+        
         // 2. Real implementation would include Swap instructions
-        Ok(ixs)
+        Ok(ixs) 
     }
 
     fn build_sell_instructions(&self, _token: &str, _size: f64) -> Result<Vec<Instruction>> {
@@ -153,21 +153,21 @@ impl ExecutorService {
 
         // 1. Fetch blockhash (In production, subscribe to slot updates for zero-latency hash)
         let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
-
+        
         // 2. Build & Sign
         let mut tx = Transaction::new_with_payer(&instructions, Some(&signer.pubkey()));
         tx.message.recent_blockhash = recent_blockhash;
         signer.sign_transaction(&mut tx);
-
+        
         // 3. Send (Use send_transaction for signed transactions)
         let signature = self.rpc_client.send_transaction(&tx).await
             .context("Failed to send transaction")?;
-
+        
         info!("Transaction sent: {}", signature);
-
+        
         // 4. Async confirmation (Don't block the executor task if possible)
         // For now we just return the signature. Confirmation can be monitored by a separate service.
-
+        
         Ok(signature)
     }
 }
