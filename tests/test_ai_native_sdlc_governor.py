@@ -81,6 +81,56 @@ def test_advance_phase() -> None:
     assert governor.artifacts["SPEC"] == "docs/spec.md"
 
 
+def test_pr_review_passes() -> None:
+    """Tests multi-pass PR review evaluation with 5-nit cap enforcement."""
+    governor = AINativeSDLCGovernor()
+    nits = ["nit1", "nit2", "nit3", "nit4", "nit5", "nit6", "nit7"]
+
+    # Passing review
+    res_pass = governor.evaluate_pr_review_passes(
+        pr_id="PR-101",
+        bugs=[],
+        security_vulnerabilities=[],
+        compliance_gaps=[],
+        nits=nits,
+    )
+    assert res_pass["approved"] is True
+    assert len(res_pass["capped_nits"]) == 5
+    assert res_pass["exceeded_nit_cap"] is True
+
+    # Failing review
+    res_fail = governor.evaluate_pr_review_passes(
+        pr_id="PR-102",
+        bugs=["Off-by-one index error"],
+        security_vulnerabilities=[],
+        compliance_gaps=[],
+        nits=[],
+    )
+    assert res_fail["approved"] is False
+    assert res_fail["status"] == "REJECTED_PR_REVIEW_FAIL"
+
+
+def test_incident_intent_generation() -> None:
+    """Tests closed-loop incident intent generation."""
+    governor = AINativeSDLCGovernor()
+    intent = governor.generate_incident_intent("DRAWDOWN_PCT", {"current_dd": 2.5})
+    assert "Incident Remediation" in intent["title"]
+    assert len(governor.generated_intents) == 1
+
+
+def test_ci_eval_suite_evaluation() -> None:
+    """Tests continuous CI eval suite pass-rate benchmarking."""
+    governor = AINativeSDLCGovernor()
+    evals = [{"id": f"eval_{i}", "passed": True} for i in range(9)] + [{"id": "eval_9", "passed": False}]
+
+    res_pass = governor.evaluate_ci_eval_suite(evals, min_pass_rate_pct=90.0)
+    assert res_pass["passed"] is True
+    assert res_pass["pass_rate_pct"] == 90.0
+
+    res_fail = governor.evaluate_ci_eval_suite(evals, min_pass_rate_pct=95.0)
+    assert res_fail["passed"] is False
+
+
 def test_production_gate_evaluation() -> None:
     """Tests production release safety gate evaluation."""
     governor = AINativeSDLCGovernor()
@@ -120,6 +170,7 @@ def test_production_gate_evaluation() -> None:
     )
     assert res_breach["allowed"] is False
     assert res_breach["gate_status"] == "REJECTED_CONTROL_BAND_BREACH"
+    assert len(governor.generated_intents) == 1
 
 
 def test_broker_adapter_integration() -> None:

@@ -2,13 +2,16 @@
 # codespell:ignore IST,ans
 """AI-Native SDLC Governor for EQATS.
 
-Target Integration: bashebr/ai-native-sdlc
+Target Integration: bashebr/ai-native-sdlc & Anthropic AI-Native SDLC Playbook
 Magic Number: 9100089
 
 Adapts Anthropic's AI-Native SDLC playbook into EQATS:
 - Lifecycle Artifact State Machine (Plan -> Design -> Build -> Test -> Deploy -> Maintain)
 - Hash-Chained Gate Ledger (Cryptographic approval verification for production release gates)
 - Control Band Anomaly Monitor (1-sigma log, 2-sigma diagnose, 3-sigma auto-intent trigger)
+- Automated Incident Intent Generator (Stage 6 Maintain -> Stage 1 Plan closed-loop feedback)
+- Multi-Pass PR Review Gate (Bugs, Security, Compliance against spec/plan, 5-nit cap enforcement)
+- Continuous CI Eval Suite Benchmark Verification (Stage 4 Test)
 - Production Safety Release Gate (Ensures live execution never crosses unauthorized bounds)
 
 Complies with TradingOS 0.05 INR price tick rounding and IST market session validation.
@@ -181,6 +184,9 @@ class AINativeSDLCGovernor:
     Provides:
     - Phase artifact state tracking (intent -> spec -> plan -> build -> test -> deploy -> maintain).
     - Immutable gate ledger verification.
+    - Multi-pass PR review gate (Bugs, Security, Compliance, 5-nit cap).
+    - Closed-loop incident intent generation (Stage 6 Maintain -> Stage 1 Plan).
+    - Continuous CI eval suite pass-rate benchmarking.
     - Production release gate protection.
     - Control band metric anomaly monitoring.
     """
@@ -194,6 +200,7 @@ class AINativeSDLCGovernor:
             ControlBandRule("SLIPPAGE_BPS", target_value=5.0, one_sigma=10.0, two_sigma=20.0, three_sigma=50.0),
         ])
         self.artifacts: dict[str, str] = {}
+        self.generated_intents: list[dict[str, Any]] = []
 
     def advance_phase(self, target_phase: str, artifact_path: str, approver: str) -> bool:
         """Advances lifecycle phase upon recording valid approval in gate ledger."""
@@ -206,6 +213,87 @@ class AINativeSDLCGovernor:
             self.artifacts[target_phase] = artifact_path
             return True
         return False
+
+    def evaluate_pr_review_passes(
+        self,
+        pr_id: str,
+        bugs: list[str],
+        security_vulnerabilities: list[str],
+        compliance_gaps: list[str],
+        nits: list[str],
+    ) -> dict[str, Any]:
+        """Evaluates multi-pass PR review (Bugs, Security, Compliance against spec/plan, 5-nit cap)."""
+        has_critical_issue = bool(bugs or security_vulnerabilities or compliance_gaps)
+        capped_nits = nits[:5]
+        exceeded_nit_cap = len(nits) > 5
+
+        status = "REJECTED_PR_REVIEW_FAIL" if has_critical_issue else "APPROVED_PR_REVIEW_PASS"
+        reason = "Passes clean"
+        if bugs:
+            reason = f"Bugs detected: {len(bugs)}"
+        elif security_vulnerabilities:
+            reason = f"Security vulnerabilities detected: {len(security_vulnerabilities)}"
+        elif compliance_gaps:
+            reason = f"Compliance gaps detected: {len(compliance_gaps)}"
+
+        payload = {
+            "pr_id": pr_id,
+            "bug_count": len(bugs),
+            "security_count": len(security_vulnerabilities),
+            "compliance_count": len(compliance_gaps),
+            "total_nits": len(nits),
+            "reported_nits": capped_nits,
+        }
+        self.ledger.record_approval("PR_REVIEW_GATE", "REVIEW_AGENT", status, payload)
+
+        return {
+            "approved": not has_critical_issue,
+            "status": status,
+            "reason": reason,
+            "capped_nits": capped_nits,
+            "exceeded_nit_cap": exceeded_nit_cap,
+        }
+
+    def generate_incident_intent(self, metric_name: str, breach_details: dict[str, Any]) -> dict[str, Any]:
+        """Generates a structured intent.md record when 3-sigma control band breaches occur (Maintain -> Plan loop)."""
+        ts = datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).isoformat()
+        intent_data = {
+            "title": f"Incident Remediation: {metric_name} Breach",
+            "originator": "CONTROL_BAND_MONITOR",
+            "timestamp": ts,
+            "metric": metric_name,
+            "details": breach_details,
+            "intent_markdown": (
+                f"# Intent: Incident Remediation - {metric_name}\n"
+                f"Author: ControlBandMonitor (Stage 6 Maintain)\n"
+                f"Timestamp: {ts}\n\n"
+                f"## Problem\nControl band 3-sigma breach detected on metric {metric_name}.\n"
+                f"Details: {json.dumps(breach_details)}\n\n"
+                f"## Proposed Outcome\nRebalance risk parameters and trigger strategy mutation or rollback.\n"
+            ),
+        }
+        self.generated_intents.append(intent_data)
+        self.ledger.record_approval("INCIDENT_INTENT_CREATED", "MONITOR_AGENT", "CREATED", intent_data)
+        return intent_data
+
+    def evaluate_ci_eval_suite(self, eval_results: list[dict[str, Any]], min_pass_rate_pct: float = 90.0) -> dict[str, Any]:
+        """Evaluates continuous CI eval suite benchmarks before merging or deploying (Stage 4 Test)."""
+        total = max(1, len(eval_results))
+        passed = sum(1 for e in eval_results if e.get("passed", False))
+        pass_rate = (passed / total) * 100.0
+
+        is_passed = pass_rate >= min_pass_rate_pct
+        status = "PASSED_EVAL_SUITE" if is_passed else "FAILED_EVAL_SUITE"
+
+        payload = {"total_evals": total, "passed_evals": passed, "pass_rate_pct": pass_rate}
+        self.ledger.record_approval("CI_EVAL_SUITE_GATE", "TEST_AGENT", status, payload)
+
+        return {
+            "passed": is_passed,
+            "status": status,
+            "pass_rate_pct": round(pass_rate, 2),
+            "min_required_pct": min_pass_rate_pct,
+        }
 
     def evaluate_production_gate(  # noqa: PLR0917
         self,
@@ -224,6 +312,10 @@ class AINativeSDLCGovernor:
         slip_eval = self.monitor.evaluate_metric("SLIPPAGE_BPS", slippage_bps)
 
         is_halted = dd_eval["band"] == "3_SIGMA_BREACH" or slip_eval["band"] == "3_SIGMA_BREACH"
+
+        if is_halted:
+            # Auto-generate incident intent for closed-loop maintainer
+            self.generate_incident_intent("3_SIGMA_CONTROL_BAND", {"drawdown": drawdown_pct, "slippage": slippage_bps})
 
         if not is_human_authorized:
             gate_status = "REJECTED_UNAUTHORIZED"
