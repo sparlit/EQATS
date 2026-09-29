@@ -1,5 +1,5 @@
 {
-  "current_index": 44,
+  "current_index": 45,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -357,7 +357,7 @@
       "name": "nse-india",
       "target": "api-evangelist/nse-india",
       "url": "https://github.com/api-evangelist/nse-india",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
