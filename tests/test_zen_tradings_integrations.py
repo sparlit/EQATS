@@ -13,6 +13,7 @@ Covers:
 - autoresearch_macos_zen_engine (9100099)
 """
 
+import zoneinfo
 from datetime import datetime
 
 from institutional_integrations.autoresearch_macos_zen_engine import (

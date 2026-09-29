@@ -82,9 +82,7 @@ class ZenCodingEngine:
     def inspect_code_guardrails(self, code_snippet: str) -> tuple[bool, list[str]]:
         """Inspects code for prohibited execution calls or unsafe patterns."""
         violations = [
-            f"Forbidden call pattern detected: {pattern}"
-            for pattern in self.blocked_imports
-            if pattern in code_snippet
+            f"Forbidden call pattern detected: {pattern}" for pattern in self.blocked_imports if pattern in code_snippet
         ]
         return (len(violations) == 0, violations)
 
@@ -114,7 +112,9 @@ class ZenCodingEngine:
         self.traces[session_id] = trace
         return trace
 
-    def evaluate_quant_task(self, session_id: str, code_snippet: str, test_cases_passed: int, total_test_cases: int) -> dict[str, Any]:
+    def evaluate_quant_task(
+        self, session_id: str, code_snippet: str, test_cases_passed: int, total_test_cases: int
+    ) -> dict[str, Any]:
         """Evaluates quant research code execution against benchmark unit test suite."""
         is_safe, violations = self.inspect_code_guardrails(code_snippet)
         pass_ratio = test_cases_passed / max(1, total_test_cases)

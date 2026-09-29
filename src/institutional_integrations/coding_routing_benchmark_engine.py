@@ -107,7 +107,7 @@ class CodingRoutingBenchmarkEngine:
             best_model = max(all_cat, key=lambda x: x.pass_rate)
         else:
             # Sort by pass_rate / cost efficiency score
-            best_model = max(eligible, key=lambda x: (x.pass_rate / max(0.0001, x.cost_per_1k_tokens)))
+            best_model = max(eligible, key=lambda x: x.pass_rate / max(0.0001, x.cost_per_1k_tokens))
 
         return {
             "task_category": task_category,
