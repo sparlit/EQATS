@@ -70,7 +70,11 @@ def predict_one(conn, symbol):
         1 if c[-1] > np.mean(c[-50:]) else 0,
         1 if c[-1] > np.mean(c[-200:]) else 0,
     ]
-    bundle = joblib.load("data/ml_models.pkl")
+    try:
+        bundle = joblib.load("data/ml_models.pkl")
+    except Exception as e:
+        print(f"[DEEPDIVE] ml_models.pkl unavailable: {e}")
+        return None
     p6 = float(bundle["m6"].predict(np.array([feat]))[0])
     p12 = float(bundle["m12"].predict(np.array([feat]))[0])
     final = round(50 * p6 + 50 * p12, 1)
@@ -129,25 +133,32 @@ def score_one(conn, symbol):
 
 def ensure_symbol(symbol):
     conn = db.get_conn()
-    have = conn.execute("SELECT COUNT(*) FROM prices_daily WHERE symbol=?", (symbol,)).fetchone()[0]
-    if have < 100:
-        n = download_prices(conn, symbol)
-        if n == 0:
-            conn.close()
-            return False
-    havef = conn.execute("SELECT COUNT(*) FROM fundamentals WHERE symbol=?", (symbol,)).fetchone()[0]
-    if havef == 0:
-        import fundamentals_compute as fc
+    try:
+        have = conn.execute("SELECT COUNT(*) FROM prices_daily WHERE symbol=?", (symbol,)).fetchone()[0]
+        if have < 100:
+            n = download_prices(conn, symbol)
+            if n == 0:
+                return False
+        havef = conn.execute("SELECT COUNT(*) FROM fundamentals WHERE symbol=?", (symbol,)).fetchone()[0]
+        if havef == 0:
+            try:
+                import fundamentals_compute as fc
 
-        nm = conn.execute("SELECT name FROM universe_broad WHERE symbol=?", (symbol,)).fetchone()
-        name = nm[0] if nm else symbol
-        sc = conn.execute("SELECT sector FROM stocks WHERE symbol=?", (symbol,)).fetchone()
-        sector = sc[0] if sc else None
+                nm = conn.execute("SELECT name FROM universe_broad WHERE symbol=?", (symbol,)).fetchone()
+                name = nm[0] if nm else symbol
+                sc = conn.execute("SELECT sector FROM stocks WHERE symbol=?", (symbol,)).fetchone()
+                sector = sc[0] if sc else None
+                fc.fetch_one(conn, symbol, name, sector)
+            except Exception as e:
+                print(f"[DEEPDIVE] fundamentals skipped: {e}")
         try:
-            fc.fetch_one(conn, symbol, name, sector)
+            predict_one(conn, symbol)
         except Exception as e:
-            print("fundamentals failed:", e)
-    predict_one(conn, symbol)
-    score_one(conn, symbol)
-    conn.close()
+            print(f"[DEEPDIVE] predict skipped: {e}")
+        try:
+            score_one(conn, symbol)
+        except Exception as e:
+            print(f"[DEEPDIVE] score skipped: {e}")
+    finally:
+        conn.close()
     return True

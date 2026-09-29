@@ -22,15 +22,17 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """
-Hiren Gabani Master Pullback — OFFICIAL v3 + shape score.
-6-point checklist + mother-candle trigger + PDL stop + 5% rule
-+ 3-session recency + pullback orderliness grade (0-100).
+Hiren Gabani Master Pullback — reads all thresholds from
+strategy_config.SETUP. Change values there, not here.
+
+v3.5 (2026-09-12): thresholds migrated to central config.
 """
 from dataclasses import dataclass, field
 from typing import List
 
 import numpy as np
 import pandas as pd
+from strategy_config import SETUP as CFG
 
 
 @dataclass
@@ -53,26 +55,27 @@ class Setup:
 
 
 class SetupDetector:
-    IMPULSE_LOOKBACK = 90
-    IMPULSE_MIN_PCT = 0.25
-    IMPULSE_MAX_PCT = 0.50
-    PB_LOOKBACK = 25
-    PB_MIN_PCT = 0.12
-    PB_MAX_PCT = 0.20
-    PB_MIN_DAYS = 6
-    PB_MAX_DAYS = 15
-    CRASH_WINDOW = 3
-    CRASH_MAX_PCT = 0.15
-    EMA10 = 10
-    EMA20 = 20
-    EMA_TOUCH_MULT = 0.03
-    VOL_SMA_DAYS = 20
-    TIGHT_ATR_MULT = 0.9
-    TIGHT_MAX_RUN_BACK = 4
-    TIGHT_MIN = 2
-    MAX_STOP_PCT = 0.05
-    TARGET_R_MULTIPLE = 2.0
-    MAX_SHIFT = 2
+    IMPULSE_LOOKBACK = CFG["IMPULSE_LOOKBACK"]
+    IMPULSE_MIN_PCT = CFG["IMPULSE_MIN_PCT"]
+    IMPULSE_MAX_PCT = CFG["IMPULSE_MAX_PCT"]
+    EMA10_BREAK_TOL = CFG["EMA10_BREAK_TOL"]
+    PB_LOOKBACK = CFG["PB_LOOKBACK"]
+    PB_MIN_PCT = CFG["PB_MIN_PCT"]
+    PB_MAX_PCT = CFG["PB_MAX_PCT"]
+    PB_MIN_DAYS = CFG["PB_MIN_DAYS"]
+    PB_MAX_DAYS = CFG["PB_MAX_DAYS"]
+    CRASH_WINDOW = CFG["CRASH_WINDOW"]
+    CRASH_MAX_PCT = CFG["CRASH_MAX_PCT"]
+    EMA10 = CFG["EMA10"]
+    EMA20 = CFG["EMA20"]
+    EMA_TOUCH_MULT = CFG["EMA_TOUCH_MULT"]
+    VOL_SMA_DAYS = CFG["VOL_SMA_DAYS"]
+    TIGHT_ATR_MULT = CFG["TIGHT_ATR_MULT"]
+    TIGHT_MAX_RUN_BACK = CFG["TIGHT_MAX_RUN_BACK"]
+    TIGHT_MIN = CFG["TIGHT_MIN"]
+    MAX_STOP_PCT = CFG["MAX_STOP_PCT"]
+    TARGET_R_MULTIPLE = CFG["TARGET_R_MULTIPLE"]
+    MAX_SHIFT = CFG["MAX_SHIFT"]
 
     @classmethod
     def detect(cls, df: pd.DataFrame, symbol: str) -> Setup:
@@ -83,7 +86,7 @@ class SetupDetector:
             res = cls._eval(df.iloc[:n], symbol)
             if res is not None:
                 return res
-        return Setup(symbol, False, "", 0, 0, 0, 0, 0, 0, 0, 0, "", ["no completed pattern in last 3 sessions"])
+        return Setup(symbol, False, "", 0, 0, 0, 0, 0, 0, 0, 0, "", 0, ["no completed pattern in last 3 sessions"])
 
     @classmethod
     def _eval(cls, df: pd.DataFrame, symbol: str):
@@ -91,39 +94,44 @@ class SetupDetector:
         h = df["High"].values.astype(float)
         l = df["Low"].values.astype(float)
         v = df["Volume"].values.astype(float)
+        n = len(c)
 
         ema10 = pd.Series(c).ewm(span=cls.EMA10, adjust=False).mean().values
         ema20 = pd.Series(c).ewm(span=cls.EMA20, adjust=False).mean().values
         vol_sma20 = pd.Series(v).rolling(cls.VOL_SMA_DAYS).mean().values
 
         trs = []
-        for i in range(1, len(c)):
+        for i in range(1, n):
             trs.append(max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1])))
         atr14 = float(np.mean(trs[-14:])) if len(trs) >= 14 else None
 
-        # --- 1. Impulse 25-50%, clean above 10 EMA ---
-        impulse_end_idx = -cls.PB_LOOKBACK
-        seg = h[impulse_end_idx - cls.IMPULSE_LOOKBACK : impulse_end_idx]
-        swing_high = float(np.max(seg))
-        swing_high_idx = int(np.argmax(seg)) + impulse_end_idx - cls.IMPULSE_LOOKBACK
-        swing_low_before = float(np.min(l[max(0, swing_high_idx - 40) : swing_high_idx + 1]))
+        win_end = n - cls.PB_LOOKBACK
+        win_start = win_end - cls.IMPULSE_LOOKBACK
+        if win_start < 0:
+            return None
+        seg_h = h[win_start:win_end]
+        sh_local = int(np.argmax(seg_h))
+        swing_high = float(seg_h[sh_local])
+        swing_high_idx = win_start + sh_local
+        low_start = max(0, swing_high_idx - 40)
+        swing_low_before = float(np.min(l[low_start : swing_high_idx + 1]))
+        if swing_low_before <= 0:
+            return None
         impulse_pct = (swing_high - swing_low_before) / swing_low_before
         if not (cls.IMPULSE_MIN_PCT <= impulse_pct <= cls.IMPULSE_MAX_PCT):
             return None
-        ic = c[swing_high_idx : impulse_end_idx + 1]
-        ie = ema10[swing_high_idx : impulse_end_idx + 1]
-        if int(np.sum(ic < ie)) > max(2, int(0.25 * len(ic))):
+        ic = c[swing_high_idx : win_end + 1]
+        ie = ema10[swing_high_idx : win_end + 1]
+        if int(np.sum(ic < ie)) > max(2, int(cls.EMA10_BREAK_TOL * len(ic))):
             return None
 
-        # --- 2. Pullback 12-20% ---
-        pb_window = h[impulse_end_idx:]
+        pb_window = h[win_end:]
         recent_high = float(np.max(pb_window))
         current_low = float(l[-1])
         pb_depth = (recent_high - current_low) / recent_high
         if not (cls.PB_MIN_PCT <= pb_depth <= cls.PB_MAX_PCT):
             return None
 
-        # --- 3. Orderly 6-15d, no hard crash ---
         pb_days = len(pb_window) - 1 - int(np.argmax(pb_window))
         if not (cls.PB_MIN_DAYS <= pb_days <= cls.PB_MAX_DAYS):
             return None
@@ -132,7 +140,6 @@ class SetupDetector:
             if base and (base - l[i]) / base >= cls.CRASH_MAX_PCT:
                 return None
 
-        # --- Shape score: orderliness of the pullback (0-100) ---
         pseg = c[swing_high_idx:]
         shape = 0
         if len(pseg) > 4:
@@ -143,7 +150,6 @@ class SetupDetector:
             s_vol = max(0.0, min(1.0, 1 - vol / 0.03))
             shape = int(100 * (0.5 * s_drop + 0.5 * s_vol))
 
-        # --- 4. Tighten at 10/20 EMA ---
         near10 = abs(current_low - ema10[-1]) / ema10[-1] <= cls.EMA_TOUCH_MULT
         near20 = abs(current_low - ema20[-1]) / ema20[-1] <= cls.EMA_TOUCH_MULT
         in_zone = current_low <= ema10[-1] * 1.02 and current_low >= ema20[-1] * 0.98
@@ -151,13 +157,11 @@ class SetupDetector:
             return None
         ema_proximity = "EMA10" if near10 else ("EMA20" if near20 else "ZONE")
 
-        # --- 5. Volume dry-up ---
         vol_now = vol_sma20[-1]
         avg3 = float(np.mean(v[-3:]))
         if np.isnan(vol_now) or not (avg3 < 0.8 * vol_now or v[-1] < 0.7 * vol_now):
             return None
 
-        # --- 6. Mother candle: tight cluster OR inside bar ---
         def is_tight(i):
             inside = h[i] < h[i - 1] and l[i] > l[i - 1]
             narrow = atr14 is not None and (h[i] - l[i]) <= cls.TIGHT_ATR_MULT * atr14
@@ -178,7 +182,6 @@ class SetupDetector:
         mother_bar_high = float(h[mother_idx])
         mother_bar_low = float(l[mother_idx])
 
-        # --- Phase 3: trigger, PDL stop, 5% rule ---
         entry_price = mother_bar_high
         stop_loss = float(l[-1])
         if stop_loss >= entry_price:
@@ -203,5 +206,5 @@ class SetupDetector:
             impulse_pct=round(impulse_pct, 3),
             ema_proximity=ema_proximity,
             shape_score=shape,
-            reasons=[("OFFICIAL v3: pattern within last 3 sessions, SL=PDL, risk<=5%")],
+            reasons=["thresholds from strategy_config.SETUP"],
         )
