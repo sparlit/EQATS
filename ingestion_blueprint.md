@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 21
+Total Repositories: 413 | Current Index: 23
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -414,3 +414,5 @@ Total Repositories: 411 | Current Index: 21
 | 409 | yusuf4030/the-data-analyst-toolkit | pending | None |
 | 410 | yutiansut/qaaccount-rs | pending | None |
 | 411 | bennyjo/phil | completed | None |
+| 412 | jev-ai/jev-ai | completed | None |
+| 413 | bashebr/ai-native-sdlc | completed | None |

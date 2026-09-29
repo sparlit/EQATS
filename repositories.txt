@@ -409,3 +409,5 @@ yswa-var/rrg
 yusuf4030/the-data-analyst-toolkit
 yutiansut/qaaccount-rs
 bennyjo/phil
+jev-ai/jev-ai
+bashebr/ai-native-sdlc
