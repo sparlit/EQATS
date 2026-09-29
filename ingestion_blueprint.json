@@ -1,5 +1,5 @@
 {
-  "current_index": 65,
+  "current_index": 66,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -525,7 +525,7 @@
       "name": "stockmart",
       "target": "ayushmaanbhav/stockmart",
       "url": "https://github.com/ayushmaanbhav/stockmart",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
