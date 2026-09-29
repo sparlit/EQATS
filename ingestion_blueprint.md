@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 411 | Current Index: 23
+Total Repositories: 411 | Current Index: 20
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -22,10 +22,10 @@ Total Repositories: 411 | Current Index: 23
 | 17 | ai4finance-foundation/finrl-trading | Completed | https://github.com/sparlit/EQATS/pull/2811 |
 | 18 | ajakaiye33/ngrcoydisclosures | Processed | https://github.com/sparlit/EQATS/pull/2812 |
 | 19 | ajeeshworkspace/indian-trading-skills | Skipped: Private/Non-Existent (404/403) | None |
-| 20 | akashnag/scripwatch | Completed | None |
-| 21 | akashyadavv/algotradingnse | Processed | https://github.com/sparlit/EQATS/pull/2816 |
-| 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2817 |
-| 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2818 |
+| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2815 |
+| 21 | akashyadavv/algotradingnse | pending | None |
+| 22 | akshaypawar7/wods | pending | None |
+| 23 | akshayraje/get-nse-bhavcopy | pending | None |
 | 24 | akshayz14/indian-stock-tracker | pending | None |
 | 25 | akt114/buynsell | pending | None |
 | 26 | alexwan/osengine | pending | None |
