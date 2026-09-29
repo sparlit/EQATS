@@ -1,5 +1,5 @@
 {
-  "current_index": 41,
+  "current_index": 42,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -333,7 +333,7 @@
       "name": "rust-trading-engine",
       "target": "anthdm/rust-trading-engine",
       "url": "https://github.com/anthdm/rust-trading-engine",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
