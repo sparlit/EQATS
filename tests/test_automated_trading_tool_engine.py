@@ -1,11 +1,10 @@
+# codespell:ignore IST,ist,multistratey
 """
 Unit tests for Automated Trading Tool Suite Engine (`src/institutional_integrations/automated_trading_tool_engine.py`).
 """
 
 import datetime
 import zoneinfo
-
-import pytest
 
 from institutional_integrations.automated_trading_tool_engine import (
     MAGIC_NUMBER_DISPATCHER,
@@ -20,6 +19,7 @@ from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginReg
 
 
 def test_round_to_ist_tick():
+    """Test 0.05 INR price tick rounding."""
     assert round_to_ist_tick(100.03) == 100.05
     assert round_to_ist_tick(100.02) == 100.00
     assert round_to_ist_tick(100.07) == 100.05
@@ -27,6 +27,7 @@ def test_round_to_ist_tick():
 
 
 def test_is_ist_market_session_active():
+    """Test IST market session active time range check."""
     ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     # Tuesday 10:30 AM IST -> Active
     active_dt = datetime.datetime(2025, 3, 11, 10, 30, tzinfo=ist)
@@ -42,6 +43,7 @@ def test_is_ist_market_session_active():
 
 
 def test_automated_execution_risk_router():
+    """Test iceberg order slicing and portfolio position limit risk checks."""
     router = AutomatedExecutionRiskRouter(max_slice_lot=10.0, max_position_limit=100000.0)
     ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     active_dt = datetime.datetime(2025, 3, 11, 11, 0, tzinfo=ist)
@@ -76,7 +78,8 @@ def test_automated_execution_risk_router():
     assert "Position limit exceeded" in res_limit["reason"]
 
 
-def test_multistratey_agentic_signal_dispatcher():
+def test_multistrategy_agentic_signal_dispatcher():
+    """Test multi-factor signal dispatcher decision output."""
     dispatcher = MultiStrategyAgenticSignalDispatcher(rsi_period=14, fast_ma=5, slow_ma=10)
     ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     active_dt = datetime.datetime(2025, 3, 11, 11, 0, tzinfo=ist)
@@ -92,6 +95,7 @@ def test_multistratey_agentic_signal_dispatcher():
 
 
 def test_automated_trading_tool_adapter():
+    """Test AutomatedTradingToolAdapter order execution, modification, and microkernel registration."""
     adapter = AutomatedTradingToolAdapter(is_sandbox=True)
     assert adapter.connect() is True
     assert adapter.is_connected() is True

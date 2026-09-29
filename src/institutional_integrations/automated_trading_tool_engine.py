@@ -1,3 +1,4 @@
+# codespell:ignore IST,ist
 """
 Automated Trading Tool Suite & Institutional Integration Adapter Core
 =====================================================================
@@ -16,7 +17,7 @@ Provides an integrated institutional automated trading engine combining:
 import datetime
 import logging
 import zoneinfo
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -81,7 +82,10 @@ class AutomatedExecutionRiskRouter:
         if current_portfolio_value + order_notional > self.max_position_limit:
             return {
                 "approved": False,
-                "reason": f"Position limit exceeded ({current_portfolio_value + order_notional:.2f} > {self.max_position_limit})",
+                "reason": (
+                    f"Position limit exceeded ({current_portfolio_value + order_notional:.2f} > "
+                    f"{self.max_position_limit})"
+                ),
                 "slices": [],
                 "magic_number": MAGIC_NUMBER_ROUTER,
             }
@@ -138,6 +142,7 @@ class MultiStrategyAgenticSignalDispatcher:
         self.slow_ma = slow_ma
 
     def compute_rsi(self, prices: list[float]) -> float:
+        """Computes Relative Strength Index (RSI) for input price series."""
         if len(prices) < self.rsi_period + 1:
             return 50.0
         gains = []
@@ -162,7 +167,7 @@ class MultiStrategyAgenticSignalDispatcher:
         self, symbol: str, prices: list[float], current_price: float, dt: datetime.datetime | None = None
     ) -> dict[str, Any]:
         """
-        Generates automated trading decision.
+        Generates automated trading decision based on technical strategy signals.
         """
         rounded_price = round_to_ist_tick(current_price)
         active_session = is_ist_market_session_active(dt)
@@ -222,18 +227,22 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
         self.orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
+        """Connects the adapter and sets active state."""
         self._is_connected = True
         logger.info("AutomatedTradingToolAdapter connected.")
         return True
 
     def is_connected(self) -> bool:
+        """Returns connection status."""
         return self._is_connected
 
     def disconnect(self) -> bool:
+        """Disconnects the adapter."""
         self._is_connected = False
         return True
 
     def get_account_info(self) -> dict[str, Any]:
+        """Returns current account balance and margin limits."""
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -245,6 +254,7 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
+        """Returns simulated OHLCV historical price bars."""
         bars = []
         base = 2500.0 if "RELIANCE" in symbol.upper() else 1000.0
         now = datetime.datetime.now().timestamp()
@@ -264,11 +274,13 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
         return bars
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
+        """Returns bid, ask, and last price quotes."""
         base = 2500.0 if "RELIANCE" in symbol.upper() else 1000.0
         rounded = round_to_ist_tick(base)
         return {"bid": rounded, "ask": round_to_ist_tick(rounded + 0.05), "last": rounded}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
+        """Executes an order after risk validation and volume slicing."""
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         price = round_to_ist_tick(req.price if req.price > 0 else 1000.0)
@@ -316,6 +328,7 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
         )
 
     def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+        """Closes or squares off an open order."""
         if ticket in self.orders:
             self.orders.pop(ticket)
         return SEBIOrderResponse(
@@ -328,6 +341,7 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
         )
 
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+        """Modifies order price parameters."""
         if ticket in self.orders:
             if price > 0:
                 self.orders[ticket]["price"] = round_to_ist_tick(price)
@@ -335,6 +349,7 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
         return False
 
     def get_open_orders(self) -> list[dict[str, Any]]:
+        """Returns active open orders."""
         return list(self.orders.values())
 
 
