@@ -160,7 +160,7 @@ class TestKernelIntegration:
         result = run_strategy_backtest(Recorder, **data, config=_zero_fee_config(), instrument=spec)
         assert len(result.trades()) == 1
         assert rejects
-        assert all(r in {"Expired", "expired"} for r in rejects)
+        assert all(r == "expired" for r in rejects)
 
     def test_pre_activation_entry_rejected(self):
         data = _bars([100.0, 101.0, 102.0, 103.0])

@@ -1,5 +1,7 @@
 //! Core data types for RaptorBT.
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 /// Type alias for price values.
@@ -48,17 +50,30 @@ pub struct OhlcvBar {
 }
 
 /// OHLCV data series.
+///
+/// Each series is a [`Cow`], so the same type covers data the engine owns and
+/// data it is only borrowing for the duration of a call. The Python bindings
+/// take the second path: a NumPy array is already a contiguous `f64` buffer
+/// that is guaranteed to outlive the call, so copying it into a `Vec` bought
+/// nothing and cost a full duplicate of the input — 1.25 GB on a 25M-bar run,
+/// which is why peak memory used to be roughly twice the input size.
+///
+/// Nothing in the crate stores an `OhlcvData` beyond the call that built it,
+/// mutates one after construction outside tests, or moves one across a thread
+/// boundary, so a borrow is always sound here. Tests still assign whole
+/// series (`ohlcv.close = ...`); `Cow` accepts an owned `Vec` directly, so
+/// those keep working unchanged.
 #[derive(Debug, Clone)]
-pub struct OhlcvData {
-    pub timestamps: Vec<Timestamp>,
-    pub open: Vec<Price>,
-    pub high: Vec<Price>,
-    pub low: Vec<Price>,
-    pub close: Vec<Price>,
-    pub volume: Vec<f64>,
+pub struct OhlcvData<'a> {
+    pub timestamps: Cow<'a, [Timestamp]>,
+    pub open: Cow<'a, [Price]>,
+    pub high: Cow<'a, [Price]>,
+    pub low: Cow<'a, [Price]>,
+    pub close: Cow<'a, [Price]>,
+    pub volume: Cow<'a, [f64]>,
 }
 
-impl OhlcvData {
+impl OhlcvData<'_> {
     /// Create new OHLCV data from vectors.
     pub fn new(
         timestamps: Vec<Timestamp>,
@@ -68,7 +83,14 @@ impl OhlcvData {
         close: Vec<Price>,
         volume: Vec<f64>,
     ) -> Self {
-        Self { timestamps, open, high, low, close, volume }
+        Self {
+            timestamps: Cow::Owned(timestamps),
+            open: Cow::Owned(open),
+            high: Cow::Owned(high),
+            low: Cow::Owned(low),
+            close: Cow::Owned(close),
+            volume: Cow::Owned(volume),
+        }
     }
 
     /// Get the number of bars.
@@ -275,6 +297,29 @@ pub struct Trade {
     pub fee_breakdown: Option<crate::execution::indian_costs::FeeBreakdown>,
     /// Exit reason.
     pub exit_reason: ExitReason,
+    /// Worst price the trade reached against the position before it closed.
+    ///
+    /// `None` on any path that does not track intra-trade extremes (a
+    /// synthesised trade, a ledger rollup). `None` means "not measured" and
+    /// never 0.0: a fabricated zero would read as "this trade never went
+    /// against me", which is the opposite of an unknown.
+    #[serde(default)]
+    pub mae_price: Option<Price>,
+    /// Best price the trade reached in the position's favour before it closed.
+    #[serde(default)]
+    pub mfe_price: Option<Price>,
+    /// Maximum Adverse Excursion: unrealised loss at `mae_price`, in money,
+    /// on the same multiplier and sign convention as `pnl`. Never positive.
+    ///
+    /// Measured bar by bar during the run, not inferred from OHLC afterwards.
+    /// Its resolution is the bar: a 5m run knows the worst 5m extreme, not the
+    /// worst tick within it.
+    #[serde(default)]
+    pub mae_pnl: Option<f64>,
+    /// Maximum Favourable Excursion: unrealised profit at `mfe_price`, in
+    /// money, on the same multiplier as `pnl`. Never negative.
+    #[serde(default)]
+    pub mfe_pnl: Option<f64>,
 }
 
 impl Trade {
@@ -705,6 +750,22 @@ pub struct BacktestMetrics {
     /// bar count only when it is `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_drawdown_duration_secs: Option<f64>,
+    /// Root mean square of the drawdown curve, in the same percentage points
+    /// as `max_drawdown_pct`.
+    ///
+    /// Max drawdown is one order statistic: it answers "how deep" and cannot
+    /// tell a -8% pit lasting five bars from a -8% pit lasting two hundred.
+    /// The second is the one holders abandon. This weights every observation's
+    /// shortfall by how long it persisted, so it is 0.0 only for a curve that
+    /// never fell. Computed from the same curve `max_drawdown_pct` folds, not
+    /// by rebuilding one from the equity series.
+    pub ulcer_index: f64,
+    /// Share of equity samples strictly below the running high-water mark.
+    ///
+    /// The companion to `exposure_pct`: that says how much of the run was
+    /// spent in the market, this says how much of it was spent behind. Depth
+    /// is discarded -- a -0.01% sample and a -40% sample each count once.
+    pub time_under_water_pct: f64,
     /// Win rate percentage.
     pub win_rate_pct: f64,
     /// Profit factor.
@@ -769,6 +830,113 @@ pub struct BacktestMetrics {
     /// traded, at `price * |size|` — the same base the fee models charge
     /// on. 0.0 on result paths that carry no trade list.
     pub total_turnover: f64,
+
+    // ---------------------------------------------------------------------
+    // Diagnostics. Every field below is `Option` so that "not measured" is
+    // distinguishable from a measured zero — 0.0 is a legitimate value for
+    // most of them. Paths that build metrics with `..Default::default()`
+    // therefore report `None` without having to spell each one out.
+    // ---------------------------------------------------------------------
+    /// Skewness of the per-bar return series (Fisher-Pearson, sample
+    /// bias-corrected — `scipy.stats.skew(bias=False)`).
+    ///
+    /// Sharpe assumes returns are symmetric and they rarely are. A high Sharpe
+    /// with strongly negative skew is the signature of a strategy collecting
+    /// small gains in front of a rare large loss. `None` for fewer than three
+    /// return samples, or a return series with no variance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub return_skew: Option<f64>,
+    /// **Excess** kurtosis of the per-bar return series (Gaussian is 0.0, not
+    /// 3.0), sample bias-corrected — `scipy.stats.kurtosis(fisher=True,
+    /// bias=False)`.
+    ///
+    /// Stated as excess because the alternative convention differs by exactly
+    /// 3.0 and nothing in a bare number says which one you are reading. Fat
+    /// tails mean the observed `max_drawdown_pct` understates what the
+    /// strategy can actually lose. `None` for fewer than four return samples.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub return_kurtosis: Option<f64>,
+    /// Ratio of the right tail to the left: `|p95| / |p5|` of the per-bar
+    /// returns, at linear-interpolation percentiles (NumPy's default).
+    ///
+    /// Above 1.0 the good days outrun the bad ones. `None` for fewer than 20
+    /// samples — below that a 5th percentile is the minimum wearing a hat —
+    /// or when the 5th percentile is 0.0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tail_ratio: Option<f64>,
+    /// Costs as a percentage of gross profit — `total_fees_paid` over the sum
+    /// of winning closed trades' P&L, before costs.
+    ///
+    /// The overfit tell: an edge that hands most of its gross profit to
+    /// brokerage is one slippage assumption away from being unprofitable.
+    /// Larger is worse. `None` when there is no gross profit to divide by,
+    /// which is a statement about the strategy, not about its costs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_to_gross_profit_pct: Option<f64>,
+    /// How many times current costs the run could absorb before net P&L
+    /// reaches zero — `net profit / total_fees_paid`.
+    ///
+    /// `3.4` means costs could triple before the edge dies, which is directly
+    /// comparable against the gap between backtested and live slippage.
+    /// `None` when no costs were charged, or when the run did not make money
+    /// — a negative multiple reads like headroom and is not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub breakeven_cost_multiple: Option<f64>,
+    /// Share of moving bars that moved up: `count(r > 0) / count(r != 0)`.
+    ///
+    /// The equity curve's batting average, which is a different question from
+    /// `win_rate_pct` (the *trades'* batting average). Winning most trades
+    /// while winning few bars means the losers are being held a long time.
+    /// Flat bars are excluded, so a strategy that is usually out of the market
+    /// is judged on the bars it was actually exposed. `None` when no bar moved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub return_consistency_pct: Option<f64>,
+    /// Mean drawdown across the samples that were *underwater*, in the same
+    /// percentage points as `max_drawdown_pct`.
+    ///
+    /// Conditional on being underwater on purpose: averaged over every sample
+    /// including the zeros it would just be a worse `ulcer_index`. Read against
+    /// `max_drawdown_pct` it separates one bad week (18% max, 2% average) from
+    /// chronic pain (18% max, 11% average). `None` when the run never fell
+    /// below its high-water mark.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avg_drawdown_pct: Option<f64>,
+    /// Share of closed trades whose excursions were measured, as a percentage.
+    ///
+    /// **Read this before `avg_mae_pnl` or `mfe_capture_ratio`.** MAE/MFE are
+    /// tracked per position, so paths that synthesize a trade rather than
+    /// closing a tracked one — spread, basket and pairs legs — report `None`
+    /// per trade and are excluded from both aggregates. This says how much of
+    /// the trade list they actually describe. `None` when there are no closed
+    /// trades.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mae_mfe_coverage_pct: Option<f64>,
+    /// Mean maximum adverse excursion over measured closed trades, in money.
+    ///
+    /// How far the average trade went against you before it resolved. Never
+    /// positive. Read against `expectancy` it says where a stop can sit: a
+    /// stop tighter than this average would have closed trades that went on to
+    /// work. Gross of costs and on the same contract multiplier as `pnl`,
+    /// matching `Trade::mae_pnl`. `None` when no closed trade was measured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avg_mae_pnl: Option<f64>,
+    /// Share of the favourable move that winning trades kept: the sum of
+    /// winners' gross P&L over the sum of their maximum favourable excursions.
+    ///
+    /// 0.35 means the exits give back roughly two thirds of every good move,
+    /// which points at the exit rule rather than the entry signal. Three
+    /// deliberate restrictions: it is a ratio of sums rather than a mean of
+    /// per-trade ratios (one trade with a near-zero MFE would otherwise
+    /// dominate); it covers winners only, since a loser contributes negative
+    /// P&L over a positive excursion and the mean of that is meaningless
+    /// rather than merely noisy; and the numerator is gross (`pnl + fees`)
+    /// because `mfe_pnl` is measured before costs.
+    ///
+    /// Normally in `0.0..=1.0`. A value above 1.0 is not clamped: it means the
+    /// bar-resolution excursion missed an intra-bar extreme, which is a
+    /// diagnostic worth seeing. `None` when no measured winner exists.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mfe_capture_ratio: Option<f64>,
 }
 
 /// Complete backtest result.
@@ -784,6 +952,16 @@ pub struct BacktestResult {
     pub trades: Vec<Trade>,
     /// Daily returns.
     pub returns: Vec<f64>,
+    /// What became of every order the run placed, in submission order.
+    ///
+    /// A result reports the trades a strategy made; this reports the ones it
+    /// tried to make. An entry refused for margin, a limit that rested and
+    /// expired, a stop rejected because a position was already open — none
+    /// of those produce a trade, and without them a run that never got into
+    /// the market is indistinguishable from one whose idea was wrong.
+    ///
+    /// Empty for a run that placed no typed orders.
+    pub orders: Vec<crate::execution::orders::OrderRecord>,
 }
 
 impl BacktestResult {
@@ -795,7 +973,19 @@ impl BacktestResult {
         trades: Vec<Trade>,
         returns: Vec<f64>,
     ) -> Self {
-        Self { metrics, equity_curve, drawdown_curve, trades, returns }
+        Self { metrics, equity_curve, drawdown_curve, trades, returns, orders: Vec::new() }
+    }
+
+    /// Attach the run's order log.
+    ///
+    /// A builder rather than a sixth positional argument: most construction
+    /// sites (spread, basket and pairs strategies) synthesise a result and
+    /// have no order book, and threading an empty vector through all of them
+    /// would say "this run placed no orders" where the truth is "this path
+    /// does not track them".
+    pub fn with_orders(mut self, orders: Vec<crate::execution::orders::OrderRecord>) -> Self {
+        self.orders = orders;
+        self
     }
 }
 
@@ -889,6 +1079,35 @@ impl Position {
         }
         let price_change = current_price - self.entry_price;
         price_change * self.size * self.direction.multiplier()
+    }
+
+    /// Intra-trade extremes as (adverse price, favourable price, MAE, MFE).
+    ///
+    /// One definition shared by every path that closes a position, so the
+    /// per-symbol manager and the multi-position ledger cannot drift into
+    /// reporting excursions two different ways.
+    ///
+    /// `contract_multiplier` is the caller's point value; the direction sign
+    /// is applied here. Direction decides which watermark hurt: a long suffers
+    /// at the low and profits at the high, a short the other way round. Fees
+    /// are deliberately not deducted -- an excursion measures how far price
+    /// travelled while the position was open, not what the round trip cost.
+    pub fn excursions(&self, contract_multiplier: f64) -> (Price, Price, f64, f64) {
+        let (adverse_price, favourable_price) = match self.direction {
+            Direction::Long => (self.lowest_since_entry, self.highest_since_entry),
+            Direction::Short => (self.highest_since_entry, self.lowest_since_entry),
+        };
+        let multiplier = self.direction.multiplier() * contract_multiplier;
+        let excursion = |price: Price| (price - self.entry_price) * self.size * multiplier;
+        // Clamped so the documented invariants hold even when a single bar's
+        // high/low straddles the entry fill: MAE is never positive, MFE never
+        // negative.
+        (
+            adverse_price,
+            favourable_price,
+            excursion(adverse_price).min(0.0),
+            excursion(favourable_price).max(0.0),
+        )
     }
 }
 
