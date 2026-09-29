@@ -36,7 +36,7 @@ def get_data_present(symbol):
     sql='select INSTRUMENT,symbol,EXPIRY_DT,STRIKE_PR,OPTION_TYP,SETTLE_PR,OPEN_INT,CHG_IN_OI,CONTRACTS,TIMESTAMP from %s \
         where symbol="%s" and EXPIRY_DT = (select min(EXPIRY_DT) from %s where symbol="%s") order by INSTRUMENT,STRIKE_PR,OPTION_TYP;'
     sql=sql%(present_table,symbol,present_table,symbol)
-    data=pd.read_sql_query(sql,db)
+    data=pd.read_sql_query(sql,db)    
     db.close()
     return data
 def unique_date(symbol):
@@ -51,7 +51,7 @@ def get_data_history(symbol,time):
     sql='select INSTRUMENT,symbol,EXPIRY_DT,STRIKE_PR,OPTION_TYP,SETTLE_PR,OPEN_INT,CHG_IN_OI,CONTRACTS,TIMESTAMP from %s \
         where MONTH_CODE="1M" and TIMESTAMP=str_to_date("%s","%%Y-%%m-%%d") order by INSTRUMENT,STRIKE_PR,OPTION_TYP;'
     sql=sql%(symbol,time)
-    data=pd.read_sql_query(sql,db)
+    data=pd.read_sql_query(sql,db)    
     db.close()
     return data
 
@@ -64,7 +64,7 @@ def filter_data(data):
         return (pd.DataFrame(),pd.DataFrame(),pd.DataFrame())
     put=data[data.OPTION_TYP=='PE']
     #Filter out of the money call and put with 10 percent change in underlying
-    filt_call=call[(call.STRIKE_PR>fut) & (call.STRIKE_PR<1.1*fut)]
+    filt_call=call[(call.STRIKE_PR>fut) & (call.STRIKE_PR<1.1*fut)]    
     filt_put=put[(put.STRIKE_PR>0.9*fut) & (put.STRIKE_PR<fut)]
     #Filter all those values where implicit price of the call/put is being invalidated
     filt_call=filt_call[filt_call.STRIKE_PR+filt_call.SETTLE_PR>fut]
@@ -74,7 +74,7 @@ def filter_data(data):
 
 def implied_vol_calc(exp,fut,option):
     global rate
-
+    
     iv_fun=lambda x:implied_volatility(x['SETTLE_PR'],fut,x['STRIKE_PR'],exp,0.1,'c' if x.OPTION_TYP=='CE' else 'p')*100
     #vollib.black_scholes.greeks.numerical.delta(flag, S, K, t, r, sigma)
     option['VOLATILITY']=option.apply(iv_fun,axis=1)
@@ -93,7 +93,7 @@ def implied_vol_calc(exp,fut,option):
     #Remove where no contracts are being traded
     option=option[option.CONTRACTS!=0]
     option['FUT']=fut
-
+    
     return option
 
 def save_to_sql(option,symbol):
@@ -124,7 +124,7 @@ def perform_calc_present():
     for symbol in symbols:
         if symbol in config.symbols_table_not_created:
             continue
-
+               
         print symbol.__str__()+"\n"
         data=get_data_present(symbol)
         if data.empty:
@@ -135,8 +135,9 @@ def perform_calc_present():
             continue
         option=implied_vol_calc(expiry, fut, option)
         save_to_sql(option,symbol)
-
+        
 if __name__=='__main__':
     perform_calc_present()
 
-
+    
+        
