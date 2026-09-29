@@ -1,5 +1,5 @@
 {
-  "current_index": 35,
+  "current_index": 36,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -285,7 +285,7 @@
       "name": "nsetradeagents",
       "target": "aniruddhsujish/nsetradeagents",
       "url": "https://github.com/aniruddhsujish/nsetradeagents",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
