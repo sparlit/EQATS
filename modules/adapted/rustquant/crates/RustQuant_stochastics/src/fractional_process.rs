@@ -29,9 +29,9 @@ pub enum FractionalProcessGeneratorMethod {
 
 /// Function to run the monte carlo method for the fractional stochastic process.
 pub(crate) fn simulate_fractional_stochastic_process<T: StochasticProcess>(
-    stochastic_process: &T,
-    config: &StochasticProcessConfig,
-    method: &FractionalProcessGeneratorMethod,
+    stochastic_process: &T, 
+    config: &StochasticProcessConfig, 
+    method: &FractionalProcessGeneratorMethod, 
     hurst: f64
 ) -> Trajectories {
     let fgn = match method {
