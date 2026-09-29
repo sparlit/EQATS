@@ -3313,7 +3313,117 @@
       "magic_number": 9100089,
       "module_path": "src/institutional_integrations/ai_native_sdlc_governor.py",
       "adapted_class": "AINativeSDLCGovernor"
+    },
+    {
+      "name": "zen-coding",
+      "target": "zen-tradings/zen-coding",
+      "url": "https://github.com/zen-tradings/zen-coding",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100090,
+      "module_path": "src/institutional_integrations/zen_coding_engine.py",
+      "adapted_class": "ZenCodingEngine"
+    },
+    {
+      "name": "zen-fundamentals",
+      "target": "zen-tradings/zen-fundamentals",
+      "url": "https://github.com/zen-tradings/zen-fundamentals",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100091,
+      "module_path": "src/institutional_integrations/zen_fundamentals_engine.py",
+      "adapted_class": "ZenFundamentalsEngine"
+    },
+    {
+      "name": "zen-rft",
+      "target": "zen-tradings/zen-rft",
+      "url": "https://github.com/zen-tradings/zen-rft",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100092,
+      "module_path": "src/institutional_integrations/zen_rft_engine.py",
+      "adapted_class": "ZenRFTEngine"
+    },
+    {
+      "name": "coding-routing-benchmark",
+      "target": "zen-tradings/coding-routing-benchmark",
+      "url": "https://github.com/zen-tradings/coding-routing-benchmark",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100093,
+      "module_path": "src/institutional_integrations/coding_routing_benchmark_engine.py",
+      "adapted_class": "CodingRoutingBenchmarkEngine"
+    },
+    {
+      "name": "wq-alpha-research",
+      "target": "zen-tradings/wq-alpha-research",
+      "url": "https://github.com/zen-tradings/wq-alpha-research",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100094,
+      "module_path": "src/institutional_integrations/wq_alpha_research_engine.py",
+      "adapted_class": "WQAlphaResearchEngine"
+    },
+    {
+      "name": "retail-skills-us",
+      "target": "zen-tradings/retail-skills-us",
+      "url": "https://github.com/zen-tradings/retail-skills-us",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100095,
+      "module_path": "src/institutional_integrations/retail_skills_us_engine.py",
+      "adapted_class": "RetailSkillsUSEngine"
+    },
+    {
+      "name": "portfolio-distiller",
+      "target": "zen-tradings/portfolio-distiller",
+      "url": "https://github.com/zen-tradings/portfolio-distiller",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100096,
+      "module_path": "src/institutional_integrations/portfolio_distiller_engine.py",
+      "adapted_class": "PortfolioDistillerEngine"
+    },
+    {
+      "name": "eia-mcp",
+      "target": "zen-tradings/eia-mcp",
+      "url": "https://github.com/zen-tradings/eia-mcp",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100097,
+      "module_path": "src/institutional_integrations/eia_mcp_engine.py",
+      "adapted_class": "EIAMCPEngine"
+    },
+    {
+      "name": "eval_search_api",
+      "target": "zen-tradings/eval_search_api",
+      "url": "https://github.com/zen-tradings/eval_search_api",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100098,
+      "module_path": "src/institutional_integrations/eval_search_api_engine.py",
+      "adapted_class": "EvalSearchAPIEngine"
+    },
+    {
+      "name": "autoresearch-macos-zen",
+      "target": "zen-tradings/autoresearch-macos-zen",
+      "url": "https://github.com/zen-tradings/autoresearch-macos-zen",
+      "status": "completed",
+      "pr_url": null,
+      "merged": true,
+      "magic_number": 9100099,
+      "module_path": "src/institutional_integrations/autoresearch_macos_zen_engine.py",
+      "adapted_class": "AutoresearchMacOSZenEngine"
     }
   ],
-  "total_repositories": 413
+  "total_repositories": 423
 }
