@@ -1,5 +1,5 @@
 {
-  "current_index": 39,
+  "current_index": 40,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -317,7 +317,7 @@
       "name": "nse",
       "target": "anshulk/nse",
       "url": "https://github.com/anshulk/nse",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
