@@ -114,7 +114,7 @@ impl<'v> Add<Variable<'v>> for f64 {
     type Output = Variable<'v>;
 
     /// ```
-    /// # use RustQuant_autodiff::*;
+    /// # use RustQuant_autodiff::*;    
     ///
     /// let g = Graph::new();
     ///
@@ -170,7 +170,7 @@ impl<'v> Div<Variable<'v>> for Variable<'v> {
 
     /// ```
     /// # use RustQuant_autodiff::*;
-    ///
+    ///  
     /// let g = Graph::new();
     ///
     /// let x = g.var(5.0);
@@ -222,7 +222,7 @@ impl<'v> Div<Variable<'v>> for f64 {
 
     /// ```
     /// # use RustQuant_autodiff::*;
-    ///
+    ///   
     /// let g = Graph::new();
     ///
     /// let a = 5.0;
@@ -568,7 +568,7 @@ impl<'v> Variable<'v> {
     ///
     /// ```
     /// # use RustQuant_autodiff::*;
-    ///
+    ///  
     /// let g = Graph::new();
     ///
     /// let x = g.var(1.0);
@@ -654,7 +654,7 @@ impl<'v> Variable<'v> {
     ///
     /// ```
     /// # use RustQuant_autodiff::*;
-    ///
+    ///   
     /// let g = Graph::new();
     ///
     /// let x = g.var(std::f64::consts::E);
@@ -1591,7 +1591,7 @@ impl<'v> Sub<Variable<'v>> for Variable<'v> {
     type Output = Variable<'v>;
 
     /// ```
-    /// # use RustQuant_autodiff::*;
+    /// # use RustQuant_autodiff::*;    
     ///
     /// let g = Graph::new();
     ///
@@ -1642,8 +1642,8 @@ impl<'v> Sub<Variable<'v>> for f64 {
     type Output = Variable<'v>;
 
     /// ```
-    /// # use RustQuant_autodiff::*;
-    ///
+    /// # use RustQuant_autodiff::*;   
+    ///  
     /// let g = Graph::new();
     ///
     /// let a = 5.0;

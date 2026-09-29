@@ -64,10 +64,10 @@
 //!
 //! // Create a portfolio.
 //! let portfolio = Portfolio::new(positions);
-//!
+//!     
 //! // Check the value of the portfolio.
 //! assert_approx_equal!(portfolio.value(), 100.0 * 3.5 + 100.0 * 2.0, 1e-10);
-//!
+//!     
 //! // Check the profit of the portfolio.
 //! assert_approx_equal!(portfolio.profit(), 550.0 - portfolio.cost(), 1e-10);
 //! ```

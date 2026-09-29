@@ -49,7 +49,7 @@
 //!
 //! ```ignore
 //! println!("{}", graphviz(&graph, &variables));
-//! ```
+//! ```  
 //!
 //! The computation graph from computing Black-Scholes Greeks is shown at the
 //! following link:

@@ -95,7 +95,7 @@ fn main() {
     // at x = 3, y = 2, z = 1.
     #[rustfmt::skip]
     fn function<'v>(variables: &[Variable<'v>], constants: &[f64]) -> Variable<'v> {
-        variables[0].powf(variables[1] + constants[0].cos()) -
+        variables[0].powf(variables[1] + constants[0].cos()) - 
         variables[2].atanh() / constants[1] +
         constants[0]
     }

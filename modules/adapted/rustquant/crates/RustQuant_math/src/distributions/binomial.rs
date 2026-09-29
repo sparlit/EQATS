@@ -144,7 +144,7 @@ impl Distribution for Binomial {
     ///
     /// let binomial = Binomial::new(5, 0.4);
     ///
-    /// assert_eq!(binomial.inv_cdf(0.5), 2.0);
+    /// assert_eq!(binomial.inv_cdf(0.5), 2.0);    
     fn inv_cdf(&self, p: f64) -> f64 {
         assert!((0.0..=1.0).contains(&p));
 
