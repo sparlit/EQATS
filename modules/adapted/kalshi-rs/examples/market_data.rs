@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ticker = &m.ticker;
         let full = client.get_market(ticker).await?;
         let md = full.market;
-
+        
         if Decimal::from_str(&md.yes_ask_dollars).unwrap() < Decimal::from_u8(1).unwrap() {
             println!("Found liquid market: {}", md.ticker);
             liquid_market = Some(md);
