@@ -416,3 +416,14 @@ This document contains the sequential list of all 411 target GitHub repositories
 | 410 | yusuf4030/the-data-analyst-toolkit | Pending |
 | 411 | yutiansut/qaaccount-rs | Pending |
 | 412 | bennyjo/phil | Adapted (Magic: 9100087) |
+| 413 | bashebr/ai-native-sdlc | Adapted (Magic: 9100089) |
+| 414 | zen-tradings/zen-coding | Adapted (Magic: 9100090) |
+| 415 | zen-tradings/zen-fundamentals | Adapted (Magic: 9100091) |
+| 416 | zen-tradings/zen-rft | Adapted (Magic: 9100092) |
+| 417 | zen-tradings/coding-routing-benchmark | Adapted (Magic: 9100093) |
+| 418 | zen-tradings/wq-alpha-research | Adapted (Magic: 9100094) |
+| 419 | zen-tradings/retail-skills-us | Adapted (Magic: 9100095) |
+| 420 | zen-tradings/portfolio-distiller | Adapted (Magic: 9100096) |
+| 421 | zen-tradings/eia-mcp | Adapted (Magic: 9100097) |
+| 422 | zen-tradings/eval_search_api | Adapted (Magic: 9100098) |
+| 423 | zen-tradings/autoresearch-macos-zen | Adapted (Magic: 9100099) |

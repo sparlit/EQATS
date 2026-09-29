@@ -416,3 +416,13 @@ Total Repositories: 413 | Current Index: 23
 | 411 | bennyjo/phil | completed | None |
 | 412 | jev-ai/jev-ai | completed | None |
 | 413 | bashebr/ai-native-sdlc | completed | None |
+| 414 | zen-tradings/zen-coding | completed | None |
+| 415 | zen-tradings/zen-fundamentals | completed | None |
+| 416 | zen-tradings/zen-rft | completed | None |
+| 417 | zen-tradings/coding-routing-benchmark | completed | None |
+| 418 | zen-tradings/wq-alpha-research | completed | None |
+| 419 | zen-tradings/retail-skills-us | completed | None |
+| 420 | zen-tradings/portfolio-distiller | completed | None |
+| 421 | zen-tradings/eia-mcp | completed | None |
+| 422 | zen-tradings/eval_search_api | completed | None |
+| 423 | zen-tradings/autoresearch-macos-zen | completed | None |
