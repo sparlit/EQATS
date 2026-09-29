@@ -141,10 +141,10 @@ impl FixMessage {
 
         // Required ordering: 8, 9, 35 ... others ... 10
         let mut body = String::new();
-
+        
         // Put MsgType (35) first in body so length calculation is correct
         body.push_str(&format!("35={}\x01", self.fields.get(&35).unwrap()));
-
+        
         // Add all other fields (skip 8, 9, 10, 35)
         for (tag, value) in &self.fields {
             if *tag != 8 && *tag != 9 && *tag != 10 && *tag != 35 {
@@ -154,7 +154,7 @@ impl FixMessage {
 
         // Calculate BodyLength
         let body_length = body.len();
-
+        
         // Construct everything up to checksum
         let header = format!("8=FIX.4.4\x019={}\x01", body_length);
         let mut full_msg = header;
@@ -171,13 +171,13 @@ impl FixMessage {
     // Helper to extract ExecutionReport fields safely
     pub fn exec_report_details(&self) -> Option<(String, String, f64, f64)> {
         if self.msg_type != FixMsgType::ExecutionReport { return None; }
-
+        
         // 37=OrderID, 39=OrdStatus, 14=CumQty, 6=AvgPx
         let order_id = self.fields.get(&37)?.clone();
         let status = self.fields.get(&39)?.clone();
         let cum_qty = self.fields.get(&14)?.parse::<f64>().ok()?;
         let avg_px = self.fields.get(&6)?.parse::<f64>().ok()?;
-
+        
         Some((order_id, status, cum_qty, avg_px))
     }
 }

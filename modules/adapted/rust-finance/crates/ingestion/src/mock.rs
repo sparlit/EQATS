@@ -29,10 +29,10 @@ impl SyntheticMarket {
         let mut rng = rand::thread_rng();
         let normal = Normal::new(0.0, 1.0).unwrap();
         let z = normal.sample(&mut rng);
-
+        
         let drift_term = (self.drift - 0.5 * self.volatility.powi(2)) * dt;
         let vol_term = self.volatility * dt.sqrt() * z;
-
+        
         self.price *= (drift_term + vol_term).exp();
         self.price
     }
@@ -49,7 +49,7 @@ impl MockIngestionService {
 
     pub async fn run(&self) -> Result<()> {
         info!("Synthetic Tick Generator starting... (Simulating live market data)");
-
+        
         // Setup synthetic markets
         let mut markets = vec![
             SyntheticMarket::new("AAPL", 150.0, 0.2, 0.05),
@@ -60,21 +60,21 @@ impl MockIngestionService {
         // 100ms tick rate (10 ticks per second)
         let dt = 1.0 / 252.0 / 6.5 / 60.0 / 60.0 / 10.0; // Trading year fraction per 100ms
         let mut ticker = interval(Duration::from_millis(100));
-
+        
         loop {
             ticker.tick().await;
-
+            
             for market in &mut markets {
                 let current_price = market.step(dt);
-
-                // Format roughly matching what Finnhub WS produces,
+                
+                // Format roughly matching what Finnhub WS produces, 
                 // but wrapped so the router can digest it
                 let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-
+                
                 // Generate a random trade volume
                 let mut rng = rand::thread_rng();
                 let vol: f64 = rng.gen_range(10.0..500.0);
-
+                
                 let mock_trade = json!({
                     "data": [{
                         "p": current_price,

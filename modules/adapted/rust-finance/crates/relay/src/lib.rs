@@ -35,7 +35,7 @@ impl NodeSelector {
 
     pub async fn update_once(&self) -> anyhow::Result<()> {
         let nodes = { self.candidates.read().await.clone() };
-
+        
         let mut tasks = Vec::new();
         for url in nodes {
             let client = self.client.clone();
