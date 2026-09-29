@@ -198,7 +198,7 @@ class TestPortfolioMargin:
         assert result.halted is True
         assert result.halted_at is not None
         # The untouched symbol was halted by the shared account.
-        assert any(symbol == "BBB" and reason == "MarginCall" for symbol, reason in strategy.rejects)
+        assert any(symbol == "BBB" and reason == "margin_call" for symbol, reason in strategy.rejects)
 
     def test_reports_rejected_entries(self):
         """Regression: the portfolio total was hardcoded to 0."""

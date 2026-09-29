@@ -172,7 +172,7 @@ impl PortfolioBacktest {
                 let input = StepInput {
                     entry: false,
                     exit: cleaned[idx].1[i],
-                    atr: atr_series[idx].get(i).copied().unwrap_or(0.0),
+                    atr: atr_series[idx].as_ref().map_or(0.0, |a| a.get(i).copied().unwrap_or(0.0)),
                     size_mult: instruments[idx].1.position_sizes.as_ref().map(|s| s[i]),
                     ..StepInput::default()
                 };
@@ -182,7 +182,7 @@ impl PortfolioBacktest {
                     if let EngineEvent::Exited { trade, .. } = event {
                         per_instrument_trades[idx] += 1;
                         per_instrument_pnl[idx] += trade.pnl;
-                        trades.push(trade);
+                        trades.push(*trade);
                     }
                 }
                 // Whatever the exit produced returns to the pool.
@@ -214,7 +214,7 @@ impl PortfolioBacktest {
                 let input = StepInput {
                     entry: true,
                     exit: false,
-                    atr: atr_series[idx].get(i).copied().unwrap_or(0.0),
+                    atr: atr_series[idx].as_ref().map_or(0.0, |a| a.get(i).copied().unwrap_or(0.0)),
                     size_mult: instruments[idx].1.position_sizes.as_ref().map(|s| s[i]),
                     ..StepInput::default()
                 };
@@ -333,7 +333,7 @@ impl PortfolioBacktest {
         instruments: &[(OhlcvData, CompiledSignals)],
         instrument_configs: Option<&HashMap<String, InstrumentConfig>>,
         n_bars: usize,
-    ) -> Vec<Vec<f64>> {
+    ) -> Vec<Option<Vec<f64>>> {
         use crate::core::types::{StopConfig, TargetConfig};
 
         instruments
@@ -349,10 +349,15 @@ impl PortfolioBacktest {
                     .copied()
                     .unwrap_or(self.config.base.target);
 
+                // `None` rather than a zero-filled array when this instrument
+                // has no ATR-based stop or target -- see the matching comment
+                // in `PortfolioEngine::run_single_with_instrument_config`. Here
+                // the saving is per instrument, so a book of 50 symbols was
+                // allocating 50 such arrays.
                 let needs_atr = matches!(stop, StopConfig::Atr { .. })
                     || matches!(target, TargetConfig::Atr { .. });
                 if !needs_atr {
-                    return vec![0.0; n_bars];
+                    return None;
                 }
 
                 let period = match stop {
@@ -362,8 +367,10 @@ impl PortfolioBacktest {
                         _ => 14,
                     },
                 };
-                atr(&ohlcv.high, &ohlcv.low, &ohlcv.close, period)
-                    .unwrap_or_else(|_| vec![0.0; n_bars])
+                Some(
+                    atr(&ohlcv.high, &ohlcv.low, &ohlcv.close, period)
+                        .unwrap_or_else(|_| vec![0.0; n_bars]),
+                )
             })
             .collect()
     }
@@ -407,14 +414,14 @@ mod tests {
     const DAY: i64 = 86_400_000_000_000;
 
     /// Flat-priced instrument, so P&L never obscures capital accounting.
-    fn flat_instrument(_symbol: &str, price: f64, n: usize) -> OhlcvData {
+    fn flat_instrument(_symbol: &str, price: f64, n: usize) -> OhlcvData<'static> {
         OhlcvData {
             timestamps: (0..n as i64).map(|i| i * DAY).collect(),
-            open: vec![price; n],
-            high: vec![price; n],
-            low: vec![price; n],
-            close: vec![price; n],
-            volume: vec![1_000_000.0; n],
+            open: vec![price; n].into(),
+            high: vec![price; n].into(),
+            low: vec![price; n].into(),
+            close: vec![price; n].into(),
+            volume: vec![1_000_000.0; n].into(),
         }
     }
 
@@ -430,7 +437,7 @@ mod tests {
     }
 
     /// Three instruments all signalling entry on bar 1.
-    fn three_way_entry(n: usize) -> Vec<(OhlcvData, CompiledSignals)> {
+    fn three_way_entry(n: usize) -> Vec<(OhlcvData<'static>, CompiledSignals)> {
         ["A", "B", "C"]
             .iter()
             .map(|sym| {
@@ -519,11 +526,11 @@ mod tests {
         }
         let a = OhlcvData {
             timestamps: (0..n as i64).map(|i| i * DAY).collect(),
-            open: a_close.clone(),
-            high: a_close.clone(),
-            low: a_close.clone(),
-            close: a_close,
-            volume: vec![1_000_000.0; n],
+            open: a_close.clone().into(),
+            high: a_close.clone().into(),
+            low: a_close.clone().into(),
+            close: a_close.into(),
+            volume: vec![1_000_000.0; n].into(),
         };
         let mut a_entries = vec![false; n];
         a_entries[1] = true;
