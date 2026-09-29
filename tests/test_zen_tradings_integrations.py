@@ -14,24 +14,50 @@ Covers:
 """
 
 from datetime import datetime
-import zoneinfo
 
-from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry, SEBIOrderRequest
-from institutional_integrations.zen_coding_engine import MAGIC_NUMBER_ZEN_CODING, ZenCodingEngine
-from institutional_integrations.zen_fundamentals_engine import MAGIC_NUMBER_ZEN_FUNDAMENTALS, ZenFundamentalsEngine
-from institutional_integrations.zen_rft_engine import MAGIC_NUMBER_ZEN_RFT, ZenRFTEngine
+from institutional_integrations.autoresearch_macos_zen_engine import (
+    MAGIC_NUMBER_AUTORESEARCH_MACOS_ZEN,
+    AutoresearchMacOSZenEngine,
+)
 from institutional_integrations.coding_routing_benchmark_engine import (
     MAGIC_NUMBER_CODING_ROUTING_BENCHMARK,
     CodingRoutingBenchmarkEngine,
 )
-from institutional_integrations.wq_alpha_research_engine import MAGIC_NUMBER_WQ_ALPHA_RESEARCH, WQAlphaResearchEngine
-from institutional_integrations.retail_skills_us_engine import MAGIC_NUMBER_RETAIL_SKILLS_US, RetailSkillsUSEngine
-from institutional_integrations.portfolio_distiller_engine import MAGIC_NUMBER_PORTFOLIO_DISTILLER, PortfolioDistillerEngine
-from institutional_integrations.eia_mcp_engine import MAGIC_NUMBER_EIA_MCP, EIAMCPEngine
-from institutional_integrations.eval_search_api_engine import MAGIC_NUMBER_EVAL_SEARCH_API, EvalSearchAPIEngine
-from institutional_integrations.autoresearch_macos_zen_engine import (
-    MAGIC_NUMBER_AUTORESEARCH_MACOS_ZEN,
-    AutoresearchMacOSZenEngine,
+from institutional_integrations.eia_mcp_engine import (
+    MAGIC_NUMBER_EIA_MCP,
+    EIAMCPEngine,
+)
+from institutional_integrations.eval_search_api_engine import (
+    MAGIC_NUMBER_EVAL_SEARCH_API,
+    EvalSearchAPIEngine,
+)
+from institutional_integrations.portfolio_distiller_engine import (
+    MAGIC_NUMBER_PORTFOLIO_DISTILLER,
+    PortfolioDistillerEngine,
+)
+from institutional_integrations.retail_skills_us_engine import (
+    MAGIC_NUMBER_RETAIL_SKILLS_US,
+    RetailSkillsUSEngine,
+)
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
+)
+from institutional_integrations.wq_alpha_research_engine import (
+    MAGIC_NUMBER_WQ_ALPHA_RESEARCH,
+    WQAlphaResearchEngine,
+)
+from institutional_integrations.zen_coding_engine import (
+    MAGIC_NUMBER_ZEN_CODING,
+    ZenCodingEngine,
+)
+from institutional_integrations.zen_fundamentals_engine import (
+    MAGIC_NUMBER_ZEN_FUNDAMENTALS,
+    ZenFundamentalsEngine,
+)
+from institutional_integrations.zen_rft_engine import (
+    MAGIC_NUMBER_ZEN_RFT,
+    ZenRFTEngine,
 )
 
 
@@ -153,7 +179,7 @@ def test_broker_adapters_plugin_registry():
     ]
 
     for key, magic_num in adapters:
-        adapter_cls = IndianBrokerPluginRegistry._registry.get(key)
+        adapter_cls = IndianBrokerPluginRegistry.get_adapter_class(key)
         assert adapter_cls is not None, f"Plugin {key} not found in registry"
         inst = adapter_cls()
         assert inst.connect()

@@ -14,9 +14,8 @@ Adapts zen-coding research agent capabilities into EQATS:
 Complies with TradingOS 0.05 INR price tick rounding and IST market session validation.
 """
 
-import time
 import zoneinfo
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -82,13 +81,14 @@ class ZenCodingEngine:
 
     def inspect_code_guardrails(self, code_snippet: str) -> tuple[bool, list[str]]:
         """Inspects code for prohibited execution calls or unsafe patterns."""
-        violations: list[str] = []
-        for pattern in self.blocked_imports:
-            if pattern in code_snippet:
-                violations.append(f"Forbidden call pattern detected: {pattern}")
+        violations = [
+            f"Forbidden call pattern detected: {pattern}"
+            for pattern in self.blocked_imports
+            if pattern in code_snippet
+        ]
         return (len(violations) == 0, violations)
 
-    def record_trace(
+    def record_trace(  # noqa: PLR0917
         self,
         session_id: str,
         prompt_tokens: int,
