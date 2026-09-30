@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 423 | Current Index: 25
+Total Repositories: 423 | Current Index: 26
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -27,8 +27,8 @@ Total Repositories: 423 | Current Index: 25
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2817 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2821 |
 | 24 | akshayz14/indian-stock-tracker | Skipped: Private/Non-Existent (404/403) | None |
-| 25 | akt114/buynsell | Processed | None |
-| 26 | alexwan/osengine | pending | None |
+| 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2824 |
+| 26 | alexwan/osengine | Processed | None |
 | 27 | algotrading-lab/ai-algotrading-agent | pending | None |
 | 28 | alloc7260/nse | pending | None |
 | 29 | alphabench/raptorbt | pending | None |
