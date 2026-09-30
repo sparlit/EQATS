@@ -29,7 +29,7 @@ pub enum DistributionClass {
 pub trait Distribution {
     /// Characteristic function of the distribution.
     /// Returns the value of the characteristic function at t.
-    /// The characteristic function is defined as:
+    /// The characteristic function is defined as:  
     ///    cf(t) = E[e^{itX}]
     fn cf(&self, t: f64) -> Complex<f64>;
 

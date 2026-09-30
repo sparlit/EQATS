@@ -89,6 +89,10 @@ pub(crate) use israel::*;
 pub mod italy;
 pub(crate) use italy::*;
 
+/// Japan holidays and calendars.
+pub mod japan;
+pub(crate) use japan::*;
+
 /// Mexico holidays and calendars
 pub mod mexico;
 pub(crate) use mexico::*;
@@ -100,6 +104,10 @@ pub(crate) use netherlands::*;
 /// New Zealand holidays and calendars.
 pub mod new_zealand;
 pub(crate) use new_zealand::*;
+
+/// Norway holidays and calendars.
+pub mod norway;
+pub(crate) use norway::*;
 
 /// Singapore holidays and calendars.
 pub mod singapore;
@@ -116,3 +124,7 @@ pub(crate) use united_states::*;
 /// Switzerland holidays and calendars.
 pub mod switzerland;
 pub(crate) use switzerland::*;
+
+/// Turkey holidays and calendars.
+pub(crate) mod turkey;
+pub(crate) use turkey::*;

@@ -55,7 +55,7 @@ pub(crate) fn simulate_stochatic_process<T: StochasticProcess>(
                     NoiseGenerator::Dynamic(_) => vec![],
                 };
 
-                for t in 0..config.n_steps {
+                for t in 0..config.n_steps {                    
                     path.push(
                         path[t]
                         + stochastic_process.drift(path[t], times_ref[t]) * dt
@@ -191,25 +191,25 @@ mod test_process {
     fn test_run_simulate_stochastic_process() {
         struct CustomProcess {
             pub mu: f64,
-
+        
             pub sigma: f64,
         }
-
+        
         impl StochasticProcess for CustomProcess {
 
             fn drift(&self, x: f64, _t: f64) -> f64 {
                 self.mu * x
             }
-
+        
             fn diffusion(&self, x: f64, _t: f64) -> f64 {
                 self.sigma * x
             }
-
+        
             fn jump(&self, _x: f64, _t: f64) -> Option<f64> {
                 Some(1.0)
             }
         }
-
+        
         let config = StochasticProcessConfig::new(
             10.0,
             0.0,

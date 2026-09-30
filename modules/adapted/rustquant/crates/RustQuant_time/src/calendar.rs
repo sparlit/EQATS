@@ -73,12 +73,16 @@ pub enum Market {
     Israel,
     /// Italy national calendar.
     Italy,
+    /// Japan national calendar.
+    Japan,
     /// Mexico national calendar.
     Mexico,
     /// Netherlands national calendar.
     Netherlands,
     /// New Zealand national calendar.
     NewZealand,
+    /// Norway national calendar.
+    Norway,
     /// Singapore national calendar.
     Singapore,
     /// United Kingdom national calendar.
@@ -87,6 +91,8 @@ pub enum Market {
     UnitedStates,
     /// Switzerland national calendar.
     Switzerland,
+    /// Turkey national calendar.
+    Turkey,
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // MARKETS / EXCHANGES
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -428,13 +434,16 @@ impl Calendar {
                 Market::Indonesia => is_holiday_impl_indonesia(date),
                 Market::Israel => is_holiday_impl_israel(date),
                 Market::Italy => is_holiday_impl_italy(date),
+                Market::Japan => is_holiday_impl_japan(date),
                 Market::Mexico => is_holiday_impl_mexico(date),
                 Market::Netherlands => is_holiday_impl_netherlands(date),
                 Market::NewZealand => is_holiday_impl_new_zealand(date),
+                Market::Norway => is_holiday_impl_norway(date),
                 Market::Singapore => is_holiday_impl_singapore(date),
                 Market::UnitedKingdom => is_holiday_impl_united_kingdom(date),
                 Market::UnitedStates => is_holiday_impl_united_states(date),
                 Market::Switzerland => is_holiday_impl_switzerland(date),
+                Market::Turkey => is_holiday_impl_turkey(date),
                 // Special case markets:
                 Market::None => false,
                 Market::Weekends => false,

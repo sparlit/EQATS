@@ -33,3 +33,4 @@ if __name__=='__main__':
         feed=feedparser.parse(r)
         for f in feed.entries:
             print f.title
+            

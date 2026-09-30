@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 import sys
 '''
 first get the data,calculate previous close price,calcalate no of positive days and the distribution of the +ve
-effect of open to the day close. Do the same for the -ve days.plot the distribution and as well as its statistics
+effect of open to the day close. Do the same for the -ve days.plot the distribution and as well as its statistics 
 '''
 
 
@@ -47,5 +47,6 @@ def calc_positive_negative_dates(data,pos_x_min=0.005,pos_x_max=0.01,neg_y_max=-
     print res
 if __name__=='__main__':
     data=config.get_symbol_future(sys.argv[1])
-    calc_positive_negative_dates(data)
-
+    calc_positive_negative_dates(data)    
+    
+        

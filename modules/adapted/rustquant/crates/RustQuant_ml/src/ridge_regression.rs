@@ -81,9 +81,9 @@ impl RidgeRegressionInput<f64> {
         let n_col: usize = features_matrix.ncols();
         let features_matrix_transpose = features_matrix.transpose();
         let mut regularisation_matrix = DMatrix::<f64>::identity(n_col, n_col);
-
+        
         if self.fit_intercept { regularisation_matrix[(0,0)] = 0.0; }
-
+    
         let ridge_matrix = (&features_matrix_transpose * features_matrix) + self.lambda * regularisation_matrix;
 
         let ridge_matrix_inv = ridge_matrix
@@ -94,7 +94,7 @@ impl RidgeRegressionInput<f64> {
         let intercept: f64 =  if self.fit_intercept {
             coefficients[0]
         } else {
-            coefficients = coefficients.insert_row(0, 0.0);
+            coefficients = coefficients.insert_row(0, 0.0); 
             0.0
         };
 

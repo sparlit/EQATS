@@ -22,7 +22,7 @@ pub trait ActivationFunction {
     /// Applies the logistic function to the input.
     ///
     /// Note (for logistic regression):
-    /// sigmoid(x) = 1 / (1 + exp(-x)) = exp(x) / (exp(x) + 1)
+    /// sigmoid(x) = 1 / (1 + exp(-x)) = exp(x) / (exp(x) + 1)    
     /// mu(x) = E[Y | X] = P(Y = 1 | X) = sigmoid(w^T x)
     #[must_use]
     fn logistic(&self) -> Self;

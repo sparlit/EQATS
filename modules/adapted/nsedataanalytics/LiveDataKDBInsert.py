@@ -60,20 +60,20 @@ demo_table="fut_one_day"
 def __process_end_of_day__(qconn):
     ''' Process End of the day save the database in csv file format'''
     qconn('(`$":C:/Users/ashish/Desktop/workspace/data/fut_one_day","-",(string(.z.d)),".csv") 0:.h.tx[`csv;fut_one_day]')
-
+    
 with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
     qconn.open()
     format=typekdb("%s"%demo_table,qconn)
-
+    
     ''' Removes the previous day data'''
     try:
         qconn("%s:([];symbol:`symbol$();time:`datetime$();tickopen:\
         `float$();tickhigh:`float$();ticklow:`float$();tickclose: `float$();ask:`float$();\
          askqty:`long$();bid:`float$();bidqty:`long$();ticklast:`float$();volume:`long$()) "%demo_table)
-
+        
     except qconn.exception as e:
         raise
-
+    
     while True:
         # Wait for a connection
         print >>sys.stderr, 'waiting for a connection'
@@ -81,7 +81,7 @@ with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
         sock.settimeout(5)
         try:
             print >>sys.stderr, 'connection from', client_address
-
+    
             # Receive the data in small chunks and retransmit it
             while True:
                 curr_time=datetime.datetime.time(datetime.datetime.now())
@@ -90,8 +90,8 @@ with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
                     __process_end_of_day__(qconn)
                     qconn.close()
                     exit(0)
-                 '''
-
+                 ''' 
+    
                 fnoHead = connection.recv(3)
                 if fnoHead == "FNO":
                     print >>sys.stderr, 'FNO'
@@ -105,13 +105,13 @@ with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
                     if "" in data.split(","):
                         logging.error(':Length of row %s didnt match column format',data)
                         continue
-                    logging.info('%s'%",".join(data))
+                    logging.info('%s'%",".join(data)) 
                     ''' `test1 insert (`$("HDIL-1M");"Z"$("20151123 094042");1800)'''
                     data_res=insertkdb(format,data)
-
+            
                     print '`%s insert (%s)'%(demo_table,data_res)
                     qconn('`%s insert (%s)'%(demo_table,data_res))
-
+                    
                 else:
                     print >>sys.stderr, 'FOI %s\n' % fnoHead
                     #dataLen = connection.recv(3)
@@ -130,3 +130,4 @@ with qconnection.QConnection(host=kdb_host,port=kdb_port) as qconn:
             qconn.close()
             connection.close()
             db.close()
+

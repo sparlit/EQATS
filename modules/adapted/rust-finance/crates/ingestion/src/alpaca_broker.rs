@@ -74,7 +74,7 @@ impl AlpacaBroker {
 
     pub async fn submit_order(&self, request: AlpacaOrderRequest) -> Result<AlpacaOrderResponse> {
         let url = format!("{}/v2/orders", self.base_url);
-
+        
         info!("Submitting Alpaca order: {:?}", request);
 
         // Rate limit API submissions (150/minute)
@@ -99,15 +99,15 @@ impl AlpacaBroker {
 
     pub async fn get_positions(&self) -> Result<serde_json::Value> {
         let url = format!("{}/v2/positions", self.base_url);
-
+        
         self.limiter.until_ready().await;
-
+        
         let response = self.client.get(&url)
             .header("APCA-API-KEY-ID", &self.api_key)
             .header("APCA-API-SECRET-KEY", &self.secret_key)
             .send()
             .await?;
-
+        
         Ok(response.json().await?)
     }
 }

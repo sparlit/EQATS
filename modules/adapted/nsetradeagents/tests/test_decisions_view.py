@@ -35,6 +35,7 @@ def rec(**kw) -> DecisionRecord:
         "as_of": date(2026, 9, 4),
         "ticker": "X.NS",
         "score": 80,
+        "price": 512.0,
         "entered": False,
         "regime_open": True,
         "veto_verdict": None,
@@ -72,5 +73,34 @@ def test_the_regime_outranks_a_kill_because_shadow_mode_does_not_block():
     assert _blocked_by(rec(score=92, regime_open=False, veto_verdict="KILL")) == "regime"
 
 
-def test_an_unscored_candidate_falls_back_rather_than_crashing():
-    assert _blocked_by(rec(score=None, regime_open=None)) == "blocked"
+def test_an_unexplained_rejection_falls_back_rather_than_crashing():
+    """Everything downstream passed and it still was not taken — shouldn't
+    happen, but rows predating the regime_open column land here."""
+    r = rec(score=92, regime_open=None, veto_verdict="PASS")
+    assert _blocked_by(r) == "blocked"
+
+
+# ── gates before scoring ─────────────────────────────────────────────────────
+#
+# The fundamental and risk gates sit ahead of rules_gate, so a candidate they
+# reject has no score and no bands. Attribution used to fall through those cases
+# to whatever came next, blaming the regime for a stock the regime never saw.
+
+
+def test_a_fundamental_rejection_is_not_blamed_on_the_regime():
+    """The regression: score is None, so the score check was skipped and a shut
+    regime claimed a candidate it never evaluated."""
+    r = rec(score=None, price=None, regime_open=False)
+    assert _blocked_by(r) == "fundamentals"
+
+
+def test_a_risk_rejection_is_distinguished_from_a_fundamental_one():
+    """Technical analysis runs between the two gates, so indicators being
+    present means the candidate got past fundamentals."""
+    assert _blocked_by(rec(score=None, price=512.0, regime_open=False)) == "risk"
+
+
+def test_pre_score_gates_outrank_everything_downstream():
+    """Nothing after them ever ran, whatever the regime or veto columns say."""
+    r = rec(score=None, price=None, regime_open=False, veto_verdict="KILL")
+    assert _blocked_by(r) == "fundamentals"

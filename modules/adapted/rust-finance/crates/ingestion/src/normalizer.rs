@@ -13,7 +13,7 @@ impl Normalizer {
     pub fn new() -> Self {
         Self
     }
-
+    
     /// Parses raw JSON string messages into BotEvent
     pub fn normalize(raw: &str) -> Option<BotEvent> {
         let v: Value = serde_json::from_str(raw).ok()?;
@@ -26,7 +26,7 @@ impl Normalizer {
                     let price = data["p"].as_f64()?;
                     let timestamp = data["t"].as_i64()?;
                     let volume = data["v"].as_f64();
-
+                    
                     return Some(BotEvent::MarketEvent {
                         symbol: symbol.into(),
                         price,
@@ -37,7 +37,7 @@ impl Normalizer {
                 }
             }
         }
-
+        
         // Simple generic format for other sources
         if let (Some(s), Some(p), Some(t)) = (
             v["symbol"].as_str(),
@@ -52,7 +52,7 @@ impl Normalizer {
                 volume: v["volume"].as_f64(),
             });
         }
-
+        
         None
     }
 }

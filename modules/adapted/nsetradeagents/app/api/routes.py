@@ -166,7 +166,13 @@ def _blocked_by(record) -> str | None:
     """
     if record.entered:
         return None
-    if record.score is not None and record.score < settings.rules_confidence_threshold:
+    if record.score is None:
+        # Never reached scoring, so the fundamental or risk gate stopped it.
+        # The technical node runs between the two, so the presence of
+        # indicators says which: no price means fundamentals rejected it
+        # before technical analysis ever ran.
+        return "risk" if record.price is not None else "fundamentals"
+    if record.score < settings.rules_confidence_threshold:
         return "score"
     if record.regime_open is False:
         return "regime"

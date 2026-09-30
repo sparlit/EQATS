@@ -28,7 +28,7 @@ pub enum OrderTimeInForce {
     /// """
     /// The Immediate-or Cancel (IOC) time in force applied to an order
     /// dictates that any portion of the order that does not fill
-    /// immediately will be canceled.
+    /// immediately will be canceled.   
     /// """
     ImmediateOrCancel,
     /// """

@@ -26,7 +26,7 @@ import sys
 import time
 
 import db
-import yfinance as yf
+from data_sources import get_registry
 
 from config import HISTORY_YEARS, SLEEP_SECONDS
 
@@ -41,8 +41,8 @@ def fetch_one(conn, symbol):
     if start > dt.date.today().isoformat():
         return 0
 
-    tk = yf.Ticker(symbol + ".NS")
-    df = tk.history(start=start, auto_adjust=True)
+    result = get_registry().fetch("prices.daily_history", ("yahoo_finance",), symbol=symbol, start=start)
+    df = result.data
     if df.empty:
         return 0
 
