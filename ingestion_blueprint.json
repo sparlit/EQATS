@@ -1,45 +1,55 @@
 {
+<<<<<<< HEAD
   "current_index": 27,
+=======
+  "current_index": 1,
+>>>>>>> integrate/tectonicdb
   "repositories": [
     {
       "name": "tectonicdb",
       "target": "0b01/tectonicdb",
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
-      "pr_url": null,
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2902",
       "merged": true
     },
     {
       "name": "hyperliquid_rust_bot",
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
-      "status": "Processed",
+      "status": "pending",
       "pr_url": null,
-      "merged": true
+      "merged": false
     },
     {
       "name": "indian-stock-market-api",
       "target": "0xramm/indian-stock-market-api",
       "url": "https://github.com/0xramm/indian-stock-market-api",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2895",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
       "target": "0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
       "url": "https://github.com/0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2896",
-      "merged": true
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "hyperliquid-trading-bot-rust",
       "target": "0xtan1319/hyperliquid-trading-bot-rust",
       "url": "https://github.com/0xtan1319/hyperliquid-trading-bot-rust",
+<<<<<<< HEAD
       "status": "Processed",
       "pr_url": "https://github.com/sparlit/EQATS/pull/2898",
       "merged": true
+=======
+      "status": "pending",
+      "pr_url": null,
+      "merged": false
+>>>>>>> integrate/tectonicdb
     },
     {
       "name": "banknifty-golden-ratio-strategy",
