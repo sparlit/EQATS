@@ -1,3 +1,4 @@
+# codespell:ignore IST
 """
 Algo Trading Infrastructure Integration Engine (EQATS Institutional Adaptation).
 Adapted from top algorithmic trading infrastructure concepts under topic `algo-trading-infra`.
@@ -17,20 +18,29 @@ Features:
 import datetime
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from .sebi_broker_adapter import IndianBrokerPluginRegistry, SEBIBrokerAdapter, SEBIOrderRequest, SEBIOrderResponse
+from .sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    SEBIBrokerAdapter,
+    SEBIOrderRequest,
+    SEBIOrderResponse,
+)
 
 _log = logging.getLogger("AlgoTradingInfraEngine")
 MAGIC_NUMBER_ALGO_TRADING_INFRA: int = 9100090
 
 
-def is_ist_market_session_active(dt: Optional[datetime.datetime] = None) -> bool:
+def is_ist_market_session_active(
+    dt: datetime.datetime | None = None,
+) -> bool:
     """
-    Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri).
+    Checks whether current or provided time falls within NSE/BSE IST market session.
+    IST market hours are 09:15 to 15:30 IST Mon-Fri.
     Assumes provided time is in IST or local time offset for IST (+05:30).
     """
-    now = dt if dt else datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
+    tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    now = dt or datetime.datetime.now(tz)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -53,15 +63,30 @@ class OrderBookDepthBuffer:
     """
 
     def __init__(self, depth_levels: int = 5) -> None:
+        """
+        Initializes the OrderBookDepthBuffer with maximum depth levels.
+        """
         self.depth_levels = depth_levels
-        self.bids: List[Dict[str, float]] = []
-        self.asks: List[Dict[str, float]] = []
+        self.bids: list[dict[str, float]] = []
+        self.asks: list[dict[str, float]] = []
 
-    def update_depth(self, bids: List[Dict[str, float]], asks: List[Dict[str, float]]) -> None:
-        self.bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)[: self.depth_levels]
-        self.asks = sorted(asks, key=lambda x: x.get("price", 0.0))[: self.depth_levels]
+    def update_depth(
+        self,
+        bids: list[dict[str, float]],
+        asks: list[dict[str, float]],
+    ) -> None:
+        """
+        Updates L2/L5 bid and ask queues.
+        """
+        sorted_bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)
+        sorted_asks = sorted(asks, key=lambda x: x.get("price", 0.0))
+        self.bids = sorted_bids[: self.depth_levels]
+        self.asks = sorted_asks[: self.depth_levels]
 
-    def estimate_slippage(self, order_quantity: float, side: str) -> Dict[str, float]:
+    def estimate_slippage(self, order_quantity: float, side: str) -> dict[str, float]:
+        """
+        Estimates market impact slippage percentage for a given order quantity.
+        """
         levels = self.asks if side.upper() == "BUY" else self.bids
         if not levels:
             return {"expected_price": 0.0, "slippage_pct": 0.0, "filled_quantity": 0.0}
@@ -81,10 +106,15 @@ class OrderBookDepthBuffer:
             total_cost += fill_q * p
 
         if accumulated_qty == 0:
-            return {"expected_price": top_price, "slippage_pct": 0.0, "filled_quantity": 0.0}
+            return {
+                "expected_price": top_price,
+                "slippage_pct": 0.0,
+                "filled_quantity": 0.0,
+            }
 
         avg_price = round_to_ist_tick(total_cost / accumulated_qty)
-        slippage_pct = abs(avg_price - top_price) / top_price * 100.0 if top_price > 0 else 0.0
+        diff = abs(avg_price - top_price)
+        slippage_pct = diff / top_price * 100.0 if top_price > 0 else 0.0
 
         return {
             "expected_price": avg_price,
@@ -106,26 +136,48 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         is_sandbox: bool = True,
         max_allowed_slippage_pct: float = 0.5,
     ) -> None:
-        super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
+        """
+        Initializes AlgoTradingInfraEngine adapter parameters and state.
+        """
+        super().__init__(
+            api_key=api_key,
+            access_token=access_token,
+            is_sandbox=is_sandbox,
+        )
         self.magic_number = MAGIC_NUMBER_ALGO_TRADING_INFRA
         self.max_allowed_slippage_pct = max_allowed_slippage_pct
-        self.orderbook_buffers: Dict[str, OrderBookDepthBuffer] = {}
-        self.active_orders: Dict[str, Dict[str, Any]] = {}
+        self.orderbook_buffers: dict[str, OrderBookDepthBuffer] = {}
+        self.active_orders: dict[str, dict[str, Any]] = {}
         self._connected = True
 
     def connect(self) -> bool:
+        """
+        Establishes connection to the execution gateway infrastructure.
+        """
         self._connected = True
-        _log.info("AlgoTradingInfraEngine connected successfully. Magic Number: %d", self.magic_number)
+        _log.info(
+            "AlgoTradingInfraEngine connected. Magic Number: %d",
+            self.magic_number,
+        )
         return True
 
     def is_connected(self) -> bool:
+        """
+        Returns connection state.
+        """
         return self._connected
 
     def disconnect(self) -> bool:
+        """
+        Terminates connection session.
+        """
         self._connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
+        """
+        Returns account balance and margin summary.
+        """
         return {
             "balance": 2500000.0,
             "equity": 2500000.0,
@@ -135,12 +187,28 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             "magic_number": self.magic_number,
         }
 
-    def update_market_depth(self, symbol: str, bids: List[Dict[str, float]], asks: List[Dict[str, float]]) -> None:
+    def update_market_depth(
+        self,
+        symbol: str,
+        bids: list[dict[str, float]],
+        asks: list[dict[str, float]],
+    ) -> None:
+        """
+        Updates L2/L5 orderbook depth buffer for the symbol.
+        """
         if symbol not in self.orderbook_buffers:
             self.orderbook_buffers[symbol] = OrderBookDepthBuffer()
         self.orderbook_buffers[symbol].update_depth(bids, asks)
 
-    def evaluate_execution_route(self, symbol: str, quantity: float, side: str) -> Dict[str, Any]:
+    def evaluate_execution_route(
+        self,
+        symbol: str,
+        quantity: float,
+        side: str,
+    ) -> dict[str, Any]:
+        """
+        Evaluates execution route and checks estimated slippage against thresholds.
+        """
         buffer = self.orderbook_buffers.get(symbol)
         if not buffer:
             return {
@@ -153,9 +221,10 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         slippage_pct = slippage_info.get("slippage_pct", 0.0)
 
         if slippage_pct > self.max_allowed_slippage_pct:
+            msg = f"Slippage ({slippage_pct:.2f}%) exceeds max threshold ({self.max_allowed_slippage_pct}%)"
             return {
                 "route_approved": False,
-                "reason": f"Slippage ({slippage_pct:.2f}%) exceeds max threshold ({self.max_allowed_slippage_pct}%)",
+                "reason": msg,
                 "estimated_slippage_pct": slippage_pct,
             }
 
@@ -167,11 +236,18 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         }
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
+        """
+        Executes order through Smart Order Routing (SOR) gateway.
+        """
         exchange = req.exchange.upper() if req.exchange else "NSE"
         rounded_price = round_to_ist_tick(req.price)
         ticket = f"INFRA_{int(time.time() * 1000)}"
 
-        route_eval = self.evaluate_execution_route(req.symbol, req.quantity, req.order_type)
+        route_eval = self.evaluate_execution_route(
+            req.symbol,
+            req.quantity,
+            req.order_type,
+        )
         if not route_eval["route_approved"] and not self.is_sandbox:
             return SEBIOrderResponse(
                 success=False,
@@ -207,7 +283,16 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             raw_response=order_record,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self,
+        ticket: str,
+        symbol: str,
+        exchange: str = "NSE",
+        product: str = "CNC",
+    ) -> SEBIOrderResponse:
+        """
+        Squares-off or cancels open order position.
+        """
         if ticket in self.active_orders:
             order = self.active_orders.pop(ticket)
             return SEBIOrderResponse(
@@ -227,41 +312,67 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self,
+        ticket: str,
+        price: float = 0.0,
+        sl: float = 0.0,
+        tp: float = 0.0,
+    ) -> bool:
+        """
+        Modifies order price or stop loss / take profit triggers.
+        """
         if ticket in self.active_orders:
             if price > 0:
                 self.active_orders[ticket]["price"] = round_to_ist_tick(price)
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
+        """
+        Returns list of open active orders.
+        """
         return list(self.active_orders.values())
 
     def get_history(
-        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+        self,
+        symbol: str,
+        exchange: str = "NSE",
+        count: int = 100,
+        interval: str = "minute",
+    ) -> list[dict[str, Any]]:
+        """
+        Generates historical OHLCV candles.
+        """
         now = time.time()
         bars = []
         base = 1000.0
         for i in range(count):
             t = now - (count - i) * 60
-            o = round_to_ist_tick(base + i * 0.2)
-            h = round_to_ist_tick(o + 1.0)
-            l = round_to_ist_tick(o - 0.8)
-            c = round_to_ist_tick(o + 0.1)
+            open_p = round_to_ist_tick(base + i * 0.2)
+            high_p = round_to_ist_tick(open_p + 1.0)
+            low_p = round_to_ist_tick(open_p - 0.8)
+            close_p = round_to_ist_tick(open_p + 0.1)
             bars.append(
                 {
                     "timestamp": int(t),
-                    "open": o,
-                    "high": h,
-                    "low": l,
-                    "close": c,
+                    "open": open_p,
+                    "high": high_p,
+                    "low": low_p,
+                    "close": close_p,
                     "volume": 500 + i * 5,
                 }
             )
         return bars
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(
+        self,
+        symbol: str,
+        exchange: str = "NSE",
+    ) -> dict[str, float]:
+        """
+        Returns last quote bid/ask/last prices.
+        """
         return {
             "bid": 1000.0,
             "ask": 1000.05,
