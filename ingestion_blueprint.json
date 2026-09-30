@@ -198,15 +198,15 @@
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2824",
-      "merged": true
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "osengine",
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2826",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2874",
       "merged": true
     },
     {
@@ -214,7 +214,7 @@
       "target": "algotrading-lab/ai-algotrading-agent",
       "url": "https://github.com/algotrading-lab/ai-algotrading-agent",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2828",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2875",
       "merged": true
     },
     {
@@ -222,7 +222,7 @@
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2829",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2883",
       "merged": true
     },
     {
@@ -230,7 +230,7 @@
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2830",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2879",
       "merged": true
     },
     {
