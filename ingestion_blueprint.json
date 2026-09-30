@@ -206,8 +206,8 @@
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2874",
+      "merged": true
     },
     {
       "name": "ai-algotrading-agent",
@@ -222,7 +222,7 @@
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2877",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2883",
       "merged": true
     },
     {
@@ -230,7 +230,7 @@
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2879",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2885",
       "merged": true
     },
     {
