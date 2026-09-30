@@ -77,7 +77,7 @@ Total Repositories: 423 | Current Index: 75
 | 72 | benimward9621/advanced-nse-momentum-terminal | Skipped: Private/Non-Existent (404/403) | None |
 | 73 | bennythadikaran/eod2 | Completed | None |
 | 74 | bennythadikaran/eod2_data | Processed | https://github.com/sparlit/EQATS/pull/2886 |
-| 75 | bennythadikaran/nseindiaapi | Completed | None |
+| 75 | bennythadikaran/nseindiaapi | Completed | https://github.com/sparlit/EQATS/pull/2889 |
 | 76 | bhala-srinivash/nse-trading-skills | pending | None |
 | 77 | bhumi008007/stock_prediction | pending | None |
 | 78 | bitbytelabio/tradingview-rs | pending | None |
