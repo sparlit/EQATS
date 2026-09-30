@@ -1,5 +1,5 @@
 {
-  "current_index": 72,
+  "current_index": 25,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -198,8 +198,8 @@
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2824",
-      "merged": true
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "osengine",
