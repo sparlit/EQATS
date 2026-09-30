@@ -19,7 +19,7 @@ Total Repositories: 423 | Current Index: 17
 | 14 | aeron7/nsepythonserver | Processed | https://github.com/sparlit/EQATS/pull/2920 |
 | 15 | affaan-m/dprc-autotrader-v2 | Processed | https://github.com/sparlit/EQATS/pull/2921 |
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | https://github.com/sparlit/EQATS/pull/2922 |
-| 17 | ai4finance-foundation/finrl-trading | Completed | None |
+| 17 | ai4finance-foundation/finrl-trading | Completed | https://github.com/sparlit/EQATS/pull/2923 |
 | 18 | ajakaiye33/ngrcoydisclosures | pending | None |
 | 19 | ajeeshworkspace/indian-trading-skills | pending | None |
 | 20 | akashnag/scripwatch | pending | None |
