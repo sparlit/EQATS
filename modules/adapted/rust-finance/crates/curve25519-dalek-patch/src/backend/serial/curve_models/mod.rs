@@ -547,3 +547,4 @@ impl Debug for ProjectiveNielsPoint {
                &self.Y_plus_X, &self.Y_minus_X, &self.Z, &self.T2d)
     }
 }
+

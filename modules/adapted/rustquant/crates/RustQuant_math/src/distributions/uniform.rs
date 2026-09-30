@@ -207,7 +207,7 @@ impl Distribution for Uniform {
     /// let dist = Uniform::new(0.0, 1.0, DistributionClass::Continuous);
     ///
     /// assert_approx_equal!(dist.mean(), 0.5, 1e-7);
-    /// ```
+    /// ```    
     fn mean(&self) -> f64 {
         0.5 * (self.a + self.b)
     }

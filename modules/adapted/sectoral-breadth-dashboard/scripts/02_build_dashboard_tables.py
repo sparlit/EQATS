@@ -37,7 +37,6 @@ from utils import p, read_parquet_safe, write_parquet
 if TYPE_CHECKING:
     from pathlib import Path
 
-SMALL_GROUP_LIMIT = 5
 MAX_PER_INDUSTRY = 4
 TOP_BUY_COUNT = 20
 IPO_COUNT = 15
@@ -95,10 +94,6 @@ def add_priority(stock: pd.DataFrame) -> pd.DataFrame:
         + 0.10 * pct_rank(numeric("stock_strength_score"), True)
     ).round(1)
     return data
-
-
-def empty_like(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame.iloc[0:0].copy()
 
 
 def build_snapshot(
@@ -160,7 +155,7 @@ def main() -> None:
     stock = prepare_stock(read_parquet_safe(processed / "stock_daily_features.parquet"))
 
     for frame, column in [(basic, "basic_industry"), (industry, "industry"), (sector, "sector")]:
-        require_columns(frame, [column, "leadership_score"], f"{column} feature file")
+        require_columns(frame, [column, "leadership_score", "members"], f"{column} feature file")
         clean_group(frame, column)
 
     common_dates = sorted(set(basic["date"]) & set(industry["date"]) & set(sector["date"]) & set(stock["date"]))

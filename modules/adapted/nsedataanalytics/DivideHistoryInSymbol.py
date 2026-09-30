@@ -20,14 +20,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from config import get_symbols
-import config
+import config 
 import MySQLdb
 import pandas as pd
 import datetime as dt
 def divide_into_tables():
     symbols=get_symbols()
     sql='select INSTRUMENT, SYMBOL, EXPIRY_DT, STRIKE_PR, OPTION_TYP, OPEN, HIGH, LOW, CLOSE, SETTLE_PR, CONTRACTS, VAL_INLAKH, OPEN_INT, CHG_IN_OI, TIMESTAMP, MONTH_CODE from fut_opt_hist where symbol="%s"'
-
+    
     for symbol in symbols.symbol:
         db=MySQLdb.connect(config.host,config.user,config.password,'NSE')
         data=pd.read_sql_query(sql%symbol,db)
@@ -35,8 +35,8 @@ def divide_into_tables():
             data.to_sql(symbol,db ,flavor='mysql', if_exists='replace', chunksize=200)
         except ValueError:
             print symbol
-            continue
-        db.close()
+            continue    
+        db.close()    
 def update_month_code():
     symbols=get_symbols()
     sql='update %s a,(select EXPIRY_DT,TIMESTAMP from fut_opt_hist where INSTRUMENT="FUTIDX"  group by TIMESTAMP order by TIMESTAMP,EXPIRY_DT ) b\
@@ -49,14 +49,14 @@ def update_month_code():
         try:
             cursor.execute(sql%(symbol))
         except :
-
-            pass
+            
+            pass 
         finally:
             db.commit()
-            db.close()
+            db.close()    
 def create_fut_history():
     db=MySQLdb.connect(config.host,config.user,config.password,'NSE')
-
+    
     try:
         for symbol in get_symbols():
             if symbol in config.symbols_table_not_created:
@@ -80,7 +80,7 @@ def create_fut_today():
         pass
     finally:
         db.close()
-
+                
 if __name__=='__main__':
     #divide_into_tables()
     #update_month_code()

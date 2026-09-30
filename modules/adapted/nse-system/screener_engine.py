@@ -29,6 +29,7 @@ Usage:
   python screener_engine.py RELIANCE   -> full check breakdown for one stock
   python screener_engine.py scan       -> run over top smallcap band (DB-only)
 """
+import datetime as dt
 import json
 import sys
 
@@ -60,9 +61,11 @@ def _from_db(ticker):
     return df.dropna(subset=["Close"])
 
 
-def _from_yahoo(ticker, period="18mo"):
+def _from_yahoo(ticker, period_days=550):
     try:
-        df = yf.download(f"{ticker}.NS", period=period, interval="1d", progress=False)
+        end = dt.date.today()
+        start = end - dt.timedelta(days=period_days)
+        df = yf.download(f"{ticker}.NS", start=start.isoformat(), end=end.isoformat(), interval="1d", progress=False)
         if df is None or df.empty or len(df) < 240:
             return None
         if isinstance(df.columns, pd.MultiIndex):
@@ -73,25 +76,28 @@ def _from_yahoo(ticker, period="18mo"):
         return None
 
 
-def fetch_stock_data(ticker, period="18mo", allow_yahoo=True):
-    """18 months ensures enough history for EMA200 + 52W high."""
+def fetch_stock_data(ticker, period_days=550, allow_yahoo=True):
+    """18 months (~550 days) ensures enough history for EMA200 + 52W high."""
     df = _from_db(ticker)
     if df is None and allow_yahoo:
-        df = _from_yahoo(ticker, period)
+        df = _from_yahoo(ticker, period_days=period_days)
     return df
 
 
-def fetch_index_data(index_ticker="^NSESMALLCAP"):
-    """Benchmark data for the global regime filter."""
-    try:
-        df = yf.download(index_ticker, period="1mo", interval="1d", progress=False)
-        if df is None or df.empty:
-            return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        return df
-    except Exception:
-        return None
+def fetch_index_data(index_ticker=None):
+    """Benchmark data for the global regime filter.
+    Tries multiple index candidates if none specified."""
+    candidates = [index_ticker] if index_ticker else ["^CNXSMALLCAP", "^CNXSC", "NIFTY_SMALLCAP_100.NS", "^NSEI"]
+    for sym in candidates:
+        try:
+            df = yf.download(sym, period="1mo", interval="1d", progress=False)
+            if df is not None and not df.empty:
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                return df
+        except Exception:
+            continue
+    return None
 
 
 # ==========================================

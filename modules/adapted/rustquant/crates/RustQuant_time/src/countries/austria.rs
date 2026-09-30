@@ -27,7 +27,7 @@ pub(crate) fn is_holiday_impl_austria(date: Date) -> bool {
             // Easter Monday
             (yd == em) ||
 
-            // Ascension Thurday
+            // Ascension Thurday 
             (yd == em+38) ||
 
             // Whit Monday

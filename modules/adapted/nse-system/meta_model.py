@@ -22,11 +22,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """
-Setup Meta-Model — expanded feature set (C3 + Secret Sauce).
-Features: momentum + structure + volume + fundamentals + sentiment
-+ sector strength + volume-contraction-ratio + return-volatility
-+ 52-week-high distance. Weekly auto-retrain, metrics auto-recorded.
+Setup Meta-Model v7 — C3 + Secret Sauce + Pattern flags + DTW + Delivery
++ trend-persistence features.
+Features (33): momentum + structure + volume + fundamentals + sentiment
++ sector strength + vcr/ret_std20/below52 + 7 pattern flags + dtw_sim
++ delivery_sim + days_above_200_30 + days_above_50_30 + ema200_dist_z.
+Weekly auto-retrain. Metrics auto-recorded to model_runs.
 """
+import datetime as dt
 import json
 import sys
 
@@ -38,13 +41,55 @@ import pandas as pd
 
 MODEL_PATH = "data/meta_model.pkl"
 _MODEL = None
+_WARNED_OLD = False
 
 
 def get_model():
-    global _MODEL
-    if _MODEL is None:
-        _MODEL = joblib.load(MODEL_PATH)
+    global _MODEL, _WARNED_OLD
+    if _MODEL is not None:
+        return _MODEL
+    try:
+        loaded = joblib.load(MODEL_PATH)
+    except FileNotFoundError:
+        print(f"[META] model not found at {MODEL_PATH} — run train first")
+        return None
+    except Exception as e:
+        print(f"[META] failed to load model: {e}")
+        return None
+
+    if isinstance(loaded, dict) and "model" in loaded:
+        model = loaded["model"]
+        feats = loaded.get("features", [])
+        if feats and feats != FEATURES:
+            print(
+                f"[META] model feature mismatch: "
+                f"model has {len(feats)}, code expects {len(FEATURES)}. "
+                f"Retrain required."
+            )
+            return None
+        _MODEL = model
+        return _MODEL
+
+    if not _WARNED_OLD:
+        print("[META] loaded legacy model (no feature list). Retrain to enable feature compatibility checks.")
+        _WARNED_OLD = True
+    try:
+        n = loaded.booster_.num_feature()
+    except Exception:
+        n = None
+    if n is not None and n != len(FEATURES):
+        print(
+            f"[META] legacy model has {n} features, code expects {len(FEATURES)} — refusing to score. Retrain required."
+        )
+        return None
+    _MODEL = loaded
     return _MODEL
+
+
+def reload_model():
+    global _MODEL
+    _MODEL = None
+    return get_model()
 
 
 FEATURES = [
@@ -69,9 +114,110 @@ FEATURES = [
     "vcr",
     "ret_std20",
     "below52",
+    "pat_htf",
+    "pat_tri",
+    "pat_db",
+    "pat_flag",
+    "pat_ihs",
+    "pat_bear",
+    "pat_any",
+    "dtw_sim",
+    "delivery_sim",
+    "days_above_200_30",
+    "days_above_50_30",
+    "ema200_dist_z",
 ]
 CONTEXT_FEATS = {"roce", "pe", "debt_eq", "promoter", "sector_rs", "sentiment"}
+PAT_MAP = {
+    "HIGH_TIGHT_FLAG": "pat_htf",
+    "ASCENDING_TRIANGLE": "pat_tri",
+    "DOUBLE_BOTTOM": "pat_db",
+    "BULL_FLAG": "pat_flag",
+    "INVERSE_HEAD_SHOULDERS": "pat_ihs",
+    "HEAD_SHOULDERS_TOP_WARNING": "pat_bear",
+}
+PAT_FEATS = ["pat_htf", "pat_tri", "pat_db", "pat_flag", "pat_ihs", "pat_bear", "pat_any"]
 PRICE_FEATS = [f for f in FEATURES if f not in CONTEXT_FEATS]
+DTW_WINDOW_DAYS = 12
+DEL_WINDOW_DAYS = 10
+
+
+def _pattern_flags(tags, dates):
+    parsed = []
+    for dstr, pat, dirn in tags:
+        try:
+            d = dt.date.fromisoformat(str(dstr)[:10])
+        except Exception:
+            continue
+        parsed.append((d, pat, dirn))
+    out = {k: [] for k in PAT_FEATS}
+    for x in dates:
+        xd = x.date() if hasattr(x, "date") else x
+        flags = dict.fromkeys(PAT_FEATS, 0.0)
+        anyb = 0.0
+        for d, pat, dirn in parsed:
+            delta = (xd - d).days
+            if 0 <= delta <= 6:
+                col = PAT_MAP.get(pat)
+                if col:
+                    flags[col] = 1.0
+                    if dirn == "BULLISH":
+                        anyb = 1.0
+        flags["pat_any"] = anyb
+        for k in PAT_FEATS:
+            out[k].append(flags[k])
+    return out
+
+
+def _dtw_map(conn, sym):
+    try:
+        rows = conn.execute("SELECT date, similarity FROM template_scores WHERE symbol=?", (sym,)).fetchall()
+    except Exception:
+        return {}
+    m = {}
+    for d, s in rows:
+        key = str(d)[:10]
+        if key not in m or s > m[key]:
+            m[key] = s
+    return m
+
+
+def _dtw_series(tmap, dates):
+    out = []
+    for x in dates:
+        xd = x.date() if hasattr(x, "date") else x
+        val = 0.0
+        for off in range(DTW_WINDOW_DAYS + 1):
+            key = (xd - dt.timedelta(days=off)).isoformat()
+            if key in tmap:
+                val = tmap[key] / 100.0
+                break
+        out.append(val)
+    return out
+
+
+def _delivery_map(conn, sym):
+    try:
+        rows = conn.execute(
+            "SELECT date, delivery_pct FROM delivery_daily WHERE symbol=? AND delivery_pct > 0", (sym,)
+        ).fetchall()
+    except Exception:
+        return {}
+    return {str(d)[:10]: p for d, p in rows}
+
+
+def _delivery_series(pmap, dates):
+    out = []
+    for x in dates:
+        xd = x.date() if hasattr(x, "date") else x
+        val = 0.5
+        for off in range(DEL_WINDOW_DAYS + 1):
+            key = (xd - dt.timedelta(days=off)).isoformat()
+            if key in pmap:
+                val = max(0.0, min(1.0, (pmap[key] - 30.0) / 50.0))
+                break
+        out.append(val)
+    return out
 
 
 def _symbols(conn, limit=400):
@@ -166,9 +312,11 @@ def _features_df(df, ctx):
     v = df["volume"]
     e10 = c.ewm(span=10, adjust=False).mean()
     e20 = c.ewm(span=20, adjust=False).mean()
+    e50 = c.ewm(span=50, adjust=False).mean()
     e200 = c.ewm(span=200, adjust=False).mean()
     tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
     fut_max = h.iloc[::-1].rolling(20, min_periods=1).max().iloc[::-1].shift(-1)
+
     out = pd.DataFrame(index=df.index)
     out["mom1"] = c / c.shift(21) - 1
     out["mom3"] = c / c.shift(63) - 1
@@ -188,10 +336,20 @@ def _features_df(df, ctx):
     out["promoter"] = ctx.get("promoter")
     out["sector_rs"] = ctx.get("sector_rs")
     out["sentiment"] = ctx.get("sentiment")
-    # --- Secret Sauce (Phase 1) ---
     out["vcr"] = v.rolling(5).mean() / v.rolling(50).mean().replace(0, np.nan)
     out["ret_std20"] = c.pct_change().rolling(20).std()
     out["below52"] = 1.0 - (c / h.rolling(252).max())
+
+    # v7: trend persistence features
+    above200 = (c > e200).astype(float)
+    above50 = (c > e50).astype(float)
+    out["days_above_200_30"] = above200.rolling(30).mean()
+    out["days_above_50_30"] = above50.rolling(30).mean()
+    rel_e200 = (c / e200) - 1.0
+    mean60 = rel_e200.rolling(60).mean()
+    std60 = rel_e200.rolling(60).std().replace(0, np.nan)
+    out["ema200_dist_z"] = (rel_e200 - mean60) / std60
+
     out["win"] = ((fut_max / c - 1) >= 0.10).astype(float)
     return out
 
@@ -228,6 +386,17 @@ def build_train_data(conn):
         feat = _features_df(df, ctx)
         feat["date"] = df["date"]
         feat = feat.iloc[::5]
+        try:
+            tags = conn.execute("SELECT date, pattern, direction FROM pattern_tags WHERE symbol=?", (sym,)).fetchall()
+        except Exception:
+            tags = []
+        fl = _pattern_flags(tags, feat["date"].tolist())
+        for k in PAT_FEATS:
+            feat[k] = fl[k]
+        tmap = _dtw_map(conn, sym)
+        feat["dtw_sim"] = _dtw_series(tmap, feat["date"].tolist())
+        dmap = _delivery_map(conn, sym)
+        feat["delivery_sim"] = _delivery_series(dmap, feat["date"].tolist())
         feat = feat.dropna(subset=[*PRICE_FEATS, "win"])
         frames.append(feat)
     if not frames:
@@ -287,7 +456,7 @@ def train():
     model = _fit(tr, te, FEATURES)
     auc, top_rate = _eval(model, te, FEATURES)
     base = float(te["win"].mean())
-    joblib.dump(model, MODEL_PATH)
+    joblib.dump({"model": model, "features": FEATURES, "version": "v7"}, MODEL_PATH)
     metrics = {
         "rows": len(data),
         "winners": round(base, 4),
@@ -295,11 +464,11 @@ def train():
         "base_win": round(base, 4),
         "top10_win": round(top_rate, 4),
         "n_features": len(FEATURES),
-        "note": "retrain (C3 + secret-sauce features)",
+        "note": "retrain v7 (trend-persistence features)",
     }
     print(f"rows {len(data)} | winners {base:.1%}")
     print(f"test AUC {auc:.3f} | base win {base:.1%} | top-10% win {top_rate:.1%}")
-    print(f"features: {len(FEATURES)} (incl. vcr, ret_std20, below52)")
+    print(f"features: {len(FEATURES)} (incl. trend persistence)")
     print(f"model saved to {MODEL_PATH}")
     try:
         import model_report
@@ -307,11 +476,11 @@ def train():
         model_report.record(metrics)
     except Exception as e:
         print(f"[META] model_run record skipped: {e}")
+    reload_model()
     return metrics
 
 
 def lift_test():
-    """C3 lift: full feature set vs price-only, same data/split."""
     conn = db.get_conn()
     data = build_train_data(conn)
     conn.close()
@@ -354,8 +523,20 @@ def lift_test():
     return metrics
 
 
+def _attach_extra_feats(feat, tags, tmap, dmap):
+    dates = feat.index.tolist()
+    fl = _pattern_flags(tags, dates)
+    for k in PAT_FEATS:
+        feat[k] = fl[k]
+    feat["dtw_sim"] = _dtw_series(tmap, dates)
+    feat["delivery_sim"] = _delivery_series(dmap, dates)
+    return feat
+
+
 def score_symbol(sym, use_yahoo=True):
     model = get_model()
+    if model is None:
+        return None
     conn = db.get_conn()
     rows = conn.execute(
         "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
@@ -382,11 +563,25 @@ def score_symbol(sym, use_yahoo=True):
         )
     else:
         return None
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date")
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index)
+
     conn2 = db.get_conn()
     fund = _fund_map(conn2)
     sent = _sentiment_map(conn2)
     srs = sector_rs_map(conn2)
+    try:
+        tags = conn2.execute("SELECT date, pattern, direction FROM pattern_tags WHERE symbol=?", (sym,)).fetchall()
+    except Exception:
+        tags = []
+    tmap = _dtw_map(conn2, sym)
+    dmap = _delivery_map(conn2, sym)
     conn2.close()
+
     f = fund.get(sym, {})
     ctx = {
         "roce": f.get("roce"),
@@ -396,15 +591,21 @@ def score_symbol(sym, use_yahoo=True):
         "sector_rs": srs.get(sym),
         "sentiment": sent.get(sym),
     }
+
     feat = _features_df(df, ctx)
+    if feat.empty:
+        return None
+
+    feat = _attach_extra_feats(feat, tags, tmap, dmap)
+    feat = _coerce_numeric(feat)
+    for col in CONTEXT_FEATS:
+        if col in feat.columns:
+            med = feat[col].median()
+            feat[col] = feat[col].fillna(med if pd.notna(med) else 0.0)
     feat = feat.dropna(subset=PRICE_FEATS)
     if feat.empty:
         return None
-    feat = feat.tail(1).copy()
-    feat = _coerce_numeric(feat)
-    for col in FEATURES:
-        if col in feat.columns and pd.isna(feat[col].iloc[0]):
-            feat[col] = 0.0
+    feat = feat.tail(1)
     p = model.predict_proba(feat[FEATURES])[:, 1][0]
     contrib = model.booster_.predict(feat[FEATURES], pred_contrib=True)[0]
     parts = sorted(zip(FEATURES, contrib, strict=False), key=lambda x: -abs(x[1]))[:5]

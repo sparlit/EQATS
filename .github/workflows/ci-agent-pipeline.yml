@@ -63,7 +63,7 @@ jobs:
           # shellcheck disable=SC2086
           "$GITHUB_WORKSPACE/venv/bin/python" -m pip install --upgrade pip
           # shellcheck disable=SC2086
-          "$GITHUB_WORKSPACE/venv/bin/pip" install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
+          "$GITHUB_WORKSPACE/venv/bin/pip" install mypy pyflakes ruff pytest pytest-xdist maturin nuitka
           # shellcheck disable=SC2086
           if [ -f requirements.txt ]; then "$GITHUB_WORKSPACE/venv/bin/pip" install -r requirements.txt; fi
 
@@ -124,6 +124,7 @@ jobs:
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true'
         env:
           UNSAFE_PYO3_BUILD_FREE_THREADED: "1" # Instructs PyO3 to compile natively under No-GIL
+          VIRTUAL_ENV: "${{ github.workspace }}/venv"
         run: |
           # shellcheck disable=SC2086
           echo "=== PHASE-3 STAGE-1 RUST LOG ===" > p3_s1_output.log

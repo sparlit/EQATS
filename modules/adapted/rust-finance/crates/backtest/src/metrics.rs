@@ -18,17 +18,17 @@ pub fn calculate_sharpe_ratio(returns: &[f64], risk_free_rate: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
-
+    
     let sum: f64 = returns.iter().sum();
     let mean = sum / returns.len() as f64;
-
+    
     let variance: f64 = returns.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / returns.len() as f64;
     let std_dev = variance.sqrt();
-
+    
     if std_dev == 0.0 {
         return 0.0;
     }
-
+    
     // Annualized multiplier assuming 252 trading days. If returns are daily.
     // For tick/M1 data, we adjust accordingly. Assuming these are per-trade returns for the stub.
     (mean - risk_free_rate) / std_dev

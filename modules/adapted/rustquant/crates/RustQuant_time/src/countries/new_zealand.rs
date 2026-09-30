@@ -27,7 +27,7 @@ pub(crate) fn is_holiday_impl_new_zealand(date: Date) -> bool {
             || (yd == em - 3)
             // Easter Monday
             || (yd == em)
-            // ANZAC Day. April 25th ("Mondayised" since 2013)
+            // ANZAC Day. April 25th ("Mondayised" since 2013) 
             || (d == 25 && m == Month::April)
             || ((d == 26 || d == 27) && wd == Weekday::Monday && m == Month::April && y > 2013)
             // Queen's Birthday, first Monday in June
