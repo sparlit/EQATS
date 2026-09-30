@@ -4,7 +4,7 @@ Total Repositories: 423 | Current Index: 2
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
 | 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2907 |
-| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | None |
+| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2908 |
 | 3 | 0xramm/indian-stock-market-api | pending | None |
 | 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
 | 5 | 0xtan1319/hyperliquid-trading-bot-rust | pending | None |
