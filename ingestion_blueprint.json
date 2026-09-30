@@ -222,7 +222,7 @@
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2829",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2877",
       "merged": true
     },
     {
@@ -230,7 +230,7 @@
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2830",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2879",
       "merged": true
     },
     {
