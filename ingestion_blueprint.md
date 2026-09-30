@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 423 | Current Index: 74
+Total Repositories: 423 | Current Index: 75
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -31,7 +31,7 @@ Total Repositories: 423 | Current Index: 74
 | 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2874 |
 | 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2875 |
 | 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2884 |
-| 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2879 |
+| 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2885 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2831 |
 | 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2832 |
 | 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2833 |
@@ -77,7 +77,7 @@ Total Repositories: 423 | Current Index: 74
 | 72 | benimward9621/advanced-nse-momentum-terminal | Skipped: Private/Non-Existent (404/403) | None |
 | 73 | bennythadikaran/eod2 | Completed | None |
 | 74 | bennythadikaran/eod2_data | Processed | https://github.com/sparlit/EQATS/pull/2886 |
-| 75 | bennythadikaran/nseindiaapi | pending | None |
+| 75 | bennythadikaran/nseindiaapi | Completed | None |
 | 76 | bhala-srinivash/nse-trading-skills | pending | None |
 | 77 | bhumi008007/stock_prediction | pending | None |
 | 78 | bitbytelabio/tradingview-rs | pending | None |
