@@ -14,7 +14,11 @@
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
       "status": "Processed",
+<<<<<<< HEAD
       "pr_url": null,
+=======
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2906",
+>>>>>>> integrate/hyperliquid_rust_bot
       "merged": true
     },
     {
