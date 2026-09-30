@@ -27,9 +27,9 @@ import sys
 import db
 import scoring
 
-MIN_FUND = 65
-MIN_ML = 55
-MAX_RECOMMEND = 25
+MIN_FUND = 72
+MIN_ML = 70
+MAX_RECOMMEND = 10
 
 
 def run():
@@ -83,7 +83,7 @@ def run():
         sv = sentmap.get(sym)
         if sv is not None and sv < 50:
             continue
-        r["blend"] = round(0.6 * r["composite"] + 0.4 * mv, 1)
+        r["blend"] = round(0.75 * r["composite"] + 0.25 * mv, 1)
         eligible.append(r)
     eligible.sort(key=lambda r: -r["blend"])
     rec_set = {r["symbol"] for r in eligible[:MAX_RECOMMEND]}

@@ -7,7 +7,7 @@
 //      - LICENSE-MIT.md
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-//! ## Gradient Descent Primer
+//! ## Gradient Descent Primer  
 //!
 //! We want to implement an algorithm for solving uncostrained optimisation problems of the form:
 //!

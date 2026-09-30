@@ -1,33 +1,49 @@
 name: eqats-ci
+
 on:
   pull_request:
   push:
     branches: [ "**" ]
 permissions:
   contents: read
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'dashboard.html'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@315e58138fb1422ee379646c4f0393952f44778a # stable
+      - name: Setup Rust Build Cache
+        uses: Swatinem/rust-cache@f0deed1e0edfc26ca2027467f0ffa53664d4715f # v2.7.7
+        with:
+          workspaces: "eqats_rust_core -> target"
       - name: Cargo build
         run: |
           if [ -f Cargo.toml ]; then cargo build --verbose; else echo "no Cargo.toml, skipping"; fi
       - name: Cargo test
         run: |
           if [ -f Cargo.toml ]; then cargo test --verbose; else echo "no Cargo.toml, skipping"; fi
+
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
+          cache: "pip"
       - name: Install & test
         run: |
           python -m pip install --upgrade pip
           if [ -f pyproject.toml ]; then pip install maturin pytest && (maturin build || true); fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -d tests ] || ls -1 **/test_*.py >/dev/null 2>&1; then pytest -q || true; else echo "no python tests"; fi
+          if [ -d tests ] || ls -1 **/test_*.py >/dev/null 2>&1; then PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q || true; else echo "no python tests"; fi

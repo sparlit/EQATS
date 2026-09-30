@@ -411,3 +411,13 @@ yutiansut/qaaccount-rs
 bennyjo/phil
 jev-ai/jev-ai
 bashebr/ai-native-sdlc
+zen-tradings/zen-coding
+zen-tradings/zen-fundamentals
+zen-tradings/zen-rft
+zen-tradings/coding-routing-benchmark
+zen-tradings/wq-alpha-research
+zen-tradings/retail-skills-us
+zen-tradings/portfolio-distiller
+zen-tradings/eia-mcp
+zen-tradings/eval_search_api
+zen-tradings/autoresearch-macos-zen

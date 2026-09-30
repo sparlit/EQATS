@@ -80,7 +80,7 @@ impl LassoInput<f64> {
             );
 
         if self.fit_intercept {
-
+            
             features_matrix = self.x.clone();
             for j in 0..self.x.ncols() {
                 let mean = feature_means[j];
@@ -90,17 +90,17 @@ impl LassoInput<f64> {
             }
             residuals -= DVector::from_element(self.x.nrows(), self.y.mean());
         }
-
+            
         let mut coefficients = DVector::<f64>::zeros(n_cols);
 
         for _ in 0..self.max_iter {
             let mut max_delta: f64 = 0.0;
             for j in 0..n_cols {
-
+                
                 let feature_vals_col_j = features_matrix.column(j);
                 let col_norm: f64 = feature_vals_col_j.dot(&feature_vals_col_j);
                 let rho: f64 = (residuals.dot(&feature_vals_col_j) + coefficients[j] * col_norm) / n_rows;
-
+                
                 let new_coefficient_j: f64 = if rho < -self.lambda {
                     (rho + self.lambda) / (col_norm / n_rows)
                 } else if rho > self.lambda {
@@ -121,7 +121,7 @@ impl LassoInput<f64> {
                 break;
             }
         }
-
+        
         let intercept: f64 = if self.fit_intercept {
             self.y.mean() - feature_means.dot(&coefficients)
         } else {

@@ -58,7 +58,7 @@ table_last='fut_opt_last'
 __username__='ashishsachan919'
 __password__='*#goetia19#'
 
-#Symbols table s not created
+#Symbols table s not created 
 symbols_table_not_created=['S&P500','BAJAJ-AUTO','L&TFH','M&M','M&MFIN']
 
 #Table Connection
@@ -76,13 +76,13 @@ tests = [
 (datetime, parse)
 ]
 def typekdb(table,qconn):
-
+    
     try:
-
+        
         return qconn('select t from meta %s'%table)['t']
     except:
         raise
-
+                       
 def type(str):
     for typ, test in tests:
         try:
@@ -106,18 +106,18 @@ def get_symbol_future(symbol):
     try:
         data=pd.read_sql(sql,db)
     except :
-        return pd.DataFrame()
+        return pd.DataFrame()    
     data['PREV_CLOSE']=data.CLOSE.shift()
     data=data[data.PREV_CLOSE != NaN]
     return data
-
+    
 def insertkdb(format,row):
-
+    
     return ";".join(["\"j\"$%s" % m if format[z]=='j' else "\"f\"$%s" % m \
                                if format[z]=='f' else  "\"Z\"$(\"%s\")" % parse(m).strftime("%Y%m%d %H%M%S") \
                                if format[z]=='z' else "`$(\"%s\")" % m for (m,z) in (zip(row[:1],range(0,len(format)))\
                                if hasattr(row, "__iter__") else zip(row.split(",")[:-1],range(0,len(format))))])
-
+    
 def insertsql(data,format=None):
     if format==None:
         raise Exception
@@ -134,11 +134,11 @@ def get_symbols():
     if symbols.empty:
         sql='select distinct symbol from fut_opt_hist'
         symbols=pd.read_sql_query(sql,db)
-    return symbols.symbol
+    return symbols.symbol        
 
 def get_option_static_data_last_day(lastBDay):
     global user_agent,down_file_name,down_fir,nse_url,wgt_comd
-
+    
     #lastBDay=today -BDay(1)
     day=str('%02d'% lastBDay.day)
     month=str.upper(lastBDay.strftime('%b'))
@@ -148,13 +148,13 @@ def get_option_static_data_last_day(lastBDay):
     _nse_url=nse_url%(year,month,down_file)
     _wgt_comd=wgt_comd % (user_agent,down_fir+down_file,_nse_url)
     os.system(_wgt_comd)
-
+    
     try:
         file=zipfile.ZipFile(down_fir+down_file)
     except (IOError,zipfile.BadZipfile):
         print lastBDay.__str__()+"way a holiday\n"
         return None
-
+    
     data=pd.read_csv(file.open(file.namelist()[0]))
     data.drop(data.columns[len(data.columns)-1], axis=1, inplace=True)
     '''Replace the date string in the dataframe to datetime object pandas EXPIRY_DT and TIMESTAMP'''
@@ -164,22 +164,22 @@ def get_option_static_data_last_day(lastBDay):
 
 def get_vol_data_last_day(lastBDay):
     global user_agent,down_file_name,down_fir,nse_url,wgt_comd
-
+    
     #lastBDay=today -BDay(1)
     form=lastBDay.strftime('%d%m%Y')
     vol_file=vol_file_name%form
     _vol_url=vol_url%(form)
     _wgt_comd=wgt_comd % (user_agent,down_fir+vol_file,_vol_url)
     os.system(_wgt_comd)
-
-    try:
+    
+    try:  
         data=pd.read_csv(down_fir+vol_file)
         data.Date=pd.to_datetime(data.Date)
         data.drop(data.columns[[2,3,4,5,6]], axis=1, inplace=True)
         data.columns=['DATE','SYMBOL','VOLATILITY']
     except ValueError:
         return None
-
+    
     return data
 
 def get_vol_opt_hist(no_of_days):
@@ -192,7 +192,7 @@ def get_vol_opt_hist(no_of_days):
         db=MySQLdb.connect(host,user,password,'NSE')
         data.to_sql('VOL_HIST',db ,flavor='mysql', if_exists='append', chunksize=200)
         db.close()
-
+        
 def get_fut_opt_hist(no_of_days):
     today = pd.datetime.today()
     for i in range(1,no_of_days):
@@ -223,10 +223,10 @@ def update_all_tables():
             db.close()
         except ValueError:
             continue
+        
 
-
-
-
+    
+    
 if __name__=='__main__':
     '''
     db=MySQLdb.connect(host,user,password,'NSE')
@@ -240,7 +240,7 @@ if __name__=='__main__':
     #get_vol_data_last_day(lastBday)
     '''
     update_all_tables()
-
+    
     db.close()
     '''
     #get_fut_opt_hist(200)

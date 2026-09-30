@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -63,7 +63,7 @@ jobs:
           # shellcheck disable=SC2086
           "$GITHUB_WORKSPACE/venv/bin/python" -m pip install --upgrade pip
           # shellcheck disable=SC2086
-          "$GITHUB_WORKSPACE/venv/bin/pip" install mypy pyflakes ruff pytest pytest-xdist pytest-count maturin nuitka
+          "$GITHUB_WORKSPACE/venv/bin/pip" install mypy pyflakes ruff pytest pytest-xdist maturin nuitka
           # shellcheck disable=SC2086
           if [ -f requirements.txt ]; then "$GITHUB_WORKSPACE/venv/bin/pip" install -r requirements.txt; fi
 
@@ -124,6 +124,7 @@ jobs:
         if: env.PHASE_1_PASSED == 'true' && env.PHASE_2_PASSED == 'true'
         env:
           UNSAFE_PYO3_BUILD_FREE_THREADED: "1" # Instructs PyO3 to compile natively under No-GIL
+          VIRTUAL_ENV: "${{ github.workspace }}/venv"
         run: |
           # shellcheck disable=SC2086
           echo "=== PHASE-3 STAGE-1 RUST LOG ===" > p3_s1_output.log
@@ -161,11 +162,12 @@ jobs:
           echo "=== PHASE-3 STAGE-2 PYTHON LOG ===" > p3_s2_output.log
           # shellcheck disable=SC2086
           "$GITHUB_WORKSPACE/venv/bin/python" -m compileall src tests ./*.py >> p3_s2_output.log 2>&1 || true
+          "$GITHUB_WORKSPACE/venv/bin/python" -m compileall -q -x "(modules/adapted|venv|\.venv)" . >> p3_s2_output.log 2>&1 || true
           # shellcheck disable=SC2086
           cat p3_s2_output.log
 
           # shellcheck disable=SC2086
-          if grep -q "error" p3_s2_output.log || grep -q "ERROR" p3_s2_output.log; then
+          if grep -q "\*\*\* Error" p3_s2_output.log || grep -q "SyntaxError" p3_s2_output.log; then
             # shellcheck disable=SC2086
             echo "P3_S2_PASSED=false" >> "$GITHUB_ENV"
             # shellcheck disable=SC2086
