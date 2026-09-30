@@ -1,5 +1,5 @@
 {
-  "current_index": 71,
+  "current_index": 27,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -198,23 +198,23 @@
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2824",
-      "merged": true
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "osengine",
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2826",
-      "merged": true
+      "pr_url": null,
+      "merged": false
     },
     {
       "name": "ai-algotrading-agent",
       "target": "algotrading-lab/ai-algotrading-agent",
       "url": "https://github.com/algotrading-lab/ai-algotrading-agent",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2828",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2875",
       "merged": true
     },
     {
@@ -573,7 +573,7 @@
       "name": "advanced-nse-momentum-terminal",
       "target": "benimward9621/advanced-nse-momentum-terminal",
       "url": "https://github.com/benimward9621/advanced-nse-momentum-terminal",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },

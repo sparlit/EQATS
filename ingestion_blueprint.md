@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 423 | Current Index: 71
+Total Repositories: 423 | Current Index: 27
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -27,9 +27,9 @@ Total Repositories: 423 | Current Index: 71
 | 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2817 |
 | 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2821 |
 | 24 | akshayz14/indian-stock-tracker | Skipped: Private/Non-Existent (404/403) | None |
-| 25 | akt114/buynsell | Processed | https://github.com/sparlit/EQATS/pull/2824 |
-| 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2826 |
-| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2828 |
+| 25 | akt114/buynsell | Processed | None |
+| 26 | alexwan/osengine | Processed | None |
+| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2875 |
 | 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2829 |
 | 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2830 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2831 |
@@ -74,7 +74,7 @@ Total Repositories: 423 | Current Index: 71
 | 69 | barathgb007/upstox-python-data | Completed | https://github.com/sparlit/EQATS/pull/2871 |
 | 70 | barter-rs/barter-rs | Processed | https://github.com/sparlit/EQATS/pull/2872 |
 | 71 | beinghorizontal/bhavfno | Completed | https://github.com/sparlit/EQATS/pull/2873 |
-| 72 | benimward9621/advanced-nse-momentum-terminal | pending | None |
+| 72 | benimward9621/advanced-nse-momentum-terminal | Skipped: Private/Non-Existent (404/403) | None |
 | 73 | bennythadikaran/eod2 | pending | None |
 | 74 | bennythadikaran/eod2_data | pending | None |
 | 75 | bennythadikaran/nseindiaapi | pending | None |
