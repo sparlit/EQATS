@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [ "**" ]
+permissions:
+  contents: read
     paths-ignore:
       - '**.md'
       - 'docs/**'
