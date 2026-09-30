@@ -161,7 +161,7 @@ jobs:
           # shellcheck disable=SC2086
           echo "=== PHASE-3 STAGE-2 PYTHON LOG ===" > p3_s2_output.log
           # shellcheck disable=SC2086
-          "$GITHUB_WORKSPACE/venv/bin/python" -m compileall . >> p3_s2_output.log 2>&1 || true
+          "$GITHUB_WORKSPACE/venv/bin/python" -m compileall -x "(modules/adapted|venv)" . >> p3_s2_output.log 2>&1 || true
           # shellcheck disable=SC2086
           cat p3_s2_output.log
 

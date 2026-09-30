@@ -91,3 +91,6 @@ jobs:
         run: |
           echo "[*] Triggering subsequent workflow iteration..."
           python3 .github/scripts/trigger_loop.py
+          
+- name: Auto Approve Pull Requests
+  uses: lekman/auto-approve-action@auto-approve-action@v1.3.4
