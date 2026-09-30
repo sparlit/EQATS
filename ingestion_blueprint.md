@@ -1,4 +1,5 @@
 # EQATS Master Integration Blueprint
+<<<<<<< HEAD
 Total Repositories: 423 | Current Index: 2
 
 | Index | Repository Target | Status | PR Link |
@@ -75,6 +76,84 @@ Total Repositories: 423 | Current Index: 2
 | 70 | barter-rs/barter-rs | pending | None |
 | 71 | beinghorizontal/bhavfno | pending | None |
 | 72 | benimward9621/advanced-nse-momentum-terminal | pending | None |
+=======
+Total Repositories: 423 | Current Index: 29
+
+| Index | Repository Target | Status | PR Link |
+|---|---|---|---|
+| 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/2795 |
+| 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/2796 |
+| 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/2797 |
+| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/2798 |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/2799 |
+| 6 | 85599/banknifty-golden-ratio-strategy | Processed | https://github.com/sparlit/EQATS/pull/2800 |
+| 7 | aadityatamrakar/option_chain_analysis | Processed | https://github.com/sparlit/EQATS/pull/2801 |
+| 8 | aaryansinha16/ai-trader | Completed | https://github.com/sparlit/EQATS/pull/2802 |
+| 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | Processed | https://github.com/sparlit/EQATS/pull/2803 |
+| 10 | abuhurairalakdawala/indian-share-market | Processed | https://github.com/sparlit/EQATS/pull/2804 |
+| 11 | adavarski/devsecops-full-integration-chain | Completed | https://github.com/sparlit/EQATS/pull/2805 |
+| 12 | adityazerodha/holiday-calendar.github.io | Processed | https://github.com/sparlit/EQATS/pull/2806 |
+| 13 | aeron7/nsepython | Processed | https://github.com/sparlit/EQATS/pull/2807 |
+| 14 | aeron7/nsepythonserver | Processed | https://github.com/sparlit/EQATS/pull/2808 |
+| 15 | affaan-m/dprc-autotrader-v2 | Processed | https://github.com/sparlit/EQATS/pull/2809 |
+| 16 | agrawalarnav129-ui/jarvis-trading | Completed | https://github.com/sparlit/EQATS/pull/2810 |
+| 17 | ai4finance-foundation/finrl-trading | Completed | https://github.com/sparlit/EQATS/pull/2811 |
+| 18 | ajakaiye33/ngrcoydisclosures | Processed | https://github.com/sparlit/EQATS/pull/2812 |
+| 19 | ajeeshworkspace/indian-trading-skills | Skipped: Private/Non-Existent (404/403) | None |
+| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2815 |
+| 21 | akashyadavv/algotradingnse | Processed | https://github.com/sparlit/EQATS/pull/2816 |
+| 22 | akshaypawar7/wods | Processed | https://github.com/sparlit/EQATS/pull/2817 |
+| 23 | akshayraje/get-nse-bhavcopy | Processed | https://github.com/sparlit/EQATS/pull/2821 |
+| 24 | akshayz14/indian-stock-tracker | Skipped: Private/Non-Existent (404/403) | None |
+| 25 | akt114/buynsell | Processed | None |
+| 26 | alexwan/osengine | Processed | https://github.com/sparlit/EQATS/pull/2874 |
+| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2875 |
+| 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2884 |
+| 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2885 |
+| 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2831 |
+| 31 | ameobea/tickgrinder | Processed | https://github.com/sparlit/EQATS/pull/2832 |
+| 32 | amitashwinibhagat/nse-swing-scanner | Completed | https://github.com/sparlit/EQATS/pull/2833 |
+| 33 | amv-dev/yata | Processed | https://github.com/sparlit/EQATS/pull/2834 |
+| 34 | aneesh540/vse | Processed | https://github.com/sparlit/EQATS/pull/2835 |
+| 35 | animesh4002/ai-stock-screener | Completed | https://github.com/sparlit/EQATS/pull/2837 |
+| 36 | aniruddhsujish/nsetradeagents | Completed | https://github.com/sparlit/EQATS/pull/2838 |
+| 37 | anjulgarg/sharewatch | Processed | https://github.com/sparlit/EQATS/pull/2839 |
+| 38 | ankitchaudhary6886/nse-system | Completed | https://github.com/sparlit/EQATS/pull/2840 |
+| 39 | ankitsny/nse_scrapper | Processed | https://github.com/sparlit/EQATS/pull/2841 |
+| 40 | anshulk/nse | Processed | https://github.com/sparlit/EQATS/pull/2842 |
+| 41 | anshuthopsee/nse-oi-visualizer | Processed | https://github.com/sparlit/EQATS/pull/2843 |
+| 42 | anthdm/rust-trading-engine | Processed | https://github.com/sparlit/EQATS/pull/2844 |
+| 43 | anurag-roy/kite-option-chain | Processed | https://github.com/sparlit/EQATS/pull/2845 |
+| 44 | anurag-roy/shoonya-option-chain | Processed | https://github.com/sparlit/EQATS/pull/2846 |
+| 45 | api-evangelist/nse-india | Processed | https://github.com/sparlit/EQATS/pull/2847 |
+| 46 | aravin/algo-trade | Processed | https://github.com/sparlit/EQATS/pull/2848 |
+| 47 | aravin/nse-data | Processed | https://github.com/sparlit/EQATS/pull/2849 |
+| 48 | arishhassan/nse-live_testing | Processed | https://github.com/sparlit/EQATS/pull/2850 |
+| 49 | arvchahal/kalshi-rs | Processed | https://github.com/sparlit/EQATS/pull/2851 |
+| 50 | asavinov/intelligent-trading-bot | Completed | https://github.com/sparlit/EQATS/pull/2852 |
+| 51 | ashayk003/nse-sentiment-analyzer | Completed | https://github.com/sparlit/EQATS/pull/2853 |
+| 52 | ashgen/nsedataanalytics | Processed | https://github.com/sparlit/EQATS/pull/2854 |
+| 53 | ashishkumar30/stock_market_live_trading_using_ai | Processed | https://github.com/sparlit/EQATS/pull/2855 |
+| 54 | ashok-kollipara/options-oi | Completed | https://github.com/sparlit/EQATS/pull/2856 |
+| 55 | ashokkumar3502/nse-quant-trading | Processed | https://github.com/sparlit/EQATS/pull/2857 |
+| 56 | ashutosh0x/rust-finance | Processed | https://github.com/sparlit/EQATS/pull/2858 |
+| 57 | ashwanthkumar/live-nse-stock | Processed | https://github.com/sparlit/EQATS/pull/2859 |
+| 58 | athreysethumadhavan-finance/nse-var-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2860 |
+| 59 | atilaahmettaner/tradingview-mcp | Completed | https://github.com/sparlit/EQATS/pull/2861 |
+| 60 | atrybyme/open-interest-nse-live-analysis | Completed | https://github.com/sparlit/EQATS/pull/2862 |
+| 61 | atul-anand-jha/time-series-forecast-nsepy | Processed | https://github.com/sparlit/EQATS/pull/2863 |
+| 62 | augmentalphawealth/sectoral-breadth-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2864 |
+| 63 | avhz/rustquant | Processed | https://github.com/sparlit/EQATS/pull/2865 |
+| 64 | avin1311/nse-bse-dashboard | Processed | https://github.com/sparlit/EQATS/pull/2866 |
+| 65 | avirichie/nse-closing-stock-price-prediction-using-lstm | Processed | https://github.com/sparlit/EQATS/pull/2867 |
+| 66 | ayushmaanbhav/stockmart | Processed | https://github.com/sparlit/EQATS/pull/2868 |
+| 67 | azhagesan-dev/orderflowmap | Processed | https://github.com/sparlit/EQATS/pull/2869 |
+| 68 | barathgb007/nse-options-data-collector | Completed | https://github.com/sparlit/EQATS/pull/2870 |
+| 69 | barathgb007/upstox-python-data | Completed | https://github.com/sparlit/EQATS/pull/2871 |
+| 70 | barter-rs/barter-rs | Processed | https://github.com/sparlit/EQATS/pull/2872 |
+| 71 | beinghorizontal/bhavfno | Completed | https://github.com/sparlit/EQATS/pull/2873 |
+| 72 | benimward9621/advanced-nse-momentum-terminal | Skipped: Private/Non-Existent (404/403) | None |
+>>>>>>> integrate/raptorbt
 | 73 | bennythadikaran/eod2 | pending | None |
 | 74 | bennythadikaran/eod2_data | pending | None |
 | 75 | bennythadikaran/nseindiaapi | pending | None |

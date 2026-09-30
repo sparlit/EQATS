@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "current_index": 2,
+=======
+  "current_index": 29,
+>>>>>>> integrate/raptorbt
   "repositories": [
     {
       "name": "tectonicdb",
