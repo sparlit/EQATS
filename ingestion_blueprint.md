@@ -29,7 +29,7 @@ Total Repositories: 423 | Current Index: 27
 | 24 | akshayz14/indian-stock-tracker | Skipped: Private/Non-Existent (404/403) | None |
 | 25 | akt114/buynsell | Processed | None |
 | 26 | alexwan/osengine | Processed | None |
-| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2828 |
+| 27 | algotrading-lab/ai-algotrading-agent | Completed | https://github.com/sparlit/EQATS/pull/2875 |
 | 28 | alloc7260/nse | Processed | https://github.com/sparlit/EQATS/pull/2829 |
 | 29 | alphabench/raptorbt | Processed | https://github.com/sparlit/EQATS/pull/2830 |
 | 30 | althk/zerobha | Completed | https://github.com/sparlit/EQATS/pull/2831 |
