@@ -7,7 +7,7 @@
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "hyperliquid_rust_bot",
