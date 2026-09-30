@@ -1,5 +1,5 @@
 {
-  "current_index": 5,
+  "current_index": 27,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -38,11 +38,7 @@
       "target": "0xtan1319/hyperliquid-trading-bot-rust",
       "url": "https://github.com/0xtan1319/hyperliquid-trading-bot-rust",
       "status": "Processed",
-<<<<<<< HEAD
       "pr_url": "https://github.com/sparlit/EQATS/pull/2898",
-=======
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2899",
->>>>>>> integrate/hyperliquid-trading-bot-rust
       "merged": true
     },
     {
@@ -217,9 +213,9 @@
       "name": "ai-algotrading-agent",
       "target": "algotrading-lab/ai-algotrading-agent",
       "url": "https://github.com/algotrading-lab/ai-algotrading-agent",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2891",
+      "merged": true
     },
     {
       "name": "nse",
