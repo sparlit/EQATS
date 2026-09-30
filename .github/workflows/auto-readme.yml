@@ -23,14 +23,14 @@ jobs:
       contents: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
         with:
           # Disable credential persistence to prevent third-party actions or
           # the update script from accessing the GitHub token via .git/config
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
 
@@ -52,6 +52,3 @@ jobs:
           git add README.md
           git diff-index --quiet HEAD || git commit -m "chore: auto-update roadmap and timeline in README"
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GH_REPO}.git" "HEAD:${GH_REF}"
-
-- name: Auto Approve Pull Requests
-  uses: lekman/auto-approve-action@auto-approve-action@v1.3.4

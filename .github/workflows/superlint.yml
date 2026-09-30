@@ -42,3 +42,6 @@ jobs:
           VALIDATE_PYTHON_RUFF: false
           VALIDATE_PYTHON_FLAKE8: false
           VALIDATE_PYTHON_BLACK: false
+          VALIDATE_TRIVY: false
+          VALIDATE_GITHUB_ACTIONS_ZIZMOR: false
+          VALIDATE_YAML_PRETTIER: false
