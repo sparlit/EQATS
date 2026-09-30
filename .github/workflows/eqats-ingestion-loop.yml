@@ -92,3 +92,20 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python3 .github/scripts/trigger_loop.py
+name: Auto Approve and Run
+
+on:
+  pull_request_target:
+    types: [opened, synchronized]
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    # Optional: Only run for trusted actors (e.g., Dependabot or a specific developer)
+    if: github.actor == 'dependabot[bot]' || github.actor == 'sparlit'
+    
+    steps:
+      - name: Auto Approve PR
+        uses: hmarr/auto-approve-action@v4
