@@ -4,17 +4,20 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   pull-requests: write
 
 jobs:
   approve:
     runs-on: ubuntu-latest
-    # Optional: Only approve PRs from specific actors or bots
     if: github.actor == 'dependabot[bot]'
     steps:
       - name: Auto Approve
-        uses: hmarr/auto-approve-action@v4
+        uses: hmarr/auto-approve-action@f10f3f209c228b8e3e8528c7161b369528fecf82 # v4.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-message: "Automated verification successful. Approved by AI Master Pipeline."
