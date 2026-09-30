@@ -67,7 +67,7 @@ fn main() {
     );
     let gbm_out = gbm.generate(&config);
 
-    // Price the options.
+    // Price the options. 
     println!("Up-and-out call: {}", barrier_option_payoff(&gbm_out.paths[0], 10.0, 12.0, OptionType::Call, BarrierType::UpAndOut));
     println!("Down-and-out call: {}", barrier_option_payoff(&gbm_out.paths[0], 10.0, 8.0, OptionType::Call, BarrierType::DownAndOut));
     println!("Up-and-in call: {}", barrier_option_payoff(&gbm_out.paths[0], 10.0, 12.0, OptionType::Call, BarrierType::UpAndIn));

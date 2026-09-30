@@ -114,7 +114,7 @@ def score_stock(conn, symbol, medians):
 
     pl = m.get("pledge_pct")
     if pl is None:
-        gates.append(("G2 Pledge", True, None, "<=5 (if data)", "Pass: no pledge data yet"))
+        gates.append(("G2 Pledge", False, None, "<=5", "FAIL: pledge data missing"))
     else:
         ok = pl <= 5
         msg = "Pass" if ok else "FAIL: pledge above 5%"
@@ -131,11 +131,11 @@ def score_stock(conn, symbol, medians):
         gates.append(("G3 CFO positive", ok, cfo, "=1", msg))
 
     if liq is None:
-        gates.append(("G4 Liquidity", False, None, ">=2cr", "FAIL: no price data"))
+        gates.append(("G4 Liquidity", False, None, ">=5cr", "FAIL: no price data"))
     else:
-        ok = liq >= 20000000
+        ok = liq >= 50000000
         msg = "Pass" if ok else "FAIL: low liquidity"
-        gates.append(("G4 Liquidity", ok, liq, ">=2cr", msg))
+        gates.append(("G4 Liquidity", ok, liq, ">=5cr", msg))
 
     roce_s = band_high(m.get("roce"), ROCE_STOPS)
     pg = m.get("profit_growth_3y")

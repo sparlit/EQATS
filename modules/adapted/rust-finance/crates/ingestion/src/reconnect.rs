@@ -6,7 +6,7 @@ use reqwest::Client;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use serde_json::Value;
-use crossbeam_channel::Sender as CbSender;
+use crossbeam_channel::Sender as CbSender; 
 use futures::{StreamExt, SinkExt};
 
 /// Keeps last_slot processed; on reconnect, will fetch RPC blocks between last+1..current_slot
@@ -126,7 +126,7 @@ impl ResilientIngest {
     async fn replay_missed(&self) -> anyhow::Result<()> {
         let last_slot = { *self.last_slot.lock().await };
         let rpc = self.selector.get_best().await;
-
+        
         let head_slot = match get_slot_rpc(&self.http, &rpc).await {
             Ok(s) => s,
             Err(e) => {

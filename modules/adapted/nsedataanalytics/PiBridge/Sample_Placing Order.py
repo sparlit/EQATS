@@ -19,7 +19,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-###############Author: Tradelab Software (P) Ltd.#####################
+###############Author: Tradelab Software (P) Ltd.##################### 
 
 import binascii
 import struct
@@ -73,14 +73,14 @@ SERVER_IP = '127.0.0.1'# it should be IP of local machine
 SERVER_PORT = 18579
 
 def SendPktToServerOverTcp(order):
-	packed_data = ctypes.create_string_buffer(243)
+	packed_data = ctypes.create_string_buffer(243)  
 	struct.pack_into('h',packed_data,0,order._header._checksum)
 	struct.pack_into('h',packed_data,2,order._header._length)
 	struct.pack_into('h',packed_data,4,order._header._msgType)
 	struct.pack_into('I',packed_data,6,order._header._errorCode)
 	struct.pack_into('I',packed_data,10,order._header._time)
-	struct.pack_into('10s',packed_data,14,order._exchange)
-	struct.pack_into('64s',packed_data,24,order._trdSymbol)
+	struct.pack_into('10s',packed_data,14,order._exchange) 
+	struct.pack_into('64s',packed_data,24,order._trdSymbol) 
 	struct.pack_into('20s',packed_data,88,order._piOrderId)
 	struct.pack_into('10s',packed_data,108,order._orderId)
 	struct.pack_into('10s',packed_data,118,order._strategyName)
@@ -104,8 +104,8 @@ def SendPktToServerOverTcp(order):
 	struct.pack_into('I',packed_data,239,order._execTime)
 	print >>sys.stderr, 'sending "%s"' % binascii.hexlify(packed_data)
 	_clientSocket.sendall(packed_data)
-
-
+	
+	
 def CreateAndReturnPkt():
 	order = NPiBrdgOrder()
 	order._header._checksum =  255
@@ -122,8 +122,8 @@ def CreateAndReturnPkt():
 	order._strategyName.ljust(10,'\0')
 	order._side = 1
 	order._initQty = 1 #  ( should be in lots)
-	order._disQty = 1 #
-	order._remQty = 1 #
+	order._disQty = 1 # 
+	order._remQty = 1 # 
 	order._lPrice = 100 # price in INR
 	order._triggerPrice = 10
 	order._orderType = "L"

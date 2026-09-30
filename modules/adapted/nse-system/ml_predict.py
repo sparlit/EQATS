@@ -22,16 +22,23 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import datetime as dt
+import os
 import sys
 
 import db
 import joblib
 import numpy as np
 
+MODEL_PATH = "data/ml_models.pkl"
+
 
 def predict_all():
+    if not os.path.exists(MODEL_PATH):
+        print(f"[ml] {MODEL_PATH} not found — run: python ml_train.py")
+        return 0
+
     conn = db.get_conn()
-    bundle = joblib.load("data/ml_models.pkl")
+    bundle = joblib.load(MODEL_PATH)
     m6 = bundle["m6"]
     m12 = bundle["m12"]
 
@@ -78,7 +85,8 @@ def predict_all():
     conn.commit()
     print(f"ML predictions stored: {n} stocks")
     conn.close()
+    return n
 
 
-if len(sys.argv) > 1 and sys.argv[1] == "run":
+if __name__ == "__main__":
     predict_all()

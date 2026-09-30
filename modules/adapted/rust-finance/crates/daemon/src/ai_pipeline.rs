@@ -24,7 +24,7 @@ pub fn route_event(event: &BotEvent, context: &SignalContext) -> ModelTier {
     if let BotEvent::Feed(feed) = event {
         if feed.contains("NEWS") { return ModelTier::Sonnet46; }
     }
-
+    
     if context.signal_confidence < 0.70     { return ModelTier::Sonnet46; }
     if context.is_drift_check               { return ModelTier::Sonnet46; }
 

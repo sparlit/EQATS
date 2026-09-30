@@ -33,7 +33,7 @@
 //! //      - Initial guess (10.0, 10.0),
 //! //      - Verbose output.
 //! let result = gd.optimize(&himmelblau, &vec![10.0, 10.0], true);
-//!
+//!     
 //! // Print the result.
 //! println!("{:?}", result.minimizer);
 //! ```

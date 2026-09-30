@@ -6,20 +6,20 @@ use rand::thread_rng;
 pub fn run_monte_carlo(returns: &[f64], num_simulations: usize) -> Vec<f64> {
     let mut rng = thread_rng();
     let mut final_equities = Vec::with_capacity(num_simulations);
-
+    
     let initial_equity = 10000.0; // Assume 10k start
 
     for _ in 0..num_simulations {
         let mut sim_returns = returns.to_vec();
         sim_returns.shuffle(&mut rng);
-
+        
         let mut equity = initial_equity;
         for r in sim_returns {
             equity += r; // If returns are raw PnL values. If percentages, equity *= (1.0 + r)
         }
         final_equities.push(equity);
     }
-
+    
     final_equities.sort_by(|a, b| a.partial_cmp(b).unwrap());
     final_equities
 }

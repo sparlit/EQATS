@@ -27,6 +27,7 @@ import io
 import db
 import pandas as pd
 import requests
+from data_sources import ProviderFetchError, get_registry
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -91,22 +92,20 @@ def from_csv(source):
 
 
 def main():
-    rows = None
-    sources = [
-        ("local CSV file", lambda: from_csv(LOCAL_CSV)),
-        ("NSE API", from_api),
-        ("NSE archives CSV", lambda: from_csv(CSV_URL)),
-    ]
-    for label, fn in sources:
-        try:
-            rows = fn()
-            if rows and len(rows) >= 400:
-                print(f"Source used: {label} ({len(rows)} stocks)")
-                break
-        except Exception as e:
-            print(f"{label} failed: {type(e).__name__}")
+    try:
+        result = get_registry().fetch(
+            "universe.nse_constituents",
+            ("nse_constituents_local_csv", "nse_constituents_api", "nse_constituents_archive_csv"),
+            accept=lambda rows: bool(rows and len(rows) >= 400),
+        )
+    except ProviderFetchError as exc:
+        print(f"ALL AUTOMATIC SOURCES FAILED: {exc}")
+        print("Tell me and we fix together.")
+        return
 
-    if not rows or len(rows) < 400:
+    rows = result.data
+    print(f"Source used: {result.provider} ({len(rows)} stocks)")
+    if not rows:
         print("ALL AUTOMATIC SOURCES FAILED. Tell me and we fix together.")
         return
 
@@ -126,4 +125,5 @@ def main():
     conn.close()
 
 
-main()
+if __name__ == "__main__":
+    main()
