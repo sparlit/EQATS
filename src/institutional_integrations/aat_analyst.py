@@ -9,13 +9,7 @@ try:
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-logger = logging.getLogger('AAT_Analyst')
-
-
-
-
-
-
+logger = logging.getLogger("AAT_Analyst")
 
 
 class MacroAnalyst:
@@ -32,7 +26,7 @@ class MacroAnalyst:
 
     def get_impact_weight(self, symbol: str) -> float:
         sym_upper = symbol.upper()
-        if 'USD' in sym_upper:
+        if "USD" in sym_upper:
             return 1.15 if self.sentiment_score > 0.6 else 0.85 if self.sentiment_score < 0.4 else 1.0
         return 1.0
 
@@ -40,7 +34,7 @@ class MacroAnalyst:
 class SMCAnalyst:
     """Smart Money Concepts & Price Action Structure Analyst."""
 
-    def detect_market_structure(self, df_or_bars: Any) -> Dict[str, Any]:
+    def detect_market_structure(self, df_or_bars: Any) -> dict[str, Any]:
         if PANDAS_AVAILABLE and isinstance(df_or_bars, pd.DataFrame):
             df = df_or_bars
             if len(df) < 15:
@@ -62,20 +56,20 @@ class SMCAnalyst:
             sweep: Any = False
             if len(highs) >= 2:
                 if h[-1] > highs[-2] and c[-1] < highs[-2]:
-                    sweep = 'BEARISH_SWEEP'
+                    sweep = "BEARISH_SWEEP"
             if not sweep and len(lows) >= 2:
                 if l[-1] < lows[-2] and c[-1] > lows[-2]:
-                    sweep = 'BULLISH_SWEEP'
-            trend = 'NEUTRAL'
+                    sweep = "BULLISH_SWEEP"
+            trend = "NEUTRAL"
             if len(highs) >= 2 and len(lows) >= 2:
                 if highs[-1] > highs[-2] and lows[-1] > lows[-2]:
-                    trend = 'BULLISH'
+                    trend = "BULLISH"
                 elif highs[-1] < highs[-2] and lows[-1] < lows[-2]:
-                    trend = 'BEARISH'
+                    trend = "BEARISH"
             choch = False
-            if trend == 'BULLISH' and len(lows) > 0 and (c[-1] < lows[-1]):
-                choch = True
-            elif trend == 'BEARISH' and len(highs) > 0 and (c[-1] > highs[-1]):
+            if (trend == "BULLISH" and len(lows) > 0 and (c[-1] < lows[-1])) or (
+                trend == "BEARISH" and len(highs) > 0 and (c[-1] > highs[-1])
+            ):
                 choch = True
 
             return {
@@ -87,7 +81,7 @@ class SMCAnalyst:
             }
         return {"trend": "NEUTRAL", "choch": False, "sweep": False, "swing_h": None, "swing_l": None}
 
-    def detect_fvg(self, df_or_bars: Any) -> List[Dict[str, Any]]:
+    def detect_fvg(self, df_or_bars: Any) -> list[dict[str, Any]]:
         if PANDAS_AVAILABLE and isinstance(df_or_bars, pd.DataFrame):
             df = df_or_bars
             if len(df) < 3:
@@ -130,12 +124,12 @@ class VolatilityAnalyst:
             abs_delta = abs(price_delta)
             vol_adjusted_move = abs_delta / (curr_atr * np.sqrt(20)) if curr_atr > 0 else 0.0
             if curr_atr > avg_atr * 2.0:
-                return 'HIGH_VOLATILITY'
+                return "HIGH_VOLATILITY"
             if vol_adjusted_move > 2.0:
-                return 'TRENDING_FAST'
-            elif vol_adjusted_move > 1.0:
-                return 'TRENDING_SLOW'
+                return "TRENDING_FAST"
+            if vol_adjusted_move > 1.0:
+                return "TRENDING_SLOW"
             if curr_atr < avg_atr * 0.6:
-                return 'RANGING_TIGHT'
-            return 'NORMAL'
-        return 'NORMAL'
+                return "RANGING_TIGHT"
+            return "NORMAL"
+        return "NORMAL"

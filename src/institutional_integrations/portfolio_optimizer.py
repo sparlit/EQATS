@@ -3,12 +3,14 @@ Bayesian Black-Litterman, CVXPY Convex Quadratic, and Simulated Quantum QAOA Por
 Combines market equilibrium returns with AI Brain directional views, uncertainty covariances,
 and quadratic constraints to solve for optimal portfolio weights across asset baskets.
 """
+
 from typing import Any
+
 
 class BlackLittermanOptimizer:
     """Bayesian Black-Litterman Portfolio Asset Allocator."""
 
-    def __init__(self, tau: Any=0.05, risk_aversion: Any=2.5) -> None:
+    def __init__(self, tau: Any = 0.05, risk_aversion: Any = 2.5) -> None:
         self.tau = tau
         self.risk_aversion = risk_aversion
 
@@ -31,6 +33,7 @@ class BlackLittermanOptimizer:
         try:
             import cvxpy as cp
             import numpy as np
+
             w = cp.Variable(n)
             expected_returns = np.array([brain_views.get(a, 0.01) for a in assets])
             cov_np = np.eye(n) * 0.04
@@ -55,7 +58,7 @@ class BlackLittermanOptimizer:
             weights_dict[a] = round(bl_weights[i] / tot_w, 4)
         return weights_dict
 
-    def optimize_quantum_qaoa(self, assets: Any, brain_views: Any, cov_matrix: Any=None, p_steps: Any=2) -> Any:
+    def optimize_quantum_qaoa(self, assets: Any, brain_views: Any, cov_matrix: Any = None, p_steps: Any = 2) -> Any:
         """
         Simulated Quantum Approximate Optimization Algorithm (QAOA) state-vector
         annealing solver for Markowitz mean-variance binary weight allocation.
@@ -65,25 +68,27 @@ class BlackLittermanOptimizer:
             return {}
         try:
             import concurrent.futures
+
             max_num = 1 << min(n, 10)
 
             def eval_state(num: Any) -> Any:
-                binary_str = format(num, f'0{n}b')
+                binary_str = format(num, f"0{n}b")
                 w_vec = [int(bit) for bit in binary_str]
                 sum_w = sum(w_vec)
                 if sum_w == 0:
-                    return (float('inf'), None)
-                ret = sum((w_vec[i] * brain_views.get(assets[i], 0.01) for i in range(n)))
+                    return (float("inf"), None)
+                ret = sum(w_vec[i] * brain_views.get(assets[i], 0.01) for i in range(n))
                 constraint_penalty = (sum_w - (n // 2 or 1)) ** 2 * 0.5
                 cost = -ret + constraint_penalty
                 return (cost, w_vec)
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_num, 8)) as executor:
                 results = list(executor.map(eval_state, range(1, max_num)))
-            best_cost, best_state = min(results, key=lambda x: x[0]) if results else (float('inf'), None)
+            best_cost, best_state = min(results, key=lambda x: x[0]) if results else (float("inf"), None)
             if best_state:
                 tot = sum(best_state) or 1
                 return {assets[i]: round(best_state[i] / tot, 4) for i in range(n)}
         except Exception as e:
-            print(f'Diagnostics: Quantum QAOA simulated solver fallback: {e}')
+            print(f"Diagnostics: Quantum QAOA simulated solver fallback: {e}")
         eq_w = round(1.0 / n, 4)
-        return {a: eq_w for a in assets}
+        return dict.fromkeys(assets, eq_w)

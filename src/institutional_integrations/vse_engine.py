@@ -8,15 +8,15 @@ Magic Number: 9100038
 """
 
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -58,11 +58,11 @@ class VirtualDematAccount:
         self.magic_number = MAGIC_NUMBER_VSE
         self.cash_balance = initial_cash
         self.initial_capital = initial_cash
-        self.holdings: Dict[str, Dict[str, Any]] = {}
+        self.holdings: dict[str, dict[str, Any]] = {}
         self.total_invested: float = 0.0
         self.realized_pnl: float = 0.0
 
-    def buy_share(self, symbol: str, quantity: int, price: float) -> Dict[str, Any]:
+    def buy_share(self, symbol: str, quantity: int, price: float) -> dict[str, Any]:
         """
         Executes simulated share purchase and updates Demat portfolio holdings.
         """
@@ -104,7 +104,7 @@ class VirtualDematAccount:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def sell_share(self, symbol: str, quantity: int, price: float) -> Dict[str, Any]:
+    def sell_share(self, symbol: str, quantity: int, price: float) -> dict[str, Any]:
         """
         Executes simulated share sale and records realized gain/loss.
         """
@@ -144,9 +144,7 @@ class VirtualDematAccount:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def get_portfolio_summary(
-        self, current_prices: Optional[Dict[str, float]] = None
-    ) -> Dict[str, Any]:
+    def get_portfolio_summary(self, current_prices: dict[str, float] | None = None) -> dict[str, Any]:
         """
         Calculates portfolio market value and total unrealized/realized PnL.
         """
@@ -163,14 +161,16 @@ class VirtualDematAccount:
             market_value += val
             unrealized_pnl += u_pnl
 
-            holdings_summary.append({
-                "symbol": symbol,
-                "quantity": holding["quantity"],
-                "avg_price": holding["avg_price"],
-                "current_price": curr_p,
-                "market_value": round(val, 2),
-                "unrealized_pnl": round(u_pnl, 2),
-            })
+            holdings_summary.append(
+                {
+                    "symbol": symbol,
+                    "quantity": holding["quantity"],
+                    "avg_price": holding["avg_price"],
+                    "current_price": curr_p,
+                    "market_value": round(val, 2),
+                    "unrealized_pnl": round(u_pnl, 2),
+                }
+            )
 
         total_net_worth = round(self.cash_balance + market_value, 2)
 
@@ -210,19 +210,17 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return self.demat.get_portfolio_summary()
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -272,7 +270,7 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
 
         return SEBIOrderResponse(
             success=True,
-            ticket=f"VSE-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"VSE-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -281,14 +279,10 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -300,7 +294,7 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

@@ -49,7 +49,7 @@ class OptionChainAnalyzerEngine:
 
     def calculate_bs_greeks(
         self, spot: float, strike: float, time_to_expiry_years: float, iv: float, option_type: str = "CALL"
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calculates Black-Scholes price and Greeks (Delta, Gamma, Theta, Vega) for call/put options.
         """
@@ -95,7 +95,7 @@ class OptionChainAnalyzerEngine:
             "vega": round(vega, 4),
         }
 
-    def calculate_max_pain(self, option_chain: List[Dict[str, Any]]) -> float:
+    def calculate_max_pain(self, option_chain: list[dict[str, Any]]) -> float:
         """
         Calculates Option Max Pain strike price (the strike price at which
         option writers/sellers incur minimum total monetary loss).
@@ -132,8 +132,8 @@ class OptionChainAnalyzerEngine:
         return round_to_indian_tick_size(max_pain_strike)
 
     def analyze_option_chain(
-        self, underlying_symbol: str, spot_price: float, option_chain: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, underlying_symbol: str, spot_price: float, option_chain: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Runs comprehensive analysis on an option chain matrix.
         Returns PCR ratio, Max Pain strike, IV skew, and sentiment.
@@ -185,7 +185,7 @@ class OptionChainAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = OptionChainAnalyzerEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -198,15 +198,15 @@ class OptionChainAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 24500.0, "ask": 24505.0, "last": 24502.50}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -250,7 +250,7 @@ class OptionChainAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

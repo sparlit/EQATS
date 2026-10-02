@@ -42,10 +42,10 @@ class AITraderQLearningEngine:
         self.alpha = alpha  # Learning rate
         self.gamma = gamma  # Discount factor
         self.epsilon = epsilon  # Exploration probability
-        self.q_table: Dict[Tuple[int, int, int], List[float]] = {}
+        self.q_table: dict[tuple[int, int, int], list[float]] = {}
         self.magic_number = MAGIC_NUMBER_AI_TRADER_Q
 
-    def encode_state(self, closes: List[float], rsi_val: float) -> Tuple[int, int, int]:
+    def encode_state(self, closes: list[float], rsi_val: float) -> tuple[int, int, int]:
         """
         Discretizes market state vector into discrete state tuple:
         (price_trend_state, rsi_state, momentum_state)
@@ -67,7 +67,7 @@ class AITraderQLearningEngine:
 
         return (trend_state, rsi_state, mom_state)
 
-    def select_action(self, state: Tuple[int, int, int], is_training: bool = True) -> int:
+    def select_action(self, state: tuple[int, int, int], is_training: bool = True) -> int:
         """
         Selects action index: 0 = HOLD, 1 = BUY, 2 = SELL using epsilon-greedy policy.
         """
@@ -83,7 +83,7 @@ class AITraderQLearningEngine:
         return random.choice(best_actions)
 
     def update_q_value(
-        self, state: Tuple[int, int, int], action: int, reward: float, next_state: Tuple[int, int, int]
+        self, state: tuple[int, int, int], action: int, reward: float, next_state: tuple[int, int, int]
     ) -> float:
         """
         Applies Bellman Q-learning update equation:
@@ -101,7 +101,7 @@ class AITraderQLearningEngine:
         self.q_table[state][action] = round(new_q, 4)
         return new_q
 
-    def evaluate_trading_decision(self, history_bars: List[Dict[str, Any]], rsi_val: float = 50.0) -> Dict[str, Any]:
+    def evaluate_trading_decision(self, history_bars: list[dict[str, Any]], rsi_val: float = 50.0) -> dict[str, Any]:
         """
         Evaluates history bars and selects optimal trading decision via Q-policy.
         """
@@ -145,7 +145,7 @@ class AITraderQLearningAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = AITraderQLearningEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -158,15 +158,15 @@ class AITraderQLearningAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 1820.0, "ask": 1820.15, "last": 1820.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -210,7 +210,7 @@ class AITraderQLearningAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

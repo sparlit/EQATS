@@ -43,8 +43,8 @@ class NSESwingScannerEngine:
         self.magic_number = MAGIC_NUMBER_NSE_SWING_SCANNER
 
     def validate_dual_timeframe_cointegration(
-        self, bars_5m: List[Dict[str, Any]], bars_1d: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, bars_5m: list[dict[str, Any]], bars_1d: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Validates Dual-Timeframe (5m intraday + 1d daily) trend co-integration.
         Filters out counter-trend intraday spikes unless aligned with 1d daily trend.
@@ -74,7 +74,7 @@ class NSESwingScannerEngine:
 
     def calculate_dynamic_atr_stop(
         self, current_price: float, atr: float, india_vix: float = 15.0, side: str = "BUY"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Dynamically adjusts ATR stop loss distance based on real-time INDIA VIX levels.
         Higher VIX scales stop loss distance (1.5x up to 2.5x ATR) to avoid premature stop-outs.
@@ -107,7 +107,7 @@ class NSESwingScannerEngine:
             "magic_number": self.magic_number,
         }
 
-    def calculate_supertrend(self, highs: List[float], lows: List[float], closes: List[float]) -> Dict[str, Any]:
+    def calculate_supertrend(self, highs: list[float], lows: list[float], closes: list[float]) -> dict[str, Any]:
         """
         Calculates Supertrend trailing channel line and trend direction.
         """
@@ -131,7 +131,7 @@ class NSESwingScannerEngine:
 
         return {"supertrend": round_to_indian_tick_size(st_val), "trend": trend, "atr": round(atr, 2)}
 
-    def scan_swing_setup(self, history_bars: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def scan_swing_setup(self, history_bars: list[dict[str, Any]]) -> dict[str, Any]:
         if not history_bars or len(history_bars) < 30:
             return {"swing_signal": "HOLD", "confidence": 0.0, "magic_number": self.magic_number}
 
@@ -180,7 +180,7 @@ class NSESwingScannerAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = NSESwingScannerEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -193,15 +193,15 @@ class NSESwingScannerAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 1500.0, "ask": 1500.15, "last": 1500.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -245,7 +245,7 @@ class NSESwingScannerAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
