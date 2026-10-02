@@ -19,7 +19,7 @@ class ExecutiveAgenticDirective:
         self.executive_confidence = 0.50
         self.recommended_horizon = "SCALP"
         self.validation_summary = "All 33 Validation Gates operational"
-        self.actionable_instructions: List[str] = []
+        self.actionable_instructions: list[str] = []
 
     def to_dict(self) -> dict[str, Any]:
         return {

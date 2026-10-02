@@ -42,8 +42,8 @@ class AlgoTradingNSEEngine:
         self.magic_number = MAGIC_NUMBER_ALGO_TRADING_NSE
 
     def scan_momentum_breakout(
-        self, history_bars: List[Dict[str, Any]], volume_surge_factor: float = 1.5
-    ) -> Dict[str, Any]:
+        self, history_bars: list[dict[str, Any]], volume_surge_factor: float = 1.5
+    ) -> dict[str, Any]:
         """
         Scans OHLCV history bars for volume-backed price momentum breakouts.
         """
@@ -81,7 +81,7 @@ class AlgoTradingNSEEngine:
                 "magic_number": self.magic_number,
             }
 
-        elif current_price < donchian_low and vol_surge:
+        if current_price < donchian_low and vol_surge:
             signal = "SELL"
             sl = round_to_indian_tick_size(donchian_high - (donchian_high - donchian_low) * 0.5)
             sl_dist = sl - current_price
@@ -109,7 +109,7 @@ class AlgoTradingNSEAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = AlgoTradingNSEEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -122,15 +122,15 @@ class AlgoTradingNSEAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 1220.0, "ask": 1220.15, "last": 1220.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -174,7 +174,7 @@ class AlgoTradingNSEAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
