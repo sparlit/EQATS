@@ -14,6 +14,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(1, str(ROOT_DIR))
 
 import src.main as src_main
+from src.main import AutonomousScalper
 
 if __name__ == "__main__":
     src_main.run_main()

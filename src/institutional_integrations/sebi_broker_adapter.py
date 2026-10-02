@@ -1367,7 +1367,7 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
     Connects to local openalgo / fenix REST endpoint or operates in zero-stub simulation mode.
     """
 
-    BASE_URL = "http://127.0.0.1:5000/api"
+    BASE_URL = "http://127.0.0.1:50005/api"
 
     def __init__(
         self, api_key: str = "", endpoint_url: str = "", access_token: str = "", is_sandbox: bool = False

@@ -848,8 +848,8 @@ def seed_default_broker_profiles() -> None:
             "Interactive Brokers TWS",
             "IBKR",
             "client_id",
-            "https://127.0.0.1:5000",
-            "wss://127.0.0.1:5000",
+            "https://127.0.0.1:50005",
+            "wss://127.0.0.1:50005",
             1.0,
             10000.0,
             1.0,
@@ -1056,7 +1056,7 @@ def seed_default_broker_profiles() -> None:
     ]
 
     now_str = datetime.datetime.now().isoformat()
-    default_profiles = [('mt5_demo', 'MetaTrader 5 Demo', 'MT5', 'password', '', '', 0.01, 100.0, 0.01, 20, '{}'), ('mt5_live', 'MetaTrader 5 Live', 'MT5', 'password', '', '', 0.01, 100.0, 0.01, 20, '{}'), ('ic_markets_fix', 'IC Markets FIX', 'FIX', 'fix_comp_id', 'https://fix.icmarkets.com', 'wss://fix.icmarkets.com', 0.01, 100.0, 0.01, 50, json.dumps({'port': 9800})), ('ctrader_openapi', 'cTrader Open API', 'CTRADER', 'oauth2', 'https://openapi.ctrader.com', 'wss://live.ctrader.com', 0.01, 100.0, 0.01, 30, '{}'), ('ibkr_tws', 'Interactive Brokers TWS', 'IBKR', 'client_id', 'https://127.0.0.1:5000', 'wss://127.0.0.1:5000', 1.0, 10000.0, 1.0, 10, '{}'), ('binance_perps', 'Binance Futures', 'CCXT', 'api_key_secret', 'https://fapi.binance.com', 'wss://fstream.binance.com', 0.001, 1000.0, 0.001, 20, '{}'), ('bybit_linear', 'Bybit Linear USDT', 'CCXT', 'api_key_secret', 'https://api.bybit.com', 'wss://stream.bybit.com', 0.001, 1000.0, 0.001, 20, '{}'), ('okx_perps', 'OKX Perpetuals', 'CCXT', 'api_key_secret', 'https://www.okx.com', 'wss://ws.okx.com:8443', 0.01, 1000.0, 0.01, 20, '{}'), ('hyperliquid', 'Hyperliquid L1 Perps', 'REST_WS', 'private_key', 'https://api.hyperliquid.xyz', 'wss://api.hyperliquid.xyz/ws', 0.001, 10000.0, 0.001, 50, '{}'), ('coinbase_advanced', 'Coinbase Advanced', 'CCXT', 'api_key_secret', 'https://api.coinbase.com/api/v3', 'wss://advanced-trade-ws.coinbase.com', 0.0001, 100.0, 0.0001, 10, '{}'), ('kraken_futures', 'Kraken Futures', 'CCXT', 'api_key_secret', 'https://futures.kraken.com/derivatives', 'wss://futures.kraken.com/ws/v1', 0.01, 1000.0, 0.01, 15, '{}'), ('dhan', 'Dhan SDK', 'REST_WS', 'client_id_token', 'https://api.dhan.co', 'wss://api-feed.dhan.co', 1.0, 10000.0, 1.0, 10, '{}'), ('zerodha', 'Zerodha Kite Connect', 'REST_WS', 'api_key_token', 'https://api.kite.trade', 'wss://ws.kite.trade', 1.0, 10000.0, 1.0, 10, '{}'), ('angelone', 'AngelOne SmartAPI', 'REST_WS', 'totp', 'https://apiconnect.angelone.in', 'wss://smartapisocket.angelone.in', 1.0, 10000.0, 1.0, 10, '{}'), ('upstox', 'Upstox REST API', 'REST_WS', 'client_id_token', 'https://api.upstox.com/v2', 'wss://api.upstox.com/v2/feed', 1.0, 10000.0, 1.0, 10, '{}'), ('fyers', 'Fyers API v2', 'REST_WS', 'client_id_token', 'https://api-v2.fyers.in/api/v2', 'wss://api-v2.fyers.in/socket/v2', 1.0, 10000.0, 1.0, 10, '{}'), ('kotak_neo', 'Kotak Neo API', 'REST_WS', 'consumer_key_token', 'https://gw-napi.kotaksecurities.com', 'wss://gw-napi.kotaksecurities.com', 1.0, 10000.0, 1.0, 10, '{}'), ('fivepaisa', '5paisa Markets', 'REST_WS', 'totp', 'https://openapi.5paisa.com/VendorsAPI/V1', 'wss://openfeed.5paisa.com', 1.0, 10000.0, 1.0, 10, '{}'), ('finvasia', 'Finvasia (Shoonya)', 'REST_WS', 'totp', 'https://api.shoonya.com/NorenWSTp', 'wss://api.shoonya.com/NorenWSTp', 1.0, 10000.0, 1.0, 10, '{}'), ('icici', 'ICICI Direct Breeze', 'REST_WS', 'oauth2', 'https://api.icicidirect.com/breezeapi/v1', 'wss://breezews.icicidirect.com', 1.0, 10000.0, 1.0, 10, '{}')]
+    default_profiles = [('mt5_demo', 'MetaTrader 5 Demo', 'MT5', 'password', '', '', 0.01, 100.0, 0.01, 20, '{}'), ('mt5_live', 'MetaTrader 5 Live', 'MT5', 'password', '', '', 0.01, 100.0, 0.01, 20, '{}'), ('ic_markets_fix', 'IC Markets FIX', 'FIX', 'fix_comp_id', 'https://fix.icmarkets.com', 'wss://fix.icmarkets.com', 0.01, 100.0, 0.01, 50, json.dumps({'port': 9800})), ('ctrader_openapi', 'cTrader Open API', 'CTRADER', 'oauth2', 'https://openapi.ctrader.com', 'wss://live.ctrader.com', 0.01, 100.0, 0.01, 30, '{}'), ('ibkr_tws', 'Interactive Brokers TWS', 'IBKR', 'client_id', 'https://127.0.0.1:50005', 'wss://127.0.0.1:50005', 1.0, 10000.0, 1.0, 10, '{}'), ('binance_perps', 'Binance Futures', 'CCXT', 'api_key_secret', 'https://fapi.binance.com', 'wss://fstream.binance.com', 0.001, 1000.0, 0.001, 20, '{}'), ('bybit_linear', 'Bybit Linear USDT', 'CCXT', 'api_key_secret', 'https://api.bybit.com', 'wss://stream.bybit.com', 0.001, 1000.0, 0.001, 20, '{}'), ('okx_perps', 'OKX Perpetuals', 'CCXT', 'api_key_secret', 'https://www.okx.com', 'wss://ws.okx.com:8443', 0.01, 1000.0, 0.01, 20, '{}'), ('hyperliquid', 'Hyperliquid L1 Perps', 'REST_WS', 'private_key', 'https://api.hyperliquid.xyz', 'wss://api.hyperliquid.xyz/ws', 0.001, 10000.0, 0.001, 50, '{}'), ('coinbase_advanced', 'Coinbase Advanced', 'CCXT', 'api_key_secret', 'https://api.coinbase.com/api/v3', 'wss://advanced-trade-ws.coinbase.com', 0.0001, 100.0, 0.0001, 10, '{}'), ('kraken_futures', 'Kraken Futures', 'CCXT', 'api_key_secret', 'https://futures.kraken.com/derivatives', 'wss://futures.kraken.com/ws/v1', 0.01, 1000.0, 0.01, 15, '{}'), ('dhan', 'Dhan SDK', 'REST_WS', 'client_id_token', 'https://api.dhan.co', 'wss://api-feed.dhan.co', 1.0, 10000.0, 1.0, 10, '{}'), ('zerodha', 'Zerodha Kite Connect', 'REST_WS', 'api_key_token', 'https://api.kite.trade', 'wss://ws.kite.trade', 1.0, 10000.0, 1.0, 10, '{}'), ('angelone', 'AngelOne SmartAPI', 'REST_WS', 'totp', 'https://apiconnect.angelone.in', 'wss://smartapisocket.angelone.in', 1.0, 10000.0, 1.0, 10, '{}'), ('upstox', 'Upstox REST API', 'REST_WS', 'client_id_token', 'https://api.upstox.com/v2', 'wss://api.upstox.com/v2/feed', 1.0, 10000.0, 1.0, 10, '{}'), ('fyers', 'Fyers API v2', 'REST_WS', 'client_id_token', 'https://api-v2.fyers.in/api/v2', 'wss://api-v2.fyers.in/socket/v2', 1.0, 10000.0, 1.0, 10, '{}'), ('kotak_neo', 'Kotak Neo API', 'REST_WS', 'consumer_key_token', 'https://gw-napi.kotaksecurities.com', 'wss://gw-napi.kotaksecurities.com', 1.0, 10000.0, 1.0, 10, '{}'), ('fivepaisa', '5paisa Markets', 'REST_WS', 'totp', 'https://openapi.5paisa.com/VendorsAPI/V1', 'wss://openfeed.5paisa.com', 1.0, 10000.0, 1.0, 10, '{}'), ('finvasia', 'Finvasia (Shoonya)', 'REST_WS', 'totp', 'https://api.shoonya.com/NorenWSTp', 'wss://api.shoonya.com/NorenWSTp', 1.0, 10000.0, 1.0, 10, '{}'), ('icici', 'ICICI Direct Breeze', 'REST_WS', 'oauth2', 'https://api.icicidirect.com/breezeapi/v1', 'wss://breezews.icicidirect.com', 1.0, 10000.0, 1.0, 10, '{}')]
     for key, name, proto, auth, rest, ws, v_min, v_max, v_step, r_lim, extra in default_profiles:
         _execute_with_retry('\n            INSERT OR IGNORE INTO broker_profiles\n            (broker_key, display_name, protocol_type, auth_type, rest_url, ws_url, volume_min, volume_max, volume_step, rate_limit_per_sec, extra_params_json, is_active, created_at)\n            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)\n            ', (key, name, proto, auth, rest, ws, v_min, v_max, v_step, r_lim, extra, now_str))
 
@@ -1406,14 +1406,18 @@ def get_broker_credentials() -> Any:
                 pass
             conn = None
         init_db()
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1')
-        row = cursor.fetchone()
-        if not row:
-            cursor.execute('SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1')
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1')
             row = cursor.fetchone()
-        conn.close()
+            if not row:
+                cursor.execute('SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1')
+                row = cursor.fetchone()
+            conn.close()
+        except Exception as err:
+            _log.warning("Unable to query broker_credentials after init_db: %s", err)
+            return None
     if not row:
         _log.error('No broker credentials configured in database. Please configure credentials using add_broker_account() or save_broker_credentials() before attempting to connect to a broker.')
         return None
