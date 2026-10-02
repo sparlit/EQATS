@@ -7,10 +7,10 @@ MCMC outputs, and strategy backtest equity curves using Batch Means (BM),
 Overlapping Batch Means (OBM), Newey-West Kernel, and Prewhitening methods.
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
 import math
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -27,10 +27,10 @@ def round_tick_005(price: float) -> float:
     return round(round(price * 20.0) / 20.0, 2)
 
 
-def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(dt: datetime | None = None) -> bool:
     """Checks if current time falls within IST trading session (09:15 - 15:30 IST)."""
     if dt is None:
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
     ist_dt = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
     if ist_dt.weekday() >= 5:
         return False
@@ -42,6 +42,7 @@ def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
 @dataclass
 class NSESummary:
     """Summary of Numerical Standard Error estimates."""
+
     mean: float
     variance: float
     nse_bm: float
@@ -60,22 +61,19 @@ class NumericalStandardErrorEngine:
         self.name = name
         self.magic_number = MAGIC_NUMBER
 
-    def compute_batch_means(self, series: List[float], nbatch: int = 30) -> float:
+    def compute_batch_means(self, series: list[float], nbatch: int = 30) -> float:
         """Computes Batch Means (BM) Numerical Standard Error."""
         n = len(series)
         if n < nbatch or nbatch <= 1:
             return 0.0
 
         batch_size = n // nbatch
-        batches = [
-            sum(series[i * batch_size : (i + 1) * batch_size]) / batch_size
-            for i in range(nbatch)
-        ]
+        batches = [sum(series[i * batch_size : (i + 1) * batch_size]) / batch_size for i in range(nbatch)]
         overall_mean = sum(series) / n
         var_bm = (batch_size / (nbatch - 1)) * sum((b - overall_mean) ** 2 for b in batches)
         return math.sqrt(max(0.0, var_bm / n))
 
-    def compute_overlapping_batch_means(self, series: List[float], batch_size: int = 20) -> float:
+    def compute_overlapping_batch_means(self, series: list[float], batch_size: int = 20) -> float:
         """Computes Overlapping Batch Means (OBM) Numerical Standard Error."""
         n = len(series)
         if n <= batch_size or batch_size <= 1:
@@ -90,12 +88,14 @@ class NumericalStandardErrorEngine:
             running_sum += series[i + batch_size - 1] - series[i - 1]
             batch_means.append(running_sum / batch_size)
 
-        var_obm = (batch_size * n) / ((n - batch_size) * (n - batch_size + 1)) * sum(
-            (b - overall_mean) ** 2 for b in batch_means
+        var_obm = (
+            (batch_size * n)
+            / ((n - batch_size) * (n - batch_size + 1))
+            * sum((b - overall_mean) ** 2 for b in batch_means)
         )
         return math.sqrt(max(0.0, var_obm / n))
 
-    def compute_newey_west_kernel(self, series: List[float], lag: Optional[int] = None) -> float:
+    def compute_newey_west_kernel(self, series: list[float], lag: int | None = None) -> float:
         """Computes Newey-West Bartlett kernel Numerical Standard Error."""
         n = len(series)
         if n < 2:
@@ -119,7 +119,7 @@ class NumericalStandardErrorEngine:
         lr_var = gamma_0 + gamma_sum
         return math.sqrt(max(0.0, lr_var / n))
 
-    def analyze_time_series(self, series: List[float]) -> NSESummary:
+    def analyze_time_series(self, series: list[float]) -> NSESummary:
         """Computes comprehensive NSE summary for given time series."""
         if not series:
             return NSESummary(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -134,7 +134,7 @@ class NumericalStandardErrorEngine:
 
         # Effective Sample Size calculation
         if nse_nw > 0 and var_val > 0:
-            ess = min(float(n), (var_val / (nse_nw ** 2 * n)) * n)
+            ess = min(float(n), (var_val / (nse_nw**2 * n)) * n)
         else:
             ess = float(n)
 
@@ -169,7 +169,7 @@ class BraverockNSEBrokerAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -179,10 +179,10 @@ class BraverockNSEBrokerAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last": 100.0}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -233,7 +233,7 @@ class BraverockNSEBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

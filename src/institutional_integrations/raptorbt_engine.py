@@ -9,16 +9,16 @@ Provides vectorized strategy backtesting, equity curve metrics, Sharpe/Sortino r
 0.05 INR price tick rounding, IST trading session validation, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 import math
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100024
 
@@ -36,10 +36,10 @@ class RaptorBTEngine:
     def run_backtest(
         self,
         symbol: str,
-        prices: List[float],
-        signals: List[int],
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        prices: list[float],
+        signals: list[int],
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Runs a vectorized backtest on price history and trade signals (1=BUY, -1=SELL, 0=HOLD).
         """
@@ -77,25 +77,19 @@ class RaptorBTEngine:
                     winning_trades += 1
 
             equity *= 1.0 + trade_return
-            if equity > peak:
-                peak = equity
+            peak = max(peak, equity)
             dd = (peak - equity) / peak * 100.0 if peak > 0 else 0.0
-            if dd > max_drawdown:
-                max_drawdown = dd
+            max_drawdown = max(max_drawdown, dd)
 
         avg_return = float(sum(returns) / len(returns)) if returns else 0.0
         variance = float(sum((r - avg_return) ** 2 for r in returns) / len(returns)) if returns else 0.0
         std_dev = math.sqrt(variance) if variance > 0 else 1e-6
 
-        downside_variance = (
-            float(sum(min(0.0, r) ** 2 for r in returns) / len(returns)) if returns else 0.0
-        )
+        downside_variance = float(sum(min(0.0, r) ** 2 for r in returns) / len(returns)) if returns else 0.0
         downside_dev = math.sqrt(downside_variance) if downside_variance > 0 else 1e-6
 
         sharpe_ratio = float((avg_return - (self.risk_free_rate / 252.0)) / std_dev) if std_dev > 0 else 0.0
-        sortino_ratio = (
-            float((avg_return - (self.risk_free_rate / 252.0)) / downside_dev) if downside_dev > 0 else 0.0
-        )
+        sortino_ratio = float((avg_return - (self.risk_free_rate / 252.0)) / downside_dev) if downside_dev > 0 else 0.0
         win_rate = float(winning_trades / total_trades) if total_trades > 0 else 0.0
         total_returns_pct = float((equity - self.initial_capital) / self.initial_capital) * 100.0
 

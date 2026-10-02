@@ -12,16 +12,16 @@ Delta-Neutral Short Strangle framing, Gamma Scalping Delta Rebalancing, Monte Ca
 
 import math
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_tick_size,
     round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
+    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER_RUST_FINANCE: int = 9100056
@@ -31,7 +31,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -72,7 +72,7 @@ class RustFinanceEngine:
         time_to_expiry: float,
         volatility: float,
         option_type: str = "CALL",
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Analytical Black-Scholes option pricing and Greeks (Delta, Gamma, Theta, Vega).
         """
@@ -91,14 +91,14 @@ class RustFinanceEngine:
             price = spot * self._norm_cdf(d1) - strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(d2)
             delta = self._norm_cdf(d1)
             theta = (
-                - (spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
+                -(spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
                 - self.rf_rate * strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(d2)
             ) / 365.0
         else:
             price = strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(-d2) - spot * self._norm_cdf(-d1)
             delta = self._norm_cdf(d1) - 1.0
             theta = (
-                - (spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
+                -(spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
                 + self.rf_rate * strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(-d2)
             ) / 365.0
 
@@ -113,7 +113,7 @@ class RustFinanceEngine:
 
     def calculate_gamma_scalping_rebalance(
         self, portfolio_delta: float, delta_threshold: float = 0.20, lot_size: int = 50
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculates underlying futures/micro-lot rebalancing order to maintain Delta Neutrality (Delta = 0).
         Triggers rebalancing when absolute net portfolio delta exceeds delta_threshold (default 0.20).
@@ -142,7 +142,7 @@ class RustFinanceEngine:
 
     def frame_delta_neutral_strangle(
         self, spot: float, volatility: float, time_to_expiry: float, target_delta: float = 0.15
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         call_strike = round_tick_005(spot * (1.0 + target_delta * volatility * math.sqrt(time_to_expiry)))
         put_strike = round_tick_005(spot * (1.0 - target_delta * volatility * math.sqrt(time_to_expiry)))
 
@@ -240,16 +240,18 @@ class RustFinanceBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.15, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

@@ -144,11 +144,10 @@ def hash_credential_secure(secret_text: Any) -> Any:
         password_bytes = secret_text.encode("utf-8")
         hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
         return hashed.decode("utf-8")
-    else:
-        _log.warning(
-            "Using legacy SHA-256 hashing due to missing bcrypt. Install bcrypt for proper password security: pip install bcrypt"
-        )
-        return hash_credential(secret_text)
+    _log.warning(
+        "Using legacy SHA-256 hashing due to missing bcrypt. Install bcrypt for proper password security: pip install bcrypt"
+    )
+    return hash_credential(secret_text)
 
 
 def verify_credential(secret_text: Any, stored_hash: Any) -> Any:
@@ -776,7 +775,7 @@ def update_user(
         original_username: Original username (if changing username)
         login_style: Preferred login screen style
     """
-    target_user = original_username if original_username else username
+    target_user = original_username or username
     if username and target_user and (username.lower() != target_user.lower()):
         _execute_with_retry("UPDATE users SET username = ? WHERE LOWER(username) = LOWER(?)", (username, target_user))
         target_user = username
@@ -1414,7 +1413,7 @@ def add_broker_profile(
     )
 
 
-def get_broker_profile(broker_key: str) -> Optional[Dict[str, Any]]:
+def get_broker_profile(broker_key: str) -> dict[str, Any] | None:
     """Retrieves operational parameters for a specific broker key."""
     seed_default_broker_profiles()
     row = _fetch_with_retry(
@@ -1425,7 +1424,7 @@ def get_broker_profile(broker_key: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def get_all_broker_profiles() -> List[Dict[str, Any]]:
+def get_all_broker_profiles() -> list[dict[str, Any]]:
     """Retrieves all registered broker profiles."""
     seed_default_broker_profiles()
     rows = (
@@ -2015,10 +2014,9 @@ def get_prevailing_news_sentiment() -> Any:
     bearish_count = sentiments.count("BEARISH")
     if bullish_count > bearish_count:
         return "BULLISH"
-    elif bearish_count > bullish_count:
+    if bearish_count > bullish_count:
         return "BEARISH"
-    else:
-        return "NEUTRAL"
+    return "NEUTRAL"
 
 
 def get_recent_performance(count: Any = 5) -> Any:
@@ -2072,8 +2070,8 @@ def update_performance_metrics(date_str: Any, current_balance: Any) -> None:
     )
 
     trades_taken = len(rows)
-    net_profit = sum((row["profit"] for row in rows)) if trades_taken > 0 else 0.0
-    wins = sum((1 for row in rows if row["profit"] > 0))
+    net_profit = sum(row["profit"] for row in rows) if trades_taken > 0 else 0.0
+    wins = sum(1 for row in rows if row["profit"] > 0)
     win_rate = wins / trades_taken * 100.0 if trades_taken > 0 else 0.0
     exists_row = _fetch_with_retry("SELECT 1 FROM performance_metrics WHERE date = ?", (date_str,), fetch_all=False)
     exists = exists_row is not None
@@ -2101,8 +2099,8 @@ def get_all_time_performance() -> Any:
         init_db()
         rows = []
     total_trades = len(rows)
-    net_profit = sum((row["profit"] for row in rows)) if total_trades > 0 else 0.0
-    wins = sum((1 for row in rows if row["profit"] > 0))
+    net_profit = sum(row["profit"] for row in rows) if total_trades > 0 else 0.0
+    wins = sum(1 for row in rows if row["profit"] > 0)
     win_rate = wins / total_trades * 100.0 if total_trades > 0 else 0.0
     return {"total_trades": total_trades, "win_rate": round(win_rate, 2), "net_profit": round(net_profit, 2)}
 
@@ -2151,7 +2149,7 @@ def save_circuit_breaker_state(
     )
 
 
-def load_circuit_breaker_state() -> Optional[Dict[str, Any]]:
+def load_circuit_breaker_state() -> dict[str, Any] | None:
     """
     Loads the persisted circuit breaker state from SQLite.
 
@@ -2270,7 +2268,7 @@ def save_instrument_tokens_to_db(token_map: dict[str, Any]) -> int:
     return 0
 
 
-def get_instrument_token_from_db(symbol_key: str) -> Optional[int]:
+def get_instrument_token_from_db(symbol_key: str) -> int | None:
     """
     Retrieves numerical instrument_token for a symbol from SQLite database.
     """
@@ -2289,7 +2287,7 @@ def get_instrument_token_from_db(symbol_key: str) -> Optional[int]:
     return None
 
 
-def get_symbol_from_db_token(instrument_token: int) -> Optional[str]:
+def get_symbol_from_db_token(instrument_token: int) -> str | None:
     """
     Retrieves human-readable symbol string from numerical instrument_token in SQLite database.
     """

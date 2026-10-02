@@ -7,17 +7,17 @@ and financial statement disclosure event analysis from `ajakaiye33/ngrcoydisclos
 Magic Number: 9100034
 """
 
-import xml.etree.ElementTree as ET
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+import xml.etree.ElementTree as ET
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -57,11 +57,11 @@ class CorporateDisclosuresEngine:
     def __init__(self) -> None:
         self.magic_number = MAGIC_NUMBER_NGRCOYDISCLOSURES
 
-    def parse_xml_disclosures(self, xml_content: str) -> List[Dict[str, str]]:
+    def parse_xml_disclosures(self, xml_content: str) -> list[dict[str, str]]:
         """
         Parses XML string representing exchange corporate disclosure feed into structured records.
         """
-        records: List[Dict[str, str]] = []
+        records: list[dict[str, str]] = []
         if not xml_content or not xml_content.strip():
             return records
 
@@ -73,7 +73,8 @@ class CorporateDisclosuresEngine:
                 entries = [root]
 
             for entry in entries:
-                def get_tag_text(tag_names: List[str]) -> str:
+
+                def get_tag_text(tag_names: list[str]) -> str:
                     for tag in tag_names:
                         elem = entry.find(tag)
                         if elem is not None and elem.text:
@@ -95,7 +96,7 @@ class CorporateDisclosuresEngine:
 
         return records
 
-    def analyze_disclosure_event(self, record: Dict[str, str]) -> Dict[str, Any]:
+    def analyze_disclosure_event(self, record: dict[str, str]) -> dict[str, Any]:
         """
         Evaluates a corporate disclosure record for trade impact.
         Returns sentiment score (-1.0 to +1.0) and recommended action.
@@ -159,19 +160,17 @@ class CorporateDisclosuresBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -202,7 +201,7 @@ class CorporateDisclosuresBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"NGRCOY-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"NGRCOY-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -211,14 +210,10 @@ class CorporateDisclosuresBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -230,7 +225,7 @@ class CorporateDisclosuresBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

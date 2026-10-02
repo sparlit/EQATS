@@ -2,15 +2,21 @@
 NexQuant Engine - Self-Evolving Factor & Portfolio Optimizer Core.
 Provides LightGBM Quantitative Factor Model and Multi-Strategy Portfolio Optimizer.
 """
-import math
+
 import logging
+import math
+
 import numpy as np
+
 try:
     import pandas as pd
 except ImportError:
     pd = None
-from typing import Dict, Any, List, Optional, Sequence
-logger = logging.getLogger('NexQuantEngine')
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger("NexQuantEngine")
+
 
 class NexQuantFactorModel:
     """
@@ -18,7 +24,7 @@ class NexQuantFactorModel:
     Provides gradient boosting regression predictions on technical and macro inputs.
     """
 
-    def __init__(self, learning_rate: float=0.05, num_leaves: int=31) -> None:
+    def __init__(self, learning_rate: float = 0.05, num_leaves: int = 31) -> None:
         self.learning_rate = learning_rate
         self.num_leaves = num_leaves
         self.weights = np.array([0.25, 0.2, 0.2, 0.15, 0.1, 0.1])
@@ -38,13 +44,16 @@ class NexQuantFactorModel:
         signal = float(np.dot(feat, self.weights))
         return round(min(1.0, max(-1.0, signal)), 4)
 
+
 class NexQuantPortfolioOptimizer:
     """
     Multi-Strategy Risk-Parity & Sharpe Maximization Portfolio Optimizer.
     Finds optimal allocation weights for N strategies subject to maximum drawdown caps.
     """
 
-    def optimize_weights(self, strategy_returns: Dict[str, Sequence[float]], max_dd_cap: float=0.1) -> Dict[str, float]:
+    def optimize_weights(
+        self, strategy_returns: dict[str, Sequence[float]], max_dd_cap: float = 0.1
+    ) -> dict[str, float]:
         if not strategy_returns:
             return {}
         names = list(strategy_returns.keys())
