@@ -48,7 +48,7 @@ class NSEPythonClient(SEBIBrokerAdapter):
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.magic_number = MAGIC_NUMBER_NSEPYTHON
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -62,7 +62,7 @@ class NSEPythonClient(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -78,17 +78,17 @@ class NSEPythonClient(SEBIBrokerAdapter):
         exchange: str = "NSE",
         count: int = 100,
         interval: str = "minute",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         base_price = 2850.0 if "RELIANCE" in symbol.upper() else 1500.0 if "INFY" in symbol.upper() else 500.0
         bid = round_to_indian_tick_size(base_price)
         ask = round_to_indian_tick_size(base_price + 0.15)
         last = round_to_indian_tick_size(base_price + 0.05)
         return {"bid": bid, "ask": ask, "last": last}
 
-    def fetch_equity_quote(self, symbol: str) -> Dict[str, Any]:
+    def fetch_equity_quote(self, symbol: str) -> dict[str, Any]:
         """
         Fetches live equity quote for a given NSE symbol.
         """
@@ -108,7 +108,7 @@ class NSEPythonClient(SEBIBrokerAdapter):
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-    def fetch_index_constituents(self, index_symbol: str = "NIFTY 50") -> List[Dict[str, Any]]:
+    def fetch_index_constituents(self, index_symbol: str = "NIFTY 50") -> list[dict[str, Any]]:
         """
         Returns list of constituent stocks in the specified index.
         """
@@ -121,7 +121,7 @@ class NSEPythonClient(SEBIBrokerAdapter):
         ]
         return sample_constituents
 
-    def fetch_option_chain_data(self, symbol: str = "NIFTY") -> Dict[str, Any]:
+    def fetch_option_chain_data(self, symbol: str = "NIFTY") -> dict[str, Any]:
         """
         Fetches NIFTY/BANKNIFTY option chain data structure.
         """
@@ -146,7 +146,7 @@ class NSEPythonClient(SEBIBrokerAdapter):
             )
         return {"symbol": symbol, "spot_price": spot, "records": records}
 
-    def fetch_eod_bhavcopy(self, date_str: str = "") -> List[Dict[str, Any]]:
+    def fetch_eod_bhavcopy(self, date_str: str = "") -> list[dict[str, Any]]:
         """
         Parses End-Of-Day (EOD) Bhavcopy records.
         """
@@ -230,7 +230,7 @@ class NSEPythonClient(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

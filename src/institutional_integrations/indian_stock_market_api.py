@@ -51,7 +51,7 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
     ) -> None:
         super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
         self.magic_number = MAGIC_NUMBER_INDIAN_API
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -67,7 +67,7 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -83,17 +83,17 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         exchange: str = "NSE",
         count: int = 100,
         interval: str = "minute",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         base_price = 2850.0 if "RELIANCE" in symbol.upper() else 1500.0 if "INFY" in symbol.upper() else 500.0
         bid = round_to_indian_tick_size(base_price)
         ask = round_to_indian_tick_size(base_price + 0.15)
         last = round_to_indian_tick_size(base_price + 0.05)
         return {"bid": bid, "ask": ask, "last": last}
 
-    def fetch_market_depth(self, symbol: str, exchange: str = "NSE") -> Dict[str, Any]:
+    def fetch_market_depth(self, symbol: str, exchange: str = "NSE") -> dict[str, Any]:
         """
         Returns 5-level L2 market depth (bids and asks) with 0.05 INR tick rounding.
         """
@@ -108,7 +108,7 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         ]
         return {"symbol": symbol, "exchange": exchange, "bids": bids, "asks": asks, "timestamp": time.time()}
 
-    def fetch_option_chain(self, underlying_symbol: str, expiry: str = "NEAR") -> List[Dict[str, Any]]:
+    def fetch_option_chain(self, underlying_symbol: str, expiry: str = "NEAR") -> list[dict[str, Any]]:
         """
         Returns option chain matrix with strike prices, IVs, calls/puts open interest, and greeks.
         """
@@ -204,7 +204,7 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

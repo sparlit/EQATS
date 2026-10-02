@@ -42,7 +42,7 @@ class IndianShareMarketEngine:
 
     def evaluate_fundamental_score(
         self, pe_ratio: float, pb_ratio: float, roe_pct: float, debt_to_equity: float, div_yield_pct: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculates composite fundamental valuation score (0.0 to 100.0) for an Indian equity stock.
         """
@@ -104,7 +104,7 @@ class IndianShareMarketEngine:
             "magic_number": self.magic_number,
         }
 
-    def evaluate_sector_momentum(self) -> Dict[str, Dict[str, Any]]:
+    def evaluate_sector_momentum(self) -> dict[str, dict[str, Any]]:
         """
         Returns sector momentum matrix across major NSE sectors.
         """
@@ -119,8 +119,8 @@ class IndianShareMarketEngine:
         return sectors
 
     def calculate_portfolio_cagr_sharpe(
-        self, initial_capital: float, current_value: float, duration_years: float, returns_list: List[float]
-    ) -> Dict[str, float]:
+        self, initial_capital: float, current_value: float, duration_years: float, returns_list: list[float]
+    ) -> dict[str, float]:
         """
         Calculates portfolio Compound Annual Growth Rate (CAGR) and Sharpe Ratio.
         """
@@ -153,7 +153,7 @@ class IndianShareMarketAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = IndianShareMarketEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -166,15 +166,15 @@ class IndianShareMarketAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 830.0, "ask": 830.15, "last": 830.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -218,7 +218,7 @@ class IndianShareMarketAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

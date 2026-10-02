@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 _log = logging.getLogger("SEBIBrokerAdapter")
-VALID_INDIAN_PRODUCT_TAGS: Set[str] = {"MIS", "CNC", "NRML"}
-VALID_INDIAN_EXCHANGES: Set[str] = {"NSE", "BSE", "NFO", "MCX", "CDS"}
+VALID_INDIAN_PRODUCT_TAGS: set[str] = {"MIS", "CNC", "NRML"}
+VALID_INDIAN_EXCHANGES: set[str] = {"NSE", "BSE", "NFO", "MCX", "CDS"}
 
 
 def round_to_indian_quantity(quantity: float) -> int:
@@ -34,7 +34,7 @@ def round_to_indian_quantity(quantity: float) -> int:
         return 1
 
 
-def validate_indian_product_tag(product: Optional[str], default: str = "CNC") -> str:
+def validate_indian_product_tag(product: str | None, default: str = "CNC") -> str:
     """
     Validates and normalizes Indian exchange product tags.
     Defaults to 'CNC' for equities if not specified or invalid.
@@ -60,7 +60,7 @@ class SEBIOrderRequest:
     exchange: str = "NSE"
     order_kind: str = "MARKET"
     tag: str = "EQATS"
-    instrument_token: Optional[int] = None
+    instrument_token: int | None = None
 
 
 @dataclass
@@ -71,9 +71,9 @@ class SEBIOrderResponse:
     status: str
     product: str
     exchange: str
-    instrument_token: Optional[int] = None
+    instrument_token: int | None = None
     error: str = ""
-    raw_response: Dict[str, Any] = field(default_factory=dict)
+    raw_response: dict[str, Any] = field(default_factory=dict)
 
 
 class SEBIBrokerAdapter(abc.ABC):
@@ -106,19 +106,19 @@ class SEBIBrokerAdapter(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         """Returns account summary dict with balance, equity, margin_used, available_margin."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Returns historical OHLCV data bars."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         """Returns bid, ask, and last price dict: {'bid': float, 'ask': float, 'last': float}."""
         raise NotImplementedError
 
@@ -138,7 +138,7 @@ class SEBIBrokerAdapter(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         """Lists active open orders."""
         raise NotImplementedError
 
@@ -155,7 +155,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
         self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
     ) -> None:
         super().__init__(api_key, api_secret, access_token, is_sandbox)
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         if self.access_token or self.is_sandbox:
@@ -173,7 +173,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         if self.access_token and (not self.is_sandbox):
             try:
                 headers = {"X-Kite-Version": "3", "Authorization": f"token {self.api_key}:{self.access_token}"}
@@ -200,7 +200,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         bars = []
         base_price = 2500.0 if "RELIANCE" in symbol else 500.0
         now = time.time()
@@ -222,7 +222,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             )
         return bars
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         base_price = 2500.0 if "RELIANCE" in symbol else 1500.0 if "INFY" in symbol else 500.0
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {
@@ -367,7 +367,7 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -384,7 +384,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.client_id = client_id
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -398,7 +398,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         if self.access_token and self.client_id and (not self.is_sandbox):
             try:
                 headers = {
@@ -429,7 +429,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         bars = []
         base_price = 2500.0 if "RELIANCE" in symbol else 500.0
         now = time.time()
@@ -451,7 +451,7 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             )
         return bars
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         base_price = 2500.0 if "RELIANCE" in symbol else 1500.0 if "INFY" in symbol else 500.0
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {
@@ -600,13 +600,13 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
 def generate_indian_market_history_bars(
     symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Generates deterministic, 0.05 INR tick-size rounded historical bars for Indian Market symbols.
     """
@@ -644,7 +644,7 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         self.password = password
         self.totp = totp
         self.jwt_token = ""
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         if self.client_id and self.password and (not self.is_sandbox):
@@ -676,15 +676,15 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -766,7 +766,7 @@ class AngelOneAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -777,7 +777,7 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
         self, api_key: str = "", consumer_secret: str = "", access_token: str = "", is_sandbox: bool = False
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -790,15 +790,15 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -863,7 +863,7 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -872,7 +872,7 @@ class UpstoxAdapter(SEBIBrokerAdapter):
 
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -885,15 +885,15 @@ class UpstoxAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -958,7 +958,7 @@ class UpstoxAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -970,7 +970,7 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
     ) -> None:
         token = access_token or session_token
         super().__init__(api_key=api_key, access_token=token, is_sandbox=is_sandbox)
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -983,15 +983,15 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -1056,7 +1056,7 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -1076,7 +1076,7 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
         self.app_source = app_source
         self.user_id = user_id
         self.password = password
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -1089,15 +1089,15 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -1162,7 +1162,7 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -1173,7 +1173,7 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
         self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
     ) -> None:
         super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -1186,15 +1186,15 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -1259,7 +1259,7 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -1271,7 +1271,7 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.client_id = client_id
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -1284,15 +1284,15 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -1357,7 +1357,7 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -1375,7 +1375,7 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         if endpoint_url:
             self.BASE_URL = endpoint_url.rstrip("/")
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -1389,7 +1389,7 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -1400,10 +1400,10 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return {"bid": 500.0, "ask": 500.15, "last": 500.05, "instrument_token": token}
 
@@ -1474,7 +1474,7 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 
@@ -1485,8 +1485,8 @@ class IndianBrokerPluginRegistry:
     Ensures core execution loops remain completely untouched when adding or modifying broker plugins.
     """
 
-    _registry: Dict[str, type] = {}
-    _enabled: Dict[str, bool] = {}
+    _registry: dict[str, type] = {}
+    _enabled: dict[str, bool] = {}
 
     @classmethod
     def register(cls, name: str, adapter_class: type) -> None:
@@ -1513,14 +1513,14 @@ class IndianBrokerPluginRegistry:
         return cls._enabled.get(key, False)
 
     @classmethod
-    def get_adapter_class(cls, name: str) -> Optional[type]:
+    def get_adapter_class(cls, name: str) -> type | None:
         key = name.upper().strip()
         if cls.is_enabled(key):
             return cls._registry.get(key)
         return None
 
     @classmethod
-    def list_registered_brokers(cls) -> Dict[str, bool]:
+    def list_registered_brokers(cls) -> dict[str, bool]:
         return dict(cls._enabled)
 
 
@@ -1595,7 +1595,7 @@ class UnifiedIndianBrokerClientAdapter:
                 access_token=self.access_token,
                 is_sandbox=self.is_sandbox,
             )
-        elif adapter_cls is AngelOneAdapter:
+        if adapter_cls is AngelOneAdapter:
             return AngelOneAdapter(
                 api_key=self.api_key,
                 client_id=self.client_id,
@@ -1604,13 +1604,13 @@ class UnifiedIndianBrokerClientAdapter:
                 is_sandbox=self.is_sandbox,
                 access_token=self.access_token,
             )
-        elif adapter_cls is KotakNeoAdapter:
+        if adapter_cls is KotakNeoAdapter:
             return KotakNeoAdapter(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
-        elif adapter_cls is UpstoxAdapter:
+        if adapter_cls is UpstoxAdapter:
             return UpstoxAdapter(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
-        elif adapter_cls is ICICIDirectAdapter:
+        if adapter_cls is ICICIDirectAdapter:
             return ICICIDirectAdapter(api_key=self.api_key, session_token=self.access_token, is_sandbox=self.is_sandbox)
-        elif adapter_cls is FivePaisaAdapter:
+        if adapter_cls is FivePaisaAdapter:
             return FivePaisaAdapter(
                 api_key=self.api_key,
                 user_id=self.client_id,
@@ -1618,44 +1618,41 @@ class UnifiedIndianBrokerClientAdapter:
                 is_sandbox=self.is_sandbox,
                 access_token=self.access_token,
             )
-        elif adapter_cls is IIFLXTSAdapter:
+        if adapter_cls is IIFLXTSAdapter:
             return IIFLXTSAdapter(
                 api_key=self.api_key,
                 api_secret=self.api_secret,
                 access_token=self.access_token,
                 is_sandbox=self.is_sandbox,
             )
-        elif adapter_cls is MotilalOswalAdapter:
+        if adapter_cls is MotilalOswalAdapter:
             return MotilalOswalAdapter(
                 api_key=self.api_key,
                 client_id=self.client_id,
                 access_token=self.access_token,
                 is_sandbox=self.is_sandbox,
             )
-        elif adapter_cls is OpenAlgoFenixAdapter:
+        if adapter_cls is OpenAlgoFenixAdapter:
             return OpenAlgoFenixAdapter(
                 api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
             )
-        else:
-            try:
-                inst = adapter_cls(
-                    api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
-                )
-                if isinstance(inst, SEBIBrokerAdapter):
-                    return inst
-                return KiteConnectAdapter(
-                    api_key=self.api_key,
-                    api_secret=self.api_secret,
-                    access_token=self.access_token,
-                    is_sandbox=self.is_sandbox,
-                )
-            except Exception:
-                return KiteConnectAdapter(
-                    api_key=self.api_key,
-                    api_secret=self.api_secret,
-                    access_token=self.access_token,
-                    is_sandbox=self.is_sandbox,
-                )
+        try:
+            inst = adapter_cls(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
+            if isinstance(inst, SEBIBrokerAdapter):
+                return inst
+            return KiteConnectAdapter(
+                api_key=self.api_key,
+                api_secret=self.api_secret,
+                access_token=self.access_token,
+                is_sandbox=self.is_sandbox,
+            )
+        except Exception:
+            return KiteConnectAdapter(
+                api_key=self.api_key,
+                api_secret=self.api_secret,
+                access_token=self.access_token,
+                is_sandbox=self.is_sandbox,
+            )
 
     def login(self) -> bool:
         """Executes broker authentication and session token creation."""
@@ -1679,7 +1676,7 @@ class UnifiedIndianBrokerClientAdapter:
         product: str = "CNC",
         exchange: str = "NSE",
         order_kind: str = "MARKET",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Native execution interface for placing orders on Indian exchanges.
         Conforms strictly to standard execution response schema.
@@ -1710,21 +1707,21 @@ class UnifiedIndianBrokerClientAdapter:
 
     def modify_order(
         self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0, quantity: float = 0.0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Modifies active order parameters."""
         rounded_price = round_to_indian_tick_size(price) if price > 0 else 0.0
         success = self.adapter.modify_order(ticket=ticket, price=rounded_price, sl=sl, tp=tp)
         return {"success": success, "ticket": ticket, "price": rounded_price}
 
-    def cancel_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> Dict[str, Any]:
+    def cancel_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> dict[str, Any]:
         """Cancels or squares-off an open position."""
         res = self.adapter.close_order(ticket=ticket, symbol=symbol, exchange=exchange)
         return {"success": res.success, "ticket": ticket, "status": "CANCELLED", "error": res.error}
 
-    def get_positions(self) -> List[Dict[str, Any]]:
+    def get_positions(self) -> list[dict[str, Any]]:
         """Returns list of open positions / orders."""
         return self.adapter.get_open_orders()
 
-    def get_order_book(self) -> List[Dict[str, Any]]:
+    def get_order_book(self) -> list[dict[str, Any]]:
         """Returns order book history."""
         return self.adapter.get_open_orders()

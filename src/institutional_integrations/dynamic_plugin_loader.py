@@ -11,11 +11,11 @@ import inspect
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIBrokerAdapter,
     IndianBrokerPluginRegistry,
+    SEBIBrokerAdapter,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,16 +26,16 @@ class DynamicPluginLoader:
     Automated Runtime Plugin Discovery & Microkernel Registration Loader.
     """
 
-    def __init__(self, search_paths: List[Path] | None = None) -> None:
+    def __init__(self, search_paths: list[Path] | None = None) -> None:
         root = Path.cwd()
         self.search_paths = search_paths or [
             root / "modules" / "adapted",
             root / "src" / "institutional_integrations",
         ]
-        self.loaded_modules: Dict[str, Any] = {}
-        self.registered_plugins: List[str] = []
+        self.loaded_modules: dict[str, Any] = {}
+        self.registered_plugins: list[str] = []
 
-    def discover_and_load_plugins(self) -> Dict[str, Any]:
+    def discover_and_load_plugins(self) -> dict[str, Any]:
         """
         Scans search_paths, dynamically imports Python files, and registers SEBIBrokerAdapter subclasses.
         Safely catches exceptions and SystemExit to prevent dynamic scripts from terminating the runtime.
@@ -81,6 +81,6 @@ class DynamicPluginLoader:
 global_plugin_loader = DynamicPluginLoader()
 
 
-def initialize_dynamic_plugins() -> Dict[str, Any]:
+def initialize_dynamic_plugins() -> dict[str, Any]:
     """Convenience function to trigger dynamic plugin discovery."""
     return global_plugin_loader.discover_and_load_plugins()
