@@ -3,15 +3,20 @@ Metatrader Meta Edge & Quantitative Execution Analytics.
 Provides Probabilistic Sharpe Ratio (PSR), Calmar Ratio, Sortino Ratio, Kelly Sizing Fraction,
 Institutional Edge Score, and Real-Time Execution Slippage Tracker.
 """
-import time
-import math
-import numpy as np
-import threading
-import logging
-from typing import Dict, Any, List, Optional, Sequence
-logger = logging.getLogger('MetaEdgeQuant')
 
-def calculate_probabilistic_sharpe_ratio(returns: Sequence[float], benchmark_sharpe: float=0.0) -> float:
+import logging
+import math
+import threading
+import time
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+
+logger = logging.getLogger("MetaEdgeQuant")
+
+
+def calculate_probabilistic_sharpe_ratio(returns: Sequence[float], benchmark_sharpe: float = 0.0) -> float:
     """
     Calculates Probabilistic Sharpe Ratio (PSR) from Bailey & López de Prado (2012).
     Evaluates probability that true Sharpe ratio is greater than benchmark_sharpe given
@@ -28,13 +33,14 @@ def calculate_probabilistic_sharpe_ratio(returns: Sequence[float], benchmark_sha
     sr = mean_r / std_r
     skew = float(np.mean(((r - mean_r) / std_r) ** 3))
     kurt = float(np.mean(((r - mean_r) / std_r) ** 4))
-    sr_var = (1.0 + 0.5 * sr ** 2 - skew * sr + (kurt - 3.0) / 4.0 * sr ** 2) / (n - 1)
+    sr_var = (1.0 + 0.5 * sr**2 - skew * sr + (kurt - 3.0) / 4.0 * sr**2) / (n - 1)
     if sr_var <= 0:
         return 0.5
     sr_std = math.sqrt(sr_var)
     z_stat = (sr - benchmark_sharpe) / sr_std
     psr = 0.5 * (1.0 + math.erf(z_stat / math.sqrt(2.0)))
     return round(min(0.999, max(0.001, psr)), 4)
+
 
 def calculate_kelly_fraction(win_rate: float, reward_risk_ratio: float) -> float:
     """
@@ -46,6 +52,7 @@ def calculate_kelly_fraction(win_rate: float, reward_risk_ratio: float) -> float
     k = (win_rate * reward_risk_ratio - (1.0 - win_rate)) / reward_risk_ratio
     return round(max(0.0, min(0.25, k)), 4)
 
+
 def calculate_calmar_ratio(annualized_return: float, max_drawdown_pct: float) -> float:
     """Calculates Calmar Ratio = Annualized Return / Max Drawdown."""
     dd = abs(max_drawdown_pct)
@@ -53,7 +60,15 @@ def calculate_calmar_ratio(annualized_return: float, max_drawdown_pct: float) ->
         return 0.0
     return round(annualized_return / dd, 2)
 
-def calculate_edge_score(expectancy_per_trade: float, win_rate: float, reward_risk_ratio: float, returns: Sequence[float], annualized_return: float=20.0, max_drawdown_pct: float=10.0) -> Dict[str, Any]:
+
+def calculate_edge_score(
+    expectancy_per_trade: float,
+    win_rate: float,
+    reward_risk_ratio: float,
+    returns: Sequence[float],
+    annualized_return: float = 20.0,
+    max_drawdown_pct: float = 10.0,
+) -> dict[str, Any]:
     """
     Computes institutional 0..100 composite Edge Score combining Expectancy, Kelly fraction,
     Probabilistic Sharpe Ratio (PSR), and Calmar ratio.
@@ -66,7 +81,14 @@ def calculate_edge_score(expectancy_per_trade: float, win_rate: float, reward_ri
     psr_score = psr * 100.0
     calmar_score = min(100.0, calmar * 25.0)
     composite_score = 0.25 * exp_score + 0.25 * kelly_score + 0.25 * psr_score + 0.25 * calmar_score
-    return {'edge_score': round(composite_score, 1), 'kelly_fraction': kelly, 'probabilistic_sharpe_ratio': psr, 'calmar_ratio': calmar, 'is_deploy_safe': psr >= 0.7 and kelly > 0.0 and (composite_score >= 50.0)}
+    return {
+        "edge_score": round(composite_score, 1),
+        "kelly_fraction": kelly,
+        "probabilistic_sharpe_ratio": psr,
+        "calmar_ratio": calmar,
+        "is_deploy_safe": psr >= 0.7 and kelly > 0.0 and (composite_score >= 50.0),
+    }
+
 
 class EmpiricalSlippageTracker:
     """
@@ -77,17 +99,30 @@ class EmpiricalSlippageTracker:
         self._lock = threading.Lock()
         self.events = []
 
-    def record_fill(self, symbol: str, signal_price: float, fill_price: float, atr: float=0.001) -> None:
+    def record_fill(self, symbol: str, signal_price: float, fill_price: float, atr: float = 0.001) -> None:
         with self._lock:
             slippage = abs(fill_price - signal_price)
             atr_frac = slippage / atr if atr > 0 else 0.0
-            self.events.append({'symbol': symbol, 'signal_price': signal_price, 'fill_price': fill_price, 'slippage': round(slippage, 5), 'slippage_atr_frac': round(atr_frac, 4), 'timestamp': time.time()})
+            self.events.append(
+                {
+                    "symbol": symbol,
+                    "signal_price": signal_price,
+                    "fill_price": fill_price,
+                    "slippage": round(slippage, 5),
+                    "slippage_atr_frac": round(atr_frac, 4),
+                    "timestamp": time.time(),
+                }
+            )
 
-    def get_symbol_stats(self, symbol: str) -> Dict[str, float]:
+    def get_symbol_stats(self, symbol: str) -> dict[str, float]:
         with self._lock:
-            sym_events = [e for e in self.events if e['symbol'] == symbol]
+            sym_events = [e for e in self.events if e["symbol"] == symbol]
             if not sym_events:
-                return {'mean_slippage': 0.0, 'mean_atr_frac': 0.0, 'count': 0}
-            mean_slip = sum((e['slippage'] for e in sym_events)) / len(sym_events)
-            mean_frac = sum((e['slippage_atr_frac'] for e in sym_events)) / len(sym_events)
-            return {'mean_slippage': round(mean_slip, 5), 'mean_atr_frac': round(mean_frac, 4), 'count': len(sym_events)}
+                return {"mean_slippage": 0.0, "mean_atr_frac": 0.0, "count": 0}
+            mean_slip = sum(e["slippage"] for e in sym_events) / len(sym_events)
+            mean_frac = sum(e["slippage_atr_frac"] for e in sym_events) / len(sym_events)
+            return {
+                "mean_slippage": round(mean_slip, 5),
+                "mean_atr_frac": round(mean_frac, 4),
+                "count": len(sym_events),
+            }

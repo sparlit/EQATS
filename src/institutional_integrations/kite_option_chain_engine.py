@@ -9,15 +9,15 @@ Provides Zerodha Kite option chain strike matrix parsing, Put-Call Ratio (PCR) a
 0.05 INR price tick rounding, IST trading session validation, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100027
 
@@ -32,7 +32,7 @@ class KiteOptionChainEngine:
         self.pcr_bearish_threshold = pcr_bearish_threshold
         self.market_state = IndianMarketStateMachine()
 
-    def calculate_pcr(self, call_oi: List[int], put_oi: List[int]) -> float:
+    def calculate_pcr(self, call_oi: list[int], put_oi: list[int]) -> float:
         total_call_oi = sum(call_oi)
         total_put_oi = sum(put_oi)
         if total_call_oi == 0:
@@ -43,11 +43,11 @@ class KiteOptionChainEngine:
         self,
         symbol: str,
         underlying_price: float,
-        strikes: List[float],
-        call_oi: List[int],
-        put_oi: List[int],
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        strikes: list[float],
+        call_oi: list[int],
+        put_oi: list[int],
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Parses option chain strikes and evaluates market sentiment via Put-Call Ratio (PCR).
         """
@@ -71,7 +71,9 @@ class KiteOptionChainEngine:
 
         if pcr >= self.pcr_bullish_threshold:
             sentiment = "BULLISH"
-            reason = f"High Put-Call Ratio ({pcr:.2f} >= {self.pcr_bullish_threshold}) indicates strong put writing support"
+            reason = (
+                f"High Put-Call Ratio ({pcr:.2f} >= {self.pcr_bullish_threshold}) indicates strong put writing support"
+            )
         elif pcr <= self.pcr_bearish_threshold:
             sentiment = "BEARISH"
             reason = f"Low Put-Call Ratio ({pcr:.2f} <= {self.pcr_bearish_threshold}) indicates heavy call resistance"

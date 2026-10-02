@@ -46,7 +46,7 @@ class BankNiftyGoldenRatioStrategy:
         self.lot_size = lot_size
         self.magic_number = MAGIC_NUMBER_BANKNIFTY_GOLDEN_RATIO
 
-    def calculate_golden_ratio_levels(self, range_high: float, range_low: float) -> Dict[str, float]:
+    def calculate_golden_ratio_levels(self, range_high: float, range_low: float) -> dict[str, float]:
         """
         Calculates Golden Ratio Fibonacci levels from given high and low range bounds.
         """
@@ -73,9 +73,9 @@ class BankNiftyGoldenRatioStrategy:
 
     def evaluate_strategy(
         self,
-        history_bars: List[Dict[str, Any]],
+        history_bars: list[dict[str, Any]],
         current_equity: float = 1000000.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Evaluates history bars against Golden Ratio levels and returns decision dictionary.
         """
@@ -145,7 +145,7 @@ class BankNiftyGoldenRatioAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.strategy = BankNiftyGoldenRatioStrategy()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -158,15 +158,15 @@ class BankNiftyGoldenRatioAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 48500.0, "ask": 48505.0, "last": 48502.50}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -210,7 +210,7 @@ class BankNiftyGoldenRatioAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

@@ -11,15 +11,15 @@ bid/ask liquidity wall detection, slippage impact guard (spread & depth validati
 """
 
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
     round_to_indian_tick_size,
-    IndianBrokerPluginRegistry,
 )
 
 MAGIC_NUMBER_ORDERFLOWMAP: int = 9100067
@@ -29,7 +29,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     if now_dt is None:
         ist_tz = zoneinfo.ZoneInfo("Asia/Kolkata")
         now_dt = datetime.now(ist_tz)
@@ -64,7 +64,7 @@ class OrderFlowMapEngine:
 
     def evaluate_orderbook_slippage_guard(
         self, best_bid: float, best_ask: float, bid_depth_qty: int, ask_depth_qty: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validates market depth and spread before order submission.
         Rejects orders if best_ask - best_bid > max_allowed_spread (0.10 INR) or if queue depth < min_depth_qty.
@@ -175,16 +175,18 @@ class OrderFlowMapBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.05, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

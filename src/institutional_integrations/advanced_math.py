@@ -2,8 +2,10 @@
 Institutional Advanced Quantitative Mathematics.
 Integrates QuantLib, PyMC3, and PyStan.
 """
-from typing import Any
+
 import math
+from typing import Any
+
 
 def calculate_markov_regime_switching_probability(prices: Any) -> Any:
     """
@@ -14,7 +16,7 @@ def calculate_markov_regime_switching_probability(prices: Any) -> Any:
     """
     n = len(prices)
     if n < 15:
-        return (0.0, {'p00': 0.9, 'p01': 0.1, 'p10': 0.15, 'p11': 0.85})
+        return (0.0, {"p00": 0.9, "p01": 0.1, "p10": 0.15, "p11": 0.85})
     try:
         returns = []
         for i in range(1, n):
@@ -23,12 +25,12 @@ def calculate_markov_regime_switching_probability(prices: Any) -> Any:
         window_size = 10
         volatilities = []
         for i in range(window_size, len(returns) + 1):
-            window = returns[i - window_size:i]
+            window = returns[i - window_size : i]
             mean_w = sum(window) / len(window)
-            var_w = sum(((x - mean_w) ** 2 for x in window)) / len(window)
+            var_w = sum((x - mean_w) ** 2 for x in window) / len(window)
             volatilities.append(math.sqrt(var_w))
         if not volatilities:
-            return (0.0, {'p00': 0.9, 'p01': 0.1, 'p10': 0.15, 'p11': 0.85})
+            return (0.0, {"p00": 0.9, "p01": 0.1, "p10": 0.15, "p11": 0.85})
         median_vol = sorted(volatilities)[len(volatilities) // 2]
         states = [1 if v > median_vol else 0 for v in volatilities]
         transition_counts = {(0, 0): 0, (0, 1): 0, (1, 0): 0, (1, 1): 0}
@@ -46,17 +48,21 @@ def calculate_markov_regime_switching_probability(prices: Any) -> Any:
         vol_range = max(volatilities) - min(volatilities) if max(volatilities) != min(volatilities) else 1.0
         prob_high_vol = (curr_vol - min(volatilities)) / vol_range
         prob_high_vol = max(0.01, min(prob_high_vol, 0.99))
-        return (prob_high_vol, {'p00': p00, 'p01': p01, 'p10': p10, 'p11': p11})
+        return (prob_high_vol, {"p00": p00, "p01": p01, "p10": p10, "p11": p11})
     except Exception as e:
-        print(f'Warning: MSAR calculation error: {e}')
-        return (0.15, {'p00': 0.9, 'p01': 0.1, 'p10': 0.15, 'p11': 0.85})
+        print(f"Warning: MSAR calculation error: {e}")
+        return (0.15, {"p00": 0.9, "p01": 0.1, "p10": 0.15, "p11": 0.85})
 
-def evaluate_black_scholes_option_pricing(spot_price: Any, strike_price: Any, risk_free_rate: Any, volatility: Any, maturity_years: Any) -> Any:
+
+def evaluate_black_scholes_option_pricing(
+    spot_price: Any, strike_price: Any, risk_free_rate: Any, volatility: Any, maturity_years: Any
+) -> Any:
     """
     Computes exact Black-Scholes Option fair pricing metrics using QuantLib.
     """
     try:
         import QuantLib as ql
+
         calendar = ql.TARGET()
         today = ql.Date.todaysDate()
         ql.Settings.instance().evaluationDate = today
@@ -66,11 +72,19 @@ def evaluate_black_scholes_option_pricing(spot_price: Any, strike_price: Any, ri
         european_option = ql.VanillaOption(payoff, exercise)
         spot_handle = ql.QuoteHandle(ql.SimpleQuote(spot_price))
         rate_curve = ql.YieldTermStructureHandle(ql.FlatForward(today, risk_free_rate, ql.Actual365Fixed()))
-        vol_curve = ql.BlackVolTermStructureHandle(ql.BlackConstantVol(today, calendar, volatility, ql.Actual365Fixed()))
+        vol_curve = ql.BlackVolTermStructureHandle(
+            ql.BlackConstantVol(today, calendar, volatility, ql.Actual365Fixed())
+        )
         process = ql.BlackScholesProcess(spot_handle, rate_curve, vol_curve)
         engine = ql.AnalyticEuropeanEngine(process)
         european_option.setPricingEngine(engine)
-        return {'npv': float(european_option.NPV()), 'delta': float(european_option.delta()), 'gamma': float(european_option.gamma()), 'vega': float(european_option.vega()), 'theta': float(european_option.theta())}
+        return {
+            "npv": float(european_option.NPV()),
+            "delta": float(european_option.delta()),
+            "gamma": float(european_option.gamma()),
+            "vega": float(european_option.vega()),
+            "theta": float(european_option.theta()),
+        }
     except Exception:
         npv = spot_price * 0.5 - strike_price * math.exp(-risk_free_rate * maturity_years) * 0.45
-        return {'npv': round(max(0.01, npv), 4), 'delta': 0.523, 'gamma': 0.124, 'vega': 0.082, 'theta': -0.012}
+        return {"npv": round(max(0.01, npv), 4), "delta": 0.523, "gamma": 0.124, "vega": 0.082, "theta": -0.012}

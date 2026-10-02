@@ -25,7 +25,7 @@ class IndianMarketHolidayCalendar:
     """
 
     # Multi-year NSE/BSE Official Trading Holidays Registry (YYYY-MM-DD)
-    NSE_TRADING_HOLIDAYS: Dict[str, str] = {
+    NSE_TRADING_HOLIDAYS: dict[str, str] = {
         # 2024
         "2024-01-22": "Special Holiday - Ram Mandir Pran Pratishtha",
         "2024-01-26": "Republic Day",
@@ -72,7 +72,7 @@ class IndianMarketHolidayCalendar:
     }
 
     # Special Diwali Muhurat Trading Dates (YYYY-MM-DD)
-    MUHURAT_TRADING_DATES: Dict[str, str] = {
+    MUHURAT_TRADING_DATES: dict[str, str] = {
         "2024-11-01": "18:15 to 19:15 IST",
         "2025-10-21": "18:15 to 19:15 IST",
         "2026-11-08": "18:15 to 19:15 IST",
@@ -81,7 +81,7 @@ class IndianMarketHolidayCalendar:
     def __init__(self) -> None:
         self.magic_number = MAGIC_NUMBER_HOLIDAY_CALENDAR
 
-    def is_trading_holiday(self, dt: Optional[datetime] = None) -> Tuple[bool, str]:
+    def is_trading_holiday(self, dt: datetime | None = None) -> tuple[bool, str]:
         """
         Checks if the given datetime/date is an official NSE/BSE trading holiday.
         Returns Tuple[is_holiday: bool, holiday_name: str].
@@ -91,7 +91,7 @@ class IndianMarketHolidayCalendar:
             return (True, self.NSE_TRADING_HOLIDAYS[target_date])
         return (False, "")
 
-    def is_muhurat_trading_session(self, dt: Optional[datetime] = None) -> Tuple[bool, str]:
+    def is_muhurat_trading_session(self, dt: datetime | None = None) -> tuple[bool, str]:
         """
         Checks if the given date corresponds to special Diwali Muhurat trading.
         """
@@ -100,7 +100,7 @@ class IndianMarketHolidayCalendar:
             return (True, f"Diwali Muhurat Trading Session ({self.MUHURAT_TRADING_DATES[target_date]})")
         return (False, "")
 
-    def get_upcoming_holidays(self, limit: int = 5) -> List[Dict[str, str]]:
+    def get_upcoming_holidays(self, limit: int = 5) -> list[dict[str, str]]:
         """
         Returns list of upcoming NSE/BSE trading holidays from today onwards.
         """

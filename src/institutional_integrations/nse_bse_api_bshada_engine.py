@@ -6,10 +6,10 @@ Provides dual-exchange market data fetching, quote parsing, Multi-Exchange Smart
 option chain strike matrix processing, top gainers/losers classification, and multi-broker routing.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
 import math
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -26,10 +26,10 @@ def round_tick_005(price: float) -> float:
     return round(round(price * 20.0) / 20.0, 2)
 
 
-def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(dt: datetime | None = None) -> bool:
     """Checks if current time falls within IST trading session (09:15 - 15:30 IST)."""
     if dt is None:
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
     ist_dt = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
     if ist_dt.weekday() >= 5:
         return False
@@ -41,13 +41,14 @@ def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
 @dataclass
 class DualExchangeQuote:
     """Represents a quote across NSE and BSE exchanges."""
+
     symbol: str
     nse_price: float
     bse_price: float
     spread: float
     p_change_nse: float
     p_change_bse: float
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class NSEBSEApiEngine:
@@ -63,7 +64,7 @@ class NSEBSEApiEngine:
 
     def route_smart_order_sor(
         self, symbol: str, side: str, quantity: int, nse_bid: float, nse_ask: float, bse_bid: float, bse_ask: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Multi-Exchange Smart Order Router (SOR).
         For BUY orders: routes to whichever exchange offers the lowest ask price.
@@ -87,15 +88,14 @@ class NSEBSEApiEngine:
                 selected_exchange = "NSE"
                 execution_price = nse_ask
                 price_improvement_per_share = round(max(0.0, bse_ask - nse_ask), 2)
+        elif bse_bid > nse_bid:
+            selected_exchange = "BSE"
+            execution_price = bse_bid
+            price_improvement_per_share = round(bse_bid - nse_bid, 2)
         else:
-            if bse_bid > nse_bid:
-                selected_exchange = "BSE"
-                execution_price = bse_bid
-                price_improvement_per_share = round(bse_bid - nse_bid, 2)
-            else:
-                selected_exchange = "NSE"
-                execution_price = nse_bid
-                price_improvement_per_share = round(max(0.0, nse_bid - bse_bid), 2)
+            selected_exchange = "NSE"
+            execution_price = nse_bid
+            price_improvement_per_share = round(max(0.0, nse_bid - bse_bid), 2)
 
         total_savings = round(price_improvement_per_share * quantity, 2)
 
@@ -110,7 +110,7 @@ class NSEBSEApiEngine:
             "magic_number": self.magic_number,
         }
 
-    def parse_quote_payload(self, raw_data: Dict[str, Any]) -> DualExchangeQuote:
+    def parse_quote_payload(self, raw_data: dict[str, Any]) -> DualExchangeQuote:
         symbol = raw_data.get("symbol", "UNKNOWN")
         nse_price = round_tick_005(float(raw_data.get("nse_price", 0.0)))
         bse_price = round_tick_005(float(raw_data.get("bse_price", 0.0)))
@@ -127,7 +127,7 @@ class NSEBSEApiEngine:
             p_change_bse=p_change_bse,
         )
 
-    def analyze_option_chain(self, option_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def analyze_option_chain(self, option_data: list[dict[str, Any]]) -> dict[str, Any]:
         if not option_data:
             return {"pcr": 1.0, "max_pain_strike": 0.0, "total_ce_oi": 0, "total_pe_oi": 0}
 
@@ -161,7 +161,7 @@ class NSEBSEApiEngine:
             "total_pe_oi": total_pe_oi,
         }
 
-    def classify_market_movers(self, stock_list: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    def classify_market_movers(self, stock_list: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         sorted_stocks = sorted(stock_list, key=lambda x: float(x.get("pChange", 0.0)), reverse=True)
         return {
             "top_gainers": sorted_stocks[:5],
@@ -188,7 +188,7 @@ class NSEBSEApiBrokerAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -198,10 +198,10 @@ class NSEBSEApiBrokerAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last": 100.0}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -252,7 +252,7 @@ class NSEBSEApiBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
