@@ -1638,9 +1638,7 @@ class UnifiedIndianBrokerClientAdapter:
             )
         else:
             try:
-                inst = adapter_cls(
-                    api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
-                )
+                inst = adapter_cls(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
                 if isinstance(inst, SEBIBrokerAdapter):
                     return inst
                 return KiteConnectAdapter(
