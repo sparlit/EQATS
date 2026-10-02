@@ -7,17 +7,17 @@ rotation frameworks from `AI4Finance-Foundation/FinRL-Trading`.
 Magic Number: 9100033
 """
 
-import sys
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+import sys
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -60,16 +60,14 @@ class FinRLTradingEngine:
         self.current_capital = initial_capital
         self.magic_number = MAGIC_NUMBER_FINRL_TRADING
 
-    def evaluate_drl_portfolio_weights(
-        self, asset_features: Dict[str, Dict[str, float]]
-    ) -> Dict[str, float]:
+    def evaluate_drl_portfolio_weights(self, asset_features: dict[str, dict[str, float]]) -> dict[str, float]:
         """
         Calculates ensemble portfolio weights using multi-factor signals (Technical, TSMOM, Fundamental).
         """
         if not asset_features:
             return {}
 
-        raw_scores: Dict[str, float] = {}
+        raw_scores: dict[str, float] = {}
         for symbol, metrics in asset_features.items():
             close = metrics.get("close", 1.0)
             sma_50 = metrics.get("sma_50", close)
@@ -88,7 +86,7 @@ class FinRLTradingEngine:
         total_score = sum(raw_scores.values())
         if total_score <= 0:
             equal_weight = 1.0 / len(asset_features)
-            return {symbol: equal_weight for symbol in asset_features}
+            return dict.fromkeys(asset_features, equal_weight)
 
         return {symbol: score / total_score for symbol, score in raw_scores.items()}
 
@@ -98,7 +96,7 @@ class FinRLTradingEngine:
         target_weight: float,
         current_price: float,
         portfolio_value: float,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates order recommendation based on target portfolio allocation weight.
         """
@@ -142,23 +140,21 @@ class FinRLTradingBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "broker": self.broker_name,
             "connected": self._connected,
             "capital": self.engine.current_capital,
         }
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -189,7 +185,7 @@ class FinRLTradingBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"FINRL-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"FINRL-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -198,14 +194,10 @@ class FinRLTradingBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -217,7 +209,7 @@ class FinRLTradingBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

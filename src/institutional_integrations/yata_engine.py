@@ -7,17 +7,17 @@ and Parabolic SAR trend reversal signals from `amv-dev/yata`.
 Magic Number: 9100037
 """
 
-import math
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+import math
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -59,7 +59,7 @@ class YATATechnicalEngine:
         self.period_hma = period_hma
         self.magic_number = MAGIC_NUMBER_YATA
 
-    def compute_wma(self, prices: List[float], period: int) -> float:
+    def compute_wma(self, prices: list[float], period: int) -> float:
         """Calculates Weighted Moving Average over period."""
         if len(prices) < period:
             return prices[-1] if prices else 0.0
@@ -69,7 +69,7 @@ class YATATechnicalEngine:
         weighted_val = sum(p * w for p, w in zip(subset, weights))
         return weighted_val / weight_sum
 
-    def compute_hma(self, prices: List[float], period: int = 9) -> float:
+    def compute_hma(self, prices: list[float], period: int = 9) -> float:
         """
         Calculates Hull Moving Average:
         HMA = WMA(2 * WMA(n/2) - WMA(n), sqrt(n))
@@ -80,7 +80,7 @@ class YATATechnicalEngine:
         half_period = max(1, period // 2)
         sqrt_period = max(1, int(math.sqrt(period)))
 
-        raw_hma_series: List[float] = []
+        raw_hma_series: list[float] = []
         for i in range(half_period, len(prices) + 1):
             sub_p = prices[:i]
             wma_half = self.compute_wma(sub_p, half_period)
@@ -91,8 +91,8 @@ class YATATechnicalEngine:
         return self.compute_wma(raw_hma_series, sqrt_period)
 
     def evaluate_composite_indicators(
-        self, prices: List[float], high: float, low: float, close: float
-    ) -> Dict[str, Any]:
+        self, prices: list[float], high: float, low: float, close: float
+    ) -> dict[str, Any]:
         """
         Evaluates multi-indicator technical signals (HMA Reversal + MACD Histogram + Parabolic SAR).
         """
@@ -158,19 +158,17 @@ class YATABrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -201,7 +199,7 @@ class YATABrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"YATA-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"YATA-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -210,14 +208,10 @@ class YATABrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -229,7 +223,7 @@ class YATABrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

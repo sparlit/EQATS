@@ -9,15 +9,15 @@ Provides news headline sentiment polarity aggregation for NSE symbols,
 0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100028
 
@@ -70,10 +70,10 @@ class NSESentimentAnalyzer:
     def evaluate_sentiment(
         self,
         symbol: str,
-        headlines: List[str],
+        headlines: list[str],
         current_price: float,
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Evaluates sentiment polarity score across news headlines for a symbol.
         """

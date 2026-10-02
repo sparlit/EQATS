@@ -11,16 +11,16 @@ IST trading session validation, and microkernel plugin binding.
 
 import math
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_tick_size,
     round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
+    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER_STOCKMART: int = 9100066
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -56,11 +56,11 @@ class StockMartEngine:
     def __init__(self, initial_cash: float = 1000000.0) -> None:
         self.cash = initial_cash
         self.magic_number = MAGIC_NUMBER_STOCKMART
-        self.bids: List[Dict[str, Any]] = []
-        self.asks: List[Dict[str, Any]] = []
-        self.positions: Dict[str, int] = {}
+        self.bids: list[dict[str, Any]] = []
+        self.asks: list[dict[str, Any]] = []
+        self.positions: dict[str, int] = {}
 
-    def add_limit_order(self, symbol: str, side: str, price: float, quantity: int) -> Dict[str, Any]:
+    def add_limit_order(self, symbol: str, side: str, price: float, quantity: int) -> dict[str, Any]:
         """
         Adds a limit order to the bid/ask orderbook and attempts matching.
         """
@@ -94,7 +94,7 @@ class StockMartEngine:
             "magic_number": self.magic_number,
         }
 
-    def _match_orderbook(self) -> List[Dict[str, Any]]:
+    def _match_orderbook(self) -> list[dict[str, Any]]:
         trades = []
         while self.bids and self.asks and self.bids[0]["price"] >= self.asks[0]["price"]:
             top_bid = self.bids[0]
@@ -122,7 +122,7 @@ class StockMartEngine:
 
         return trades
 
-    def evaluate_portfolio_equity(self, current_prices: Dict[str, float]) -> Dict[str, Any]:
+    def evaluate_portfolio_equity(self, current_prices: dict[str, float]) -> dict[str, Any]:
         """
         Calculates total portfolio equity across positions and cash.
         """
@@ -216,16 +216,18 @@ class StockMartBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": self.engine.cash, "equity": self.engine.cash, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.15, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

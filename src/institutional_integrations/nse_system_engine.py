@@ -9,15 +9,15 @@ Magic Number: 9100040
 """
 
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -60,7 +60,7 @@ class NSESystemEngine:
 
     def calculate_volatility_adjusted_position_size(
         self, base_quantity: int, india_vix: float = 15.0, atr: float = 10.0, price: float = 500.0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Dynamically adjusts position size based on INDIA VIX & Average True Range (ATR).
         When VIX > 22 or ATR/Price > 3%, scales down quantity to reduce drawdown risk during high volatility.
@@ -92,9 +92,7 @@ class NSESystemEngine:
             "magic_number": self.magic_number,
         }
 
-    def evaluate_market_regime(
-        self, benchmark_close: float, benchmark_ema10: float
-    ) -> Dict[str, Any]:
+    def evaluate_market_regime(self, benchmark_close: float, benchmark_ema10: float) -> dict[str, Any]:
         """
         Evaluates top-down market regime. Long entries allowed only when benchmark > EMA(10).
         """
@@ -106,7 +104,7 @@ class NSESystemEngine:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def compute_composite_score(self, metrics: Dict[str, float]) -> float:
+    def compute_composite_score(self, metrics: dict[str, float]) -> float:
         roce = metrics.get("roce", 10.0)
         profit_growth = metrics.get("profit_growth", 10.0)
         pe_ratio = metrics.get("pe_ratio", 1.0)
@@ -121,10 +119,10 @@ class NSESystemEngine:
 
     def scan_top_picks(
         self,
-        stock_universe: List[Dict[str, Any]],
+        stock_universe: list[dict[str, Any]],
         regime_bullish: bool = True,
-        allowed_sectors: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        allowed_sectors: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         if not regime_bullish:
             logger.info("Market regime is bearish. Blocking new long trade entries.")
             return []
@@ -141,15 +139,17 @@ class NSESystemEngine:
 
             score = self.compute_composite_score(stock)
             if score >= 60.0:
-                top_picks.append({
-                    "symbol": symbol,
-                    "sector": sector,
-                    "composite_score": score,
-                    "last_price": round_tick_005(stock.get("close", 100.0)),
-                    "recommended_action": "BUY" if score >= 75.0 else "ACCUMULATE",
-                    "magic_number": self.magic_number,
-                    "timestamp": datetime.now().isoformat(),
-                })
+                top_picks.append(
+                    {
+                        "symbol": symbol,
+                        "sector": sector,
+                        "composite_score": score,
+                        "last_price": round_tick_005(stock.get("close", 100.0)),
+                        "recommended_action": "BUY" if score >= 75.0 else "ACCUMULATE",
+                        "magic_number": self.magic_number,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
         return sorted(top_picks, key=lambda x: x["composite_score"], reverse=True)
 
@@ -172,19 +172,17 @@ class NSESystemBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -215,7 +213,7 @@ class NSESystemBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"NSESYS-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"NSESYS-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -224,14 +222,10 @@ class NSESystemBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -243,7 +237,7 @@ class NSESystemBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

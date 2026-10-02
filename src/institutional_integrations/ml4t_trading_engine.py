@@ -6,11 +6,14 @@ Provides:
 - PurgedWalkForwardCV: Financial ML Walk-Forward Cross-Validation Splitter with Purging & Embargo Buffer Gap
 - EigenportfolioDecomposition: Principal Component Analysis (PCA) Factor Loadings & Eigenportfolio Weight Solver
 """
+
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-import math
+
 import numpy as np
+
 
 @dataclass
 class WalkForwardSplit:
@@ -21,23 +24,25 @@ class WalkForwardSplit:
     val_start: datetime
     val_end: datetime
 
+
 @dataclass
 class EigenportfolioResult:
     num_components: int
-    explained_variance_ratios: List[float]
-    first_eigenportfolio_weights: Dict[str, float]
-    factor_loadings: List[List[float]]
+    explained_variance_ratios: list[float]
+    first_eigenportfolio_weights: dict[str, float]
+    factor_loadings: list[list[float]]
+
 
 class PurgedWalkForwardCV:
     """Purged & Embargoed Walk-Forward Cross-Validation Splitter for Financial ML."""
 
-    def __init__(self, train_days: int=180, val_days: int=30, embargo_days: int=5, num_folds: int=3) -> None:
+    def __init__(self, train_days: int = 180, val_days: int = 30, embargo_days: int = 5, num_folds: int = 3) -> None:
         self.train_days = train_days
         self.val_days = val_days
         self.embargo_days = embargo_days
         self.num_folds = num_folds
 
-    def generate_splits(self, start_date: datetime) -> List[WalkForwardSplit]:
+    def generate_splits(self, start_date: datetime) -> list[WalkForwardSplit]:
         """Generates purged walk-forward date splits."""
         splits = []
         curr_train_start = start_date
@@ -46,19 +51,31 @@ class PurgedWalkForwardCV:
             embargo_end = train_end + timedelta(days=self.embargo_days)
             val_start = embargo_end
             val_end = val_start + timedelta(days=self.val_days)
-            splits.append(WalkForwardSplit(fold_index=fold + 1, train_start=curr_train_start, train_end=train_end, embargo_end=embargo_end, val_start=val_start, val_end=val_end))
+            splits.append(
+                WalkForwardSplit(
+                    fold_index=fold + 1,
+                    train_start=curr_train_start,
+                    train_end=train_end,
+                    embargo_end=embargo_end,
+                    val_start=val_start,
+                    val_end=val_end,
+                )
+            )
             curr_train_start = val_start
         return splits
+
 
 class EigenportfolioDecomposition:
     """PCA Latent Factor Decomposition & Eigenportfolio Weight Solver."""
 
-    def compute_eigenportfolios(self, returns_matrix: Dict[str, List[float]], n_components: int=3) -> EigenportfolioResult:
+    def compute_eigenportfolios(
+        self, returns_matrix: dict[str, list[float]], n_components: int = 3
+    ) -> EigenportfolioResult:
         """Solves principal component factor loadings and normalized eigenportfolio weights."""
         symbols = sorted(list(returns_matrix.keys()))
-        if len(symbols) < 2 or not all((len(v) >= 5 for v in returns_matrix.values())):
+        if len(symbols) < 2 or not all(len(v) >= 5 for v in returns_matrix.values()):
             return EigenportfolioResult(0, [], {}, [])
-        min_len = min((len(v) for v in returns_matrix.values()))
+        min_len = min(len(v) for v in returns_matrix.values())
         matrix = np.array([returns_matrix[sym][-min_len:] for sym in symbols])
         cov_matrix = np.cov(matrix)
         eigenvalues, eigenvectors = np.linalg.eigh(cov_matrix)
@@ -71,4 +88,9 @@ class EigenportfolioDecomposition:
         norm_weights = first_eigenvector / np.sum(np.abs(first_eigenvector))
         eigenportfolio_weights = {sym: round(float(w), 4) for sym, w in zip(symbols, norm_weights)}
         factor_loadings = eigenvectors[:, :n_components].tolist()
-        return EigenportfolioResult(num_components=min(n_components, len(symbols)), explained_variance_ratios=[round(r, 4) for r in exp_var_ratios], first_eigenportfolio_weights=eigenportfolio_weights, factor_loadings=factor_loadings)
+        return EigenportfolioResult(
+            num_components=min(n_components, len(symbols)),
+            explained_variance_ratios=[round(r, 4) for r in exp_var_ratios],
+            first_eigenportfolio_weights=eigenportfolio_weights,
+            factor_loadings=factor_loadings,
+        )

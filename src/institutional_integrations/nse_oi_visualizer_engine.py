@@ -8,17 +8,17 @@ from `anshuthopsee/nse-oi-visualizer`.
 Magic Number: 9100043
 """
 
-import math
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+import math
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -97,11 +97,11 @@ class NSEOIVisualizerEngine:
     def analyze_option_chain_oi(
         self,
         underlying_price: float,
-        option_chain: List[Dict[str, Any]],
+        option_chain: list[dict[str, Any]],
         risk_free_rate: float = 0.07,
         volatility: float = 0.15,
         time_to_exp_years: float = 0.05,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyzes option chain OI buildup across strikes and computes Black-76 theoretical prices.
         """
@@ -112,11 +112,7 @@ class NSEOIVisualizerEngine:
         total_pe_change_oi = sum(item.get("pe_change_oi", 0) for item in option_chain)
 
         pcr_oi = round(total_pe_oi / total_ce_oi, 2) if total_ce_oi > 0 else 1.0
-        pcr_change_oi = (
-            round(total_pe_change_oi / total_ce_change_oi, 2)
-            if total_ce_change_oi > 0
-            else 1.0
-        )
+        pcr_change_oi = round(total_pe_change_oi / total_ce_change_oi, 2) if total_ce_change_oi > 0 else 1.0
 
         # Max Pain Calculation
         min_pain = float("inf")
@@ -143,7 +139,9 @@ class NSEOIVisualizerEngine:
                 max_pain_strike = round_tick_005(k)
 
         # Black-76 Pricing for ATM strike
-        atm_strike = min(option_chain, key=lambda x: abs(x.get("strike_price", underlying_price) - underlying_price)).get("strike_price", underlying_price)
+        atm_strike = min(
+            option_chain, key=lambda x: abs(x.get("strike_price", underlying_price) - underlying_price)
+        ).get("strike_price", underlying_price)
         atm_ce_black76 = black76_option_price(
             True, underlying_price, atm_strike, time_to_exp_years, risk_free_rate, volatility
         )
@@ -152,7 +150,11 @@ class NSEOIVisualizerEngine:
         )
 
         # Bullish signal if PE OI building up heavily (Put writing) and PCR > 1.2
-        signal = "BUY" if (pcr_oi >= 1.2 or pcr_change_oi >= 1.5) else ("SELL" if (pcr_oi <= 0.8 or pcr_change_oi <= 0.6) else "HOLD")
+        signal = (
+            "BUY"
+            if (pcr_oi >= 1.2 or pcr_change_oi >= 1.5)
+            else ("SELL" if (pcr_oi <= 0.8 or pcr_change_oi <= 0.6) else "HOLD")
+        )
 
         return {
             "underlying_price": round_tick_005(underlying_price),
@@ -192,19 +194,17 @@ class NSEOIVisualizerBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -235,7 +235,7 @@ class NSEOIVisualizerBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"NSEOIVIZ-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"NSEOIVIZ-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -244,14 +244,10 @@ class NSEOIVisualizerBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -263,7 +259,7 @@ class NSEOIVisualizerBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

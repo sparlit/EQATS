@@ -25,12 +25,12 @@ _log = logging.getLogger("AlgoTradingInfraEngine")
 MAGIC_NUMBER_ALGO_TRADING_INFRA: int = 9100090
 
 
-def is_ist_market_session_active(dt: Optional[datetime.datetime] = None) -> bool:
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """
     Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri).
     Assumes provided time is in IST or local time offset for IST (+05:30).
     """
-    now = dt if dt else datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
+    now = dt or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
@@ -54,14 +54,14 @@ class OrderBookDepthBuffer:
 
     def __init__(self, depth_levels: int = 5) -> None:
         self.depth_levels = depth_levels
-        self.bids: List[Dict[str, float]] = []
-        self.asks: List[Dict[str, float]] = []
+        self.bids: list[dict[str, float]] = []
+        self.asks: list[dict[str, float]] = []
 
-    def update_depth(self, bids: List[Dict[str, float]], asks: List[Dict[str, float]]) -> None:
+    def update_depth(self, bids: list[dict[str, float]], asks: list[dict[str, float]]) -> None:
         self.bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)[: self.depth_levels]
         self.asks = sorted(asks, key=lambda x: x.get("price", 0.0))[: self.depth_levels]
 
-    def estimate_slippage(self, order_quantity: float, side: str) -> Dict[str, float]:
+    def estimate_slippage(self, order_quantity: float, side: str) -> dict[str, float]:
         levels = self.asks if side.upper() == "BUY" else self.bids
         if not levels:
             return {"expected_price": 0.0, "slippage_pct": 0.0, "filled_quantity": 0.0}
@@ -109,8 +109,8 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.magic_number = MAGIC_NUMBER_ALGO_TRADING_INFRA
         self.max_allowed_slippage_pct = max_allowed_slippage_pct
-        self.orderbook_buffers: Dict[str, OrderBookDepthBuffer] = {}
-        self.active_orders: Dict[str, Dict[str, Any]] = {}
+        self.orderbook_buffers: dict[str, OrderBookDepthBuffer] = {}
+        self.active_orders: dict[str, dict[str, Any]] = {}
         self._connected = True
 
     def connect(self) -> bool:
@@ -125,7 +125,7 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 2500000.0,
             "equity": 2500000.0,
@@ -135,12 +135,12 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             "magic_number": self.magic_number,
         }
 
-    def update_market_depth(self, symbol: str, bids: List[Dict[str, float]], asks: List[Dict[str, float]]) -> None:
+    def update_market_depth(self, symbol: str, bids: list[dict[str, float]], asks: list[dict[str, float]]) -> None:
         if symbol not in self.orderbook_buffers:
             self.orderbook_buffers[symbol] = OrderBookDepthBuffer()
         self.orderbook_buffers[symbol].update_depth(bids, asks)
 
-    def evaluate_execution_route(self, symbol: str, quantity: float, side: str) -> Dict[str, Any]:
+    def evaluate_execution_route(self, symbol: str, quantity: float, side: str) -> dict[str, Any]:
         buffer = self.orderbook_buffers.get(symbol)
         if not buffer:
             return {
@@ -234,12 +234,12 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.active_orders.values())
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         now = time.time()
         bars = []
         base = 1000.0
@@ -261,7 +261,7 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             )
         return bars
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {
             "bid": 1000.0,
             "ask": 1000.05,

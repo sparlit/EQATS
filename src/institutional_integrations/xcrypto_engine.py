@@ -6,10 +6,10 @@ Provides high-performance crypto spot/futures trading, PyAlgo strategy signal
 execution, position management, and order routing with Indian Market safety compliance.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
 import math
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -26,10 +26,10 @@ def round_tick_005(price: float) -> float:
     return round(round(price * 20.0) / 20.0, 2)
 
 
-def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(dt: datetime | None = None) -> bool:
     """Checks if current time falls within IST trading session (09:15 - 15:30 IST)."""
     if dt is None:
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
     ist_dt = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
     if ist_dt.weekday() >= 5:
         return False
@@ -41,6 +41,7 @@ def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
 @dataclass
 class XCryptoPosition:
     """Represents an open crypto position."""
+
     symbol: str
     side: str  # "LONG" or "SHORT"
     quantity: float
@@ -52,6 +53,7 @@ class XCryptoPosition:
 @dataclass
 class XCryptoOrder:
     """Represents a crypto order."""
+
     order_id: str
     symbol: str
     side: str
@@ -59,7 +61,7 @@ class XCryptoOrder:
     price: float
     order_type: str  # "LIMIT", "MARKET", "STOP_LOSS"
     status: str = "SUBMITTED"
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class XCryptoEngine:
@@ -71,17 +73,17 @@ class XCryptoEngine:
     def __init__(self, name: str = "XCryptoEngine") -> None:
         self.name = name
         self.magic_number = MAGIC_NUMBER
-        self.positions: Dict[str, XCryptoPosition] = {}
-        self.orders: List[XCryptoOrder] = []
+        self.positions: dict[str, XCryptoPosition] = {}
+        self.orders: list[XCryptoOrder] = []
         self.order_counter = 0
 
     def evaluate_pyalgo_signal(
         self,
         symbol: str,
-        prices: List[float],
+        prices: list[float],
         short_window: int = 5,
         long_window: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculates moving average crossover signal (PyAlgo engine)."""
         if len(prices) < long_window:
             return {
@@ -144,20 +146,19 @@ class XCryptoEngine:
                 new_entry = ((pos.quantity * pos.entry_price) + (quantity * rounded_price)) / new_qty
                 pos.quantity = new_qty
                 pos.entry_price = round_tick_005(new_entry)
+            elif pos.quantity > quantity:
+                pos.quantity -= quantity
+            elif pos.quantity == quantity:
+                del self.positions[symbol]
             else:
-                if pos.quantity > quantity:
-                    pos.quantity -= quantity
-                elif pos.quantity == quantity:
-                    del self.positions[symbol]
-                else:
-                    rem_qty = quantity - pos.quantity
-                    self.positions[symbol] = XCryptoPosition(
-                        symbol=symbol,
-                        side=side,
-                        quantity=rem_qty,
-                        entry_price=rounded_price,
-                        leverage=leverage,
-                    )
+                rem_qty = quantity - pos.quantity
+                self.positions[symbol] = XCryptoPosition(
+                    symbol=symbol,
+                    side=side,
+                    quantity=rem_qty,
+                    entry_price=rounded_price,
+                    leverage=leverage,
+                )
         else:
             self.positions[symbol] = XCryptoPosition(
                 symbol=symbol,
@@ -203,7 +204,7 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -213,10 +214,10 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last": 100.0}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -272,7 +273,7 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return [
             {
                 "order_id": order.order_id,
@@ -283,7 +284,7 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
             for order in self.engine.orders
         ]
 
-    def place_order(self, order_details: Dict[str, Any]) -> Dict[str, Any]:
+    def place_order(self, order_details: dict[str, Any]) -> dict[str, Any]:
         symbol = order_details.get("symbol", "BTCUSDT")
         side = order_details.get("side", "BUY")
         quantity = order_details.get("quantity", 1.0)
@@ -304,7 +305,7 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
     def cancel_order(self, order_id: str) -> bool:
         return True
 
-    def get_positions(self) -> List[Dict[str, Any]]:
+    def get_positions(self) -> list[dict[str, Any]]:
         return [
             {
                 "symbol": pos.symbol,

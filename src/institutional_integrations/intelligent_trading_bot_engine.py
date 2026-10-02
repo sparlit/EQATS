@@ -7,17 +7,17 @@ and gradient boosting / machine learning classification scoring from `asavinov/i
 Magic Number: 9100051
 """
 
-import math
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+import math
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -59,7 +59,7 @@ class IntelligentTradingBotEngine:
         self.horizon_bars = horizon_bars
         self.magic_number = MAGIC_NUMBER_INTELLIGENT_TRADING_BOT
 
-    def compute_rolling_features(self, prices: List[float], highs: List[float], lows: List[float]) -> Dict[str, float]:
+    def compute_rolling_features(self, prices: list[float], highs: list[float], lows: list[float]) -> dict[str, float]:
         """
         Computes rolling time-series features from historical bar series.
         """
@@ -85,7 +85,7 @@ class IntelligentTradingBotEngine:
             "low_ratio": round(low_ratio, 4),
         }
 
-    def evaluate_ml_signal(self, features: Dict[str, float], close_price: float) -> Dict[str, Any]:
+    def evaluate_ml_signal(self, features: dict[str, float], close_price: float) -> dict[str, Any]:
         """
         Evaluates ML classification score using rolling features.
         Higher positive return mean + positive high_ratio -> BUY
@@ -134,19 +134,17 @@ class IntelligentTradingBotBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -177,7 +175,7 @@ class IntelligentTradingBotBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"ITBOT-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"ITBOT-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -186,14 +184,10 @@ class IntelligentTradingBotBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -205,7 +199,7 @@ class IntelligentTradingBotBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

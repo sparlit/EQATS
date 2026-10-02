@@ -11,16 +11,16 @@ Provides live NSE quote response parsing, cookie/session transport headers, bulk
 
 import math
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_tick_size,
     round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
+    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER_NSE_INDIA_API_BENNY: int = 9100075
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -61,15 +61,19 @@ class NSEIndiaApiBennyEngine:
             "Accept-Encoding": "gzip, deflate, br",
         }
 
-    def parse_quote_data(self, quote_data: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_quote_data(self, quote_data: dict[str, Any]) -> dict[str, Any]:
         """
         Parses raw NSE quote payload into price, VWAP, and spread metrics.
         """
         price_info = quote_data.get("priceInfo", {})
         last_price = round_tick_005(price_info.get("lastPrice", 0.0))
         open_price = round_tick_005(price_info.get("open", 0.0))
-        high_price = round_tick_005(price_info.get("intraDayHighFromLow", {}).get("max", 0.0) or price_info.get("vwap", 0.0))
-        low_price = round_tick_005(price_info.get("intraDayHighFromLow", {}).get("min", 0.0) or price_info.get("vwap", 0.0))
+        high_price = round_tick_005(
+            price_info.get("intraDayHighFromLow", {}).get("max", 0.0) or price_info.get("vwap", 0.0)
+        )
+        low_price = round_tick_005(
+            price_info.get("intraDayHighFromLow", {}).get("min", 0.0) or price_info.get("vwap", 0.0)
+        )
         vwap = round_tick_005(price_info.get("vwap", 0.0))
 
         change = round_tick_005(price_info.get("change", 0.0))
@@ -84,7 +88,7 @@ class NSEIndiaApiBennyEngine:
             "magic_number": self.magic_number,
         }
 
-    def analyze_bulk_deals(self, bulk_deals: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def analyze_bulk_deals(self, bulk_deals: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Aggregates total buy and sell quantities from bulk/block deal records.
         """
@@ -185,16 +189,18 @@ class NSEIndiaApiBennyBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.15, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
