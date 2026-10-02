@@ -195,17 +195,19 @@ class PhilSelfImprovingTraderEngine:
 
             if selected_outcome is not None:
                 sanitized_price = round_tick_005(selected_price)
-                results.append({
-                    "market_id": q.market_id,
-                    "category": q.category,
-                    "symbol": q.symbol,
-                    "target_outcome": selected_outcome,
-                    "market_price": sanitized_price,
-                    "estimated_prob": round(q.estimated_prob, 4),
-                    "probability_edge": round(selected_edge, 4),
-                    "time_to_resolution_minutes": q.time_to_resolution_minutes,
-                    "magic_number": q.magic_number,
-                })
+                results.append(
+                    {
+                        "market_id": q.market_id,
+                        "category": q.category,
+                        "symbol": q.symbol,
+                        "target_outcome": selected_outcome,
+                        "market_price": sanitized_price,
+                        "estimated_prob": round(q.estimated_prob, 4),
+                        "probability_edge": round(selected_edge, 4),
+                        "time_to_resolution_minutes": q.time_to_resolution_minutes,
+                        "magic_number": q.magic_number,
+                    }
+                )
 
         # Rank by probability edge descending
         results.sort(key=lambda x: x["probability_edge"], reverse=True)
@@ -435,9 +437,7 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(
-        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
             success=True,
@@ -448,9 +448,7 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         """Modifies order parameters."""
         return True
 

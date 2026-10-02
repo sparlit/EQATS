@@ -37,7 +37,7 @@ MAGIC_NUMBER_NSE_TRADE_AGENTS = 9100013
 class NSETechnicalAnalystAgent:
     """Evaluates multi-indicator technical momentum for Indian equities."""
 
-    def analyze(self, closes: List[float], highs: List[float], lows: List[float]) -> Dict[str, Any]:
+    def analyze(self, closes: list[float], highs: list[float], lows: list[float]) -> dict[str, Any]:
         if not closes or len(closes) < 20:
             return {"vote": "HOLD", "score": 0.50, "reason": "Insufficient bar data"}
 
@@ -47,7 +47,7 @@ class NSETechnicalAnalystAgent:
 
         if diff > 0:
             return {"vote": "BUY", "score": 0.80, "reason": f"Price {current:.2f} above EMA20 {ema20:.2f}"}
-        elif diff < 0:
+        if diff < 0:
             return {"vote": "SELL", "score": 0.80, "reason": f"Price {current:.2f} below EMA20 {ema20:.2f}"}
         return {"vote": "HOLD", "score": 0.50, "reason": "Price at EMA20"}
 
@@ -55,10 +55,10 @@ class NSETechnicalAnalystAgent:
 class NSESentimentAnalystAgent:
     """Evaluates Put-Call Ratio (PCR) and market sentiment."""
 
-    def analyze(self, pcr_val: float = 1.0) -> Dict[str, Any]:
+    def analyze(self, pcr_val: float = 1.0) -> dict[str, Any]:
         if pcr_val >= 1.20:
             return {"vote": "BUY", "score": 0.85, "reason": f"Bullish Put-Call Ratio ({pcr_val:.2f} >= 1.20)"}
-        elif pcr_val <= 0.80:
+        if pcr_val <= 0.80:
             return {"vote": "SELL", "score": 0.85, "reason": f"Bearish Put-Call Ratio ({pcr_val:.2f} <= 0.80)"}
         return {"vote": "HOLD", "score": 0.50, "reason": f"Neutral Put-Call Ratio ({pcr_val:.2f})"}
 
@@ -66,7 +66,7 @@ class NSESentimentAnalystAgent:
 class NSEMarketStructureAgent:
     """Detects market structure shifts and price action swing points."""
 
-    def analyze(self, highs: List[float], lows: List[float], closes: List[float]) -> Dict[str, Any]:
+    def analyze(self, highs: list[float], lows: list[float], closes: list[float]) -> dict[str, Any]:
         if not closes or len(closes) < 10:
             return {"vote": "HOLD", "score": 0.50, "reason": "Insufficient bars for structure analysis"}
 
@@ -80,7 +80,7 @@ class NSEMarketStructureAgent:
                 "score": 0.90,
                 "reason": f"Market Structure Shift (MSS) above Swing High {swing_high:.2f}",
             }
-        elif last_close < swing_low:
+        if last_close < swing_low:
             return {
                 "vote": "SELL",
                 "score": 0.90,
@@ -108,9 +108,9 @@ class NSETradeAgentsSuite:
     def deliberate_consensus(
         self,
         symbol: str,
-        history_bars: List[Dict[str, Any]],
+        history_bars: list[dict[str, Any]],
         pcr_val: float = 1.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Runs multi-agent swarm deliberation and returns consensus signal with 0.05 INR tick rounding.
         """
@@ -171,7 +171,7 @@ class NSETradeAgentsAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.suite = NSETradeAgentsSuite()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -184,15 +184,15 @@ class NSETradeAgentsAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 2850.0, "ask": 2850.15, "last": 2850.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -236,7 +236,7 @@ class NSETradeAgentsAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

@@ -3,16 +3,20 @@ Circuit Breaker Resilience Pattern Implementation.
 Protects broker gateway routes and external execution channels from cascading failures
 and endpoint hammering during sustained outages.
 """
-from typing import Any
+
 import logging
 import threading
 import time
+from typing import Any
+
 from event_bus import Event, global_event_bus
+
 _log = logging.getLogger(__name__)
+
 
 class CircuitBreakerOpenException(Exception):
     """Raised when an operation is attempted while the circuit breaker is OPEN."""
-    pass
+
 
 class CircuitBreaker:
     """
@@ -23,11 +27,18 @@ class CircuitBreaker:
       - OPEN: Cooldown active; calls fail fast without hitting the remote service.
       - HALF_OPEN: Cooldown elapsed; allows probe call to test endpoint recovery.
     """
-    CLOSED = 'CLOSED'
-    OPEN = 'OPEN'
-    HALF_OPEN = 'HALF_OPEN'
 
-    def __init__(self, failure_threshold: Any=5, cooldown_seconds: Any=30.0, half_open_probe: Any=True, excluded_exceptions: Any=()) -> None:
+    CLOSED = "CLOSED"
+    OPEN = "OPEN"
+    HALF_OPEN = "HALF_OPEN"
+
+    def __init__(
+        self,
+        failure_threshold: Any = 5,
+        cooldown_seconds: Any = 30.0,
+        half_open_probe: Any = True,
+        excluded_exceptions: Any = (),
+    ) -> None:
         self.failure_threshold = int(failure_threshold)
         self.cooldown_seconds = float(cooldown_seconds)
         self.half_open_probe = bool(half_open_probe)
@@ -50,11 +61,11 @@ class CircuitBreaker:
             elapsed = time.time() - self._last_state_change
             if elapsed >= self.cooldown_seconds:
                 if self.half_open_probe:
-                    self._transition_to_nolock(self.HALF_OPEN, reason='cooldown_elapsed')
+                    self._transition_to_nolock(self.HALF_OPEN, reason="cooldown_elapsed")
                 else:
-                    self._transition_to_nolock(self.CLOSED, reason='cooldown_elapsed_auto_close')
+                    self._transition_to_nolock(self.CLOSED, reason="cooldown_elapsed_auto_close")
 
-    def _transition_to_nolock(self, new_state: Any, reason: Any='') -> None:
+    def _transition_to_nolock(self, new_state: Any, reason: Any = "") -> None:
         old_state = self._state
         if old_state == new_state:
             return
@@ -65,11 +76,29 @@ class CircuitBreaker:
         elif new_state == self.CLOSED:
             self._consecutive_failures = 0
             self._probe_in_flight = False
-        _log.warning('CircuitBreaker state transition: %s -> %s (reason: %s, failures: %d)', old_state, new_state, reason, self._consecutive_failures)
+        _log.warning(
+            "CircuitBreaker state transition: %s -> %s (reason: %s, failures: %d)",
+            old_state,
+            new_state,
+            reason,
+            self._consecutive_failures,
+        )
         try:
-            global_event_bus.publish(Event(family='circuit_breaker', source='CircuitBreaker', payload={'old_state': old_state.lower(), 'new_state': new_state.lower(), 'state': new_state.lower(), 'reason': reason, 'consecutive_failures': self._consecutive_failures}))
+            global_event_bus.publish(
+                Event(
+                    family="circuit_breaker",
+                    source="CircuitBreaker",
+                    payload={
+                        "old_state": old_state.lower(),
+                        "new_state": new_state.lower(),
+                        "state": new_state.lower(),
+                        "reason": reason,
+                        "consecutive_failures": self._consecutive_failures,
+                    },
+                )
+            )
         except Exception as e:
-            _log.debug('Event bus publish exception in CircuitBreaker: %s', e)
+            _log.debug("Event bus publish exception in CircuitBreaker: %s", e)
 
     def allow(self) -> Any:
         """
@@ -87,28 +116,33 @@ class CircuitBreaker:
                 return False
             return False
 
-    def record_failure(self, exception: Any=None) -> None:
+    def record_failure(self, exception: Any = None) -> None:
         """Records a failure event and trips the breaker to OPEN if threshold is exceeded."""
         if exception is not None and self.excluded_exceptions and isinstance(exception, self.excluded_exceptions):
-            _log.debug('CircuitBreaker ignoring excluded exception: %s', type(exception).__name__)
+            _log.debug("CircuitBreaker ignoring excluded exception: %s", type(exception).__name__)
             return
         with self._lock:
             self._consecutive_failures += 1
-            _log.info('CircuitBreaker recorded failure #%d/%d in state %s', self._consecutive_failures, self.failure_threshold, self._state)
+            _log.info(
+                "CircuitBreaker recorded failure #%d/%d in state %s",
+                self._consecutive_failures,
+                self.failure_threshold,
+                self._state,
+            )
             if self._state == self.HALF_OPEN:
-                self._transition_to_nolock(self.OPEN, reason='probe_failed')
+                self._transition_to_nolock(self.OPEN, reason="probe_failed")
             elif self._state == self.CLOSED and self._consecutive_failures >= self.failure_threshold:
-                self._transition_to_nolock(self.OPEN, reason='failure_threshold_exceeded')
+                self._transition_to_nolock(self.OPEN, reason="failure_threshold_exceeded")
 
     def record_success(self) -> None:
         """Records a successful call and closes the circuit breaker."""
         with self._lock:
             if self._state in (self.HALF_OPEN, self.OPEN):
-                self._transition_to_nolock(self.CLOSED, reason='probe_succeeded')
+                self._transition_to_nolock(self.CLOSED, reason="probe_succeeded")
             else:
                 self._consecutive_failures = 0
 
     def reset(self) -> None:
         """Resets the circuit breaker to CLOSED state and clears failure counter."""
         with self._lock:
-            self._transition_to_nolock(self.CLOSED, reason='manual_reset')
+            self._transition_to_nolock(self.CLOSED, reason="manual_reset")

@@ -9,15 +9,15 @@ Provides Donchian channel breakout strategy logic, trailing drawdown stop-loss,
 0.05 INR price tick rounding, IST trading session validation, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100022
 
@@ -35,13 +35,13 @@ class OsEngineTrader:
     def evaluate_breakout(
         self,
         symbol: str,
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
         current_price: float,
         entry_price: float = 0.0,
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Evaluates Donchian channel upper/lower breakouts and enforces trailing drawdown exits.
         """

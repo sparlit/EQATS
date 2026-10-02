@@ -16,10 +16,10 @@ Magic Number Assignment: 9100100
 
 # codespell:ignore IST
 
-from datetime import datetime, time
 import logging
 import math
 import os
+from datetime import datetime, time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
@@ -40,9 +40,9 @@ except (ImportError, ModuleNotFoundError, Exception) as _pd_err:
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
+    SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    SEBIBrokerAdapter,
 )
 
 MAGIC_NUMBER = 9100100
@@ -55,7 +55,7 @@ def round_to_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 4)
 
 
-def validate_ist_market_session(current_time: Optional[datetime] = None) -> bool:
+def validate_ist_market_session(current_time: datetime | None = None) -> bool:
     """Validates whether current execution timestamp falls within Indian market hours (09:15 - 15:30 IST)."""
     if current_time is None:
         current_time = datetime.now()
@@ -73,11 +73,11 @@ class KronosTokenizer:
 
     def __init__(self, num_bins: int = 64) -> None:
         self.num_bins = num_bins
-        self.pretrained_name: Optional[str] = None
+        self.pretrained_name: str | None = None
 
     def tokenize_bar(
         self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float
-    ) -> Tuple[int, int, int, int]:
+    ) -> tuple[int, int, int, int]:
         """
         Quantizes a single bar (relative return, high offset, low offset, volume shift) relative to ref_price into subtoken integer IDs.
         """
@@ -93,11 +93,11 @@ class KronosTokenizer:
         bin_v = max(0, min(self.num_bins - 1, int(math.floor(vol_norm / 15.0 * self.num_bins))))
         return (bin_ret, bin_u, bin_l, bin_v)
 
-    def tokenize_kline_sequence(self, ohlcv_matrix: Any) -> List[Tuple[int, int, int, int]]:
+    def tokenize_kline_sequence(self, ohlcv_matrix: Any) -> list[tuple[int, int, int, int]]:
         """
         Tokenizes an N x 5 matrix of [Open, High, Low, Close, Volume] into a list of subtoken tuples.
         """
-        tokens: List[Tuple[int, int, int, int]] = []
+        tokens: list[tuple[int, int, int, int]] = []
         if ohlcv_matrix is None or len(ohlcv_matrix) == 0:
             return tokens
         ref = float(ohlcv_matrix[0][0]) if isinstance(ohlcv_matrix, list) else float(ohlcv_matrix[0, 0])
@@ -125,7 +125,7 @@ class KronosFoundationModel:
         self.model_size = model_size
         self.device = device
         self.tokenizer = KronosTokenizer()
-        self.pretrained_name: Optional[str] = None
+        self.pretrained_name: str | None = None
         self.has_torch_model = False
         self.torch_model = None
         try:
@@ -156,7 +156,7 @@ class KronosFoundationModel:
         num_simulations: int = 30,
         T: float = 1.0,
         top_p: float = 0.9,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates probabilistic forward forecasts given historical OHLCV bars.
         ohlcv_history: N x 5 matrix or list of [Open, High, Low, Close, Volume].
@@ -228,10 +228,10 @@ class KronosFoundationModel:
         import random
 
         rng_py = random.Random(abs(hash(last_close_val)) % (2**31 - 1))
-        sims: List[List[float]] = []
+        sims: list[list[float]] = []
         upside_cnt = 0
         for _ in range(num_simulations):
-            path: List[float] = []
+            path: list[float] = []
             price = last_close_val
             sim_v = hist_vol_val * effective_temp * (1.0 + rng_py.uniform(-0.1 * top_p, 0.2 * top_p))
             for _ in range(forecast_horizon):
@@ -342,19 +342,19 @@ class KronosPredictor:
 
     def predict_batch(
         self,
-        df_list: List[Any],
-        x_timestamp_list: List[Any],
-        y_timestamp_list: List[Any],
+        df_list: list[Any],
+        x_timestamp_list: list[Any],
+        y_timestamp_list: list[Any],
         pred_len: int = 24,
         T: float = 1.0,
         top_p: float = 0.9,
         sample_count: int = 1,
         verbose: bool = False,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Generates batch predictions across multiple series simultaneously.
         """
-        results: List[Any] = []
+        results: list[Any] = []
         for i in range(len(df_list)):
             df = df_list[i]
             x_ts = x_timestamp_list[i] if i < len(x_timestamp_list) else None
@@ -429,15 +429,15 @@ class KronosBrokerAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"user_id": self.user_id, "magic_number": self.magic_number, "status": "ACTIVE"}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -473,16 +473,16 @@ class KronosBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
     def cancel_order(self, order_id: str) -> bool:
         return True
 
-    def get_order_status(self, order_id: str) -> Dict[str, Any]:
+    def get_order_status(self, order_id: str) -> dict[str, Any]:
         return {"order_id": order_id, "status": "COMPLETE"}
 
-    def get_quote(self, symbol: str) -> Dict[str, Any]:
+    def get_quote(self, symbol: str) -> dict[str, Any]:
         return {"symbol": symbol, "last_price": 100.0, "tick_size": 0.05}
 
 
