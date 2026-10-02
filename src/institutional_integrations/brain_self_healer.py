@@ -4,13 +4,16 @@ Implements non-stop, non-break self-learning, self-training, self-adjusting,
 self-healing, self-fixing, self-correcting, self-evolving, and self-evaluating
 capabilities inside the Elite Quantum Autonomous Trading System.
 """
-from typing import Any
+
 import datetime
 import threading
 import time
+from typing import Any
+
 import config
 import database
 import predictive_brain
+
 
 class QuantumSelfHealer:
     """
@@ -33,7 +36,7 @@ class QuantumSelfHealer:
         self.is_active = True
         self.healer_thread = threading.Thread(target=self._healer_main_loop, daemon=True)
         self.healer_thread.start()
-        print('🧠 QUANTUM SELF-HEALER: Non-stop self-learning & self-healing background thread spawned successfully.')
+        print("🧠 QUANTUM SELF-HEALER: Non-stop self-learning & self-healing background thread spawned successfully.")
 
     def stop_loop(self) -> None:
         self.is_active = False
@@ -46,10 +49,10 @@ class QuantumSelfHealer:
                 self.run_self_training_and_learning()
                 self.run_self_adjust_and_fix()
                 self.run_self_healing_and_db_vacuum()
-                self.last_heal_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self.last_heal_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 self.total_heals_executed += 1
             except Exception as e:
-                print(f'⚠️ QUANTUM SELF-HEALER ERROR: Exception in background loop: {e}')
+                print(f"⚠️ QUANTUM SELF-HEALER ERROR: Exception in background loop: {e}")
             for _ in range(10):
                 if not self.is_active:
                     break
@@ -60,14 +63,18 @@ class QuantumSelfHealer:
         try:
             database.init_db()
             perf = database.get_all_time_performance()
-            total_trades = perf['total_trades']
-            win_rate = perf['win_rate']
+            total_trades = perf["total_trades"]
+            win_rate = perf["win_rate"]
             if total_trades >= 5 and win_rate < 45.0:
-                print(f'📈 SELF-EVALUATOR ALERT: Current win rate is sub-optimal ({win_rate}% over {total_trades} trades). Flagging system for self-correction.')
+                print(
+                    f"📈 SELF-EVALUATOR ALERT: Current win rate is sub-optimal ({win_rate}% over {total_trades} trades). Flagging system for self-correction."
+                )
             elif total_trades > 0:
-                print(f'📊 SELF-EVALUATOR REPORT: Operational parameters stable. Win Rate: {win_rate}% | Total trades: {total_trades}')
+                print(
+                    f"📊 SELF-EVALUATOR REPORT: Operational parameters stable. Win Rate: {win_rate}% | Total trades: {total_trades}"
+                )
         except Exception as e:
-            print(f'⚠️ Self-Evaluator warning: {e}')
+            print(f"⚠️ Self-Evaluator warning: {e}")
 
     def run_self_training_and_learning(self) -> None:
         """Self-Training & Self-Teaching: Triggers predictive neural network backpropagation optimizations."""
@@ -78,21 +85,26 @@ class QuantumSelfHealer:
                 conn_db = database.get_connection()
                 cursor = conn_db.cursor()
                 try:
-                    cursor.execute("SELECT close_price FROM trades WHERE symbol = ? AND status = 'CLOSED' ORDER BY close_time DESC LIMIT 10", (symbol,))
+                    cursor.execute(
+                        "SELECT close_price FROM trades WHERE symbol = ? AND status = 'CLOSED' ORDER BY close_time DESC LIMIT 10",
+                        (symbol,),
+                    )
                     rows = cursor.fetchall()
                 except Exception:
                     rows = []
                 finally:
                     conn_db.close()
                 if len(rows) > 1:
-                    print(f'🎓 SELF-TRAINING ENGINE: Re-training predictive model for {symbol} on {len(rows)} latest actual historical outcomes.')
+                    print(
+                        f"🎓 SELF-TRAINING ENGINE: Re-training predictive model for {symbol} on {len(rows)} latest actual historical outcomes."
+                    )
                     for row in rows:
-                        actual_close = row['close_price']
+                        actual_close = row["close_price"]
                         actual_bullish_close = 1.0 if actual_close > 1.1 else 0.0
                         predictor.learn_and_adjust(actual_bullish_close)
                     self.total_evolutions += 1
         except Exception as e:
-            print(f'⚠️ Self-Training warning: {e}')
+            print(f"⚠️ Self-Training warning: {e}")
 
     def run_self_adjust_and_fix(self) -> None:
         """Self-Adjusting & Self-Fixing: Auto-tunes risk configurations, spreads, and strategy coefficients."""
@@ -100,25 +112,29 @@ class QuantumSelfHealer:
             database.init_db()
             recent = database.get_recent_performance(count=3)
             if len(recent) >= 2:
-                losses = sum((1 for t in recent if t['profit'] is not None and t['profit'] < 0))
+                losses = sum(1 for t in recent if t["profit"] is not None and t["profit"] < 0)
                 if losses >= 2:
                     old_spread = config.MAX_SPREAD_PIPS
                     config.MAX_SPREAD_PIPS = max(1.5, config.MAX_SPREAD_PIPS * 0.8)
-                    print(f'⚙️ SELF-ADJUSTING & FIXING: Consecutive losses detected. Tightening spread filter: {old_spread:.1f} pips -> {config.MAX_SPREAD_PIPS:.1f} pips limit (Insulating trade entries).')
+                    print(
+                        f"⚙️ SELF-ADJUSTING & FIXING: Consecutive losses detected. Tightening spread filter: {old_spread:.1f} pips -> {config.MAX_SPREAD_PIPS:.1f} pips limit (Insulating trade entries)."
+                    )
                 elif config.MAX_SPREAD_PIPS < 3.0:
                     config.MAX_SPREAD_PIPS = 3.0
-                    print('⚙️ SELF-ADJUSTING & FIXING: Operational parameters restored to default liquid values.')
+                    print("⚙️ SELF-ADJUSTING & FIXING: Operational parameters restored to default liquid values.")
         except Exception as e:
-            print(f'⚠️ Self-Adjust warning: {e}')
+            print(f"⚠️ Self-Adjust warning: {e}")
 
     def run_self_healing_and_db_vacuum(self) -> None:
         """Self-Healing: Clears database deadlocks, runs SQL WAL checkpointing, and resolves thread lock congestion."""
         try:
             conn_db = database.get_connection()
             cursor = conn_db.cursor()
-            cursor.execute('PRAGMA wal_checkpoint(PASSIVE);')
-            cursor.execute('PRAGMA optimize;')
+            cursor.execute("PRAGMA wal_checkpoint(PASSIVE);")
+            cursor.execute("PRAGMA optimize;")
             conn_db.close()
-            print('🩺 SELF-HEALING DATABASE: Executed SQLite WAL checkpoint & optimization. Database locks neutralized.')
+            print(
+                "🩺 SELF-HEALING DATABASE: Executed SQLite WAL checkpoint & optimization. Database locks neutralized."
+            )
         except Exception as e:
-            print(f'Self-healing database warning: {e}')
+            print(f"Self-healing database warning: {e}")

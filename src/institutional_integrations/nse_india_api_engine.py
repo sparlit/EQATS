@@ -8,15 +8,15 @@ Magic Number: 9100046
 """
 
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -56,13 +56,13 @@ class NSEIndiaAPIEngine:
 
     def __init__(self) -> None:
         self.magic_number = MAGIC_NUMBER_NSE_INDIA_API
-        self.registered_endpoints: Dict[str, Dict[str, Any]] = {
+        self.registered_endpoints: dict[str, dict[str, Any]] = {
             "option_chain": {"url": "https://www.nseindia.com/api/option-chain-indices", "secured": True},
             "equity_quote": {"url": "https://www.nseindia.com/api/quote-equity", "secured": True},
             "market_status": {"url": "https://www.nseindia.com/api/marketStatus", "secured": True},
         }
 
-    def validate_domain_security(self, domain_policy: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_domain_security(self, domain_policy: dict[str, Any]) -> dict[str, Any]:
         """
         Validates domain security controls (DNSSEC, SPF, DMARC policy).
         """
@@ -85,9 +85,7 @@ class NSEIndiaAPIEngine:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def compute_api_health_score(
-        self, latency_ms: float, error_rate_pct: float, uptime_pct: float
-    ) -> Dict[str, Any]:
+    def compute_api_health_score(self, latency_ms: float, error_rate_pct: float, uptime_pct: float) -> dict[str, Any]:
         """
         Computes API quality/health score (0 to 100).
         """
@@ -131,19 +129,17 @@ class NSEIndiaAPIBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -174,7 +170,7 @@ class NSEIndiaAPIBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"NSEINDIA-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"NSEINDIA-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -183,14 +179,10 @@ class NSEIndiaAPIBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -202,7 +194,7 @@ class NSEIndiaAPIBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

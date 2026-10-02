@@ -9,15 +9,15 @@ Provides automated Zerodha Kite order execution framing, Bracket Order (BO) targ
 risk governance, 0.05 INR price tick rounding, IST trading session validation, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100025
 
@@ -38,10 +38,10 @@ class ZerobhaEngine:
         side: str,
         price: float,
         quantity: float,
-        target_pct: Optional[float] = None,
-        sl_pct: Optional[float] = None,
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        target_pct: float | None = None,
+        sl_pct: float | None = None,
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Frames Zerodha Bracket Order (BO) / Cover Order (CO) parameters with 0.05 INR tick rounding.
         """
