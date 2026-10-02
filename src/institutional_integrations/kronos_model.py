@@ -35,7 +35,7 @@ class KronosTokenizer:
 
     def tokenize_bar(
         self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float
-    ) -> Tuple[int, int, int, int]:
+    ) -> tuple[int, int, int, int]:
         """
         Quantizes a single bar (relative return, high offset, low offset, volume shift) relative to ref_price into subtoken integer IDs.
         """
@@ -51,11 +51,11 @@ class KronosTokenizer:
         bin_v = max(0, min(self.num_bins - 1, int(math.floor(vol_norm / 15.0 * self.num_bins))))
         return (bin_ret, bin_u, bin_l, bin_v)
 
-    def tokenize_kline_sequence(self, ohlcv_matrix: Any) -> List[Tuple[int, int, int, int]]:
+    def tokenize_kline_sequence(self, ohlcv_matrix: Any) -> list[tuple[int, int, int, int]]:
         """
         Tokenizes an N x 5 matrix of [Open, High, Low, Close, Volume] into a list of subtoken tuples.
         """
-        tokens: List[Tuple[int, int, int, int]] = []
+        tokens: list[tuple[int, int, int, int]] = []
         if ohlcv_matrix is None or len(ohlcv_matrix) == 0:
             return tokens
         ref = float(ohlcv_matrix[0][0]) if isinstance(ohlcv_matrix, list) else float(ohlcv_matrix[0, 0])
@@ -89,7 +89,7 @@ class KronosFoundationModel:
 
     def forecast_probabilistic(
         self, ohlcv_history: Any, forecast_horizon: int = 24, num_simulations: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates probabilistic forward forecasts given historical OHLCV bars.
         ohlcv_history: N x 5 matrix of [Open, High, Low, Close, Volume].
@@ -158,10 +158,10 @@ class KronosFoundationModel:
         import random
 
         rng_py = random.Random(abs(hash(last_close_val)) % (2**31 - 1))
-        sims: List[List[float]] = []
+        sims: list[list[float]] = []
         upside_cnt = 0
         for _ in range(num_simulations):
-            path: List[float] = []
+            path: list[float] = []
             price = last_close_val
             sim_v = hist_vol_val * (1.0 + rng_py.uniform(-0.1, 0.2))
             for _ in range(forecast_horizon):

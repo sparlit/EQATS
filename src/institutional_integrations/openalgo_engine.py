@@ -66,9 +66,7 @@ class OpenAlgoSessionSquareOffManager:
         close_minute: int = 55,
     ) -> bool:
         with self._lock:
-            if current_hour > close_hour or (
-                current_hour == close_hour and current_minute >= close_minute
-            ):
+            if current_hour > close_hour or (current_hour == close_hour and current_minute >= close_minute):
                 self.squareoff_triggered = True
                 return True
             return False

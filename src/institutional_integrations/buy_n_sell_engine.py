@@ -9,16 +9,16 @@ Provides automated quantitative buy/sell momentum signal generation, EMA trend f
 volume confirmation, 0.05 INR price tick rounding, and dynamic microkernel registration.
 """
 
-from typing import Dict, Any, List, Optional
 import math
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100020
 
@@ -34,7 +34,7 @@ class BuyNSellEngine:
         self.volume_factor = volume_factor
         self.market_state = IndianMarketStateMachine()
 
-    def calculate_ema(self, prices: List[float], period: int) -> float:
+    def calculate_ema(self, prices: list[float], period: int) -> float:
         if not prices:
             return 0.0
         if len(prices) < period:
@@ -48,11 +48,11 @@ class BuyNSellEngine:
     def evaluate_signal(
         self,
         symbol: str,
-        prices: List[float],
-        volumes: List[float],
+        prices: list[float],
+        volumes: list[float],
         current_price: float,
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Evaluates buy/sell momentum signals based on EMA crossover and volume confirmation.
         """

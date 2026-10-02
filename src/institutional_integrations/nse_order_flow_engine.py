@@ -9,15 +9,15 @@ Provides high-frequency Order Flow Imbalance (OFI), Cumulative Volume Delta (CVD
 0.05 INR price tick rounding, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100021
 
@@ -31,7 +31,7 @@ class NSEOrderFlowEngine:
         self.delta_threshold = delta_threshold
         self.market_state = IndianMarketStateMachine()
 
-    def calculate_order_flow_imbalance(self, bid_volumes: List[float], ask_volumes: List[float]) -> float:
+    def calculate_order_flow_imbalance(self, bid_volumes: list[float], ask_volumes: list[float]) -> float:
         """
         Calculates Order Flow Imbalance (OFI) ratio between total bid volume and total ask volume.
         """
@@ -44,11 +44,11 @@ class NSEOrderFlowEngine:
     def evaluate_order_flow(
         self,
         symbol: str,
-        bid_volumes: List[float],
-        ask_volumes: List[float],
+        bid_volumes: list[float],
+        ask_volumes: list[float],
         last_price: float,
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Evaluates real-time NSE order flow imbalance and volume delta signals.
         """

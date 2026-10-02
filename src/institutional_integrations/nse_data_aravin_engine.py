@@ -8,15 +8,15 @@ Magic Number: 9100048
 """
 
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -56,7 +56,7 @@ class NSEDataAravinEngine:
     def __init__(self) -> None:
         self.magic_number = MAGIC_NUMBER_NSE_DATA_ARAVIN
 
-    def parse_equity_quote(self, quote_info: Dict[str, Any]) -> Dict[str, Any]:
+    def parse_equity_quote(self, quote_info: dict[str, Any]) -> dict[str, Any]:
         """
         Parses equity quote payload containing priceInfo (lastPrice, open, high, low, change, pChange).
         """
@@ -84,8 +84,8 @@ class NSEDataAravinEngine:
         }
 
     def parse_equity_option_chain(
-        self, option_chain_records: List[Dict[str, Any]], underlying_price: float
-    ) -> Dict[str, Any]:
+        self, option_chain_records: list[dict[str, Any]], underlying_price: float
+    ) -> dict[str, Any]:
         """
         Extracts Call and Put Open Interest matrices from raw option chain payload.
         """
@@ -104,13 +104,15 @@ class NSEDataAravinEngine:
             total_ce_oi += ce_oi
             total_pe_oi += pe_oi
 
-            strikes.append({
-                "strike_price": strike,
-                "ce_oi": ce_oi,
-                "pe_oi": pe_oi,
-                "ce_ltp": round_tick_005(float(ce.get("lastPrice", 0.0))),
-                "pe_ltp": round_tick_005(float(pe.get("lastPrice", 0.0))),
-            })
+            strikes.append(
+                {
+                    "strike_price": strike,
+                    "ce_oi": ce_oi,
+                    "pe_oi": pe_oi,
+                    "ce_ltp": round_tick_005(float(ce.get("lastPrice", 0.0))),
+                    "pe_ltp": round_tick_005(float(pe.get("lastPrice", 0.0))),
+                }
+            )
 
         pcr = round(total_pe_oi / total_ce_oi, 2) if total_ce_oi > 0 else 1.0
 
@@ -148,19 +150,17 @@ class NSEDataAravinBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -191,7 +191,7 @@ class NSEDataAravinBrokerAdapter(SEBIBrokerAdapter):
         rounded_price = round_tick_005(request.price)
         return SEBIOrderResponse(
             success=True,
-            ticket=f"NSEDATA-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"NSEDATA-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED",
             product=request.product,
@@ -200,14 +200,10 @@ class NSEDataAravinBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -219,7 +215,7 @@ class NSEDataAravinBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

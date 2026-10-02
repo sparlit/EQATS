@@ -7,10 +7,10 @@ multi-tier order management, 0.05 INR price tick rounding, IST market session va
 and dynamic registration in IndianBrokerPluginRegistry under HYPER_GRID.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
 import math
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -29,10 +29,10 @@ def round_tick_005(price: float) -> float:
     return round(round(price * 20.0) / 20.0, 2)
 
 
-def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(dt: datetime | None = None) -> bool:
     """Checks if current time falls within IST trading session (09:15 - 15:30 IST Mon-Fri)."""
     if dt is None:
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
     ist_dt = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
     if ist_dt.weekday() >= 5:
         return False
@@ -44,6 +44,7 @@ def is_ist_market_open(dt: Optional[datetime] = None) -> bool:
 @dataclass
 class GridLevel:
     """Represents a single price level in the hyper-grid."""
+
     level_index: int
     price: float
     order_type: str  # 'BUY' or 'SELL'
@@ -55,6 +56,7 @@ class GridLevel:
 @dataclass
 class HyperGridConfig:
     """Configuration parameters for the hyper-grid trading engine."""
+
     symbol: str
     lower_bound: float
     upper_bound: float
@@ -66,13 +68,14 @@ class HyperGridConfig:
 @dataclass
 class GridStateSummary:
     """Summary of active hyper-grid state and valuation."""
+
     symbol: str
     active_levels: int
     filled_buy_levels: int
     filled_sell_levels: int
     total_grid_profit: float
     unrealized_pnl: float
-    grid_levels: List[Dict[str, Any]] = field(default_factory=list)
+    grid_levels: list[dict[str, Any]] = field(default_factory=list)
 
 
 class HyperGridEngine:
@@ -81,17 +84,17 @@ class HyperGridEngine:
     Manages grid level generation, execution tracking, and grid rebalancing.
     """
 
-    def __init__(self, config: Optional[HyperGridConfig] = None) -> None:
+    def __init__(self, config: HyperGridConfig | None = None) -> None:
         self.config = config
         self.magic_number = MAGIC_NUMBER
-        self.grid_levels: List[GridLevel] = []
+        self.grid_levels: list[GridLevel] = []
         self.realized_profit: float = 0.0
         self.entry_price: float = 0.0
 
         if config:
             self.setup_grid(config)
 
-    def setup_grid(self, config: HyperGridConfig) -> List[GridLevel]:
+    def setup_grid(self, config: HyperGridConfig) -> list[GridLevel]:
         """Calculates grid price levels based on upper/lower bounds and grid count."""
         self.config = config
         self.grid_levels.clear()
@@ -103,10 +106,10 @@ class HyperGridEngine:
         if lower >= upper or n < 2:
             return []
 
-        prices: List[float] = []
+        prices: list[float] = []
         if config.geometric:
             ratio = (upper / lower) ** (1.0 / (n - 1))
-            prices = [round_tick_005(lower * (ratio ** i)) for i in range(n)]
+            prices = [round_tick_005(lower * (ratio**i)) for i in range(n)]
         else:
             step = (upper - lower) / (n - 1)
             prices = [round_tick_005(lower + i * step) for i in range(n)]
@@ -125,17 +128,16 @@ class HyperGridEngine:
 
         return self.grid_levels
 
-    def update_market_price(self, current_price: float) -> List[GridLevel]:
+    def update_market_price(self, current_price: float) -> list[GridLevel]:
         """Evaluates triggered grid levels based on current market price movement."""
         current_price = round_tick_005(current_price)
-        triggered: List[GridLevel] = []
+        triggered: list[GridLevel] = []
 
         for lvl in self.grid_levels:
             if lvl.status == "PENDING":
-                if lvl.order_type == "BUY" and current_price <= lvl.price:
-                    lvl.status = "FILLED"
-                    triggered.append(lvl)
-                elif lvl.order_type == "SELL" and current_price >= lvl.price:
+                if (lvl.order_type == "BUY" and current_price <= lvl.price) or (
+                    lvl.order_type == "SELL" and current_price >= lvl.price
+                ):
                     lvl.status = "FILLED"
                     triggered.append(lvl)
 
@@ -197,7 +199,7 @@ class HyperGridBrokerAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "balance": 1000000.0,
             "equity": 1000000.0,
@@ -207,10 +209,10 @@ class HyperGridBrokerAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last": 100.0}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -261,7 +263,7 @@ class HyperGridBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

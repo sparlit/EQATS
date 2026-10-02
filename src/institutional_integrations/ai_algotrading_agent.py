@@ -9,15 +9,15 @@ Provides multi-factor AI trading agent deliberation, technical indicator scoring
 0.05 INR price tick rounding, IST trading session validation, and microkernel plugin binding.
 """
 
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from institutional_integrations.sebi_broker_adapter import (
-    round_to_indian_tick_size,
-    round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
-)
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    round_to_indian_quantity,
+    round_to_indian_tick_size,
+)
 
 MAGIC_NUMBER: int = 9100023
 
@@ -33,7 +33,7 @@ class AIAlgoTradingAgent:
         self.macd_slow = macd_slow
         self.market_state = IndianMarketStateMachine()
 
-    def calculate_rsi(self, closes: List[float]) -> float:
+    def calculate_rsi(self, closes: list[float]) -> float:
         if len(closes) < self.rsi_period + 1:
             return 50.0
         gains = []
@@ -56,10 +56,10 @@ class AIAlgoTradingAgent:
     def evaluate_agent_decision(
         self,
         symbol: str,
-        closes: List[float],
+        closes: list[float],
         current_price: float,
-        timestamp: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        timestamp: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Evaluates multi-factor AI technical agent decision (RSI + MACD trend momentum).
         """

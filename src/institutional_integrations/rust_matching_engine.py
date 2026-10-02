@@ -8,17 +8,17 @@ and multi-market pair routing from `anthdm/rust-trading-engine`.
 Magic Number: 9100044
 """
 
-import time
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+import time
 import zoneinfo
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    IndianBrokerPluginRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def round_tick_005(price: float) -> float:
     return round(round(price / 0.05) * 0.05, 2)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -77,12 +77,12 @@ class OrderbookL2:
     def __init__(self, symbol: str) -> None:
         self.symbol = symbol.upper().strip()
         self.magic_number = MAGIC_NUMBER_RUST_MATCHING_ENGINE
-        self.bids: Dict[float, List[LimitOrder]] = {}
-        self.asks: Dict[float, List[LimitOrder]] = {}
+        self.bids: dict[float, list[LimitOrder]] = {}
+        self.asks: dict[float, list[LimitOrder]] = {}
 
     def slice_order_twap(
         self, total_quantity: int, num_slices: int = 5, total_duration_seconds: int = 60
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Slices a large order into time-weighted average price (TWAP) micro-child slices to prevent market impact.
         """
@@ -96,11 +96,13 @@ class OrderbookL2:
         slices = []
         for i in range(num_slices):
             qty = base_slice_qty + (1 if i < remainder else 0)
-            slices.append({
-                "slice_index": i + 1,
-                "slice_quantity": qty,
-                "delay_seconds": round(i * interval_seconds, 2),
-            })
+            slices.append(
+                {
+                    "slice_index": i + 1,
+                    "slice_quantity": qty,
+                    "delay_seconds": round(i * interval_seconds, 2),
+                }
+            )
 
         return {
             "symbol": self.symbol,
@@ -111,7 +113,7 @@ class OrderbookL2:
             "magic_number": self.magic_number,
         }
 
-    def place_limit_order(self, side: str, price: float, size: float) -> Dict[str, Any]:
+    def place_limit_order(self, side: str, price: float, size: float) -> dict[str, Any]:
         """
         Inserts a limit order into the orderbook or matches against opposite liquidity.
         """
@@ -121,7 +123,7 @@ class OrderbookL2:
         order_id = f"ORD-{start_ns}"
         new_order = LimitOrder(order_id, side_upper, rounded_price, size)
 
-        fills: List[Dict[str, Any]] = []
+        fills: list[dict[str, Any]] = []
 
         if side_upper == "BID":
             sorted_ask_prices = sorted(self.asks.keys())
@@ -134,12 +136,14 @@ class OrderbookL2:
                     new_order.filled_size += matched_qty
                     counter_order.filled_size += matched_qty
 
-                    fills.append({
-                        "price": ask_p,
-                        "quantity": matched_qty,
-                        "maker_id": counter_order.order_id,
-                        "taker_id": new_order.order_id,
-                    })
+                    fills.append(
+                        {
+                            "price": ask_p,
+                            "quantity": matched_qty,
+                            "maker_id": counter_order.order_id,
+                            "taker_id": new_order.order_id,
+                        }
+                    )
 
                     if counter_order.is_filled():
                         queue.remove(counter_order)
@@ -161,12 +165,14 @@ class OrderbookL2:
                     new_order.filled_size += matched_qty
                     counter_order.filled_size += matched_qty
 
-                    fills.append({
-                        "price": bid_p,
-                        "quantity": matched_qty,
-                        "maker_id": counter_order.order_id,
-                        "taker_id": new_order.order_id,
-                    })
+                    fills.append(
+                        {
+                            "price": bid_p,
+                            "quantity": matched_qty,
+                            "maker_id": counter_order.order_id,
+                            "taker_id": new_order.order_id,
+                        }
+                    )
 
                     if counter_order.is_filled():
                         queue.remove(counter_order)
@@ -193,7 +199,7 @@ class OrderbookL2:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def get_orderbook_depth(self) -> Dict[str, Any]:
+    def get_orderbook_depth(self) -> dict[str, Any]:
         """Returns L2 market depth snapshot."""
         best_bid = max(self.bids.keys()) if self.bids else 0.0
         best_ask = min(self.asks.keys()) if self.asks else 0.0
@@ -203,8 +209,7 @@ class OrderbookL2:
             for p, queue in sorted(self.bids.items(), reverse=True)[:5]
         ]
         ask_depth = [
-            {"price": p, "volume": sum(o.remaining_size for o in queue)}
-            for p, queue in sorted(self.asks.items())[:5]
+            {"price": p, "volume": sum(o.remaining_size for o in queue)} for p, queue in sorted(self.asks.items())[:5]
         ]
 
         return {
@@ -240,19 +245,17 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         depth = self.orderbook.get_orderbook_depth()
         return {
             "bid": depth["best_bid"] or 100.0,
@@ -286,13 +289,11 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
             )
 
         rounded_price = round_tick_005(request.price)
-        res = self.orderbook.place_limit_order(
-            side=request.order_type, price=rounded_price, size=request.quantity
-        )
+        res = self.orderbook.place_limit_order(side=request.order_type, price=rounded_price, size=request.quantity)
 
         return SEBIOrderResponse(
             success=True,
-            ticket=f"RUSTENG-{int(datetime.now().timestamp()*1000)}",
+            ticket=f"RUSTENG-{int(datetime.now().timestamp() * 1000)}",
             price=rounded_price,
             status="FILLED" if res["is_filled"] else "ACCEPTED",
             product=request.product,
@@ -301,14 +302,10 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
-    ) -> SEBIOrderResponse:
+    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -320,7 +317,7 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
