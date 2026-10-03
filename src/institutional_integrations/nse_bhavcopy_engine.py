@@ -42,11 +42,11 @@ class NSEBhavcopyEngine:
     def __init__(self) -> None:
         self.magic_number = MAGIC_NUMBER_NSE_BHAVCOPY
 
-    def parse_equity_bhavcopy_csv(self, csv_data: str) -> List[Dict[str, Any]]:
+    def parse_equity_bhavcopy_csv(self, csv_data: str) -> list[dict[str, Any]]:
         """
         Parses raw NSE Equity Bhavcopy CSV text into structured records with 0.05 INR tick rounding.
         """
-        records: List[Dict[str, Any]] = []
+        records: list[dict[str, Any]] = []
         if not csv_data:
             return records
 
@@ -88,11 +88,11 @@ class NSEBhavcopyEngine:
 
         return records
 
-    def parse_fo_bhavcopy_csv(self, csv_data: str) -> List[Dict[str, Any]]:
+    def parse_fo_bhavcopy_csv(self, csv_data: str) -> list[dict[str, Any]]:
         """
         Parses raw NSE F&O Derivatives Bhavcopy CSV text into structured records.
         """
-        records: List[Dict[str, Any]] = []
+        records: list[dict[str, Any]] = []
         if not csv_data:
             return records
 
@@ -136,7 +136,7 @@ class NSEBhavcopyAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = NSEBhavcopyEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -149,15 +149,15 @@ class NSEBhavcopyAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 2850.0, "ask": 2850.15, "last": 2850.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -201,7 +201,7 @@ class NSEBhavcopyAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

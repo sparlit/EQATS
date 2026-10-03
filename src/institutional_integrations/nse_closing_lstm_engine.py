@@ -11,16 +11,16 @@ Provides min-max price scaling, LSTM time-series window sequence prediction,
 
 import math
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_tick_size,
     round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
+    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER_NSE_CLOSING_LSTM: int = 9100065
@@ -30,7 +30,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -57,12 +57,17 @@ class NSEClosingLSTMEngine:
         self.lookback_window = lookback_window
         self.magic_number = MAGIC_NUMBER_NSE_CLOSING_LSTM
 
-    def predict_next_close(self, close_prices: List[float]) -> Dict[str, Any]:
+    def predict_next_close(self, close_prices: list[float]) -> dict[str, Any]:
         """
         Transforms close prices via min-max scaling and predicts next day close price.
         """
         if not close_prices or len(close_prices) < 10:
-            return {"predicted_close": 0.0, "predicted_change_pct": 0.0, "signal": "NEUTRAL", "magic_number": self.magic_number}
+            return {
+                "predicted_close": 0.0,
+                "predicted_change_pct": 0.0,
+                "signal": "NEUTRAL",
+                "magic_number": self.magic_number,
+            }
 
         recent = close_prices[-min(len(close_prices), self.lookback_window) :]
         min_p = min(recent)
@@ -168,16 +173,18 @@ class NSEClosingLSTMBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.15, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
