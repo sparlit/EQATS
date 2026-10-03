@@ -1,5 +1,5 @@
 {
-  "current_index": 20,
+  "current_index": 21,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -165,7 +165,7 @@
       "name": "algotradingnse",
       "target": "akashyadavv/algotradingnse",
       "url": "https://github.com/akashyadavv/algotradingnse",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
