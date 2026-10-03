@@ -427,3 +427,4 @@ This document contains the sequential list of all 411 target GitHub repositories
 | 421 | zen-tradings/eia-mcp | Adapted (Magic: 9100097) |
 | 422 | zen-tradings/eval_search_api | Adapted (Magic: 9100098) |
 | 423 | zen-tradings/autoresearch-macos-zen | Adapted (Magic: 9100099) |
+- [sparlit/TradingOS](https://github.com/sparlit/TradingOS)
