@@ -2,6 +2,7 @@
 Root entry point for ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS).
 Provides primary entry point 'python main.py' that delegates directly to src/main.py.
 """
+
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(1, str(ROOT_DIR))
 
 import src.main as src_main
+from src.main import AutonomousScalper
 
 if __name__ == "__main__":
     src_main.run_main()

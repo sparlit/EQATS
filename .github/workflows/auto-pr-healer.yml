@@ -119,15 +119,15 @@ jobs:
 
             # Audit PR code
             echo "[*] Running audit suite on $PR_BRANCH..."
-            python -m ruff check src/ institutional_integrations/ > pr_audit.log 2>&1 || true
+            python -m ruff check src/ > pr_audit.log 2>&1 || true
             python -m compileall -q -x "(modules/adapted|venv|\.venv)" . >> pr_audit.log 2>&1 || true
-            PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src:institutional_integrations python -m pytest -q >> pr_audit.log 2>&1 || true
+            PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src:src/institutional_integrations python -m pytest -q >> pr_audit.log 2>&1 || true
 
             # Auto-fix defects if found
-            python -m ruff check --fix src/ institutional_integrations/ || true
-            python -m ruff format src/ institutional_integrations/ || true
+            python -m ruff check --fix src/ || true
+            python -m ruff format src/ || true
 
-            git add src/ institutional_integrations/
+            git add src/
             if ! git diff-index --quiet HEAD; then
               git commit -m "style: autonomous self-healing fix for PR #$pr_num"
               git push origin "$PR_BRANCH" || true
@@ -146,10 +146,10 @@ jobs:
             git fetch origin "$INPUT_BRANCH"
             git checkout "$INPUT_BRANCH"
 
-            python -m ruff check --fix src/ institutional_integrations/ || true
-            python -m ruff format src/ institutional_integrations/ || true
+            python -m ruff check --fix src/ || true
+            python -m ruff format src/ || true
 
-            git add src/ institutional_integrations/
+            git add src/
             if ! git diff-index --quiet HEAD; then
               git commit -m "style: autonomous branch self-healing fix"
               git push origin "$INPUT_BRANCH" || true
