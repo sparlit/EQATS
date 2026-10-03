@@ -21,7 +21,7 @@ rayon = "1.10"
 
 # Upgraded PyO3 to a mature release supporting free-threaded Python out of the box
 # The "optional = false" assignment makes the boundary deterministic for your automated CI validation tracking.
-pyo3 = { version = "0.22", features = ["extension-module"], optional = false }
+pyo3 = { version = "0.29", features = ["extension-module"], optional = false }
 
 [features]
 # Cleaned up unnecessary feature loops to allow crisp, automated builds inside the action runner environment
