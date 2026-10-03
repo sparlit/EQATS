@@ -1,5 +1,5 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 423 | Current Index: 18
+Total Repositories: 423 | Current Index: 21
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
@@ -21,9 +21,9 @@ Total Repositories: 423 | Current Index: 18
 | 16 | agrawalarnav129-ui/jarvis-trading | Completed | https://github.com/sparlit/EQATS/pull/2922 |
 | 17 | ai4finance-foundation/finrl-trading | Completed | https://github.com/sparlit/EQATS/pull/2923 |
 | 18 | ajakaiye33/ngrcoydisclosures | Processed | https://github.com/sparlit/EQATS/pull/2924 |
-| 19 | ajeeshworkspace/indian-trading-skills | pending | None |
-| 20 | akashnag/scripwatch | pending | None |
-| 21 | akashyadavv/algotradingnse | pending | None |
+| 19 | ajeeshworkspace/indian-trading-skills | Skipped: Private/Non-Existent (404/403) | None |
+| 20 | akashnag/scripwatch | Completed | https://github.com/sparlit/EQATS/pull/2939 |
+| 21 | akashyadavv/algotradingnse | Processed | https://github.com/sparlit/EQATS/pull/2940 |
 | 22 | akshaypawar7/wods | pending | None |
 | 23 | akshayraje/get-nse-bhavcopy | pending | None |
 | 24 | akshayz14/indian-stock-tracker | pending | None |
