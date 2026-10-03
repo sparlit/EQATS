@@ -39,6 +39,7 @@ def is_ist_market_session_active(
     IST market hours are 09:15 to 15:30 IST Mon-Fri.
     Assumes provided time is in IST or local time offset for IST (+05:30).
     """
+    now = dt or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
     tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
     now = dt or datetime.datetime.now(tz)
     if now.weekday() >= 5:
@@ -70,6 +71,11 @@ class OrderBookDepthBuffer:
         self.bids: list[dict[str, float]] = []
         self.asks: list[dict[str, float]] = []
 
+    def update_depth(self, bids: list[dict[str, float]], asks: list[dict[str, float]]) -> None:
+        self.bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)[: self.depth_levels]
+        self.asks = sorted(asks, key=lambda x: x.get("price", 0.0))[: self.depth_levels]
+
+    def estimate_slippage(self, order_quantity: float, side: str) -> dict[str, float]:
     def update_depth(
         self,
         bids: list[dict[str, float]],
@@ -175,9 +181,6 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        """
-        Returns account balance and margin summary.
-        """
         return {
             "balance": 2500000.0,
             "equity": 2500000.0,
@@ -187,28 +190,12 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             "magic_number": self.magic_number,
         }
 
-    def update_market_depth(
-        self,
-        symbol: str,
-        bids: list[dict[str, float]],
-        asks: list[dict[str, float]],
-    ) -> None:
-        """
-        Updates L2/L5 orderbook depth buffer for the symbol.
-        """
+    def update_market_depth(self, symbol: str, bids: list[dict[str, float]], asks: list[dict[str, float]]) -> None:
         if symbol not in self.orderbook_buffers:
             self.orderbook_buffers[symbol] = OrderBookDepthBuffer()
         self.orderbook_buffers[symbol].update_depth(bids, asks)
 
-    def evaluate_execution_route(
-        self,
-        symbol: str,
-        quantity: float,
-        side: str,
-    ) -> dict[str, Any]:
-        """
-        Evaluates execution route and checks estimated slippage against thresholds.
-        """
+    def evaluate_execution_route(self, symbol: str, quantity: float, side: str) -> dict[str, Any]:
         buffer = self.orderbook_buffers.get(symbol)
         if not buffer:
             return {
@@ -329,21 +316,11 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
-        """
-        Returns list of open active orders.
-        """
         return list(self.active_orders.values())
 
     def get_history(
-        self,
-        symbol: str,
-        exchange: str = "NSE",
-        count: int = 100,
-        interval: str = "minute",
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
-        """
-        Generates historical OHLCV candles.
-        """
         now = time.time()
         bars = []
         base = 1000.0
@@ -365,14 +342,7 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             )
         return bars
 
-    def get_current_price(
-        self,
-        symbol: str,
-        exchange: str = "NSE",
-    ) -> dict[str, float]:
-        """
-        Returns last quote bid/ask/last prices.
-        """
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {
             "bid": 1000.0,
             "ask": 1000.05,
