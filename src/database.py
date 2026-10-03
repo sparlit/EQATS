@@ -300,22 +300,30 @@ def _legacy_decrypt_secret(cipher_text: Any, key_seed: Any = "EQATS_CIPHER_KEY_2
 
 def get_connection() -> Any:
     """Returns a thread-safe connection to the SQLite database with WAL journal mode and 60-second busy timeout."""
-    if config.DB_PATH == ":memory:":
-        conn = sqlite3.connect("file::memory:?cache=shared", uri=True, timeout=60.0)
-    else:
-        conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
-    conn.row_factory = sqlite3.Row
-    try:
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA busy_timeout=60000;")
-    except sqlite3.OperationalError as e:
-        _log.debug("SQLite PRAGMA WAL mode fallback: %s", e)
+    max_attempts = 5
+    for attempt in range(max_attempts):
         try:
-            conn.execute("PRAGMA journal_mode=DELETE;")
-            conn.execute("PRAGMA busy_timeout=60000;")
-        except Exception:
-            pass
-    return conn
+            if config.DB_PATH == ":memory:":
+                conn = sqlite3.connect("file::memory:?cache=shared", uri=True, timeout=60.0)
+            else:
+                conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
+            conn.row_factory = sqlite3.Row
+            try:
+                conn.execute("PRAGMA journal_mode=WAL;")
+                conn.execute("PRAGMA busy_timeout=60000;")
+            except sqlite3.OperationalError as e:
+                _log.debug("SQLite PRAGMA WAL mode fallback: %s", e)
+                try:
+                    conn.execute("PRAGMA journal_mode=DELETE;")
+                    conn.execute("PRAGMA busy_timeout=60000;")
+                except Exception:
+                    pass
+            return conn
+        except sqlite3.OperationalError as e:
+            if attempt < max_attempts - 1:
+                time.sleep(0.05 * (2**attempt))
+            else:
+                raise e
 
 
 _tick_write_counter = 0
