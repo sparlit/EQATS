@@ -166,16 +166,16 @@
       "target": "akashyadavv/algotradingnse",
       "url": "https://github.com/akashyadavv/algotradingnse",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/2941",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2940",
       "merged": true
     },
     {
       "name": "wods",
       "target": "akshaypawar7/wods",
       "url": "https://github.com/akshaypawar7/wods",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2942",
+      "merged": true
     },
     {
       "name": "get-nse-bhavcopy",

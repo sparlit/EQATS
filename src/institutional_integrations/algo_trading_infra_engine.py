@@ -76,23 +76,6 @@ class OrderBookDepthBuffer:
         self.asks = sorted(asks, key=lambda x: x.get("price", 0.0))[: self.depth_levels]
 
     def estimate_slippage(self, order_quantity: float, side: str) -> dict[str, float]:
-    def update_depth(
-        self,
-        bids: list[dict[str, float]],
-        asks: list[dict[str, float]],
-    ) -> None:
-        """
-        Updates L2/L5 bid and ask queues.
-        """
-        sorted_bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)
-        sorted_asks = sorted(asks, key=lambda x: x.get("price", 0.0))
-        self.bids = sorted_bids[: self.depth_levels]
-        self.asks = sorted_asks[: self.depth_levels]
-
-    def estimate_slippage(self, order_quantity: float, side: str) -> dict[str, float]:
-        """
-        Estimates market impact slippage percentage for a given order quantity.
-        """
         levels = self.asks if side.upper() == "BUY" else self.bids
         if not levels:
             return {"expected_price": 0.0, "slippage_pct": 0.0, "filled_quantity": 0.0}

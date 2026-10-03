@@ -1,7 +1,10 @@
 import math
 
 from .indian_instrument_scheduler import global_indian_scheduler
-from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
+from .indian_market_state_machine import (
+    global_indian_state_machine,
+    round_to_indian_tick_size,
+)
 
 "\nSEBI-Registered Broker API Adapter Module (EQATS Institutional Adaptation).\n\nProvides abstract and concrete adapter interfaces for SEBI-registered Indian stock brokers:\n- SEBIBrokerAdapter: Abstract base class for SEBI broker implementations.\n- KiteConnectAdapter: Concrete adapter for Zerodha Kite Connect API.\n- DhanHQAdapter: Concrete adapter for DhanHQ API.\n\nSupports Indian Exchange Product Tags:\n- MIS: Margin Intra-day Square-off (Intraday trading)\n- CNC: Cash and Carry (Cash equity delivery)\n- NRML: Normal (Overnight derivatives / F&O positions)\n"
 # codespell:ignore MIS,IST
