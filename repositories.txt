@@ -421,3 +421,4 @@ zen-tradings/portfolio-distiller
 zen-tradings/eia-mcp
 zen-tradings/eval_search_api
 zen-tradings/autoresearch-macos-zen
+sparlit/TradingOS
