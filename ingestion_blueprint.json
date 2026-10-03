@@ -1,5 +1,5 @@
 {
-  "current_index": 18,
+  "current_index": 20,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -149,7 +149,7 @@
       "name": "indian-trading-skills",
       "target": "ajeeshworkspace/indian-trading-skills",
       "url": "https://github.com/ajeeshworkspace/indian-trading-skills",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
@@ -157,9 +157,9 @@
       "name": "scripwatch",
       "target": "akashnag/scripwatch",
       "url": "https://github.com/akashnag/scripwatch",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/2939",
+      "merged": true
     },
     {
       "name": "algotradingnse",

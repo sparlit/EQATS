@@ -78,7 +78,7 @@ jobs:
           *.log
           council_logs/
 
-          institutional_integrations/
+          src/institutional_integrations/
           brain*.py
           predictive_brain.py
           eqats_planes.py
