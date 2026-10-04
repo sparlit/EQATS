@@ -12,16 +12,16 @@ and microkernel plugin binding.
 
 import math
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_tick_size,
     round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
+    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER_ADVANCED_NSE_MOMENTUM: int = 9100072
@@ -31,7 +31,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -59,8 +59,8 @@ class AdvancedNSEMomentumEngine:
         self.magic_number = MAGIC_NUMBER_ADVANCED_NSE_MOMENTUM
 
     def rank_sector_relative_strength_matrix(
-        self, sector_returns: Dict[str, float], benchmark_return: float
-    ) -> List[Dict[str, Any]]:
+        self, sector_returns: dict[str, float], benchmark_return: float
+    ) -> list[dict[str, Any]]:
         """
         Ranks all sector indices by Relative Strength (RS) score relative to benchmark (e.g. NIFTY 50).
         Only top performing sector indices get approved for stock entry filtering.
@@ -68,21 +68,28 @@ class AdvancedNSEMomentumEngine:
         ranked_sectors = []
         for sector_name, ret in sector_returns.items():
             rs_score = round(ret - benchmark_return, 2)
-            ranked_sectors.append({
-                "sector": sector_name.upper().strip(),
-                "sector_return": round(ret, 2),
-                "benchmark_return": round(benchmark_return, 2),
-                "rs_score": rs_score,
-                "is_approved_leadership": rs_score >= 1.0,
-            })
+            ranked_sectors.append(
+                {
+                    "sector": sector_name.upper().strip(),
+                    "sector_return": round(ret, 2),
+                    "benchmark_return": round(benchmark_return, 2),
+                    "rs_score": rs_score,
+                    "is_approved_leadership": rs_score >= 1.0,
+                }
+            )
 
         return sorted(ranked_sectors, key=lambda x: x["rs_score"], reverse=True)
 
-    def calculate_relative_strength(self, stock_prices: List[float], benchmark_prices: List[float]) -> Dict[str, Any]:
+    def calculate_relative_strength(self, stock_prices: list[float], benchmark_prices: list[float]) -> dict[str, Any]:
         """
         Calculates Mansfield Relative Strength (RS) momentum score relative to benchmark index.
         """
-        if not stock_prices or not benchmark_prices or len(stock_prices) != len(benchmark_prices) or len(stock_prices) < 2:
+        if (
+            not stock_prices
+            or not benchmark_prices
+            or len(stock_prices) != len(benchmark_prices)
+            or len(stock_prices) < 2
+        ):
             return {"rs_score": 0.0, "rs_signal": "NEUTRAL", "magic_number": self.magic_number}
 
         stock_return = ((stock_prices[-1] - stock_prices[0]) / stock_prices[0]) * 100.0
@@ -105,7 +112,7 @@ class AdvancedNSEMomentumEngine:
             "magic_number": self.magic_number,
         }
 
-    def compute_volatility_adjusted_trend(self, prices: List[float]) -> Dict[str, Any]:
+    def compute_volatility_adjusted_trend(self, prices: list[float]) -> dict[str, Any]:
         """
         Computes trend direction normalized by historical volatility (StdDev of returns).
         """
@@ -204,16 +211,18 @@ class AdvancedNSEMomentumBrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.15, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 

@@ -43,7 +43,7 @@ class IndianTradingSkillsEngine:
 
     def calculate_half_kelly_position_size(
         self, account_equity: float, price: float, win_rate_pct: float, win_loss_ratio: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculates optimal capital allocation using the Half-Kelly Criterion formula:
         f* = 0.5 * (W - ((1 - W) / R))
@@ -75,7 +75,7 @@ class IndianTradingSkillsEngine:
             "magic_number": self.magic_number,
         }
 
-    def calculate_vwap_bands(self, history_bars: List[Dict[str, Any]]) -> Dict[str, float]:
+    def calculate_vwap_bands(self, history_bars: list[dict[str, Any]]) -> dict[str, float]:
         """
         Calculates intraday Volume Weighted Average Price (VWAP) and 1.0x/2.0x StdDev bands.
         """
@@ -117,7 +117,7 @@ class IndianTradingSkillsEngine:
             "std_dev": round(std_dev, 2),
         }
 
-    def evaluate_trading_skills_setup(self, history_bars: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def evaluate_trading_skills_setup(self, history_bars: list[dict[str, Any]]) -> dict[str, Any]:
         if not history_bars or len(history_bars) < 21:
             return {"signal": "HOLD", "confidence": 0.0, "magic_number": self.magic_number}
 
@@ -165,7 +165,7 @@ class IndianTradingSkillsAdapter(SEBIBrokerAdapter):
     def __init__(self, api_key: str = "", access_token: str = "", is_sandbox: bool = False) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.engine = IndianTradingSkillsEngine()
-        self.simulated_orders: Dict[str, Dict[str, Any]] = {}
+        self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
@@ -178,15 +178,15 @@ class IndianTradingSkillsAdapter(SEBIBrokerAdapter):
         self._is_connected = False
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 2850.0, "ask": 2850.15, "last": 2850.05}
 
     def execute_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -230,7 +230,7 @@ class IndianTradingSkillsAdapter(SEBIBrokerAdapter):
             return True
         return True
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return list(self.simulated_orders.values())
 
 

@@ -4,14 +4,17 @@ Calculates Black-Scholes Greeks (Delta, Gamma, Theta, Vega, Rho, Vanna, Volga),
 Implied Volatility Newton-Raphson/Bisection solver, and multi-leg option strategy risk profiles.
 Adapted from OptionStratLib & OptionWorkstation.
 """
+
+import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any
-import math
+from typing import Any, Dict, List, Optional
+
 
 class OptionType(Enum):
-    CALL = 'CALL'
-    PUT = 'PUT'
+    CALL = "CALL"
+    PUT = "PUT"
+
 
 @dataclass
 class OptionGreeks:
@@ -24,6 +27,7 @@ class OptionGreeks:
     vanna: float
     volga: float
 
+
 @dataclass
 class OptionLeg:
     strike: float
@@ -32,24 +36,29 @@ class OptionLeg:
     implied_volatility: float
     quantity: float
 
+
 def _norm_cdf(x: float) -> float:
     """Cumulative distribution function for standard normal distribution."""
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 
+
 def _norm_pdf(x: float) -> float:
     """Probability density function for standard normal distribution."""
     return 1.0 / math.sqrt(2.0 * math.pi) * math.exp(-0.5 * x * x)
+
 
 class OptionStratGreeksEngine:
     """
     Analytical Options Pricing and Risk Analytics Engine.
     """
 
-    def __init__(self, risk_free_rate: float=0.05, magic_number: int=9400001) -> None:
+    def __init__(self, risk_free_rate: float = 0.05, magic_number: int = 9400001) -> None:
         self.risk_free_rate: float = risk_free_rate
         self.magic_number: int = magic_number
 
-    def calculate_greeks(self, spot: float, strike: float, time_to_expiry: float, iv: float, option_type: OptionType) -> OptionGreeks:
+    def calculate_greeks(
+        self, spot: float, strike: float, time_to_expiry: float, iv: float, option_type: OptionType
+    ) -> OptionGreeks:
         if time_to_expiry <= 1e-06 or iv <= 1e-06 or spot <= 0 or (strike <= 0):
             if option_type == OptionType.CALL:
                 payoff = max(0.0, spot - strike)
@@ -57,7 +66,9 @@ class OptionStratGreeksEngine:
             else:
                 payoff = max(0.0, strike - spot)
                 delta = -1.0 if strike > spot else 0.0
-            return OptionGreeks(price=payoff, delta=delta, gamma=0.0, theta=0.0, vega=0.0, rho=0.0, vanna=0.0, volga=0.0)
+            return OptionGreeks(
+                price=payoff, delta=delta, gamma=0.0, theta=0.0, vega=0.0, rho=0.0, vanna=0.0, volga=0.0
+            )
         r = self.risk_free_rate
         t = time_to_expiry
         sigma = max(0.0001, iv)
@@ -82,9 +93,20 @@ class OptionStratGreeksEngine:
         vega = spot * pdf_d1 * math.sqrt(t) / 100.0
         vanna = -pdf_d1 * d2 / sigma
         volga = vega * d1 * d2 / sigma
-        return OptionGreeks(price=price, delta=delta, gamma=gamma, theta=theta / 365.0, vega=vega, rho=rho, vanna=vanna, volga=volga)
+        return OptionGreeks(
+            price=price, delta=delta, gamma=gamma, theta=theta / 365.0, vega=vega, rho=rho, vanna=vanna, volga=volga
+        )
 
-    def solve_implied_volatility(self, target_market_price: float, spot: float, strike: float, time_to_expiry: float, option_type: OptionType, max_iterations: int=100, precision: float=1e-05) -> float:
+    def solve_implied_volatility(
+        self,
+        target_market_price: float,
+        spot: float,
+        strike: float,
+        time_to_expiry: float,
+        option_type: OptionType,
+        max_iterations: int = 100,
+        precision: float = 1e-05,
+    ) -> float:
         iv = 0.25
         for _ in range(max_iterations):
             greeks = self.calculate_greeks(spot, strike, time_to_expiry, iv, option_type)
@@ -109,17 +131,25 @@ class OptionStratGreeksEngine:
                 high_iv = mid_iv
         return (low_iv + high_iv) / 2.0
 
-    def evaluate_multi_leg_strategy(self, spot: float, legs: List[OptionLeg]) -> Dict[str, float]:
+    def evaluate_multi_leg_strategy(self, spot: float, legs: list[OptionLeg]) -> dict[str, float]:
         net_price = 0.0
         net_delta = 0.0
         net_gamma = 0.0
         net_theta = 0.0
         net_vega = 0.0
         for leg in legs:
-            g = self.calculate_greeks(spot, leg.strike, leg.time_to_expiry_years, leg.implied_volatility, leg.option_type)
+            g = self.calculate_greeks(
+                spot, leg.strike, leg.time_to_expiry_years, leg.implied_volatility, leg.option_type
+            )
             net_price += g.price * leg.quantity
             net_delta += g.delta * leg.quantity
             net_gamma += g.gamma * leg.quantity
             net_theta += g.theta * leg.quantity
             net_vega += g.vega * leg.quantity
-        return {'net_premium_cost': net_price, 'net_delta': net_delta, 'net_gamma': net_gamma, 'net_theta': net_theta, 'net_vega': net_vega}
+        return {
+            "net_premium_cost": net_price,
+            "net_delta": net_delta,
+            "net_gamma": net_gamma,
+            "net_theta": net_theta,
+            "net_vega": net_vega,
+        }

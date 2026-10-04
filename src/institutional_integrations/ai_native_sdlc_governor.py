@@ -195,10 +195,12 @@ class AINativeSDLCGovernor:
         """Initializes AINativeSDLCGovernor."""
         self.current_phase: str = "PLAN"
         self.ledger: GateLedger = GateLedger()
-        self.monitor: ControlBandMonitor = ControlBandMonitor([
-            ControlBandRule("DRAWDOWN_PCT", target_value=0.0, one_sigma=0.5, two_sigma=1.0, three_sigma=2.0),
-            ControlBandRule("SLIPPAGE_BPS", target_value=5.0, one_sigma=10.0, two_sigma=20.0, three_sigma=50.0),
-        ])
+        self.monitor: ControlBandMonitor = ControlBandMonitor(
+            [
+                ControlBandRule("DRAWDOWN_PCT", target_value=0.0, one_sigma=0.5, two_sigma=1.0, three_sigma=2.0),
+                ControlBandRule("SLIPPAGE_BPS", target_value=5.0, one_sigma=10.0, two_sigma=20.0, three_sigma=50.0),
+            ]
+        )
         self.artifacts: dict[str, str] = {}
         self.generated_intents: list[dict[str, Any]] = []
 
@@ -276,7 +278,9 @@ class AINativeSDLCGovernor:
         self.ledger.record_approval("INCIDENT_INTENT_CREATED", "MONITOR_AGENT", "CREATED", intent_data)
         return intent_data
 
-    def evaluate_ci_eval_suite(self, eval_results: list[dict[str, Any]], min_pass_rate_pct: float = 90.0) -> dict[str, Any]:
+    def evaluate_ci_eval_suite(
+        self, eval_results: list[dict[str, Any]], min_pass_rate_pct: float = 90.0
+    ) -> dict[str, Any]:
         """Evaluates continuous CI eval suite benchmarks before merging or deploying (Stage 4 Test)."""
         total = max(1, len(eval_results))
         passed = sum(1 for e in eval_results if e.get("passed", False))
@@ -443,9 +447,7 @@ class AINativeSDLCBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
-    ) -> bool:
+    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         """Modifies order parameters."""
         return True
 
@@ -470,9 +472,7 @@ class AINativeSDLCBrokerAdapter(SEBIBrokerAdapter):
         """Gets price history for symbol."""
         return []
 
-    def get_current_price(
-        self, symbol: str, exchange: str = "NSE"
-    ) -> dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         """Gets current bid/ask quote."""
         return {"bid": 100.0, "ask": 100.05, "last": 100.0}
 
@@ -482,6 +482,4 @@ class AINativeSDLCBrokerAdapter(SEBIBrokerAdapter):
 
 
 # Register adapter into microkernel plugin registry
-IndianBrokerPluginRegistry.register(
-    "AI_NATIVE_SDLC_GOVERNOR", AINativeSDLCBrokerAdapter
-)
+IndianBrokerPluginRegistry.register("AI_NATIVE_SDLC_GOVERNOR", AINativeSDLCBrokerAdapter)

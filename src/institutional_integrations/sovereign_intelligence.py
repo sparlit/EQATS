@@ -7,13 +7,7 @@ try:
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-logger = logging.getLogger('SovereignIntelligence')
-
-
-
-
-
-
+logger = logging.getLogger("SovereignIntelligence")
 
 
 class SovereignIntelligencePlugin:
@@ -26,8 +20,8 @@ class SovereignIntelligencePlugin:
     def __init__(self, max_equity_risk: float = 0.01):
         self.max_equity_risk = max_equity_risk
 
-    def detect_order_blocks(self, df_or_bars: Any) -> List[Dict[str, Any]]:
-        blocks: List[Dict[str, Any]] = []
+    def detect_order_blocks(self, df_or_bars: Any) -> list[dict[str, Any]]:
+        blocks: list[dict[str, Any]] = []
         if PANDAS_AVAILABLE and isinstance(df_or_bars, pd.DataFrame):
             df = df_or_bars
             if len(df) < 5:
@@ -59,27 +53,27 @@ class SovereignIntelligencePlugin:
             curr_low = l.iloc[-1]
             curr_close = c.iloc[-1]
             if curr_high > recent_high and curr_close < recent_high:
-                return 'BEARISH_GRAB'
-            elif curr_low < recent_low and curr_close > recent_low:
-                return 'BULLISH_GRAB'
-        return 'NONE'
+                return "BEARISH_GRAB"
+            if curr_low < recent_low and curr_close > recent_low:
+                return "BULLISH_GRAB"
+        return "NONE"
 
-    def analyze_market_signal(self, symbol: str, df_or_bars: Any, equity: float=10000.0) -> Dict[str, Any]:
+    def analyze_market_signal(self, symbol: str, df_or_bars: Any, equity: float = 10000.0) -> dict[str, Any]:
         obs = self.detect_order_blocks(df_or_bars)
         grab = self.detect_liquidity_grab(df_or_bars)
-        signal = 'NEUTRAL'
+        signal = "NEUTRAL"
         confidence = 0.5
-        if grab == 'BULLISH_GRAB':
-            signal = 'BUY'
+        if grab == "BULLISH_GRAB":
+            signal = "BUY"
             confidence = 0.85
-        elif grab == 'BEARISH_GRAB':
-            signal = 'SELL'
+        elif grab == "BEARISH_GRAB":
+            signal = "SELL"
             confidence = 0.85
         elif len(obs) > 0:
             last_ob = obs[-1]
-            signal = 'BUY' if last_ob['type'] == 'BULLISH_OB' else 'SELL'
+            signal = "BUY" if last_ob["type"] == "BULLISH_OB" else "SELL"
             confidence = 0.75
-        pip_size = 0.01 if 'JPY' in symbol.upper() else 0.0001
+        pip_size = 0.01 if "JPY" in symbol.upper() else 0.0001
         atr_dist = pip_size * 20.0
         risk_amount = equity * self.max_equity_risk
         recommended_lot = round(max(0.01, min(risk_amount / (atr_dist * 100000), 50.0)), 2)

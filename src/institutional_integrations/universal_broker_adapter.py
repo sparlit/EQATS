@@ -98,14 +98,12 @@ class UniversalBrokerGateway:
         self.fix_engine = None
         if self.protocol not in self.SUPPORTED_PROTOCOLS:
             _log.error(
-                "UniversalBrokerGateway: Unsupported protocol '%s' specified. "
-                "Supported protocols: %s",
+                "UniversalBrokerGateway: Unsupported protocol '%s' specified. Supported protocols: %s",
                 self.protocol,
                 ", ".join(self.SUPPORTED_PROTOCOLS),
             )
             raise ValueError(
-                f"Unsupported protocol '{self.protocol}'. "
-                f"Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}",
+                f"Unsupported protocol '{self.protocol}'. Supported protocols: {', '.join(self.SUPPORTED_PROTOCOLS)}",
             )
 
         # Configurable retry backoff delay (Round 3 FLAW-001)
@@ -172,25 +170,20 @@ class UniversalBrokerGateway:
 
             # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure
             is_allowed_http = any(
-                self.rest_url.startswith(prefix)
-                for prefix in ("http://127.0.0.1", "http://localhost")
+                self.rest_url.startswith(prefix) for prefix in ("http://127.0.0.1", "http://localhost")
             )
-            if self.rest_url and not (
-                self.rest_url.startswith("https://") or is_allowed_http
-            ):
+            if self.rest_url and not (self.rest_url.startswith("https://") or is_allowed_http):
                 _log.error(
                     "UniversalBrokerGateway: REST endpoint must use HTTPS. Rejecting insecure URL: %s",
                     self.rest_url,
                 )
                 raise ValueError(
-                    f"REST endpoint must use HTTPS for secure transmission. "
-                    f"Insecure URL rejected: {self.rest_url}",
+                    f"REST endpoint must use HTTPS for secure transmission. Insecure URL rejected: {self.rest_url}",
                 )
 
             if self.ws_url and not self.ws_url.startswith("wss://"):
                 _log.warning(
-                    "UniversalBrokerGateway: WebSocket endpoint should use WSS (secure). "
-                    "Insecure WS URL detected: %s",
+                    "UniversalBrokerGateway: WebSocket endpoint should use WSS (secure). Insecure WS URL detected: %s",
                     self.ws_url,
                 )
 
@@ -236,11 +229,7 @@ class UniversalBrokerGateway:
         # This is a common pattern used by institutional broker APIs
         signature_payload = f"{method}{endpoint}{timestamp}"
         if body_data:
-            signature_payload += (
-                body_data.decode("utf-8")
-                if isinstance(body_data, bytes)
-                else str(body_data)
-            )
+            signature_payload += body_data.decode("utf-8") if isinstance(body_data, bytes) else str(body_data)
 
         # Generate HMAC-SHA256 signature
         signature = hmac.new(
@@ -322,8 +311,7 @@ class UniversalBrokerGateway:
                     self.max_response_bytes,
                 )
                 raise ValueError(
-                    f"Response size {total_bytes} bytes exceeds maximum allowed "
-                    f"{self.max_response_bytes} bytes",
+                    f"Response size {total_bytes} bytes exceeds maximum allowed {self.max_response_bytes} bytes",
                 )
 
             chunks.append(chunk)
@@ -427,8 +415,7 @@ class UniversalBrokerGateway:
 
         # Reject unsupported protocols to prevent fail-open fallback
         _log.error(
-            "UniversalBrokerGateway: Unsupported protocol '%s'. "
-            "Supported protocols: %s. Connection rejected.",
+            "UniversalBrokerGateway: Unsupported protocol '%s'. Supported protocols: %s. Connection rejected.",
             self.protocol,
             ", ".join(self.SUPPORTED_PROTOCOLS),
         )
@@ -521,21 +508,9 @@ class UniversalBrokerGateway:
                 profile = database.get_broker_profile(key_candidate)
                 if profile:
                     break
-        vol_min = (
-            float(profile["volume_min"])
-            if profile and "volume_min" in profile
-            else 0.01
-        )
-        vol_max = (
-            float(profile["volume_max"])
-            if profile and "volume_max" in profile
-            else 100.0
-        )
-        vol_step = (
-            float(profile["volume_step"])
-            if profile and "volume_step" in profile
-            else 0.01
-        )
+        vol_min = float(profile["volume_min"]) if profile and "volume_min" in profile else 0.01
+        vol_max = float(profile["volume_max"]) if profile and "volume_max" in profile else 100.0
+        vol_step = float(profile["volume_step"]) if profile and "volume_step" in profile else 0.01
         if self.protocol == "MT5":
             try:
                 import MetaTrader5 as mt5
@@ -789,11 +764,7 @@ class UniversalBrokerGateway:
                 res["product"] = validated_product
             return res
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             # Generate stable client_order_id for idempotent retry
             client_order_id = f"EQATS_{uuid.uuid4().hex[:16]}_{int(time.time() * 1000)}"
 
@@ -1138,9 +1109,7 @@ class UniversalBrokerGateway:
                 symbol = pos.symbol
                 lot_size = pos.volume
                 direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
-                close_type = (
-                    mt5.ORDER_TYPE_SELL if direction == "BUY" else mt5.ORDER_TYPE_BUY
-                )
+                close_type = mt5.ORDER_TYPE_SELL if direction == "BUY" else mt5.ORDER_TYPE_BUY
                 price_info = mt5.symbol_info_tick(symbol)
                 close_price = price_info.bid if direction == "BUY" else price_info.ask
                 request = {
@@ -1184,11 +1153,7 @@ class UniversalBrokerGateway:
                     "error": str(e),
                 }
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             payload = json.dumps({"ticket": str(ticket), "reason": reason}).encode(
                 "utf-8",
             )
@@ -1328,11 +1293,7 @@ class UniversalBrokerGateway:
                 self._breaker.record_failure(e)
                 return False
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             payload = json.dumps({"ticket": str(ticket), "sl": sl, "tp": tp}).encode(
                 "utf-8",
             )
@@ -1427,9 +1388,7 @@ class UniversalBrokerGateway:
                 orders_list = []
                 for pos in positions:
                     if getattr(pos, "magic", 0) == 998822:
-                        direction = (
-                            "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
-                        )
+                        direction = "BUY" if pos.type == mt5.POSITION_TYPE_BUY else "SELL"
                         orders_list.append(
                             {
                                 "ticket": str(pos.ticket),
@@ -1450,11 +1409,7 @@ class UniversalBrokerGateway:
                 )
                 return []
 
-        if (
-            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
-            and hasattr(self, "rest_url")
-            and self.rest_url
-        ):
+        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
             # Generate authenticated headers for GET request
             endpoint = "/v1/orders"
             headers = self._generate_auth_headers(

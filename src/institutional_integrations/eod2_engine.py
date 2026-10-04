@@ -12,16 +12,16 @@ IST market session validation, and microkernel plugin binding.
 
 import math
 import zoneinfo
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_tick_size,
     round_to_indian_quantity,
-    IndianBrokerPluginRegistry,
+    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER_EOD2: int = 9100073
@@ -31,7 +31,7 @@ def round_tick_005(price: float) -> float:
     return round_to_indian_tick_size(price)
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -66,11 +66,16 @@ class EOD2Engine:
             return 0.0
         return round((stock_close / index_close) * 100.0, 2)
 
-    def compute_mansfield_rs(self, stock_closes: List[float], index_closes: List[float]) -> Dict[str, Any]:
+    def compute_mansfield_rs(self, stock_closes: list[float], index_closes: list[float]) -> dict[str, Any]:
         """
         Calculates Mansfield Relative Strength over rolling period.
         """
-        if not stock_closes or not index_closes or len(stock_closes) < self.period or len(stock_closes) != len(index_closes):
+        if (
+            not stock_closes
+            or not index_closes
+            or len(stock_closes) < self.period
+            or len(stock_closes) != len(index_closes)
+        ):
             return {"mansfield_rs": 0.0, "signal": "NEUTRAL", "magic_number": self.magic_number}
 
         rs_series = [self.compute_dorsey_rs(stock_closes[i], index_closes[i]) for i in range(len(stock_closes))]
@@ -95,7 +100,7 @@ class EOD2Engine:
             "magic_number": self.magic_number,
         }
 
-    def evaluate_market_breadth(self, stock_snapshots: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def evaluate_market_breadth(self, stock_snapshots: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Evaluates market breadth metrics: % above MA50, % above MA200, 52WH count, 52WL count.
         """
@@ -210,16 +215,18 @@ class EOD2BrokerAdapter(SEBIBrokerAdapter):
     def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": True}
 
-    def get_history(self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute") -> List[Dict[str, Any]]:
+    def get_history(
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 500.0, "ask": 500.15, "last": 500.05}
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
