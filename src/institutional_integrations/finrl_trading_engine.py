@@ -8,10 +8,9 @@ Magic Number: 9100033
 """
 
 import logging
-import sys
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -60,7 +59,9 @@ class FinRLTradingEngine:
         self.current_capital = initial_capital
         self.magic_number = MAGIC_NUMBER_FINRL_TRADING
 
-    def evaluate_drl_portfolio_weights(self, asset_features: dict[str, dict[str, float]]) -> dict[str, float]:
+    def evaluate_drl_portfolio_weights(
+        self, asset_features: dict[str, dict[str, float]]
+    ) -> dict[str, float]:
         """
         Calculates ensemble portfolio weights using multi-factor signals (Technical, TSMOM, Fundamental).
         """
@@ -151,7 +152,9 @@ class FinRLTradingBrokerAdapter(SEBIBrokerAdapter):
             "capital": self.engine.current_capital,
         }
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -194,10 +197,14 @@ class FinRLTradingBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger("FinterionAdapter")
 
@@ -69,7 +69,10 @@ class FinterionPortfolioProvider:
         self.positions: dict[str, FinterionPosition] = {}
 
     def sync_portfolio(
-        self, current_balance: float, open_trades: list[dict[str, Any]], current_prices: dict[str, float]
+        self,
+        current_balance: float,
+        open_trades: list[dict[str, Any]],
+        current_prices: dict[str, float],
     ) -> FinterionPortfolio:
         """Synchronizes open position records and computes total portfolio equity."""
         with self.lock:
@@ -82,7 +85,9 @@ class FinterionPortfolioProvider:
                 entry_price = float(trade.get("open_price", 1.0))
                 direction = trade.get("direction", "BUY")
                 curr_price = current_prices.get(sym, entry_price)
-                p_diff = curr_price - entry_price if direction == "BUY" else entry_price - curr_price
+                p_diff = (
+                    curr_price - entry_price if direction == "BUY" else entry_price - curr_price
+                )
                 mult = 100000.0 if "JPY" not in sym else 1000.0
                 unrealized_pnl = p_diff * amount * mult
                 total_unrealized_pnl += unrealized_pnl
@@ -128,7 +133,11 @@ class FinterionOrderExecutor:
         self.order_counter += 1
         order_id = f"FINT_{self.order_counter}_{int(time.time())}"
         return FinterionOrderResponse(
-            order_id=order_id, symbol=req.symbol, status="EXECUTED", filled_amount=req.amount, fill_price=req.price
+            order_id=order_id,
+            symbol=req.symbol,
+            status="EXECUTED",
+            filled_amount=req.amount,
+            fill_price=req.price,
         )
 
 
@@ -142,7 +151,9 @@ class FinterionPingHook:
         self.last_ping_timestamp: float = 0.0
         self.ping_count: int = 0
 
-    def emit_ping(self, status: str = "ACTIVE", active_strategy: str = "MULTI_STRATEGY") -> dict[str, Any]:
+    def emit_ping(
+        self, status: str = "ACTIVE", active_strategy: str = "MULTI_STRATEGY"
+    ) -> dict[str, Any]:
         """Emits algorithm status heartbeat."""
         now = time.time()
         self.last_ping_timestamp = now

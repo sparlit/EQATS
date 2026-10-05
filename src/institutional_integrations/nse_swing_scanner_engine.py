@@ -10,21 +10,17 @@ and volume expansion filters for NSE equities and F&O stocks with 0.05 INR tick 
 Assigned Magic Number: 9100012
 """
 
-import json
 import logging
-import math
 import time
-import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
+from .indian_market_state_machine import round_to_indian_tick_size
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
     generate_indian_market_history_bars,
-    round_to_indian_quantity,
     validate_indian_product_tag,
 )
 
@@ -107,7 +103,9 @@ class NSESwingScannerEngine:
             "magic_number": self.magic_number,
         }
 
-    def calculate_supertrend(self, highs: list[float], lows: list[float], closes: list[float]) -> dict[str, Any]:
+    def calculate_supertrend(
+        self, highs: list[float], lows: list[float], closes: list[float]
+    ) -> dict[str, Any]:
         """
         Calculates Supertrend trailing channel line and trend direction.
         """
@@ -117,9 +115,14 @@ class NSESwingScannerEngine:
 
         n = len(closes)
         tr_list = [
-            max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])) for i in range(1, n)
+            max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+            for i in range(1, n)
         ]
-        atr = sum(tr_list[-self.supertrend_period :]) / float(self.supertrend_period) if tr_list else 5.0
+        atr = (
+            sum(tr_list[-self.supertrend_period :]) / float(self.supertrend_period)
+            if tr_list
+            else 5.0
+        )
 
         hl2 = (highs[-1] + lows[-1]) / 2.0
         upper_band = hl2 + (self.supertrend_multiplier * atr)
@@ -129,7 +132,11 @@ class NSESwingScannerEngine:
         trend = "BULLISH" if current_close >= lower_band else "BEARISH"
         st_val = lower_band if trend == "BULLISH" else upper_band
 
-        return {"supertrend": round_to_indian_tick_size(st_val), "trend": trend, "atr": round(atr, 2)}
+        return {
+            "supertrend": round_to_indian_tick_size(st_val),
+            "trend": trend,
+            "atr": round(atr, 2),
+        }
 
     def scan_swing_setup(self, history_bars: list[dict[str, Any]]) -> dict[str, Any]:
         if not history_bars or len(history_bars) < 30:
@@ -194,7 +201,12 @@ class NSESwingScannerAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -228,17 +240,30 @@ class NSESwingScannerAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
-            raw_response={"status": True, "ticket": ticket, "magic_number": MAGIC_NUMBER_NSE_SWING_SCANNER},
+            raw_response={
+                "status": True,
+                "ticket": ticket,
+                "magic_number": MAGIC_NUMBER_NSE_SWING_SCANNER,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

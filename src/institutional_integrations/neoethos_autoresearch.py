@@ -12,7 +12,7 @@ Provides:
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -54,7 +54,10 @@ class NeoethosAutoResearchEngine:
         self.config = config or ResearchObjectiveConfig()
 
     def evaluate_hypothesis(
-        self, returns: list[float], transaction_costs_bps: float = 2.0, hypothesis_id: str = "HYP_001"
+        self,
+        returns: list[float],
+        transaction_costs_bps: float = 2.0,
+        hypothesis_id: str = "HYP_001",
     ) -> ResearchHypothesisResult:
         """Evaluates a quantitative strategy hypothesis using T-Stat, Cost-Edge, and In-Market Fitness."""
         if not returns or len(returns) < 5:
@@ -94,7 +97,12 @@ class NeoethosAutoResearchEngine:
             in_market_fitness=in_market_fitness,
             combined_score=combined_score,
             passed=passed,
-            metrics={"mean_return": mean_ret, "std_return": std_ret, "win_rate": win_rate, "sharpe_ratio": ann_sharpe},
+            metrics={
+                "mean_return": mean_ret,
+                "std_return": std_ret,
+                "win_rate": win_rate,
+                "sharpe_ratio": ann_sharpe,
+            },
         )
 
     def run_feature_shuffle_experiment(
@@ -109,7 +117,9 @@ class NeoethosAutoResearchEngine:
             rng.shuffle(returns_copy)
             res = self.evaluate_hypothesis(returns_copy, hypothesis_id="SHUFFLED")
             shuffled_scores.append(res.combined_score)
-        p_value = np.sum(np.array(shuffled_scores) >= original_result.combined_score) / float(num_shuffles)
+        p_value = np.sum(np.array(shuffled_scores) >= original_result.combined_score) / float(
+            num_shuffles
+        )
         return {
             "original_combined_score": original_result.combined_score,
             "shuffled_mean_score": float(np.mean(shuffled_scores)),
@@ -129,7 +139,8 @@ class NeoethosAutoResearchEngine:
         combined_returns = []
         for bar_idx in range(num_bars):
             bar_weighted_signal = sum(
-                strategy_signals[strat][bar_idx] * weights.get(strat, 1.0) for strat in strategy_signals
+                strategy_signals[strat][bar_idx] * weights.get(strat, 1.0)
+                for strat in strategy_signals
             )
             combined_returns.append(bar_weighted_signal)
         returns_arr = np.array(combined_returns)

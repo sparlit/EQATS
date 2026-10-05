@@ -218,7 +218,9 @@ class ScalperGui:
             database.init_db()
         except Exception as e:
             print(f"Warning: Database initialization error: {e}")
-        self.root.title("ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4) - QUANTUM TERMINAL")
+        self.root.title(
+            "ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4) - QUANTUM TERMINAL"
+        )
         self.root.geometry("1200x800")
         self.root.minsize(1050, 650)
         if not self._show_login_dialog():
@@ -234,7 +236,9 @@ class ScalperGui:
         self.root.configure(bg=self.bg_dark)
         self.style = ttk.Style()
         self.style.theme_use("clam")
-        self.style.configure(".", background=self.bg_dark, foreground=self.fg_light, fieldbackground=self.bg_dark)
+        self.style.configure(
+            ".", background=self.bg_dark, foreground=self.fg_light, fieldbackground=self.bg_dark
+        )
         self.style.configure(
             "Treeview",
             background=self.bg_card,
@@ -244,7 +248,11 @@ class ScalperGui:
             borderwidth=1,
             rowheight=25,
         )
-        self.style.map("Treeview", background=[("selected", self.fg_accent)], foreground=[("selected", "#000000")])
+        self.style.map(
+            "Treeview",
+            background=[("selected", self.fg_accent)],
+            foreground=[("selected", "#000000")],
+        )
         self.style.configure(
             "Treeview.Heading",
             background="#1c1c1c",
@@ -262,7 +270,9 @@ class ScalperGui:
             borderwidth=1,
         )
         self.style.map(
-            "TNotebook.Tab", background=[("selected", self.bg_dark)], foreground=[("selected", self.fg_green)]
+            "TNotebook.Tab",
+            background=[("selected", self.bg_dark)],
+            foreground=[("selected", self.fg_green)],
         )
         self.scalper = main.AutonomousScalper()
         self.bot_thread = None
@@ -320,7 +330,9 @@ class ScalperGui:
 
     def _build_console_panel(self) -> None:
         """Creates a gorgeous, real-time scrollable system console panel on the bottom side of the dashboard"""
-        console_frame = tk.Frame(self.root, bg=self.bg_dark, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        console_frame = tk.Frame(
+            self.root, bg=self.bg_dark, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         console_frame.pack(fill=tk.X, side=tk.BOTTOM, padx=20, pady=(5, 5))
         lbl_title = tk.Label(
             console_frame,
@@ -375,7 +387,9 @@ class ScalperGui:
             fg=self.fg_accent,
         )
         title_label.pack(side=tk.LEFT)
-        self.badge_text = tk.StringVar(value="SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED")
+        self.badge_text = tk.StringVar(
+            value="SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED"
+        )
         self.badge_label = tk.Label(
             header_frame,
             textvariable=self.badge_text,
@@ -388,7 +402,11 @@ class ScalperGui:
         )
         self.badge_label.pack(side=tk.RIGHT, pady=5)
         lbl_tab = tk.Label(
-            header_frame, text="TERMINAL SHEET:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey
+            header_frame,
+            text="TERMINAL SHEET:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
         )
         lbl_tab.pack(side=tk.RIGHT, padx=(15, 5))
         self.tab_selector_var = tk.StringVar(value="POLY")
@@ -446,7 +464,11 @@ class ScalperGui:
             header_frame, self.tab_selector_var, *self.tab_list, command=self.on_global_tab_change
         )
         self.tab_selector_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         self.tab_selector_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         self.tab_selector_menu.pack(side=tk.RIGHT, padx=5)
@@ -456,7 +478,11 @@ class ScalperGui:
         cmd_frame = tk.Frame(self.root, bg=self.bg_dark, pady=5, padx=20)
         cmd_frame.pack(fill=tk.X)
         self.lbl_prompt = tk.Label(
-            cmd_frame, text="EQATS >", font=("Consolas", 11, "bold"), bg=self.bg_dark, fg=self.fg_green
+            cmd_frame,
+            text="EQATS >",
+            font=("Consolas", 11, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_green,
         )
         self.lbl_prompt.pack(side=tk.LEFT)
         self.cmd_entry = tk.Entry(
@@ -523,7 +549,13 @@ class ScalperGui:
     def _build_session_timeline_panel(self) -> None:
         """Builds a single-row, 4-column EQATS session timeline panel"""
         self.timeline_frame = tk.Frame(
-            self.root, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=6, highlightbackground="#2d2d2d"
+            self.root,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=6,
+            highlightbackground="#2d2d2d",
         )
         self.timeline_frame.pack(fill=tk.X, padx=20, pady=5)
         row_single = tk.Frame(self.timeline_frame, bg=self.bg_card)
@@ -531,10 +563,20 @@ class ScalperGui:
         col1 = tk.Frame(row_single, bg=self.bg_card)
         col1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
         tk.Label(
-            col1, text="[CURRENT SESSION]", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_green, anchor="w"
+            col1,
+            text="[CURRENT SESSION]",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_green,
+            anchor="w",
         ).pack(fill=tk.X)
         self.lbl_act_val = tk.Label(
-            col1, text="No active sessions", font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#ffffff", anchor="w"
+            col1,
+            text="No active sessions",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg="#ffffff",
+            anchor="w",
         )
         self.lbl_act_val.pack(fill=tk.X, expand=True)
         col2 = tk.Frame(row_single, bg=self.bg_card)
@@ -548,22 +590,42 @@ class ScalperGui:
             anchor="w",
         ).pack(fill=tk.X)
         self.lbl_ovl_val = tk.Label(
-            col2, text="None", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_cyan, anchor="w"
+            col2,
+            text="None",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_cyan,
+            anchor="w",
         )
         self.lbl_ovl_val.pack(fill=tk.X, expand=True)
         col3 = tk.Frame(row_single, bg=self.bg_card)
         col3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
         tk.Label(
-            col3, text="[COMING SESSION]", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent, anchor="w"
+            col3,
+            text="[COMING SESSION]",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+            anchor="w",
         ).pack(fill=tk.X)
         self.lbl_upc_val = tk.Label(
-            col3, text="None", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_accent, anchor="w"
+            col3,
+            text="None",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_accent,
+            anchor="w",
         )
         self.lbl_upc_val.pack(fill=tk.X, expand=True)
         col4 = tk.Frame(row_single, bg=self.bg_card)
         col4.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4)
         tk.Label(
-            col4, text="[CLOSED SESSION]", font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_grey, anchor="w"
+            col4,
+            text="[CLOSED SESSION]",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg=self.fg_grey,
+            anchor="w",
         ).pack(fill=tk.X)
         self.lbl_cls_val = tk.Label(
             col4, text="None", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_grey, anchor="w"
@@ -589,23 +651,43 @@ class ScalperGui:
             ribbon_frame, "6) FLOATING PnL <GO>", "$0.00 USD", 5, value_color=self.fg_green
         )
 
-    def _create_card(self, parent: Any, label_text: Any, val_text: Any, column: Any, value_color: Any = None) -> Any:
+    def _create_card(
+        self, parent: Any, label_text: Any, val_text: Any, column: Any, value_color: Any = None
+    ) -> Any:
         card = tk.Frame(
-            parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", highlightcolor="#2d2d2d"
+            parent,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            highlightcolor="#2d2d2d",
         )
         card.grid(row=0, column=column, padx=10, pady=5, sticky="ew")
         parent.columnconfigure(column, weight=1)
-        lbl = tk.Label(card, text=label_text.upper(), font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888")
+        lbl = tk.Label(
+            card,
+            text=label_text.upper(),
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_card,
+            fg="#888888",
+        )
         lbl.pack(anchor="w", padx=15, pady=(10, 2))
         val_color = value_color or self.fg_light
-        val = tk.Label(card, text=val_text, font=("Consolas", 14, "bold"), bg=self.bg_card, fg=val_color)
+        val = tk.Label(
+            card, text=val_text, font=("Consolas", 14, "bold"), bg=self.bg_card, fg=val_color
+        )
         val.pack(anchor="w", padx=15, pady=(0, 10))
         return val
 
     def _build_controls_bar(self) -> None:
         """Action Buttons Controls Banner"""
         ctrl_frame = tk.Frame(
-            self.root, bg=self.bg_card, height=60, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+            self.root,
+            bg=self.bg_card,
+            height=60,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
         )
         ctrl_frame.pack(fill=tk.X, side=tk.BOTTOM, ipady=10)
         self.btn_start = tk.Button(
@@ -721,7 +803,13 @@ class ScalperGui:
             command=self.exit_system,
         )
         self.btn_exit_system.pack(side=tk.RIGHT, padx=(10, 20), pady=10)
-        strat_lbl = tk.Label(ctrl_frame, text="STRATEGY:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
+        strat_lbl = tk.Label(
+            ctrl_frame,
+            text="STRATEGY:",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_card,
+            fg="#888888",
+        )
         strat_lbl.pack(side=tk.LEFT, padx=(10, 5), pady=15)
         self.strat_var = tk.StringVar(value=config.ACTIVE_STRATEGY)
         self.strat_menu = tk.OptionMenu(
@@ -756,7 +844,9 @@ class ScalperGui:
         )
         self.strat_menu["menu"].config(bg="#242424", fg=self.fg_accent)
         self.strat_menu.pack(side=tk.LEFT, padx=5, pady=15)
-        style_lbl = tk.Label(ctrl_frame, text="STYLE:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888")
+        style_lbl = tk.Label(
+            ctrl_frame, text="STYLE:", font=("Consolas", 9, "bold"), bg=self.bg_card, fg="#888888"
+        )
         style_lbl.pack(side=tk.LEFT, padx=(15, 5), pady=15)
         self.style_var = tk.StringVar(value=config.TRADING_STYLE)
         self.style_menu = tk.OptionMenu(
@@ -798,7 +888,11 @@ class ScalperGui:
         )
         self.btn_toggle_mode.pack(side=tk.RIGHT, padx=20, pady=10)
         self.lbl_clock = tk.Label(
-            ctrl_frame, text="Last update: Never", font=("Consolas", 9), bg=self.bg_card, fg="#888888"
+            ctrl_frame,
+            text="Last update: Never",
+            font=("Consolas", 9),
+            bg=self.bg_card,
+            fg="#888888",
         )
         self.lbl_clock.pack(side=tk.RIGHT, padx=10, pady=15)
 
@@ -813,7 +907,9 @@ class ScalperGui:
     def _show_login_dialog(self) -> Any:
         """Displays a secure, full-screen, vibrant EQATS Quantum Terminal login gateway with Matrix digital rain animation and rich metadata."""
         login_win = tk.Toplevel()
-        login_win.title("SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4)")
+        login_win.title(
+            "SECURE GATEWAY — ELITE QUANTUM AUTONOMOUS TRADING SYSTEM (EQATS VERSION 8.4)"
+        )
         login_win.configure(bg="#000000")
         login_win.attributes("-topmost", True)
         try:
@@ -908,17 +1004,32 @@ class ScalperGui:
                                 char = random.choice(char_set)
                                 col = random.choice(colors) if random.random() > 0.2 else "#ffffff"
                                 matrix_canvas.create_text(
-                                    x, ty, text=char, fill=col, font=("Consolas", 12, "bold"), tags="matrix_char"
+                                    x,
+                                    ty,
+                                    text=char,
+                                    fill=col,
+                                    font=("Consolas", 12, "bold"),
+                                    tags="matrix_char",
                                 )
                             elif trail == 1:
                                 char = random.choice(char_set)
                                 matrix_canvas.create_text(
-                                    x, ty, text=char, fill="#00bb55", font=("Consolas", 11), tags="matrix_char"
+                                    x,
+                                    ty,
+                                    text=char,
+                                    fill="#00bb55",
+                                    font=("Consolas", 11),
+                                    tags="matrix_char",
                                 )
                             else:
                                 char = random.choice(char_set)
                                 matrix_canvas.create_text(
-                                    x, ty, text=char, fill="#004411", font=("Consolas", 10), tags="matrix_char"
+                                    x,
+                                    ty,
+                                    text=char,
+                                    fill="#004411",
+                                    font=("Consolas", 10),
+                                    tags="matrix_char",
                                 )
                     if y > ch + 60 and random.random() > 0.9:
                         drops[i] = random.randint(-15, 0)
@@ -974,7 +1085,13 @@ class ScalperGui:
         body_frame = tk.Frame(main_overlay, bg="#05090e", padx=25, pady=20)
         body_frame.pack(fill=tk.BOTH, expand=True)
         left_desc_frame = tk.Frame(
-            body_frame, bg="#0a121d", bd=1, relief=tk.SOLID, highlightbackground="#1e293b", padx=20, pady=20
+            body_frame,
+            bg="#0a121d",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#1e293b",
+            padx=20,
+            pady=20,
         )
         left_desc_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
         tk.Label(
@@ -1025,15 +1142,30 @@ class ScalperGui:
             pady=3,
         ).pack(side=tk.LEFT, padx=5)
         right_login_frame = tk.Frame(
-            body_frame, bg="#0b1320", bd=1, relief=tk.SOLID, highlightbackground="#00ffcc", padx=25, pady=20, width=380
+            body_frame,
+            bg="#0b1320",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#00ffcc",
+            padx=25,
+            pady=20,
+            width=380,
         )
         right_login_frame.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(15, 0))
         right_login_frame.pack_propagate(False)
         tk.Label(
-            right_login_frame, text="OPERATOR ACCESS GATEWAY", font=("Consolas", 12, "bold"), bg="#0b1320", fg="#00ffcc"
+            right_login_frame,
+            text="OPERATOR ACCESS GATEWAY",
+            font=("Consolas", 12, "bold"),
+            bg="#0b1320",
+            fg="#00ffcc",
         ).pack(anchor="w", pady=(0, 15))
         tk.Label(
-            right_login_frame, text="OPERATOR USERNAME:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8"
+            right_login_frame,
+            text="OPERATOR USERNAME:",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#94a3b8",
         ).pack(anchor="w", pady=(5, 2))
         user_ent = tk.Entry(
             right_login_frame,
@@ -1048,7 +1180,11 @@ class ScalperGui:
         user_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         user_ent.insert(0, "QUANT_OPERATOR")
         tk.Label(
-            right_login_frame, text="GATEWAY PASSWORD:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8"
+            right_login_frame,
+            text="GATEWAY PASSWORD:",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#94a3b8",
         ).pack(anchor="w", pady=(5, 2))
         pwd_ent = tk.Entry(
             right_login_frame,
@@ -1064,7 +1200,11 @@ class ScalperGui:
         pwd_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         pwd_ent.focus_set()
         tk.Label(
-            right_login_frame, text="SECONDARY MFA PIN:", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#94a3b8"
+            right_login_frame,
+            text="SECONDARY MFA PIN:",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#94a3b8",
         ).pack(anchor="w", pady=(5, 2))
         mfa_ent = tk.Entry(
             right_login_frame,
@@ -1078,7 +1218,12 @@ class ScalperGui:
         )
         mfa_ent.pack(fill=tk.X, ipady=5, pady=(0, 10))
         error_lbl = tk.Label(
-            right_login_frame, text="", font=("Consolas", 9, "bold"), bg="#0b1320", fg="#ff3333", wraplength=320
+            right_login_frame,
+            text="",
+            font=("Consolas", 9, "bold"),
+            bg="#0b1320",
+            fg="#ff3333",
+            wraplength=320,
         )
         error_lbl.pack(pady=5)
         authenticated = [False]
@@ -1090,11 +1235,15 @@ class ScalperGui:
             if database.verify_user_credentials(username, password, mfa):
                 authenticated[0] = True
                 btn_login.config(text="✓ AUTHORIZED", bg="#15803d", fg="#ffffff")
-                error_lbl.config(text="ACCESS GRANTED: INITIALIZING QUANTUM TERMINAL...", fg="#00ff00")
+                error_lbl.config(
+                    text="ACCESS GRANTED: INITIALIZING QUANTUM TERMINAL...", fg="#00ff00"
+                )
                 anim_running[0] = False
                 login_win.after(300, login_win.destroy)
             else:
-                error_lbl.config(text="❌ ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA", fg="#ff3333")
+                error_lbl.config(
+                    text="❌ ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA", fg="#ff3333"
+                )
 
         login_win.bind("<Return>", lambda e: try_login())
         btn_login = tk.Button(
@@ -1174,7 +1323,11 @@ class ScalperGui:
         pin_win.focus_set()
         pin_win.grab_set()
         tk.Label(
-            pin_win, text="ENTER SECONDARY SECURITY PIN", font=("Consolas", 10, "bold"), bg="#000000", fg="#ff9900"
+            pin_win,
+            text="ENTER SECONDARY SECURITY PIN",
+            font=("Consolas", 10, "bold"),
+            bg="#000000",
+            fg="#ff9900",
         ).pack(pady=10)
         pin_ent = tk.Entry(
             pin_win,
@@ -1231,18 +1384,38 @@ class ScalperGui:
         pin_win.wait_window()
         return approved[0]
 
-    def _add_screen_header(self, title: Any, subtitle: Any = "", screen_code: Any = "DEFAULT") -> Any:
-        theme = TAB_THEMES.get(screen_code, TAB_THEMES.get(self.active_screen, TAB_THEMES["DEFAULT"]))
+    def _add_screen_header(
+        self, title: Any, subtitle: Any = "", screen_code: Any = "DEFAULT"
+    ) -> Any:
+        theme = TAB_THEMES.get(
+            screen_code, TAB_THEMES.get(self.active_screen, TAB_THEMES["DEFAULT"])
+        )
         hdr = tk.Frame(
-            self.screen_frame, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"]
+            self.screen_frame,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
         )
         hdr.pack(fill=tk.X, anchor="w", pady=(0, 8), padx=0)
         inner = tk.Frame(hdr, bg=theme["bg_card"], padx=10, pady=6)
         inner.pack(fill=tk.X)
-        lbl_t = tk.Label(inner, text=title, font=("Consolas", 11, "bold"), bg=theme["bg_card"], fg=theme["primary"])
+        lbl_t = tk.Label(
+            inner,
+            text=title,
+            font=("Consolas", 11, "bold"),
+            bg=theme["bg_card"],
+            fg=theme["primary"],
+        )
         lbl_t.pack(side=tk.LEFT, anchor="w")
         badge_frame = tk.Frame(
-            inner, bg=theme["badge_bg"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"], padx=8, pady=2
+            inner,
+            bg=theme["badge_bg"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+            padx=8,
+            pady=2,
         )
         badge_frame.pack(side=tk.RIGHT)
         lbl_badge = tk.Label(
@@ -1254,7 +1427,13 @@ class ScalperGui:
         )
         lbl_badge.pack()
         if subtitle:
-            lbl_sub = tk.Label(inner, text=subtitle, font=("Consolas", 8), bg=theme["bg_card"], fg=theme["secondary"])
+            lbl_sub = tk.Label(
+                inner,
+                text=subtitle,
+                font=("Consolas", 8),
+                bg=theme["bg_card"],
+                fg=theme["secondary"],
+            )
             lbl_sub.pack(side=tk.LEFT, anchor="w", padx=(15, 0))
         return hdr
 
@@ -1438,7 +1617,9 @@ class ScalperGui:
         )
         lbl_trades.pack(anchor="w", pady=(0, 5), fill=tk.X)
         cols_t = ("Ticket", "Symbol", "Type", "Lots", "Entry", "Current", "PnL ($)")
-        self.trades_tree = ttk.Treeview(right_col, columns=cols_t, show="headings", style="Treeview")
+        self.trades_tree = ttk.Treeview(
+            right_col, columns=cols_t, show="headings", style="Treeview"
+        )
         for col_t in cols_t:
             self.trades_tree.heading(col_t, text=col_t)
             if col_t in ["Ticket", "Symbol"]:
@@ -1459,13 +1640,23 @@ class ScalperGui:
         sel_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         sel_frame.pack(fill=tk.X, pady=5)
         lbl_select = tk.Label(
-            sel_frame, text="SELECT ASSET:", font=("Consolas", 9, "bold"), bg=self.bg_dark, fg=self.fg_grey
+            sel_frame,
+            text="SELECT ASSET:",
+            font=("Consolas", 9, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
         )
         lbl_select.pack(side=tk.LEFT)
         self.gp_asset_var = tk.StringVar(value=self.selected_symbol_gp)
-        gp_menu = tk.OptionMenu(sel_frame, self.gp_asset_var, *config.SYMBOLS, command=self.change_gp_symbol)
+        gp_menu = tk.OptionMenu(
+            sel_frame, self.gp_asset_var, *config.SYMBOLS, command=self.change_gp_symbol
+        )
         gp_menu.config(
-            font=("Consolas", 9, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 9, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         gp_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         gp_menu.pack(side=tk.LEFT, padx=10)
@@ -1476,7 +1667,12 @@ class ScalperGui:
         )
         self.chart_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.gp_details_frame = tk.Frame(
-            chart_split, bg="#111111", bd=1, relief=tk.SOLID, width=280, highlightbackground="#2d2d2d"
+            chart_split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            width=280,
+            highlightbackground="#2d2d2d",
         )
         self.gp_details_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         self.gp_details_frame.pack_propagate(False)
@@ -1502,11 +1698,19 @@ class ScalperGui:
         )
         self.lbl_gp_quote.pack(anchor="w", padx=10, pady=5)
         self.lbl_gp_hl = tk.Label(
-            self.gp_details_frame, text="H/L: - / -", font=("Consolas", 9), bg="#111111", fg=self.fg_light
+            self.gp_details_frame,
+            text="H/L: - / -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_gp_hl.pack(anchor="w", padx=10, pady=2)
         self.lbl_gp_spread = tk.Label(
-            self.gp_details_frame, text="Spread: - pips", font=("Consolas", 9), bg="#111111", fg=self.fg_grey
+            self.gp_details_frame,
+            text="Spread: - pips",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_grey,
         )
         self.lbl_gp_spread.pack(anchor="w", padx=10, pady=2)
         tk.Frame(self.gp_details_frame, bg="#222222", height=1).pack(fill=tk.X, padx=10, pady=10)
@@ -1519,15 +1723,27 @@ class ScalperGui:
         )
         lbl_inds.pack(anchor="w", padx=10, pady=2)
         self.lbl_gp_ema = tk.Label(
-            self.gp_details_frame, text="EMA-200: -", font=("Consolas", 9), bg="#111111", fg=self.fg_light
+            self.gp_details_frame,
+            text="EMA-200: -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_gp_ema.pack(anchor="w", padx=10, pady=2)
         self.lbl_gp_rsi = tk.Label(
-            self.gp_details_frame, text="RSI-14: -", font=("Consolas", 9), bg="#111111", fg=self.fg_light
+            self.gp_details_frame,
+            text="RSI-14: -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_gp_rsi.pack(anchor="w", padx=10, pady=2)
         self.lbl_gp_atr = tk.Label(
-            self.gp_details_frame, text="ATR Dev: -", font=("Consolas", 9), bg="#111111", fg=self.fg_light
+            self.gp_details_frame,
+            text="ATR Dev: -",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_gp_atr.pack(anchor="w", padx=10, pady=2)
         tk.Frame(self.gp_details_frame, bg="#222222", height=1).pack(fill=tk.X, padx=10, pady=10)
@@ -1562,7 +1778,9 @@ class ScalperGui:
             "WEI",
         )
         cols = ("Symbol", "Name", "Last", "Net Change", "% Change", "Status")
-        self.wei_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        self.wei_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.wei_tree.heading(col, text=col)
             if col == "Name":
@@ -1579,7 +1797,9 @@ class ScalperGui:
             "NEWS",
         )
         cols = ("Time", "Source", "Headline", "AI Sentiment")
-        self.news_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        self.news_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.news_tree.heading(col, text=col)
             if col == "Headline":
@@ -1603,7 +1823,9 @@ class ScalperGui:
         lbl_title.pack(anchor="w", pady=(0, 5))
         anr_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         anr_split.pack(fill=tk.BOTH, expand=True, pady=5)
-        left_frame = tk.Frame(anr_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_frame = tk.Frame(
+            anr_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
         lbl_cons = tk.Label(
             left_frame,
@@ -1620,7 +1842,12 @@ class ScalperGui:
             self.anr_tree.column(col, anchor=tk.W, width=95)
         self.anr_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         self.right_frame_anr = tk.Frame(
-            anr_split, bg=self.bg_card, bd=1, relief=tk.SOLID, width=420, highlightbackground="#2d2d2d"
+            anr_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            width=420,
+            highlightbackground="#2d2d2d",
         )
         self.right_frame_anr.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(15, 0))
         self.right_frame_anr.pack_propagate(False)
@@ -1770,14 +1997,24 @@ class ScalperGui:
         ).pack(side=tk.LEFT)
         d_frame = tk.Frame(detached_win, bg=self.bg_dark, padx=10, pady=5)
         d_frame.pack(fill=tk.BOTH, expand=True)
-        txt_info = tk.Text(d_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD)
+        txt_info = tk.Text(
+            d_frame, bg=self.bg_card, fg=self.fg_green, font=("Consolas", 9), wrap=tk.WORD
+        )
         txt_info.pack(fill=tk.BOTH, expand=True)
-        txt_info.insert(tk.END, "================================================================================\n")
+        txt_info.insert(
+            tk.END,
+            "================================================================================\n",
+        )
         txt_info.insert(tk.END, f"DETACHED MULTI-MONITOR WORKSPACE FOR: {self.active_screen}\n")
-        txt_info.insert(tk.END, "================================================================================\n\n")
+        txt_info.insert(
+            tk.END,
+            "================================================================================\n\n",
+        )
         txt_info.insert(tk.END, f"• Live streaming active for window tab: {self.active_screen}\n")
         txt_info.insert(tk.END, "• Multi-monitor rendering state: ACTIVE & SYNCHRONIZED\n")
-        txt_info.insert(tk.END, f"• System time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        txt_info.insert(
+            tk.END, f"• System time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        )
         txt_info.config(state=tk.DISABLED)
 
     def _show_dom_screen(self) -> None:
@@ -1789,7 +2026,9 @@ class ScalperGui:
         )
         split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split.pack(fill=tk.BOTH, expand=True, pady=5)
-        left_box = tk.Frame(split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box = tk.Frame(
+            split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         tk.Label(
             left_box,
@@ -1799,12 +2038,16 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).pack(anchor="w", padx=10, pady=5)
         cols_dom = ("Bid Depth", "Bid Price", "Ask Price", "Ask Depth")
-        self.dom_tree = ttk.Treeview(left_box, columns=cols_dom, show="headings", style="Treeview", height=12)
+        self.dom_tree = ttk.Treeview(
+            left_box, columns=cols_dom, show="headings", style="Treeview", height=12
+        )
         for c in cols_dom:
             self.dom_tree.heading(c, text=c)
             self.dom_tree.column(c, width=100, anchor="center")
         self.dom_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        right_box = tk.Frame(split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380)
+        right_box = tk.Frame(
+            split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380
+        )
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         right_box.pack_propagate(False)
         tk.Label(
@@ -1842,7 +2085,9 @@ class ScalperGui:
             a_p = ask + level * pip
             b_q = int(base_vol * (10 - level) * 0.8) + int(b_p * 10000) % 30
             a_q = int(base_vol * (10 - level) * 0.8) + int(a_p * 10000) % 30
-            self.dom_tree.insert("", tk.END, values=(f"{b_q} L", f"{b_p:.5f}", f"{a_p:.5f}", f"{a_q} L"))
+            self.dom_tree.insert(
+                "", tk.END, values=(f"{b_q} L", f"{b_p:.5f}", f"{a_p:.5f}", f"{a_q} L")
+            )
         if hasattr(self, "dom_canvas") and self.dom_canvas:
             self.dom_canvas.delete("all")
             cw = self.dom_canvas.winfo_width()
@@ -1887,7 +2132,9 @@ class ScalperGui:
         lbl_title.pack(anchor="w", pady=(0, 2))
         split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split.pack(fill=tk.BOTH, expand=True, pady=5)
-        left_box = tk.Frame(split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box = tk.Frame(
+            split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         tk.Label(
             left_box,
@@ -1897,12 +2144,16 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).pack(anchor="w", padx=10, pady=5)
         cols_w = ("Time", "Symbol", "Amount ($ USD)", "Transfer Type", "Market Impact")
-        self.whale_tree = ttk.Treeview(left_box, columns=cols_w, show="headings", style="Treeview", height=12)
+        self.whale_tree = ttk.Treeview(
+            left_box, columns=cols_w, show="headings", style="Treeview", height=12
+        )
         for c in cols_w:
             self.whale_tree.heading(c, text=c)
             self.whale_tree.column(c, width=110, anchor="center")
         self.whale_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        right_box = tk.Frame(split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380)
+        right_box = tk.Frame(
+            split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=380
+        )
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         right_box.pack_propagate(False)
         tk.Label(
@@ -1913,11 +2164,19 @@ class ScalperGui:
             fg=self.fg_accent,
         ).pack(anchor="w", padx=10, pady=5)
         self.lbl_whale_funding = tk.Label(
-            right_box, text="8h Funding Rate: +0.0100%", font=("Consolas", 9), bg="#111111", fg=self.fg_green
+            right_box,
+            text="8h Funding Rate: +0.0100%",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_green,
         )
         self.lbl_whale_funding.pack(anchor="w", padx=15, pady=5)
         self.lbl_whale_liq = tk.Label(
-            right_box, text="Liquidation Risk: BALANCED", font=("Consolas", 9), bg="#111111", fg=self.fg_light
+            right_box,
+            text="Liquidation Risk: BALANCED",
+            font=("Consolas", 9),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_whale_liq.pack(anchor="w", padx=15, pady=5)
         self._update_whale_screen_data()
@@ -1931,7 +2190,11 @@ class ScalperGui:
         alert = tracker.fetch_whale_transfers("BTCUSD")
         funding_info = tracker.get_funding_rate_and_liquidations("BTCUSD")
         col_tag = (
-            "green" if alert["impact_bias"] == "BULLISH" else "red" if alert["impact_bias"] == "BEARISH" else "neutral"
+            "green"
+            if alert["impact_bias"] == "BULLISH"
+            else "red"
+            if alert["impact_bias"] == "BEARISH"
+            else "neutral"
         )
         self.whale_tree.insert(
             "",
@@ -1965,7 +2228,13 @@ class ScalperGui:
         )
         lbl_title.pack(anchor="w", pady=(0, 2))
         top_ctrl = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=8,
+            highlightbackground="#2d2d2d",
         )
         top_ctrl.pack(fill=tk.X, pady=(0, 5))
         tk.Button(
@@ -2099,7 +2368,9 @@ class ScalperGui:
             relief=tk.SOLID,
         )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
-        from institutional_integrations.advanced_math import calculate_markov_regime_switching_probability
+        from institutional_integrations.advanced_math import (
+            calculate_markov_regime_switching_probability,
+        )
 
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 30)
         closes = [b["close"] for b in history] if history else [1.1] * 30
@@ -2155,7 +2426,9 @@ class ScalperGui:
             "PORT",
         )
         cols = ("Asset", "Optimal Weight", "Asset Class", "Ann. Yield (Sim)", "Risk Contribution")
-        self.port_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        self.port_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.port_tree.heading(col, text=col)
             self.port_tree.column(col, anchor=tk.W, width=150)
@@ -2175,7 +2448,9 @@ class ScalperGui:
                 history = self.scalper.conn.get_history(sym, 30)
                 if history:
                     closes = [bar["close"] for bar in history]
-                    rets = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))]
+                    rets = [
+                        (closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))
+                    ]
                     real_returns[sym] = rets if len(rets) >= 5 else [0.0] * 5
                 else:
                     real_returns[sym] = [0.0001, -0.0002, 0.0003, 0.0001, 0.0002]
@@ -2201,7 +2476,13 @@ class ScalperGui:
             self.port_tree.insert(
                 "",
                 tk.END,
-                values=(sym, f"{weight * 100.0:.2f}%", classes.get(sym, "FX"), yields.get(sym, "0.0%"), contr),
+                values=(
+                    sym,
+                    f"{weight * 100.0:.2f}%",
+                    classes.get(sym, "FX"),
+                    yields.get(sym, "0.0%"),
+                    contr,
+                ),
             )
 
     def _show_mcts_screen(self) -> None:
@@ -2213,10 +2494,17 @@ class ScalperGui:
         )
         mcts_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         mcts_split.pack(fill=tk.BOTH, expand=True)
-        self.mcts_canvas = tk.Canvas(mcts_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.mcts_canvas = tk.Canvas(
+            mcts_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         self.mcts_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.mcts_panel = tk.Frame(
-            mcts_split, bg="#111111", bd=1, relief=tk.SOLID, width=280, highlightbackground="#2d2d2d"
+            mcts_split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            width=280,
+            highlightbackground="#2d2d2d",
         )
         self.mcts_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         self.mcts_panel.pack_propagate(False)
@@ -2226,7 +2514,11 @@ class ScalperGui:
         for w in self.mcts_panel.winfo_children():
             w.destroy()
         lbl_head = tk.Label(
-            self.mcts_panel, text="RISK PARAMETERS (95%)", font=("Consolas", 10, "bold"), bg="#111111", fg=self.fg_red
+            self.mcts_panel,
+            text="RISK PARAMETERS (95%)",
+            font=("Consolas", 10, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
         )
         lbl_head.pack(anchor="w", padx=15, pady=15)
         self.mcts_canvas.update()
@@ -2334,7 +2626,9 @@ class ScalperGui:
         lbl_info.pack(anchor="w", pady=(0, 10))
         vds_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         vds_split.pack(fill=tk.BOTH, expand=True)
-        left_box = tk.Frame(vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        left_box = tk.Frame(
+            vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         lbl_act = tk.Label(
             left_box,
@@ -2365,7 +2659,12 @@ class ScalperGui:
             )
             lbl_n.pack(anchor="w", padx=30, pady=5)
         right_box = tk.Frame(
-            vds_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=420
+            vds_split,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=420,
         )
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(10, 0))
         right_box.pack_propagate(False)
@@ -2398,8 +2697,12 @@ class ScalperGui:
                     self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
                     self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
                     self_vec = [np.mean(self_closes), np.std(self_closes)]
-                    l2_dist = np.sqrt((other_vec[0] - self_vec[0]) ** 2 + (other_vec[1] - self_vec[1]) ** 2)
-                    label_state = "CONVERGENT BULLISH" if other_vec[0] > self_vec[0] else "BEARISH REJECTION"
+                    l2_dist = np.sqrt(
+                        (other_vec[0] - self_vec[0]) ** 2 + (other_vec[1] - self_vec[1]) ** 2
+                    )
+                    label_state = (
+                        "CONVERGENT BULLISH" if other_vec[0] > self_vec[0] else "BEARISH REJECTION"
+                    )
                     distances.append((f"Node_{osym}", f"{l2_dist:.6f}", label_state))
             except Exception:
                 pass
@@ -2422,20 +2725,35 @@ class ScalperGui:
         chart_ctrl_ribbon = tk.Frame(self.screen_frame, bg=self.bg_dark)
         chart_ctrl_ribbon.pack(fill=tk.X, pady=(0, 5))
         lbl_sym = tk.Label(
-            chart_ctrl_ribbon, text="SYMBOL:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey
+            chart_ctrl_ribbon,
+            text="SYMBOL:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
         )
         lbl_sym.pack(side=tk.LEFT)
         self.chart_sym_var = tk.StringVar(value=self.selected_symbol_gp)
         sym_menu = tk.OptionMenu(
-            chart_ctrl_ribbon, self.chart_sym_var, *config.SYMBOLS, command=self.on_chart_symbol_change
+            chart_ctrl_ribbon,
+            self.chart_sym_var,
+            *config.SYMBOLS,
+            command=self.on_chart_symbol_change,
         )
         sym_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         sym_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         sym_menu.pack(side=tk.LEFT, padx=(5, 15))
         lbl_tf = tk.Label(
-            chart_ctrl_ribbon, text="TIMEFRAME:", font=("Consolas", 8, "bold"), bg=self.bg_dark, fg=self.fg_grey
+            chart_ctrl_ribbon,
+            text="TIMEFRAME:",
+            font=("Consolas", 8, "bold"),
+            bg=self.bg_dark,
+            fg=self.fg_grey,
         )
         lbl_tf.pack(side=tk.LEFT)
         self.chart_tf_var = tk.StringVar(value="M1")
@@ -2462,9 +2780,15 @@ class ScalperGui:
             "W1",
             "MN1",
         ]
-        tf_menu = tk.OptionMenu(chart_ctrl_ribbon, self.chart_tf_var, *tf_list, command=self.on_chart_tf_change)
+        tf_menu = tk.OptionMenu(
+            chart_ctrl_ribbon, self.chart_tf_var, *tf_list, command=self.on_chart_tf_change
+        )
         tf_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1a1a1a", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1a1a1a",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         tf_menu["menu"].config(bg="#1a1a1a", fg=self.fg_accent)
         tf_menu.pack(side=tk.LEFT, padx=5)
@@ -2476,62 +2800,117 @@ class ScalperGui:
             left_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
         )
         self.candlestick_canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=(0, 4))
-        self.perf_canvas = tk.Canvas(left_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.perf_canvas = tk.Canvas(
+            left_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         self.perf_canvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, pady=(4, 0))
         right_panel = tk.Frame(
-            chart_layout, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=320
+            chart_layout,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=320,
         )
         right_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
         right_panel.pack_propagate(False)
         lbl_head = tk.Label(
-            right_panel, text="PERFORMANCE ATTRIBUTION", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_cyan
+            right_panel,
+            text="PERFORMANCE ATTRIBUTION",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
         )
         lbl_head.pack(anchor="w", padx=15, pady=15)
         self.lbl_chart_balance = tk.Label(
-            right_panel, text="Current Balance: $10,000.00", font=("Consolas", 8), bg="#111111", fg=self.fg_light
+            right_panel,
+            text="Current Balance: $10,000.00",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_chart_balance.pack(anchor="w", padx=15, pady=5)
         self.lbl_chart_equity = tk.Label(
-            right_panel, text="Current Equity: $10,000.00", font=("Consolas", 8), bg="#111111", fg=self.fg_light
+            right_panel,
+            text="Current Equity: $10,000.00",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_light,
         )
         self.lbl_chart_equity.pack(anchor="w", padx=15, pady=5)
         self.lbl_chart_pnl = tk.Label(
-            right_panel, text="Net Cumulative Profit: $0.00", font=("Consolas", 8), bg="#111111", fg=self.fg_green
+            right_panel,
+            text="Net Cumulative Profit: $0.00",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_green,
         )
         self.lbl_chart_pnl.pack(anchor="w", padx=15, pady=5)
         self.lbl_chart_wins = tk.Label(
-            right_panel, text="Win Rate Percentage: 0.0%", font=("Consolas", 8), bg="#111111", fg=self.fg_accent
+            right_panel,
+            text="Win Rate Percentage: 0.0%",
+            font=("Consolas", 8),
+            bg="#111111",
+            fg=self.fg_accent,
         )
         self.lbl_chart_wins.pack(anchor="w", padx=15, pady=5)
         tk.Frame(right_panel, bg="#222222", height=1).pack(fill=tk.X, padx=15, pady=10)
         lbl_mtf_head = tk.Label(
-            right_panel, text="MTF TREND CONFLUENCE MATRIX", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_cyan
+            right_panel,
+            text="MTF TREND CONFLUENCE MATRIX",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_cyan,
         )
         lbl_mtf_head.pack(anchor="w", padx=15, pady=(5, 10))
         mtf_grid_frame = tk.Frame(right_panel, bg="#111111")
         mtf_grid_frame.pack(fill=tk.X, padx=15)
         self.lbl_mtf_m1 = tk.Label(
-            mtf_grid_frame, text="M1:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green
+            mtf_grid_frame,
+            text="M1:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
         )
         self.lbl_mtf_m1.grid(row=0, column=0, sticky="w", pady=2)
         self.lbl_mtf_m5 = tk.Label(
-            mtf_grid_frame, text="M5:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green
+            mtf_grid_frame,
+            text="M5:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
         )
         self.lbl_mtf_m5.grid(row=0, column=1, sticky="w", pady=2, padx=(15, 0))
         self.lbl_mtf_m15 = tk.Label(
-            mtf_grid_frame, text="M15: DOWN", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_red
+            mtf_grid_frame,
+            text="M15: DOWN",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
         )
         self.lbl_mtf_m15.grid(row=1, column=0, sticky="w", pady=2)
         self.lbl_mtf_h1 = tk.Label(
-            mtf_grid_frame, text="H1:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green
+            mtf_grid_frame,
+            text="H1:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
         )
         self.lbl_mtf_h1.grid(row=1, column=1, sticky="w", pady=2, padx=(15, 0))
         self.lbl_mtf_h4 = tk.Label(
-            mtf_grid_frame, text="H4:  UP  ", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_green
+            mtf_grid_frame,
+            text="H4:  UP  ",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_green,
         )
         self.lbl_mtf_h4.grid(row=2, column=0, sticky="w", pady=2)
         self.lbl_mtf_d1 = tk.Label(
-            mtf_grid_frame, text="D1:  DOWN", font=("Consolas", 8, "bold"), bg="#111111", fg=self.fg_red
+            mtf_grid_frame,
+            text="D1:  DOWN",
+            font=("Consolas", 8, "bold"),
+            bg="#111111",
+            fg=self.fg_red,
         )
         self.lbl_mtf_d1.grid(row=2, column=1, sticky="w", pady=2, padx=(15, 0))
         self.lbl_mtf_consensus = tk.Label(
@@ -2612,11 +2991,15 @@ class ScalperGui:
             ):
                 self.candlestick_data_list = []
                 if hasattr(self, "conn") and self.conn:
-                    live_bars = self.conn.get_historical_candles(self.selected_symbol_gp, timeframe="M1", count=25)
+                    live_bars = self.conn.get_historical_candles(
+                        self.selected_symbol_gp, timeframe="M1", count=25
+                    )
                     if live_bars and len(live_bars) > 0:
                         self.candlestick_data_list = live_bars
             elif new_tick and hasattr(self, "conn") and self.conn:
-                live_bars = self.conn.get_historical_candles(self.selected_symbol_gp, timeframe="M1", count=25)
+                live_bars = self.conn.get_historical_candles(
+                    self.selected_symbol_gp, timeframe="M1", count=25
+                )
                 if live_bars and len(live_bars) > 0:
                     self.candlestick_data_list = live_bars
             all_prices = []
@@ -2631,7 +3014,9 @@ class ScalperGui:
             for i in range(price_steps + 1):
                 p_val = min_price + price_range * i / price_steps
                 y_coord = int(chart_h - chart_h * i / price_steps)
-                self.candlestick_canvas.create_line(0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2))
+                self.candlestick_canvas.create_line(
+                    0, y_coord, chart_w, y_coord, fill="#1c1c1c", dash=(1, 2)
+                )
                 self.candlestick_canvas.create_text(
                     chart_w + 5,
                     y_coord,
@@ -2668,10 +3053,21 @@ class ScalperGui:
                 if idx % 5 == 0:
                     offset_min = (len(self.candlestick_data_list) - 1 - idx) * m_val
                     candle_time = now_gmt - datetime.timedelta(minutes=offset_min)
-                    time_lbl = candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
-                    self.candlestick_canvas.create_line(cx, chart_h, cx, chart_h + 4, fill="#2d2d2d")
+                    time_lbl = (
+                        candle_time.strftime("%H:%M")
+                        if m_val < 1440
+                        else candle_time.strftime("%d/%m")
+                    )
+                    self.candlestick_canvas.create_line(
+                        cx, chart_h, cx, chart_h + 4, fill="#2d2d2d"
+                    )
                     self.candlestick_canvas.create_text(
-                        cx, chart_h + 8, text=time_lbl, fill=self.fg_grey, anchor="n", font=("Consolas", 7)
+                        cx,
+                        chart_h + 8,
+                        text=time_lbl,
+                        fill=self.fg_grey,
+                        anchor="n",
+                        font=("Consolas", 7),
                     )
                 y_open = int(chart_h - chart_h * (c["open"] - min_price) / price_range)
                 y_close = int(chart_h - chart_h * (c["close"] - min_price) / price_range)
@@ -2689,14 +3085,18 @@ class ScalperGui:
                 )
             latest_close = self.candlestick_data_list[-1]["close"]
             y_latest = int(chart_h - chart_h * (latest_close - min_price) / price_range)
-            self.candlestick_canvas.create_line(0, y_latest, chart_w, y_latest, fill=self.fg_accent, dash=(2, 2))
+            self.candlestick_canvas.create_line(
+                0, y_latest, chart_w, y_latest, fill=self.fg_accent, dash=(2, 2)
+            )
             self.candlestick_canvas.create_rectangle(
                 chart_w, y_latest - 6, cw, y_latest + 6, fill=self.fg_accent, outline=""
             )
             self.candlestick_canvas.create_text(
                 chart_w + 3,
                 y_latest,
-                text=f"{latest_close:.5f}" if "JPY" not in self.selected_symbol_gp else f"{latest_close:.2f}",
+                text=f"{latest_close:.5f}"
+                if "JPY" not in self.selected_symbol_gp
+                else f"{latest_close:.2f}",
                 fill="#000000",
                 anchor="w",
                 font=("Consolas", 7, "bold"),
@@ -2704,8 +3104,12 @@ class ScalperGui:
             if self.cursor_x is not None and self.cursor_y is not None:
                 cx_clipped = max(0, min(chart_w, self.cursor_x))
                 cy_clipped = max(0, min(chart_h, self.cursor_y))
-                self.candlestick_canvas.create_line(0, cy_clipped, chart_w, cy_clipped, fill="#888888", dash=(2, 2))
-                self.candlestick_canvas.create_line(cx_clipped, 0, cx_clipped, chart_h, fill="#888888", dash=(2, 2))
+                self.candlestick_canvas.create_line(
+                    0, cy_clipped, chart_w, cy_clipped, fill="#888888", dash=(2, 2)
+                )
+                self.candlestick_canvas.create_line(
+                    cx_clipped, 0, cx_clipped, chart_h, fill="#888888", dash=(2, 2)
+                )
                 cursor_price = max_price - price_range * cy_clipped / chart_h
                 self.candlestick_canvas.create_rectangle(
                     chart_w, cy_clipped - 6, cw, cy_clipped + 6, fill="#1e293b", outline="#888888"
@@ -2713,21 +3117,32 @@ class ScalperGui:
                 self.candlestick_canvas.create_text(
                     chart_w + 3,
                     cy_clipped,
-                    text=f"{cursor_price:.5f}" if "JPY" not in self.selected_symbol_gp else f"{cursor_price:.2f}",
+                    text=f"{cursor_price:.5f}"
+                    if "JPY" not in self.selected_symbol_gp
+                    else f"{cursor_price:.2f}",
                     fill="#ffffff",
                     anchor="w",
                     font=("Consolas", 7),
                 )
                 nearest_candle_idx = int(cx_clipped / spacing) if spacing > 0 else 0
-                nearest_candle_idx = max(0, min(nearest_candle_idx, len(self.candlestick_data_list) - 1))
+                nearest_candle_idx = max(
+                    0, min(nearest_candle_idx, len(self.candlestick_data_list) - 1)
+                )
                 offset_min = (len(self.candlestick_data_list) - 1 - nearest_candle_idx) * m_val
                 candle_time = now_gmt - datetime.timedelta(minutes=offset_min)
-                time_lbl = candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
+                time_lbl = (
+                    candle_time.strftime("%H:%M") if m_val < 1440 else candle_time.strftime("%d/%m")
+                )
                 self.candlestick_canvas.create_rectangle(
                     cx_clipped - 20, chart_h, cx_clipped + 20, ch, fill="#1e293b", outline="#888888"
                 )
                 self.candlestick_canvas.create_text(
-                    cx_clipped, chart_h + 8, text=time_lbl, fill="#ffffff", anchor="n", font=("Consolas", 7)
+                    cx_clipped,
+                    chart_h + 8,
+                    text=time_lbl,
+                    fill="#ffffff",
+                    anchor="n",
+                    font=("Consolas", 7),
                 )
             self.candlestick_canvas.create_text(
                 10,
@@ -2753,7 +3168,8 @@ class ScalperGui:
             self.lbl_chart_balance.config(text=f"Current Balance: ${balance:,.2f}")
             self.lbl_chart_equity.config(text=f"Current Equity: ${equity:,.2f}")
             self.lbl_chart_pnl.config(
-                text=f"Net Cumulative Profit: ${net_profit:+.2f}", fg=self.fg_green if net_profit >= 0 else self.fg_red
+                text=f"Net Cumulative Profit: ${net_profit:+.2f}",
+                fg=self.fg_green if net_profit >= 0 else self.fg_red,
             )
             self.lbl_chart_wins.config(text=f"Win Rate Percentage: {win_rate}%")
             closes = (
@@ -2771,34 +3187,50 @@ class ScalperGui:
             else:
                 m1_up = m5_up = m15_up = h1_up = h4_up = d1_up = True
             self.lbl_mtf_m1.config(
-                text=f"M1:  {('UP  ' if m1_up else 'DOWN')}", fg=self.fg_green if m1_up else self.fg_red
+                text=f"M1:  {('UP  ' if m1_up else 'DOWN')}",
+                fg=self.fg_green if m1_up else self.fg_red,
             )
             self.lbl_mtf_m5.config(
-                text=f"M5:  {('UP  ' if m5_up else 'DOWN')}", fg=self.fg_green if m5_up else self.fg_red
+                text=f"M5:  {('UP  ' if m5_up else 'DOWN')}",
+                fg=self.fg_green if m5_up else self.fg_red,
             )
             self.lbl_mtf_m15.config(
-                text=f"M15: {('UP  ' if m15_up else 'DOWN')}", fg=self.fg_green if m15_up else self.fg_red
+                text=f"M15: {('UP  ' if m15_up else 'DOWN')}",
+                fg=self.fg_green if m15_up else self.fg_red,
             )
             self.lbl_mtf_h1.config(
-                text=f"H1:  {('UP  ' if h1_up else 'DOWN')}", fg=self.fg_green if h1_up else self.fg_red
+                text=f"H1:  {('UP  ' if h1_up else 'DOWN')}",
+                fg=self.fg_green if h1_up else self.fg_red,
             )
             self.lbl_mtf_h4.config(
-                text=f"H4:  {('UP  ' if h4_up else 'DOWN')}", fg=self.fg_green if h4_up else self.fg_red
+                text=f"H4:  {('UP  ' if h4_up else 'DOWN')}",
+                fg=self.fg_green if h4_up else self.fg_red,
             )
             self.lbl_mtf_d1.config(
-                text=f"D1:  {('UP  ' if d1_up else 'DOWN')}", fg=self.fg_green if d1_up else self.fg_red
+                text=f"D1:  {('UP  ' if d1_up else 'DOWN')}",
+                fg=self.fg_green if d1_up else self.fg_red,
             )
             total_ups = sum([m1_up, m5_up, m15_up, h1_up, h4_up, d1_up])
             if total_ups >= 5:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: STRONG BULLISH TREND", fg=self.fg_green)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: STRONG BULLISH TREND", fg=self.fg_green
+                )
             elif total_ups == 4:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: MODERATE BULLISH BIAS", fg=self.fg_green)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: MODERATE BULLISH BIAS", fg=self.fg_green
+                )
             elif total_ups == 3:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: CONGESTION NEUTRAL", fg=self.fg_accent)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: CONGESTION NEUTRAL", fg=self.fg_accent
+                )
             elif total_ups == 2:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: MODERATE BEARISH BIAS", fg=self.fg_red)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: MODERATE BEARISH BIAS", fg=self.fg_red
+                )
             else:
-                self.lbl_mtf_consensus.config(text="CONFLUENCE: STRONG BEARISH TREND", fg=self.fg_red)
+                self.lbl_mtf_consensus.config(
+                    text="CONFLUENCE: STRONG BEARISH TREND", fg=self.fg_red
+                )
             if not hasattr(self, "perf_history_data") or not self.perf_history_data:
                 self.perf_history_data = [9950.0, 9980.0, 9970.0, 10000.0]
             if self.perf_history_data[-1] != equity:
@@ -2832,12 +3264,24 @@ class ScalperGui:
                 x1, y1 = points_coords[i]
                 x2, y2 = points_coords[i + 1]
                 self.perf_canvas.create_line(x1, y1, x2, y2, fill=self.fg_green, width=2)
-                self.perf_canvas.create_oval(x2 - 2, y2 - 2, x2 + 2, y2 + 2, fill=self.fg_accent, outline="")
+                self.perf_canvas.create_oval(
+                    x2 - 2, y2 - 2, x2 + 2, y2 + 2, fill=self.fg_accent, outline=""
+                )
             self.perf_canvas.create_text(
-                10, 10, text=f"Max Equity: ${max_p:.2f}", fill=self.fg_grey, anchor="nw", font=("Consolas", 7)
+                10,
+                10,
+                text=f"Max Equity: ${max_p:.2f}",
+                fill=self.fg_grey,
+                anchor="nw",
+                font=("Consolas", 7),
             )
             self.perf_canvas.create_text(
-                10, h - 15, text=f"Min Equity: ${min_p:.2f}", fill=self.fg_grey, anchor="sw", font=("Consolas", 7)
+                10,
+                h - 15,
+                text=f"Min Equity: ${min_p:.2f}",
+                fill=self.fg_grey,
+                anchor="sw",
+                font=("Consolas", 7),
             )
 
     def _show_session_screen(self) -> None:
@@ -2860,7 +3304,9 @@ class ScalperGui:
         lbl_info.pack(anchor="w", pady=(0, 10))
         sess_split = tk.Frame(self.screen_frame, bg=self.bg_dark)
         sess_split.pack(fill=tk.BOTH, expand=True)
-        self.sess_left = tk.Frame(sess_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.sess_left = tk.Frame(
+            sess_split, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         self.sess_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         lbl_det_title = tk.Label(
             self.sess_left,
@@ -2871,13 +3317,20 @@ class ScalperGui:
         )
         lbl_det_title.pack(anchor="w", padx=10, pady=10)
         cols_s = ("Session Name", "Start (GMT)", "End (GMT)", "Status", "Time Left")
-        self.sess_tree = ttk.Treeview(self.sess_left, columns=cols_s, show="headings", style="Treeview", height=10)
+        self.sess_tree = ttk.Treeview(
+            self.sess_left, columns=cols_s, show="headings", style="Treeview", height=10
+        )
         for col in cols_s:
             self.sess_tree.heading(col, text=col)
             self.sess_tree.column(col, anchor=tk.W, width=110)
         self.sess_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
         self.sess_right = tk.Frame(
-            sess_split, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", width=420
+            sess_split,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            width=420,
         )
         self.sess_right.pack(side=tk.RIGHT, fill=tk.BOTH, padx=(5, 0))
         self.sess_right.pack_propagate(False)
@@ -3008,7 +3461,9 @@ class ScalperGui:
                     open_in_str = f"Opens in {h_left:02d}:{m_left:02d}"
                     upcoming.append((name, start, end, "COMING", open_in_str))
         for row in active:
-            self.sess_tree.insert("", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]))
+            self.sess_tree.insert(
+                "", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4])
+            )
         overlaps = []
         for i in range(len(active)):
             for j in range(i + 1, len(active)):
@@ -3017,12 +3472,18 @@ class ScalperGui:
                 overlaps.append(f"{n1} + {n2} ({r1} Overlap)")
         if overlaps:
             self.sess_tree.insert(
-                "", tk.END, values=("OVERLAPS DETECTED", "---", "---", "OVERLAP ACTIVE", overlaps[0][:20])
+                "",
+                tk.END,
+                values=("OVERLAPS DETECTED", "---", "---", "OVERLAP ACTIVE", overlaps[0][:20]),
             )
             for ov in overlaps[1:]:
-                self.sess_tree.insert("", tk.END, values=("  " + ov[:20], "---", "---", "OVERLAP ACTIVE", ""))
+                self.sess_tree.insert(
+                    "", tk.END, values=("  " + ov[:20], "---", "---", "OVERLAP ACTIVE", "")
+                )
         for row in upcoming[:8]:
-            self.sess_tree.insert("", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4]))
+            self.sess_tree.insert(
+                "", tk.END, values=(row[0], f"{row[1]:02d}:00", f"{row[2]:02d}:00", row[3], row[4])
+            )
         passed_names = [r[0] for r in passed]
         active_names = [f"{r[0]} ({r[4]})" for r in active]
         upcoming_names = [f"{r[0]} ({r[4]})" for r in upcoming[:5]]
@@ -3165,8 +3626,18 @@ class ScalperGui:
             fg=self.fg_grey,
         )
         lbl_info.pack(anchor="w", pady=(0, 10))
-        cols_e = ("Time (GMT)", "Country", "Economic Indicator / Event", "Impact", "Actual", "Consensus", "Previous")
-        self.eco_tree = ttk.Treeview(self.screen_frame, columns=cols_e, show="headings", style="Treeview")
+        cols_e = (
+            "Time (GMT)",
+            "Country",
+            "Economic Indicator / Event",
+            "Impact",
+            "Actual",
+            "Consensus",
+            "Previous",
+        )
+        self.eco_tree = ttk.Treeview(
+            self.screen_frame, columns=cols_e, show="headings", style="Treeview"
+        )
         for col in cols_e:
             self.eco_tree.heading(col, text=col)
             self.eco_tree.column(col, anchor=tk.W, width=120)
@@ -3181,11 +3652,51 @@ class ScalperGui:
         now_gmt = datetime.datetime.now(datetime.UTC)
         hour = now_gmt.hour
         events = [
-            (f"{(hour - 2) % 24:02d}:30 GMT", "USA", "Core CPI Inflation (MoM)", "HIGH", "0.2%", "0.2%", "0.1%"),
-            (f"{(hour - 1) % 24:02d}:30 GMT", "USA", "Initial Jobless Claims", "MEDIUM", "210K", "215K", "212K"),
-            (f"{hour % 24:02d}:45 GMT", "EUR", "ECB President Lagarde Speech", "HIGH", "Active", "---", "---"),
-            (f"{(hour + 1) % 24:02d}:00 GMT", "USA", "Existing Home Sales (MoM)", "MEDIUM", "Pending", "0.8%", "-0.4%"),
-            (f"{(hour + 2) % 24:02d}:00 GMT", "GBR", "BOE Bailey Speech on Liquidity", "HIGH", "Pending", "---", "---"),
+            (
+                f"{(hour - 2) % 24:02d}:30 GMT",
+                "USA",
+                "Core CPI Inflation (MoM)",
+                "HIGH",
+                "0.2%",
+                "0.2%",
+                "0.1%",
+            ),
+            (
+                f"{(hour - 1) % 24:02d}:30 GMT",
+                "USA",
+                "Initial Jobless Claims",
+                "MEDIUM",
+                "210K",
+                "215K",
+                "212K",
+            ),
+            (
+                f"{hour % 24:02d}:45 GMT",
+                "EUR",
+                "ECB President Lagarde Speech",
+                "HIGH",
+                "Active",
+                "---",
+                "---",
+            ),
+            (
+                f"{(hour + 1) % 24:02d}:00 GMT",
+                "USA",
+                "Existing Home Sales (MoM)",
+                "MEDIUM",
+                "Pending",
+                "0.8%",
+                "-0.4%",
+            ),
+            (
+                f"{(hour + 2) % 24:02d}:00 GMT",
+                "GBR",
+                "BOE Bailey Speech on Liquidity",
+                "HIGH",
+                "Pending",
+                "---",
+                "---",
+            ),
         ]
         for row in events:
             color_tag = "green" if row[3] == "HIGH" else "yellow"
@@ -3246,7 +3757,13 @@ class ScalperGui:
         self.tab_cfg_user = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.cfg_notebook.add(self.tab_cfg_user, text="User Credentials & Permissions")
         u_table_frame = tk.Frame(
-            self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d"
+            self.tab_cfg_user,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=10,
+            highlightbackground="#2d2d2d",
         )
         u_table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         tk.Label(
@@ -3257,14 +3774,22 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).pack(anchor="w", pady=(0, 5))
         cols_u = ("ID", "Username", "RBAC Access Role", "MFA Status", "Created At")
-        self.cfg_user_tree = ttk.Treeview(u_table_frame, columns=cols_u, show="headings", style="Treeview", height=5)
+        self.cfg_user_tree = ttk.Treeview(
+            u_table_frame, columns=cols_u, show="headings", style="Treeview", height=5
+        )
         for c in cols_u:
             self.cfg_user_tree.heading(c, text=c)
             self.cfg_user_tree.column(c, width=120, anchor="center")
         self.cfg_user_tree.pack(fill=tk.BOTH, expand=True)
         self.cfg_user_tree.bind("<<TreeviewSelect>>", self._on_user_select)
         u_frame = tk.Frame(
-            self.tab_cfg_user, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d"
+            self.tab_cfg_user,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
         )
         u_frame.pack(fill=tk.X)
         tk.Label(
@@ -3274,17 +3799,22 @@ class ScalperGui:
             bg=self.bg_card,
             fg=self.fg_accent,
         ).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 5))
-        tk.Label(u_frame, text="Username:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=1, column=0, sticky="w", pady=2
-        )
+        tk.Label(
+            u_frame, text="Username:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=1, column=0, sticky="w", pady=2)
         self.cfg_user_ent = tk.Entry(
-            u_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=22
+            u_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=22,
         )
         self.cfg_user_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.cfg_user_ent.insert(0, "QUANT_OPERATOR")
-        tk.Label(u_frame, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=1, column=2, sticky="w", pady=2, padx=(10, 0)
-        )
+        tk.Label(
+            u_frame, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_pass_ent = tk.Entry(
             u_frame,
             show="*",
@@ -3295,9 +3825,9 @@ class ScalperGui:
             width=22,
         )
         self.cfg_pass_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
-        tk.Label(u_frame, text="Security PIN:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=0, sticky="w", pady=2
-        )
+        tk.Label(
+            u_frame, text="Security PIN:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=2, column=0, sticky="w", pady=2)
         self.cfg_pin_ent = tk.Entry(
             u_frame,
             show="*",
@@ -3308,15 +3838,24 @@ class ScalperGui:
             width=22,
         )
         self.cfg_pin_ent.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-        tk.Label(u_frame, text="Access Role:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=2, sticky="w", pady=2, padx=(10, 0)
-        )
+        tk.Label(
+            u_frame, text="Access Role:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_role_var = tk.StringVar(value="SOVEREIGN_ADMIN")
         role_menu = tk.OptionMenu(
-            u_frame, self.cfg_role_var, "SOVEREIGN_ADMIN", "QUANT_TRADER", "RISK_AUDITOR", "READ_ONLY"
+            u_frame,
+            self.cfg_role_var,
+            "SOVEREIGN_ADMIN",
+            "QUANT_TRADER",
+            "RISK_AUDITOR",
+            "READ_ONLY",
         )
         role_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         role_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         role_menu.grid(row=2, column=3, sticky="w", padx=5, pady=2)
@@ -3369,7 +3908,13 @@ class ScalperGui:
         self.tab_cfg_broker = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.cfg_notebook.add(self.tab_cfg_broker, text="Multi-Broker Gateway Credentials")
         b_frame = tk.Frame(
-            self.tab_cfg_broker, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.tab_cfg_broker,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         b_frame.pack(fill=tk.BOTH, expand=True)
         tk.Label(
@@ -3420,33 +3965,48 @@ class ScalperGui:
             }
         bf_inputs = tk.Frame(b_frame, bg=self.bg_card)
         bf_inputs.pack(fill=tk.X, pady=(5, 0))
-        tk.Label(bf_inputs, text="Broker Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=0, column=0, sticky="w", pady=2
-        )
+        tk.Label(
+            bf_inputs, text="Broker Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=0, column=0, sticky="w", pady=2)
         self.cfg_bname_ent = tk.Entry(
-            bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
         )
         self.cfg_bname_ent.grid(row=0, column=1, sticky="w", padx=5, pady=2)
         self.cfg_bname_ent.insert(0, b_creds.get("broker_name", ""))
-        tk.Label(bf_inputs, text="Server Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=0, column=2, sticky="w", pady=2, padx=(10, 0)
-        )
+        tk.Label(
+            bf_inputs, text="Server Name:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=0, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_bserver_ent = tk.Entry(
-            bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
         )
         self.cfg_bserver_ent.grid(row=0, column=3, sticky="w", padx=5, pady=2)
         self.cfg_bserver_ent.insert(0, b_creds.get("server", ""))
-        tk.Label(bf_inputs, text="Account ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=1, column=0, sticky="w", pady=2
-        )
+        tk.Label(
+            bf_inputs, text="Account ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=1, column=0, sticky="w", pady=2)
         self.cfg_bacc_ent = tk.Entry(
-            bf_inputs, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=22
+            bf_inputs,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=22,
         )
         self.cfg_bacc_ent.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.cfg_bacc_ent.insert(0, b_creds.get("account_id", ""))
-        tk.Label(bf_inputs, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=1, column=2, sticky="w", pady=2, padx=(10, 0)
-        )
+        tk.Label(
+            bf_inputs, text="Password:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=1, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_bpwd_ent = tk.Entry(
             bf_inputs,
             show="*",
@@ -3458,19 +4018,23 @@ class ScalperGui:
         )
         self.cfg_bpwd_ent.grid(row=1, column=3, sticky="w", padx=5, pady=2)
         self.cfg_bpwd_ent.insert(0, b_creds.get("password", ""))
-        tk.Label(bf_inputs, text="Environment:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=0, sticky="w", pady=2
-        )
+        tk.Label(
+            bf_inputs, text="Environment:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=2, column=0, sticky="w", pady=2)
         self.cfg_benv_var = tk.StringVar(value=b_creds.get("environment", "Demo"))
         env_menu = tk.OptionMenu(bf_inputs, self.cfg_benv_var, "Demo", "Live", "ECN", "STP")
         env_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         env_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         env_menu.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-        tk.Label(bf_inputs, text="Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=2, sticky="w", pady=2, padx=(10, 0)
-        )
+        tk.Label(
+            bf_inputs, text="Leverage:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=2, column=2, sticky="w", pady=2, padx=(10, 0))
         self.cfg_lev_var = tk.StringVar(value=b_creds.get("leverage", "1:100"))
         leverage_options = [
             "1:1",
@@ -3487,16 +4051,29 @@ class ScalperGui:
             "1:10000",
         ]
         self.cfg_lev_combo = ttk.Combobox(
-            bf_inputs, textvariable=self.cfg_lev_var, values=leverage_options, font=("Consolas", 8, "bold"), width=12
+            bf_inputs,
+            textvariable=self.cfg_lev_var,
+            values=leverage_options,
+            font=("Consolas", 8, "bold"),
+            width=12,
         )
         self.cfg_lev_combo.grid(row=2, column=3, sticky="w", padx=5, pady=2)
-        tk.Label(bf_inputs, text="Terminal Path:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=3, column=0, sticky="w", pady=2
-        )
+        tk.Label(
+            bf_inputs,
+            text="Terminal Path:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=2)
         path_frame = tk.Frame(bf_inputs, bg=self.bg_card)
         path_frame.grid(row=3, column=1, columnspan=3, sticky="w", padx=5, pady=2)
         self.cfg_bpath_ent = tk.Entry(
-            path_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=36
+            path_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=36,
         )
         self.cfg_bpath_ent.pack(side=tk.LEFT, padx=(0, 5))
         self.cfg_bpath_ent.insert(0, b_creds.get("terminal_path", ""))
@@ -3582,7 +4159,13 @@ class ScalperGui:
         self.tab_cfg_feats = tk.Frame(self.cfg_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.cfg_notebook.add(self.tab_cfg_feats, text="User Controls & Feature Permissions")
         f_frame = tk.Frame(
-            self.tab_cfg_feats, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.tab_cfg_feats,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         f_frame.pack(fill=tk.BOTH, expand=True)
         p_left = tk.Frame(f_frame, bg=self.bg_card)
@@ -3704,8 +4287,12 @@ class ScalperGui:
         users = database.get_all_users()
         for u in users:
             mfa_str = "ENABLED" if u["mfa_enabled"] else "DISABLED"
-            created_str = u["created_at"].split("T")[0] if "T" in u["created_at"] else u["created_at"][:10]
-            self.cfg_user_tree.insert("", tk.END, values=(u["id"], u["username"], u["role"], mfa_str, created_str))
+            created_str = (
+                u["created_at"].split("T")[0] if "T" in u["created_at"] else u["created_at"][:10]
+            )
+            self.cfg_user_tree.insert(
+                "", tk.END, values=(u["id"], u["username"], u["role"], mfa_str, created_str)
+            )
         self.selected_user_id = None
         self.selected_username = None
 
@@ -3732,7 +4319,10 @@ class ScalperGui:
             return
         try:
             database.add_user(username=u, password=p, pin=pin, role=role)
-            messagebox.showinfo("User Added", f"Successfully created encrypted account for '{u}' with role '{role}'.")
+            messagebox.showinfo(
+                "User Added",
+                f"Successfully created encrypted account for '{u}' with role '{role}'.",
+            )
             self._refresh_user_tree()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add user: {e}")
@@ -3764,7 +4354,9 @@ class ScalperGui:
             self.selected_username = u
             self.cfg_pass_ent.delete(0, tk.END)
             self.cfg_pin_ent.delete(0, tk.END)
-            messagebox.showinfo("User Updated", f"Successfully updated account records for '{(u or target_u)}'.")
+            messagebox.showinfo(
+                "User Updated", f"Successfully updated account records for '{(u or target_u)}'."
+            )
             self.cfg_pass_ent.delete(0, tk.END)
             self.cfg_pin_ent.delete(0, tk.END)
             self._refresh_user_tree()
@@ -3777,9 +4369,13 @@ class ScalperGui:
             messagebox.showerror("Error", "Please select or specify a Username to delete.")
             return
         if u == "QUANT_OPERATOR":
-            messagebox.showerror("Action Denied", "Cannot delete primary root administrator 'QUANT_OPERATOR'.")
+            messagebox.showerror(
+                "Action Denied", "Cannot delete primary root administrator 'QUANT_OPERATOR'."
+            )
             return
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to permanently delete user '{u}'?"):
+        if messagebox.askyesno(
+            "Confirm Delete", f"Are you sure you want to permanently delete user '{u}'?"
+        ):
             try:
                 database.delete_user(u)
                 messagebox.showinfo("User Deleted", f"Removed user account '{u}'.")
@@ -3832,10 +4428,13 @@ class ScalperGui:
 
     def _browse_terminal_path(self) -> None:
         selected_file = filedialog.askopenfilename(
-            title="Select Broker Terminal Executable", filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")]
+            title="Select Broker Terminal Executable",
+            filetypes=[("Executable Files", "*.exe"), ("All Files", "*.*")],
         )
         if not selected_file:
-            selected_file = filedialog.askdirectory(title="Or Select Broker Terminal Installation Folder")
+            selected_file = filedialog.askdirectory(
+                title="Or Select Broker Terminal Installation Folder"
+            )
         if selected_file:
             self.cfg_bpath_ent.delete(0, tk.END)
             self.cfg_bpath_ent.insert(0, str(selected_file))
@@ -3849,7 +4448,9 @@ class ScalperGui:
         lev = database.normalize_leverage(self.cfg_lev_var.get())
         self.cfg_lev_var.set(lev)
         if not server or not acc or (not pwd):
-            messagebox.showerror("Error", "Please provide Server Name, Account ID, and Broker Password.")
+            messagebox.showerror(
+                "Error", "Please provide Server Name, Account ID, and Broker Password."
+            )
             return
         term_path = self.cfg_bpath_ent.get().strip() if hasattr(self, "cfg_bpath_ent") else ""
         try:
@@ -3864,7 +4465,8 @@ class ScalperGui:
                 is_active=1,
             )
             messagebox.showinfo(
-                "Broker Added", f"Successfully created and activated broker profile '{bname}' ({server})."
+                "Broker Added",
+                f"Successfully created and activated broker profile '{bname}' ({server}).",
             )
             self._refresh_broker_tree()
         except Exception as e:
@@ -3873,7 +4475,9 @@ class ScalperGui:
     def _set_active_broker_profile(self) -> None:
         sel = self.broker_tree.selection()
         if not sel:
-            messagebox.showwarning("Select Broker", "Please select a broker account from the list to set active.")
+            messagebox.showwarning(
+                "Select Broker", "Please select a broker account from the list to set active."
+            )
             return
         item = self.broker_tree.item(sel[0])
         b_id = item["values"][0]
@@ -3881,7 +4485,8 @@ class ScalperGui:
         try:
             database.set_active_broker(b_id)
             messagebox.showinfo(
-                "Active Broker Switched", f"Primary active gateway successfully switched to '{b_name}' (ID: {b_id})."
+                "Active Broker Switched",
+                f"Primary active gateway successfully switched to '{b_name}' (ID: {b_id}).",
             )
             self._refresh_broker_tree()
         except Exception as e:
@@ -3902,12 +4507,14 @@ class ScalperGui:
                     break
         if not term_path:
             messagebox.showwarning(
-                "No Terminal Path Specified", "Please specify or browse for the Broker Terminal path/executable."
+                "No Terminal Path Specified",
+                "Please specify or browse for the Broker Terminal path/executable.",
             )
             return
         if not os.path.exists(term_path):
             messagebox.showerror(
-                "Invalid Terminal Path", f"The specified path does not exist on this machine:\n{term_path}"
+                "Invalid Terminal Path",
+                f"The specified path does not exist on this machine:\n{term_path}",
             )
             return
         try:
@@ -3921,13 +4528,15 @@ class ScalperGui:
                     subprocess.Popen([exe])
                 else:
                     messagebox.showerror(
-                        "Executable Not Found", f"Could not find terminal64.exe in directory: {term_path}"
+                        "Executable Not Found",
+                        f"Could not find terminal64.exe in directory: {term_path}",
                     )
                     return
             else:
                 subprocess.Popen([term_path])
             messagebox.showinfo(
-                "Terminal Launched", f"Successfully launched MetaTrader 5 terminal for '{b_name}':\n{term_path}"
+                "Terminal Launched",
+                f"Successfully launched MetaTrader 5 terminal for '{b_name}':\n{term_path}",
             )
         except Exception as e:
             messagebox.showerror("Launch Error", f"Failed to launch MetaTrader 5 terminal: {e}")
@@ -3964,10 +4573,20 @@ class ScalperGui:
                 else:
                     database._execute_with_retry(
                         "\n                        UPDATE broker_credentials\n                        SET broker_name = ?, server = ?, account_id = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?\n                        WHERE id = ?\n                        ",
-                        (bname, server, acc, lev, env, term_path, database.datetime.datetime.now().isoformat(), b_id),
+                        (
+                            bname,
+                            server,
+                            acc,
+                            lev,
+                            env,
+                            term_path,
+                            database.datetime.datetime.now().isoformat(),
+                            b_id,
+                        ),
                     )
                 messagebox.showinfo(
-                    "Broker Profile Updated", f"Successfully updated broker profile '{bname}' (ID: {b_id}) in database."
+                    "Broker Profile Updated",
+                    f"Successfully updated broker profile '{bname}' (ID: {b_id}) in database.",
                 )
                 self._refresh_broker_tree()
             except Exception as e:
@@ -3984,7 +4603,8 @@ class ScalperGui:
         b_id = item["values"][0]
         b_name = item["values"][1]
         if messagebox.askyesno(
-            "Confirm Delete", f"Are you sure you want to delete broker profile '{b_name}' (ID: {b_id})?"
+            "Confirm Delete",
+            f"Are you sure you want to delete broker profile '{b_name}' (ID: {b_id})?",
         ):
             try:
                 database.delete_broker_account(b_id)
@@ -4015,7 +4635,10 @@ class ScalperGui:
         self.cfg_feat_trailing.set(config.TRAILING_STOP_ENABLED)
         self.cfg_feat_rollover.set(config.BLOCK_ROLLOVER_HOUR)
         self.cfg_feat_weekend.set(config.BLOCK_WEEKENDS)
-        messagebox.showinfo("Controls Refreshed", "Refreshed feature control states from active system configuration.")
+        messagebox.showinfo(
+            "Controls Refreshed",
+            "Refreshed feature control states from active system configuration.",
+        )
 
     def _save_feature_permissions(self) -> None:
         config.TRAILING_STOP_ENABLED = self.cfg_feat_trailing.get()
@@ -4049,7 +4672,13 @@ class ScalperGui:
         self.tab_set_theme = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.set_notebook.add(self.tab_set_theme, text="Themes & Visuals")
         t_frame = tk.Frame(
-            self.tab_set_theme, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.tab_set_theme,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         t_frame.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
@@ -4059,9 +4688,13 @@ class ScalperGui:
             bg=self.bg_card,
             fg=self.fg_cyan,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
-        tk.Label(t_frame, text="Active Visual Theme:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=1, column=0, sticky="w", pady=4
-        )
+        tk.Label(
+            t_frame,
+            text="Active Visual Theme:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=1, column=0, sticky="w", pady=4)
         self.set_theme_var = tk.StringVar(value="PITCH_BLACK")
         theme_menu = tk.OptionMenu(
             t_frame,
@@ -4075,37 +4708,74 @@ class ScalperGui:
             "NORD_DARK",
         )
         theme_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         theme_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         theme_menu.grid(row=1, column=1, sticky="w", padx=10, pady=4)
-        tk.Label(t_frame, text="Dashboard Font Family:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=0, sticky="w", pady=4
+        tk.Label(
+            t_frame,
+            text="Dashboard Font Family:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.set_font_family_var = tk.StringVar(
+            value=getattr(self, "current_font_family", "Consolas")
         )
-        self.set_font_family_var = tk.StringVar(value=getattr(self, "current_font_family", "Consolas"))
         font_menu = tk.OptionMenu(
-            t_frame, self.set_font_family_var, "Consolas", "Courier New", "DejaVu Sans Mono", "Lucida Console", "Monaco"
+            t_frame,
+            self.set_font_family_var,
+            "Consolas",
+            "Courier New",
+            "DejaVu Sans Mono",
+            "Lucida Console",
+            "Monaco",
         )
         font_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         font_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         font_menu.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        tk.Label(t_frame, text="Dashboard Font Size:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=3, column=0, sticky="w", pady=4
-        )
+        tk.Label(
+            t_frame,
+            text="Dashboard Font Size:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
         self.set_font_size_var = tk.StringVar(value=str(getattr(self, "current_font_size", 8)))
         fsize_menu = tk.OptionMenu(t_frame, self.set_font_size_var, "7", "8", "9", "10", "11", "12")
         fsize_menu.config(
-            font=("Consolas", 8, "bold"), bg="#1c1c1c", fg=self.fg_accent, activebackground="#333333", relief=tk.FLAT
+            font=("Consolas", 8, "bold"),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            activebackground="#333333",
+            relief=tk.FLAT,
         )
         fsize_menu["menu"].config(bg="#1c1c1c", fg=self.fg_accent)
         fsize_menu.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         tk.Label(
-            t_frame, text="Telemetry Console Max Lines:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            t_frame,
+            text="Telemetry Console Max Lines:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=4, column=0, sticky="w", pady=4)
         self.set_maxlines_ent = tk.Entry(
-            t_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=15
+            t_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=15,
         )
         self.set_maxlines_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_maxlines_ent.insert(0, "150")
@@ -4124,7 +4794,13 @@ class ScalperGui:
         self.tab_set_risk = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.set_notebook.add(self.tab_set_risk, text="Risk & Money Management")
         r_frame = tk.Frame(
-            self.tab_set_risk, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.tab_set_risk,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         r_frame.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
@@ -4135,46 +4811,95 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         tk.Label(
-            r_frame, text="Risk per Trade (% Equity):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            r_frame,
+            text="Risk per Trade (% Equity):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=1, column=0, sticky="w", pady=4)
         self.set_risk_ent = tk.Entry(
-            r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
         )
         self.set_risk_ent.grid(row=1, column=1, sticky="w", padx=10, pady=4)
         self.set_risk_ent.insert(0, f"{config.RISK_PER_TRADE_PERCENT}")
         tk.Label(
-            r_frame, text="Daily Drawdown Limit (% Balance):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            r_frame,
+            text="Daily Drawdown Limit (% Balance):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=2, column=0, sticky="w", pady=4)
         self.set_dd_ent = tk.Entry(
-            r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
         )
         self.set_dd_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
         self.set_dd_ent.insert(0, f"{config.MAX_DAILY_DRAWDOWN_PERCENT}")
         tk.Label(
-            r_frame, text="Max Concurrent Open Trades:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            r_frame,
+            text="Max Concurrent Open Trades:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=3, column=0, sticky="w", pady=4)
         self.set_maxtrades_ent = tk.Entry(
-            r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
         )
         self.set_maxtrades_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         self.set_maxtrades_ent.insert(0, f"{config.MAX_CONCURRENT_TRADES}")
         tk.Label(
-            r_frame, text="Target Risk/Reward Ratio:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            r_frame,
+            text="Target Risk/Reward Ratio:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=4, column=0, sticky="w", pady=4)
         self.set_rr_ent = tk.Entry(
-            r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
         )
         self.set_rr_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_rr_ent.insert(0, f"{config.RISK_REWARD_RATIO}")
-        tk.Label(r_frame, text="Global Risk Cap %:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=5, column=0, sticky="w", pady=4
-        )
+        tk.Label(
+            r_frame,
+            text="Global Risk Cap %:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=5, column=0, sticky="w", pady=4)
         self.set_global_risk_cap_ent = tk.Entry(
-            r_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15
+            r_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
         )
         self.set_global_risk_cap_ent.grid(row=5, column=1, sticky="w", padx=10, pady=4)
-        self.set_global_risk_cap_ent.insert(0, f"{getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)}")
-        self.set_float_loss_gate_var = tk.BooleanVar(value=getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True))
+        self.set_global_risk_cap_ent.insert(
+            0, f"{getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCENT', 100.0)}"
+        )
+        self.set_float_loss_gate_var = tk.BooleanVar(
+            value=getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True)
+        )
         cb_float = tk.Checkbutton(
             r_frame,
             text="Enable Symbol Floating Loss Gate",
@@ -4227,7 +4952,13 @@ class ScalperGui:
         self.tab_set_tele = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.set_notebook.add(self.tab_set_tele, text="Messaging Notifications")
         tg_frame = tk.Frame(
-            self.tab_set_tele, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.tab_set_tele,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         tg_frame.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
@@ -4250,19 +4981,37 @@ class ScalperGui:
             activeforeground=self.fg_accent,
         )
         chk_tele.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
-        tk.Label(tg_frame, text="Telegram Bot Token:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=0, sticky="w", pady=4
-        )
+        tk.Label(
+            tg_frame,
+            text="Telegram Bot Token:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
         self.set_ttoken_ent = tk.Entry(
-            tg_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35
+            tg_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
         )
         self.set_ttoken_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
         self.set_ttoken_ent.insert(0, config.TELEGRAM_TOKEN)
-        tk.Label(tg_frame, text="Telegram Chat ID:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=3, column=0, sticky="w", pady=4
-        )
+        tk.Label(
+            tg_frame,
+            text="Telegram Chat ID:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=3, column=0, sticky="w", pady=4)
         self.set_tchat_ent = tk.Entry(
-            tg_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35
+            tg_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
         )
         self.set_tchat_ent.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         self.set_tchat_ent.insert(0, config.TELEGRAM_CHAT_ID)
@@ -4281,7 +5030,13 @@ class ScalperGui:
         self.tab_set_wa = tk.Frame(self.set_notebook, bg=self.bg_dark, padx=20, pady=15)
         self.set_notebook.add(self.tab_set_wa, text="Mobile Alerts Gateway")
         wa_frame = tk.Frame(
-            self.tab_set_wa, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.tab_set_wa,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         wa_frame.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
@@ -4305,15 +5060,30 @@ class ScalperGui:
         )
         chk_wa.grid(row=1, column=0, columnspan=2, sticky="w", pady=4)
         tk.Label(
-            wa_frame, text="WhatsApp Gateway API Endpoint:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            wa_frame,
+            text="WhatsApp Gateway API Endpoint:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=2, column=0, sticky="w", pady=4)
         self.set_wa_url_ent = tk.Entry(
-            wa_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35
+            wa_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
         )
         self.set_wa_url_ent.grid(row=2, column=1, sticky="w", padx=10, pady=4)
-        self.set_wa_url_ent.insert(0, getattr(self, "wa_url_val", "https://api.whatsapp-gateway.internal/v1/send"))
+        self.set_wa_url_ent.insert(
+            0, getattr(self, "wa_url_val", "https://api.whatsapp-gateway.internal/v1/send")
+        )
         tk.Label(
-            wa_frame, text="API Access Token / Key:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            wa_frame,
+            text="API Access Token / Key:",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=3, column=0, sticky="w", pady=4)
         self.set_wa_token_ent = tk.Entry(
             wa_frame,
@@ -4334,7 +5104,12 @@ class ScalperGui:
             fg=self.fg_light,
         ).grid(row=4, column=0, sticky="w", pady=4)
         self.set_wa_phone_ent = tk.Entry(
-            wa_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_green, insertbackground=self.fg_green, width=35
+            wa_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_green,
+            insertbackground=self.fg_green,
+            width=35,
         )
         self.set_wa_phone_ent.grid(row=4, column=1, sticky="w", padx=10, pady=4)
         self.set_wa_phone_ent.insert(0, getattr(self, "wa_phone_val", "+12025550198"))
@@ -4415,11 +5190,16 @@ class ScalperGui:
         self.wa_url_val = self.set_wa_url_ent.get().strip()
         self.wa_token_val = self.set_wa_token_ent.get().strip()
         self.wa_phone_val = self.set_wa_phone_ent.get().strip()
-        messagebox.showinfo("WhatsApp Settings Saved", "WhatsApp Gateway notification parameters updated successfully.")
+        messagebox.showinfo(
+            "WhatsApp Settings Saved",
+            "WhatsApp Gateway notification parameters updated successfully.",
+        )
 
     def _send_test_whatsapp_message(self) -> None:
         phone = self.set_wa_phone_ent.get().strip()
-        messagebox.showinfo("WhatsApp Test Sent", f"Broadcasted test alert to target WhatsApp number: {phone}")
+        messagebox.showinfo(
+            "WhatsApp Test Sent", f"Broadcasted test alert to target WhatsApp number: {phone}"
+        )
 
     def _save_risk_settings(self) -> None:
         try:
@@ -4428,11 +5208,15 @@ class ScalperGui:
             config.MAX_CONCURRENT_TRADES = int(self.set_maxtrades_ent.get().strip())
             config.RISK_REWARD_RATIO = float(self.set_rr_ent.get().strip())
             if hasattr(self, "set_global_risk_cap_ent"):
-                config.GLOBAL_RISK_LIMIT_CAP_PERCENT = float(self.set_global_risk_cap_ent.get().strip())
+                config.GLOBAL_RISK_LIMIT_CAP_PERCENT = float(
+                    self.set_global_risk_cap_ent.get().strip()
+                )
             if hasattr(self, "set_float_loss_gate_var"):
                 config.ENABLE_SYMBOL_FLOATING_LOSS_GATE = bool(self.set_float_loss_gate_var.get())
             if hasattr(self, "set_risk_sub_alloc_var"):
-                config.DEDICATED_RISK_SUB_ALLOCATION_ENABLED = bool(self.set_risk_sub_alloc_var.get())
+                config.DEDICATED_RISK_SUB_ALLOCATION_ENABLED = bool(
+                    self.set_risk_sub_alloc_var.get()
+                )
             if hasattr(self, "set_auto_risk_var"):
                 config.AUTO_RISK_MANAGEMENT = bool(self.set_auto_risk_var.get())
             messagebox.showinfo(
@@ -4440,13 +5224,17 @@ class ScalperGui:
                 "Risk parameters, sub-allocation limits, and circuit breakers updated successfully.",
             )
         except ValueError as e:
-            messagebox.showerror("Invalid Input", f"Please enter valid numeric values for risk settings: {e}")
+            messagebox.showerror(
+                "Invalid Input", f"Please enter valid numeric values for risk settings: {e}"
+            )
 
     def _save_telegram_settings(self) -> None:
         config.TELEGRAM_ENABLED = self.set_tele_enabled.get()
         config.TELEGRAM_TOKEN = self.set_ttoken_ent.get().strip()
         config.TELEGRAM_CHAT_ID = self.set_tchat_ent.get().strip()
-        messagebox.showinfo("Telegram Settings Saved", "Telegram notification configurations saved successfully.")
+        messagebox.showinfo(
+            "Telegram Settings Saved", "Telegram notification configurations saved successfully."
+        )
 
     def _update_set_screen_data(self) -> None:
         """Refreshes SET <GO> screen interactive inputs with active config state."""
@@ -4492,11 +5280,15 @@ class ScalperGui:
         self.ing_text.delete("1.0", tk.END)
         pit_db = self.scalper.engine.data._pit_database
         total_rates = sum(len(records) for records in pit_db.values())
-        active_provider = self.scalper.engine.data.providers[self.scalper.engine.data.active_provider_idx]
+        active_provider = self.scalper.engine.data.providers[
+            self.scalper.engine.data.active_provider_idx
+        ]
         ing_data = f"\n================================================================================\nING <GO>: UNIFIED PROVIDER INGESTION SERVICE TELEMETRY\n================================================================================\nFEED INGESTION STATE:\n--------------------------------------------------------------------------------\nConnector WebSocket:        Connected (Subscribed: {len(config.SYMBOLS)} assets)\nActive Data Provider Feed:  {active_provider} (Streaming OK)\nPoint-in-Time Database:     ACTIVE (Storing unique monotonic events)\nTotal Ingested PIT Rates:   {total_rates} records in-memory\n\nINGESTED SYMBOLS LOAD STATS:\n--------------------------------------------------------------------------------\n"
         for sym, recs in list(pit_db.items())[:6]:
             ing_data += f"- {sym:<10} : {len(recs):<6} historical ticks stored\n"
-        ing_data += "================================================================================\n"
+        ing_data += (
+            "================================================================================\n"
+        )
         self.ing_text.insert(tk.END, ing_data)
 
     def _show_feat_screen(self) -> None:
@@ -4635,7 +5427,11 @@ class ScalperGui:
             return
         self.risk_text.delete("1.0", tk.END)
         info = self.scalper.conn.get_account_info()
-        starting_bal = self.scalper.daily_start_balance if self.scalper.daily_start_balance > 0 else info["balance"]
+        starting_bal = (
+            self.scalper.daily_start_balance
+            if self.scalper.daily_start_balance > 0
+            else info["balance"]
+        )
         floating_loss = info["equity"] - starting_bal
         pct_drawdown = abs(floating_loss) / starting_bal * 100.0 if floating_loss < 0 else 0.0
         reservations = self.scalper.engine.risk._reservations
@@ -4643,7 +5439,9 @@ class ScalperGui:
         risk_data = f"\n================================================================================\nRISK <GO>: INTEGRATED CAPITAL SAFETY GUARDIAN\n================================================================================\nDAILY CIRCUIT BREAKER PARAMETERS (REAL-TIME TELEMETRY):\n--------------------------------------------------------------------------------\nMaximum Daily Drawdown Cap:  {config.MAX_DAILY_DRAWDOWN_PERCENT}% of balance\nDaily Starting Balance:      ${starting_bal:,.2f} USD\nCurrent Account Equity:      ${info['equity']:,.2f} USD\nCurrent Floating Loss:       ${floating_loss:,.2f} USD\nCurrent Intraday Drawdown:   {pct_drawdown:.2f}%\nIntraday Drawdown Status:    {('SAFE (Execution Allowed)' if pct_drawdown < config.MAX_DAILY_DRAWDOWN_PERCENT else 'BREACHED (Halted)')}\n\nPORTFOLIO EXPOSURE & RISK BUDGETS (Section 19.1):\n--------------------------------------------------------------------------------\nCurrent Risk Reserved:       {reserved_capital:.2f}% of capital\nActive Allocated Symbols:    {len(reservations)} reserved vectors\nMax Concurrent Trades:       {config.MAX_CONCURRENT_TRADES} simultaneous positions allowed\n\nACTIVE EXPOSURE VECTORS:\n"
         for sym, val in reservations.items():
             risk_data += f"- {sym:<10} : {val:.2f}% risk budget reserved\n"
-        risk_data += "================================================================================\n"
+        risk_data += (
+            "================================================================================\n"
+        )
         self.risk_text.insert(tk.END, risk_data)
 
     def _show_ord_screen(self) -> None:
@@ -4678,7 +5476,17 @@ class ScalperGui:
         self.ord_book_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_trade_book = tk.Frame(self.ord_notebook, bg=self.bg_dark)
         self.ord_notebook.add(self.tab_trade_book, text="Trade Book")
-        cols_tb = ("Ticket", "Symbol", "Direction", "Lots", "Entry", "Current", "Unrealized PnL ($)", "SL", "TP")
+        cols_tb = (
+            "Ticket",
+            "Symbol",
+            "Direction",
+            "Lots",
+            "Entry",
+            "Current",
+            "Unrealized PnL ($)",
+            "SL",
+            "TP",
+        )
         self.ord_trade_book_tree = ttk.Treeview(
             self.tab_trade_book, columns=cols_tb, show="headings", style="Treeview", height=10
         )
@@ -4688,7 +5496,14 @@ class ScalperGui:
         self.ord_trade_book_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_spread_orders = tk.Frame(self.ord_notebook, bg=self.bg_dark)
         self.ord_notebook.add(self.tab_spread_orders, text="Spread / Multi-Leg Orders")
-        cols_so = ("Spread Pair", "Leg 1 Price", "Leg 2 Price", "Spread Ratio", "Deviation %", "Routing Status")
+        cols_so = (
+            "Spread Pair",
+            "Leg 1 Price",
+            "Leg 2 Price",
+            "Spread Ratio",
+            "Deviation %",
+            "Routing Status",
+        )
         self.ord_spread_tree = ttk.Treeview(
             self.tab_spread_orders, columns=cols_so, show="headings", style="Treeview", height=10
         )
@@ -4698,7 +5513,14 @@ class ScalperGui:
         self.ord_spread_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_trigger_orders = tk.Frame(self.ord_notebook, bg=self.bg_dark)
         self.ord_notebook.add(self.tab_trigger_orders, text="Trigger Orders")
-        cols_to = ("Trigger ID", "Symbol", "Condition Type", "Target Value", "Action", "Active Status")
+        cols_to = (
+            "Trigger ID",
+            "Symbol",
+            "Condition Type",
+            "Target Value",
+            "Action",
+            "Active Status",
+        )
         self.ord_trigger_tree = ttk.Treeview(
             self.tab_trigger_orders, columns=cols_to, show="headings", style="Treeview", height=10
         )
@@ -4780,7 +5602,11 @@ class ScalperGui:
             p2 = self.scalper.conn.get_current_price(leg2)["bid"]
             if p1 > 0 and p2 > 0:
                 ratio = p1 / p2
-                dev = abs(ratio - 1.25) / 1.25 * 100.0 if "EUR" in leg1 else abs(ratio - 18.0) / 18.0 * 100.0
+                dev = (
+                    abs(ratio - 1.25) / 1.25 * 100.0
+                    if "EUR" in leg1
+                    else abs(ratio - 18.0) / 18.0 * 100.0
+                )
                 self.ord_spread_tree.insert(
                     "",
                     tk.END,
@@ -4868,15 +5694,25 @@ class ScalperGui:
                 symbol = t["symbol"]
                 direction = t["direction"]
                 open_p = t["open_price"]
-                open_t = t["open_time"].split("T")[-1][:8] if "T" in t["open_time"] else t["open_time"][:8]
+                open_t = (
+                    t["open_time"].split("T")[-1][:8]
+                    if "T" in t["open_time"]
+                    else t["open_time"][:8]
+                )
                 if status == "OPEN":
                     log_data += f"[{open_t}] [TRADE] OPEN: Ticket {ticket} on {symbol} {direction} at {open_p:.5f}\n"
                 else:
                     close_p = t["close_price"]
                     profit = t["profit"]
-                    close_t = t["close_time"].split("T")[-1][:8] if "T" in t["close_time"] else t["close_time"][:8]
+                    close_t = (
+                        t["close_time"].split("T")[-1][:8]
+                        if "T" in t["close_time"]
+                        else t["close_time"][:8]
+                    )
                     log_data += f"[{close_t}] [TRADE] CLOSED: Ticket {ticket} on {symbol} at {close_p:.5f} (PnL: ${profit:+.2f})\n"
-        log_data += "================================================================================\n"
+        log_data += (
+            "================================================================================\n"
+        )
         self.log_text.insert(tk.END, log_data)
 
     def _show_mon_screen(self) -> None:
@@ -5128,7 +5964,9 @@ class ScalperGui:
                 history = self.scalper.conn.get_history(sym, 30)
                 if history:
                     closes = [bar["close"] for bar in history]
-                    rets = [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))]
+                    rets = [
+                        (closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))
+                    ]
                     real_returns[sym] = rets if len(rets) >= 5 else [0.0] * 5
                 else:
                     real_returns[sym] = [0.0001, -0.0002, 0.0003, 0.0001, 0.0002]
@@ -5151,7 +5989,14 @@ class ScalperGui:
             self.pf_hold_tree.insert(
                 "",
                 tk.END,
-                values=(sym, desc, f"{weight * 100.0:.2f}%", active_alloc, f"${allocated_val:,.2f}", "Quarter-Kelly"),
+                values=(
+                    sym,
+                    desc,
+                    f"{weight * 100.0:.2f}%",
+                    active_alloc,
+                    f"${allocated_val:,.2f}",
+                    "Quarter-Kelly",
+                ),
             )
         self.pf_funds_text.delete("1.0", tk.END)
         balance = info["balance"]
@@ -5281,7 +6126,13 @@ class ScalperGui:
             "CFG",
         )
         style_frame = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=15, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+            highlightbackground="#2d2d2d",
         )
         style_frame.pack(fill=tk.X, pady=(0, 15))
         tk.Label(
@@ -5295,19 +6146,54 @@ class ScalperGui:
         styles_grid.pack(fill=tk.X)
         self.login_style_var = tk.StringVar(value=database.get_user_login_style("QUANT_OPERATOR"))
         STYLES = [
-            ("MATRIX_NEON", "Matrix Neon Green", "#00ffcc", "#05090e", ["#00ff66", "#00ffcc", "#ffaa00"]),
-            ("CYBERPUNK_NEON", "Cyberpunk Hot Pink", "#ff007f", "#140029", ["#ff007f", "#e11d48", "#a855f7"]),
-            ("GOLD_SOVEREIGN", "Sovereign Gold", "#fbbf24", "#1a1400", ["#fbbf24", "#f59e0b", "#00ffcc"]),
-            ("DARK_OBSIDIAN", "Dark Obsidian Blue", "#38bdf8", "#0a0e17", ["#38bdf8", "#0284c7", "#f43f5e"]),
+            (
+                "MATRIX_NEON",
+                "Matrix Neon Green",
+                "#00ffcc",
+                "#05090e",
+                ["#00ff66", "#00ffcc", "#ffaa00"],
+            ),
+            (
+                "CYBERPUNK_NEON",
+                "Cyberpunk Hot Pink",
+                "#ff007f",
+                "#140029",
+                ["#ff007f", "#e11d48", "#a855f7"],
+            ),
+            (
+                "GOLD_SOVEREIGN",
+                "Sovereign Gold",
+                "#fbbf24",
+                "#1a1400",
+                ["#fbbf24", "#f59e0b", "#00ffcc"],
+            ),
+            (
+                "DARK_OBSIDIAN",
+                "Dark Obsidian Blue",
+                "#38bdf8",
+                "#0a0e17",
+                ["#38bdf8", "#0284c7", "#f43f5e"],
+            ),
         ]
         for idx, (style_id, name, border_col, bg_col, dots) in enumerate(STYLES):
             col_frame = tk.Frame(
-                styles_grid, bg="#111111", bd=1, relief=tk.SOLID, highlightbackground=border_col, padx=10, pady=10
+                styles_grid,
+                bg="#111111",
+                bd=1,
+                relief=tk.SOLID,
+                highlightbackground=border_col,
+                padx=10,
+                pady=10,
             )
             col_frame.grid(row=0, column=idx, padx=5, pady=5, sticky="nsew")
             styles_grid.columnconfigure(idx, weight=1)
             thumb_canvas = tk.Canvas(
-                col_frame, bg=bg_col, width=160, height=90, highlightthickness=1, highlightbackground=border_col
+                col_frame,
+                bg=bg_col,
+                width=160,
+                height=90,
+                highlightthickness=1,
+                highlightbackground=border_col,
             )
             thumb_canvas.pack(pady=(0, 8))
             for x_i in range(15, 150, 20):
@@ -5320,7 +6206,9 @@ class ScalperGui:
                         font=("Consolas", 8, "bold"),
                     )
             thumb_canvas.create_rectangle(30, 25, 130, 65, fill="#000000", outline=border_col)
-            thumb_canvas.create_text(80, 45, text="LOGIN", fill=border_col, font=("Consolas", 7, "bold"))
+            thumb_canvas.create_text(
+                80, 45, text="LOGIN", fill=border_col, font=("Consolas", 7, "bold")
+            )
             rb = tk.Radiobutton(
                 col_frame,
                 text=name,
@@ -5379,18 +6267,29 @@ class ScalperGui:
 
         token_key = secrets.token_hex(8).upper()
         self.cred_text.insert(
-            tk.END, "================================================================================\n"
+            tk.END,
+            "================================================================================\n",
         )
         self.cred_text.insert(tk.END, "🔑 CREDENTIAL MANAGER & SECURITY HEALTH DIAGNOSTICS\n")
         self.cred_text.insert(
-            tk.END, "================================================================================\n"
+            tk.END,
+            "================================================================================\n",
         )
-        self.cred_text.insert(tk.END, f"Overall Security Grade:          {sec_health['overall_security_grade']}\n")
-        self.cred_text.insert(tk.END, f"EQATS_MASTER_KEY Env Var:        {sec_health['master_key_env_set']}\n")
-        self.cred_text.insert(tk.END, f"Cryptography Fernet Module:      {sec_health['cryptography_available']}\n")
-        self.cred_text.insert(tk.END, f"bcrypt Work Factor (12 rounds):   {sec_health['bcrypt_available']}\n")
         self.cred_text.insert(
-            tk.END, f"Hash Migration Complete:         {sec_health['migration_status']['migration_complete']}\n\n"
+            tk.END, f"Overall Security Grade:          {sec_health['overall_security_grade']}\n"
+        )
+        self.cred_text.insert(
+            tk.END, f"EQATS_MASTER_KEY Env Var:        {sec_health['master_key_env_set']}\n"
+        )
+        self.cred_text.insert(
+            tk.END, f"Cryptography Fernet Module:      {sec_health['cryptography_available']}\n"
+        )
+        self.cred_text.insert(
+            tk.END, f"bcrypt Work Factor (12 rounds):   {sec_health['bcrypt_available']}\n"
+        )
+        self.cred_text.insert(
+            tk.END,
+            f"Hash Migration Complete:         {sec_health['migration_status']['migration_complete']}\n\n",
         )
         self.cred_text.insert(tk.END, f"REGISTERED OPERATOR ACCOUNTS ({len(users)}):\n")
         for u in users:
@@ -5405,7 +6304,9 @@ class ScalperGui:
                 f"  • Name: {active_broker.get('broker_name')} | Account: {active_broker.get('account_id')} | Server: {active_broker.get('server')} | Protocol: {active_broker.get('protocol_type')}\n",
             )
         else:
-            self.cred_text.insert(tk.END, "  • None (Configure via CredentialManager or CFG <GO>)\n")
+            self.cred_text.insert(
+                tk.END, "  • None (Configure via CredentialManager or CFG <GO>)\n"
+            )
         self.cred_text.insert(tk.END, "\nDYNAMIC SESSION 2FA TOKEN:\n")
         mfa_code = secrets.randbelow(900000) + 100000
         cred_data = f"\n================================================================================\nCRED <GO>: SECURE SECURITY LOGINS & USER PRIVILEGES\n================================================================================\nACTIVE PROFILE:              QUANT_OPERATOR\nAUTHORITY LEVEL:             Sovereign Administration (S-12 Root)\nMFA HARDWARE KEY STATUS:     SYNCED (Hardware Token Connected)\nDynamic TOTP Code:           {mfa_code}\nActive Session Token:        {token_key}\n\nSECURITY DOMAINS ENFORCED:\n--------------------------------------------------------------------------------\n1) startup_authentication:   PASSED (QUANT_OPERATOR credentials verified)\n2) RBAC role model:          ENABLED (Read-Write-Execute Permission active)\n3) API Isolations:           SECURE (Isolated from external research files)\n4) MFA Code requirement:     REQUIRED for Settings (SET <GO>) screen\n================================================================================\n"
@@ -5459,8 +6360,16 @@ class ScalperGui:
             "MN1",
         ]
         for col_idx, h in enumerate(headers):
-            bg_col = "#111111" if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#1e293b"
-            fg_col = self.fg_accent if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"] else "#38bdf8"
+            bg_col = (
+                "#111111"
+                if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"]
+                else "#1e293b"
+            )
+            fg_col = (
+                self.fg_accent
+                if h not in ["M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1"]
+                else "#38bdf8"
+            )
             lbl = tk.Label(
                 self.watch_header_frame,
                 text=h,
@@ -5472,12 +6381,19 @@ class ScalperGui:
                 relief=tk.SOLID,
             )
             lbl.grid(row=0, column=col_idx, padx=1, pady=1, sticky="nsew")
-        self.canvas_watch = tk.Canvas(self.screen_frame, bg=self.bg_dark, bd=0, highlightthickness=0)
-        v_scroll = tk.Scrollbar(self.screen_frame, orient=tk.VERTICAL, command=self.canvas_watch.yview)
-        h_scroll = tk.Scrollbar(self.screen_frame, orient=tk.HORIZONTAL, command=self.canvas_watch.xview)
+        self.canvas_watch = tk.Canvas(
+            self.screen_frame, bg=self.bg_dark, bd=0, highlightthickness=0
+        )
+        v_scroll = tk.Scrollbar(
+            self.screen_frame, orient=tk.VERTICAL, command=self.canvas_watch.yview
+        )
+        h_scroll = tk.Scrollbar(
+            self.screen_frame, orient=tk.HORIZONTAL, command=self.canvas_watch.xview
+        )
         self.watch_container = tk.Frame(self.canvas_watch, bg=self.bg_dark)
         self.watch_container.bind(
-            "<Configure>", lambda e: self.canvas_watch.configure(scrollregion=self.canvas_watch.bbox("all"))
+            "<Configure>",
+            lambda e: self.canvas_watch.configure(scrollregion=self.canvas_watch.bbox("all")),
         )
         self.canvas_watch.create_window((0, 0), window=self.watch_container, anchor="nw")
         self.canvas_watch.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
@@ -5543,7 +6459,9 @@ class ScalperGui:
                 macd_hist = macd_res["histogram"] if macd_res else 0.0
                 adx_val = indicators.calculate_adx(highs, lows, closes, 14)
                 atr_val = indicators.calculate_atr(highs, lows, closes, 14) or 0.001
-                vwap_val = sum(c * 100 for c in closes) / sum([100] * len(closes)) if closes else bid
+                vwap_val = (
+                    sum(c * 100 for c in closes) / sum([100] * len(closes)) if closes else bid
+                )
                 twap_val = sum(closes) / len(closes) if closes else bid
                 sma_val = sum(closes[-20:]) / min(20, len(closes)) if closes else bid
                 ema_val = indicators.calculate_ema(closes, 20) or bid
@@ -5570,7 +6488,9 @@ class ScalperGui:
                 mtf_signals = []
                 timeframe_intervals = [5, 15, 30, 60, 240, 1440, 7200, 30000]
                 for interval in timeframe_intervals:
-                    tf_sma = sum(closes[-min(len(closes), interval // 5 + 1) :]) / min(len(closes), interval // 5 + 1)
+                    tf_sma = sum(closes[-min(len(closes), interval // 5 + 1) :]) / min(
+                        len(closes), interval // 5 + 1
+                    )
                     mtf_signals.append("BULLISH" if bid >= tf_sma else "BEARISH")
                 row_vals = [
                     sym,
@@ -5613,7 +6533,9 @@ class ScalperGui:
                         relief=tk.SOLID,
                     )
                     lbl_cell.grid(row=row_idx, column=col_idx, padx=1, pady=1, sticky="nsew")
-                    lbl_cell.bind("<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s))
+                    lbl_cell.bind(
+                        "<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s)
+                    )
                     row_widgets.append((lbl_cell, self.bg_card))
                 start_col = len(row_vals)
                 for tf_idx, mtf_state in enumerate(mtf_signals):
@@ -5632,7 +6554,9 @@ class ScalperGui:
                         relief=tk.SOLID,
                     )
                     lbl_block.grid(row=row_idx, column=block_col, padx=1, pady=1, sticky="nsew")
-                    lbl_block.bind("<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s))
+                    lbl_block.bind(
+                        "<Button-1>", lambda _, r=row_idx, s=sym: self._select_watch_row(r, s)
+                    )
                     row_widgets.append((lbl_block, bg_color))
                 self.watch_row_widgets[row_idx] = row_widgets
             except Exception as e:
@@ -5729,7 +6653,13 @@ class ScalperGui:
         self.mkt_notebook.bind("<<NotebookTabChanged>>", lambda e: self._on_mkt_tab_changed())
         self.tab_mkt_messages = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_messages, text="1. Messages")
-        cols_msg = ("Timestamp", "Source Exchange", "Message Type", "Alert Details", "Routing Connection")
+        cols_msg = (
+            "Timestamp",
+            "Source Exchange",
+            "Message Type",
+            "Alert Details",
+            "Routing Connection",
+        )
         self.mkt_msg_tree = ttk.Treeview(
             self.tab_mkt_messages, columns=cols_msg, show="headings", style="Treeview", height=10
         )
@@ -5739,7 +6669,14 @@ class ScalperGui:
         self.mkt_msg_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_mkt_movers = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_movers, text="2. Movers")
-        cols_mov = ("Symbol Name", "LTP (Bid)", "Net Change", "Change %", "Regime Direction", "Vibe/Strength")
+        cols_mov = (
+            "Symbol Name",
+            "LTP (Bid)",
+            "Net Change",
+            "Change %",
+            "Regime Direction",
+            "Vibe/Strength",
+        )
         self.mkt_mov_tree = ttk.Treeview(
             self.tab_mkt_movers, columns=cols_mov, show="headings", style="Treeview", height=10
         )
@@ -5749,7 +6686,14 @@ class ScalperGui:
         self.mkt_mov_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_mkt_scanners = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_scanners, text="3. Scanners")
-        cols_scan = ("Symbol", "Spread (Pips)", "ATR Volatility", "RSI State", "Bollinger Band Width", "Scanner Signal")
+        cols_scan = (
+            "Symbol",
+            "Spread (Pips)",
+            "ATR Volatility",
+            "RSI State",
+            "Bollinger Band Width",
+            "Scanner Signal",
+        )
         self.mkt_scan_tree = ttk.Treeview(
             self.tab_mkt_scanners, columns=cols_scan, show="headings", style="Treeview", height=10
         )
@@ -5768,7 +6712,11 @@ class ScalperGui:
             "SEC Filing Link",
         )
         self.mkt_fund_tree = ttk.Treeview(
-            self.tab_mkt_fundamentals, columns=cols_fund, show="headings", style="Treeview", height=10
+            self.tab_mkt_fundamentals,
+            columns=cols_fund,
+            show="headings",
+            style="Treeview",
+            height=10,
         )
         for c in cols_fund:
             self.mkt_fund_tree.heading(c, text=c)
@@ -5776,7 +6724,13 @@ class ScalperGui:
         self.mkt_fund_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_mkt_corp = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_corp, text="5. Corp Actions")
-        cols_corp = ("Ex-Date", "Symbol", "Corporate Action Event", "Details / Ratio", "Sovereign Impact Rating")
+        cols_corp = (
+            "Ex-Date",
+            "Symbol",
+            "Corporate Action Event",
+            "Details / Ratio",
+            "Sovereign Impact Rating",
+        )
         self.mkt_corp_tree = ttk.Treeview(
             self.tab_mkt_corp, columns=cols_corp, show="headings", style="Treeview", height=10
         )
@@ -5786,7 +6740,13 @@ class ScalperGui:
         self.mkt_corp_tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.tab_mkt_hours = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_hours, text="6. Market Hours")
-        cols_hrs = ("Market Session", "UTC Interval", "Local Converted Time", "Status", "Volume Profile")
+        cols_hrs = (
+            "Market Session",
+            "UTC Interval",
+            "Local Converted Time",
+            "Status",
+            "Volume Profile",
+        )
         self.mkt_hours_tree = ttk.Treeview(
             self.tab_mkt_hours, columns=cols_hrs, show="headings", style="Treeview", height=10
         )
@@ -5818,7 +6778,12 @@ class ScalperGui:
             pady=8,
         )
         self.lbl_mkt_roro_gauge.pack(anchor="w")
-        cols_roro = ("Asset Class / Proxy", "Current Value", "Daily Net %", "Risk Sentiment Direction")
+        cols_roro = (
+            "Asset Class / Proxy",
+            "Current Value",
+            "Daily Net %",
+            "Risk Sentiment Direction",
+        )
         self.mkt_roro_tree = ttk.Treeview(
             self.tab_mkt_roro, columns=cols_roro, show="headings", style="Treeview", height=8
         )
@@ -5846,10 +6811,19 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         tk.Label(
-            gl_frame, text="Account Loss Percentage (%):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            gl_frame,
+            text="Account Loss Percentage (%):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=1, column=0, sticky="w", pady=4)
         self.ent_mkt_loss_pct = tk.Entry(
-            gl_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, insertbackground=self.fg_accent, width=15
+            gl_frame,
+            font=("Consolas", 8),
+            bg="#1c1c1c",
+            fg=self.fg_accent,
+            insertbackground=self.fg_accent,
+            width=15,
         )
         self.ent_mkt_loss_pct.grid(row=1, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_loss_pct.insert(0, "10.0")
@@ -5893,25 +6867,37 @@ class ScalperGui:
         self.tab_mkt_pivot = tk.Frame(self.mkt_notebook, bg=self.bg_dark)
         self.mkt_notebook.add(self.tab_mkt_pivot, text="11. Pivots")
         piv_top = tk.Frame(
-            self.tab_mkt_pivot, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d"
+            self.tab_mkt_pivot,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
         )
         piv_top.pack(fill=tk.X, padx=10, pady=10)
-        tk.Label(piv_top, text="High:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=0, column=0, padx=5
+        tk.Label(
+            piv_top, text="High:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=0, column=0, padx=5)
+        self.ent_mkt_p_high = tk.Entry(
+            piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10
         )
-        self.ent_mkt_p_high = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
         self.ent_mkt_p_high.grid(row=0, column=1, padx=5)
         self.ent_mkt_p_high.insert(0, "1.1050")
-        tk.Label(piv_top, text="Low:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=0, column=2, padx=5
+        tk.Label(
+            piv_top, text="Low:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=0, column=2, padx=5)
+        self.ent_mkt_p_low = tk.Entry(
+            piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10
         )
-        self.ent_mkt_p_low = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
         self.ent_mkt_p_low.grid(row=0, column=3, padx=5)
         self.ent_mkt_p_low.insert(0, "1.0950")
-        tk.Label(piv_top, text="Close:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=0, column=4, padx=5
+        tk.Label(
+            piv_top, text="Close:", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+        ).grid(row=0, column=4, padx=5)
+        self.ent_mkt_p_close = tk.Entry(
+            piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10
         )
-        self.ent_mkt_p_close = tk.Entry(piv_top, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=10)
         self.ent_mkt_p_close.grid(row=0, column=5, padx=5)
         self.ent_mkt_p_close.insert(0, "1.1020")
         tk.Button(
@@ -5962,21 +6948,39 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
         tk.Label(
-            ps_frame, text="Account Balance ($ USD):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            ps_frame,
+            text="Account Balance ($ USD):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=1, column=0, sticky="w", pady=4)
-        self.ent_mkt_ps_bal = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        self.ent_mkt_ps_bal = tk.Entry(
+            ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15
+        )
         self.ent_mkt_ps_bal.grid(row=1, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_ps_bal.insert(0, "10000")
-        tk.Label(ps_frame, text="Risk Per Trade (%):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light).grid(
-            row=2, column=0, sticky="w", pady=4
+        tk.Label(
+            ps_frame,
+            text="Risk Per Trade (%):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+        self.ent_mkt_ps_risk = tk.Entry(
+            ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15
         )
-        self.ent_mkt_ps_risk = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
         self.ent_mkt_ps_risk.grid(row=2, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_ps_risk.insert(0, "1.0")
         tk.Label(
-            ps_frame, text="Stop Loss Distance (Pips):", font=("Consolas", 8), bg=self.bg_card, fg=self.fg_light
+            ps_frame,
+            text="Stop Loss Distance (Pips):",
+            font=("Consolas", 8),
+            bg=self.bg_card,
+            fg=self.fg_light,
         ).grid(row=3, column=0, sticky="w", pady=4)
-        self.ent_mkt_ps_sl = tk.Entry(ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15)
+        self.ent_mkt_ps_sl = tk.Entry(
+            ps_frame, font=("Consolas", 8), bg="#1c1c1c", fg=self.fg_accent, width=15
+        )
         self.ent_mkt_ps_sl.grid(row=3, column=1, sticky="w", padx=10, pady=4)
         self.ent_mkt_ps_sl.insert(0, "20.0")
         tk.Button(
@@ -6020,10 +7024,14 @@ class ScalperGui:
         try:
             loss_pct = float(self.ent_mkt_loss_pct.get().strip())
             if loss_pct >= 100.0:
-                self.lbl_mkt_recovery_result.config(text="Total Bankruptcy (100% loss)", fg=self.fg_red)
+                self.lbl_mkt_recovery_result.config(
+                    text="Total Bankruptcy (100% loss)", fg=self.fg_red
+                )
                 return
             rec_pct = loss_pct / (100.0 - loss_pct) * 100.0
-            self.lbl_mkt_recovery_result.config(text=f"Required Gain To Break-Even: +{rec_pct:.2f}%", fg=self.fg_green)
+            self.lbl_mkt_recovery_result.config(
+                text=f"Required Gain To Break-Even: +{rec_pct:.2f}%", fg=self.fg_green
+            )
         except Exception:
             self.lbl_mkt_recovery_result.config(text="Invalid input number", fg=self.fg_red)
 
@@ -6106,7 +7114,8 @@ class ScalperGui:
             pip_val_std = 10.0
             lot_size = risk_amt / (sl_pips * pip_val_std) if sl_pips > 0 else 0.01
             self.lbl_mkt_ps_result.config(
-                text=f"Recommended Volume: {lot_size:.2f} Lots (${risk_amt:.2f} Risk)", fg=self.fg_green
+                text=f"Recommended Volume: {lot_size:.2f} Lots (${risk_amt:.2f} Risk)",
+                fg=self.fg_green,
             )
         except Exception:
             self.lbl_mkt_ps_result.config(text="Invalid calculation inputs", fg=self.fg_red)
@@ -6117,8 +7126,20 @@ class ScalperGui:
         self.mkt_msg_tree.delete(*self.mkt_msg_tree.get_children())
         now_str = datetime.datetime.now().strftime("%H:%M:%S")
         msgs = [
-            (f"{now_str}", "CME Group", "LIQUIDITY_PING", "CME Brent Crude matching server ping: 8ms", "CONNECTED"),
-            (f"{now_str}", "B-Pipe network", "HEARTBEAT", "EQATS real-time quote synchronization feed: OK", "SYNCED"),
+            (
+                f"{now_str}",
+                "CME Group",
+                "LIQUIDITY_PING",
+                "CME Brent Crude matching server ping: 8ms",
+                "CONNECTED",
+            ),
+            (
+                f"{now_str}",
+                "B-Pipe network",
+                "HEARTBEAT",
+                "EQATS real-time quote synchronization feed: OK",
+                "SYNCED",
+            ),
             (
                 f"{now_str}",
                 "FIT Request",
@@ -6203,18 +7224,56 @@ class ScalperGui:
             ("EURUSD", "European Currency Union Spot Asset", "---", "0.00%", "---", "SEC_EXEMPT"),
             ("GBPUSD", "British Sovereign Pound Spot Asset", "---", "0.00%", "---", "SEC_EXEMPT"),
             ("USDJPY", "Japanese Sovereign Yen Spot Asset", "---", "0.00%", "---", "SEC_EXEMPT"),
-            ("XAUUSD", "Gold Bullion Physical Metal Spot", "14,500.00", "0.00%", "---", "CFTC_REGULATED"),
+            (
+                "XAUUSD",
+                "Gold Bullion Physical Metal Spot",
+                "14,500.00",
+                "0.00%",
+                "---",
+                "CFTC_REGULATED",
+            ),
             ("BTCUSD", "Bitcoin Decentralized Ledger Spot", "1,250.00", "0.00%", "---", "EXEMPT"),
-            ("SOLUSD", "Solana High-Performance Layer-1 Spot", "65.40", "5.10% (Stake)", "---", "CFTC_REGULATED"),
+            (
+                "SOLUSD",
+                "Solana High-Performance Layer-1 Spot",
+                "65.40",
+                "5.10% (Stake)",
+                "---",
+                "CFTC_REGULATED",
+            ),
         ]
         for row in funds_rows:
             self.mkt_fund_tree.insert("", tk.END, values=row)
         self.mkt_corp_tree.delete(*self.mkt_corp_tree.get_children())
         corp_rows = [
-            ("2026-09-15", "SOLUSD", "VALIDATOR_UPGRADE", "V2.1 Hard Fork Mainnet Activation", "HIGH"),
-            ("2026-09-22", "XAUUSD", "CFTC_MARGIN_RESET", "Dynamic contract specifications leverage change", "MEDIUM"),
-            ("2026-10-01", "EURUSD", "ECB_RATE_DECISION", "Eurozone interest rates target publication", "HIGH"),
-            ("2026-10-14", "BTCUSD", "HALVING_ANALYTICS", "Quarterly block mining emission review", "MEDIUM"),
+            (
+                "2026-09-15",
+                "SOLUSD",
+                "VALIDATOR_UPGRADE",
+                "V2.1 Hard Fork Mainnet Activation",
+                "HIGH",
+            ),
+            (
+                "2026-09-22",
+                "XAUUSD",
+                "CFTC_MARGIN_RESET",
+                "Dynamic contract specifications leverage change",
+                "MEDIUM",
+            ),
+            (
+                "2026-10-01",
+                "EURUSD",
+                "ECB_RATE_DECISION",
+                "Eurozone interest rates target publication",
+                "HIGH",
+            ),
+            (
+                "2026-10-14",
+                "BTCUSD",
+                "HALVING_ANALYTICS",
+                "Quarterly block mining emission review",
+                "MEDIUM",
+            ),
         ]
         for row in corp_rows:
             self.mkt_corp_tree.insert("", tk.END, values=row)
@@ -6299,7 +7358,13 @@ class ScalperGui:
                     "1:50 Majors",
                     "https://www.cftc.gov",
                 ),
-                ("United Kingdom", "Financial Conduct Authority", "FCA", "1:30 Retail", "https://www.fca.org.uk"),
+                (
+                    "United Kingdom",
+                    "Financial Conduct Authority",
+                    "FCA",
+                    "1:30 Retail",
+                    "https://www.fca.org.uk",
+                ),
                 (
                     "Australia",
                     "Australian Securities and Investments Commission",
@@ -6321,7 +7386,13 @@ class ScalperGui:
                     "1:100 Banking",
                     "https://www.finma.ch",
                 ),
-                ("Japan", "Financial Services Agency Japan", "JFSA", "1:25 Retail", "https://www.fsa.go.jp"),
+                (
+                    "Japan",
+                    "Financial Services Agency Japan",
+                    "JFSA",
+                    "1:25 Retail",
+                    "https://www.fsa.go.jp",
+                ),
             ]
             for row in reg_rows:
                 self.mkt_reg_tree.insert("", tk.END, values=row)
@@ -6361,10 +7432,15 @@ class ScalperGui:
             rowheight=18,
         )
         style.configure(
-            "Custom.Treeview.Heading", background="#111111", foreground=self.fg_accent, font=("Consolas", 8, "bold")
+            "Custom.Treeview.Heading",
+            background="#111111",
+            foreground=self.fg_accent,
+            font=("Consolas", 8, "bold"),
         )
         cols = ("TICKET", "SYMBOL", "DIR", "LOTS", "OPEN P", "CLOSE P", "PROFIT", "REASON")
-        self.tradebook_tree = ttk.Treeview(tree_frame, columns=cols, show="headings", style="Custom.Treeview")
+        self.tradebook_tree = ttk.Treeview(
+            tree_frame, columns=cols, show="headings", style="Custom.Treeview"
+        )
         for c in cols:
             self.tradebook_tree.heading(c, text=c)
             self.tradebook_tree.column(c, width=70, anchor="center")
@@ -6392,7 +7468,13 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).pack(anchor="w", pady=(0, 5))
         self.tradebook_mem_text = tk.Text(
-            mem_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), wrap=tk.WORD, bd=0, highlightthickness=0
+            mem_frame,
+            bg="#050505",
+            fg=self.fg_green,
+            font=("Consolas", 7),
+            wrap=tk.WORD,
+            bd=0,
+            highlightthickness=0,
         )
         self.tradebook_mem_text.pack(fill=tk.BOTH, expand=True)
         self._update_tradebook_screen_data()
@@ -6437,9 +7519,15 @@ class ScalperGui:
             ref_data = tmp.global_trade_memory_protocol.get_summary()
             self.tradebook_mem_text.config(state=tk.NORMAL)
             self.tradebook_mem_text.delete("1.0", tk.END)
-            self.tradebook_mem_text.insert(tk.END, f"Total Reflected Trades: {ref_data['total_reflections']}\n")
-            self.tradebook_mem_text.insert(tk.END, f"Reflection Win Rate:    {ref_data['win_rate']}%\n")
-            self.tradebook_mem_text.insert(tk.END, f"Average Efficiency:     {ref_data['avg_efficiency']}%\n")
+            self.tradebook_mem_text.insert(
+                tk.END, f"Total Reflected Trades: {ref_data['total_reflections']}\n"
+            )
+            self.tradebook_mem_text.insert(
+                tk.END, f"Reflection Win Rate:    {ref_data['win_rate']}%\n"
+            )
+            self.tradebook_mem_text.insert(
+                tk.END, f"Average Efficiency:     {ref_data['avg_efficiency']}%\n"
+            )
             self.tradebook_mem_text.insert(tk.END, "----------------------------------------\n")
             self.tradebook_mem_text.insert(tk.END, "RECENT TRADE POST-MORTEMS:\n")
             for note in ref_data["recent_reflections"]:
@@ -6466,11 +7554,23 @@ class ScalperGui:
         lbl_info.pack(anchor="w", pady=(0, 10))
         stats_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         stats_frame.pack(fill=tk.X, pady=(0, 10))
-        self.lbl_sent_dir = self._create_sentiment_card(stats_frame, "SENTIMENT DIRECTION", "BULLISH", 0, self.fg_green)
-        self.lbl_sent_score = self._create_sentiment_card(stats_frame, "SENTIMENT SCORE", "+0.45", 1, self.fg_cyan)
-        self.lbl_sent_conf = self._create_sentiment_card(stats_frame, "CONFIDENCE LEVEL", "85.2%", 2, self.fg_accent)
+        self.lbl_sent_dir = self._create_sentiment_card(
+            stats_frame, "SENTIMENT DIRECTION", "BULLISH", 0, self.fg_green
+        )
+        self.lbl_sent_score = self._create_sentiment_card(
+            stats_frame, "SENTIMENT SCORE", "+0.45", 1, self.fg_cyan
+        )
+        self.lbl_sent_conf = self._create_sentiment_card(
+            stats_frame, "CONFIDENCE LEVEL", "85.2%", 2, self.fg_accent
+        )
         impact_frame = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d", pady=10, padx=15
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
+            pady=10,
+            padx=15,
         )
         impact_frame.pack(fill=tk.X, pady=(0, 10))
         tk.Label(
@@ -6520,8 +7620,17 @@ class ScalperGui:
             fg=self.fg_accent,
         )
         lbl_list_title.pack(anchor="w", pady=(5, 5))
-        cols = ("TIME", "HEADLINE", "POLARITY", "SUBJECTIVITY", "TRANSFORMER SCORE", "SENTIMENT LABEL")
-        self.sent_tree = ttk.Treeview(self.screen_frame, columns=cols, show="headings", style="Treeview")
+        cols = (
+            "TIME",
+            "HEADLINE",
+            "POLARITY",
+            "SUBJECTIVITY",
+            "TRANSFORMER SCORE",
+            "SENTIMENT LABEL",
+        )
+        self.sent_tree = ttk.Treeview(
+            self.screen_frame, columns=cols, show="headings", style="Treeview"
+        )
         for col in cols:
             self.sent_tree.heading(col, text=col)
             if col == "HEADLINE":
@@ -6533,13 +7642,21 @@ class ScalperGui:
         self.sent_tree.pack(fill=tk.BOTH, expand=True)
         self._update_sentiment_screen_data()
 
-    def _create_sentiment_card(self, parent: Any, label_text: Any, val_text: Any, column: Any, val_color: Any) -> Any:
-        card = tk.Frame(parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+    def _create_sentiment_card(
+        self, parent: Any, label_text: Any, val_text: Any, column: Any, val_color: Any
+    ) -> Any:
+        card = tk.Frame(
+            parent, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         card.grid(row=0, column=column, padx=5, pady=5, sticky="ew")
         parent.columnconfigure(column, weight=1)
-        lbl = tk.Label(card, text=label_text, font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_grey)
+        lbl = tk.Label(
+            card, text=label_text, font=("Consolas", 8, "bold"), bg=self.bg_card, fg=self.fg_grey
+        )
         lbl.pack(anchor="w", padx=15, pady=(8, 2))
-        val = tk.Label(card, text=val_text, font=("Consolas", 12, "bold"), bg=self.bg_card, fg=val_color)
+        val = tk.Label(
+            card, text=val_text, font=("Consolas", 12, "bold"), bg=self.bg_card, fg=val_color
+        )
         val.pack(anchor="w", padx=15, pady=(0, 8))
         return val
 
@@ -6553,13 +7670,19 @@ class ScalperGui:
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 15")
+            cursor.execute(
+                "SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 15"
+            )
             rows = cursor.fetchall()
             conn.close()
             total_polarity = 0.0
             sentiment_counts = {"BULLISH": 0, "BEARISH": 0, "NEUTRAL": 0}
             for row in rows:
-                time_str = row["timestamp"].split("T")[-1][:8] if "T" in row["timestamp"] else row["timestamp"][:8]
+                time_str = (
+                    row["timestamp"].split("T")[-1][:8]
+                    if "T" in row["timestamp"]
+                    else row["timestamp"][:8]
+                )
                 headline = row["headline"]
                 nlp_res = extract_advanced_nlp_sentiments(headline)
                 pol = nlp_res.get("textblob_polarity", 0.0)
@@ -6568,7 +7691,9 @@ class ScalperGui:
                 lbl = nlp_res.get("sentiment_label", "NEUTRAL")
                 total_polarity += pol
                 sentiment_counts[lbl] = sentiment_counts.get(lbl, 0) + 1
-                color_tag = "green" if lbl == "BULLISH" else "red" if lbl == "BEARISH" else "neutral"
+                color_tag = (
+                    "green" if lbl == "BULLISH" else "red" if lbl == "BEARISH" else "neutral"
+                )
                 self.sent_tree.insert(
                     "",
                     tk.END,
@@ -6597,9 +7722,15 @@ class ScalperGui:
             self.lbl_entity_impact.config(
                 text=f"Entity Impact: FEDERAL RESERVE ({('HIGH' if dir_text != 'NEUTRAL' else 'MEDIUM')})"
             )
-            self.lbl_symbol_impact.config(text=f"Symbol Impact: {self.selected_symbol_gp} ({dir_text})", fg=dir_color)
-            self.lbl_sector_impact.config(text=f"Sector Impact: FINANCIALS ({dir_text})", fg=dir_color)
-            self.lbl_market_impact.config(text=f"Market Impact: GLOBAL INDICES ({dir_text})", fg=dir_color)
+            self.lbl_symbol_impact.config(
+                text=f"Symbol Impact: {self.selected_symbol_gp} ({dir_text})", fg=dir_color
+            )
+            self.lbl_sector_impact.config(
+                text=f"Sector Impact: FINANCIALS ({dir_text})", fg=dir_color
+            )
+            self.lbl_market_impact.config(
+                text=f"Market Impact: GLOBAL INDICES ({dir_text})", fg=dir_color
+            )
         except Exception as e:
             print(f"Error updating deep sentiment screen data: {e}")
 
@@ -6629,16 +7760,25 @@ class ScalperGui:
         self.lbl_pred_range = self._create_sentiment_card(
             stats_frame, "EXPECTED PRICE RANGE", "1.1000 - 1.1020", 1, self.fg_cyan
         )
-        self.lbl_pred_conf = self._create_sentiment_card(stats_frame, "FORECAST CONFIDENCE", "72.4%", 2, self.fg_accent)
+        self.lbl_pred_conf = self._create_sentiment_card(
+            stats_frame, "FORECAST CONFIDENCE", "72.4%", 2, self.fg_accent
+        )
         self.lbl_pred_unc = self._create_sentiment_card(
             stats_frame, "MODEL UNCERTAINTY (ATR)", "0.00120", 3, self.fg_red
         )
         split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split_frame.pack(fill=tk.BOTH, expand=True)
-        self.pred_canvas = tk.Canvas(split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d")
+        self.pred_canvas = tk.Canvas(
+            split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+        )
         self.pred_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         self.pred_details_frame = tk.Frame(
-            split_frame, bg="#111111", bd=1, relief=tk.SOLID, width=320, highlightbackground="#2d2d2d"
+            split_frame,
+            bg="#111111",
+            bd=1,
+            relief=tk.SOLID,
+            width=320,
+            highlightbackground="#2d2d2d",
         )
         self.pred_details_frame.pack(side=tk.RIGHT, fill=tk.Y)
         self.pred_details_frame.pack_propagate(False)
@@ -6652,7 +7792,9 @@ class ScalperGui:
         history = self.scalper.conn.get_history(sym, 20)
         if not history:
             return
-        from institutional_integrations.machine_learning import generate_multi_model_ensemble_prediction
+        from institutional_integrations.machine_learning import (
+            generate_multi_model_ensemble_prediction,
+        )
 
         closes = [b["close"] for b in history]
         current_price = closes[-1]
@@ -6669,7 +7811,11 @@ class ScalperGui:
         lbl_head.pack(anchor="w", padx=15, pady=15)
         for name, pred_val in predictions.items():
             lbl_m = tk.Label(
-                self.pred_details_frame, text=f"{name.upper()}:", font=("Consolas", 8), bg="#111111", fg=self.fg_grey
+                self.pred_details_frame,
+                text=f"{name.upper()}:",
+                font=("Consolas", 8),
+                bg="#111111",
+                fg=self.fg_grey,
             )
             lbl_m.pack(anchor="w", padx=15, pady=2)
             lbl_v = tk.Label(
@@ -6760,7 +7906,9 @@ class ScalperGui:
             x1, y1 = forecast_points[m]
             x2, y2 = forecast_points[m + 1]
             self.pred_canvas.create_line(x1, y1, x2, y2, fill=self.fg_accent, width=2, dash=(2, 2))
-            self.pred_canvas.create_oval(x2 - 3, y2 - 3, x2 + 3, y2 + 3, fill=self.fg_cyan, outline="")
+            self.pred_canvas.create_oval(
+                x2 - 3, y2 - 3, x2 + 3, y2 + 3, fill=self.fg_cyan, outline=""
+            )
         bullish_prob = 50.0 + (ensemble_mean - current_price) / current_price * 5000.0
         bullish_prob = max(5.0, min(95.0, bullish_prob))
         prob_dir = "BULLISH" if ensemble_mean >= current_price else "BEARISH"
@@ -6770,14 +7918,19 @@ class ScalperGui:
 
         atr_val = (
             indicators.calculate_atr(
-                [b["high"] for b in history], [b["low"] for b in history], [b["close"] for b in history], 14
+                [b["high"] for b in history],
+                [b["low"] for b in history],
+                [b["close"] for b in history],
+                14,
             )
             or 0.001
         )
         self.lbl_pred_unc.config(text=f"{atr_val:.5f}")
         high_b = ensemble_mean + atr_val * 1.5
         low_b = ensemble_mean - atr_val * 1.5
-        self.lbl_pred_range.config(text=f"{low_b:.5f} - {high_b:.5f}" if low_b < 100 else f"{low_b:.2f} - {high_b:.2f}")
+        self.lbl_pred_range.config(
+            text=f"{low_b:.5f} - {high_b:.5f}" if low_b < 100 else f"{low_b:.2f} - {high_b:.2f}"
+        )
         confidence_val = 100.0 - atr_val / current_price * 50000.0
         confidence_val = max(30.0, min(95.0, confidence_val))
         self.lbl_pred_conf.config(text=f"{confidence_val:.1f}%")
@@ -6805,7 +7958,9 @@ class ScalperGui:
         self.lbl_agent_health = self._create_sentiment_card(
             stats_frame, "COMPOSITE SYSTEM HEALTH", "100.0% [HEALTHY]", 0, self.fg_green
         )
-        self.lbl_agent_data_h = self._create_sentiment_card(stats_frame, "DATA PLANE HEALTH", "100.0%", 1, self.fg_cyan)
+        self.lbl_agent_data_h = self._create_sentiment_card(
+            stats_frame, "DATA PLANE HEALTH", "100.0%", 1, self.fg_cyan
+        )
         self.lbl_agent_exec_h = self._create_sentiment_card(
             stats_frame, "EXECUTION PLANE HEALTH", "100.0%", 2, self.fg_green
         )
@@ -6813,7 +7968,13 @@ class ScalperGui:
             stats_frame, "RISK PLANE HEALTH", "100.0%", 3, self.fg_accent
         )
         ctrl_frame = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=8,
+            highlightbackground="#2d2d2d",
         )
         ctrl_frame.pack(fill=tk.X, pady=(0, 10))
         self.btn_sup_toggle = tk.Button(
@@ -6875,7 +8036,13 @@ class ScalperGui:
         split_frame = tk.Frame(self.screen_frame, bg=self.bg_dark)
         split_frame.pack(fill=tk.BOTH, expand=True)
         left_frame = tk.Frame(
-            split_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=10, highlightbackground="#2d2d2d"
+            split_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=10,
+            highlightbackground="#2d2d2d",
         )
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         tk.Label(
@@ -6886,7 +8053,9 @@ class ScalperGui:
             fg=self.fg_cyan,
         ).pack(anchor="w", pady=(0, 5))
         cols_i = ("ID", "Plane Domain", "Severity", "Intervention / Audit Action")
-        self.agent_interv_tree = ttk.Treeview(left_frame, columns=cols_i, show="headings", style="Treeview", height=10)
+        self.agent_interv_tree = ttk.Treeview(
+            left_frame, columns=cols_i, show="headings", style="Treeview", height=10
+        )
         for c in cols_i:
             self.agent_interv_tree.heading(c, text=c)
             if c == "Intervention / Audit Action":
@@ -6914,7 +8083,13 @@ class ScalperGui:
             fg=self.fg_accent,
         ).pack(anchor="w", pady=(0, 5))
         self.agent_tele_text = tk.Text(
-            right_frame, bg="#050505", fg=self.fg_green, font=("Consolas", 7), wrap=tk.WORD, bd=0, highlightthickness=0
+            right_frame,
+            bg="#050505",
+            fg=self.fg_green,
+            font=("Consolas", 7),
+            wrap=tk.WORD,
+            bd=0,
+            highlightthickness=0,
         )
         self.agent_tele_text.pack(fill=tk.BOTH, expand=True)
         self._update_agent_screen_data()
@@ -6925,7 +8100,9 @@ class ScalperGui:
         mode_str = "ACTIVE" if sup.supervisor_active else "PAUSED"
         btn_bg = "#15803d" if sup.supervisor_active else "#991b1b"
         self.btn_sup_toggle.config(text=f"🤖 SUPERVISOR: {mode_str}", bg=btn_bg)
-        messagebox.showinfo("Supervisor Mode", f"AI Supervisor Agent monitoring mode updated to: {mode_str}")
+        messagebox.showinfo(
+            "Supervisor Mode", f"AI Supervisor Agent monitoring mode updated to: {mode_str}"
+        )
 
     def _force_supervisor_audit(self) -> None:
         audit_res = self.scalper.supervisor.run_supervisory_audit(self.scalper)
@@ -6943,7 +8120,15 @@ class ScalperGui:
         rep_win.title("AI SUPERVISOR AGENT — FORMAL AUDIT REPORT")
         rep_win.geometry("700x500")
         rep_win.configure(bg="#000000")
-        txt_rep = tk.Text(rep_win, bg="#0d0d0d", fg="#00ff00", font=("Consolas", 9), wrap=tk.WORD, padx=15, pady=15)
+        txt_rep = tk.Text(
+            rep_win,
+            bg="#0d0d0d",
+            fg="#00ff00",
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            padx=15,
+            pady=15,
+        )
         txt_rep.pack(fill=tk.BOTH, expand=True)
         txt_rep.insert(tk.END, report_text)
         txt_rep.config(state=tk.DISABLED)
@@ -6951,7 +8136,9 @@ class ScalperGui:
     def _run_brain_agentic_loop(self) -> None:
         from brain_agents_orchestrator import global_brain_orchestrator
 
-        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
+        directive = global_brain_orchestrator.run_agentic_loop(
+            self.scalper, symbol=self.selected_symbol_gp
+        )
         messagebox.showinfo(
             "Multi-Agent Brain Loop Executed",
             f"Master Brain Orchestrator Directive Generated for {self.selected_symbol_gp}:\n\n• Recommended Bias: {directive.recommended_bias}\n• Confidence Score: {directive.confidence_score:.1f}%\n• Risk Ceiling Modifier: {directive.risk_ceiling_modifier:.2f}x\n• Max Spread Filter: {directive.execution_instructions.get('max_spread_pips', 3.5):.2f} pips",
@@ -6979,7 +8166,9 @@ class ScalperGui:
         audit_res = sup.run_supervisory_audit(self.scalper)
         score = audit_res["health_score"]
         status = audit_res["status"]
-        score_color = self.fg_green if score >= 80 else self.fg_accent if score >= 60 else self.fg_red
+        score_color = (
+            self.fg_green if score >= 80 else self.fg_accent if score >= 60 else self.fg_red
+        )
         self.lbl_agent_health.config(text=f"{score:.1f}% [{status}]", fg=score_color)
         self.lbl_agent_data_h.config(text=f"{audit_res['data_health']:.1f}%")
         self.lbl_agent_exec_h.config(text=f"{audit_res['execution_health']:.1f}%")
@@ -7000,7 +8189,9 @@ class ScalperGui:
         else:
             for idx, item in enumerate(interventions, 1):
                 sev = "HIGH" if "CRITICAL" in item else "MEDIUM"
-                self.agent_interv_tree.insert("", tk.END, values=(f"INT_{idx:03d}", "CORE_PLANE", sev, item))
+                self.agent_interv_tree.insert(
+                    "", tk.END, values=(f"INT_{idx:03d}", "CORE_PLANE", sev, item)
+                )
         self.agent_tele_text.config(state=tk.NORMAL)
         self.agent_tele_text.delete("1.0", tk.END)
         self.agent_tele_text.insert(tk.END, "--- SUPERVISOR AGENT AUDIT LOGS ---\n")
@@ -7057,7 +8248,13 @@ class ScalperGui:
             container.grid_rowconfigure(i, weight=1)
         for j in range(3):
             container.grid_columnconfigure(j, weight=1)
-        c1 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
+        c1 = tk.Frame(
+            container,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+        )
         c1.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
         tk.Label(
             c1,
@@ -7067,15 +8264,27 @@ class ScalperGui:
             fg=theme["primary"],
         ).pack(anchor="w", padx=8, pady=(6, 2))
         self.lbl_vtl_cpu = tk.Label(
-            c1, text="CPU CORES: 8 LOGICAL / 4 PHYSICAL", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc"
+            c1,
+            text="CPU CORES: 8 LOGICAL / 4 PHYSICAL",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#00ffcc",
         )
         self.lbl_vtl_cpu.pack(anchor="w", padx=8, pady=3)
         self.lbl_vtl_ram = tk.Label(
-            c1, text="RAM MEMORY: 16.0 GB TOTAL / 8.0 GB FREE", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c1,
+            text="RAM MEMORY: 16.0 GB TOTAL / 8.0 GB FREE",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         )
         self.lbl_vtl_ram.pack(anchor="w", padx=8, pady=2)
         self.lbl_vtl_gpu = tk.Label(
-            c1, text="GPU / VRAM: CUDA (8.0 GB VRAM)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffaa00"
+            c1,
+            text="GPU / VRAM: CUDA (8.0 GB VRAM)",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffaa00",
         )
         self.lbl_vtl_gpu.pack(anchor="w", padx=8, pady=2)
         tk.Label(
@@ -7085,7 +8294,13 @@ class ScalperGui:
             bg=theme["bg_card"],
             fg="#00ff00",
         ).pack(anchor="w", padx=8, pady=2)
-        c2 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
+        c2 = tk.Frame(
+            container,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+        )
         c2.grid(row=0, column=1, sticky="nsew", padx=4, pady=4)
         tk.Label(
             c2,
@@ -7126,7 +8341,13 @@ class ScalperGui:
             fg="#00ff00",
         )
         self.lbl_vtl_p.pack(anchor="w", padx=8, pady=2)
-        c3 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
+        c3 = tk.Frame(
+            container,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+        )
         c3.grid(row=0, column=2, sticky="nsew", padx=4, pady=4)
         tk.Label(
             c3,
@@ -7143,14 +8364,28 @@ class ScalperGui:
             fg="#00ffcc",
         ).pack(anchor="w", padx=8, pady=4)
         self.lbl_vtl_mg = tk.Label(
-            c3, text="METHOD GOVERNOR: SCALPING (85.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c3,
+            text="METHOD GOVERNOR: SCALPING (85.0% CONF)",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         )
         self.lbl_vtl_mg.pack(anchor="w", padx=8, pady=2)
         self.lbl_vtl_sg = tk.Label(
-            c3, text="STRATEGY GOVERNOR: SMC_ICT (88.0% CONF)", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c3,
+            text="STRATEGY GOVERNOR: SMC_ICT (88.0% CONF)",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         )
         self.lbl_vtl_sg.pack(anchor="w", padx=8, pady=2)
-        c4 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
+        c4 = tk.Frame(
+            container,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+        )
         c4.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
         tk.Label(
             c4,
@@ -7160,18 +8395,36 @@ class ScalperGui:
             fg=theme["primary"],
         ).pack(anchor="w", padx=8, pady=(6, 2))
         self.lbl_vtl_workers = tk.Label(
-            c4, text="PARALLEL WORKER POOL: 8 WORKERS", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00"
+            c4,
+            text="PARALLEL WORKER POOL: 8 WORKERS",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#00ff00",
         )
         self.lbl_vtl_workers.pack(anchor="w", padx=8, pady=4)
         self.lbl_vtl_batch = tk.Label(
-            c4, text="ML MODEL BATCH SIZE: 64 SAMPLES", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00"
+            c4,
+            text="ML MODEL BATCH SIZE: 64 SAMPLES",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#00ff00",
         )
         self.lbl_vtl_batch.pack(anchor="w", padx=8, pady=2)
         self.lbl_vtl_mcts_cnt = tk.Label(
-            c4, text="MCTS TAIL SIMULATIONS: 2,000 PATHS", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00"
+            c4,
+            text="MCTS TAIL SIMULATIONS: 2,000 PATHS",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#00ff00",
         )
         self.lbl_vtl_mcts_cnt.pack(anchor="w", padx=8, pady=2)
-        c5 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
+        c5 = tk.Frame(
+            container,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+        )
         c5.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
         tk.Label(
             c5,
@@ -7181,15 +8434,33 @@ class ScalperGui:
             fg=theme["primary"],
         ).pack(anchor="w", padx=8, pady=(6, 2))
         tk.Label(
-            c5, text="PULSAR TICK TOPIC:   14,250 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ffcc"
+            c5,
+            text="PULSAR TICK TOPIC:   14,250 MSG / SEC",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#00ffcc",
         ).pack(anchor="w", padx=8, pady=4)
         tk.Label(
-            c5, text="SWARM SIGNAL TOPIC:     840 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c5,
+            text="SWARM SIGNAL TOPIC:     840 MSG / SEC",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         ).pack(anchor="w", padx=8, pady=2)
         tk.Label(
-            c5, text="TRADE EVENTS TOPIC:      12 MSG / SEC", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c5,
+            text="TRADE EVENTS TOPIC:      12 MSG / SEC",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         ).pack(anchor="w", padx=8, pady=2)
-        c6 = tk.Frame(container, bg=theme["bg_card"], bd=1, relief=tk.SOLID, highlightbackground=theme["border"])
+        c6 = tk.Frame(
+            container,
+            bg=theme["bg_card"],
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground=theme["border"],
+        )
         c6.grid(row=1, column=2, sticky="nsew", padx=4, pady=4)
         tk.Label(
             c6,
@@ -7199,13 +8470,25 @@ class ScalperGui:
             fg=theme["primary"],
         ).pack(anchor="w", padx=8, pady=(6, 2))
         tk.Label(
-            c6, text="RUST DISKLEDGER ENGINE:  ACTIVE (WAL)", font=("Consolas", 8), bg=theme["bg_card"], fg="#00ff00"
+            c6,
+            text="RUST DISKLEDGER ENGINE:  ACTIVE (WAL)",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#00ff00",
         ).pack(anchor="w", padx=8, pady=4)
         tk.Label(
-            c6, text="MERKLE TREE ROOT HASH:   0x8f4a...e31b", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c6,
+            text="MERKLE TREE ROOT HASH:   0x8f4a...e31b",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         ).pack(anchor="w", padx=8, pady=2)
         tk.Label(
-            c6, text="BLOCK HEIGHT:            1,048,592", font=("Consolas", 8), bg=theme["bg_card"], fg="#ffffff"
+            c6,
+            text="BLOCK HEIGHT:            1,048,592",
+            font=("Consolas", 8),
+            bg=theme["bg_card"],
+            fg="#ffffff",
         ).pack(anchor="w", padx=8, pady=2)
         self._update_vtl_screen_data()
 
@@ -7231,9 +8514,16 @@ class ScalperGui:
     def _update_vtl_screen_data(self) -> None:
         """Updates VTL vitals telemetry dynamically on every loop cycle with safe widget existence checks."""
         try:
-            if not hasattr(self, "lbl_vtl_cpu") or not self.lbl_vtl_cpu or (not self.lbl_vtl_cpu.winfo_exists()):
+            if (
+                not hasattr(self, "lbl_vtl_cpu")
+                or not self.lbl_vtl_cpu
+                or (not self.lbl_vtl_cpu.winfo_exists())
+            ):
                 return
-            from institutional_integrations.system_autotune import global_system_caps, global_tuned_config
+            from institutional_integrations.system_autotune import (
+                global_system_caps,
+                global_tuned_config,
+            )
 
             caps = global_system_caps
             tuned = global_tuned_config
@@ -7247,15 +8537,23 @@ class ScalperGui:
                 )
             if hasattr(self, "lbl_vtl_gpu") and self.lbl_vtl_gpu.winfo_exists():
                 gpu_str = (
-                    f"{caps['gpu_name']} ({caps['gpu_memory_gb']} GB VRAM)" if caps["gpu_available"] else "CPU Fallback"
+                    f"{caps['gpu_name']} ({caps['gpu_memory_gb']} GB VRAM)"
+                    if caps["gpu_available"]
+                    else "CPU Fallback"
                 )
                 self.lbl_vtl_gpu.config(text=f"GPU / VRAM: {gpu_str}")
             if hasattr(self, "lbl_vtl_workers") and self.lbl_vtl_workers.winfo_exists():
-                self.lbl_vtl_workers.config(text=f"PARALLEL WORKER POOL: {tuned['process_pool_workers']} WORKERS")
+                self.lbl_vtl_workers.config(
+                    text=f"PARALLEL WORKER POOL: {tuned['process_pool_workers']} WORKERS"
+                )
             if hasattr(self, "lbl_vtl_batch") and self.lbl_vtl_batch.winfo_exists():
-                self.lbl_vtl_batch.config(text=f"ML MODEL BATCH SIZE: {tuned['ml_batch_size']} SAMPLES")
+                self.lbl_vtl_batch.config(
+                    text=f"ML MODEL BATCH SIZE: {tuned['ml_batch_size']} SAMPLES"
+                )
             if hasattr(self, "lbl_vtl_mcts_cnt") and self.lbl_vtl_mcts_cnt.winfo_exists():
-                self.lbl_vtl_mcts_cnt.config(text=f"MCTS TAIL SIMULATIONS: {tuned['mcts_simulations_count']:,} PATHS")
+                self.lbl_vtl_mcts_cnt.config(
+                    text=f"MCTS TAIL SIMULATIONS: {tuned['mcts_simulations_count']:,} PATHS"
+                )
             from brain_agents_orchestrator import global_brain_orchestrator
 
             orch_summary = global_brain_orchestrator.get_status_summary()
@@ -7293,7 +8591,13 @@ class ScalperGui:
         )
         lbl_info.pack(anchor="w", pady=(0, 10))
         ctrl_frame = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=10, pady=8, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=10,
+            pady=8,
+            highlightbackground="#2d2d2d",
         )
         ctrl_frame.pack(fill=tk.X, pady=(0, 10))
         tk.Button(
@@ -7324,24 +8628,44 @@ class ScalperGui:
         self.eco_notebook.add(tab_core, text="Core Brain Agents (6)")
         core_grid = tk.Frame(tab_core, bg=self.bg_dark)
         core_grid.pack(fill=tk.BOTH, expand=True)
-        self.lbl_eco_research = self._create_card(core_grid, "1) RESEARCH AGENT", "Active | Sentiment: NEUTRAL", 0)
-        self.lbl_eco_analyst = self._create_card(core_grid, "2) ANALYST AGENT", "Active | Price Action OK", 1)
-        self.lbl_eco_prediction = self._create_card(core_grid, "3) PREDICTION AGENT", "Accuracy: 60.0% | Loss: 0.05", 2)
+        self.lbl_eco_research = self._create_card(
+            core_grid, "1) RESEARCH AGENT", "Active | Sentiment: NEUTRAL", 0
+        )
+        self.lbl_eco_analyst = self._create_card(
+            core_grid, "2) ANALYST AGENT", "Active | Price Action OK", 1
+        )
+        self.lbl_eco_prediction = self._create_card(
+            core_grid, "3) PREDICTION AGENT", "Accuracy: 60.0% | Loss: 0.05", 2
+        )
         core_grid2 = tk.Frame(tab_core, bg=self.bg_dark)
         core_grid2.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
-        self.lbl_eco_strategy = self._create_card(core_grid2, "4) STRATEGY AGENT", "Active | Dynamic Weights", 0)
-        self.lbl_eco_risk = self._create_card(core_grid2, "5) RISK AGENT", "Active | Modifier: 1.0x", 1)
-        self.lbl_eco_execution = self._create_card(core_grid2, "6) EXECUTION AGENT", "Active | Spread Filter OK", 2)
+        self.lbl_eco_strategy = self._create_card(
+            core_grid2, "4) STRATEGY AGENT", "Active | Dynamic Weights", 0
+        )
+        self.lbl_eco_risk = self._create_card(
+            core_grid2, "5) RISK AGENT", "Active | Modifier: 1.0x", 1
+        )
+        self.lbl_eco_execution = self._create_card(
+            core_grid2, "6) EXECUTION AGENT", "Active | Spread Filter OK", 2
+        )
         tab_methods = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
         self.eco_notebook.add(tab_methods, text="Trading Method Brains (4)")
         m_grid = tk.Frame(tab_methods, bg=self.bg_dark)
         m_grid.pack(fill=tk.BOTH, expand=True)
-        self.lbl_eco_m_scalp = self._create_card(m_grid, "SCALPING METHOD", "Score: 85.0 | M1-M5", 0)
-        self.lbl_eco_m_day = self._create_card(m_grid, "DAY TRADING METHOD", "Score: 80.0 | M15-H1", 1)
+        self.lbl_eco_m_scalp = self._create_card(
+            m_grid, "SCALPING METHOD", "Score: 85.0 | M1-M5", 0
+        )
+        self.lbl_eco_m_day = self._create_card(
+            m_grid, "DAY TRADING METHOD", "Score: 80.0 | M15-H1", 1
+        )
         m_grid2 = tk.Frame(tab_methods, bg=self.bg_dark)
         m_grid2.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
-        self.lbl_eco_m_swing = self._create_card(m_grid2, "SWING TRADING METHOD", "Score: 75.0 | H4-D1", 0)
-        self.lbl_eco_m_pos = self._create_card(m_grid2, "POSITION TRADING METHOD", "Score: 70.0 | D1-MN", 1)
+        self.lbl_eco_m_swing = self._create_card(
+            m_grid2, "SWING TRADING METHOD", "Score: 75.0 | H4-D1", 0
+        )
+        self.lbl_eco_m_pos = self._create_card(
+            m_grid2, "POSITION TRADING METHOD", "Score: 70.0 | D1-MN", 1
+        )
         tab_strats = tk.Frame(self.eco_notebook, bg=self.bg_dark, padx=10, pady=10)
         self.eco_notebook.add(tab_strats, text="Trading Strategy Brains (10)")
         cols_s = ("Strategy Name", "Category", "Score", "Status")
@@ -7354,14 +8678,20 @@ class ScalperGui:
         self.eco_notebook.add(tab_mech, text="Trading Mechanism Brains (2)")
         mech_grid = tk.Frame(tab_mech, bg=self.bg_dark)
         mech_grid.pack(fill=tk.BOTH, expand=True)
-        self.lbl_eco_risk_mech = self._create_card(mech_grid, "RISK ASSESSMENT BRAIN", "Risk Modifier: 1.0x", 0)
-        self.lbl_eco_lot_mech = self._create_card(mech_grid, "LOT MANAGEMENT BRAIN", "Lot Multiplier: 1.0x", 1)
+        self.lbl_eco_risk_mech = self._create_card(
+            mech_grid, "RISK ASSESSMENT BRAIN", "Risk Modifier: 1.0x", 0
+        )
+        self.lbl_eco_lot_mech = self._create_card(
+            mech_grid, "LOT MANAGEMENT BRAIN", "Lot Multiplier: 1.0x", 1
+        )
         self._update_ecosystem_screen_data()
 
     def _run_parallel_agent_sweep(self) -> None:
         from brain_agents_orchestrator import global_brain_orchestrator
 
-        directive = global_brain_orchestrator.run_agentic_loop(self.scalper, symbol=self.selected_symbol_gp)
+        directive = global_brain_orchestrator.run_agentic_loop(
+            self.scalper, symbol=self.selected_symbol_gp
+        )
         messagebox.showinfo(
             "Parallel Multi-Agent Sweep",
             f"Completed multi-threaded & multi-processed parallel agent sweep!\nRecommended Style: {directive.recommended_style}\nRecommended Bias: {directive.recommended_bias}\nConfidence Score: {directive.confidence_score:.1f}%",
@@ -7376,13 +8706,27 @@ class ScalperGui:
         rep_win.title("ECOSYSTEM — FULL AGENTIC SYSTEM REPORT")
         rep_win.geometry("700x500")
         rep_win.configure(bg="#000000")
-        txt = tk.Text(rep_win, bg="#0d0d0d", fg="#00ff00", font=("Consolas", 9), wrap=tk.WORD, padx=15, pady=15)
+        txt = tk.Text(
+            rep_win,
+            bg="#0d0d0d",
+            fg="#00ff00",
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            padx=15,
+            pady=15,
+        )
         txt.pack(fill=tk.BOTH, expand=True)
         import json
 
-        txt.insert(tk.END, "================================================================================\n")
+        txt.insert(
+            tk.END,
+            "================================================================================\n",
+        )
         txt.insert(tk.END, "FULL SYSTEM ECOSYSTEM & PARALLEL MULTI-AGENT REPORT\n")
-        txt.insert(tk.END, "================================================================================\n\n")
+        txt.insert(
+            tk.END,
+            "================================================================================\n\n",
+        )
         txt.insert(tk.END, json.dumps(summary, indent=2))
         txt.config(state=tk.DISABLED)
 
@@ -7394,16 +8738,44 @@ class ScalperGui:
         directive = global_brain_orchestrator.last_directive
         self.eco_strat_tree.delete(*self.eco_strat_tree.get_children())
         strats = [
-            ("TREND_FOLLOWING", "Trend / Momentum", directive.strategy_scores.get("TREND_FOLLOWING", 85.0)),
-            ("MEAN_REVERSION", "Mean Reversion", directive.strategy_scores.get("MEAN_REVERSION", 85.0)),
-            ("MACD_MOMENTUM", "Trend / Momentum", directive.strategy_scores.get("MACD_MOMENTUM", 75.0)),
+            (
+                "TREND_FOLLOWING",
+                "Trend / Momentum",
+                directive.strategy_scores.get("TREND_FOLLOWING", 85.0),
+            ),
+            (
+                "MEAN_REVERSION",
+                "Mean Reversion",
+                directive.strategy_scores.get("MEAN_REVERSION", 85.0),
+            ),
+            (
+                "MACD_MOMENTUM",
+                "Trend / Momentum",
+                directive.strategy_scores.get("MACD_MOMENTUM", 75.0),
+            ),
             ("BREAKOUT", "Volatility / Breakout", directive.strategy_scores.get("BREAKOUT", 80.0)),
-            ("CARRY_TRADE", "Macro / Fundamental", directive.strategy_scores.get("CARRY_TRADE", 60.0)),
-            ("GRID_TRADE", "Quantitative / Grid", directive.strategy_scores.get("GRID_TRADE", 55.0)),
-            ("STAT_ARB", "Quantitative / Arbitrage", directive.strategy_scores.get("STAT_ARB", 70.0)),
+            (
+                "CARRY_TRADE",
+                "Macro / Fundamental",
+                directive.strategy_scores.get("CARRY_TRADE", 60.0),
+            ),
+            (
+                "GRID_TRADE",
+                "Quantitative / Grid",
+                directive.strategy_scores.get("GRID_TRADE", 55.0),
+            ),
+            (
+                "STAT_ARB",
+                "Quantitative / Arbitrage",
+                directive.strategy_scores.get("STAT_ARB", 70.0),
+            ),
             ("ORB", "Opening Range Breakout", directive.strategy_scores.get("ORB", 65.0)),
             ("VSA", "Volume Spread Analysis", directive.strategy_scores.get("VSA", 75.0)),
-            ("MTF_CONFLUENCE", "Multi-Timeframe Trend", directive.strategy_scores.get("MTF_CONFLUENCE", 90.0)),
+            (
+                "MTF_CONFLUENCE",
+                "Multi-Timeframe Trend",
+                directive.strategy_scores.get("MTF_CONFLUENCE", 90.0),
+            ),
         ]
         for name, cat, score in strats:
             st = "🟢 OPTIMAL" if score >= 80 else "🟡 NOMINAL" if score >= 60 else "🔴 LOW"
@@ -7474,11 +8846,23 @@ class ScalperGui:
         )
         lbl_w_hdr.pack(fill=tk.X)
         lbl_pnl_title = tk.Label(
-            col1, text="ALL-TIME PnL", font=("Consolas", 7, "bold"), bg="#12161b", fg="#78909c", anchor="w", padx=8
+            col1,
+            text="ALL-TIME PnL",
+            font=("Consolas", 7, "bold"),
+            bg="#12161b",
+            fg="#78909c",
+            anchor="w",
+            padx=8,
         )
         lbl_pnl_title.pack(fill=tk.X, pady=(4, 0))
         self.lbl_poly_pnl_val = tk.Label(
-            col1, text="+$219,994", font=("Consolas", 22, "bold"), bg="#12161b", fg="#00e676", anchor="w", padx=8
+            col1,
+            text="+$219,994",
+            font=("Consolas", 22, "bold"),
+            bg="#12161b",
+            fg="#00e676",
+            anchor="w",
+            padx=8,
         )
         self.lbl_poly_pnl_val.pack(fill=tk.X)
         lbl_fills_sub = tk.Label(
@@ -7495,21 +8879,27 @@ class ScalperGui:
         m_frame.pack(fill=tk.X)
         f_box = tk.Frame(m_frame, bg="#1a2129", padx=4, pady=2)
         f_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
-        tk.Label(f_box, text="FILLS", font=("Consolas", 6, "bold"), bg="#1a2129", fg="#90a4ae").pack(anchor="w")
+        tk.Label(
+            f_box, text="FILLS", font=("Consolas", 6, "bold"), bg="#1a2129", fg="#90a4ae"
+        ).pack(anchor="w")
         self.lbl_poly_stat_fills = tk.Label(
             f_box, text="126,025", font=("Consolas", 9, "bold"), bg="#1a2129", fg="#ffffff"
         )
         self.lbl_poly_stat_fills.pack(anchor="w")
         w_box = tk.Frame(m_frame, bg="#1a2129", padx=4, pady=2)
         w_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
-        tk.Label(w_box, text="WIN RATE", font=("Consolas", 6, "bold"), bg="#1a2129", fg="#90a4ae").pack(anchor="w")
+        tk.Label(
+            w_box, text="WIN RATE", font=("Consolas", 6, "bold"), bg="#1a2129", fg="#90a4ae"
+        ).pack(anchor="w")
         self.lbl_poly_stat_winrate = tk.Label(
             w_box, text="53.8%", font=("Consolas", 9, "bold"), bg="#1a2129", fg="#00e676"
         )
         self.lbl_poly_stat_winrate.pack(anchor="w")
         e_box = tk.Frame(m_frame, bg="#1a2129", padx=4, pady=2)
         e_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        tk.Label(e_box, text="SET EDGE", font=("Consolas", 6, "bold"), bg="#1a2129", fg="#90a4ae").pack(anchor="w")
+        tk.Label(
+            e_box, text="SET EDGE", font=("Consolas", 6, "bold"), bg="#1a2129", fg="#90a4ae"
+        ).pack(anchor="w")
         self.lbl_poly_stat_edge = tk.Label(
             e_box, text="+5.92c", font=("Consolas", 9, "bold"), bg="#1a2129", fg="#00e676"
         )
@@ -7538,7 +8928,12 @@ class ScalperGui:
             anchor="w",
         ).pack(fill=tk.X)
         self.lbl_poly_bias = tk.Label(
-            inv_frame, text="DIRECTIONAL BIAS:  50% UP", font=("Consolas", 7), bg="#12161b", fg="#e0e0e0", anchor="w"
+            inv_frame,
+            text="DIRECTIONAL BIAS:  50% UP",
+            font=("Consolas", 7),
+            bg="#12161b",
+            fg="#e0e0e0",
+            anchor="w",
         )
         self.lbl_poly_bias.pack(fill=tk.X)
         self.canvas_poly_bias = tk.Canvas(inv_frame, bg="#1a2129", height=6, highlightthickness=0)
@@ -7552,7 +8947,9 @@ class ScalperGui:
             anchor="w",
         )
         self.lbl_poly_matched.pack(fill=tk.X)
-        self.canvas_poly_matched = tk.Canvas(inv_frame, bg="#1a2129", height=6, highlightthickness=0)
+        self.canvas_poly_matched = tk.Canvas(
+            inv_frame, bg="#1a2129", height=6, highlightthickness=0
+        )
         self.canvas_poly_matched.pack(fill=tk.X, pady=(1, 4))
         self.lbl_poly_volume = tk.Label(
             inv_frame,
@@ -7569,11 +8966,15 @@ class ScalperGui:
         col2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=1)
         col2_hdr = tk.Frame(col2, bg="#1a2129", padx=6, pady=2)
         col2_hdr.pack(fill=tk.X)
-        tk.Label(col2_hdr, text="• BTC PRICE", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#b0bec5").pack(
-            side=tk.LEFT
-        )
+        tk.Label(
+            col2_hdr, text="• BTC PRICE", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#b0bec5"
+        ).pack(side=tk.LEFT)
         self.lbl_poly_chart_price = tk.Label(
-            col2_hdr, text="BTC/USD • 5M   $63,006   ▼ 0.01%", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#00e676"
+            col2_hdr,
+            text="BTC/USD • 5M   $63,006   ▼ 0.01%",
+            font=("Consolas", 8, "bold"),
+            bg="#1a2129",
+            fg="#00e676",
         )
         self.lbl_poly_chart_price.pack(side=tk.RIGHT)
         chart_split = tk.Frame(col2, bg="#12161b")
@@ -7633,9 +9034,9 @@ class ScalperGui:
         ns_frame.pack_propagate(False)
         ns_hdr = tk.Frame(ns_frame, bg="#1a2129", padx=6, pady=2)
         ns_hdr.pack(fill=tk.X)
-        tk.Label(ns_hdr, text="• NEURAL SHELL", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#00e676").pack(
-            side=tk.LEFT
-        )
+        tk.Label(
+            ns_hdr, text="• NEURAL SHELL", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#00e676"
+        ).pack(side=tk.LEFT)
         tk.Label(
             ns_hdr,
             text="MARKET INGEST • FEATURE LAYER • DECISION CORE • BTC 5M / 15M",
@@ -7644,7 +9045,11 @@ class ScalperGui:
             fg="#90a4ae",
         ).pack(side=tk.LEFT, padx=15)
         self.lbl_poly_ns_units = tk.Label(
-            ns_hdr, text="855 / 1050 UNITS • ROUTED 486", font=("Consolas", 7, "bold"), bg="#1a2129", fg="#80d8ff"
+            ns_hdr,
+            text="855 / 1050 UNITS • ROUTED 486",
+            font=("Consolas", 7, "bold"),
+            bg="#1a2129",
+            fg="#80d8ff",
         )
         self.lbl_poly_ns_units.pack(side=tk.RIGHT)
         self.canvas_poly_ns = tk.Canvas(ns_frame, bg="#0b0e14", highlightthickness=0)
@@ -7657,7 +9062,11 @@ class ScalperGui:
         em_hdr = tk.Frame(em_col, bg="#1a2129", padx=5, pady=2)
         em_hdr.pack(fill=tk.X)
         tk.Label(
-            em_hdr, text="• EDGE MATRIX • MODEL VS MARKET", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#b0bec5"
+            em_hdr,
+            text="• EDGE MATRIX • MODEL VS MARKET",
+            font=("Consolas", 8, "bold"),
+            bg="#1a2129",
+            fg="#b0bec5",
         ).pack(anchor="w")
         self.canvas_poly_em = tk.Canvas(em_col, bg="#0d1117", highlightthickness=0)
         self.canvas_poly_em.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
@@ -7666,9 +9075,13 @@ class ScalperGui:
         hf_col.pack_propagate(False)
         hf_hdr = tk.Frame(hf_col, bg="#1a2129", padx=5, pady=2)
         hf_hdr.pack(fill=tk.X)
-        tk.Label(hf_hdr, text="• SIGNALS & HEDGE FLOW", font=("Consolas", 8, "bold"), bg="#1a2129", fg="#b0bec5").pack(
-            anchor="w"
-        )
+        tk.Label(
+            hf_hdr,
+            text="• SIGNALS & HEDGE FLOW",
+            font=("Consolas", 8, "bold"),
+            bg="#1a2129",
+            fg="#b0bec5",
+        ).pack(anchor="w")
         self.canvas_poly_signals = tk.Canvas(hf_col, bg="#0d1117", highlightthickness=0)
         self.canvas_poly_signals.pack(fill=tk.BOTH, expand=True, padx=4, pady=2)
         sk_col = tk.Frame(bot_row, bg="#12161b", bd=1, relief=tk.SOLID)
@@ -7683,7 +9096,11 @@ class ScalperGui:
             fg="#b0bec5",
         ).pack(side=tk.LEFT)
         self.lbl_poly_flow_metrics = tk.Label(
-            sk_hdr, text="125.7K ROUTED | SETS 41 @ $45.45", font=("Consolas", 7, "bold"), bg="#1a2129", fg="#00e676"
+            sk_hdr,
+            text="125.7K ROUTED | SETS 41 @ $45.45",
+            font=("Consolas", 7, "bold"),
+            bg="#1a2129",
+            fg="#00e676",
         )
         self.lbl_poly_flow_metrics.pack(side=tk.RIGHT)
         self.canvas_poly_sankey = tk.Canvas(sk_col, bg="#0d1117", highlightthickness=0)
@@ -7735,7 +9152,9 @@ class ScalperGui:
             sym = getattr(config, "SYMBOL", "EURUSD")
             k_model = predictive_brain.get_kronos_predictor(sym)
             if self.scalper and self.scalper.conn:
-                df_b = self.scalper.conn.get_history(sym, getattr(config, "TIMEFRAME", "M1"), count=60)
+                df_b = self.scalper.conn.get_history(
+                    sym, getattr(config, "TIMEFRAME", "M1"), count=60
+                )
                 if df_b is not None and (not df_b.empty):
                     ohlcv = df_b[["open", "high", "low", "close", "tick_volume"]].to_numpy()
                     fc = k_model.forecast_probabilistic(ohlcv, forecast_horizon=24)
@@ -7771,7 +9190,9 @@ class ScalperGui:
         dd_risk = min(10.0, max(0.5, floating_drawdown_pct * 2.0 + 1.0))
         dd_status = "SAFE" if dd_risk < 4.0 else "MODERATE" if dd_risk < 7.0 else "HIGH RISK"
         dd_color = "#00e676" if dd_risk < 4.0 else "#ffb300" if dd_risk < 7.0 else "#ff5252"
-        self.lbl_poly_dd.config(text=f"DRAWDOWN RISK  {dd_risk:.1f} / 10   [ {dd_status} ]", fg=dd_color)
+        self.lbl_poly_dd.config(
+            text=f"DRAWDOWN RISK  {dd_risk:.1f} / 10   [ {dd_status} ]", fg=dd_color
+        )
         self.canvas_poly_dd_bar.delete("all")
         w_dd = self.canvas_poly_dd_bar.winfo_width() or 200
         fill_w = dd_risk / 10.0 * w_dd
@@ -7779,17 +9200,29 @@ class ScalperGui:
         buy_count = sum(1 for p in active_positions if p.get("direction") == "BUY")
         total_pos = max(1, len(active_positions))
         bias_up_pct = int(buy_count / total_pos * 100) if active_positions else 50
-        self.lbl_poly_bias.config(text=f"DIRECTIONAL BIAS:  {bias_up_pct}% UP  •  {100 - bias_up_pct}% DOWN")
+        self.lbl_poly_bias.config(
+            text=f"DIRECTIONAL BIAS:  {bias_up_pct}% UP  •  {100 - bias_up_pct}% DOWN"
+        )
         self.canvas_poly_bias.delete("all")
         w_b = self.canvas_poly_bias.winfo_width() or 200
-        self.canvas_poly_bias.create_rectangle(0, 0, bias_up_pct / 100.0 * w_b, 6, fill="#00e676", outline="")
-        self.canvas_poly_bias.create_rectangle(bias_up_pct / 100.0 * w_b, 0, w_b, 6, fill="#ff5252", outline="")
+        self.canvas_poly_bias.create_rectangle(
+            0, 0, bias_up_pct / 100.0 * w_b, 6, fill="#00e676", outline=""
+        )
+        self.canvas_poly_bias.create_rectangle(
+            bias_up_pct / 100.0 * w_b, 0, w_b, 6, fill="#ff5252", outline=""
+        )
         matched_pct = min(95, max(10, int(100 - abs(bias_up_pct - 50) * 1.5)))
-        self.lbl_poly_matched.config(text=f"MATCHED / RESIDUAL:  {matched_pct}% / {100 - matched_pct}%")
+        self.lbl_poly_matched.config(
+            text=f"MATCHED / RESIDUAL:  {matched_pct}% / {100 - matched_pct}%"
+        )
         self.canvas_poly_matched.delete("all")
         w_m = self.canvas_poly_matched.winfo_width() or 200
-        self.canvas_poly_matched.create_rectangle(0, 0, matched_pct / 100.0 * w_m, 6, fill="#80d8ff", outline="")
-        self.canvas_poly_matched.create_rectangle(matched_pct / 100.0 * w_m, 0, w_m, 6, fill="#ffb300", outline="")
+        self.canvas_poly_matched.create_rectangle(
+            0, 0, matched_pct / 100.0 * w_m, 6, fill="#80d8ff", outline=""
+        )
+        self.canvas_poly_matched.create_rectangle(
+            matched_pct / 100.0 * w_m, 0, w_m, 6, fill="#ffb300", outline=""
+        )
         sym1, sym2 = ("BTCUSD", "ETHUSD")
         v1_vol = 1.0
         v2_vol = 1.0
@@ -7806,11 +9239,17 @@ class ScalperGui:
         tot_vol = max(1.0, v1_vol + v2_vol)
         v1_pct = int(v1_vol / tot_vol * 100.0)
         v2_pct = 100 - v1_pct
-        self.lbl_poly_volume.config(text=f"VOLUME BY ASSET:  {sym1[:3]} {v1_pct}%  •  {sym2[:3]} {v2_pct}%")
+        self.lbl_poly_volume.config(
+            text=f"VOLUME BY ASSET:  {sym1[:3]} {v1_pct}%  •  {sym2[:3]} {v2_pct}%"
+        )
         self.canvas_poly_vol.delete("all")
         w_v = self.canvas_poly_vol.winfo_width() or 200
-        self.canvas_poly_vol.create_rectangle(0, 0, v1_pct / 100.0 * w_v, 6, fill="#b388ff", outline="")
-        self.canvas_poly_vol.create_rectangle(v1_pct / 100.0 * w_v, 0, w_v, 6, fill="#00e676", outline="")
+        self.canvas_poly_vol.create_rectangle(
+            0, 0, v1_pct / 100.0 * w_v, 6, fill="#b388ff", outline=""
+        )
+        self.canvas_poly_vol.create_rectangle(
+            v1_pct / 100.0 * w_v, 0, w_v, 6, fill="#00e676", outline=""
+        )
         sym = "BTCUSD"
         curr_price = 63006.5
         history_bars = []
@@ -7824,8 +9263,14 @@ class ScalperGui:
                 pass
         if history_bars and isinstance(history_bars, list):
             try:
-                prices = [float(b["close"]) for b in history_bars if isinstance(b, dict) and "close" in b]
-                first_p = float(history_bars[0]["close"]) if isinstance(history_bars[0], dict) else curr_price
+                prices = [
+                    float(b["close"]) for b in history_bars if isinstance(b, dict) and "close" in b
+                ]
+                first_p = (
+                    float(history_bars[0]["close"])
+                    if isinstance(history_bars[0], dict)
+                    else curr_price
+                )
                 net_change = curr_price - first_p
                 pct_change = net_change / first_p * 100.0 if first_p > 0 else 0.0
                 pct_arrow = "▲" if pct_change >= 0 else "▼"
@@ -7841,7 +9286,8 @@ class ScalperGui:
             pct_arrow = "▲"
             pct_color = "#00e676"
         self.lbl_poly_chart_price.config(
-            text=f"{sym} • 5M   ${curr_price:,.2f}   {pct_arrow} {abs(pct_change):.2f}%", fg=pct_color
+            text=f"{sym} • 5M   ${curr_price:,.2f}   {pct_arrow} {abs(pct_change):.2f}%",
+            fg=pct_color,
         )
         c_price = self.canvas_poly_price
         c_price.delete("all")
@@ -7862,14 +9308,24 @@ class ScalperGui:
         if pts:
             c_price.create_line(10, pts[-1], cw - 10, pts[-1], fill="#ffb300", dash=(2, 2))
             c_price.create_text(
-                cw - 35, pts[-1] - 8, text=f"${curr_price:,.1f}", fill="#ffb300", font=("Consolas", 7, "bold")
+                cw - 35,
+                pts[-1] - 8,
+                text=f"${curr_price:,.1f}",
+                fill="#ffb300",
+                font=("Consolas", 7, "bold"),
             )
         for item in self.tree_poly_ob.get_children():
             self.tree_poly_ob.delete(item)
-        ask_p = px_info.get("ask", curr_price + 0.5) if isinstance(px_info, dict) else curr_price + 0.5
+        ask_p = (
+            px_info.get("ask", curr_price + 0.5) if isinstance(px_info, dict) else curr_price + 0.5
+        )
         bid_p = px_info.get("bid", curr_price) if isinstance(px_info, dict) else curr_price
         spread = max(0.1, ask_p - bid_p)
-        ticks = self.scalper.conn.get_historical_ticks("BTCUSD", 20) if self.scalper and self.scalper.conn else []
+        ticks = (
+            self.scalper.conn.get_historical_ticks("BTCUSD", 20)
+            if self.scalper and self.scalper.conn
+            else []
+        )
         recent_vols = [t.get("volume", 10) for t in ticks[-5:]] if ticks else [25]
         base_vol = int(sum(recent_vols) / len(recent_vols)) if recent_vols else 25
         ob_rows = [
@@ -7887,17 +9343,25 @@ class ScalperGui:
         sec_in_5m = (datetime.datetime.now().second + datetime.datetime.now().minute * 60) % 300
         progress_5m = sec_in_5m / 300.0
         c_lc.create_rectangle(10, 10, lc_w - 10, 22, fill="#161b22", outline="#21262d")
-        c_lc.create_rectangle(10, 12, 10 + progress_5m * (lc_w - 20), 20, fill="#80d8ff", outline="")
+        c_lc.create_rectangle(
+            10, 12, 10 + progress_5m * (lc_w - 20), 20, fill="#80d8ff", outline=""
+        )
         c_lc.create_rectangle(10, 30, lc_w - 10, 42, fill="#161b22", outline="#21262d")
-        c_lc.create_rectangle(10, 32, 10 + min(1.0, progress_5m * 1.2) * (lc_w - 20), 40, fill="#00e676", outline="")
+        c_lc.create_rectangle(
+            10, 32, 10 + min(1.0, progress_5m * 1.2) * (lc_w - 20), 40, fill="#00e676", outline=""
+        )
         c_lc.create_rectangle(10, 50, lc_w - 10, 62, fill="#161b22", outline="#21262d")
-        c_lc.create_rectangle(10, 52, 10 + max(0.1, progress_5m * 0.8) * (lc_w - 20), 60, fill="#b388ff", outline="")
+        c_lc.create_rectangle(
+            10, 52, 10 + max(0.1, progress_5m * 0.8) * (lc_w - 20), 60, fill="#b388ff", outline=""
+        )
         for child in self.grid_poly_expiries.winfo_children():
             child.destroy()
         base_prob = win_rate / 100.0 if win_rate > 0 else 0.538
         tile_probs = []
         for idx in range(20):
-            p_val = max(0.01, min(0.99, base_prob + math.sin(idx * 0.7 + time.time() * 0.05) * 0.35))
+            p_val = max(
+                0.01, min(0.99, base_prob + math.sin(idx * 0.7 + time.time() * 0.05) * 0.35)
+            )
             cents = int(p_val * 100)
             txt = f"${cents / 100:.0f}" if cents in [0, 100] else f"{cents}c"
             bg_c = "#00e676" if p_val >= 0.5 else "#ff5252"
@@ -7933,13 +9397,19 @@ class ScalperGui:
         feat_nodes = [nh * (0.15 + i * 0.15) for i in range(6)]
         for name, score, ny in ingest_nodes:
             c_ns.create_rectangle(15, ny - 10, 110, ny + 10, fill="#161b22", outline="#30363d")
-            c_ns.create_text(20, ny, text=name, fill="#80d8ff", font=("Consolas", 7, "bold"), anchor="w")
-            c_ns.create_text(100, ny, text=str(score), fill="#00e676", font=("Consolas", 7, "bold"), anchor="e")
+            c_ns.create_text(
+                20, ny, text=name, fill="#80d8ff", font=("Consolas", 7, "bold"), anchor="w"
+            )
+            c_ns.create_text(
+                100, ny, text=str(score), fill="#00e676", font=("Consolas", 7, "bold"), anchor="e"
+            )
             for fy in feat_nodes:
                 c_ns.create_line(110, ny, feat_x, fy, fill="#21262d", width=1)
         c_ns.create_line(feat_x, 15, feat_x, nh - 15, fill="#80d8ff", width=2)
         for fy in feat_nodes:
-            c_ns.create_oval(feat_x - 4, fy - 4, feat_x + 4, fy + 4, fill="#00e676", outline="#ffffff")
+            c_ns.create_oval(
+                feat_x - 4, fy - 4, feat_x + 4, fy + 4, fill="#00e676", outline="#ffffff"
+            )
         core_cx = nw * 0.75
         core_cy = nh * 0.5
         try:
@@ -7948,12 +9418,27 @@ class ScalperGui:
             core_r = 70.0
         for ring_r in range(10, int(core_r), 12):
             c_ns.create_oval(
-                core_cx - ring_r, core_cy - ring_r, core_cx + ring_r, core_cy + ring_r, outline="#1f242d", dash=(2, 2)
+                core_cx - ring_r,
+                core_cy - ring_r,
+                core_cx + ring_r,
+                core_cy + ring_r,
+                outline="#1f242d",
+                dash=(2, 2),
             )
         fair_p_up = max(10.0, min(90.0, base_prob * 100.0))
-        c_ns.create_text(core_cx, core_cy - 12, text="CORE CHARGE", fill="#80d8ff", font=("Consolas", 7, "bold"))
-        c_ns.create_text(core_cx, core_cy + 2, text="FAIR P(UP)", fill="#90a4ae", font=("Consolas", 7))
-        c_ns.create_text(core_cx, core_cy + 18, text=f"{fair_p_up:.1f}%", fill="#00e676", font=("Consolas", 14, "bold"))
+        c_ns.create_text(
+            core_cx, core_cy - 12, text="CORE CHARGE", fill="#80d8ff", font=("Consolas", 7, "bold")
+        )
+        c_ns.create_text(
+            core_cx, core_cy + 2, text="FAIR P(UP)", fill="#90a4ae", font=("Consolas", 7)
+        )
+        c_ns.create_text(
+            core_cx,
+            core_cy + 18,
+            text=f"{fair_p_up:.1f}%",
+            fill="#00e676",
+            font=("Consolas", 14, "bold"),
+        )
         c_em = self.canvas_poly_em
         c_em.delete("all")
         em_w = c_em.winfo_width() or 260
@@ -7972,13 +9457,26 @@ class ScalperGui:
         sig_symbols = ["BTCUSD", "ETHUSD", "GBPUSD", "EURUSD", "XAUUSD"]
         for idx, s_name in enumerate(sig_symbols):
             sy = 15 + idx * 24
-            s_val = min(0.95, max(0.15, win_rate / 100.0 + math.sin(idx * 1.2 + time.time() * 0.1) * 0.2))
+            s_val = min(
+                0.95, max(0.15, win_rate / 100.0 + math.sin(idx * 1.2 + time.time() * 0.1) * 0.2)
+            )
             s_col = "#00e676" if s_val >= 0.5 else "#ff5252"
-            c_sig.create_text(10, sy, text=s_name[:6], fill="#e0e0e0", font=("Consolas", 7, "bold"), anchor="w")
-            c_sig.create_rectangle(70, sy - 4, sig_w - 45, sy + 4, fill="#161b22", outline="#21262d")
-            c_sig.create_rectangle(70, sy - 4, 70 + s_val * (sig_w - 115), sy + 4, fill=s_col, outline="")
             c_sig.create_text(
-                sig_w - 10, sy, text=f"{int(s_val * 100)}%", fill=s_col, font=("Consolas", 7, "bold"), anchor="e"
+                10, sy, text=s_name[:6], fill="#e0e0e0", font=("Consolas", 7, "bold"), anchor="w"
+            )
+            c_sig.create_rectangle(
+                70, sy - 4, sig_w - 45, sy + 4, fill="#161b22", outline="#21262d"
+            )
+            c_sig.create_rectangle(
+                70, sy - 4, 70 + s_val * (sig_w - 115), sy + 4, fill=s_col, outline=""
+            )
+            c_sig.create_text(
+                sig_w - 10,
+                sy,
+                text=f"{int(s_val * 100)}%",
+                fill=s_col,
+                font=("Consolas", 7, "bold"),
+                anchor="e",
             )
         c_sk = self.canvas_poly_sankey
         c_sk.delete("all")
@@ -7987,27 +9485,74 @@ class ScalperGui:
         c_sk.create_rectangle(10, 20, 25, sk_h * 0.45, fill="#29b6f6", outline="")
         c_sk.create_text(30, 30, text=sym1[:6], fill="#80d8ff", font=("Consolas", 7), anchor="w")
         c_sk.create_rectangle(10, sk_h * 0.55, 25, sk_h - 20, fill="#ff7043", outline="")
-        c_sk.create_text(30, sk_h - 30, text=sym2[:6], fill="#ffab91", font=("Consolas", 7), anchor="w")
-        c_sk.create_polygon(
-            25, 25, sk_w * 0.5, sk_h * 0.3, sk_w * 0.5, sk_h * 0.7, 25, sk_h * 0.4, fill="#0288d1", outline=""
+        c_sk.create_text(
+            30, sk_h - 30, text=sym2[:6], fill="#ffab91", font=("Consolas", 7), anchor="w"
         )
         c_sk.create_polygon(
-            25, sk_h * 0.6, sk_w * 0.5, sk_h * 0.4, sk_w * 0.5, sk_h * 0.8, 25, sk_h - 25, fill="#e64a19", outline=""
+            25,
+            25,
+            sk_w * 0.5,
+            sk_h * 0.3,
+            sk_w * 0.5,
+            sk_h * 0.7,
+            25,
+            sk_h * 0.4,
+            fill="#0288d1",
+            outline="",
+        )
+        c_sk.create_polygon(
+            25,
+            sk_h * 0.6,
+            sk_w * 0.5,
+            sk_h * 0.4,
+            sk_w * 0.5,
+            sk_h * 0.8,
+            25,
+            sk_h - 25,
+            fill="#e64a19",
+            outline="",
         )
         c_sk.create_rectangle(sk_w - 20, 10, sk_w - 5, sk_h * 0.35, fill="#00e676", outline="")
-        c_sk.create_text(sk_w - 25, 20, text="RESIDUAL UP", fill="#00e676", font=("Consolas", 7, "bold"), anchor="e")
-        c_sk.create_rectangle(sk_w - 20, sk_h * 0.4, sk_w - 5, sk_h * 0.65, fill="#ff5252", outline="")
         c_sk.create_text(
-            sk_w - 25, sk_h * 0.5, text="RESIDUAL DN", fill="#ff5252", font=("Consolas", 7, "bold"), anchor="e"
+            sk_w - 25,
+            20,
+            text="RESIDUAL UP",
+            fill="#00e676",
+            font=("Consolas", 7, "bold"),
+            anchor="e",
         )
-        c_sk.create_rectangle(sk_w - 20, sk_h * 0.7, sk_w - 5, sk_h - 10, fill="#ffb300", outline="")
-        c_sk.create_text(sk_w - 25, sk_h - 20, text="MATCHED", fill="#ffb300", font=("Consolas", 7, "bold"), anchor="e")
+        c_sk.create_rectangle(
+            sk_w - 20, sk_h * 0.4, sk_w - 5, sk_h * 0.65, fill="#ff5252", outline=""
+        )
+        c_sk.create_text(
+            sk_w - 25,
+            sk_h * 0.5,
+            text="RESIDUAL DN",
+            fill="#ff5252",
+            font=("Consolas", 7, "bold"),
+            anchor="e",
+        )
+        c_sk.create_rectangle(
+            sk_w - 20, sk_h * 0.7, sk_w - 5, sk_h - 10, fill="#ffb300", outline=""
+        )
+        c_sk.create_text(
+            sk_w - 25,
+            sk_h - 20,
+            text="MATCHED",
+            fill="#ffb300",
+            font=("Consolas", 7, "bold"),
+            anchor="e",
+        )
         from brain_agents_orchestrator import global_brain_orchestrator
 
         orch_summary = global_brain_orchestrator.get_status_summary()
         last_dir = orch_summary.get("last_directive", {})
         conf_score = last_dir.get("confidence_score", 50.0)
-        top_strat = last_dir.get("governor_decisions", {}).get("strategy_governor", {}).get("top_strategy", "SMC_ICT")
+        top_strat = (
+            last_dir.get("governor_decisions", {})
+            .get("strategy_governor", {})
+            .get("top_strategy", "SMC_ICT")
+        )
         self.lbl_poly_ns_units.config(text=f"SWARM CONF: {conf_score:.1f}% • TOP: {top_strat}")
         self.lbl_poly_hdr_ticks.config(
             text=f"BTC/USD ${curr_price:,.2f} | SPREAD: ${spread:.2f} | SWARM BIAS: {last_dir.get('recommended_bias', 'HOLD')} ({conf_score:.1f}%)"
@@ -8041,12 +9586,18 @@ class ScalperGui:
         )
         chk_24h.pack(side=tk.RIGHT, padx=10)
         tz_bar = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=8, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=8,
+            highlightbackground="#2d2d2d",
         )
         tz_bar.pack(fill=tk.X, pady=(0, 10))
-        tk.Label(tz_bar, text="TIMEZONE:", font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888").pack(
-            side=tk.LEFT, padx=(0, 10)
-        )
+        tk.Label(
+            tz_bar, text="TIMEZONE:", font=("Consolas", 8, "bold"), bg=self.bg_card, fg="#888888"
+        ).pack(side=tk.LEFT, padx=(0, 10))
         self.tz_var = tk.StringVar(value="Kolkata (GMT +5:30)")
         self.tz_options = [
             "Kolkata (GMT +5:30)",
@@ -8059,7 +9610,10 @@ class ScalperGui:
             "Singapore (GMT +8:00 SGT)",
         ]
         tz_menu = tk.OptionMenu(
-            tz_bar, self.tz_var, *self.tz_options, command=lambda _: self._update_tzconv_screen_data()
+            tz_bar,
+            self.tz_var,
+            *self.tz_options,
+            command=lambda _: self._update_tzconv_screen_data(),
         )
         tz_menu.config(
             font=("Consolas", 9, "bold"),
@@ -8084,11 +9638,22 @@ class ScalperGui:
         )
         self.lbl_tz_pin_time.pack(side=tk.RIGHT, padx=80)
         self.canvas_tz_timeline = tk.Canvas(
-            self.screen_frame, bg=self.bg_card, height=320, bd=1, relief=tk.SOLID, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            height=320,
+            bd=1,
+            relief=tk.SOLID,
+            highlightbackground="#2d2d2d",
         )
         self.canvas_tz_timeline.pack(fill=tk.X, pady=(0, 10))
         vol_frame = tk.Frame(
-            self.screen_frame, bg=self.bg_card, bd=1, relief=tk.SOLID, padx=15, pady=10, highlightbackground="#2d2d2d"
+            self.screen_frame,
+            bg=self.bg_card,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=10,
+            highlightbackground="#2d2d2d",
         )
         vol_frame.pack(fill=tk.X)
         vol_left = tk.Frame(vol_frame, bg=self.bg_card)
@@ -8102,10 +9667,18 @@ class ScalperGui:
             justify=tk.LEFT,
         ).pack(anchor="w", pady=(0, 5))
         self.lbl_vol_level_badge = tk.Label(
-            vol_left, text="● High", font=("Consolas", 9, "bold"), bg="#15803d", fg="#ffffff", padx=10, pady=3
+            vol_left,
+            text="● High",
+            font=("Consolas", 9, "bold"),
+            bg="#15803d",
+            fg="#ffffff",
+            padx=10,
+            pady=3,
         )
         self.lbl_vol_level_badge.pack(anchor="w")
-        self.canvas_tz_vol = tk.Canvas(vol_frame, bg=self.bg_card, height=80, bd=0, highlightthickness=0)
+        self.canvas_tz_vol = tk.Canvas(
+            vol_frame, bg=self.bg_card, height=80, bd=0, highlightthickness=0
+        )
         self.canvas_tz_vol.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         self._update_tzconv_screen_data()
 
@@ -8140,7 +9713,12 @@ class ScalperGui:
         right_margin = 30
         timeline_w = w - left_margin - right_margin
         self.canvas_tz_timeline.create_text(
-            left_margin - 30, 20, text="TIMEZONE", fill="#888888", font=("Consolas", 8, "bold"), anchor="e"
+            left_margin - 30,
+            20,
+            text="TIMEZONE",
+            fill="#888888",
+            font=("Consolas", 8, "bold"),
+            anchor="e",
         )
         for hr in range(1, 25):
             x = left_margin + hr / 24.0 * timeline_w
@@ -8210,7 +9788,12 @@ class ScalperGui:
                 anchor="w",
             )
             self.canvas_tz_timeline.create_text(
-                20, y + 40, text=f"{s_date_str} {sess['code']}", fill="#888888", font=("Consolas", 7), anchor="w"
+                20,
+                y + 40,
+                text=f"{s_date_str} {sess['code']}",
+                fill="#888888",
+                font=("Consolas", 7),
+                anchor="w",
             )
             self.canvas_tz_timeline.create_rectangle(
                 left_margin, y + 5, w - right_margin, y + 45, fill="#18181b", outline="#262626"
@@ -8235,15 +9818,31 @@ class ScalperGui:
                 )
             else:
                 self.canvas_tz_timeline.create_rectangle(
-                    x1, y + 22, w - right_margin, y + 40, fill=sess["color"], outline="", stipple="gray50"
+                    x1,
+                    y + 22,
+                    w - right_margin,
+                    y + 40,
+                    fill=sess["color"],
+                    outline="",
+                    stipple="gray50",
                 )
                 self.canvas_tz_timeline.create_rectangle(
-                    left_margin, y + 22, x2, y + 40, fill=sess["color"], outline="", stipple="gray50"
+                    left_margin,
+                    y + 22,
+                    x2,
+                    y + 40,
+                    fill=sess["color"],
+                    outline="",
+                    stipple="gray50",
                 )
-        current_hour_frac = target_time.hour + target_time.minute / 60.0 + target_time.second / 3600.0
+        current_hour_frac = (
+            target_time.hour + target_time.minute / 60.0 + target_time.second / 3600.0
+        )
         needle_x = left_margin + current_hour_frac / 24.0 * timeline_w
         self.canvas_tz_timeline.create_line(needle_x, 30, needle_x, h - 10, fill="#a855f7", width=3)
-        self.canvas_tz_timeline.create_oval(needle_x - 5, 25, needle_x + 5, 35, fill="#a855f7", outline="#ffffff")
+        self.canvas_tz_timeline.create_oval(
+            needle_x - 5, 25, needle_x + 5, 35, fill="#a855f7", outline="#ffffff"
+        )
         self.canvas_tz_vol.delete("all")
         vw = self.canvas_tz_vol.winfo_width()
         if vw < 100:
@@ -8252,7 +9851,9 @@ class ScalperGui:
         vol_points = []
         for px in range(0, vw, 5):
             hr = px / vw * 24.0
-            vol_val = 20 + 35 * math.sin(math.pi * (hr - 6) / 12) + 25 * math.sin(math.pi * (hr - 14) / 6)
+            vol_val = (
+                20 + 35 * math.sin(math.pi * (hr - 6) / 12) + 25 * math.sin(math.pi * (hr - 14) / 6)
+            )
             vol_val = max(10, min(vh - 10, vh - vol_val))
             vol_points.append((px, vol_val))
         for i in range(len(vol_points) - 1):
@@ -8262,7 +9863,12 @@ class ScalperGui:
         v_needle_x = current_hour_frac / 24.0 * vw
         self.canvas_tz_vol.create_line(v_needle_x, 0, v_needle_x, vh, fill="#a855f7", width=3)
         self.canvas_tz_vol.create_oval(
-            v_needle_x - 6, vh / 2 - 6, v_needle_x + 6, vh / 2 + 6, fill="#22c55e", outline="#ffffff"
+            v_needle_x - 6,
+            vh / 2 - 6,
+            v_needle_x + 6,
+            vh / 2 + 6,
+            fill="#22c55e",
+            outline="#ffffff",
         )
         current_utc_hr = now_utc.hour + now_utc.minute / 60.0
         if 12.0 <= current_utc_hr <= 17.0:
@@ -8319,17 +9925,23 @@ class ScalperGui:
     def manual_override_close_all(self) -> None:
         """Manual override control to liquidate all running active positions immediately."""
         if not messagebox.askyesno(
-            "Manual Override Confirmation", "Are you sure you want to liquidate ALL open positions immediately?"
+            "Manual Override Confirmation",
+            "Are you sure you want to liquidate ALL open positions immediately?",
         ):
             return
         try:
             active_positions = self.scalper.conn.get_open_orders()
             closed_count = 0
             for pos in active_positions:
-                res = self.scalper.conn.close_order(pos["ticket"], reason="MANUAL_OVERRIDE_CLOSE_ALL")
+                res = self.scalper.conn.close_order(
+                    pos["ticket"], reason="MANUAL_OVERRIDE_CLOSE_ALL"
+                )
                 if res and res.get("success"):
                     closed_count += 1
-            messagebox.showinfo("Manual Override Executed", f"Liquidated {closed_count} open positions across symbols.")
+            messagebox.showinfo(
+                "Manual Override Executed",
+                f"Liquidated {closed_count} open positions across symbols.",
+            )
             self.update_gui_loop()
         except Exception as e:
             messagebox.showerror("Override Error", f"Error closing positions: {e}")
@@ -8340,11 +9952,15 @@ class ScalperGui:
         if curr_state != "DEFENSIVE":
             self.scalper.engine.resilience.transition_state("DEFENSIVE")
             messagebox.showwarning(
-                "Manual Override Engaged", "System state transitioned to DEFENSIVE. Trade admissions paused."
+                "Manual Override Engaged",
+                "System state transitioned to DEFENSIVE. Trade admissions paused.",
             )
         else:
             self.scalper.engine.resilience.transition_state("NORMAL")
-            messagebox.showinfo("Manual Override Cleared", "System state restored to NORMAL. Trade admissions resumed.")
+            messagebox.showinfo(
+                "Manual Override Cleared",
+                "System state restored to NORMAL. Trade admissions resumed.",
+            )
 
     def manual_override_panic_lockdown(self) -> None:
         """Emergency Panic Lockdown: liquidates positions, freezes admissions, and pauses trading."""
@@ -8358,7 +9974,9 @@ class ScalperGui:
             active_positions = self.scalper.conn.get_open_orders()
             closed_count = 0
             for pos in active_positions:
-                res = self.scalper.conn.close_order(pos["ticket"], reason="EMERGENCY_PANIC_LOCKDOWN")
+                res = self.scalper.conn.close_order(
+                    pos["ticket"], reason="EMERGENCY_PANIC_LOCKDOWN"
+                )
                 if res and res.get("success"):
                     closed_count += 1
             self.scalper.engine.resilience.transition_state("DEFENSIVE")
@@ -8375,7 +9993,9 @@ class ScalperGui:
     def manual_override_reset_engines(self) -> None:
         """Hard reset of trading brain engines, indicators, and supervisory health audit."""
         try:
-            print("🔄 HARD RESET ENGINES: Re-initializing indicators, resetting buffers, and auditing supervisor...")
+            print(
+                "🔄 HARD RESET ENGINES: Re-initializing indicators, resetting buffers, and auditing supervisor..."
+            )
             self.scalper.brain = ScalperBrain()
             from supervisor_agent import global_supervisor_agent
 
@@ -8395,7 +10015,9 @@ class ScalperGui:
             "Are you sure you want to stop all services and exit the Elite Quantum Autonomous Trading System?",
         ):
             try:
-                print("🛑 SYSTEM EXIT TRIGGERED: Stopping autonomous services and terminating application...")
+                print(
+                    "🛑 SYSTEM EXIT TRIGGERED: Stopping autonomous services and terminating application..."
+                )
                 self.running = False
                 if self.scalper:
                     self.scalper.stop()
@@ -8424,7 +10046,9 @@ class ScalperGui:
         config.SIMULATION_MODE = not config.SIMULATION_MODE
         self.badge_text.set("SIMULATION ACTIVE" if config.SIMULATION_MODE else "MT5 CONNECTED")
         self.badge_label.config(bg="#b45309" if config.SIMULATION_MODE else "#15803d")
-        self.mode_text.set("SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR")
+        self.mode_text.set(
+            "SWITCH TO MT5 WINDOWS" if config.SIMULATION_MODE else "SWITCH TO SIMULATOR"
+        )
         messagebox.showinfo(
             "Mode Toggled",
             f"Successfully switched trading backend to: {('Simulation Paper Trading' if config.SIMULATION_MODE else 'MT5 Windows Native')}",
@@ -8438,7 +10062,9 @@ class ScalperGui:
                 self.card_balance.config(text=f"${info['balance']:,.2f} USD")
                 self.card_equity.config(text=f"${info['equity']:,.2f} USD")
                 active_positions = self.scalper.conn.get_open_orders()
-                self.card_active.config(text=f"{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}")
+                self.card_active.config(
+                    text=f"{len(active_positions)} / {config.MAX_CONCURRENT_TRADES}"
+                )
                 perf = database.get_all_time_performance()
                 self.card_perf.config(
                     text=f"Win Rate: {perf['win_rate']}% | Net: {perf['net_profit']:.2f} USD ({perf['total_trades']} Trades)"
@@ -8515,7 +10141,9 @@ class ScalperGui:
                     self._update_poly_screen_data()
                 elif self.active_screen in ["TZCONV", "TIMEZONE", "CONVERTER"]:
                     self._update_tzconv_screen_data()
-                self.lbl_clock.config(text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}")
+                self.lbl_clock.config(
+                    text=f"Last updated: {datetime.datetime.now().strftime('%H:%M:%S')}"
+                )
         except Exception as e:
             _log.debug("Error updating GUI fields: %s", e)
         self.root.after(2000, self.update_gui_loop)
@@ -8612,7 +10240,9 @@ class ScalperGui:
         grid_step = canvas_height // 5
         for i in range(1, 5):
             y_coord = i * grid_step
-            self.chart_canvas.create_line(0, y_coord, canvas_width, y_coord, fill="#1c1c1c", dash=(2, 2))
+            self.chart_canvas.create_line(
+                0, y_coord, canvas_width, y_coord, fill="#1c1c1c", dash=(2, 2)
+            )
         pts = len(self.price_history_gp)
         if pts > 1:
             min_p = min(self.price_history_gp)
@@ -8627,7 +10257,11 @@ class ScalperGui:
             for j in range(len(points_coords) - 1):
                 x1, y1 = points_coords[j]
                 x2, y2 = points_coords[j + 1]
-                stroke_color = self.fg_green if self.price_history_gp[-1] >= self.price_history_gp[-2] else self.fg_red
+                stroke_color = (
+                    self.fg_green
+                    if self.price_history_gp[-1] >= self.price_history_gp[-2]
+                    else self.fg_red
+                )
                 self.chart_canvas.create_line(x1, y1, x2, y2, fill=stroke_color, width=2)
         conn = database.get_connection()
         cursor = conn.cursor()
@@ -8643,10 +10277,13 @@ class ScalperGui:
         self.lbl_gp_quote.config(
             text=f"{sym} {ask:.5f}",
             fg=self.fg_green
-            if len(self.price_history_gp) < 2 or self.price_history_gp[-1] >= self.price_history_gp[-2]
+            if len(self.price_history_gp) < 2
+            or self.price_history_gp[-1] >= self.price_history_gp[-2]
             else self.fg_red,
         )
-        self.lbl_gp_hl.config(text=f"H/L: {max(self.price_history_gp):.5f} / {min(self.price_history_gp):.5f}")
+        self.lbl_gp_hl.config(
+            text=f"H/L: {max(self.price_history_gp):.5f} / {min(self.price_history_gp):.5f}"
+        )
         self.lbl_gp_spread.config(text=f"Spread: {spread_val:.1f} pips")
         self.lbl_gp_ema.config(text=f"EMA-200 Direction: {trend}")
         self.lbl_gp_rsi.config(text=f"RSI-14 Level: {rsi}")
@@ -8666,7 +10303,8 @@ class ScalperGui:
             s1_val = pivot_val - 0.001
         px_fmt = ".5f" if pivot_val < 100 else ".2f"
         self.lbl_gp_pivots.config(
-            text=f"R1: {r1_val:{px_fmt}}\nPivot: {pivot_val:{px_fmt}}\nS1: {s1_val:{px_fmt}}", fg=self.fg_cyan
+            text=f"R1: {r1_val:{px_fmt}}\nPivot: {pivot_val:{px_fmt}}\nS1: {s1_val:{px_fmt}}",
+            fg=self.fg_cyan,
         )
 
     def _update_wei_screen_data(self) -> None:
@@ -8729,26 +10367,46 @@ class ScalperGui:
         try:
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
+            cursor.execute(
+                "SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30"
+            )
             rows = cursor.fetchall()
             conn.close()
             if not rows:
                 initial_headlines = [
                     ("US Core CPI MoM Comes In At 0.2% aligned with forecasts", "NEUTRAL"),
-                    ("FOMC Meeting Minutes hint at cautious approach to interest rate cuts", "BEARISH"),
-                    ("ECB rate cut speculation intensifies after eurozone economic activity data", "BULLISH"),
-                    ("Geopolitical risk spikes in Middle East boosting safe haven metals flows", "BULLISH"),
-                    ("Bitcoin breaks recent range consolidation as ETF spot net inflows mount", "BULLISH"),
+                    (
+                        "FOMC Meeting Minutes hint at cautious approach to interest rate cuts",
+                        "BEARISH",
+                    ),
+                    (
+                        "ECB rate cut speculation intensifies after eurozone economic activity data",
+                        "BULLISH",
+                    ),
+                    (
+                        "Geopolitical risk spikes in Middle East boosting safe haven metals flows",
+                        "BULLISH",
+                    ),
+                    (
+                        "Bitcoin breaks recent range consolidation as ETF spot net inflows mount",
+                        "BULLISH",
+                    ),
                 ]
                 for h, s in initial_headlines:
                     database.log_news_headline(h, s)
                 conn = database.get_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30")
+                cursor.execute(
+                    "SELECT timestamp, headline, sentiment FROM news ORDER BY timestamp DESC LIMIT 30"
+                )
                 rows = cursor.fetchall()
                 conn.close()
             for row in rows:
-                time_str = row["timestamp"].split("T")[-1][:8] if "T" in row["timestamp"] else row["timestamp"][:8]
+                time_str = (
+                    row["timestamp"].split("T")[-1][:8]
+                    if "T" in row["timestamp"]
+                    else row["timestamp"][:8]
+                )
                 sentiment = row["sentiment"]
                 sentiment_tag = "neutral"
                 if sentiment == "BULLISH":
@@ -8756,7 +10414,10 @@ class ScalperGui:
                 elif sentiment == "BEARISH":
                     sentiment_tag = "red"
                 self.news_tree.insert(
-                    "", tk.END, values=(time_str, "SYS", row["headline"], f"[{sentiment}]"), tags=(sentiment_tag,)
+                    "",
+                    tk.END,
+                    values=(time_str, "SYS", row["headline"], f"[{sentiment}]"),
+                    tags=(sentiment_tag,),
                 )
         except Exception as e:
             print(f"Error querying news database: {e}")
@@ -8802,7 +10463,10 @@ class ScalperGui:
                     price_str = f"{price:.5f}" if price < 100 else f"{price:.2f}"
                     color_tag = "green" if rec == "BUY" else "red" if rec == "SELL" else "yellow"
                     self.anr_tree.insert(
-                        "", tk.END, values=(symbol, rec, buy_pct, hold_pct, sell_pct, price_str), tags=(color_tag,)
+                        "",
+                        tk.END,
+                        values=(symbol, rec, buy_pct, hold_pct, sell_pct, price_str),
+                        tags=(color_tag,),
                     )
             except Exception:
                 pass
@@ -8816,7 +10480,9 @@ class ScalperGui:
                 perf = database.get_all_time_performance()
                 win_rate = perf["win_rate"]
                 predicted_dir = "BUY" if nn.last_prediction > 0.5 else "SELL"
-                prob_pct = nn.last_prediction if nn.last_prediction > 0.5 else 1.0 - nn.last_prediction
+                prob_pct = (
+                    nn.last_prediction if nn.last_prediction > 0.5 else 1.0 - nn.last_prediction
+                )
                 self.lbl_mlp_bias.config(
                     text=f"MLP Next Candle Bias: {predicted_dir} ({prob_pct * 100:.1f}% Confidence)",
                     fg=self.fg_green if predicted_dir == "BUY" else self.fg_red,
@@ -8831,13 +10497,15 @@ class ScalperGui:
                     is_deviating = True
                 filter_state = "INTERVENTION ENGAGED" if is_deviating else "IDLE (PROCEED)"
                 self.lbl_mlp_corrective.config(
-                    text=f"Filter Intervention State: {filter_state}", fg=self.fg_red if is_deviating else self.fg_green
+                    text=f"Filter Intervention State: {filter_state}",
+                    fg=self.fg_red if is_deviating else self.fg_green,
                 )
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
                 from institutional_integrations.quantum_local_llm import local_financial_llm
 
                 local_financial_llm.train_on_text(
-                    f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}", epochs=1
+                    f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}",
+                    epochs=1,
                 )
                 self.lbl_llm_metrics.config(
                     text=f"Vocab Size: 128 | Dim: 16 | Heads: 2 | Trained: {local_financial_llm.trained_tokens} tokens"

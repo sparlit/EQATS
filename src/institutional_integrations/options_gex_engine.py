@@ -9,7 +9,12 @@ from typing import Any
 
 
 def compute_black_scholes_greeks(
-    spot: Any, strike: Any, tte_years: Any, rate: Any = 0.04, iv: Any = 0.2, option_type: Any = "CALL"
+    spot: Any,
+    strike: Any,
+    tte_years: Any,
+    rate: Any = 0.04,
+    iv: Any = 0.2,
+    option_type: Any = "CALL",
 ) -> Any:
     """Calculates Black-Scholes NPV, Delta, Gamma, Vega, Theta, and Rho."""
     if tte_years <= 0 or iv <= 0:
@@ -23,7 +28,9 @@ def compute_black_scholes_greeks(
     safe_strike = max(1e-05, strike)
     safe_tte = max(1e-05, tte_years)
     safe_iv = max(1e-05, iv)
-    d1 = (math.log(spot / safe_strike) + (rate + 0.5 * safe_iv**2) * safe_tte) / (safe_iv * math.sqrt(safe_tte))
+    d1 = (math.log(spot / safe_strike) + (rate + 0.5 * safe_iv**2) * safe_tte) / (
+        safe_iv * math.sqrt(safe_tte)
+    )
     d2 = d1 - iv * math.sqrt(tte_years)
 
     def norm_cdf(x: Any) -> Any:
@@ -42,7 +49,8 @@ def compute_black_scholes_greeks(
     gamma = pdf_d1 / (spot * iv * math.sqrt(tte_years))
     vega = spot * pdf_d1 * math.sqrt(tte_years) / 100.0
     theta = (
-        -spot * pdf_d1 * iv / (2 * math.sqrt(tte_years)) - rate * strike * math.exp(-rate * tte_years) * norm_cdf(d2)
+        -spot * pdf_d1 * iv / (2 * math.sqrt(tte_years))
+        - rate * strike * math.exp(-rate * tte_years) * norm_cdf(d2)
     ) / 365.0
     return {
         "npv": round(npv, 4),

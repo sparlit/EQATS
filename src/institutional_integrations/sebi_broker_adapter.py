@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 _log = logging.getLogger("SEBIBrokerAdapter")
 VALID_INDIAN_PRODUCT_TAGS: set[str] = {"MIS", "CNC", "NRML"}
@@ -85,7 +85,11 @@ class SEBIBrokerAdapter(abc.ABC):
     """
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         self.api_key = api_key
         self.api_secret = api_secret
@@ -131,12 +135,16 @@ class SEBIBrokerAdapter(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Square-off or close position for given ticket/symbol."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order parameters."""
         raise NotImplementedError
 
@@ -155,7 +163,11 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
     BASE_URL = "https://api.kite.trade"
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         super().__init__(api_key, api_secret, access_token, is_sandbox)
         self.simulated_orders: dict[str, dict[str, Any]] = {}
@@ -165,7 +177,9 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             self._is_connected = True
             _log.info("KiteConnectAdapter session initialized (Sandbox=%s).", self.is_sandbox)
             return True
-        _log.warning("KiteConnectAdapter initialized without access token - entering simulation mode.")
+        _log.warning(
+            "KiteConnectAdapter initialized without access token - entering simulation mode."
+        )
         self._is_connected = True
         return True
 
@@ -179,7 +193,10 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         if self.access_token and (not self.is_sandbox):
             try:
-                headers = {"X-Kite-Version": "3", "Authorization": f"token {self.api_key}:{self.access_token}"}
+                headers = {
+                    "X-Kite-Version": "3",
+                    "Authorization": f"token {self.api_key}:{self.access_token}",
+                }
                 req = urllib.request.Request(f"{self.BASE_URL}/user/margins", headers=headers)
                 with urllib.request.urlopen(req, timeout=3.0) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
@@ -239,7 +256,9 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"KITE_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         if not getattr(self, "is_sandbox", False):
             sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
                 open_orders=self.get_open_orders(), close_order_func=self.close_order
@@ -260,7 +279,11 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             symbol=req.symbol, order_type=req.order_type, product=product, price=req.price
         )
         if not allowed and (not getattr(self, "is_sandbox", False)):
-            _log.error("SEBI order execution blocked by market state machine for %s: %s", req.symbol, reason)
+            _log.error(
+                "SEBI order execution blocked by market state machine for %s: %s",
+                req.symbol,
+                reason,
+            )
             return SEBIOrderResponse(
                 success=False,
                 ticket="",
@@ -292,7 +315,10 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
                         "tag": req.tag,
                     }
                 ).encode("utf-8")
-                headers = {"X-Kite-Version": "3", "Authorization": f"token {self.api_key}:{self.access_token}"}
+                headers = {
+                    "X-Kite-Version": "3",
+                    "Authorization": f"token {self.api_key}:{self.access_token}",
+                }
                 http_req = urllib.request.Request(
                     f"{self.BASE_URL}/orders/regular", data=payload, headers=headers, method="POST"
                 )
@@ -310,7 +336,10 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
                         raw_response=res_data,
                     )
             except Exception as e:
-                _log.error("KiteConnect live order execution failed (%s). Falling back to simulated response.", e)
+                _log.error(
+                    "KiteConnect live order execution failed (%s). Falling back to simulated response.",
+                    e,
+                )
         order_record = {
             "ticket": ticket,
             "symbol": req.symbol,
@@ -336,7 +365,9 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             raw_response={"status": "success", "order_id": ticket, "simulated": True},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         product = validate_indian_product_tag(product, default="CNC")
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         if ticket in self.simulated_orders:
@@ -361,7 +392,9 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = price
@@ -383,7 +416,11 @@ class DhanHQAdapter(SEBIBrokerAdapter):
     BASE_URL = "https://api.dhan.co"
 
     def __init__(
-        self, api_key: str = "", client_id: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        client_id: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.client_id = client_id
@@ -391,7 +428,11 @@ class DhanHQAdapter(SEBIBrokerAdapter):
 
     def connect(self) -> bool:
         self._is_connected = True
-        _log.info("DhanHQAdapter session initialized (Client ID=%s, Sandbox=%s).", self.client_id, self.is_sandbox)
+        _log.info(
+            "DhanHQAdapter session initialized (Client ID=%s, Sandbox=%s).",
+            self.client_id,
+            self.is_sandbox,
+        )
         return True
 
     def is_connected(self) -> bool:
@@ -468,7 +509,9 @@ class DhanHQAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"DHAN_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         if not getattr(self, "is_sandbox", False):
             sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
                 open_orders=self.get_open_orders(), close_order_func=self.close_order
@@ -489,7 +532,11 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             symbol=req.symbol, order_type=req.order_type, product=product, price=req.price
         )
         if not allowed and (not getattr(self, "is_sandbox", False)):
-            _log.error("SEBI order execution blocked by market state machine for %s: %s", req.symbol, reason)
+            _log.error(
+                "SEBI order execution blocked by market state machine for %s: %s",
+                req.symbol,
+                reason,
+            )
             return SEBIOrderResponse(
                 success=False,
                 ticket="",
@@ -543,7 +590,10 @@ class DhanHQAdapter(SEBIBrokerAdapter):
                         raw_response=res_data,
                     )
             except Exception as e:
-                _log.error("DhanHQ live order execution failed (%s). Falling back to simulated response.", e)
+                _log.error(
+                    "DhanHQ live order execution failed (%s). Falling back to simulated response.",
+                    e,
+                )
         order_record = {
             "ticket": ticket,
             "symbol": req.symbol,
@@ -569,7 +619,9 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             raw_response={"status": "success", "order_id": ticket, "simulated": True},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         product = validate_indian_product_tag(product, default="CNC")
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         if ticket in self.simulated_orders:
@@ -594,7 +646,9 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = price
@@ -614,7 +668,9 @@ def generate_indian_market_history_bars(
     Generates deterministic, 0.05 INR tick-size rounded historical bars for Indian Market symbols.
     """
     bars = []
-    base_price = 2850.0 if "RELIANCE" in symbol.upper() else 1500.0 if "INFY" in symbol.upper() else 500.0
+    base_price = (
+        2850.0 if "RELIANCE" in symbol.upper() else 1500.0 if "INFY" in symbol.upper() else 500.0
+    )
     now = time.time()
     for i in range(count):
         t = now - (count - i) * 60
@@ -622,7 +678,16 @@ def generate_indian_market_history_bars(
         h = round_to_indian_tick_size(o + 1.5)
         l = round_to_indian_tick_size(o - 1.2)
         c = round_to_indian_tick_size(o + 0.3)
-        bars.append({"timestamp": int(t), "open": o, "high": h, "low": l, "close": c, "volume": 1000 + i * 10})
+        bars.append(
+            {
+                "timestamp": int(t),
+                "open": o,
+                "high": h,
+                "low": l,
+                "close": c,
+                "volume": 1000 + i * 10,
+            }
+        )
     return bars
 
 
@@ -680,7 +745,12 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -695,7 +765,9 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"ANGEL_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(
             req.price if req.price > 0 else self.get_current_price(req.symbol, exchange)["last"]
         )
@@ -705,7 +777,11 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -752,7 +828,9 @@ class AngelOneAdapter(SEBIBrokerAdapter):
             raw_response={"status": True, "orderid": ticket},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
@@ -766,7 +844,9 @@ class AngelOneAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -777,7 +857,11 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
     """Kotak Neo SEBI Broker Adapter implementation."""
 
     def __init__(
-        self, api_key: str = "", consumer_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        consumer_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.simulated_orders: dict[str, dict[str, Any]] = {}
@@ -794,7 +878,12 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -809,12 +898,18 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"KOTAK_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -851,7 +946,9 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return SEBIOrderResponse(
             success=True,
@@ -863,7 +960,9 @@ class KotakNeoAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -889,7 +988,12 @@ class UpstoxAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -904,12 +1008,18 @@ class UpstoxAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"UPSTOX_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -946,7 +1056,9 @@ class UpstoxAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return SEBIOrderResponse(
             success=True,
@@ -958,7 +1070,9 @@ class UpstoxAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -969,7 +1083,11 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
     """ICICI Direct Breeze SEBI Broker Adapter implementation."""
 
     def __init__(
-        self, api_key: str = "", session_token: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        session_token: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         token = access_token or session_token
         super().__init__(api_key=api_key, access_token=token, is_sandbox=is_sandbox)
@@ -987,7 +1105,12 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -1002,12 +1125,18 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"ICICI_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -1044,7 +1173,9 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return SEBIOrderResponse(
             success=True,
@@ -1056,7 +1187,9 @@ class ICICIDirectAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -1093,7 +1226,12 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -1108,12 +1246,18 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"5PAISA_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -1150,7 +1294,9 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return SEBIOrderResponse(
             success=True,
@@ -1162,7 +1308,9 @@ class FivePaisaAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -1173,9 +1321,15 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
     """IIFL XTS Interactive API SEBI Broker Adapter implementation."""
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
-        super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
+        super().__init__(
+            api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox
+        )
         self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
@@ -1190,7 +1344,12 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -1205,12 +1364,18 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"IIFL_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -1247,7 +1412,9 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return SEBIOrderResponse(
             success=True,
@@ -1259,7 +1426,9 @@ class IIFLXTSAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -1270,7 +1439,11 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
     """Motilal Oswal API SEBI Broker Adapter implementation."""
 
     def __init__(
-        self, api_key: str = "", client_id: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        client_id: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         self.client_id = client_id
@@ -1288,7 +1461,12 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -1303,12 +1481,18 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"MO_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -1345,7 +1529,9 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         return SEBIOrderResponse(
             success=True,
@@ -1357,7 +1543,9 @@ class MotilalOswalAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:
@@ -1373,7 +1561,11 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
     BASE_URL = "http://127.0.0.1:50005/api"
 
     def __init__(
-        self, api_key: str = "", endpoint_url: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        endpoint_url: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         super().__init__(api_key=api_key, access_token=access_token, is_sandbox=is_sandbox)
         if endpoint_url:
@@ -1414,12 +1606,18 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
         product = validate_indian_product_tag(req.product, default="CNC")
         exchange = req.exchange.upper() if req.exchange else "NSE"
         ticket = f"FENIX_{uuid.uuid4().hex[:12].upper()}"
-        token = req.instrument_token or global_indian_scheduler.get_instrument_token(f"{exchange}:{req.symbol}")
+        token = req.instrument_token or global_indian_scheduler.get_instrument_token(
+            f"{exchange}:{req.symbol}"
+        )
         price = round_to_indian_tick_size(req.price if req.price > 0 else 500.0)
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and (not getattr(self, "is_sandbox", False)):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and (not getattr(self, "is_sandbox", False))
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -1456,7 +1654,9 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         token = global_indian_scheduler.get_instrument_token(f"{exchange}:{symbol}")
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
@@ -1470,7 +1670,9 @@ class OpenAlgoFenixAdapter(SEBIBrokerAdapter):
             instrument_token=token,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)
@@ -1496,7 +1698,9 @@ class IndianBrokerPluginRegistry:
         key = name.upper().strip()
         cls._registry[key] = adapter_class
         cls._enabled[key] = True
-        _log.info("Registered Indian Broker Microkernel Plugin: %s -> %s", key, adapter_class.__name__)
+        _log.info(
+            "Registered Indian Broker Microkernel Plugin: %s -> %s", key, adapter_class.__name__
+        )
 
     @classmethod
     def enable(cls, name: str) -> None:
@@ -1608,11 +1812,17 @@ class UnifiedIndianBrokerClientAdapter:
                 access_token=self.access_token,
             )
         if adapter_cls is KotakNeoAdapter:
-            return KotakNeoAdapter(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
+            return KotakNeoAdapter(
+                api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
+            )
         if adapter_cls is UpstoxAdapter:
-            return UpstoxAdapter(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
+            return UpstoxAdapter(
+                api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
+            )
         if adapter_cls is ICICIDirectAdapter:
-            return ICICIDirectAdapter(api_key=self.api_key, session_token=self.access_token, is_sandbox=self.is_sandbox)
+            return ICICIDirectAdapter(
+                api_key=self.api_key, session_token=self.access_token, is_sandbox=self.is_sandbox
+            )
         if adapter_cls is FivePaisaAdapter:
             return FivePaisaAdapter(
                 api_key=self.api_key,
@@ -1640,7 +1850,9 @@ class UnifiedIndianBrokerClientAdapter:
                 api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
             )
         try:
-            inst = adapter_cls(api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox)
+            inst = adapter_cls(
+                api_key=self.api_key, access_token=self.access_token, is_sandbox=self.is_sandbox
+            )
             if isinstance(inst, SEBIBrokerAdapter):
                 return inst
             return KiteConnectAdapter(
@@ -1709,7 +1921,12 @@ class UnifiedIndianBrokerClientAdapter:
         }
 
     def modify_order(
-        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0, quantity: float = 0.0
+        self,
+        ticket: str,
+        price: float = 0.0,
+        sl: float = 0.0,
+        tp: float = 0.0,
+        quantity: float = 0.0,
     ) -> dict[str, Any]:
         """Modifies active order parameters."""
         rounded_price = round_to_indian_tick_size(price) if price > 0 else 0.0

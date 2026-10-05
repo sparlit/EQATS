@@ -8,8 +8,7 @@ Provides:
 - Dynamic Ratio Threshold Rebalancer
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 
 @dataclass
@@ -102,6 +101,9 @@ class BridgeCoinScoutEngine:
                 continue
             dec = self.evaluate_coin_jump(current_coin, coin, current_coin_price, price)
             if dec.should_jump:
-                if best_decision is None or dec.expected_profit_pct > best_decision.expected_profit_pct:
+                if (
+                    best_decision is None
+                    or dec.expected_profit_pct > best_decision.expected_profit_pct
+                ):
                     best_decision = dec
         return best_decision

@@ -5,9 +5,7 @@ Consensus Sizing Modulators, and Combined Exposure Cap Guards.
 """
 
 import logging
-import math
-from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("FTMOTradingBotCore")
 
@@ -30,16 +28,28 @@ class ScaleOnProfitEngine:
     ) -> bool:
         if has_active_addon or atr_at_entry <= 0:
             return False
-        profit_dist = current_price - entry_price if direction.upper() == "BUY" else entry_price - current_price
+        profit_dist = (
+            current_price - entry_price
+            if direction.upper() == "BUY"
+            else entry_price - current_price
+        )
         required_dist = atr_at_entry * threshold_atr_multiplier
         return profit_dist >= required_dist
 
     def calculate_addon_params(
-        self, direction: str, main_entry_price: float, main_lot_size: float, addon_fraction: float = 0.5
+        self,
+        direction: str,
+        main_entry_price: float,
+        main_lot_size: float,
+        addon_fraction: float = 0.5,
     ) -> dict[str, Any]:
         addon_lot = round(max(0.01, main_lot_size * addon_fraction), 2)
         addon_sl = main_entry_price
-        return {"addon_lot_size": addon_lot, "addon_stop_loss": addon_sl, "main_entry_protected": True}
+        return {
+            "addon_lot_size": addon_lot,
+            "addon_stop_loss": addon_sl,
+            "main_entry_protected": True,
+        }
 
 
 class FTMODynamicStopEngine:
@@ -70,7 +80,11 @@ class FTMODynamicStopEngine:
             if (proposed_sl < current_sl or current_sl == 0) and current_price < entry_price:
                 new_sl = round(proposed_sl, 5)
                 should_update = True
-        return {"should_update": should_update, "new_stop_loss": new_sl, "trail_distance": round(trail_dist, 5)}
+        return {
+            "should_update": should_update,
+            "new_stop_loss": new_sl,
+            "trail_distance": round(trail_dist, 5),
+        }
 
 
 class ConsensusSizingModulator:

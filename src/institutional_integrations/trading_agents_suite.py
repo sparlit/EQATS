@@ -8,9 +8,8 @@ Provides:
 - TradingAgentsOrchestrator (Multi-Agent Swarm Orchestrator and Decision Synthesizer)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 
 class AgentRole(str, Enum):
@@ -48,9 +47,7 @@ class BullResearcherAgent:
         self, symbol: str, technical_score: float, fundamental_score: float, sentiment_score: float
     ) -> tuple[float, str]:
         upside = technical_score * 0.3 + fundamental_score * 0.4 + sentiment_score * 0.3
-        thesis = (
-            f"Bull Thesis ({symbol}): Strong growth catalysts, favorable risk-reward, composite score = {upside:.2f}"
-        )
+        thesis = f"Bull Thesis ({symbol}): Strong growth catalysts, favorable risk-reward, composite score = {upside:.2f}"
         return (upside, thesis)
 
 
@@ -98,8 +95,12 @@ class TradingAgentsOrchestrator:
     ) -> TradingAgentsDecision:
         """Executes iterative Bull vs. Bear debate rounds and synthesizes final trade action."""
         debate_history: list[DebateRound] = []
-        bull_score, bull_thesis = self.bull_agent.evaluate(symbol, technical_score, fundamental_score, sentiment_score)
-        bear_score, bear_thesis = self.bear_agent.evaluate(symbol, volatility, drawdown_pct, overbought_score)
+        bull_score, bull_thesis = self.bull_agent.evaluate(
+            symbol, technical_score, fundamental_score, sentiment_score
+        )
+        bear_score, bear_thesis = self.bear_agent.evaluate(
+            symbol, volatility, drawdown_pct, overbought_score
+        )
         for r in range(1, rounds + 1):
             risk_score, risk_text = self.risk_agent.evaluate(bull_score, bear_score)
             debate_history.append(

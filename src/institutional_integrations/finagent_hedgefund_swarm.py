@@ -6,7 +6,7 @@ deliberation workflows, decision memory, signal validation, and risk guardrails.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _log = logging.getLogger(__name__)
 
@@ -16,13 +16,17 @@ class AgentPersona:
     Represents an institutional hedge fund agent persona (e.g., Portfolio Manager, Quant Researcher, Risk Quant).
     """
 
-    def __init__(self, name: str, role: str, expertise: list[str], risk_tolerance: float = 0.5) -> None:
+    def __init__(
+        self, name: str, role: str, expertise: list[str], risk_tolerance: float = 0.5
+    ) -> None:
         self.name = name
         self.role = role
         self.expertise = expertise
         self.risk_tolerance = max(0.0, min(1.0, risk_tolerance))
 
-    def evaluate_signal(self, symbol: str, market_data: dict[str, Any], signal_bias: float) -> dict[str, Any]:
+    def evaluate_signal(
+        self, symbol: str, market_data: dict[str, Any], signal_bias: float
+    ) -> dict[str, Any]:
         """
         Evaluates a market signal through the perspective of the agent's persona.
         """
@@ -61,13 +65,29 @@ class InvestmentCommitteeDeliberation:
             self.personas = personas
         else:
             self.personas = [
-                AgentPersona("Medallion PM", "Portfolio Manager", ["Macro", "Multi-Asset"], risk_tolerance=0.7),
-                AgentPersona("Alpha Researcher", "Quant Researcher", ["StatArb", "ML"], risk_tolerance=0.6),
-                AgentPersona("Guardian Risk", "Risk Quant", ["VaR", "Drawdown"], risk_tolerance=0.5),
-                AgentPersona("Microstructure Trader", "Execution Trader", ["OrderFlow", "VWAP"], risk_tolerance=0.5),
+                AgentPersona(
+                    "Medallion PM",
+                    "Portfolio Manager",
+                    ["Macro", "Multi-Asset"],
+                    risk_tolerance=0.7,
+                ),
+                AgentPersona(
+                    "Alpha Researcher", "Quant Researcher", ["StatArb", "ML"], risk_tolerance=0.6
+                ),
+                AgentPersona(
+                    "Guardian Risk", "Risk Quant", ["VaR", "Drawdown"], risk_tolerance=0.5
+                ),
+                AgentPersona(
+                    "Microstructure Trader",
+                    "Execution Trader",
+                    ["OrderFlow", "VWAP"],
+                    risk_tolerance=0.5,
+                ),
             ]
 
-    def deliberate(self, symbol: str, market_data: dict[str, Any], raw_signal: float) -> dict[str, Any]:
+    def deliberate(
+        self, symbol: str, market_data: dict[str, Any], raw_signal: float
+    ) -> dict[str, Any]:
         """
         Conducts a consensus voting round across all committee members.
         """
@@ -128,4 +148,8 @@ class HedgeFundSwarmOrchestrator:
         total = len(self.memory_history)
         buys = sum(1 for m in self.memory_history if m["final_action"] == "BUY")
         vetoes = sum(1 for m in self.memory_history if m["is_vetoed"])
-        return {"total_deliberations": total, "buy_rate": float(buys / total), "veto_rate": float(vetoes / total)}
+        return {
+            "total_deliberations": total,
+            "buy_rate": float(buys / total),
+            "veto_rate": float(vetoes / total),
+        }

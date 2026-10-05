@@ -181,13 +181,22 @@ class RetailSkillsUSBrokerAdapter(SEBIBrokerAdapter):
             raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_RETAIL_SKILLS_US},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

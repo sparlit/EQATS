@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger("BayesianConsensusEngine")
 
@@ -32,13 +32,19 @@ class BayesianConsensusEngine:
 
     def _get_state(self, symbol: str) -> dict[str, Any]:
         if symbol not in self.symbol_state:
-            self.symbol_state[symbol] = {"prior": 0.5, "evidence_history": [], "last_update": time.time()}
+            self.symbol_state[symbol] = {
+                "prior": 0.5,
+                "evidence_history": [],
+                "last_update": time.time(),
+            }
         return self.symbol_state[symbol]
 
     def set_strategy_reliability(self, strategy_name: str, reliability: float) -> None:
         self.reliability[strategy_name] = max(0.1, min(0.99, reliability))
 
-    def update_evidence(self, symbol: str, source_strategy: str, signal: str, raw_prob: float = 0.75) -> float:
+    def update_evidence(
+        self, symbol: str, source_strategy: str, signal: str, raw_prob: float = 0.75
+    ) -> float:
         """
         Updates Bayesian prior probability for `symbol` given evidence from `source_strategy`.
         signal: 'BUY' (p_e_h > 0.5), 'SELL' (p_e_h < 0.5), or 'HOLD' (0.5)

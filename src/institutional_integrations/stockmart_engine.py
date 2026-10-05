@@ -9,10 +9,9 @@ Provides orderbook limit matching, portfolio position valuation, 0.05 INR price 
 IST trading session validation, and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -60,7 +59,9 @@ class StockMartEngine:
         self.asks: list[dict[str, Any]] = []
         self.positions: dict[str, int] = {}
 
-    def add_limit_order(self, symbol: str, side: str, price: float, quantity: int) -> dict[str, Any]:
+    def add_limit_order(
+        self, symbol: str, side: str, price: float, quantity: int
+    ) -> dict[str, Any]:
         """
         Adds a limit order to the bid/ask orderbook and attempts matching.
         """
@@ -100,7 +101,9 @@ class StockMartEngine:
             top_bid = self.bids[0]
             top_ask = self.asks[0]
 
-            exec_qty = min(top_bid["quantity"] - top_bid["filled"], top_ask["quantity"] - top_ask["filled"])
+            exec_qty = min(
+                top_bid["quantity"] - top_bid["filled"], top_ask["quantity"] - top_ask["filled"]
+            )
             exec_price = top_ask["price"]
 
             top_bid["filled"] += exec_qty
@@ -203,7 +206,9 @@ class StockMartBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -213,11 +218,18 @@ class StockMartBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": self.engine.cash, "equity": self.engine.cash, "currency": "INR", "is_demo": True}
+        return {
+            "balance": self.engine.cash,
+            "equity": self.engine.cash,
+            "currency": "INR",
+            "is_demo": True,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"

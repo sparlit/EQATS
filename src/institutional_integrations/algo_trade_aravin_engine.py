@@ -11,7 +11,7 @@ Magic Number: 9100047
 import logging
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -72,7 +72,9 @@ class AlgoTradeAravinEngine:
         }
         return {"broker": broker_key, "status": "SESSION_ACTIVE"}
 
-    def route_order_execution_with_failover(self, primary_broker: str, request_data: dict[str, Any]) -> dict[str, Any]:
+    def route_order_execution_with_failover(
+        self, primary_broker: str, request_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Attempts execution via primary broker; if primary session is degraded or fails,
         automatically cascades through secondary brokers in priority order.
@@ -106,7 +108,9 @@ class AlgoTradeAravinEngine:
             "attempted_chain": failover_chain,
         }
 
-    def route_order_execution(self, target_broker: str, request_data: dict[str, Any]) -> dict[str, Any]:
+    def route_order_execution(
+        self, target_broker: str, request_data: dict[str, Any]
+    ) -> dict[str, Any]:
         broker = target_broker.upper().strip()
         session = self.active_sessions.get(broker, {})
         if not session.get("connected", False):
@@ -159,13 +163,17 @@ class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
 
     def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
-        self.engine.refresh_broker_session("FINVASIA", credentials.get("token", credentials.get("session_token", "")))
+        self.engine.refresh_broker_session(
+            "FINVASIA", credentials.get("token", credentials.get("session_token", ""))
+        )
         return True
 
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -229,10 +237,14 @@ class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

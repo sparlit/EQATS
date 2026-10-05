@@ -10,12 +10,11 @@ Provides Zerodha Kite option chain strike matrix parsing, Put-Call Ratio (PCR) a
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -27,7 +26,9 @@ class KiteOptionChainEngine:
     Zerodha Kite Option Chain & PCR Analysis Engine for NIFTY / BANKNIFTY derivatives.
     """
 
-    def __init__(self, pcr_bullish_threshold: float = 1.1, pcr_bearish_threshold: float = 0.8) -> None:
+    def __init__(
+        self, pcr_bullish_threshold: float = 1.1, pcr_bearish_threshold: float = 0.8
+    ) -> None:
         self.pcr_bullish_threshold = pcr_bullish_threshold
         self.pcr_bearish_threshold = pcr_bearish_threshold
         self.market_state = IndianMarketStateMachine()
@@ -71,9 +72,7 @@ class KiteOptionChainEngine:
 
         if pcr >= self.pcr_bullish_threshold:
             sentiment = "BULLISH"
-            reason = (
-                f"High Put-Call Ratio ({pcr:.2f} >= {self.pcr_bullish_threshold}) indicates strong put writing support"
-            )
+            reason = f"High Put-Call Ratio ({pcr:.2f} >= {self.pcr_bullish_threshold}) indicates strong put writing support"
         elif pcr <= self.pcr_bearish_threshold:
             sentiment = "BEARISH"
             reason = f"Low Put-Call Ratio ({pcr:.2f} <= {self.pcr_bearish_threshold}) indicates heavy call resistance"

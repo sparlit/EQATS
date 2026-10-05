@@ -20,7 +20,9 @@ class SpatialSupplyChainAnalytics:
     @classmethod
     def parse_maritime_vessel_density(cls, chokepoint_name: Any = "SUEZ_CANAL") -> Any:
         """Parses current AIS maritime vessel congestion density at strategic chokepoint."""
-        choke = cls.MARITIME_CHOKEPOINTS.get(chokepoint_name.upper(), cls.MARITIME_CHOKEPOINTS["SUEZ_CANAL"])
+        choke = cls.MARITIME_CHOKEPOINTS.get(
+            chokepoint_name.upper(), cls.MARITIME_CHOKEPOINTS["SUEZ_CANAL"]
+        )
         baseline = choke["baseline_density"]
         current_density = baseline
         congestion_ratio = current_density / baseline
@@ -40,7 +42,9 @@ class SpatialSupplyChainAnalytics:
         }
 
     @classmethod
-    def score_supply_shock_index(cls, freight_index: Any = 2100.0, energy_price_index: Any = 85.0) -> Any:
+    def score_supply_shock_index(
+        cls, freight_index: Any = 2100.0, energy_price_index: Any = 85.0
+    ) -> Any:
         """Produces a composite supply-chain stress score to predict inflation and commodity shocks."""
         baseline_freight = 1800.0
         baseline_energy = 70.0

@@ -6,9 +6,8 @@ Adapted from OptionStratLib & OptionWorkstation.
 """
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
 
 
 class OptionType(Enum):
@@ -67,7 +66,14 @@ class OptionStratGreeksEngine:
                 payoff = max(0.0, strike - spot)
                 delta = -1.0 if strike > spot else 0.0
             return OptionGreeks(
-                price=payoff, delta=delta, gamma=0.0, theta=0.0, vega=0.0, rho=0.0, vanna=0.0, volga=0.0
+                price=payoff,
+                delta=delta,
+                gamma=0.0,
+                theta=0.0,
+                vega=0.0,
+                rho=0.0,
+                vanna=0.0,
+                volga=0.0,
             )
         r = self.risk_free_rate
         t = time_to_expiry
@@ -82,19 +88,32 @@ class OptionStratGreeksEngine:
         if option_type == OptionType.CALL:
             price = spot * cdf_d1 - strike * math.exp(-r * t) * cdf_d2
             delta = cdf_d1
-            theta = -(spot * pdf_d1 * sigma) / (2.0 * math.sqrt(t)) - r * strike * math.exp(-r * t) * cdf_d2
+            theta = (
+                -(spot * pdf_d1 * sigma) / (2.0 * math.sqrt(t))
+                - r * strike * math.exp(-r * t) * cdf_d2
+            )
             rho = strike * t * math.exp(-r * t) * cdf_d2
         else:
             price = strike * math.exp(-r * t) * cdf_neg_d2 - spot * cdf_neg_d1
             delta = cdf_d1 - 1.0
-            theta = -(spot * pdf_d1 * sigma) / (2.0 * math.sqrt(t)) + r * strike * math.exp(-r * t) * cdf_neg_d2
+            theta = (
+                -(spot * pdf_d1 * sigma) / (2.0 * math.sqrt(t))
+                + r * strike * math.exp(-r * t) * cdf_neg_d2
+            )
             rho = -strike * t * math.exp(-r * t) * cdf_neg_d2
         gamma = pdf_d1 / (spot * sigma * math.sqrt(t))
         vega = spot * pdf_d1 * math.sqrt(t) / 100.0
         vanna = -pdf_d1 * d2 / sigma
         volga = vega * d1 * d2 / sigma
         return OptionGreeks(
-            price=price, delta=delta, gamma=gamma, theta=theta / 365.0, vega=vega, rho=rho, vanna=vanna, volga=volga
+            price=price,
+            delta=delta,
+            gamma=gamma,
+            theta=theta / 365.0,
+            vega=vega,
+            rho=rho,
+            vanna=vanna,
+            volga=volga,
         )
 
     def solve_implied_volatility(

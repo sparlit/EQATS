@@ -7,10 +7,8 @@ Provides:
 - EigenportfolioDecomposition: Principal Component Analysis (PCA) Factor Loadings & Eigenportfolio Weight Solver
 """
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -36,7 +34,9 @@ class EigenportfolioResult:
 class PurgedWalkForwardCV:
     """Purged & Embargoed Walk-Forward Cross-Validation Splitter for Financial ML."""
 
-    def __init__(self, train_days: int = 180, val_days: int = 30, embargo_days: int = 5, num_folds: int = 3) -> None:
+    def __init__(
+        self, train_days: int = 180, val_days: int = 30, embargo_days: int = 5, num_folds: int = 3
+    ) -> None:
         self.train_days = train_days
         self.val_days = val_days
         self.embargo_days = embargo_days

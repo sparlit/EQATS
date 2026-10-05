@@ -12,7 +12,7 @@ import logging
 import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -68,7 +68,11 @@ def black76_option_price(
     p = e^(-rT) * [K * N(-d2) - F * N(-d1)]
     """
     if time_to_exp_years <= 0 or volatility <= 0 or futures_price <= 0 or strike_price <= 0:
-        return max(0.0, futures_price - strike_price) if is_call else max(0.0, strike_price - futures_price)
+        return (
+            max(0.0, futures_price - strike_price)
+            if is_call
+            else max(0.0, strike_price - futures_price)
+        )
 
     d1 = (math.log(futures_price / strike_price) + (0.5 * volatility**2) * time_to_exp_years) / (
         volatility * math.sqrt(time_to_exp_years)
@@ -112,7 +116,9 @@ class NSEOIVisualizerEngine:
         total_pe_change_oi = sum(item.get("pe_change_oi", 0) for item in option_chain)
 
         pcr_oi = round(total_pe_oi / total_ce_oi, 2) if total_ce_oi > 0 else 1.0
-        pcr_change_oi = round(total_pe_change_oi / total_ce_change_oi, 2) if total_ce_change_oi > 0 else 1.0
+        pcr_change_oi = (
+            round(total_pe_change_oi / total_ce_change_oi, 2) if total_ce_change_oi > 0 else 1.0
+        )
 
         # Max Pain Calculation
         min_pain = float("inf")
@@ -140,7 +146,8 @@ class NSEOIVisualizerEngine:
 
         # Black-76 Pricing for ATM strike
         atm_strike = min(
-            option_chain, key=lambda x: abs(x.get("strike_price", underlying_price) - underlying_price)
+            option_chain,
+            key=lambda x: abs(x.get("strike_price", underlying_price) - underlying_price),
         ).get("strike_price", underlying_price)
         atm_ce_black76 = black76_option_price(
             True, underlying_price, atm_strike, time_to_exp_years, risk_free_rate, volatility
@@ -201,7 +208,9 @@ class NSEOIVisualizerBrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -244,10 +253,14 @@ class NSEOIVisualizerBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

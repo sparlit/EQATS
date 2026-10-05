@@ -4,7 +4,7 @@ Provides Options Max Pain Strike Engine and Synthetic Futures Pricing (Put-Call 
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("OpenBullAnalytics")
 
@@ -19,8 +19,12 @@ def calculate_max_pain(option_chain: list[dict[str, Any]]) -> dict[str, Any]:
     strikes = sorted(list(set(row["strike"] for row in option_chain if "strike" in row)))
     if not strikes:
         return {"max_pain_strike": 0.0, "pcr_oi": 0.0, "chain_pain": []}
-    ce_oi_map = {row["strike"]: float(row.get("ce_oi", 0.0)) for row in option_chain if "strike" in row}
-    pe_oi_map = {row["strike"]: float(row.get("pe_oi", 0.0)) for row in option_chain if "strike" in row}
+    ce_oi_map = {
+        row["strike"]: float(row.get("ce_oi", 0.0)) for row in option_chain if "strike" in row
+    }
+    pe_oi_map = {
+        row["strike"]: float(row.get("pe_oi", 0.0)) for row in option_chain if "strike" in row
+    }
     total_ce_oi = sum(ce_oi_map.values())
     total_pe_oi = sum(pe_oi_map.values())
     pcr_oi = round(total_pe_oi / total_ce_oi, 2) if total_ce_oi > 0 else 0.0

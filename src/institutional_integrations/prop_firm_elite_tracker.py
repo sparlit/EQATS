@@ -5,9 +5,8 @@ and consolidated multi-account challenge status aggregator.
 """
 
 import logging
-import math
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("PropFirmTrackerElite")
 
@@ -19,11 +18,17 @@ class SignalPulseLogSyncParser:
 
     def parse_log_line(self, log_line: str) -> dict[str, Any] | None:
         line = log_line.strip()
-        if not line or ("order" not in line.lower() and "deal" not in line.lower() and ("trade" not in line.lower())):
+        if not line or (
+            "order" not in line.lower()
+            and "deal" not in line.lower()
+            and ("trade" not in line.lower())
+        ):
             return None
         parts = line.split()
         timestamp_str = parts[0] if len(parts) > 0 else str(time.strftime("%Y.%m.%d %H:%M:%S"))
-        direction = "BUY" if "buy" in line.lower() else "SELL" if "sell" in line.lower() else "UNKNOWN"
+        direction = (
+            "BUY" if "buy" in line.lower() else "SELL" if "sell" in line.lower() else "UNKNOWN"
+        )
         profit = 0.0
         if "profit:" in line.lower():
             try:
@@ -32,7 +37,13 @@ class SignalPulseLogSyncParser:
                 profit = float(profit_str)
             except Exception:
                 profit = 0.0
-        return {"raw_line": line, "timestamp": timestamp_str, "direction": direction, "profit": profit, "parsed": True}
+        return {
+            "raw_line": line,
+            "timestamp": timestamp_str,
+            "direction": direction,
+            "profit": profit,
+            "parsed": True,
+        }
 
 
 class PropFirmEliteMultiAccountAggregator:

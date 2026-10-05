@@ -7,7 +7,7 @@ TTM Squeeze Momentum Indicator, and Session Hour Almanac Filter.
 import logging
 import math
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import numpy as np
@@ -19,7 +19,9 @@ except ImportError:
 logger = logging.getLogger("QMAQuantStrategy")
 
 
-def detect_rsi_failure_swing(rsi_series: Sequence[float], oversold: float = 35.0, overbought: float = 65.0) -> str:
+def detect_rsi_failure_swing(
+    rsi_series: Sequence[float], oversold: float = 35.0, overbought: float = 65.0
+) -> str:
     """
     Detects Murphy RSI Failure Swing (W-bottom oversold or M-top overbought reversal).
     """
@@ -28,7 +30,13 @@ def detect_rsi_failure_swing(rsi_series: Sequence[float], oversold: float = 35.0
     r = rsi_series[-6:]
     if r[0] < oversold and r[1] > oversold and (r[2] < r[1]) and (r[2] > r[0]) and (r[3] > r[1]):
         return "BUY"
-    if r[0] > overbought and r[1] < overbought and (r[2] > r[1]) and (r[2] < r[0]) and (r[3] < r[1]):
+    if (
+        r[0] > overbought
+        and r[1] < overbought
+        and (r[2] > r[1])
+        and (r[2] < r[0])
+        and (r[3] < r[1])
+    ):
         return "SELL"
     return "NEUTRAL"
 
@@ -85,7 +93,10 @@ class QMAQuantStrategy:
     ) -> dict[str, Any]:
         blocked_hours = {13, 14, 15}
         if utc_hour in blocked_hours:
-            return {"decision": "HOLD", "reason": f"Almanac Session Filter: Hour {utc_hour} UTC blocked"}
+            return {
+                "decision": "HOLD",
+                "reason": f"Almanac Session Filter: Hour {utc_hour} UTC blocked",
+            }
         fail_swing = detect_rsi_failure_swing(closes)
         squeeze = calculate_ttm_squeeze(closes, highs, lows)
         decision = "HOLD"

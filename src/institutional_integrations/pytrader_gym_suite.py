@@ -7,8 +7,7 @@ Provides:
 - PyTraderDepthAnalyzer: Order book liquidity depth ratio & volume imbalance metrics
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -49,7 +48,9 @@ class TradingGymRLAdapter:
         self.prev_equity = self.initial_balance
         return np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
-    def step(self, action: int, current_price: float, returns_history: list[float]) -> GymStepResult:
+    def step(
+        self, action: int, current_price: float, returns_history: list[float]
+    ) -> GymStepResult:
         """Executes RL step: action (0 = HOLD, 1 = BUY, 2 = SELL/CLOSE)."""
         if current_price <= 0:
             return GymStepResult(np.zeros(4, dtype=np.float32), 0.0, True, {})
@@ -85,7 +86,10 @@ class PyTraderDepthAnalyzer:
     """Order Book Depth Ratio and Liquidity Imbalance Analyzer."""
 
     def analyze_depth(
-        self, bids: list[tuple[float, float]], asks: list[tuple[float, float]], depth_levels: int = 10
+        self,
+        bids: list[tuple[float, float]],
+        asks: list[tuple[float, float]],
+        depth_levels: int = 10,
     ) -> DepthAnalysisResult:
         """Analyzes top N bid/ask levels for volume depth imbalance."""
         if not bids or not asks:

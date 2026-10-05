@@ -8,8 +8,7 @@ Decouples Strategy Type from Trading Horizon into independent composable dimensi
 """
 
 import logging
-import math
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("v11_quantum_strategy_brain")
 
@@ -136,7 +135,10 @@ class QuantumStrategyGenomeBrain:
             return AssetClass.OIL_ENERGY
         if any(c in sym for c in ["BTC", "ETH", "SOL", "XRP", "LTC", "DOGE"]):
             return AssetClass.CRYPTO
-        if any(idx in sym for idx in ["US30", "NAS100", "SPX500", "GER40", "UK100", "NIFTY", "BANKNIFTY"]):
+        if any(
+            idx in sym
+            for idx in ["US30", "NAS100", "SPX500", "GER40", "UK100", "NIFTY", "BANKNIFTY"]
+        ):
             return AssetClass.INDICES
         return AssetClass.FOREX
 

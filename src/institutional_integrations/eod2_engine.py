@@ -10,17 +10,15 @@ Provides Dorsey Relative Strength, Mansfield Relative Strength, market breadth m
 IST market session validation, and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -66,7 +64,9 @@ class EOD2Engine:
             return 0.0
         return round((stock_close / index_close) * 100.0, 2)
 
-    def compute_mansfield_rs(self, stock_closes: list[float], index_closes: list[float]) -> dict[str, Any]:
+    def compute_mansfield_rs(
+        self, stock_closes: list[float], index_closes: list[float]
+    ) -> dict[str, Any]:
         """
         Calculates Mansfield Relative Strength over rolling period.
         """
@@ -78,7 +78,10 @@ class EOD2Engine:
         ):
             return {"mansfield_rs": 0.0, "signal": "NEUTRAL", "magic_number": self.magic_number}
 
-        rs_series = [self.compute_dorsey_rs(stock_closes[i], index_closes[i]) for i in range(len(stock_closes))]
+        rs_series = [
+            self.compute_dorsey_rs(stock_closes[i], index_closes[i])
+            for i in range(len(stock_closes))
+        ]
         recent_rs = rs_series[-self.period :]
         sma_rs = sum(recent_rs) / len(recent_rs) if len(recent_rs) > 0 else 1.0
 
@@ -202,7 +205,9 @@ class EOD2BrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -212,7 +217,9 @@ class EOD2BrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

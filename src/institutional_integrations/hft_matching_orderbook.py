@@ -5,9 +5,9 @@ price-time priority matching, order amendments, and execution latency simulation
 """
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class BookSide(Enum):
@@ -131,7 +131,9 @@ class HighFrequencyMatchingOrderBook:
                 del book[order.price]
         return True
 
-    def estimate_queue_position(self, order_id: str, avg_trades_per_sec: float = 10.0) -> QueueInfo | None:
+    def estimate_queue_position(
+        self, order_id: str, avg_trades_per_sec: float = 10.0
+    ) -> QueueInfo | None:
         if order_id not in self.orders_by_id:
             return None
         order = self.orders_by_id[order_id]
@@ -155,6 +157,12 @@ class HighFrequencyMatchingOrderBook:
     def get_L2_depth(self, depth: int = 5) -> dict[str, list[dict[str, float]]]:
         sorted_bids = sorted(self.bids.keys(), reverse=True)[:depth]
         sorted_asks = sorted(self.asks.keys())[:depth]
-        bid_levels = [{"price": p, "volume": sum(o.quantity - o.filled_qty for o in self.bids[p])} for p in sorted_bids]
-        ask_levels = [{"price": p, "volume": sum(o.quantity - o.filled_qty for o in self.asks[p])} for p in sorted_asks]
+        bid_levels = [
+            {"price": p, "volume": sum(o.quantity - o.filled_qty for o in self.bids[p])}
+            for p in sorted_bids
+        ]
+        ask_levels = [
+            {"price": p, "volume": sum(o.quantity - o.filled_qty for o in self.asks[p])}
+            for p in sorted_asks
+        ]
         return {"bids": bid_levels, "asks": ask_levels}

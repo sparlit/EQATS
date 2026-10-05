@@ -11,10 +11,10 @@ Provides pre-trade safety governor rules:
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class SeatbeltStatus(str, Enum):
@@ -42,7 +42,10 @@ class TradingSeatbeltEngine:
     """Trading Seatbelt OS Safety Governor Engine."""
 
     def __init__(
-        self, max_daily_trades: int = 15, max_consecutive_losses: int = 3, max_position_duration_minutes: float = 240.0
+        self,
+        max_daily_trades: int = 15,
+        max_consecutive_losses: int = 3,
+        max_position_duration_minutes: float = 240.0,
     ) -> None:
         self.max_daily_trades = max_daily_trades
         self.max_consecutive_losses = max_consecutive_losses
@@ -63,7 +66,9 @@ class TradingSeatbeltEngine:
             self.recent_losses += 1
         if self.recent_losses >= 4:
             self.cooldown_until = timestamp + timedelta(hours=24)
-            self.cooldown_reason = "4 consecutive losses: Daily Revenge Trading Lockout active (24 Hours)"
+            self.cooldown_reason = (
+                "4 consecutive losses: Daily Revenge Trading Lockout active (24 Hours)"
+            )
         elif self.recent_losses == 3:
             self.cooldown_until = timestamp + timedelta(hours=2)
             self.cooldown_reason = "3 consecutive losses: Cool-off break active (2 Hours)"
@@ -90,19 +95,27 @@ class TradingSeatbeltEngine:
         )
 
     def verify_pre_trade_seatbelt(
-        self, current_time: datetime, proposed_risk_pct: float, stop_loss_pips: float, news_in_next_15m: bool = False
+        self,
+        current_time: datetime,
+        proposed_risk_pct: float,
+        stop_loss_pips: float,
+        news_in_next_15m: bool = False,
     ) -> tuple[SeatbeltStatus, list[str]]:
         """Performs pre-trade seatbelt checks prior to order routing."""
         reasons: list[str] = []
         cd = self.get_cooldown_status(current_time)
         if cd.active:
-            reasons.append(f"Seatbelt Lockdown: {cd.reason} ({cd.remaining_seconds / 60:.1f} min left)")
+            reasons.append(
+                f"Seatbelt Lockdown: {cd.reason} ({cd.remaining_seconds / 60:.1f} min left)"
+            )
         if self.daily_trade_count >= self.max_daily_trades:
             reasons.append(
                 f"Daily Trade Cap Reached: {self.daily_trade_count}/{self.max_daily_trades} trades executed today"
             )
         if proposed_risk_pct > 2.0:
-            reasons.append(f"Excessive Risk: Proposed risk {proposed_risk_pct:.1f}% exceeds 2.0% safe limit")
+            reasons.append(
+                f"Excessive Risk: Proposed risk {proposed_risk_pct:.1f}% exceeds 2.0% safe limit"
+            )
         if stop_loss_pips <= 0:
             reasons.append("Unprotected Entry: Stop loss pips must be > 0")
         if news_in_next_15m:
@@ -116,7 +129,10 @@ class TradingSeatbeltEngine:
     def scan_red_flags(self, text: str) -> dict[str, Any]:
         """Scans marketing, strategy pitch, or signal text for fraud / red flag patterns."""
         patterns = [
-            ("\\b(guaranteed|risk-free|100% win|no loss|can't lose)\\b", "Guaranteed profit / zero risk claim"),
+            (
+                "\\b(guaranteed|risk-free|100% win|no loss|can't lose)\\b",
+                "Guaranteed profit / zero risk claim",
+            ),
             ("\\b(double your|10x|100x|flip account|millionaire)\\b", "Unrealistic return claim"),
             (
                 "\\b(send crypto|telegram vip|dm for pass|prop pass service)\\b",
@@ -128,4 +144,8 @@ class TradingSeatbeltEngine:
             if re.search(p, text, re.IGNORECASE):
                 hits.append(label)
         risk_score = len(hits) * 35.0
-        return {"red_flags_detected": hits, "risk_score": min(100.0, risk_score), "is_suspicious": len(hits) > 0}
+        return {
+            "red_flags_detected": hits,
+            "risk_score": min(100.0, risk_score),
+            "is_suspicious": len(hits) > 0,
+        }

@@ -16,10 +16,8 @@ Provides:
   - MinMaxOrderValueControl: Enforces minimum and maximum order value bounds
 """
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 
 class OrderSide(str, Enum):
@@ -102,7 +100,9 @@ class ZiplineCommissionModel:
         fee = abs(quantity) * cost_per_unit
         return CommissionResult(commission_usd=round(fee, 2), fee_per_unit=cost_per_unit)
 
-    def per_dollar(self, transaction_value_usd: float, cost_per_dollar: float = 0.0015) -> CommissionResult:
+    def per_dollar(
+        self, transaction_value_usd: float, cost_per_dollar: float = 0.0015
+    ) -> CommissionResult:
         """Calculates commission as percentage of total dollar value."""
         fee = abs(transaction_value_usd) * cost_per_dollar
         return CommissionResult(commission_usd=round(fee, 2), fee_per_unit=cost_per_dollar)
@@ -141,13 +141,21 @@ class ZiplineRiskControlEngine:
         """Validates proposed order against Zipline leverage and order value controls."""
         violations = []
         if order_value_usd < self.min_order_value_usd:
-            violations.append(f"Order value ${order_value_usd:,.2f} < ${self.min_order_value_usd:,.2f} min threshold")
+            violations.append(
+                f"Order value ${order_value_usd:,.2f} < ${self.min_order_value_usd:,.2f} min threshold"
+            )
         if order_value_usd > self.max_order_value_usd:
-            violations.append(f"Order value ${order_value_usd:,.2f} > ${self.max_order_value_usd:,.2f} max limit")
+            violations.append(
+                f"Order value ${order_value_usd:,.2f} > ${self.max_order_value_usd:,.2f} max limit"
+            )
         new_exposure = current_portfolio_exposure_usd + order_value_usd
         new_leverage = new_exposure / account_equity if account_equity > 0 else 0.0
         if new_leverage > self.max_leverage:
-            violations.append(f"Proposed leverage {new_leverage:.2f}x exceeds max limit {self.max_leverage:.2f}x")
+            violations.append(
+                f"Proposed leverage {new_leverage:.2f}x exceeds max limit {self.max_leverage:.2f}x"
+            )
         if order_value_usd > self.max_position_size_usd:
-            violations.append(f"Position value ${order_value_usd:,.2f} exceeds cap ${self.max_position_size_usd:,.2f}")
+            violations.append(
+                f"Position value ${order_value_usd:,.2f} exceeds cap ${self.max_position_size_usd:,.2f}"
+            )
         return RiskControlCheck(passed=len(violations) == 0, violations=violations)

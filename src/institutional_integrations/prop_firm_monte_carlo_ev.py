@@ -9,10 +9,8 @@ Provides:
 - Drawdown Floor Cushion Evaluator (Static, Trailing Intraday, Trailing EOD)
 """
 
-import math
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -80,11 +78,18 @@ class PropFirmMonteCarloEVEngine:
                     return (False, day)
             day_pnl = eq - day_start_eq
             day_profits.append(day_pnl)
-            if eq - start_eq >= self.config.profit_target_usd and day >= self.config.min_trading_days:
+            if (
+                eq - start_eq >= self.config.profit_target_usd
+                and day >= self.config.min_trading_days
+            ):
                 if self.config.consistency_pct is not None and self.config.consistency_pct > 0:
                     total_profit = eq - start_eq
                     if total_profit > 0:
-                        top_day = max(p for p in day_profits if p > 0) if any(p > 0 for p in day_profits) else 0.0
+                        top_day = (
+                            max(p for p in day_profits if p > 0)
+                            if any(p > 0 for p in day_profits)
+                            else 0.0
+                        )
                         if top_day / total_profit * 100.0 > self.config.consistency_pct:
                             continue
                 return (True, day)
@@ -117,7 +122,9 @@ class PropFirmMonteCarloEVEngine:
         p_pass = passes / float(num_simulations)
         p_fail = 1.0 - p_pass
         expected_attempts = 1.0 / p_pass if p_pass > 0 else float("inf")
-        avg_days = total_days_spent / float(passes) if passes > 0 else float(self.config.max_trading_days)
+        avg_days = (
+            total_days_spent / float(passes) if passes > 0 else float(self.config.max_trading_days)
+        )
         funded_payout_val = self.config.profit_target_usd * (self.config.profit_split_pct / 100.0)
         ev_usd = p_pass * funded_payout_val - self.config.fee_usd
         roi_pct = ev_usd / self.config.fee_usd * 100.0 if self.config.fee_usd > 0 else 0.0

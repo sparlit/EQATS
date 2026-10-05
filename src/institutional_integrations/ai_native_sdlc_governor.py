@@ -20,7 +20,7 @@ Complies with TradingOS 0.05 INR price tick rounding and IST market session vali
 import hashlib
 import json
 import zoneinfo
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -88,10 +88,14 @@ class GateLedger:
         """Initializes empty gate ledger."""
         self.chain: list[GateLedgerEntry] = []
 
-    def record_approval(self, gate_name: str, approver: str, status: str, payload: dict[str, Any]) -> GateLedgerEntry:
+    def record_approval(
+        self, gate_name: str, approver: str, status: str, payload: dict[str, Any]
+    ) -> GateLedgerEntry:
         """Appends a new cryptographically signed approval entry."""
         idx = len(self.chain)
-        prev_h = self.chain[-1].entry_hash if self.chain else "GENESIS_00000000000000000000000000000000"
+        prev_h = (
+            self.chain[-1].entry_hash if self.chain else "GENESIS_00000000000000000000000000000000"
+        )
         ts = datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).isoformat()
         payload_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
         payload_h = hashlib.sha256(payload_bytes).hexdigest()
@@ -154,7 +158,9 @@ class ControlBandMonitor:
 
         if deviation >= rule.three_sigma:
             band = "3_SIGMA_BREACH"
-            action = "AUTO_INTENT_TRIGGER"  # Generates maintenance intent for strategy mutation/halt
+            action = (
+                "AUTO_INTENT_TRIGGER"  # Generates maintenance intent for strategy mutation/halt
+            )
         elif deviation >= rule.two_sigma:
             band = "2_SIGMA_ELEVATED"
             action = "DIAGNOSE_TELEMETRY"
@@ -197,8 +203,16 @@ class AINativeSDLCGovernor:
         self.ledger: GateLedger = GateLedger()
         self.monitor: ControlBandMonitor = ControlBandMonitor(
             [
-                ControlBandRule("DRAWDOWN_PCT", target_value=0.0, one_sigma=0.5, two_sigma=1.0, three_sigma=2.0),
-                ControlBandRule("SLIPPAGE_BPS", target_value=5.0, one_sigma=10.0, two_sigma=20.0, three_sigma=50.0),
+                ControlBandRule(
+                    "DRAWDOWN_PCT", target_value=0.0, one_sigma=0.5, two_sigma=1.0, three_sigma=2.0
+                ),
+                ControlBandRule(
+                    "SLIPPAGE_BPS",
+                    target_value=5.0,
+                    one_sigma=10.0,
+                    two_sigma=20.0,
+                    three_sigma=50.0,
+                ),
             ]
         )
         self.artifacts: dict[str, str] = {}
@@ -207,7 +221,11 @@ class AINativeSDLCGovernor:
     def advance_phase(self, target_phase: str, artifact_path: str, approver: str) -> bool:
         """Advances lifecycle phase upon recording valid approval in gate ledger."""
         gate_name = f"GATE_{self.current_phase}_TO_{target_phase}"
-        payload = {"from_phase": self.current_phase, "to_phase": target_phase, "artifact": artifact_path}
+        payload = {
+            "from_phase": self.current_phase,
+            "to_phase": target_phase,
+            "artifact": artifact_path,
+        }
 
         entry = self.ledger.record_approval(gate_name, approver, "APPROVED", payload)
         if entry and self.ledger.verify_chain_integrity():
@@ -256,7 +274,9 @@ class AINativeSDLCGovernor:
             "exceeded_nit_cap": exceeded_nit_cap,
         }
 
-    def generate_incident_intent(self, metric_name: str, breach_details: dict[str, Any]) -> dict[str, Any]:
+    def generate_incident_intent(
+        self, metric_name: str, breach_details: dict[str, Any]
+    ) -> dict[str, Any]:
         """Generates a structured intent.md record when 3-sigma control band breaches occur (Maintain -> Plan loop)."""
         ts = datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).isoformat()
         intent_data = {
@@ -275,7 +295,9 @@ class AINativeSDLCGovernor:
             ),
         }
         self.generated_intents.append(intent_data)
-        self.ledger.record_approval("INCIDENT_INTENT_CREATED", "MONITOR_AGENT", "CREATED", intent_data)
+        self.ledger.record_approval(
+            "INCIDENT_INTENT_CREATED", "MONITOR_AGENT", "CREATED", intent_data
+        )
         return intent_data
 
     def evaluate_ci_eval_suite(
@@ -319,7 +341,9 @@ class AINativeSDLCGovernor:
 
         if is_halted:
             # Auto-generate incident intent for closed-loop maintainer
-            self.generate_incident_intent("3_SIGMA_CONTROL_BAND", {"drawdown": drawdown_pct, "slippage": slippage_bps})
+            self.generate_incident_intent(
+                "3_SIGMA_CONTROL_BAND", {"drawdown": drawdown_pct, "slippage": slippage_bps}
+            )
 
         if not is_human_authorized:
             gate_status = "REJECTED_UNAUTHORIZED"
@@ -328,7 +352,9 @@ class AINativeSDLCGovernor:
         elif is_halted:
             gate_status = "REJECTED_CONTROL_BAND_BREACH"
             allowed = False
-            reason = f"3-sigma control band breach: Drawdown={drawdown_pct}%, Slippage={slippage_bps}bps"
+            reason = (
+                f"3-sigma control band breach: Drawdown={drawdown_pct}%, Slippage={slippage_bps}bps"
+            )
         else:
             gate_status = "APPROVED_PRODUCTION_GATE"
             allowed = True
@@ -341,7 +367,9 @@ class AINativeSDLCGovernor:
             "drawdown_pct": drawdown_pct,
             "slippage_bps": slippage_bps,
         }
-        self.ledger.record_approval("PRODUCTION_RELEASE_GATE", "SOVEREIGN_ADMIN", gate_status, payload)
+        self.ledger.record_approval(
+            "PRODUCTION_RELEASE_GATE", "SOVEREIGN_ADMIN", gate_status, payload
+        )
 
         return {
             "allowed": allowed,
@@ -447,7 +475,9 @@ class AINativeSDLCBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order parameters."""
         return True
 

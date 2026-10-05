@@ -68,7 +68,9 @@ class TradingConnector(abc.ABC):
         raise NotImplementedError("Subclasses must implement get_symbol_volume_constraints()")
 
     @abc.abstractmethod
-    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None) -> None:
+    def execute_order(
+        self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None
+    ) -> None:
         """
         Places a trade order.
         order_type: 'BUY' or 'SELL'
@@ -120,7 +122,9 @@ class UniversalConnector(TradingConnector):
     Delegates commands dynamically to any broker or platform (MT5, FIX, REST/WS, IBKR, cTrader, CCXT, SIMULATOR).
     """
 
-    def __init__(self, protocol: Any = "MT5", broker_config: Any = None, initial_balance: Any = 10000.0) -> None:
+    def __init__(
+        self, protocol: Any = "MT5", broker_config: Any = None, initial_balance: Any = 10000.0
+    ) -> None:
         self.protocol = protocol
         if broker_config is None:
             broker_config = database.get_broker_credentials()
@@ -129,7 +133,9 @@ class UniversalConnector(TradingConnector):
                     "No broker credentials configured. Please configure credentials using database.add_broker_account() or database.save_broker_credentials() before connecting to a live broker, or use protocol='SIMULATOR' for simulation mode."
                 )
         self.broker_config = broker_config
-        self.gateway = UniversalBrokerGateway(protocol=self.protocol, broker_config=self.broker_config)
+        self.gateway = UniversalBrokerGateway(
+            protocol=self.protocol, broker_config=self.broker_config
+        )
         self.sim_fallback = SimulatorConnector(initial_balance=initial_balance)
         self.live_tickets = set()
         self.ticket_lock = threading.Lock()
@@ -144,15 +150,26 @@ class UniversalConnector(TradingConnector):
             if res:
                 self._sync_live_tickets()
                 self.live_gateway_connected = True
-                _log.info("UniversalConnector: Successfully connected to live gateway with protocol %s", self.protocol)
+                _log.info(
+                    "UniversalConnector: Successfully connected to live gateway with protocol %s",
+                    self.protocol,
+                )
                 return True
             self.live_gateway_connected = False
-            _log.error("UniversalConnector: Live gateway connection failed for protocol %s", self.protocol)
+            _log.error(
+                "UniversalConnector: Live gateway connection failed for protocol %s", self.protocol
+            )
             return False
         except Exception as e:
             self.live_gateway_connected = False
-            _log.error("UniversalConnector: Exception during gateway connect for protocol %s: %s", self.protocol, e)
-            raise ConnectionError(f"Failed to connect to live gateway with protocol {self.protocol}: {e}")
+            _log.error(
+                "UniversalConnector: Exception during gateway connect for protocol %s: %s",
+                self.protocol,
+                e,
+            )
+            raise ConnectionError(
+                f"Failed to connect to live gateway with protocol {self.protocol}: {e}"
+            )
 
     def _sync_live_tickets(self) -> None:
         """Synchronizes live_tickets set with actual open orders from the gateway."""
@@ -185,7 +202,13 @@ class UniversalConnector(TradingConnector):
         if self.gateway.is_connected():
             return self.gateway.get_account_info()
         _log.error("UniversalConnector: Cannot get account info - gateway not connected")
-        return {"balance": 0.0, "equity": 0.0, "currency": "USD", "is_demo": False, "error": "Gateway not connected"}
+        return {
+            "balance": 0.0,
+            "equity": 0.0,
+            "currency": "USD",
+            "is_demo": False,
+            "error": "Gateway not connected",
+        }
 
     def get_history(self, symbol: Any, count: Any) -> Any:
         return self.sim_fallback.get_history(symbol, count)
@@ -212,9 +235,13 @@ class UniversalConnector(TradingConnector):
         else:
             return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
-    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None) -> Any:
+    def execute_order(
+        self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None
+    ) -> Any:
         if self.protocol == "SIMULATOR":
-            return self.sim_fallback.execute_order(symbol, order_type, lot_size, sl, tp, product=product)
+            return self.sim_fallback.execute_order(
+                symbol, order_type, lot_size, sl, tp, product=product
+            )
         if not self.gateway.is_connected():
             _log.error(
                 "UniversalConnector: Order execution rejected - live gateway not connected for protocol %s",
@@ -232,7 +259,9 @@ class UniversalConnector(TradingConnector):
             with self.ticket_lock:
                 self.live_tickets.add(str(live_ticket))
             _log.info(
-                "UniversalConnector: Live order executed successfully on %s: ticket=%s", self.protocol, live_ticket
+                "UniversalConnector: Live order executed successfully on %s: ticket=%s",
+                self.protocol,
+                live_ticket,
             )
             return gw_res
         _log.error(
@@ -270,11 +299,14 @@ class UniversalConnector(TradingConnector):
                 live_orders = self.gateway.get_open_orders()
                 return live_orders
             except Exception as e:
-                _log.error("Failed to retrieve live gateway orders for protocol %s: %s", self.protocol, e)
+                _log.error(
+                    "Failed to retrieve live gateway orders for protocol %s: %s", self.protocol, e
+                )
                 return []
         else:
             _log.warning(
-                "UniversalConnector: Cannot get open orders - gateway not connected for protocol %s", self.protocol
+                "UniversalConnector: Cannot get open orders - gateway not connected for protocol %s",
+                self.protocol,
             )
             return []
 
@@ -346,17 +378,26 @@ class MT5Connector(TradingConnector):
             try:
                 initialized = self.mt5.initialize(**init_kwargs)
             except Exception as e:
-                _log.warning("mt5.initialize with credentials failed (%s), attempting default initialize()", e)
+                _log.warning(
+                    "mt5.initialize with credentials failed (%s), attempting default initialize()",
+                    e,
+                )
         if not initialized:
             initialized = self.mt5.initialize()
         if not initialized:
-            last_err = self.mt5.last_error() if hasattr(self.mt5, "last_error") else "Terminal not open or unresponsive"
+            last_err = (
+                self.mt5.last_error()
+                if hasattr(self.mt5, "last_error")
+                else "Terminal not open or unresponsive"
+            )
             raise ConnectionError(f"MetaTrader5 initialization failed. Error: {last_err}")
         if login and str(login).isdigit() and password and str(password).strip():
             try:
                 login_id = int(str(login).strip())
                 self.mt5.login(
-                    login=login_id, password=str(password).strip(), server=str(server).strip() if server else ""
+                    login=login_id,
+                    password=str(password).strip(),
+                    server=str(server).strip() if server else "",
                 )
             except Exception as e:
                 _log.warning("MT5 login attempt failed (will probe anyway): %s", e)
@@ -368,7 +409,9 @@ class MT5Connector(TradingConnector):
             raise PermissionError(
                 "CRITICAL SAFETY BLOCK: Attempting to run trading bot on a LIVE / REAL account. Set DEMO_ACCOUNT_ONLY = False in config.py to override."
             )
-        print(f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}")
+        print(
+            f"Successfully connected to MT5 Terminal! Account: {account_info.login}, Server: {account_info.server}"
+        )
         return True
 
     def is_connected(self) -> Any:
@@ -430,7 +473,12 @@ class MT5Connector(TradingConnector):
         acc = self.mt5.account_info()
         if acc is None:
             return {"balance": 10000.0, "equity": 10000.0, "currency": "USD", "is_demo": True}
-        return {"balance": acc.balance, "equity": acc.equity, "currency": acc.currency, "is_demo": acc.trade_mode != 2}
+        return {
+            "balance": acc.balance,
+            "equity": acc.equity,
+            "currency": acc.currency,
+            "is_demo": acc.trade_mode != 2,
+        }
 
     def get_history(self, symbol: Any, count: Any) -> Any:
         if not self.mt5:
@@ -444,7 +492,12 @@ class MT5Connector(TradingConnector):
         bars = []
         for r in rates:
             bars.append(
-                {"open": float(r["open"]), "high": float(r["high"]), "low": float(r["low"]), "close": float(r["close"])}
+                {
+                    "open": float(r["open"]),
+                    "high": float(r["high"]),
+                    "low": float(r["low"]),
+                    "close": float(r["close"]),
+                }
             )
         return bars
 
@@ -510,7 +563,9 @@ class MT5Connector(TradingConnector):
             return {"volume_min": vol_min, "volume_max": vol_max, "volume_step": vol_step}
         return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
-    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None) -> Any:
+    def execute_order(
+        self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None
+    ) -> Any:
         """
         SECURITY FIX: lot_size MUST be pre-normalized to broker constraints before calling.
         This method no longer modifies lot_size to prevent bypassing fat-finger checks.
@@ -534,7 +589,9 @@ class MT5Connector(TradingConnector):
         price = price_info["ask"] if order_type == "BUY" else price_info["bid"]
         action = getattr(mt5_mod, "TRADE_ACTION_DEAL", 1)
         type_mt5 = (
-            getattr(mt5_mod, "ORDER_TYPE_BUY", 0) if order_type == "BUY" else getattr(mt5_mod, "ORDER_TYPE_SELL", 1)
+            getattr(mt5_mod, "ORDER_TYPE_BUY", 0)
+            if order_type == "BUY"
+            else getattr(mt5_mod, "ORDER_TYPE_SELL", 1)
         )
         volume = float(lot_size)
         stops_level = info.trade_stops_level if info else 0
@@ -568,7 +625,12 @@ class MT5Connector(TradingConnector):
         }
         result = self.mt5.order_send(request)
         if result is None:
-            return {"success": False, "ticket": "", "price": 0.0, "error": "Unknown MT5 order_send error."}
+            return {
+                "success": False,
+                "ticket": "",
+                "price": 0.0,
+                "error": "Unknown MT5 order_send error.",
+            }
         retcode_done = getattr(mt5_mod, "TRADE_RETCODE_DONE", 10009)
         if result.retcode != retcode_done:
             return {
@@ -577,7 +639,12 @@ class MT5Connector(TradingConnector):
                 "price": 0.0,
                 "error": f"Order rejected. Code: {result.retcode}, Description: {result.comment}",
             }
-        return {"success": True, "ticket": str(result.order), "price": float(result.price), "error": ""}
+        return {
+            "success": True,
+            "ticket": str(result.order),
+            "price": float(result.price),
+            "error": "",
+        }
 
     def close_order(self, ticket: Any, reason: Any = "MANUAL") -> Any:
         if not self.mt5:
@@ -618,7 +685,12 @@ class MT5Connector(TradingConnector):
         }
         result = self.mt5.order_send(request)
         if result is None:
-            return {"success": False, "price": 0.0, "profit": 0.0, "error": "Unknown error during position close."}
+            return {
+                "success": False,
+                "price": 0.0,
+                "profit": 0.0,
+                "error": "Unknown error during position close.",
+            }
         if result.retcode != mt5.TRADE_RETCODE_DONE:
             return {
                 "success": False,
@@ -724,7 +796,9 @@ class SimulatorConnector(TradingConnector):
             database.init_db()
             conn = database.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT MAX(CAST(ticket AS INTEGER)) FROM trades WHERE ticket GLOB '[0-9]*'")
+            cursor.execute(
+                "SELECT MAX(CAST(ticket AS INTEGER)) FROM trades WHERE ticket GLOB '[0-9]*'"
+            )
             row = cursor.fetchone()
             max_t = row[0] if row and row[0] is not None else 100000
             self.ticket_counter = max(100001, max_t + 1)
@@ -780,7 +854,10 @@ class SimulatorConnector(TradingConnector):
             return {"bid": 1.0, "ask": 1.0}
         last_price = bars[0]["close"]
         spread = last_price * 0.0001
-        return {"bid": round(last_price - spread / 2.0, 5), "ask": round(last_price + spread / 2.0, 5)}
+        return {
+            "bid": round(last_price - spread / 2.0, 5),
+            "ask": round(last_price + spread / 2.0, 5),
+        }
 
     def get_symbol_volume_constraints(self, symbol: Any) -> Any:
         """
@@ -789,7 +866,9 @@ class SimulatorConnector(TradingConnector):
         """
         return {"volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01}
 
-    def execute_order(self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None) -> Any:
+    def execute_order(
+        self, symbol: Any, order_type: Any, lot_size: Any, sl: Any, tp: Any, product: Any = None
+    ) -> Any:
         with self.lock:
             prices = self.get_current_price(symbol)
             open_price = prices["ask"] if order_type == "BUY" else prices["bid"]
@@ -810,7 +889,12 @@ class SimulatorConnector(TradingConnector):
     def close_order(self, ticket: Any, reason: Any = "MANUAL") -> Any:
         with self.lock:
             if ticket not in self.open_trades:
-                return {"success": False, "price": 0.0, "profit": 0.0, "error": f"Ticket {ticket} not found."}
+                return {
+                    "success": False,
+                    "price": 0.0,
+                    "profit": 0.0,
+                    "error": f"Ticket {ticket} not found.",
+                }
             trade = self.open_trades.pop(ticket)
             prices = self.get_current_price(trade["symbol"])
             close_price = prices["bid"] if trade["direction"] == "BUY" else prices["ask"]
@@ -978,7 +1062,12 @@ class SimulatorConnector(TradingConnector):
         for i in range(250):
             p = price * (1.0 + (i - 125) * 0.0001)
             bars.append(
-                {"open": round(p, 5), "high": round(p * 1.0002, 5), "low": round(p * 0.9998, 5), "close": round(p, 5)}
+                {
+                    "open": round(p, 5),
+                    "high": round(p * 1.0002, 5),
+                    "low": round(p * 0.9998, 5),
+                    "close": round(p, 5),
+                }
             )
         self.historical_prices[symbol] = bars
 

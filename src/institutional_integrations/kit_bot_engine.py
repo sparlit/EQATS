@@ -11,10 +11,8 @@ Provides:
 import logging
 import re
 import threading
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("KitBotEngine")
 
@@ -53,12 +51,16 @@ class KitPineScriptGenerator:
     Generates TradingView Pine Script v5 indicators and strategies.
     """
 
-    def generate_indicator(self, name: str = "EQATS Custom RSI", indicator_type: str = "rsi", period: int = 14) -> str:
+    def generate_indicator(
+        self, name: str = "EQATS Custom RSI", indicator_type: str = "rsi", period: int = 14
+    ) -> str:
         """Generates Pine Script v5 indicator script."""
         script = f'//@version=5\nindicator("{name}", overlay=false)\n\nrsi_period = input.int({period}, "RSI Period")\nrsi_val = ta.rsi(close, rsi_period)\n\nplot(rsi_val, "RSI", color=color.blue)\nhline(70, "Overbought", color=color.red, linestyle=hline.style_dashed)\nhline(30, "Oversold", color=color.green, linestyle=hline.style_dashed)\n\nalertcondition(rsi_val < 30, title="RSI Oversold", message="EQATS Alert: RSI Oversold on {{ticker}}")\nalertcondition(rsi_val > 70, title="RSI Overbought", message="EQATS Alert: RSI Overbought on {{ticker}}")\n'
         return script.strip()
 
-    def generate_strategy(self, name: str = "EQATS EMA Cross Strategy", fast_ema: int = 9, slow_ema: int = 21) -> str:
+    def generate_strategy(
+        self, name: str = "EQATS EMA Cross Strategy", fast_ema: int = 9, slow_ema: int = 21
+    ) -> str:
         """Generates Pine Script v5 strategy script with TP/SL webhook alerts."""
         script = f'//@version=5\nstrategy("{name}", overlay=true, margin_long=100, margin_short=100)\n\nfast_length = input.int({fast_ema}, "Fast EMA Length")\nslow_length = input.int({slow_ema}, "Slow EMA Length")\n\nfast_ema_val = ta.ema(close, fast_length)\nslow_ema_val = ta.ema(close, slow_length)\n\nplot(fast_ema_val, "Fast EMA", color=color.green)\nplot(slow_ema_val, "Slow EMA", color=color.red)\n\nlong_condition = ta.crossover(fast_ema_val, slow_ema_val)\nshort_condition = ta.crossunder(fast_ema_val, slow_ema_val)\n\nif (long_condition)\n    strategy.entry("Long", strategy.long)\n\nif (short_condition)\n    strategy.entry("Short", strategy.short)\n'
         return script.strip()
@@ -69,7 +71,9 @@ class KitSocialSignalParser:
     Universal multi-format parser converting social / Telegram messages into structured trade orders.
     """
 
-    def parse_text_signal(self, text: str, default_symbol: str = "EURUSD") -> KitParsedSignal | None:
+    def parse_text_signal(
+        self, text: str, default_symbol: str = "EURUSD"
+    ) -> KitParsedSignal | None:
         """Parses raw text signal using regex pattern matching."""
         if not text or not text.strip():
             return None
@@ -106,14 +110,18 @@ class KitAutopilotManager:
     """
 
     def __init__(
-        self, mode: KitAutopilotMode = KitAutopilotMode.SEMI_AUTO, approval_threshold_usd: float = 500.0
+        self,
+        mode: KitAutopilotMode = KitAutopilotMode.SEMI_AUTO,
+        approval_threshold_usd: float = 500.0,
     ) -> None:
         self.mode = mode
         self.approval_threshold_usd = approval_threshold_usd
         self.kill_switch_activated: bool = False
         self.lock = threading.Lock()
 
-    def evaluate_order_gate(self, symbol: str, direction: str, order_value_usd: float) -> KitAutopilotDecision:
+    def evaluate_order_gate(
+        self, symbol: str, direction: str, order_value_usd: float
+    ) -> KitAutopilotDecision:
         """Evaluates whether an order requires manual confirmation based on mode and value threshold."""
         with self.lock:
             if self.kill_switch_activated:

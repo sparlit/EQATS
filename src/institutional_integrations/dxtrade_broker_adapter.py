@@ -6,10 +6,8 @@ Provides DXTrade REST API & WebSocket execution adapter for DXTrade-based Prop F
 (e.g., FTMO, FTUK, FundedNext DXTrade accounts).
 """
 
-import urllib.parse
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
 
 
 @dataclass

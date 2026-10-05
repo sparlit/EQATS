@@ -6,9 +6,7 @@ minimum trading days, and payout countdowns.
 """
 
 import logging
-import math
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("PropFirmTracker")
 FIRM_PRESETS = {
@@ -41,7 +39,9 @@ class PropFirmChallengeTracker:
     Multi-Account Prop Firm Challenge & Funded Account Tracker.
     """
 
-    def __init__(self, firm: str = "FTMO", starting_balance: float = 100000.0, phase: int = 1) -> None:
+    def __init__(
+        self, firm: str = "FTMO", starting_balance: float = 100000.0, phase: int = 1
+    ) -> None:
         preset = FIRM_PRESETS.get(firm.upper(), FIRM_PRESETS["FTMO"])
         self.firm = firm.upper()
         self.starting_balance = starting_balance
@@ -53,14 +53,26 @@ class PropFirmChallengeTracker:
         self.min_trading_days = preset["min_trading_days"]
 
     def evaluate_account_status(
-        self, current_equity: float, current_balance: float, day_start_equity: float, days_traded: int = 0
+        self,
+        current_equity: float,
+        current_balance: float,
+        day_start_equity: float,
+        days_traded: int = 0,
     ) -> dict[str, Any]:
-        target_pct = self.p1_target_pct if self.phase == 1 else self.p2_target_pct if self.phase == 2 else 0.0
+        target_pct = (
+            self.p1_target_pct
+            if self.phase == 1
+            else self.p2_target_pct
+            if self.phase == 2
+            else 0.0
+        )
         target_amount = self.starting_balance * (target_pct / 100.0)
         target_equity = self.starting_balance + target_amount
         current_profit = current_equity - self.starting_balance
         profit_pct = current_profit / self.starting_balance * 100.0
-        target_progress_pct = min(100.0, current_profit / target_amount * 100.0) if target_amount > 0 else 100.0
+        target_progress_pct = (
+            min(100.0, current_profit / target_amount * 100.0) if target_amount > 0 else 100.0
+        )
         daily_loss = day_start_equity - current_equity
         daily_loss_pct = daily_loss / day_start_equity * 100.0 if day_start_equity > 0 else 0.0
         daily_loss_limit_amount = day_start_equity * (self.max_daily_loss_pct / 100.0)
@@ -70,7 +82,9 @@ class PropFirmChallengeTracker:
         daily_breach = daily_loss_pct >= self.max_daily_loss_pct
         total_breach = total_loss_pct >= self.max_total_loss_pct
         target_passed = (
-            current_equity >= target_equity and days_traded >= self.min_trading_days if self.phase in (1, 2) else False
+            current_equity >= target_equity and days_traded >= self.min_trading_days
+            if self.phase in (1, 2)
+            else False
         )
         status = (
             "PASSED"

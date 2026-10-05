@@ -11,9 +11,7 @@ Assigned Magic Number: 9100014
 """
 
 import logging
-import time
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple
+from datetime import datetime
 
 _log = logging.getLogger("IndianMarketHolidayCalendar")
 MAGIC_NUMBER_HOLIDAY_CALENDAR = 9100014
@@ -97,7 +95,10 @@ class IndianMarketHolidayCalendar:
         """
         target_date = (dt or datetime.now()).strftime("%Y-%m-%d")
         if target_date in self.MUHURAT_TRADING_DATES:
-            return (True, f"Diwali Muhurat Trading Session ({self.MUHURAT_TRADING_DATES[target_date]})")
+            return (
+                True,
+                f"Diwali Muhurat Trading Session ({self.MUHURAT_TRADING_DATES[target_date]})",
+            )
         return (False, "")
 
     def get_upcoming_holidays(self, limit: int = 5) -> list[dict[str, str]]:

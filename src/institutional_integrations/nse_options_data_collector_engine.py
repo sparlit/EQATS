@@ -10,17 +10,15 @@ premarket gap-down ITM put hedge triggers, 0.05 INR price tick rounding, IST mar
 and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -191,7 +189,9 @@ class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -201,7 +201,9 @@ class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:
@@ -219,4 +221,6 @@ class NSEOptionsDataCollectorBrokerAdapter(SEBIBrokerAdapter):
         return []
 
 
-IndianBrokerPluginRegistry.register("NSE_OPTIONS_DATA_COLLECTOR", NSEOptionsDataCollectorBrokerAdapter)
+IndianBrokerPluginRegistry.register(
+    "NSE_OPTIONS_DATA_COLLECTOR", NSEOptionsDataCollectorBrokerAdapter
+)

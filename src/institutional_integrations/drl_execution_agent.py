@@ -18,7 +18,9 @@ class DRLExecutionPolicyAgent:
     and L2 order slicing (SAC / DDPG / PPO).
     """
 
-    def __init__(self, gamma: Any = 0.99, lr: Any = 0.0003, tau: Any = 0.005, alpha: Any = 0.2) -> None:
+    def __init__(
+        self, gamma: Any = 0.99, lr: Any = 0.0003, tau: Any = 0.005, alpha: Any = 0.2
+    ) -> None:
         self.gamma = gamma
         self.lr = lr
         self.tau = tau
@@ -62,14 +64,20 @@ class DRLExecutionPolicyAgent:
         return {
             "sl_multiplier_adj": round(max(0.5, sl_adj + tanh_act * 0.1), 2),
             "tp_multiplier_adj": round(max(0.5, tp_adj - tanh_act * 0.1), 2),
-            "partial_close_ratio": round(min(1.0, max(0.0, partial_close + abs(tanh_act) * 0.1)), 2),
+            "partial_close_ratio": round(
+                min(1.0, max(0.0, partial_close + abs(tanh_act) * 0.1)), 2
+            ),
             "slice_count": slice_count,
             "entropy_adj": round(entropy_boost, 4),
             "policy_type": "SAC_DDPG_CONTINUOUS_L2",
         }
 
     def compute_reward(
-        self, prev_equity: Any, current_equity: Any, max_adverse_excursion: Any, execution_slippage: Any = 0.0
+        self,
+        prev_equity: Any,
+        current_equity: Any,
+        max_adverse_excursion: Any,
+        execution_slippage: Any = 0.0,
     ) -> Any:
         """Critic Policy: SAC/DDPG reward function penalizing adverse excursion & slippage while rewarding equity growth."""
         pnl_delta = current_equity - prev_equity
@@ -84,11 +92,15 @@ class DRLExecutionPolicyAgent:
         """
         if not states_list:
             return []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(states_list), 8)) as executor:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=min(len(states_list), 8)
+        ) as executor:
             actions = list(executor.map(self.select_action, states_list))
         return actions
 
-    def update_critic_actor_soft(self, state: Any, action: Any, reward: Any, next_state: Any) -> Any:
+    def update_critic_actor_soft(
+        self, state: Any, action: Any, reward: Any, next_state: Any
+    ) -> Any:
         """Soft target network parameter update for SAC / DDPG policy iteration."""
         pnl_pct = state.get("floating_pnl_pct", 0.0)
         grad = reward * pnl_pct * self.lr

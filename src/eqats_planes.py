@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import config
 from event_bus import Event, global_event_bus
@@ -36,8 +36,12 @@ def calculate_stop_loss_exposure(
     elif "XAG" in sym_upper or "SILVER" in sym_upper:
         pip_size = 0.01
         pip_value_per_lot = 50.0
-    elif any(c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]) or any(
-        idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]
+    elif any(
+        c in sym_upper
+        for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]
+    ) or any(
+        idx in sym_upper
+        for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]
     ):
         pip_size = 1.0
         pip_value_per_lot = 1.0
@@ -78,7 +82,9 @@ class ControlGovernancePlane:
         }
         self._history = []
 
-    def propose_config_change(self, author_id: Any, proposed_updates: dict[str, Any], signature: str) -> bool:
+    def propose_config_change(
+        self, author_id: Any, proposed_updates: dict[str, Any], signature: str
+    ) -> bool:
         """
         Atomically proposes, validates, snapshots, applies, and commits config updates.
         If validation fails, rolls back the transaction.
@@ -89,7 +95,11 @@ class ControlGovernancePlane:
             Event(
                 family="ChangeProposalCreated",
                 source="ControlPlane",
-                payload={"proposal_id": proposal_id, "author": author_id, "updates": proposed_updates},
+                payload={
+                    "proposal_id": proposal_id,
+                    "author": author_id,
+                    "updates": proposed_updates,
+                },
             )
         )
         temp_config = dict(self._current_config)
@@ -142,7 +152,9 @@ class ControlGovernancePlane:
             return True
         global_event_bus.publish(
             Event(
-                family="RollbackStarted", source="ControlPlane", payload={"proposal_id": proposal_id, "reason": reason}
+                family="RollbackStarted",
+                source="ControlPlane",
+                payload={"proposal_id": proposal_id, "reason": reason},
             )
         )
         global_event_bus.publish(
@@ -191,7 +203,11 @@ class DataPlane:
             self._pit_database[symbol] = []
         self._pit_database[symbol].append(record)
         global_event_bus.publish(
-            Event(family="MarketTickReceived", source="DataPlane", payload={"symbol": symbol, "bid": bid, "ask": ask})
+            Event(
+                family="MarketTickReceived",
+                source="DataPlane",
+                payload={"symbol": symbol, "bid": bid, "ask": ask},
+            )
         )
 
     def query_pit_price(self, symbol: str, target_time_str: str) -> dict[str, Any] | None:
@@ -347,7 +363,11 @@ class OpportunityRiskPlane:
             return False
         self._reservations[symbol] = amount
         global_event_bus.publish(
-            Event(family="RiskBudgetReserved", source="RiskPlane", payload={"symbol": symbol, "amount": amount})
+            Event(
+                family="RiskBudgetReserved",
+                source="RiskPlane",
+                payload={"symbol": symbol, "amount": amount},
+            )
         )
         return True
 
@@ -355,14 +375,22 @@ class OpportunityRiskPlane:
         if symbol in self._reservations:
             amount = self._reservations.pop(symbol)
             global_event_bus.publish(
-                Event(family="RiskApproved", source="RiskPlane", payload={"symbol": symbol, "amount": amount})
+                Event(
+                    family="RiskApproved",
+                    source="RiskPlane",
+                    payload={"symbol": symbol, "amount": amount},
+                )
             )
 
     def release_reservation(self, symbol: str) -> None:
         if symbol in self._reservations:
             amount = self._reservations.pop(symbol)
             global_event_bus.publish(
-                Event(family="RiskBudgetReleased", source="RiskPlane", payload={"symbol": symbol, "amount": amount})
+                Event(
+                    family="RiskBudgetReleased",
+                    source="RiskPlane",
+                    payload={"symbol": symbol, "amount": amount},
+                )
             )
 
     def check_hard_limits(self, proposed_risk: float, active_positions: list[Any]) -> bool:
@@ -465,13 +493,17 @@ class SafetyVerificationPlane:
                 Event(
                     family="SystemFault",
                     source="SafetyPlane",
-                    payload={"reason": f"Disagreement detected: Technical ({tech}) vs. AI Model ({ai})"},
+                    payload={
+                        "reason": f"Disagreement detected: Technical ({tech}) vs. AI Model ({ai})"
+                    },
                 )
             )
             return False
         return True
 
-    def authorize_trade(self, symbol: str, expected_net_value: float, safety_violations: list[Any]) -> bool:
+    def authorize_trade(
+        self, symbol: str, expected_net_value: float, safety_violations: list[Any]
+    ) -> bool:
         """
         The only final authorization boundary permitted to trigger order routing.
         No Trade Admission means NO trade can ever occur.
@@ -500,7 +532,10 @@ class SafetyVerificationPlane:
                 Event(
                     family="TradeAdmissionRejected",
                     source="SafetyPlane",
-                    payload={"symbol": symbol, "reason": f"Safety Invariants violated: {safety_violations}"},
+                    payload={
+                        "symbol": symbol,
+                        "reason": f"Safety Invariants violated: {safety_violations}",
+                    },
                 )
             )
             return False
@@ -585,7 +620,10 @@ class ExecutionPlane:
                 Event(
                     family="SystemFault",
                     source="ExecutionPlane",
-                    payload={"state": "HALTED", "reason": "Message limit exceeded. Throttled limit hit."},
+                    payload={
+                        "state": "HALTED",
+                        "reason": "Message limit exceeded. Throttled limit hit.",
+                    },
                 )
             )
             return False
@@ -595,7 +633,9 @@ class ExecutionPlane:
             self.rate_state = "NORMAL"
         return True
 
-    def execute_admitted_order(self, symbol: str, direction: str, lot: float, sl: float, tp: float) -> dict[str, Any]:
+    def execute_admitted_order(
+        self, symbol: str, direction: str, lot: float, sl: float, tp: float
+    ) -> dict[str, Any]:
         """Routes approved intent to live connection."""
         if self.resilience_plane:
             current_state = self.resilience_plane.get_state()
@@ -636,7 +676,12 @@ class ExecutionPlane:
                 Event(
                     family="PositionOpened",
                     source="ExecutionPlane",
-                    payload={"ticket": res["ticket"], "symbol": symbol, "direction": direction, "price": res["price"]},
+                    payload={
+                        "ticket": res["ticket"],
+                        "symbol": symbol,
+                        "direction": direction,
+                        "price": res["price"],
+                    },
                 )
             )
         else:
@@ -644,7 +689,11 @@ class ExecutionPlane:
                 Event(
                     family="OrderRejected",
                     source="ExecutionPlane",
-                    payload={"symbol": symbol, "direction": direction, "error": res.get("error", "Unknown error")},
+                    payload={
+                        "symbol": symbol,
+                        "direction": direction,
+                        "error": res.get("error", "Unknown error"),
+                    },
                 )
             )
         return res
@@ -659,7 +708,9 @@ class LearningGovernancePlane:
     def __init__(self) -> None:
         self._case_library = []
 
-    def record_case(self, symbol: str, direction: str, entry_price: float, exit_price: float, profit: float) -> None:
+    def record_case(
+        self, symbol: str, direction: str, entry_price: float, exit_price: float, profit: float
+    ) -> None:
         """Archives trading outcome as a structured Case object."""
         case_id = str(uuid.uuid4())
         case = {
@@ -696,7 +747,9 @@ class LearningGovernancePlane:
             return "SKILL"
         return "LUCK"
 
-    def run_counterfactual(self, symbol: str, actual_dir: str, alternate_dir: str, profit_actual: float) -> str:
+    def run_counterfactual(
+        self, symbol: str, actual_dir: str, alternate_dir: str, profit_actual: float
+    ) -> str:
         """Simulates alternate decisions for historical modeling."""
         if actual_dir != alternate_dir:
             return f"Counterfactual: Choosing {alternate_dir} would have reversed profit outcome."
@@ -714,7 +767,9 @@ class OperationsResiliencePlane:
         self._flight_log = []
 
     def log_heartbeat(self, latency: float) -> None:
-        self._flight_log.append({"time": datetime.datetime.now(datetime.UTC).isoformat(), "latency": latency})
+        self._flight_log.append(
+            {"time": datetime.datetime.now(datetime.UTC).isoformat(), "latency": latency}
+        )
 
     def transition_state(self, new_state: str) -> None:
         """Transitions Safety State Machine and updates authority permissions."""

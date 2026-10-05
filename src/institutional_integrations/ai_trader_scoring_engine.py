@@ -8,9 +8,8 @@ Provides:
 """
 
 import math
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -45,12 +44,18 @@ class AITraderSignalQualityEvaluator:
         self, historical_signals: list[dict[str, Any]], historical_returns: list[float]
     ) -> SignalQualityMetrics:
         """Calculates Directional Accuracy %, Expected Sharpe, Drawdown Impact, and Composite Quality Score."""
-        if not historical_signals or not historical_returns or len(historical_signals) != len(historical_returns):
+        if (
+            not historical_signals
+            or not historical_returns
+            or len(historical_signals) != len(historical_returns)
+        ):
             return SignalQualityMetrics(0.0, 0.0, 0.0, 0.0, "F")
         correct_dirs = 0
         for sig, ret in zip(historical_signals, historical_returns):
             direction = sig.get("direction", "BUY").upper()
-            if (direction in ("BUY", "LONG") and ret > 0) or (direction in ("SELL", "SHORT") and ret < 0):
+            if (direction in ("BUY", "LONG") and ret > 0) or (
+                direction in ("SELL", "SHORT") and ret < 0
+            ):
                 correct_dirs += 1
         acc_pct = correct_dirs / float(len(historical_signals)) * 100.0
         ret_arr = np.array(historical_returns)
@@ -100,7 +105,9 @@ class AITraderChallengeScoringEngine:
         self.max_position_pct = max_position_pct
         self.max_drawdown_pct = max_drawdown_pct
 
-    def score_agent_trades(self, agent_id: str, starting_cash: float, trades: list[dict[str, Any]]) -> AgentScoreResult:
+    def score_agent_trades(
+        self, agent_id: str, starting_cash: float, trades: list[dict[str, Any]]
+    ) -> AgentScoreResult:
         """Scores an individual agent's trades, tracks drawdown & position limits, and computes risk-adjusted returns."""
         cash = starting_cash
         positions: dict[str, dict[str, Any]] = {}
@@ -133,7 +140,9 @@ class AITraderChallengeScoringEngine:
                     positions.pop(symbol, None)
                 else:
                     positions[symbol]["quantity"] = new_qty
-            port_val = cash + sum(pos["quantity"] * pos["entry_price"] for pos in positions.values())
+            port_val = cash + sum(
+                pos["quantity"] * pos["entry_price"] for pos in positions.values()
+            )
             equity_curve.append(port_val)
             peak = max(peak, port_val)
             if peak > 0:
@@ -144,11 +153,17 @@ class AITraderChallengeScoringEngine:
                 if max_pos_val / port_val * 100.0 > self.max_position_pct + 1e-06:
                     disqualified_reason = "max_position_pct_exceeded"
                     break
-        ending_value = cash + sum(pos["quantity"] * pos["entry_price"] for pos in positions.values())
-        return_pct = (ending_value - starting_cash) / starting_cash * 100.0 if starting_cash > 0 else 0.0
+        ending_value = cash + sum(
+            pos["quantity"] * pos["entry_price"] for pos in positions.values()
+        )
+        return_pct = (
+            (ending_value - starting_cash) / starting_cash * 100.0 if starting_cash > 0 else 0.0
+        )
         if self.max_drawdown_pct > 0 and max_dd_pct > self.max_drawdown_pct + 1e-06:
             disqualified_reason = disqualified_reason or "max_drawdown_pct_exceeded"
-        risk_adjusted_score = return_pct - max(0.0, max_dd_pct - self.allowed_drawdown_pct) * self.drawdown_penalty
+        risk_adjusted_score = (
+            return_pct - max(0.0, max_dd_pct - self.allowed_drawdown_pct) * self.drawdown_penalty
+        )
         final_score = None if disqualified_reason or not trades else risk_adjusted_score
         return AgentScoreResult(
             agent_id=agent_id,
@@ -164,7 +179,9 @@ class AITraderChallengeScoringEngine:
 
     def rank_leaderboard(self, agent_results: list[AgentScoreResult]) -> list[AgentScoreResult]:
         """Ranks scored agent results to produce competitive leaderboard rankings."""
-        valid_agents = [r for r in agent_results if not r.disqualified_reason and r.final_score is not None]
+        valid_agents = [
+            r for r in agent_results if not r.disqualified_reason and r.final_score is not None
+        ]
         valid_agents.sort(key=lambda r: r.final_score or -999.0, reverse=True)
         rank_map = {r.agent_id: idx + 1 for idx, r in enumerate(valid_agents)}
         results = []

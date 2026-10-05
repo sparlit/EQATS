@@ -4,9 +4,7 @@ Calculates cross-venue probability arbitrage, complementary binary outcome sprea
 fee deductions, and depth-weighted probability edges.
 """
 
-import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 
 @dataclass
@@ -44,7 +42,10 @@ class PolymarketKalshiArbEngine:
     """
 
     def __init__(
-        self, polymarket_fee_pct: float = 0.0, kalshi_fee_pct: float = 0.0075, min_net_profit_threshold: float = 0.01
+        self,
+        polymarket_fee_pct: float = 0.0,
+        kalshi_fee_pct: float = 0.0075,
+        min_net_profit_threshold: float = 0.01,
     ) -> None:
         self.polymarket_fee_pct: float = polymarket_fee_pct
         self.kalshi_fee_pct: float = kalshi_fee_pct
@@ -103,7 +104,9 @@ class PolymarketKalshiArbEngine:
                     )
                 )
         for quote in [poly_quote, kalshi_quote]:
-            fee_pct = self.polymarket_fee_pct if quote.venue == "POLYMARKET" else self.kalshi_fee_pct
+            fee_pct = (
+                self.polymarket_fee_pct if quote.venue == "POLYMARKET" else self.kalshi_fee_pct
+            )
             combined_cost = quote.yes_ask + quote.no_ask
             if 0 < combined_cost < 1.0:
                 fee = combined_cost * fee_pct

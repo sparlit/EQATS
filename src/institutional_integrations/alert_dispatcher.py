@@ -19,7 +19,11 @@ class MultiChannelAlertDispatcher:
         self.alert_history = []
 
     def dispatch_alert(
-        self, title: Any, message: Any, severity: Any = "INFO", channels: Any = ["TELEGRAM", "WEBHOOK", "TTS"]
+        self,
+        title: Any,
+        message: Any,
+        severity: Any = "INFO",
+        channels: Any = ["TELEGRAM", "WEBHOOK", "TTS"],
     ) -> Any:
         """Dispatches notification across requested active communication channels."""
         formatted_msg = f"[{severity}] {title}: {message}"
@@ -33,7 +37,9 @@ class MultiChannelAlertDispatcher:
                 status["TELEGRAM"] = f"Error: {e}"
         if "WEBHOOK" in channels and hasattr(config, "WEBHOOK_URL") and config.WEBHOOK_URL:
             try:
-                payload = json.dumps({"title": title, "message": message, "severity": severity}).encode("utf-8")
+                payload = json.dumps(
+                    {"title": title, "message": message, "severity": severity}
+                ).encode("utf-8")
                 req = urllib.request.Request(
                     config.WEBHOOK_URL, data=payload, headers={"Content-Type": "application/json"}
                 )

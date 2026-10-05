@@ -11,9 +11,6 @@ Provides:
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
-import numpy as np
 
 
 @dataclass
@@ -67,7 +64,9 @@ class VWAPFadeStrategy:
                 "vwap_fade",
                 f"Overbought {dev_sigmas:.2f}sigma above VWAP",
             )
-        return QuantSignal("HOLD", current_price, 0.0, 0.0, 0.0, "vwap_fade", "Within normal VWAP bands")
+        return QuantSignal(
+            "HOLD", current_price, 0.0, 0.0, 0.0, "vwap_fade", "Within normal VWAP bands"
+        )
 
 
 class OvernightDriftStrategy:
@@ -78,28 +77,46 @@ class OvernightDriftStrategy:
             return QuantSignal("HOLD", current_price, 0.0, 0.0, 0.0, "overnight_drift", "Zero ATR")
         stop = current_price - 3.0 * atr
         target = current_price + 3.0 * atr
-        return QuantSignal("BUY", current_price, stop, target, 0.7, "overnight_drift", "Overnight drift long bias")
+        return QuantSignal(
+            "BUY", current_price, stop, target, 0.7, "overnight_drift", "Overnight drift long bias"
+        )
 
 
 class VolatilityExpansionStrategy:
     """Volatility Expansion Breakout Engine."""
 
-    def evaluate(self, current_price: float, upper_keltner: float, lower_keltner: float, atr: float) -> QuantSignal:
+    def evaluate(
+        self, current_price: float, upper_keltner: float, lower_keltner: float, atr: float
+    ) -> QuantSignal:
         if atr <= 0:
             return QuantSignal("HOLD", current_price, 0.0, 0.0, 0.0, "vol_expansion", "Zero ATR")
         if current_price > upper_keltner:
             stop = current_price - 1.5 * atr
             target = current_price + 3.0 * atr
             return QuantSignal(
-                "BUY", current_price, stop, target, 0.8, "vol_expansion", "Breakout above upper Keltner band"
+                "BUY",
+                current_price,
+                stop,
+                target,
+                0.8,
+                "vol_expansion",
+                "Breakout above upper Keltner band",
             )
         if current_price < lower_keltner:
             stop = current_price + 1.5 * atr
             target = current_price - 3.0 * atr
             return QuantSignal(
-                "SELL", current_price, stop, target, 0.8, "vol_expansion", "Breakout below lower Keltner band"
+                "SELL",
+                current_price,
+                stop,
+                target,
+                0.8,
+                "vol_expansion",
+                "Breakout below lower Keltner band",
             )
-        return QuantSignal("HOLD", current_price, 0.0, 0.0, 0.0, "vol_expansion", "Consolidating inside bands")
+        return QuantSignal(
+            "HOLD", current_price, 0.0, 0.0, 0.0, "vol_expansion", "Consolidating inside bands"
+        )
 
 
 class EngulfingAtExtremeStrategy:
@@ -118,38 +135,82 @@ class EngulfingAtExtremeStrategy:
         if atr <= 0:
             return QuantSignal("HOLD", curr_close, 0.0, 0.0, 0.0, "engulfing_extreme", "Zero ATR")
         if prev_close < prev_open and curr_close > curr_open:
-            if curr_open <= prev_close and curr_close >= prev_open and (curr_close <= recent_low + 2.0 * atr):
+            if (
+                curr_open <= prev_close
+                and curr_close >= prev_open
+                and (curr_close <= recent_low + 2.0 * atr)
+            ):
                 stop = curr_close - 1.5 * atr
                 target = curr_close + 3.0 * atr
                 return QuantSignal(
-                    "BUY", curr_close, stop, target, 0.82, "engulfing_extreme", "Bullish engulfing at extreme low"
+                    "BUY",
+                    curr_close,
+                    stop,
+                    target,
+                    0.82,
+                    "engulfing_extreme",
+                    "Bullish engulfing at extreme low",
                 )
         if prev_close > prev_open and curr_close < curr_open:
-            if curr_open >= prev_close and curr_close <= prev_open and (curr_close >= recent_high - 2.0 * atr):
+            if (
+                curr_open >= prev_close
+                and curr_close <= prev_open
+                and (curr_close >= recent_high - 2.0 * atr)
+            ):
                 stop = curr_close + 1.5 * atr
                 target = curr_close - 3.0 * atr
                 return QuantSignal(
-                    "SELL", curr_close, stop, target, 0.82, "engulfing_extreme", "Bearish engulfing at extreme high"
+                    "SELL",
+                    curr_close,
+                    stop,
+                    target,
+                    0.82,
+                    "engulfing_extreme",
+                    "Bearish engulfing at extreme high",
                 )
-        return QuantSignal("HOLD", curr_close, 0.0, 0.0, 0.0, "engulfing_extreme", "No extreme engulfing pattern")
+        return QuantSignal(
+            "HOLD", curr_close, 0.0, 0.0, 0.0, "engulfing_extreme", "No extreme engulfing pattern"
+        )
 
 
 class PivotReactionZoneStrategy:
     """Floor Pivot Support/Resistance Reaction Engine."""
 
-    def evaluate(self, current_price: float, pivot: float, r1: float, s1: float, atr: float) -> QuantSignal:
+    def evaluate(
+        self, current_price: float, pivot: float, r1: float, s1: float, atr: float
+    ) -> QuantSignal:
         if atr <= 0:
             return QuantSignal("HOLD", current_price, 0.0, 0.0, 0.0, "pivot_reaction", "Zero ATR")
         if abs(current_price - s1) <= 0.5 * atr:
             stop = s1 - 1.0 * atr
             target = pivot
-            return QuantSignal("BUY", current_price, stop, target, 0.78, "pivot_reaction", "Bounce off S1 Support Zone")
+            return QuantSignal(
+                "BUY",
+                current_price,
+                stop,
+                target,
+                0.78,
+                "pivot_reaction",
+                "Bounce off S1 Support Zone",
+            )
         if abs(current_price - r1) <= 0.5 * atr:
             stop = r1 + 1.0 * atr
             target = pivot
             return QuantSignal(
-                "SELL", current_price, stop, target, 0.78, "pivot_reaction", "Rejection from R1 Resistance Zone"
+                "SELL",
+                current_price,
+                stop,
+                target,
+                0.78,
+                "pivot_reaction",
+                "Rejection from R1 Resistance Zone",
             )
         return QuantSignal(
-            "HOLD", current_price, 0.0, 0.0, 0.0, "pivot_reaction", "Outside active pivot reaction zones"
+            "HOLD",
+            current_price,
+            0.0,
+            0.0,
+            0.0,
+            "pivot_reaction",
+            "Outside active pivot reaction zones",
         )

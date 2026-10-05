@@ -13,14 +13,13 @@ IST market session validation, and microkernel plugin binding.
 import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -59,7 +58,9 @@ class NSEVaRDashboardEngine:
         self.max_drawdown_pct = max_drawdown_pct
         self.magic_number = MAGIC_NUMBER_NSE_VAR_DASHBOARD
 
-    def compute_historical_var(self, returns: list[float], portfolio_value: float) -> dict[str, float]:
+    def compute_historical_var(
+        self, returns: list[float], portfolio_value: float
+    ) -> dict[str, float]:
         """
         Calculates Historical VaR and Expected Shortfall (CVaR).
         """
@@ -84,7 +85,9 @@ class NSEVaRDashboardEngine:
             "magic_number": float(self.magic_number),
         }
 
-    def compute_parametric_var(self, portfolio_value: float, mean_return: float, std_dev: float) -> float:
+    def compute_parametric_var(
+        self, portfolio_value: float, mean_return: float, std_dev: float
+    ) -> float:
         """
         Parametric Gaussian Value-at-Risk (VaR).
         """
@@ -94,15 +97,24 @@ class NSEVaRDashboardEngine:
         return round_tick_005(var_amount)
 
     def evaluate_drawdown_circuit_breaker(
-        self, current_portfolio_value: float, peak_portfolio_value: float, max_drawdown_limit_pct: float | None = None
+        self,
+        current_portfolio_value: float,
+        peak_portfolio_value: float,
+        max_drawdown_limit_pct: float | None = None,
     ) -> dict[str, Any]:
         """
         Evaluates dynamic capital preservation circuit breaker.
         Triggers emergency halt on new entry orders if daily drawdown exceeds max_drawdown_limit_pct (default 2.0%).
         """
-        limit_pct = max_drawdown_limit_pct if max_drawdown_limit_pct is not None else self.max_drawdown_pct
+        limit_pct = (
+            max_drawdown_limit_pct if max_drawdown_limit_pct is not None else self.max_drawdown_pct
+        )
         if peak_portfolio_value <= 0.0:
-            return {"circuit_breaker_triggered": False, "drawdown_pct": 0.0, "action": "ALLOW_ORDER"}
+            return {
+                "circuit_breaker_triggered": False,
+                "drawdown_pct": 0.0,
+                "action": "ALLOW_ORDER",
+            }
 
         drawdown_amount = max(0.0, peak_portfolio_value - current_portfolio_value)
         drawdown_pct = (drawdown_amount / peak_portfolio_value) * 100.0
@@ -191,7 +203,9 @@ class NSEVaRDashboardBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -201,11 +215,18 @@ class NSEVaRDashboardBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": self.current_equity, "equity": self.current_equity, "currency": "INR", "is_demo": True}
+        return {
+            "balance": self.current_equity,
+            "equity": self.current_equity,
+            "currency": "INR",
+            "is_demo": True,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"

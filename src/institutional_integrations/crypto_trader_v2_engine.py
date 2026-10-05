@@ -8,9 +8,8 @@ Provides:
 - Sub-100ms SL/TP State Machine & Paper Execution Emulator
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 
 class OBISignalType(str, Enum):
@@ -76,7 +75,9 @@ class CryptoTraderV2Engine:
             return 0.5
         return total_bid_vol / total_vol
 
-    def evaluate_order_book_tick(self, payload: OrderBookDepthPayload) -> tuple[OBISignalType, float, str]:
+    def evaluate_order_book_tick(
+        self, payload: OrderBookDepthPayload
+    ) -> tuple[OBISignalType, float, str]:
         """Evaluates top depth order book levels and returns signal decisions."""
         if not payload.bids or not payload.asks:
             return (OBISignalType.NONE, 0.0, "Empty order book depth")
@@ -98,7 +99,11 @@ class CryptoTraderV2Engine:
             self.state.position_open = True
             self.state.entry_price = best_ask
             self.state.quantity = 1.0
-            return (OBISignalType.BUY, best_ask, f"OBI Buy Signal (Ratio: {obi_ratio:.3f} >= {self.obi_buy_threshold})")
+            return (
+                OBISignalType.BUY,
+                best_ask,
+                f"OBI Buy Signal (Ratio: {obi_ratio:.3f} >= {self.obi_buy_threshold})",
+            )
         return (OBISignalType.NONE, mid_price, f"Balanced Order Book (OBI: {obi_ratio:.3f})")
 
     def evaluate_market_sentiment(self, score: float, headlines: list[str]) -> SentimentResult:

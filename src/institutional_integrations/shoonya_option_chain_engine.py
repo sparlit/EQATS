@@ -10,17 +10,15 @@ entry triggers, Order Cancellation Rate & Phantom Liquidity / Spoofing Filters, 
 IST market session validation, and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -55,7 +53,9 @@ class ShoonyaOptionChainEngine:
     and Phantom Liquidity / Spoofing Filter Engine.
     """
 
-    def __init__(self, max_imbalance_ratio: float = 3.0, max_cancellation_rate_pct: float = 80.0) -> None:
+    def __init__(
+        self, max_imbalance_ratio: float = 3.0, max_cancellation_rate_pct: float = 80.0
+    ) -> None:
         self.max_imbalance_ratio = max_imbalance_ratio
         self.max_cancellation_rate_pct = max_cancellation_rate_pct
         self.magic_number = MAGIC_NUMBER_SHOONYA_OPTION_CHAIN
@@ -83,13 +83,19 @@ class ShoonyaOptionChainEngine:
             "magic_number": self.magic_number,
         }
 
-    def evaluate_order_cancellation_spoofing_filter(self, orders_created: int, orders_cancelled: int) -> dict[str, Any]:
+    def evaluate_order_cancellation_spoofing_filter(
+        self, orders_created: int, orders_cancelled: int
+    ) -> dict[str, Any]:
         """
         Detects phantom liquidity / orderbook spoofing by tracking rapid cancellation rates.
         If order cancellation rate >= 80%, flags spoofing and blocks execution.
         """
         if orders_created <= 0:
-            return {"spoofing_detected": False, "cancellation_rate_pct": 0.0, "action": "ALLOW_ORDER"}
+            return {
+                "spoofing_detected": False,
+                "cancellation_rate_pct": 0.0,
+                "action": "ALLOW_ORDER",
+            }
 
         cancel_rate_pct = (orders_cancelled / orders_created) * 100.0
         spoofing_detected = cancel_rate_pct >= self.max_cancellation_rate_pct
@@ -161,7 +167,9 @@ class ShoonyaOptionChainBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -171,7 +179,9 @@ class ShoonyaOptionChainBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

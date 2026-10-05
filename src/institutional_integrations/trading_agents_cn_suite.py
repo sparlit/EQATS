@@ -9,9 +9,8 @@ Provides:
 """
 
 import re
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -91,7 +90,9 @@ class EnhancedNewsFilterEngine:
             rel_score = 0.5
             if target_symbol.lower() in clean_title:
                 rel_score += 0.4
-            if any(k in clean_title for k in ["rate", "fed", "inflation", "cpi", "earnings", "profit"]):
+            if any(
+                k in clean_title for k in ["rate", "fed", "inflation", "cpi", "earnings", "profit"]
+            ):
                 rel_score += 0.1
             rel_score = min(1.0, rel_score)
             filtered.append(
@@ -123,7 +124,9 @@ class DataCompletenessChecker:
         expected_bars = int(round(total_duration / expected_interval_seconds)) + 1
         actual_bars = len(timestamps_sorted)
         missing_count = max(0, expected_bars - actual_bars)
-        completeness_pct = actual_bars / float(expected_bars) * 100.0 if expected_bars > 0 else 100.0
+        completeness_pct = (
+            actual_bars / float(expected_bars) * 100.0 if expected_bars > 0 else 100.0
+        )
         return DataCompletenessReport(
             total_expected_bars=expected_bars,
             total_actual_bars=actual_bars,

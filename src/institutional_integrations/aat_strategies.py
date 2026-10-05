@@ -1,5 +1,4 @@
-import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 try:
     import numpy as np
@@ -46,7 +45,9 @@ def evaluate_wyckoff_master(history_bars: list[dict[str, Any]]) -> str:
     return "HOLD"
 
 
-def evaluate_supertrend(history_bars: list[dict[str, Any]], multiplier: float = 3.0, period: int = 10) -> str:
+def evaluate_supertrend(
+    history_bars: list[dict[str, Any]], multiplier: float = 3.0, period: int = 10
+) -> str:
     """
     Supertrend trend-following indicator.
     Magic: 20007
@@ -63,7 +64,9 @@ def evaluate_supertrend(history_bars: list[dict[str, Any]], multiplier: float = 
         high = df[high_col]
         low = df[low_col]
         close = df[close_col]
-        tr = np.maximum(high - low, np.maximum(np.abs(high - close.shift(1)), np.abs(low - close.shift(1))))
+        tr = np.maximum(
+            high - low, np.maximum(np.abs(high - close.shift(1)), np.abs(low - close.shift(1)))
+        )
         atr = tr.rolling(period).mean()
         hl2 = (high + low) / 2.0
         upperband = hl2 + multiplier * atr

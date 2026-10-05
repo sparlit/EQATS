@@ -11,13 +11,11 @@ Provides vectorized strategy backtesting, equity curve metrics, Sharpe/Sortino r
 
 import math
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    round_to_indian_quantity,
-    round_to_indian_tick_size,
 )
 
 MAGIC_NUMBER: int = 9100024
@@ -82,14 +80,24 @@ class RaptorBTEngine:
             max_drawdown = max(max_drawdown, dd)
 
         avg_return = float(sum(returns) / len(returns)) if returns else 0.0
-        variance = float(sum((r - avg_return) ** 2 for r in returns) / len(returns)) if returns else 0.0
+        variance = (
+            float(sum((r - avg_return) ** 2 for r in returns) / len(returns)) if returns else 0.0
+        )
         std_dev = math.sqrt(variance) if variance > 0 else 1e-6
 
-        downside_variance = float(sum(min(0.0, r) ** 2 for r in returns) / len(returns)) if returns else 0.0
+        downside_variance = (
+            float(sum(min(0.0, r) ** 2 for r in returns) / len(returns)) if returns else 0.0
+        )
         downside_dev = math.sqrt(downside_variance) if downside_variance > 0 else 1e-6
 
-        sharpe_ratio = float((avg_return - (self.risk_free_rate / 252.0)) / std_dev) if std_dev > 0 else 0.0
-        sortino_ratio = float((avg_return - (self.risk_free_rate / 252.0)) / downside_dev) if downside_dev > 0 else 0.0
+        sharpe_ratio = (
+            float((avg_return - (self.risk_free_rate / 252.0)) / std_dev) if std_dev > 0 else 0.0
+        )
+        sortino_ratio = (
+            float((avg_return - (self.risk_free_rate / 252.0)) / downside_dev)
+            if downside_dev > 0
+            else 0.0
+        )
         win_rate = float(winning_trades / total_trades) if total_trades > 0 else 0.0
         total_returns_pct = float((equity - self.initial_capital) / self.initial_capital) * 100.0
 

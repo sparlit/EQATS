@@ -10,7 +10,7 @@ Magic Number: 9100038
 import logging
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -144,7 +144,9 @@ class VirtualDematAccount:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def get_portfolio_summary(self, current_prices: dict[str, float] | None = None) -> dict[str, Any]:
+    def get_portfolio_summary(
+        self, current_prices: dict[str, float] | None = None
+    ) -> dict[str, Any]:
         """
         Calculates portfolio market value and total unrealized/realized PnL.
         """
@@ -181,7 +183,9 @@ class VirtualDematAccount:
             "total_net_worth": total_net_worth,
             "realized_pnl": round(self.realized_pnl, 2),
             "unrealized_pnl": round(unrealized_pnl, 2),
-            "total_return_pct": round(((total_net_worth - self.initial_capital) / self.initial_capital) * 100.0, 2),
+            "total_return_pct": round(
+                ((total_net_worth - self.initial_capital) / self.initial_capital) * 100.0, 2
+            ),
             "holdings": holdings_summary,
             "magic_number": self.magic_number,
             "timestamp": datetime.now().isoformat(),
@@ -217,7 +221,9 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return self.demat.get_portfolio_summary()
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -279,10 +285,14 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

@@ -98,7 +98,9 @@ class EvalSearchAPIEngine:
             overlap = len(query_words.intersection(title_words))
             match_score = overlap / max(1, len(query_words))
 
-            combined_score = (match_score * 0.4) + (doc.relevance_score * 0.3) + (doc.credibility_score * 0.3)
+            combined_score = (
+                (match_score * 0.4) + (doc.relevance_score * 0.3) + (doc.credibility_score * 0.3)
+            )
 
             results.append(
                 {
@@ -167,13 +169,22 @@ class EvalSearchAPIBrokerAdapter(SEBIBrokerAdapter):
             raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_EVAL_SEARCH_API},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

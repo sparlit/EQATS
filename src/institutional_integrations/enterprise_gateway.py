@@ -34,7 +34,9 @@ class PostgresLedgerAdapter:
             self._connected = True
             logger.info("PostgreSQL Financial Ledger connected successfully.")
         except Exception as e:
-            logger.warning(f"PostgreSQL not reachable ({e}). Using embedded SQLite Truth Layer fallback.")
+            logger.warning(
+                f"PostgreSQL not reachable ({e}). Using embedded SQLite Truth Layer fallback."
+            )
             self._connected = False
             self._init_sqlite_fallback()
 
@@ -124,7 +126,9 @@ class ClickHouseDataStreamAdapter:
             self._connected = True
             logger.info("ClickHouse Market Data Engine connected successfully.")
         except Exception as e:
-            logger.warning(f"ClickHouse not reachable ({e}). Operating in memory tick cache buffer mode.")
+            logger.warning(
+                f"ClickHouse not reachable ({e}). Operating in memory tick cache buffer mode."
+            )
             self._connected = False
 
     def is_connected(self) -> bool:
@@ -140,7 +144,14 @@ class ClickHouseDataStreamAdapter:
             client.execute(
                 "INSERT INTO ticks (symbol, timestamp, bid, ask, last, volume) VALUES",
                 [
-                    (t["symbol"], t["timestamp"], t["bid"], t["ask"], t.get("last", t["ask"]), t["volume"])
+                    (
+                        t["symbol"],
+                        t["timestamp"],
+                        t["bid"],
+                        t["ask"],
+                        t.get("last", t["ask"]),
+                        t["volume"],
+                    )
                     for t in ticks
                 ],
             )
@@ -170,7 +181,9 @@ class ValkeySpeedLayerAdapter:
             self._connected = True
             logger.info("Valkey In-Memory Speed Layer connected successfully.")
         except Exception as e:
-            logger.warning(f"Valkey service not reachable ({e}). Using embedded high-speed in-memory dict cache.")
+            logger.warning(
+                f"Valkey service not reachable ({e}). Using embedded high-speed in-memory dict cache."
+            )
             self._connected = False
 
     def is_connected(self) -> bool:
@@ -229,7 +242,9 @@ class PulsarEventStreamAdapter:
             self._connected = True
             logger.info("Apache Pulsar Event Streaming Glue connected successfully.")
         except Exception as e:
-            logger.warning(f"Apache Pulsar not reachable ({e}). Using embedded local queue fallback broker.")
+            logger.warning(
+                f"Apache Pulsar not reachable ({e}). Using embedded local queue fallback broker."
+            )
             self._connected = False
 
     def is_connected(self) -> bool:
@@ -281,11 +296,18 @@ class PreTradeMicroserviceEngine:
         closes = [b["close"] for b in history_bars if "close" in b]
         last_close = closes[-1] if closes else 0.0
         if self.gateway and self.gateway.valkey:
-            self.gateway.valkey.set_key(f"pretrade:tick:{symbol}", json.dumps({"close": last_close, "ts": time.time()}))
+            self.gateway.valkey.set_key(
+                f"pretrade:tick:{symbol}", json.dumps({"close": last_close, "ts": time.time()})
+            )
         payload = {"symbol": symbol, "last_close": last_close, "timestamp": time.time()}
         if self.gateway and self.gateway.pulsar:
             self.gateway.pulsar.publish_event("events.pretrade.analytics", payload)
-        return {"symbol": symbol, "status": "PROCESSED", "last_close": last_close, "ml_signal_score": 0.85}
+        return {
+            "symbol": symbol,
+            "status": "PROCESSED",
+            "last_close": last_close,
+            "ml_signal_score": 0.85,
+        }
 
 
 class PostTradeMicroserviceEngine:

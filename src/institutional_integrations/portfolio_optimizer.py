@@ -14,7 +14,14 @@ class BlackLittermanOptimizer:
         self.tau = tau
         self.risk_aversion = risk_aversion
 
-    def optimize(self, assets: Any, market_caps: Any, cov_matrix: Any, brain_views: Any, view_confidences: Any) -> Any:
+    def optimize(
+        self,
+        assets: Any,
+        market_caps: Any,
+        cov_matrix: Any,
+        brain_views: Any,
+        view_confidences: Any,
+    ) -> Any:
         """
         Calculates Black-Litterman posterior expected returns and optimal weights.
         Supports native CVXPY optimization with deterministic mathematical fallback.
@@ -58,7 +65,9 @@ class BlackLittermanOptimizer:
             weights_dict[a] = round(bl_weights[i] / tot_w, 4)
         return weights_dict
 
-    def optimize_quantum_qaoa(self, assets: Any, brain_views: Any, cov_matrix: Any = None, p_steps: Any = 2) -> Any:
+    def optimize_quantum_qaoa(
+        self, assets: Any, brain_views: Any, cov_matrix: Any = None, p_steps: Any = 2
+    ) -> Any:
         """
         Simulated Quantum Approximate Optimization Algorithm (QAOA) state-vector
         annealing solver for Markowitz mean-variance binary weight allocation.
@@ -84,7 +93,9 @@ class BlackLittermanOptimizer:
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_num, 8)) as executor:
                 results = list(executor.map(eval_state, range(1, max_num)))
-            best_cost, best_state = min(results, key=lambda x: x[0]) if results else (float("inf"), None)
+            best_cost, best_state = (
+                min(results, key=lambda x: x[0]) if results else (float("inf"), None)
+            )
             if best_state:
                 tot = sum(best_state) or 1
                 return {assets[i]: round(best_state[i] / tot, 4) for i in range(n)}

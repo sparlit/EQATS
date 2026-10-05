@@ -1,8 +1,6 @@
 import logging
 import threading
-from typing import Any, Dict, List, Optional
-
-import numpy as np
+from typing import Any
 
 logger = logging.getLogger("MQLColabEngine")
 
@@ -40,7 +38,11 @@ class SLTPEngine:
             round_mod = sl / (pip_size * 100)
             if abs(round_mod - round(round_mod)) < 0.05:
                 sl += -pip_size * 2.0 if direction.upper() == "BUY" else pip_size * 2.0
-            return {"sl": round(sl, 5), "tp": round(tp, 5), "risk_distance": round(abs(entry_price - sl), 5)}
+            return {
+                "sl": round(sl, 5),
+                "tp": round(tp, 5),
+                "risk_distance": round(abs(entry_price - sl), 5),
+            }
 
 
 class CandlestickAIClassifier:
@@ -64,9 +66,13 @@ class CandlestickAIClassifier:
         lower_wick = min(o, c) - l
         upper_wick = h - max(o, c)
         if body > prev_body * 1.5 and c > o and (p_c < p_o):
-            patterns.append({"pattern": "bullish_engulfing", "confidence": 0.85, "direction": "BUY"})
+            patterns.append(
+                {"pattern": "bullish_engulfing", "confidence": 0.85, "direction": "BUY"}
+            )
         if body > prev_body * 1.5 and c < o and (p_c > p_o):
-            patterns.append({"pattern": "bearish_engulfing", "confidence": 0.85, "direction": "SELL"})
+            patterns.append(
+                {"pattern": "bearish_engulfing", "confidence": 0.85, "direction": "SELL"}
+            )
         if lower_wick > body * 2.0 and upper_wick < body * 0.4:
             patterns.append({"pattern": "hammer_pinbar", "confidence": 0.75, "direction": "BUY"})
         if upper_wick > body * 2.0 and lower_wick < body * 0.4:
@@ -100,4 +106,8 @@ class LatencyArbitrage:
         p1 = v1[-1][1]
         p2 = v2[-1][1]
         diff = p1 - p2
-        return {"lead_lag": abs(diff) > 0.0002, "lead_venue": venue1 if diff > 0 else venue2, "discrepancy": abs(diff)}
+        return {
+            "lead_lag": abs(diff) > 0.0002,
+            "lead_venue": venue1 if diff > 0 else venue2,
+            "discrepancy": abs(diff),
+        }

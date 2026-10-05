@@ -35,7 +35,12 @@ def integrate_akshare() -> Any:
         df = ak.stock_zh_a_spot()
         return {"status": "ACTIVE", "df_shape": df.shape, "engine": "AKSHARE"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "df_shape": (150, 5), "engine": "AKSHARE"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "df_shape": (150, 5),
+            "engine": "AKSHARE",
+        }
 
 
 def integrate_altair() -> Any:
@@ -77,7 +82,9 @@ def integrate_beautifulsoup() -> Any:
     try:
         from bs4 import BeautifulSoup
 
-        soup = BeautifulSoup("<html><body><p class='headline'>FED CUTS RATES</p></body></html>", "html.parser")
+        soup = BeautifulSoup(
+            "<html><body><p class='headline'>FED CUTS RATES</p></body></html>", "html.parser"
+        )
         headline = soup.find("p", class_="headline").text
         return {"status": "ACTIVE", "scraped_headline": headline, "engine": "BEAUTIFULSOUP"}
     except Exception:
@@ -98,9 +105,18 @@ def integrate_bert() -> Any:
         model = BertModel.from_pretrained("bert-base-uncased")
         inputs = tokenizer("FED RATE CUT", return_tensors="pt")
         outputs = model(**inputs)
-        return {"status": "ACTIVE", "embeddings_dim": list(outputs.last_hidden_state.shape), "engine": "BERT"}
+        return {
+            "status": "ACTIVE",
+            "embeddings_dim": list(outputs.last_hidden_state.shape),
+            "engine": "BERT",
+        }
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "embeddings_dim": [1, 3, 768], "engine": "BERT"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "embeddings_dim": [1, 3, 768],
+            "engine": "BERT",
+        }
 
 
 def integrate_bokeh() -> Any:
@@ -128,7 +144,12 @@ def integrate_boto3() -> Any:
         s3 = boto3.client("s3")
         return {"status": "ACTIVE", "client": str(s3), "engine": "BOTO3"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "client": "MockS3Client", "engine": "BOTO3"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "client": "MockS3Client",
+            "engine": "BOTO3",
+        }
 
 
 def integrate_chromadb() -> Any:
@@ -141,7 +162,12 @@ def integrate_chromadb() -> Any:
         collection.add(embeddings=[[0.1, 0.2]], documents=["sample_doc"], ids=["1"])
         return {"status": "ACTIVE", "collection_count": collection.count(), "engine": "CHROMADB"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "collection_count": 1, "engine": "CHROMADB"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "collection_count": 1,
+            "engine": "CHROMADB",
+        }
 
 
 def integrate_click() -> Any:
@@ -159,7 +185,12 @@ def integrate_click() -> Any:
 
         return {"status": "ACTIVE", "command": str(hello), "engine": "CLICK"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "command": "MockClickCmd", "engine": "CLICK"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "command": "MockClickCmd",
+            "engine": "CLICK",
+        }
 
 
 def integrate_cupy() -> Any:
@@ -238,7 +269,9 @@ def integrate_duckdb() -> Any:
     try:
         import duckdb
 
-        res = duckdb.query("SELECT sum(a) FROM (SELECT 1.1 AS a UNION ALL SELECT 1.2 AS a)").fetchall()
+        res = duckdb.query(
+            "SELECT sum(a) FROM (SELECT 1.1 AS a UNION ALL SELECT 1.2 AS a)"
+        ).fetchall()
         return {"status": "ACTIVE", "sum": float(res[0][0]), "engine": "DUCKDB"}
     except Exception:
         return {"status": "UNAVAILABLE", "fallback": True, "sum": 2.3, "engine": "DUCKDB"}
@@ -249,7 +282,12 @@ def integrate_edgartools() -> Any:
     try:
         return {"status": "ACTIVE", "api": "SEC_EDGAR", "engine": "EDGARTOOLS"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "api": "SEC_EDGAR_MOCK", "engine": "EDGARTOOLS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "api": "SEC_EDGAR_MOCK",
+            "engine": "EDGARTOOLS",
+        }
 
 
 def integrate_faiss() -> Any:
@@ -278,7 +316,12 @@ def integrate_fastapi() -> Any:
         app.add_api_route("/", status)
         return {"status": "ACTIVE", "app": str(app), "engine": "FASTAPI"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "app": "MockFastAPIApp", "engine": "FASTAPI"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "app": "MockFastAPIApp",
+            "engine": "FASTAPI",
+        }
 
 
 def integrate_flask() -> Any:
@@ -289,7 +332,12 @@ def integrate_flask() -> Any:
         app = Flask(__name__)
         return {"status": "ACTIVE", "app_name": app.name, "engine": "FLASK"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "app_name": "MockFlask", "engine": "FLASK"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "app_name": "MockFlask",
+            "engine": "FLASK",
+        }
 
 
 def integrate_folium() -> Any:
@@ -301,7 +349,12 @@ def integrate_folium() -> Any:
         folium.Marker([51.5074, -0.1278], popup="LDN_HUB").add_to(m)
         return {"status": "ACTIVE", "map_html": m._repr_html_()[:50], "engine": "FOLIUM"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "map_html": "MockFoliumMapSpec", "engine": "FOLIUM"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "map_html": "MockFoliumMapSpec",
+            "engine": "FOLIUM",
+        }
 
 
 def integrate_gpio() -> Any:
@@ -312,7 +365,12 @@ def integrate_gpio() -> Any:
         GPIO.setmode(GPIO.BCM)
         return {"status": "ACTIVE", "mode": "BCM", "engine": "RPI_GPIO"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "mode": "BCM_MOCKED", "engine": "RPI_GPIO"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "mode": "BCM_MOCKED",
+            "engine": "RPI_GPIO",
+        }
 
 
 def integrate_gensim() -> Any:
@@ -337,7 +395,12 @@ def integrate_geopandas() -> Any:
         gdf = gpd.GeoDataFrame()
         return {"status": "ACTIVE", "crs": str(gdf.crs), "engine": "GEOPANDAS"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "crs": "EPSG:4326", "engine": "GEOPANDAS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "crs": "EPSG:4326",
+            "engine": "GEOPANDAS",
+        }
 
 
 def integrate_github() -> Any:
@@ -348,7 +411,12 @@ def integrate_github() -> Any:
         g = Github()
         return {"status": "ACTIVE", "rate_limit": str(g.get_rate_limit()), "engine": "GITHUB"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "rate_limit": "MockRateLimit", "engine": "GITHUB"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "rate_limit": "MockRateLimit",
+            "engine": "GITHUB",
+        }
 
 
 def integrate_great_expectations() -> Any:
@@ -359,14 +427,29 @@ def integrate_great_expectations() -> Any:
 
         df = ge.from_pandas(pd.DataFrame({"price": [1.1, 1.2]}))
         res = df.expect_column_values_to_be_between("price", 0.1, 10.0)
-        return {"status": "ACTIVE", "validation_success": res.success, "engine": "GREAT_EXPECTATIONS"}
+        return {
+            "status": "ACTIVE",
+            "validation_success": res.success,
+            "engine": "GREAT_EXPECTATIONS",
+        }
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "validation_success": True, "engine": "GREAT_EXPECTATIONS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "validation_success": True,
+            "engine": "GREAT_EXPECTATIONS",
+        }
 
 
 def integrate_hadoop() -> Any:
     """Simulates distributed Hadoop map-reduce computations for massive historical backtesting datasets."""
-    return {"status": "UNAVAILABLE", "fallback": True, "cluster": "HDFS_LOCAL", "hdfs_nodes": 5, "engine": "HADOOP"}
+    return {
+        "status": "UNAVAILABLE",
+        "fallback": True,
+        "cluster": "HDFS_LOCAL",
+        "hdfs_nodes": 5,
+        "engine": "HADOOP",
+    }
 
 
 def integrate_jax() -> Any:
@@ -385,7 +468,12 @@ def integrate_kafka() -> Any:
     try:
         return {"status": "ACTIVE", "producer": "KAFKA_PRODUCER", "engine": "KAFKA"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "producer": "KAFKA_PRODUCER_MOCK", "engine": "KAFKA"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "producer": "KAFKA_PRODUCER_MOCK",
+            "engine": "KAFKA",
+        }
 
 
 def integrate_kats() -> Any:
@@ -412,7 +500,12 @@ def integrate_kivy() -> Any:
     try:
         return {"status": "ACTIVE", "app": "KIVY_DESKTOP", "engine": "KIVY"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "app": "KIVY_DESKTOP_MOCKED", "engine": "KIVY"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "app": "KIVY_DESKTOP_MOCKED",
+            "engine": "KIVY",
+        }
 
 
 def integrate_koalas() -> Any:
@@ -420,7 +513,12 @@ def integrate_koalas() -> Any:
     try:
         return {"status": "ACTIVE", "koalas_engine": "SPARK", "engine": "KOALAS"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "koalas_engine": "MOCKED_SPARK", "engine": "KOALAS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "koalas_engine": "MOCKED_SPARK",
+            "engine": "KOALAS",
+        }
 
 
 def integrate_langchain() -> Any:
@@ -431,7 +529,12 @@ def integrate_langchain() -> Any:
         p = PromptTemplate.from_template("Analyze macro {topic}")
         return {"status": "ACTIVE", "template": p.template, "engine": "LANGCHAIN"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "template": "Analyze macro {topic}", "engine": "LANGCHAIN"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "template": "Analyze macro {topic}",
+            "engine": "LANGCHAIN",
+        }
 
 
 def integrate_langextract() -> Any:
@@ -442,7 +545,12 @@ def integrate_langextract() -> Any:
         lang = detect("El Banco Central Europeo mantendrá los tipos de interés.")
         return {"status": "ACTIVE", "detected_language": lang, "engine": "LANGDETECT"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "detected_language": "es", "engine": "LANGDETECT"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "detected_language": "es",
+            "engine": "LANGDETECT",
+        }
 
 
 def integrate_langgraph() -> Any:
@@ -450,7 +558,12 @@ def integrate_langgraph() -> Any:
     try:
         return {"status": "ACTIVE", "graph": "STATE_GRAPH_ACTIVE", "engine": "LANGGRAPH"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "graph": "STATE_GRAPH_MOCKED", "engine": "LANGGRAPH"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "graph": "STATE_GRAPH_MOCKED",
+            "engine": "LANGGRAPH",
+        }
 
 
 def integrate_lifelines() -> Any:
@@ -461,7 +574,12 @@ def integrate_lifelines() -> Any:
         kmf = KaplanMeierFitter()
         return {"status": "ACTIVE", "fitter": str(kmf), "engine": "LIFELINES"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "fitter": "MockKMFFitter", "engine": "LIFELINES"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "fitter": "MockKMFFitter",
+            "engine": "LIFELINES",
+        }
 
 
 def integrate_lightgbm() -> Any:
@@ -471,7 +589,12 @@ def integrate_lightgbm() -> Any:
 
         return {"status": "ACTIVE", "version": lgb.__version__, "engine": "LIGHTGBM"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "version": "4.0.0_MOCK", "engine": "LIGHTGBM"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "version": "4.0.0_MOCK",
+            "engine": "LIGHTGBM",
+        }
 
 
 def integrate_litellm() -> Any:
@@ -479,7 +602,12 @@ def integrate_litellm() -> Any:
     try:
         return {"status": "ACTIVE", "router": "LITELLM_ACTIVE", "engine": "LITELLM"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "router": "LITELLM_MOCKED", "engine": "LITELLM"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "router": "LITELLM_MOCKED",
+            "engine": "LITELLM",
+        }
 
 
 def integrate_llamaindex() -> Any:
@@ -501,7 +629,12 @@ def integrate_loguru() -> Any:
         logger.info("LOGURU INTEGRATED")
         return {"status": "ACTIVE", "logger": "LOGURU", "engine": "LOGURU"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "logger": "MOCKED_LOGURU", "engine": "LOGURU"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "logger": "MOCKED_LOGURU",
+            "engine": "LOGURU",
+        }
 
 
 def integrate_matplotlib() -> Any:
@@ -536,7 +669,12 @@ def integrate_nltk() -> Any:
         tokens = nltk.word_tokenize("Rates hike predicted")
         return {"status": "ACTIVE", "tokens": tokens, "engine": "NLTK"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "tokens": ["Rates", "hike", "predicted"], "engine": "NLTK"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "tokens": ["Rates", "hike", "predicted"],
+            "engine": "NLTK",
+        }
 
 
 def integrate_neo4j() -> Any:
@@ -544,7 +682,12 @@ def integrate_neo4j() -> Any:
     try:
         return {"status": "ACTIVE", "driver": "NEO4J", "engine": "NEO4J"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "driver": "MOCKED_NEO4J", "engine": "NEO4J"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "driver": "MOCKED_NEO4J",
+            "engine": "NEO4J",
+        }
 
 
 def integrate_networkx() -> Any:
@@ -556,7 +699,12 @@ def integrate_networkx() -> Any:
         g.add_edge("EURUSD", "GBPUSD", weight=0.82)
         return {"status": "ACTIVE", "nodes": list(g.nodes), "engine": "NETWORKX"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "nodes": ["EURUSD", "GBPUSD"], "engine": "NETWORKX"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "nodes": ["EURUSD", "GBPUSD"],
+            "engine": "NETWORKX",
+        }
 
 
 def integrate_numpy() -> Any:
@@ -580,7 +728,12 @@ def integrate_openai() -> Any:
     try:
         return {"status": "ACTIVE", "sdk": "OPENAI", "engine": "OPENAI"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "sdk": "MOCKED_OPENAI", "engine": "OPENAI"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "sdk": "MOCKED_OPENAI",
+            "engine": "OPENAI",
+        }
 
 
 def integrate_opencv() -> Any:
@@ -593,7 +746,12 @@ def integrate_opencv() -> Any:
         cv2.line(img, (0, 0), (50, 50), (255, 0, 0), 1)
         return {"status": "ACTIVE", "image_shape": img.shape, "engine": "OPENCV"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "image_shape": (100, 100, 3), "engine": "OPENCV"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "image_shape": (100, 100, 3),
+            "engine": "OPENCV",
+        }
 
 
 def integrate_pandera() -> Any:
@@ -604,7 +762,12 @@ def integrate_pandera() -> Any:
         schema = pa.DataFrameSchema({"price": pa.Column(float)})
         return {"status": "ACTIVE", "schema": str(schema), "engine": "PANDERA"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "schema": "MockPanderaSchema", "engine": "PANDERA"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "schema": "MockPanderaSchema",
+            "engine": "PANDERA",
+        }
 
 
 def integrate_paramiko() -> Any:
@@ -615,7 +778,12 @@ def integrate_paramiko() -> Any:
         client = paramiko.SSHClient()
         return {"status": "ACTIVE", "client": str(client), "engine": "PARAMIKO"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "client": "MockSSHClient", "engine": "PARAMIKO"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "client": "MockSSHClient",
+            "engine": "PARAMIKO",
+        }
 
 
 def integrate_peewee() -> Any:
@@ -633,7 +801,12 @@ def integrate_peewee() -> Any:
 
         return {"status": "ACTIVE", "db_name": db.database, "engine": "PEEWEE"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "db_name": ":memory:", "engine": "PEEWEE"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "db_name": ":memory:",
+            "engine": "PEEWEE",
+        }
 
 
 def integrate_pinecone() -> Any:
@@ -641,7 +814,12 @@ def integrate_pinecone() -> Any:
     try:
         return {"status": "ACTIVE", "client": "PINECONE_CLOUD", "engine": "PINECONE"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "client": "PINECONE_MOCKED", "engine": "PINECONE"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "client": "PINECONE_MOCKED",
+            "engine": "PINECONE",
+        }
 
 
 def integrate_pingouin() -> Any:
@@ -665,7 +843,12 @@ def integrate_plotly() -> Any:
         fig = go.Figure(data=go.Scatter(x=[1, 2], y=[3, 4]))
         return {"status": "ACTIVE", "fig_spec": fig.to_json()[:50], "engine": "PLOTLY"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "fig_spec": "MockPlotlySpec", "engine": "PLOTLY"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "fig_spec": "MockPlotlySpec",
+            "engine": "PLOTLY",
+        }
 
 
 def integrate_polars() -> Any:
@@ -684,7 +867,12 @@ def integrate_polyglot() -> Any:
     try:
         return {"status": "ACTIVE", "api": "POLYGLOT", "engine": "POLYGLOT"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "api": "MOCKED_POLYGLOT", "engine": "POLYGLOT"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "api": "MOCKED_POLYGLOT",
+            "engine": "POLYGLOT",
+        }
 
 
 def integrate_prophet() -> Any:
@@ -707,7 +895,12 @@ def integrate_pycryptodome() -> Any:
     try:
         return {"status": "ACTIVE", "cipher": "AES_GCM", "engine": "PYCRYPTODOME"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "cipher": "MOCKED_AES_GCM", "engine": "PYCRYPTODOME"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "cipher": "MOCKED_AES_GCM",
+            "engine": "PYCRYPTODOME",
+        }
 
 
 def integrate_pyfolio() -> Any:
@@ -715,7 +908,12 @@ def integrate_pyfolio() -> Any:
     try:
         return {"status": "ACTIVE", "fitter": "PYFOLIO", "engine": "PYFOLIO"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "fitter": "MOCKED_PYFOLIO", "engine": "PYFOLIO"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "fitter": "MOCKED_PYFOLIO",
+            "engine": "PYFOLIO",
+        }
 
 
 def integrate_pymc3() -> Any:
@@ -725,12 +923,22 @@ def integrate_pymc3() -> Any:
 
         return {"status": "ACTIVE", "version": pm.__version__, "engine": "PYMC3"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "version": "3.11_MOCK", "engine": "PYMC3"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "version": "3.11_MOCK",
+            "engine": "PYMC3",
+        }
 
 
 def integrate_pyscript() -> Any:
     """Compiles client-side web templates using PyScript tag injections."""
-    return {"status": "UNAVAILABLE", "fallback": True, "pyscript_enabled": True, "engine": "PYSCRIPT"}
+    return {
+        "status": "UNAVAILABLE",
+        "fallback": True,
+        "pyscript_enabled": True,
+        "engine": "PYSCRIPT",
+    }
 
 
 def integrate_pyserial() -> Any:
@@ -738,7 +946,12 @@ def integrate_pyserial() -> Any:
     try:
         return {"status": "ACTIVE", "com": "SERIAL_PORT", "engine": "PYSERIAL"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "com": "SERIAL_PORT_MOCK", "engine": "PYSERIAL"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "com": "SERIAL_PORT_MOCK",
+            "engine": "PYSERIAL",
+        }
 
 
 def integrate_pyspark() -> Any:
@@ -746,7 +959,12 @@ def integrate_pyspark() -> Any:
     try:
         return {"status": "ACTIVE", "spark": "PYSPARK", "engine": "PYSPARK"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "spark": "MOCKED_PYSPARK", "engine": "PYSPARK"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "spark": "MOCKED_PYSPARK",
+            "engine": "PYSPARK",
+        }
 
 
 def integrate_pystan() -> Any:
@@ -762,7 +980,12 @@ def integrate_pytest() -> Any:
     try:
         return {"status": "ACTIVE", "framework": "PYTEST", "engine": "PYTEST"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "framework": "PYTEST_MOCK", "engine": "PYTEST"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "framework": "PYTEST_MOCK",
+            "engine": "PYTEST",
+        }
 
 
 def integrate_pytorch() -> Any:
@@ -805,7 +1028,12 @@ def integrate_pygal() -> Any:
         chart.add("Prices", [1.1, 1.2, 1.3])
         return {"status": "ACTIVE", "svg_data": "SVG_READY", "engine": "PYGAL"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "svg_data": "SVG_MOCKED", "engine": "PYGAL"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "svg_data": "SVG_MOCKED",
+            "engine": "PYGAL",
+        }
 
 
 def integrate_pygame() -> Any:
@@ -816,7 +1044,12 @@ def integrate_pygame() -> Any:
         pygame.mixer.init()
         return {"status": "ACTIVE", "mixer": "PYGAME_MIXER", "engine": "PYGAME"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "mixer": "PYGAME_MIXER_MOCKED", "engine": "PYGAME"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "mixer": "PYGAME_MIXER_MOCKED",
+            "engine": "PYGAME",
+        }
 
 
 def integrate_pyo3() -> Any:
@@ -832,7 +1065,12 @@ def integrate_quantlib() -> Any:
         today = ql.Date.todaysDate()
         return {"status": "ACTIVE", "today": str(today), "engine": "QUANTLIB"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "today": "DateMock", "engine": "QUANTLIB"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "today": "DateMock",
+            "engine": "QUANTLIB",
+        }
 
 
 def integrate_ray() -> Any:
@@ -850,7 +1088,12 @@ def integrate_rq() -> Any:
     try:
         return {"status": "ACTIVE", "queue": "REDIS_QUEUE", "engine": "RQ"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "queue": "REDIS_QUEUE_MOCK", "engine": "RQ"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "queue": "REDIS_QUEUE_MOCK",
+            "engine": "RQ",
+        }
 
 
 def integrate_rich() -> Any:
@@ -861,7 +1104,12 @@ def integrate_rich() -> Any:
         console = Console()
         return {"status": "ACTIVE", "console": str(console), "engine": "RICH"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "console": "MockConsole", "engine": "RICH"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "console": "MockConsole",
+            "engine": "RICH",
+        }
 
 
 def integrate_robyn() -> Any:
@@ -869,7 +1117,12 @@ def integrate_robyn() -> Any:
     try:
         return {"status": "ACTIVE", "server": "ROBYN", "engine": "ROBYN"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "server": "ROBYN_MOCKED", "engine": "ROBYN"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "server": "ROBYN_MOCKED",
+            "engine": "ROBYN",
+        }
 
 
 def integrate_ruff() -> Any:
@@ -885,7 +1138,12 @@ def integrate_sqlalchemy() -> Any:
         engine = create_engine("sqlite:///:memory:")
         return {"status": "ACTIVE", "engine": str(engine), "engine_name": "SQLALCHEMY"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "engine": "sqlite:///:memory:", "engine_name": "SQLALCHEMY"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "engine": "sqlite:///:memory:",
+            "engine_name": "SQLALCHEMY",
+        }
 
 
 def integrate_scipy() -> Any:
@@ -907,7 +1165,12 @@ def integrate_scikit_learn() -> Any:
         rf = RandomForestRegressor(n_estimators=10)
         return {"status": "ACTIVE", "estimators": rf.n_estimators, "engine": "SCIKIT_LEARN"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "estimators": 10, "engine": "SCIKIT_LEARN"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "estimators": 10,
+            "engine": "SCIKIT_LEARN",
+        }
 
 
 def integrate_scrapy() -> Any:
@@ -915,7 +1178,12 @@ def integrate_scrapy() -> Any:
     try:
         return {"status": "ACTIVE", "spider": "SCRAPY_ACTIVE", "engine": "SCRAPY"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "spider": "SCRAPY_MOCKED", "engine": "SCRAPY"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "spider": "SCRAPY_MOCKED",
+            "engine": "SCRAPY",
+        }
 
 
 def integrate_seaborn() -> Any:
@@ -923,7 +1191,12 @@ def integrate_seaborn() -> Any:
     try:
         return {"status": "ACTIVE", "palette": "SEABORN", "engine": "SEABORN"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "palette": "MOCKED_SEABORN", "engine": "SEABORN"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "palette": "MOCKED_SEABORN",
+            "engine": "SEABORN",
+        }
 
 
 def integrate_selenium() -> Any:
@@ -931,13 +1204,22 @@ def integrate_selenium() -> Any:
     try:
         return {"status": "ACTIVE", "driver": "SELENIUM", "engine": "SELENIUM"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "driver": "MOCKED_SELENIUM", "engine": "SELENIUM"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "driver": "MOCKED_SELENIUM",
+            "engine": "SELENIUM",
+        }
 
 
 def integrate_sentence_transformers() -> Any:
     """Calculates news semantic proximity matches using SentenceTransformers."""
     try:
-        return {"status": "ACTIVE", "model": "SENTENCE_TRANSFORMERS", "engine": "SENTENCE_TRANSFORMERS"}
+        return {
+            "status": "ACTIVE",
+            "model": "SENTENCE_TRANSFORMERS",
+            "engine": "SENTENCE_TRANSFORMERS",
+        }
     except Exception:
         return {
             "status": "UNAVAILABLE",
@@ -952,7 +1234,12 @@ def integrate_sktime() -> Any:
     try:
         return {"status": "ACTIVE", "classifier": "SKTIME", "engine": "SKTIME"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "classifier": "MOCKED_SKTIME", "engine": "SKTIME"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "classifier": "MOCKED_SKTIME",
+            "engine": "SKTIME",
+        }
 
 
 def integrate_statsmodels() -> Any:
@@ -960,7 +1247,12 @@ def integrate_statsmodels() -> Any:
     try:
         return {"status": "ACTIVE", "model": "STATSMODELS", "engine": "STATSMODELS"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_STATSMODELS", "engine": "STATSMODELS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "model": "MOCKED_STATSMODELS",
+            "engine": "STATSMODELS",
+        }
 
 
 def integrate_sympy() -> Any:
@@ -972,7 +1264,12 @@ def integrate_sympy() -> Any:
         expr = sp.diff(x**2, x)
         return {"status": "ACTIVE", "symbolic_derivative": str(expr), "engine": "SYMPY"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "symbolic_derivative": "2*x", "engine": "SYMPY"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "symbolic_derivative": "2*x",
+            "engine": "SYMPY",
+        }
 
 
 def integrate_talib() -> Any:
@@ -980,7 +1277,12 @@ def integrate_talib() -> Any:
     try:
         return {"status": "ACTIVE", "indicator": "TALIB", "engine": "TALIB"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "indicator": "MOCKED_TALIB", "engine": "TALIB"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "indicator": "MOCKED_TALIB",
+            "engine": "TALIB",
+        }
 
 
 def integrate_tensorflow() -> Any:
@@ -1010,7 +1312,12 @@ def integrate_textual() -> Any:
     try:
         return {"status": "ACTIVE", "tui": "TEXTUAL_TUI", "engine": "TEXTUAL"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "tui": "TEXTUAL_TUI_MOCKED", "engine": "TEXTUAL"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "tui": "TEXTUAL_TUI_MOCKED",
+            "engine": "TEXTUAL",
+        }
 
 
 def integrate_tinydb() -> Any:
@@ -1021,7 +1328,12 @@ def integrate_tinydb() -> Any:
         db = TinyDB("tinydb_cache.json")
         return {"status": "ACTIVE", "cached_tables": list(db.tables()), "engine": "TINYDB"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "cached_tables": ["_default"], "engine": "TINYDB"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "cached_tables": ["_default"],
+            "engine": "TINYDB",
+        }
 
 
 def integrate_tkinter() -> Any:
@@ -1029,7 +1341,12 @@ def integrate_tkinter() -> Any:
     try:
         return {"status": "ACTIVE", "visual_app": "TKINTER", "engine": "TKINTER"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "visual_app": "TKINTER_MOCKED", "engine": "TKINTER"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "visual_app": "TKINTER_MOCKED",
+            "engine": "TKINTER",
+        }
 
 
 def integrate_transformers() -> Any:
@@ -1037,7 +1354,12 @@ def integrate_transformers() -> Any:
     try:
         return {"status": "ACTIVE", "model": "HUGGINGFACE_TRANSFORMERS", "engine": "TRANSFORMERS"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_TRANSFORMERS", "engine": "TRANSFORMERS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "model": "MOCKED_TRANSFORMERS",
+            "engine": "TRANSFORMERS",
+        }
 
 
 def integrate_typer() -> Any:
@@ -1048,7 +1370,12 @@ def integrate_typer() -> Any:
         typer.Typer()
         return {"status": "ACTIVE", "app": "TYPER_CLI", "engine": "TYPER"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "app": "TYPER_CLI_MOCKED", "engine": "TYPER"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "app": "TYPER_CLI_MOCKED",
+            "engine": "TYPER",
+        }
 
 
 def integrate_vaex() -> Any:
@@ -1064,7 +1391,12 @@ def integrate_xgboost() -> Any:
     try:
         return {"status": "ACTIVE", "model": "XGBOOST", "engine": "XGBOOST"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_XGBOOST", "engine": "XGBOOST"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "model": "MOCKED_XGBOOST",
+            "engine": "XGBOOST",
+        }
 
 
 def integrate_arrow() -> Any:
@@ -1075,7 +1407,12 @@ def integrate_arrow() -> Any:
         t = arrow.now()
         return {"status": "ACTIVE", "parsed_time": str(t), "engine": "ARROW"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "parsed_time": "TimeMock", "engine": "ARROW"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "parsed_time": "TimeMock",
+            "engine": "ARROW",
+        }
 
 
 def integrate_backtrader() -> Any:
@@ -1086,7 +1423,12 @@ def integrate_backtrader() -> Any:
         cerebro = bt.Cerebro()
         return {"status": "ACTIVE", "cerebro": str(cerebro), "engine": "BACKTRADER"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "cerebro": "MockCerebro", "engine": "BACKTRADER"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "cerebro": "MockCerebro",
+            "engine": "BACKTRADER",
+        }
 
 
 def integrate_catboost() -> Any:
@@ -1135,7 +1477,12 @@ def integrate_pmdarima() -> Any:
     try:
         return {"status": "ACTIVE", "model": "PMDARIMA", "engine": "PMDARIMA"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "model": "MOCKED_PMDARIMA", "engine": "PMDARIMA"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "model": "MOCKED_PMDARIMA",
+            "engine": "PMDARIMA",
+        }
 
 
 def integrate_requests() -> Any:
@@ -1143,7 +1490,12 @@ def integrate_requests() -> Any:
     try:
         return {"status": "ACTIVE", "lib": "REQUESTS", "engine": "REQUESTS"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "lib": "REQUESTS_MOCKED", "engine": "REQUESTS"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "lib": "REQUESTS_MOCKED",
+            "engine": "REQUESTS",
+        }
 
 
 def integrate_spacy() -> Any:
@@ -1165,7 +1517,12 @@ def integrate_theano() -> Any:
 
         return {"status": "ACTIVE", "version": theano.__version__, "engine": "THEANO"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "version": "1.0_MOCK", "engine": "THEANO"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "version": "1.0_MOCK",
+            "engine": "THEANO",
+        }
 
 
 def integrate_tsfresh() -> Any:
@@ -1188,12 +1545,22 @@ def integrate_yfinance() -> Any:
     try:
         return {"status": "ACTIVE", "lib": "YFINANCE", "engine": "YFINANCE"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "lib": "YFINANCE_MOCKED", "engine": "YFINANCE"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "lib": "YFINANCE_MOCKED",
+            "engine": "YFINANCE",
+        }
 
 
 def integrate_rust_wrapped_python() -> Any:
     """Wraps Rust math extensions in Python."""
-    return {"status": "UNAVAILABLE", "fallback": True, "rust_bridge_connected": True, "engine": "RUST_WRAPPER"}
+    return {
+        "status": "UNAVAILABLE",
+        "fallback": True,
+        "rust_bridge_connected": True,
+        "engine": "RUST_WRAPPER",
+    }
 
 
 def integrate_zipline() -> Any:
@@ -1201,4 +1568,9 @@ def integrate_zipline() -> Any:
     try:
         return {"status": "ACTIVE", "backtester": "ZIPLINE", "engine": "ZIPLINE"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "backtester": "ZIPLINE_MOCKED", "engine": "ZIPLINE"}
+        return {
+            "status": "UNAVAILABLE",
+            "fallback": True,
+            "backtester": "ZIPLINE_MOCKED",
+            "engine": "ZIPLINE",
+        }

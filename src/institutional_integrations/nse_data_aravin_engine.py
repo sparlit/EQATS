@@ -10,7 +10,7 @@ Magic Number: 9100048
 import logging
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -63,10 +63,16 @@ class NSEDataAravinEngine:
         symbol = quote_info.get("symbol", "UNKNOWN").upper().strip()
         price_info = quote_info.get("priceInfo", {})
 
-        last_price = round_tick_005(float(price_info.get("lastPrice", quote_info.get("close", 100.0))))
+        last_price = round_tick_005(
+            float(price_info.get("lastPrice", quote_info.get("close", 100.0)))
+        )
         open_price = round_tick_005(float(price_info.get("open", last_price)))
-        high_price = round_tick_005(float(price_info.get("intraDayHighLow", {}).get("max", last_price)))
-        low_price = round_tick_005(float(price_info.get("intraDayHighLow", {}).get("min", last_price)))
+        high_price = round_tick_005(
+            float(price_info.get("intraDayHighLow", {}).get("max", last_price))
+        )
+        low_price = round_tick_005(
+            float(price_info.get("intraDayHighLow", {}).get("min", last_price))
+        )
         p_change = float(price_info.get("pChange", 0.0))
 
         signal = "BUY" if p_change >= 1.5 else ("SELL" if p_change <= -1.5 else "HOLD")
@@ -157,7 +163,9 @@ class NSEDataAravinBrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -200,10 +208,14 @@ class NSEDataAravinBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

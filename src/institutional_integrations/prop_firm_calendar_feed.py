@@ -7,16 +7,20 @@ Generates iCalendar (.ics) feed strings for calendar sync.
 
 import hashlib
 import logging
-import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
 
 logger = logging.getLogger("PropFirmCalendarFeed")
 
 
 class PropFirmTradingEvent:
     def __init__(
-        self, firm: str, event_type: str, summary: str, start_dt: datetime, end_dt: datetime, source_url: str = ""
+        self,
+        firm: str,
+        event_type: str,
+        summary: str,
+        start_dt: datetime,
+        end_dt: datetime,
+        source_url: str = "",
     ) -> None:
         self.firm = firm.upper()
         self.event_type = event_type.lower()
@@ -40,7 +44,13 @@ class PropFirmCalendarFeedManager:
         self.events: list[PropFirmTradingEvent] = []
 
     def add_event(
-        self, firm: str, event_type: str, summary: str, start_dt: datetime, end_dt: datetime, source_url: str = ""
+        self,
+        firm: str,
+        event_type: str,
+        summary: str,
+        start_dt: datetime,
+        end_dt: datetime,
+        source_url: str = "",
     ) -> str:
         evt = PropFirmTradingEvent(firm, event_type, summary, start_dt, end_dt, source_url)
         self.events.append(evt)

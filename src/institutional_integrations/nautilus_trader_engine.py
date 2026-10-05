@@ -6,7 +6,7 @@ and Order Routing Pre-Trade Risk Guard.
 
 import logging
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("NautilusTraderEngine")
 
@@ -58,7 +58,10 @@ class NautilusOrderRoutingGuard:
         self, symbol: str, action: str, quantity: float, price: float, current_open_orders: int = 0
     ) -> dict[str, Any]:
         if current_open_orders >= self.max_open_orders:
-            return {"allowed": False, "reason": f"Max open orders limit reached ({self.max_open_orders})"}
+            return {
+                "allowed": False,
+                "reason": f"Max open orders limit reached ({self.max_open_orders})",
+            }
         order_notional = quantity * price
         if order_notional > self.max_account_exposure:
             return {

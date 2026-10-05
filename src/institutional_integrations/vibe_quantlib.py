@@ -13,10 +13,12 @@ try:
 except ImportError:
     pd = None
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
-def calculate_kyle_lambda(price_changes: Sequence[float], signed_order_flow: Sequence[float]) -> float:
+def calculate_kyle_lambda(
+    price_changes: Sequence[float], signed_order_flow: Sequence[float]
+) -> float:
     """Calculates Kyle's Lambda price impact slope."""
     dp = np.asarray(price_changes, dtype=float)
     flow = np.asarray(signed_order_flow, dtype=float)
@@ -40,7 +42,9 @@ def calculate_roll_spread(prices: Sequence[float]) -> float:
     return float(2.0 * math.sqrt(-cov))
 
 
-def calculate_amihud_illiquidity(returns: Sequence[float], dollar_volumes: Sequence[float]) -> float:
+def calculate_amihud_illiquidity(
+    returns: Sequence[float], dollar_volumes: Sequence[float]
+) -> float:
     """Estimates Amihud (2002) illiquidity ratio."""
     r = np.abs(np.asarray(returns, dtype=float))
     v = np.asarray(dollar_volumes, dtype=float)
@@ -51,7 +55,10 @@ def calculate_amihud_illiquidity(returns: Sequence[float], dollar_volumes: Seque
 
 
 def calculate_vpin(
-    buy_volume: Sequence[float], sell_volume: Sequence[float], bucket_size: float, n_buckets: int = 20
+    buy_volume: Sequence[float],
+    sell_volume: Sequence[float],
+    bucket_size: float,
+    n_buckets: int = 20,
 ) -> float:
     """Calculates Volume-Synchronized Probability of Toxicity (VPIN)."""
     vb = np.asarray(buy_volume, dtype=float)
@@ -87,7 +94,9 @@ def calculate_vpin(
     return min(1.0, max(0.0, float(vpin_val)))
 
 
-def calculate_copula_dependence(u: Sequence[float], v: Sequence[float], family: str = "clayton") -> dict[str, Any]:
+def calculate_copula_dependence(
+    u: Sequence[float], v: Sequence[float], family: str = "clayton"
+) -> dict[str, Any]:
     """Fits bivariate copula and computes lower/upper tail dependence coefficients."""
     u_arr = np.clip(np.asarray(u, dtype=float), 0.001, 0.999)
     v_arr = np.clip(np.asarray(v, dtype=float), 0.001, 0.999)
@@ -102,12 +111,24 @@ def calculate_copula_dependence(u: Sequence[float], v: Sequence[float], family: 
         tau_c = max(0.05, min(0.95, tau))
         theta = 2.0 * tau_c / (1.0 - tau_c)
         lambda_l = math.pow(2.0, -1.0 / theta)
-        return {"family": "clayton", "theta": theta, "tau": tau_c, "lambda_lower": lambda_l, "lambda_upper": 0.0}
+        return {
+            "family": "clayton",
+            "theta": theta,
+            "tau": tau_c,
+            "lambda_lower": lambda_l,
+            "lambda_upper": 0.0,
+        }
     if fam == "gumbel":
         tau_g = max(0.05, min(0.95, tau))
         theta = 1.0 / (1.0 - tau_g)
         lambda_u = 2.0 - math.pow(2.0, 1.0 / theta)
-        return {"family": "gumbel", "theta": theta, "tau": tau_g, "lambda_lower": 0.0, "lambda_upper": lambda_u}
+        return {
+            "family": "gumbel",
+            "theta": theta,
+            "tau": tau_g,
+            "lambda_lower": 0.0,
+            "lambda_upper": lambda_u,
+        }
     rho = math.sin(math.pi * 0.5 * max(-0.95, min(0.95, tau)))
     return {"family": "gaussian", "rho": rho, "tau": tau, "lambda_lower": 0.0, "lambda_upper": 0.0}
 

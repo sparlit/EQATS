@@ -9,8 +9,7 @@ Provides:
 """
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -33,7 +32,10 @@ class PySystemTradeEngine:
     """Rob Carver Systematic Trading Framework Engine."""
 
     def calculate_diversification_multiplier(
-        self, weights: dict[str, float], correlation_matrix: list[list[float]], max_multiplier: float = 2.5
+        self,
+        weights: dict[str, float],
+        correlation_matrix: list[list[float]],
+        max_multiplier: float = 2.5,
     ) -> CarverDiversificationResult:
         """
         Calculates diversification multiplier = 1 / sqrt(w' * C * w).
@@ -73,7 +75,9 @@ class PySystemTradeEngine:
         for i in range(n):
             for j in range(n):
                 if i != j:
-                    shrunk_mat[i, j] = (1.0 - shrinkage_factor) * c_mat[i, j] + (shrinkage_factor * avg_corr)
+                    shrunk_mat[i, j] = (1.0 - shrinkage_factor) * c_mat[i, j] + (
+                        shrinkage_factor * avg_corr
+                    )
 
         res_list: list[list[float]] = shrunk_mat.tolist()
         return res_list

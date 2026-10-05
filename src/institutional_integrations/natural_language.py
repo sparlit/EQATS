@@ -29,7 +29,9 @@ def extract_advanced_nlp_sentiments(headline: Any) -> Any:
         lower_h = headline.lower()
         if any(w in lower_h for w in ["bull", "buy", "gain", "rise", "approve", "positive"]):
             scores["textblob_polarity"] = 0.45
-        elif any(w in lower_h for w in ["bear", "sell", "loss", "fall", "reject", "negative", "drop"]):
+        elif any(
+            w in lower_h for w in ["bear", "sell", "loss", "fall", "reject", "negative", "drop"]
+        ):
             scores["textblob_polarity"] = -0.45
     try:
         import spacy
@@ -42,7 +44,9 @@ def extract_advanced_nlp_sentiments(headline: Any) -> Any:
     try:
         from transformers import pipeline
 
-        classifier = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+        classifier = pipeline(
+            "sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english"
+        )
         res = classifier(headline)[0]
         scores["bert_classifier_score"] = res["score"]
         if res["label"] == "NEGATIVE":

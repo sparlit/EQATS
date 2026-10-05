@@ -7,7 +7,6 @@ and Geometric Exit Target Calculator.
 import logging
 import math
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
 
 import numpy as np
 

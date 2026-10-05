@@ -11,7 +11,7 @@ import logging
 import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -59,7 +59,9 @@ class IntelligentTradingBotEngine:
         self.horizon_bars = horizon_bars
         self.magic_number = MAGIC_NUMBER_INTELLIGENT_TRADING_BOT
 
-    def compute_rolling_features(self, prices: list[float], highs: list[float], lows: list[float]) -> dict[str, float]:
+    def compute_rolling_features(
+        self, prices: list[float], highs: list[float], lows: list[float]
+    ) -> dict[str, float]:
         """
         Computes rolling time-series features from historical bar series.
         """
@@ -141,7 +143,9 @@ class IntelligentTradingBotBrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -184,10 +188,14 @@ class IntelligentTradingBotBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

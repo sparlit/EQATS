@@ -6,9 +6,8 @@ and Apex/FTMO Peak Drawdown Tracker.
 """
 
 import logging
-import math
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("EAScalperXAUUSD")
 
@@ -31,11 +30,25 @@ class AMDCycleTracker:
         manipulation_high_sweep = curr_high > recent_high and curr_close < recent_high
         manipulation_low_sweep = curr_low < recent_low and curr_close > recent_low
         if manipulation_high_sweep:
-            return {"phase": "MANIPULATION", "bias": "SELL", "manipulation_detected": True, "sweep_type": "HIGH_SWEEP"}
+            return {
+                "phase": "MANIPULATION",
+                "bias": "SELL",
+                "manipulation_detected": True,
+                "sweep_type": "HIGH_SWEEP",
+            }
         if manipulation_low_sweep:
-            return {"phase": "MANIPULATION", "bias": "BUY", "manipulation_detected": True, "sweep_type": "LOW_SWEEP"}
+            return {
+                "phase": "MANIPULATION",
+                "bias": "BUY",
+                "manipulation_detected": True,
+                "sweep_type": "LOW_SWEEP",
+            }
         if 12 <= utc_hour <= 18:
-            return {"phase": "DISTRIBUTION", "bias": "TREND_CONTINUATION", "manipulation_detected": False}
+            return {
+                "phase": "DISTRIBUTION",
+                "bias": "TREND_CONTINUATION",
+                "manipulation_detected": False,
+            }
         return {"phase": "ACCUMULATION", "bias": "RANGE", "manipulation_detected": False}
 
 

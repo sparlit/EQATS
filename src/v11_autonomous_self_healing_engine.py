@@ -12,7 +12,7 @@ import os
 import sys
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import config
 import database
@@ -131,7 +131,9 @@ class V11HyperAutonomousSelfFixingGovernor:
                     self._log_healing(f"⚠️ Self-Healing daemon cycle exception handled: {e}")
                 time.sleep(self.check_interval_sec)
 
-        self._daemon_thread = threading.Thread(target=_loop, name="v11_self_healing_governor_daemon", daemon=True)
+        self._daemon_thread = threading.Thread(
+            target=_loop, name="v11_self_healing_governor_daemon", daemon=True
+        )
         self._daemon_thread.start()
 
     def stop_daemon(self) -> None:

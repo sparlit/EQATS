@@ -3,11 +3,8 @@ Awesome LLM Agent Suite Core.
 Provides Deep Research Agent, Investment Agent, Data Analyst SQL Agent, and xAI Financial Agent.
 """
 
-import io
 import logging
-import math
-from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import numpy as np
@@ -59,7 +56,10 @@ class DataAnalystAgent:
         if PANDAS_AVAILABLE and isinstance(df_or_records, pd.DataFrame):
             df = df_or_records
             numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-            stats = {col: {"mean": float(df[col].mean()), "std": float(df[col].std())} for col in numeric_cols}
+            stats = {
+                col: {"mean": float(df[col].mean()), "std": float(df[col].std())}
+                for col in numeric_cols
+            }
             return {"rows": len(df), "columns": list(df.columns), "numeric_stats": stats}
         return {
             "rows": len(df_or_records) if isinstance(df_or_records, list) else 0,

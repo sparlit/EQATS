@@ -8,11 +8,9 @@ analytical calculations, backtesting sweeps, predictive neural forecasts, and ba
 
 import logging
 import os
-import sys
-import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +30,9 @@ class ParallelPoolOrchestrator:
 
     def get_thread_executor(self) -> ThreadPoolExecutor:
         if self._thread_pool is None:
-            self._thread_pool = ThreadPoolExecutor(max_workers=self.max_threads, thread_name_prefix="eqats_v11_thread")
+            self._thread_pool = ThreadPoolExecutor(
+                max_workers=self.max_threads, thread_name_prefix="eqats_v11_thread"
+            )
         return self._thread_pool
 
     def get_process_executor(self) -> ProcessPoolExecutor:

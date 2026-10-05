@@ -79,7 +79,9 @@ class EventBus:
                 try:
                     listener(event)
                 except Exception as e:
-                    print(f"ERROR: Listener {listener.__name__} crashed handling {event.family}: {e}")
+                    print(
+                        f"ERROR: Listener {listener.__name__} crashed handling {event.family}: {e}"
+                    )
         elif event.family == "MARKET_DATA":
             print(f"[EVENT BUS - IF-ELIF LOOP] Market data event received: {event.event_id}")
         elif event.family == "TRADE_SIGNAL":

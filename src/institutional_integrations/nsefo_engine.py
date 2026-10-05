@@ -11,8 +11,7 @@ Provides:
 import logging
 import math
 import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
 
 logger = logging.getLogger("NSeFoEngine")
 
@@ -70,7 +69,8 @@ class NSeFoOptionGreeksCalculator:
         if opt_type in ("CE", "CALL"):
             delta = self._norm_cdf(d1)
             theta = (
-                -(s * self._norm_pdf(d1) * sigma) / (2.0 * math.sqrt(t)) - r * k * math.exp(-r * t) * self._norm_cdf(d2)
+                -(s * self._norm_pdf(d1) * sigma) / (2.0 * math.sqrt(t))
+                - r * k * math.exp(-r * t) * self._norm_cdf(d2)
             ) / 365.0
         else:
             delta = self._norm_cdf(d1) - 1.0

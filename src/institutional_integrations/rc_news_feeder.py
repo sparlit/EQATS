@@ -8,11 +8,10 @@ Provides:
 - Currency-Specific Proximity Calculator & Pre-Trade Blackout Guard
 """
 
-import json
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class NewsImpact(str, Enum):
@@ -46,7 +45,9 @@ class RCNewsFeederEngine:
     """RCNewsFeeder Economic News Feeder & Pre-Trade Blackout Engine."""
 
     def __init__(
-        self, high_impact_blackout_minutes_before: float = 15.0, high_impact_blackout_minutes_after: float = 15.0
+        self,
+        high_impact_blackout_minutes_before: float = 15.0,
+        high_impact_blackout_minutes_after: float = 15.0,
     ) -> None:
         self.high_impact_blackout_before = high_impact_blackout_minutes_before
         self.high_impact_blackout_after = high_impact_blackout_minutes_after
@@ -75,7 +76,9 @@ class RCNewsFeederEngine:
             self.events.append(event)
         return len(self.events)
 
-    def check_currency_news_blackout(self, currency: str, current_time: datetime) -> NewsBlackoutCheck:
+    def check_currency_news_blackout(
+        self, currency: str, current_time: datetime
+    ) -> NewsBlackoutCheck:
         """Checks if a currency is within an active news blackout window."""
         curr_upper = currency.upper()
         for ev in self.events:

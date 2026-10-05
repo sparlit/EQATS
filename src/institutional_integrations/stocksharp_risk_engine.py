@@ -13,10 +13,9 @@ Provides:
 - Risk Actions: CLOSE_POSITIONS, CANCEL_ORDERS, STOP_TRADING
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 
 class RiskAction(str, Enum):
@@ -106,7 +105,9 @@ class StockSharpRiskManager:
         self.violations.extend(rule_violations)
         return rule_violations
 
-    def evaluate_slippage_rule(self, actual_slippage_pips: float, current_time: datetime) -> list[RiskRuleViolation]:
+    def evaluate_slippage_rule(
+        self, actual_slippage_pips: float, current_time: datetime
+    ) -> list[RiskRuleViolation]:
         """Evaluates order execution slippage rule."""
         rule_violations = []
         if actual_slippage_pips > self.max_slippage_pips:

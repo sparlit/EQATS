@@ -10,8 +10,7 @@ Provides multi-dimensional regime classification across:
 """
 
 import logging
-import math
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("v11_macro_regime_brain")
 
@@ -96,7 +95,9 @@ class MacroRegimeClassifierBrain:
             regime = RegimeType.RANGE_LOW_VOL
 
         # Macro risk-on / risk-off classification
-        macro_bias = "RISK_ON" if direction == "UP" else "RISK_OFF" if direction == "DOWN" else "NEUTRAL"
+        macro_bias = (
+            "RISK_ON" if direction == "UP" else "RISK_OFF" if direction == "DOWN" else "NEUTRAL"
+        )
 
         return {
             "regime": regime,

@@ -6,7 +6,7 @@ import os
 import sqlite3
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import config
 
@@ -18,7 +18,9 @@ try:
     _BCRYPT_ROUNDS = 12
 except ImportError:
     _BCRYPT_AVAILABLE = False
-    _log.warning("bcrypt library not available. Password security is degraded. Install with: pip install bcrypt")
+    _log.warning(
+        "bcrypt library not available. Password security is degraded. Install with: pip install bcrypt"
+    )
 
 # Encryption key management with environment variable support
 _ENCRYPTION_KEY = None
@@ -64,7 +66,9 @@ def _get_encryption_key() -> Any:
     _ENCRYPTION_SALT = _get_or_create_salt()
 
     # Derive key using PBKDF2 with 480,000 iterations (OWASP 2023 recommendation)
-    _ENCRYPTION_KEY = hashlib.pbkdf2_hmac("sha256", master_password.encode("utf-8"), _ENCRYPTION_SALT, 480000, dklen=32)
+    _ENCRYPTION_KEY = hashlib.pbkdf2_hmac(
+        "sha256", master_password.encode("utf-8"), _ENCRYPTION_SALT, 480000, dklen=32
+    )
 
     return _ENCRYPTION_KEY
 
@@ -410,7 +414,9 @@ def _init_db_impl() -> None:
                 "\n            CREATE TABLE IF NOT EXISTS users (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                username TEXT UNIQUE NOT NULL,\n                password_hash TEXT NOT NULL,\n                pin_hash TEXT NOT NULL,\n                role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',\n                mfa_enabled INTEGER DEFAULT 1,\n                login_style TEXT DEFAULT 'MATRIX_NEON',\n                created_at TEXT NOT NULL\n            )\n            "
             )
             try:
-                cursor.execute("ALTER TABLE users ADD COLUMN login_style TEXT DEFAULT 'MATRIX_NEON'")
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN login_style TEXT DEFAULT 'MATRIX_NEON'"
+                )
             except sqlite3.OperationalError:
                 pass
 
@@ -482,23 +488,45 @@ def _init_db_impl() -> None:
             try:
                 cursor.execute("SELECT api_key FROM broker_credentials LIMIT 1")
                 _log.info("Migrating broker_credentials schema to encrypt api_key field")
-                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_key TO api_key_encrypted")
+                cursor.execute(
+                    "ALTER TABLE broker_credentials RENAME COLUMN api_key TO api_key_encrypted"
+                )
             except sqlite3.OperationalError:
                 pass
             try:
-                cursor.execute("ALTER TABLE broker_credentials RENAME COLUMN api_secret TO api_secret_encrypted")
+                cursor.execute(
+                    "ALTER TABLE broker_credentials RENAME COLUMN api_secret TO api_secret_encrypted"
+                )
             except sqlite3.OperationalError:
                 pass
             _SCHEMA_ALTERS = [
-                ("ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'", "broker_name"),
-                ("ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'", "environment"),
-                ("ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1", "is_active"),
-                ("ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'", "protocol_type"),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN broker_name TEXT DEFAULT 'PRIMARY GATEWAY'",
+                    "broker_name",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN environment TEXT DEFAULT 'Demo'",
+                    "environment",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN is_active INTEGER DEFAULT 1",
+                    "is_active",
+                ),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN protocol_type TEXT DEFAULT 'MT5'",
+                    "protocol_type",
+                ),
                 ("ALTER TABLE broker_credentials ADD COLUMN api_key TEXT DEFAULT ''", "api_key"),
-                ("ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''", "api_secret"),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN api_secret TEXT DEFAULT ''",
+                    "api_secret",
+                ),
                 ("ALTER TABLE broker_credentials ADD COLUMN rest_url TEXT DEFAULT ''", "rest_url"),
                 ("ALTER TABLE broker_credentials ADD COLUMN ws_url TEXT DEFAULT ''", "ws_url"),
-                ("ALTER TABLE broker_credentials ADD COLUMN terminal_path TEXT DEFAULT ''", "terminal_path"),
+                (
+                    "ALTER TABLE broker_credentials ADD COLUMN terminal_path TEXT DEFAULT ''",
+                    "terminal_path",
+                ),
             ]
             for _sql, _col in _SCHEMA_ALTERS:
                 try:
@@ -555,7 +583,10 @@ def verify_user_password(username: Any, password_input: Any) -> Any:
     if is_valid and needs_rehash:
         try:
             new_hash = hash_credential_secure(password_input)
-            cursor.execute("UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)", (new_hash, username))
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
+                (new_hash, username),
+            )
             conn.commit()
             _log.info("Upgraded password hash to bcrypt for user: %s", username)
         except Exception as e:
@@ -584,7 +615,9 @@ def verify_user_credentials(username: Any, password_input: Any, pin_input: Any =
     """
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT password_hash, pin_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+    cursor.execute(
+        "SELECT password_hash, pin_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,)
+    )
     row = cursor.fetchone()
 
     if not row:
@@ -601,7 +634,10 @@ def verify_user_credentials(username: Any, password_input: Any, pin_input: Any =
     if pwd_needs_rehash:
         try:
             new_hash = hash_credential_secure(password_input)
-            cursor.execute("UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)", (new_hash, username))
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
+                (new_hash, username),
+            )
             conn.commit()
             _log.info("Upgraded password hash to bcrypt for user: %s", username)
         except Exception as e:
@@ -616,7 +652,8 @@ def verify_user_credentials(username: Any, password_input: Any, pin_input: Any =
             try:
                 new_pin_hash = hash_credential_secure(typed_pin)
                 cursor.execute(
-                    "UPDATE users SET pin_hash = ? WHERE LOWER(username) = LOWER(?)", (new_pin_hash, username)
+                    "UPDATE users SET pin_hash = ? WHERE LOWER(username) = LOWER(?)",
+                    (new_pin_hash, username),
                 )
                 conn.commit()
                 _log.info("Upgraded PIN hash to bcrypt for user: %s", username)
@@ -733,7 +770,9 @@ def _fetch_with_retry(query: Any, params: Any = (), fetch_all: Any = True) -> An
                 return [] if fetch_all else None
 
 
-def add_user(username: Any, password: Any, pin: Any, role: Any = "QUANT_TRADER", mfa_enabled: Any = 1) -> None:
+def add_user(
+    username: Any, password: Any, pin: Any, role: Any = "QUANT_TRADER", mfa_enabled: Any = 1
+) -> None:
     """
     Adds a new operator account with cryptographically secure bcrypt-hashed password and PIN.
 
@@ -785,7 +824,10 @@ def update_user(
     """
     target_user = original_username or username
     if username and target_user and (username.lower() != target_user.lower()):
-        _execute_with_retry("UPDATE users SET username = ? WHERE LOWER(username) = LOWER(?)", (username, target_user))
+        _execute_with_retry(
+            "UPDATE users SET username = ? WHERE LOWER(username) = LOWER(?)",
+            (username, target_user),
+        )
         target_user = username
     if new_password is not None and str(new_password).strip():
         _execute_with_retry(
@@ -799,11 +841,13 @@ def update_user(
         )
     if new_role is not None and str(new_role).strip():
         _execute_with_retry(
-            "UPDATE users SET role = ? WHERE LOWER(username) = LOWER(?)", (str(new_role).strip(), target_user)
+            "UPDATE users SET role = ? WHERE LOWER(username) = LOWER(?)",
+            (str(new_role).strip(), target_user),
         )
     if login_style is not None and str(login_style).strip():
         _execute_with_retry(
-            "UPDATE users SET login_style = ? WHERE LOWER(username) = LOWER(?)", (str(login_style).strip(), target_user)
+            "UPDATE users SET login_style = ? WHERE LOWER(username) = LOWER(?)",
+            (str(login_style).strip(), target_user),
         )
 
 
@@ -868,7 +912,9 @@ def get_user_login_style(username: str = "QUANT_OPERATOR") -> str:
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT login_style FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+        cursor.execute(
+            "SELECT login_style FROM users WHERE LOWER(username) = LOWER(?)", (username,)
+        )
         row = cursor.fetchone()
         conn.close()
         if row and row["login_style"]:
@@ -1425,7 +1471,9 @@ def get_broker_profile(broker_key: str) -> dict[str, Any] | None:
     """Retrieves operational parameters for a specific broker key."""
     seed_default_broker_profiles()
     row = _fetch_with_retry(
-        "SELECT * FROM broker_profiles WHERE LOWER(broker_key) = LOWER(?)", (broker_key,), fetch_all=False
+        "SELECT * FROM broker_profiles WHERE LOWER(broker_key) = LOWER(?)",
+        (broker_key,),
+        fetch_all=False,
     )
     if row:
         return dict(row)
@@ -1553,7 +1601,9 @@ def validate_terminal_path(terminal_path: str) -> str:
         # Check 2: Must be absolute path (not relative)
         is_abs = path_obj.is_absolute() or pathlib.PureWindowsPath(path_str).is_absolute()
         if not is_abs:
-            _log.warning("Terminal path validation failed: path must be absolute, got '%s'", path_str)
+            _log.warning(
+                "Terminal path validation failed: path must be absolute, got '%s'", path_str
+            )
             raise ValueError("Terminal path must be an absolute path")
 
         # Check 3: Must not contain directory traversal sequences
@@ -1562,25 +1612,37 @@ def validate_terminal_path(terminal_path: str) -> str:
         else:
             normalized_str = str(path_obj)
         if ".." in path_str or ".." in normalized_str:
-            _log.warning("Terminal path validation failed: directory traversal detected in '%s'", path_str)
+            _log.warning(
+                "Terminal path validation failed: directory traversal detected in '%s'", path_str
+            )
             raise ValueError("Terminal path must not contain directory traversal sequences")
         if hasattr(path_obj, "exists") and path_obj.exists():
             if not path_obj.is_file():
                 _log.warning(
-                    "Terminal path validation failed: path exists but is not a regular file: '%s'", normalized_str
+                    "Terminal path validation failed: path exists but is not a regular file: '%s'",
+                    normalized_str,
                 )
                 raise ValueError("Terminal path must point to a regular file")
             try:
                 resolved_path = path_obj.resolve(strict=True)
                 resolved_filename = resolved_path.name.lower()
-                if resolved_filename not in ("terminal64.exe", "terminal.exe", "terminal64", "terminal"):
+                if resolved_filename not in (
+                    "terminal64.exe",
+                    "terminal.exe",
+                    "terminal64",
+                    "terminal",
+                ):
                     _log.warning(
                         "Terminal path validation failed: resolved path does not point to MT5 terminal: '%s'",
                         str(resolved_path),
                     )
-                    raise ValueError("Resolved terminal path does not point to a valid MT5 terminal executable")
+                    raise ValueError(
+                        "Resolved terminal path does not point to a valid MT5 terminal executable"
+                    )
             except Exception as e:
-                _log.warning("Terminal path validation failed: could not resolve path '%s': %s", path_str, e)
+                _log.warning(
+                    "Terminal path validation failed: could not resolve path '%s': %s", path_str, e
+                )
                 raise ValueError(f"Could not resolve terminal path: {e}")
 
         # Check 5: Path must be in approved directories (common MT5 installation locations)
@@ -1625,7 +1687,9 @@ def validate_terminal_path(terminal_path: str) -> str:
     except ValueError:
         raise
     except Exception as e:
-        _log.error("Terminal path validation failed with unexpected error for '%s': %s", path_str, e)
+        _log.error(
+            "Terminal path validation failed with unexpected error for '%s': %s", path_str, e
+        )
         raise ValueError(f"Terminal path validation error: {e}")
 
 
@@ -1809,7 +1873,9 @@ def get_broker_credentials() -> Any:
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
+        cursor.execute(
+            "SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1"
+        )
         row = cursor.fetchone()
         if not row:
             cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
@@ -1827,7 +1893,9 @@ def get_broker_credentials() -> Any:
         try:
             conn = get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
+            cursor.execute(
+                "SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1"
+            )
             row = cursor.fetchone()
             if not row:
                 cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
@@ -1867,7 +1935,9 @@ def get_broker_credentials() -> Any:
     # SECURITY: Return actual database values without hardcoded fallbacks
     # Empty/missing fields return empty strings, not hardcoded demo credentials
     return {
-        "broker_name": row["broker_name"] if "broker_name" in keys and row["broker_name"] else "Primary Gateway",
+        "broker_name": row["broker_name"]
+        if "broker_name" in keys and row["broker_name"]
+        else "Primary Gateway",
         "server": row["server"] if "server" in keys and row["server"] else "",
         "account_id": row["account_id"] if "account_id" in keys and row["account_id"] else "",
         "password": (
@@ -1876,13 +1946,19 @@ def get_broker_credentials() -> Any:
             else ""
         ),
         "leverage": row["leverage"] if "leverage" in keys else "1:100",
-        "environment": row["environment"] if "environment" in keys and row["environment"] else "Demo",
-        "protocol_type": row["protocol_type"] if "protocol_type" in keys and row["protocol_type"] else "MT5",
+        "environment": row["environment"]
+        if "environment" in keys and row["environment"]
+        else "Demo",
+        "protocol_type": row["protocol_type"]
+        if "protocol_type" in keys and row["protocol_type"]
+        else "MT5",
         "api_key": api_key_value,
         "api_secret": api_secret_value,
         "rest_url": row["rest_url"] if "rest_url" in keys and row["rest_url"] else "",
         "ws_url": row["ws_url"] if "ws_url" in keys and row["ws_url"] else "",
-        "terminal_path": row["terminal_path"] if "terminal_path" in keys and row["terminal_path"] else "",
+        "terminal_path": row["terminal_path"]
+        if "terminal_path" in keys and row["terminal_path"]
+        else "",
     }
 
 
@@ -1897,7 +1973,15 @@ def log_assessment(
     """Logs an analysis assessment made by the brain with lock retries."""
     _execute_with_retry(
         "\n    INSERT INTO assessments (timestamp, symbol, trend_direction, rsi_val, atr_val, decision, explanation)\n    VALUES (?, ?, ?, ?, ?, ?, ?)\n    ",
-        (datetime.datetime.now().isoformat(), symbol, trend_direction, rsi_val, atr_val, decision, explanation),
+        (
+            datetime.datetime.now().isoformat(),
+            symbol,
+            trend_direction,
+            rsi_val,
+            atr_val,
+            decision,
+            explanation,
+        ),
     )
 
 
@@ -2081,7 +2165,9 @@ def update_performance_metrics(date_str: Any, current_balance: Any) -> None:
     net_profit = sum(row["profit"] for row in rows) if trades_taken > 0 else 0.0
     wins = sum(1 for row in rows if row["profit"] > 0)
     win_rate = wins / trades_taken * 100.0 if trades_taken > 0 else 0.0
-    exists_row = _fetch_with_retry("SELECT 1 FROM performance_metrics WHERE date = ?", (date_str,), fetch_all=False)
+    exists_row = _fetch_with_retry(
+        "SELECT 1 FROM performance_metrics WHERE date = ?", (date_str,), fetch_all=False
+    )
     exists = exists_row is not None
     if exists:
         _execute_with_retry(
@@ -2091,7 +2177,14 @@ def update_performance_metrics(date_str: Any, current_balance: Any) -> None:
     else:
         _execute_with_retry(
             "\n            INSERT INTO performance_metrics (date, initial_balance, final_balance, trades_taken, win_rate, net_profit)\n            VALUES (?, ?, ?, ?, ?, ?)\n        ",
-            (date_str, current_balance - net_profit, current_balance, trades_taken, win_rate, net_profit),
+            (
+                date_str,
+                current_balance - net_profit,
+                current_balance,
+                trades_taken,
+                win_rate,
+                net_profit,
+            ),
         )
 
 
@@ -2100,7 +2193,9 @@ def get_all_time_performance() -> Any:
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("\n            SELECT profit FROM trades\n            WHERE status = 'CLOSED'\n        ")
+        cursor.execute(
+            "\n            SELECT profit FROM trades\n            WHERE status = 'CLOSED'\n        "
+        )
         rows = cursor.fetchall()
         conn.close()
     except sqlite3.OperationalError:
@@ -2110,7 +2205,11 @@ def get_all_time_performance() -> Any:
     net_profit = sum(row["profit"] for row in rows) if total_trades > 0 else 0.0
     wins = sum(1 for row in rows if row["profit"] > 0)
     win_rate = wins / total_trades * 100.0 if total_trades > 0 else 0.0
-    return {"total_trades": total_trades, "win_rate": round(win_rate, 2), "net_profit": round(net_profit, 2)}
+    return {
+        "total_trades": total_trades,
+        "win_rate": round(win_rate, 2),
+        "net_profit": round(net_profit, 2),
+    }
 
 
 def get_all_trades() -> Any:
@@ -2200,7 +2299,9 @@ def clear_circuit_breaker_halt() -> Any:
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT trading_date, daily_start_balance FROM circuit_breaker_state WHERE id = 1")
+        cursor.execute(
+            "SELECT trading_date, daily_start_balance FROM circuit_breaker_state WHERE id = 1"
+        )
         row = cursor.fetchone()
         conn.close()
 
@@ -2219,7 +2320,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="EQATS Database Administrative CLI Utility")
-    parser.add_argument("--reset-admin", action="store_true", help="Reset default QUANT_OPERATOR admin user")
+    parser.add_argument(
+        "--reset-admin", action="store_true", help="Reset default QUANT_OPERATOR admin user"
+    )
     parser.add_argument("--username", type=str, default="QUANT_OPERATOR", help="Target username")
     parser.add_argument("--password", type=str, help="New password for user")
     parser.add_argument("--pin", type=str, help="New secondary MFA PIN for user")
@@ -2286,7 +2389,9 @@ def get_instrument_token_from_db(symbol_key: str) -> int | None:
     try:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT instrument_token FROM indian_instruments WHERE symbol = ?", (sym,))
+            cursor.execute(
+                "SELECT instrument_token FROM indian_instruments WHERE symbol = ?", (sym,)
+            )
             row = cursor.fetchone()
             if row:
                 return int(row[0])
@@ -2302,7 +2407,10 @@ def get_symbol_from_db_token(instrument_token: int) -> str | None:
     try:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT symbol FROM indian_instruments WHERE instrument_token = ?", (int(instrument_token),))
+            cursor.execute(
+                "SELECT symbol FROM indian_instruments WHERE instrument_token = ?",
+                (int(instrument_token),),
+            )
             row = cursor.fetchone()
             if row:
                 return str(row[0])

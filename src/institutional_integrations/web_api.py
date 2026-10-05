@@ -63,7 +63,9 @@ class SocketIPCBridge:
             if self.running:
                 print(f"Diagnostics: Socket IPC server failed to bind: {e}")
 
-    def format_pipe_state(self, equity: Any, balance: Any, active_positions: Any, scans: Any, session_info: Any) -> Any:
+    def format_pipe_state(
+        self, equity: Any, balance: Any, active_positions: Any, scans: Any, session_info: Any
+    ) -> Any:
         """Formats account and scan telemetry as pipe-delimited string for MT5 EA parser."""
         if isinstance(session_info, dict):
             active_session = session_info.get("active", "Active Session")
@@ -75,9 +77,7 @@ class SocketIPCBridge:
             overlaps = "None"
             next_session = "Tokyo"
             countdown = "00:00:00"
-        header_line = (
-            f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{overlaps}|{next_session}|{countdown}"
-        )
+        header_line = f"{equity:.2f}|{balance:.2f}|{len(active_positions)}|{active_session}|{overlaps}|{next_session}|{countdown}"
         lines = [header_line]
         for pos in active_positions:
             if isinstance(pos, dict):
@@ -103,7 +103,9 @@ class SocketIPCBridge:
                 w_ho = s.get("avg_w_ho", "0.0")
                 bias = s.get("bias_out", "0.0")
                 act = s.get("hidden_act", "0,0,0,0,0")
-                lines.append(f"{sym}|{price}|{ema}|{trend}|{rsi}|{atr}|{status}|{w_ih}|{w_ho}|{bias}|{act}")
+                lines.append(
+                    f"{sym}|{price}|{ema}|{trend}|{rsi}|{atr}|{status}|{w_ih}|{w_ho}|{bias}|{act}"
+                )
         return "\n".join(lines) + "\n"
 
     def push_state(
@@ -120,7 +122,9 @@ class SocketIPCBridge:
         if raw_text is not None:
             self.latest_state = raw_text
         else:
-            pipe_text = self.format_pipe_state(equity, balance, active_positions, scans, session_info)
+            pipe_text = self.format_pipe_state(
+                equity, balance, active_positions, scans, session_info
+            )
             self.latest_state = {
                 "timestamp": time.time(),
                 "equity": round(equity, 2),
@@ -133,7 +137,9 @@ class SocketIPCBridge:
                 "pipe_text": pipe_text,
             }
         payload_size = (
-            len(self.latest_state) if isinstance(self.latest_state, str) else len(json.dumps(self.latest_state))
+            len(self.latest_state)
+            if isinstance(self.latest_state, str)
+            else len(json.dumps(self.latest_state))
         )
         return {"status": "PUSHED", "payload_size": payload_size}
 
@@ -154,7 +160,9 @@ class TradingOSHTTPServer:
     Serves system state, configuration, execution commands, MT5 connectivity, equity metrics, and health checks.
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 50005, scalper_instance: Any = None) -> None:
+    def __init__(
+        self, host: str = "127.0.0.1", port: int = 50005, scalper_instance: Any = None
+    ) -> None:
         self.host = host
         self.port = port
         self.scalper = scalper_instance
@@ -251,6 +259,7 @@ class TradingOSHTTPServer:
             }
         elif path_clean == "/api/config":
             import config
+
             return {
                 "simulation_mode": config.SIMULATION_MODE,
                 "symbols": config.SYMBOLS,
@@ -284,7 +293,13 @@ class TelemetryStreamServer:
         self.port = port
 
     def build_telemetry_payload(
-        self, current_time: Any, equity: Any, balance: Any, active_positions: Any, scans: Any, perf: Any
+        self,
+        current_time: Any,
+        equity: Any,
+        balance: Any,
+        active_positions: Any,
+        scans: Any,
+        perf: Any,
     ) -> Any:
         """
         Constructs structured JSON telemetry stream payload.
@@ -351,7 +366,9 @@ class MCPServerCore:
             "timestamp": time.time(),
         }
 
-    def execute_trade_command(self, symbol: str, action: str, volume: float = 0.01) -> dict[str, Any]:
+    def execute_trade_command(
+        self, symbol: str, action: str, volume: float = 0.01
+    ) -> dict[str, Any]:
         """Handles agentic trade execution requests with safety validation."""
         act_upper = action.upper()
         if act_upper not in ["BUY", "SELL", "CLOSE_ALL", "FLATTEN"]:
@@ -394,7 +411,8 @@ def push_telemetry_to_kafka_queue(topic: Any, payload_dict: Any) -> Any:
         from kafka import KafkaProducer
 
         producer = KafkaProducer(
-            bootstrap_servers=["localhost:9092"], value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            bootstrap_servers=["localhost:9092"],
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
         )
         producer.send(topic, payload_dict)
         return True

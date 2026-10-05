@@ -8,9 +8,9 @@ Provides:
 - ArkoRisk Equity Safeguard Engine
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class MarketType(str, Enum):
@@ -244,7 +244,12 @@ class ArkoRiskGuard:
     ) -> dict[str, Any]:
         """Calculates optimal lot size based on ArkoRisk dynamic risk rules."""
         if stop_loss_pips <= 0 or pip_value_per_lot <= 0:
-            return {"lot_size": 0.0, "risk_amount": 0.0, "risk_pct": 0.0, "reason": "Invalid SL or Pip Value"}
+            return {
+                "lot_size": 0.0,
+                "risk_amount": 0.0,
+                "risk_pct": 0.0,
+                "reason": "Invalid SL or Pip Value",
+            }
         base_risk_pct = 1.0
         if self.profile == RiskProfilePreset.CONSERVATIVE:
             base_risk_pct = 0.5

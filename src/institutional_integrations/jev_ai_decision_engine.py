@@ -110,7 +110,9 @@ class JevDecisionResult:
     nouls: dict[str, dict[str, Any]] = field(default_factory=dict)
     is_offline_fallback: bool = False
     magic_number: int = MAGIC_NUMBER_JEV_AI
-    timestamp: str = field(default_factory=lambda: datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).isoformat()
+    )
 
 
 class JevAIDecisionEngine:
@@ -385,10 +387,18 @@ class JevAIDecisionEngine:
                 }
 
         # Deterministic Heuristic Fallback
-        if portfolio_drawdown_pct >= 2.0 or position_size_inr > 500000.0 or slippage_estimate_bps > 50.0:
+        if (
+            portfolio_drawdown_pct >= 2.0
+            or position_size_inr > 500000.0
+            or slippage_estimate_bps > 50.0
+        ):
             selected_label = "CRITICAL"
             val = 4.0
-        elif portfolio_drawdown_pct >= 1.0 or position_size_inr > 200000.0 or slippage_estimate_bps > 25.0:
+        elif (
+            portfolio_drawdown_pct >= 1.0
+            or position_size_inr > 200000.0
+            or slippage_estimate_bps > 25.0
+        ):
             selected_label = "HIGH"
             val = 3.0
         elif position_size_inr > 50000.0 or slippage_estimate_bps > 10.0:
@@ -468,14 +478,20 @@ class JevAIDecisionEngine:
         sanitized_price = round_tick_005(price)
 
         regime_res = self.classify_market_regime(symbol, sanitized_price, vix, atr, rsi)
-        risk_res = self.score_trade_risk_severity(symbol, position_size_inr, portfolio_drawdown_pct, slippage_bps)
-        safety_res = self.evaluate_execution_safety_noul(symbol, "BUY", sanitized_price, vix, portfolio_drawdown_pct)
+        risk_res = self.score_trade_risk_severity(
+            symbol, position_size_inr, portfolio_drawdown_pct, slippage_bps
+        )
+        safety_res = self.evaluate_execution_safety_noul(
+            symbol, "BUY", sanitized_price, vix, portfolio_drawdown_pct
+        )
 
         is_fallback = regime_res.get("is_fallback", True) or risk_res.get("is_fallback", True)
 
         result = JevDecisionResult(
             request_id=f"JEV-DECISION-{int(datetime.now().timestamp() * 1000)}",
-            state_summary=(f"{symbol} @ {sanitized_price:.2f} INR | VIX {vix} | DD {portfolio_drawdown_pct}%"),
+            state_summary=(
+                f"{symbol} @ {sanitized_price:.2f} INR | VIX {vix} | DD {portfolio_drawdown_pct}%"
+            ),
             choices={"market_regime": regime_res},
             scores={"trade_risk_severity": risk_res},
             nouls={"execution_safety": safety_res},
@@ -612,7 +628,9 @@ class JevAIDecisionBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order parameters."""
         return True
 

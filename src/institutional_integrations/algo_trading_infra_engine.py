@@ -18,7 +18,7 @@ Features:
 import datetime
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -68,7 +68,9 @@ class OrderBookDepthBuffer:
         self.asks: list[dict[str, float]] = []
 
     def update_depth(self, bids: list[dict[str, float]], asks: list[dict[str, float]]) -> None:
-        self.bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)[: self.depth_levels]
+        self.bids = sorted(bids, key=lambda x: x.get("price", 0.0), reverse=True)[
+            : self.depth_levels
+        ]
         self.asks = sorted(asks, key=lambda x: x.get("price", 0.0))[: self.depth_levels]
 
     def estimate_slippage(self, order_quantity: float, side: str) -> dict[str, float]:
@@ -169,7 +171,9 @@ class AlgoTradingInfraEngine(SEBIBrokerAdapter):
             "magic_number": self.magic_number,
         }
 
-    def update_market_depth(self, symbol: str, bids: list[dict[str, float]], asks: list[dict[str, float]]) -> None:
+    def update_market_depth(
+        self, symbol: str, bids: list[dict[str, float]], asks: list[dict[str, float]]
+    ) -> None:
         if symbol not in self.orderbook_buffers:
             self.orderbook_buffers[symbol] = OrderBookDepthBuffer()
         self.orderbook_buffers[symbol].update_depth(bids, asks)

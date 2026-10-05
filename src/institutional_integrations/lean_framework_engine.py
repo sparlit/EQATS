@@ -7,9 +7,7 @@ Provides:
 - LeanMaximumDrawdownPercentPortfolio: Static & Trailing Drawdown Portfolio Risk Manager & Liquidation Target Generator
 """
 
-import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -40,7 +38,9 @@ class PearsonCorrelationPairsTradingAlphaModel:
         self.minimum_correlation = minimum_correlation
         self.z_score_threshold = z_score_threshold
 
-    def find_best_pair(self, price_series_dict: dict[str, list[float]]) -> PairCorrelationResult | None:
+    def find_best_pair(
+        self, price_series_dict: dict[str, list[float]]
+    ) -> PairCorrelationResult | None:
         """Calculates Pearson correlation matrix across asset pairs and evaluates best ratio z-score signal."""
         symbols = sorted(list(price_series_dict.keys()))
         if len(symbols) < 2:
@@ -92,7 +92,9 @@ class LeanMaximumDrawdownPercentPortfolio:
         self.portfolio_high: float = 0.0
         self.initialized: bool = False
 
-    def manage_risk(self, current_portfolio_value: float, active_symbols: list[str]) -> list[LeanPortfolioTarget]:
+    def manage_risk(
+        self, current_portfolio_value: float, active_symbols: list[str]
+    ) -> list[LeanPortfolioTarget]:
         """Evaluates static or trailing portfolio high-water mark and returns liquidation targets if breached."""
         if not self.initialized:
             self.portfolio_high = current_portfolio_value
@@ -100,7 +102,9 @@ class LeanMaximumDrawdownPercentPortfolio:
         if self.is_trailing and current_portfolio_value > self.portfolio_high:
             self.portfolio_high = current_portfolio_value
             return []
-        dd_pct = current_portfolio_value / self.portfolio_high - 1.0 if self.portfolio_high > 0 else 0.0
+        dd_pct = (
+            current_portfolio_value / self.portfolio_high - 1.0 if self.portfolio_high > 0 else 0.0
+        )
         if dd_pct < self.maximum_drawdown_percent:
             self.initialized = False
             return [

@@ -17,21 +17,27 @@ class QuestDBILPTickAdapter:
     with an in-memory ring-buffer fallback to SQLite WAL time-series logging when offline.
     """
 
-    def __init__(self, host: Any = "127.0.0.1", port: Any = 9009, table_name: Any = "ticks_l2") -> None:
+    def __init__(
+        self, host: Any = "127.0.0.1", port: Any = 9009, table_name: Any = "ticks_l2"
+    ) -> None:
         self.host = host
         self.port = port
         self.table_name = table_name
         self.fallback_buffer = deque(maxlen=1000)
         self.socket_timeout = 2.0
 
-    def format_ilp_line(self, symbol: Any, bid: Any, ask: Any, volume: Any, imbalance: Any = 0.0) -> Any:
+    def format_ilp_line(
+        self, symbol: Any, bid: Any, ask: Any, volume: Any, imbalance: Any = 0.0
+    ) -> Any:
         """Formats L2 tick payload into InfluxDB Line Protocol (ILP) string format."""
         ts_nanos = int(time.time() * 1000000000.0)
         symbol_clean = str(symbol).replace(" ", "_").upper()
         line = f"{self.table_name},symbol={symbol_clean} bid={float(bid)},ask={float(ask)},volume={float(volume)},imbalance={float(imbalance)} {ts_nanos}\n"
         return line
 
-    def stream_tick(self, symbol: Any, bid: Any, ask: Any, volume: Any, imbalance: Any = 0.0) -> Any:
+    def stream_tick(
+        self, symbol: Any, bid: Any, ask: Any, volume: Any, imbalance: Any = 0.0
+    ) -> Any:
         """
         Streams microsecond L2 tick to QuestDB over TCP ILP.
         Returns: dict indicating success status ('QUESTDB_ILP' or 'SQLITE_WAL_FALLBACK').
@@ -145,7 +151,9 @@ class CrossAssetCorrelationGraph:
         except ImportError:
             self.nx_active = False
 
-    def propagate_early_breakouts(self, symbol: Any, direction: Any, correlation_threshold: Any = 0.6) -> Any:
+    def propagate_early_breakouts(
+        self, symbol: Any, direction: Any, correlation_threshold: Any = 0.6
+    ) -> Any:
         """
         Retrieves highly correlated neighbor assets to trigger early leading breakout trades.
         Returns: list of dicts: [ { 'symbol': str, 'correlation': float, 'suggested_bias': str } ]
@@ -160,7 +168,9 @@ class CrossAssetCorrelationGraph:
                 suggested_bias = direction
                 if weight < 0:
                     suggested_bias = "SELL" if direction == "BUY" else "BUY"
-                warnings.append({"symbol": neighbor, "correlation": weight, "suggested_bias": suggested_bias})
+                warnings.append(
+                    {"symbol": neighbor, "correlation": weight, "suggested_bias": suggested_bias}
+                )
         return warnings
 
 
@@ -184,7 +194,9 @@ def query_high_speed_analytical_duckdb(sql_query: Any) -> Any:
 
         conn = duckdb.connect()
         conn.execute("INSTALL sqlite; LOAD sqlite;")
-        res = conn.execute(f"SELECT * FROM sqlite_scan('{config.DB_PATH}', 'trades') LIMIT 20").fetchall()
+        res = conn.execute(
+            f"SELECT * FROM sqlite_scan('{config.DB_PATH}', 'trades') LIMIT 20"
+        ).fetchall()
         return res
     except Exception as e:
         return [f"DuckDB offline: {e}"]
@@ -212,7 +224,9 @@ def insert_vector_embedding(vector_id: Any, float_vector: Any) -> Any:
 
         chroma_client = chromadb.Client()
         collection = chroma_client.create_collection(name="mlp_hidden_activations")
-        collection.add(embeddings=[float_vector], documents=[f"activation_{vector_id}"], ids=[str(vector_id)])
+        collection.add(
+            embeddings=[float_vector], documents=[f"activation_{vector_id}"], ids=[str(vector_id)]
+        )
         indexed["chromadb"] = True
     except Exception as e:
         print(f"Diagnostics: ChromaDB embedding insert failed or uninstalled: {e}")

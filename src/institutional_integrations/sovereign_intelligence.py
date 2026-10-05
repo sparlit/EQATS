@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 try:
     import pandas as pd
@@ -32,9 +32,17 @@ class SovereignIntelligencePlugin:
             c = df["close"] if "close" in df else df["c"]
 
             for i in range(2, len(df) - 1):
-                if c.iloc[i - 1] < o.iloc[i - 1] and c.iloc[i] > o.iloc[i] and c.iloc[i] > h.iloc[i - 1]:
+                if (
+                    c.iloc[i - 1] < o.iloc[i - 1]
+                    and c.iloc[i] > o.iloc[i]
+                    and c.iloc[i] > h.iloc[i - 1]
+                ):
                     blocks.append({"type": "BULLISH_OB", "price": float(l.iloc[i - 1]), "index": i})
-                elif c.iloc[i - 1] > o.iloc[i - 1] and c.iloc[i] < o.iloc[i] and c.iloc[i] < l.iloc[i - 1]:
+                elif (
+                    c.iloc[i - 1] > o.iloc[i - 1]
+                    and c.iloc[i] < o.iloc[i]
+                    and c.iloc[i] < l.iloc[i - 1]
+                ):
                     blocks.append({"type": "BEARISH_OB", "price": float(h.iloc[i - 1]), "index": i})
         return blocks
 
@@ -58,7 +66,9 @@ class SovereignIntelligencePlugin:
                 return "BULLISH_GRAB"
         return "NONE"
 
-    def analyze_market_signal(self, symbol: str, df_or_bars: Any, equity: float = 10000.0) -> dict[str, Any]:
+    def analyze_market_signal(
+        self, symbol: str, df_or_bars: Any, equity: float = 10000.0
+    ) -> dict[str, Any]:
         obs = self.detect_order_blocks(df_or_bars)
         grab = self.detect_liquidity_grab(df_or_bars)
         signal = "NEUTRAL"

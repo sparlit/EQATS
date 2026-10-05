@@ -45,7 +45,9 @@ def calculate_markov_regime_switching_probability(prices: Any) -> Any:
         p11 = transition_counts[1, 1] / total_from_1 if total_from_1 > 0 else 0.85
         p10 = 1.0 - p11
         curr_vol = volatilities[-1]
-        vol_range = max(volatilities) - min(volatilities) if max(volatilities) != min(volatilities) else 1.0
+        vol_range = (
+            max(volatilities) - min(volatilities) if max(volatilities) != min(volatilities) else 1.0
+        )
         prob_high_vol = (curr_vol - min(volatilities)) / vol_range
         prob_high_vol = max(0.01, min(prob_high_vol, 0.99))
         return (prob_high_vol, {"p00": p00, "p01": p01, "p10": p10, "p11": p11})
@@ -71,7 +73,9 @@ def evaluate_black_scholes_option_pricing(
         exercise = ql.EuropeanExercise(maturity_date)
         european_option = ql.VanillaOption(payoff, exercise)
         spot_handle = ql.QuoteHandle(ql.SimpleQuote(spot_price))
-        rate_curve = ql.YieldTermStructureHandle(ql.FlatForward(today, risk_free_rate, ql.Actual365Fixed()))
+        rate_curve = ql.YieldTermStructureHandle(
+            ql.FlatForward(today, risk_free_rate, ql.Actual365Fixed())
+        )
         vol_curve = ql.BlackVolTermStructureHandle(
             ql.BlackConstantVol(today, calendar, volatility, ql.Actual365Fixed())
         )
@@ -87,4 +91,10 @@ def evaluate_black_scholes_option_pricing(
         }
     except Exception:
         npv = spot_price * 0.5 - strike_price * math.exp(-risk_free_rate * maturity_years) * 0.45
-        return {"npv": round(max(0.01, npv), 4), "delta": 0.523, "gamma": 0.124, "vega": 0.082, "theta": -0.012}
+        return {
+            "npv": round(max(0.01, npv), 4),
+            "delta": 0.523,
+            "gamma": 0.124,
+            "vega": 0.082,
+            "theta": -0.012,
+        }

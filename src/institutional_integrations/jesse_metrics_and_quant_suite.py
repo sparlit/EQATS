@@ -15,8 +15,7 @@ Provides:
 """
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -83,7 +82,9 @@ class JesseMetricsEngine:
         max_dd_pct = float(np.max(dd)) if len(dd) > 0 else 0.0
         ulcer_index = math.sqrt(float(np.mean(dd**2))) if len(dd) > 0 else 1e-06
         tot_ret_pct = float(np.sum(pnl_arr)) / initial_balance * 100.0
-        serenity_index = tot_ret_pct / (ulcer_index * max(1.0, max_dd_pct)) if max_dd_pct > 0 else 0.0
+        serenity_index = (
+            tot_ret_pct / (ulcer_index * max(1.0, max_dd_pct)) if max_dd_pct > 0 else 0.0
+        )
         expected_val = float(np.mean(pnl_arr))
         return JessePerformanceReport(
             total_trades=n,
@@ -107,49 +108,89 @@ class JesseQuantStrategyLibrary:
     ) -> QuantStrategySignal:
         """London Session Asian Range Breakout Strategy."""
         if atr <= 0 or asian_high <= asian_low:
-            return QuantStrategySignal("HOLD", current_price, 0.0, 0.0, 0.0, "london_breakout", "Invalid range")
+            return QuantStrategySignal(
+                "HOLD", current_price, 0.0, 0.0, 0.0, "london_breakout", "Invalid range"
+            )
         if current_price > asian_high:
             stop = asian_high - 1.0 * atr
             target = current_price + 2.5 * atr
             return QuantStrategySignal(
-                "BUY", current_price, stop, target, 0.82, "london_breakout", "Bullish breakout of Asian High"
+                "BUY",
+                current_price,
+                stop,
+                target,
+                0.82,
+                "london_breakout",
+                "Bullish breakout of Asian High",
             )
         if current_price < asian_low:
             stop = asian_low + 1.0 * atr
             target = current_price - 2.5 * atr
             return QuantStrategySignal(
-                "SELL", current_price, stop, target, 0.82, "london_breakout", "Bearish breakout of Asian Low"
+                "SELL",
+                current_price,
+                stop,
+                target,
+                0.82,
+                "london_breakout",
+                "Bearish breakout of Asian Low",
             )
         return QuantStrategySignal(
-            "HOLD", current_price, 0.0, 0.0, 0.0, "london_breakout", "Consolidating inside Asian range"
+            "HOLD",
+            current_price,
+            0.0,
+            0.0,
+            0.0,
+            "london_breakout",
+            "Consolidating inside Asian range",
         )
 
-    def heikin_ashi_trend(self, ha_opens: list[float], ha_closes: list[float], atr: float) -> QuantStrategySignal:
+    def heikin_ashi_trend(
+        self, ha_opens: list[float], ha_closes: list[float], atr: float
+    ) -> QuantStrategySignal:
         """Smoothed Heikin-Ashi Trend Follower."""
         if len(ha_opens) < 3 or len(ha_closes) < 3 or atr <= 0:
-            return QuantStrategySignal("HOLD", 0.0, 0.0, 0.0, 0.0, "heikin_ashi", "Insufficient bars")
+            return QuantStrategySignal(
+                "HOLD", 0.0, 0.0, 0.0, 0.0, "heikin_ashi", "Insufficient bars"
+            )
         curr_open, curr_close = (ha_opens[-1], ha_closes[-1])
         prev_open, prev_close = (ha_opens[-2], ha_closes[-2])
         if curr_close > curr_open and prev_close > prev_open:
             stop = curr_close - 1.5 * atr
             target = curr_close + 3.0 * atr
             return QuantStrategySignal(
-                "BUY", curr_close, stop, target, 0.8, "heikin_ashi", "Strong Bullish Heikin-Ashi Trend"
+                "BUY",
+                curr_close,
+                stop,
+                target,
+                0.8,
+                "heikin_ashi",
+                "Strong Bullish Heikin-Ashi Trend",
             )
         if curr_close < curr_open and prev_close < prev_open:
             stop = curr_close + 1.5 * atr
             target = curr_close - 3.0 * atr
             return QuantStrategySignal(
-                "SELL", curr_close, stop, target, 0.8, "heikin_ashi", "Strong Bearish Heikin-Ashi Trend"
+                "SELL",
+                curr_close,
+                stop,
+                target,
+                0.8,
+                "heikin_ashi",
+                "Strong Bearish Heikin-Ashi Trend",
             )
-        return QuantStrategySignal("HOLD", curr_close, 0.0, 0.0, 0.0, "heikin_ashi", "No clear HA trend momentum")
+        return QuantStrategySignal(
+            "HOLD", curr_close, 0.0, 0.0, 0.0, "heikin_ashi", "No clear HA trend momentum"
+        )
 
     def awesome_oscillator(
         self, highs: list[float], lows: list[float], current_price: float, atr: float
     ) -> QuantStrategySignal:
         """Bill Williams Awesome Oscillator Zero-Line Crossover Strategy."""
         if len(highs) < 34 or len(lows) < 34 or atr <= 0:
-            return QuantStrategySignal("HOLD", current_price, 0.0, 0.0, 0.0, "awesome_oscillator", "Insufficient bars")
+            return QuantStrategySignal(
+                "HOLD", current_price, 0.0, 0.0, 0.0, "awesome_oscillator", "Insufficient bars"
+            )
         mid_prices = [(h + l) / 2.0 for h, l in zip(highs, lows)]
         sma5_curr = np.mean(mid_prices[-5:])
         sma34_curr = np.mean(mid_prices[-34:])
@@ -161,12 +202,26 @@ class JesseQuantStrategyLibrary:
             stop = current_price - 1.5 * atr
             target = current_price + 3.0 * atr
             return QuantStrategySignal(
-                "BUY", current_price, stop, target, 0.83, "awesome_oscillator", "Bullish AO Zero-Line Crossover"
+                "BUY",
+                current_price,
+                stop,
+                target,
+                0.83,
+                "awesome_oscillator",
+                "Bullish AO Zero-Line Crossover",
             )
         if ao_prev > 0 and ao_curr < 0:
             stop = current_price + 1.5 * atr
             target = current_price - 3.0 * atr
             return QuantStrategySignal(
-                "SELL", current_price, stop, target, 0.83, "awesome_oscillator", "Bearish AO Zero-Line Crossover"
+                "SELL",
+                current_price,
+                stop,
+                target,
+                0.83,
+                "awesome_oscillator",
+                "Bearish AO Zero-Line Crossover",
             )
-        return QuantStrategySignal("HOLD", current_price, 0.0, 0.0, 0.0, "awesome_oscillator", "No AO crossover")
+        return QuantStrategySignal(
+            "HOLD", current_price, 0.0, 0.0, 0.0, "awesome_oscillator", "No AO crossover"
+        )

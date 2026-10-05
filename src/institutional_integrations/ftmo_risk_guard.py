@@ -4,9 +4,7 @@ Enforces FTMO CE(S)T daily loss limits, maximum total loss limits, news window e
 weekend/closure prohibitions, trade frequency caps, and Best Day Rule qualification metrics.
 """
 
-import logging
-from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class FTMORiskGuardEngine:
@@ -45,7 +43,10 @@ class FTMORiskGuardEngine:
         if act_upper in ["CLOSE", "CANCEL"]:
             return {"decision": "ALLOW", "reason": "Risk reduction request approved"}
         if is_weekend_embargo:
-            return {"decision": "REJECT", "reason": "Weekend / market closure embargo active (no new risk)"}
+            return {
+                "decision": "REJECT",
+                "reason": "Weekend / market closure embargo active (no new risk)",
+            }
         if is_news_window:
             return {"decision": "REJECT", "reason": "High-impact news embargo window active"}
         daily_loss = day_start_equity - current_equity
@@ -74,7 +75,11 @@ class FTMORiskGuardEngine:
                 "decision": "REJECT",
                 "reason": f"Proposed order risk {order_risk:.2f} exceeds remaining daily buffer",
             }
-        return {"decision": "ALLOW", "reason": "FTMO pre-trade risk checks passed", "order_risk": round(order_risk, 2)}
+        return {
+            "decision": "ALLOW",
+            "reason": "FTMO pre-trade risk checks passed",
+            "order_risk": round(order_risk, 2),
+        }
 
         if (daily_loss + order_risk) > max_daily_allowed:
             return {
@@ -82,7 +87,11 @@ class FTMORiskGuardEngine:
                 "reason": f"Proposed order risk {order_risk:.2f} exceeds remaining daily buffer",
             }
 
-        return {"decision": "ALLOW", "reason": "FTMO pre-trade risk checks passed", "order_risk": round(order_risk, 2)}
+        return {
+            "decision": "ALLOW",
+            "reason": "FTMO pre-trade risk checks passed",
+            "order_risk": round(order_risk, 2),
+        }
 
 
 class FTMOQualificationAuditor:

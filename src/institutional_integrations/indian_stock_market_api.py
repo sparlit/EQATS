@@ -10,14 +10,10 @@ and 0.05 INR tick rounding order execution.
 Assigned Magic Number: 9100005
 """
 
-import json
 import logging
-import math
 import time
-import urllib.parse
-import urllib.request
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
 from .sebi_broker_adapter import (
@@ -49,14 +45,18 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         access_token: str = "",
         is_sandbox: bool = False,
     ) -> None:
-        super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
+        super().__init__(
+            api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox
+        )
         self.magic_number = MAGIC_NUMBER_INDIAN_API
         self.simulated_orders: dict[str, dict[str, Any]] = {}
 
     def connect(self) -> bool:
         self._is_connected = True
         _log.info(
-            "IndianStockMarketAPIClient connected (Magic Number=%d, Sandbox=%s).", self.magic_number, self.is_sandbox
+            "IndianStockMarketAPIClient connected (Magic Number=%d, Sandbox=%s).",
+            self.magic_number,
+            self.is_sandbox,
         )
         return True
 
@@ -87,7 +87,13 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
-        base_price = 2850.0 if "RELIANCE" in symbol.upper() else 1500.0 if "INFY" in symbol.upper() else 500.0
+        base_price = (
+            2850.0
+            if "RELIANCE" in symbol.upper()
+            else 1500.0
+            if "INFY" in symbol.upper()
+            else 500.0
+        )
         bid = round_to_indian_tick_size(base_price)
         ask = round_to_indian_tick_size(base_price + 0.15)
         last = round_to_indian_tick_size(base_price + 0.05)
@@ -99,16 +105,32 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         """
         price = self.get_current_price(symbol, exchange)["last"]
         bids = [
-            {"price": round_to_indian_tick_size(price - i * 0.05), "quantity": 100 * (i + 1), "orders": i + 1}
+            {
+                "price": round_to_indian_tick_size(price - i * 0.05),
+                "quantity": 100 * (i + 1),
+                "orders": i + 1,
+            }
             for i in range(5)
         ]
         asks = [
-            {"price": round_to_indian_tick_size(price + (i + 1) * 0.05), "quantity": 100 * (i + 1), "orders": i + 1}
+            {
+                "price": round_to_indian_tick_size(price + (i + 1) * 0.05),
+                "quantity": 100 * (i + 1),
+                "orders": i + 1,
+            }
             for i in range(5)
         ]
-        return {"symbol": symbol, "exchange": exchange, "bids": bids, "asks": asks, "timestamp": time.time()}
+        return {
+            "symbol": symbol,
+            "exchange": exchange,
+            "bids": bids,
+            "asks": asks,
+            "timestamp": time.time(),
+        }
 
-    def fetch_option_chain(self, underlying_symbol: str, expiry: str = "NEAR") -> list[dict[str, Any]]:
+    def fetch_option_chain(
+        self, underlying_symbol: str, expiry: str = "NEAR"
+    ) -> list[dict[str, Any]]:
         """
         Returns option chain matrix with strike prices, IVs, calls/puts open interest, and greeks.
         """
@@ -122,8 +144,12 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
                 {
                     "underlying": underlying_symbol,
                     "strike": strike,
-                    "call_price": round_to_indian_tick_size(max(0.05, spot - strike + 15.0 if spot > strike else 10.0)),
-                    "put_price": round_to_indian_tick_size(max(0.05, strike - spot + 15.0 if strike > spot else 10.0)),
+                    "call_price": round_to_indian_tick_size(
+                        max(0.05, spot - strike + 15.0 if spot > strike else 10.0)
+                    ),
+                    "put_price": round_to_indian_tick_size(
+                        max(0.05, strike - spot + 15.0 if strike > spot else 10.0)
+                    ),
                     "iv": 0.18,
                     "call_oi": 50000 + abs(i) * 1000,
                     "put_oi": 48000 + abs(i) * 1200,
@@ -143,7 +169,11 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and not getattr(self, "is_sandbox", False)
+        ):
             _log.warning("New MIS order for %s frozen past 03:00 PM IST cutoff.", req.symbol)
             return SEBIOrderResponse(
                 success=False,
@@ -190,14 +220,23 @@ class IndianStockMarketAPIClient(SEBIBrokerAdapter):
             raw_response={"status": True, "ticket": ticket, "magic_number": self.magic_number},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

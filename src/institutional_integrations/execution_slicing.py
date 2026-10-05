@@ -24,7 +24,12 @@ class ExecutionSlicer:
         slices = []
         for i in range(num_slices):
             slices.append(
-                {"slice_id": i + 1, "qty": qty_per_slice, "delay_sec": round(interval_sec * i, 2), "type": "TWAP"}
+                {
+                    "slice_id": i + 1,
+                    "qty": qty_per_slice,
+                    "delay_sec": round(interval_sec * i, 2),
+                    "type": "TWAP",
+                }
             )
         return slices
 
@@ -75,7 +80,11 @@ class ExecutionSlicer:
 
     @staticmethod
     def calculate_implementation_shortfall(
-        decision_price: Any, arrival_price: Any, execution_price: Any, total_qty: Any, fees: Any = 0.0
+        decision_price: Any,
+        arrival_price: Any,
+        execution_price: Any,
+        total_qty: Any,
+        fees: Any = 0.0,
     ) -> Any:
         """
         Calculates Implementation Shortfall (IS) transaction cost attribution.
@@ -86,7 +95,9 @@ class ExecutionSlicer:
         opportunity_cost = (arrival_price - decision_price) * total_qty
         total_shortfall = explicit_cost + execution_drag + opportunity_cost
         shortfall_bps = (
-            total_shortfall / (decision_price * total_qty) * 10000.0 if decision_price * total_qty > 0 else 0.0
+            total_shortfall / (decision_price * total_qty) * 10000.0
+            if decision_price * total_qty > 0
+            else 0.0
         )
         return {
             "total_shortfall_usd": round(total_shortfall, 4),

@@ -11,17 +11,15 @@ IST market session validation, and microkernel plugin binding.
 """
 
 import calendar
-import math
 import zoneinfo
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -84,15 +82,21 @@ class BhavFnOEngine:
 
         return expiries
 
-    def compute_bhav_iv_pcr(self, ce_records: list[dict[str, Any]], pe_records: list[dict[str, Any]]) -> dict[str, Any]:
+    def compute_bhav_iv_pcr(
+        self, ce_records: list[dict[str, Any]], pe_records: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Aggregates CE/PE open interest and computes weighted IV and PCR metrics.
         """
         total_ce_oi = sum(r.get("oi", 0) for r in ce_records)
         total_pe_oi = sum(r.get("oi", 0) for r in pe_records)
 
-        ce_iv_avg = sum(r.get("iv", 0.0) for r in ce_records) / len(ce_records) if ce_records else 0.0
-        pe_iv_avg = sum(r.get("iv", 0.0) for r in pe_records) / len(pe_records) if pe_records else 0.0
+        ce_iv_avg = (
+            sum(r.get("iv", 0.0) for r in ce_records) / len(ce_records) if ce_records else 0.0
+        )
+        pe_iv_avg = (
+            sum(r.get("iv", 0.0) for r in pe_records) / len(pe_records) if pe_records else 0.0
+        )
 
         pcr = round(total_pe_oi / total_ce_oi, 2) if total_ce_oi > 0 else 1.0
 
@@ -170,7 +174,9 @@ class BhavFnOBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -180,7 +186,9 @@ class BhavFnOBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

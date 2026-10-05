@@ -10,10 +10,10 @@ Provides:
 - LowProfitPairs Handler (lock underperforming assets)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 
 class LockSide(str, Enum):
@@ -44,13 +44,17 @@ class FreqtradeProtectionEngine:
         self.pair_locks: list[PairLock] = []
         self.trade_history: list[dict[str, Any]] = []
 
-    def lock_pair(self, symbol: str, until: datetime, reason: str, lock_side: LockSide = LockSide.BOTH) -> PairLock:
+    def lock_pair(
+        self, symbol: str, until: datetime, reason: str, lock_side: LockSide = LockSide.BOTH
+    ) -> PairLock:
         """Locks a specific pair or global trading '*' until a specified time."""
         lock = PairLock(symbol=symbol, until=until, reason=reason, lock_side=lock_side)
         self.pair_locks.append(lock)
         return lock
 
-    def is_locked(self, symbol: str, current_time: datetime, side: LockSide = LockSide.LONG) -> ProtectionCheckResult:
+    def is_locked(
+        self, symbol: str, current_time: datetime, side: LockSide = LockSide.LONG
+    ) -> ProtectionCheckResult:
         """Checks if a pair or global trading is locked at the current timestamp."""
         active_locks = []
         for lock in self.pair_locks:
@@ -68,7 +72,12 @@ class FreqtradeProtectionEngine:
         return ProtectionCheckResult(is_locked=False, reason="NOT_LOCKED")
 
     def record_completed_trade(
-        self, symbol: str, side: LockSide, realized_pnl: float, is_stoploss: bool, close_time: datetime
+        self,
+        symbol: str,
+        side: LockSide,
+        realized_pnl: float,
+        is_stoploss: bool,
+        close_time: datetime,
     ) -> None:
         """Records completed trade history for protection evaluation."""
         self.trade_history.append(
@@ -85,13 +94,19 @@ class FreqtradeProtectionEngine:
         self, symbol: str, current_time: datetime, cooldown_minutes: float = 30.0
     ) -> PairLock | None:
         """Locks pair for `cooldown_minutes` after a trade closes."""
-        recent_trades = [t for t in self.trade_history if t["symbol"] == symbol and t["close_time"] <= current_time]
+        recent_trades = [
+            t
+            for t in self.trade_history
+            if t["symbol"] == symbol and t["close_time"] <= current_time
+        ]
         if recent_trades:
             last_trade = max(recent_trades, key=lambda t: t["close_time"])
             time_since_close = (current_time - last_trade["close_time"]).total_seconds() / 60.0
             if time_since_close < cooldown_minutes:
                 until = last_trade["close_time"] + timedelta(minutes=cooldown_minutes)
-                return self.lock_pair(symbol, until, f"CooldownPeriod active ({cooldown_minutes} min post-trade lock)")
+                return self.lock_pair(
+                    symbol, until, f"CooldownPeriod active ({cooldown_minutes} min post-trade lock)"
+                )
         return None
 
     def evaluate_stoploss_guard(
@@ -107,7 +122,9 @@ class FreqtradeProtectionEngine:
         recent_sl_trades = [
             t
             for t in self.trade_history
-            if t["symbol"] == symbol and t["is_stoploss"] and (lookback_start <= t["close_time"] <= current_time)
+            if t["symbol"] == symbol
+            and t["is_stoploss"]
+            and (lookback_start <= t["close_time"] <= current_time)
         ]
         if len(recent_sl_trades) >= stoploss_limit:
             until = current_time + timedelta(minutes=lock_minutes)
