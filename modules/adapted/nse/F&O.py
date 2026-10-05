@@ -81,7 +81,7 @@ def get_file():
     return data.decode("utf-8")
 
 def build_dt_dict():
-    re_date = re.compile("([0-9]{2}\-[0-9]{2}\-[0-9]{4})")
+    re_date = re.compile(r"([0-9]{2}\-[0-9]{2}\-[0-9]{4})")
     lines = get_file()
     for line in lines.split('\n'):
         s = re_date.search(line)
