@@ -6,10 +6,9 @@ Kill-Switch Lockdown Execution with Cooldown Timers.
 """
 
 import logging
-import math
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("PropGuardEquityArmor")
 
@@ -58,7 +57,9 @@ class PropGuardEquityArmorEngine:
             daily_loss = day_start_equity - current_equity
             daily_loss_pct = daily_loss / day_start_equity * 100.0 if day_start_equity > 0 else 0.0
             trailing_dd = self.peak_equity - current_equity
-            trailing_dd_pct = trailing_dd / self.peak_equity * 100.0 if self.peak_equity > 0 else 0.0
+            trailing_dd_pct = (
+                trailing_dd / self.peak_equity * 100.0 if self.peak_equity > 0 else 0.0
+            )
             daily_util_pct = daily_loss_pct / self.daily_loss_limit_pct * 100.0
             trailing_util_pct = trailing_dd_pct / self.max_drawdown_pct * 100.0
             max_util_pct = max(daily_util_pct, trailing_util_pct)

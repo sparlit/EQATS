@@ -6,9 +6,7 @@ profit factor, expectancy, holding time correlations, and equity curve analytics
 
 import io
 import logging
-import math
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import numpy as np
@@ -25,7 +23,9 @@ class FTMOJournalAnalyzer:
     Parses and analyzes FTMO CSV/Excel trade journal export files.
     """
 
-    def parse_journal_file(self, content_bytes: bytes, filename: str = "export.csv") -> list[dict[str, Any]]:
+    def parse_journal_file(
+        self, content_bytes: bytes, filename: str = "export.csv"
+    ) -> list[dict[str, Any]]:
         trades: list[dict[str, Any]] = []
         if not PANDAS_AVAILABLE or not content_bytes:
             return trades
@@ -72,7 +72,9 @@ class FTMOJournalAnalyzer:
         win_rate_pct = round(win_count / total_trades * 100.0, 2) if total_trades > 0 else 0.0
         total_win = sum(wins)
         total_loss = sum(losses)
-        profit_factor = round(total_win / total_loss, 2) if total_loss > 0 else 99.0 if total_win > 0 else 0.0
+        profit_factor = (
+            round(total_win / total_loss, 2) if total_loss > 0 else 99.0 if total_win > 0 else 0.0
+        )
         net_profit = sum(pnls)
         expectancy = round(net_profit / total_trades, 2) if total_trades > 0 else 0.0
         max_cons_losses = 0

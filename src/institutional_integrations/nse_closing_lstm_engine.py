@@ -9,17 +9,15 @@ Provides min-max price scaling, LSTM time-series window sequence prediction,
 0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -86,7 +84,9 @@ class NSEClosingLSTMEngine:
         pred_close = round_tick_005(unscaled_pred)
 
         latest_close = close_prices[-1]
-        change_pct = ((pred_close - latest_close) / latest_close) * 100.0 if latest_close > 0 else 0.0
+        change_pct = (
+            ((pred_close - latest_close) / latest_close) * 100.0 if latest_close > 0 else 0.0
+        )
 
         if change_pct >= 0.50:
             signal = "BULLISH_LSTM"
@@ -160,7 +160,9 @@ class NSEClosingLSTMBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -170,7 +172,9 @@ class NSEClosingLSTMBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

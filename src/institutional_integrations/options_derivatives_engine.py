@@ -7,7 +7,7 @@ Implied Volatility Surface modeling, Gamma Exposure (GEX) analytics, and Options
 
 import logging
 import math
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -74,7 +74,9 @@ class OptionsPricingEngine:
         """
         if time_to_expiry <= 0.0001 or volatility <= 0.0001 or spot <= 0.0 or (strike <= 0.0):
             is_call = option_type.lower() in ["call", "c"]
-            delta = 1.0 if is_call and spot > strike else -1.0 if not is_call and spot < strike else 0.0
+            delta = (
+                1.0 if is_call and spot > strike else -1.0 if not is_call and spot < strike else 0.0
+            )
             return {
                 "delta": delta,
                 "gamma": 0.0,
@@ -113,24 +115,30 @@ class OptionsPricingEngine:
         gamma = exp_qT * pdf_d1 / (S * v * sqrt_T)
         vega = S * exp_qT * pdf_d1 * sqrt_T / 100.0
         theta_call = (
-            -(S * v * exp_qT * pdf_d1) / (2.0 * sqrt_T) + q * S * exp_qT * cdf_d1 - r * K * exp_rT * cdf_d2
+            -(S * v * exp_qT * pdf_d1) / (2.0 * sqrt_T)
+            + q * S * exp_qT * cdf_d1
+            - r * K * exp_rT * cdf_d2
         ) / 365.0
         theta_put = (
-            -(S * v * exp_qT * pdf_d1) / (2.0 * sqrt_T) - q * S * exp_qT * cdf_neg_d1 + r * K * exp_rT * cdf_neg_d2
+            -(S * v * exp_qT * pdf_d1) / (2.0 * sqrt_T)
+            - q * S * exp_qT * cdf_neg_d1
+            + r * K * exp_rT * cdf_neg_d2
         ) / 365.0
         theta = theta_call if is_call else theta_put
         vanna = -exp_qT * pdf_d1 * (d2 / v)
         if is_call:
-            charm = q * exp_qT * cdf_d1 - exp_qT * pdf_d1 * (2.0 * (r - q) * T - d2 * v * sqrt_T) / (
-                2.0 * T * v * sqrt_T
-            )
+            charm = q * exp_qT * cdf_d1 - exp_qT * pdf_d1 * (
+                2.0 * (r - q) * T - d2 * v * sqrt_T
+            ) / (2.0 * T * v * sqrt_T)
         else:
-            charm = -q * exp_qT * cdf_neg_d1 - exp_qT * pdf_d1 * (2.0 * (r - q) * T - d2 * v * sqrt_T) / (
-                2.0 * T * v * sqrt_T
-            )
+            charm = -q * exp_qT * cdf_neg_d1 - exp_qT * pdf_d1 * (
+                2.0 * (r - q) * T - d2 * v * sqrt_T
+            ) / (2.0 * T * v * sqrt_T)
         speed = -gamma / S * (d1 / (v * sqrt_T) + 1.0)
         zomma = gamma * (d1 * d2 - 1.0) / v
-        color = -gamma / (2.0 * T) * (1.0 + d1 * (2.0 * (r - q) * T - d2 * v * sqrt_T) / (v * sqrt_T))
+        color = (
+            -gamma / (2.0 * T) * (1.0 + d1 * (2.0 * (r - q) * T - d2 * v * sqrt_T) / (v * sqrt_T))
+        )
         return {
             "delta": float(delta),
             "gamma": float(gamma),
@@ -258,7 +266,12 @@ class GammaExposureAnalyzer:
                 iv = float(opt.get("iv", 0.2))
                 T = max(float(opt.get("expiry_days", 30.0)) / 365.0, 0.001)
                 gm = OptionsPricingEngine.calculate_greeks(
-                    spot=s, strike=stk, time_to_expiry=T, risk_free_rate=risk_free_rate, volatility=iv, option_type=op_t
+                    spot=s,
+                    strike=stk,
+                    time_to_expiry=T,
+                    risk_free_rate=risk_free_rate,
+                    volatility=iv,
+                    option_type=op_t,
                 )["gamma"]
                 cgex = gm * oi * 100.0 * s * s * 0.01
                 gex_at_s += cgex if op_t in ["call", "c"] else -cgex

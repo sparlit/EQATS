@@ -135,7 +135,9 @@ def migrate_credentials() -> Any:
         if len(brokers_after) == len(brokers):
             print(f"✓ All {len(brokers)} broker credential(s) verified")
             return True
-        print(f"⚠ Warning: Broker count mismatch (before: {len(brokers)}, after: {len(brokers_after)})")
+        print(
+            f"⚠ Warning: Broker count mismatch (before: {len(brokers)}, after: {len(brokers_after)})"
+        )
         return False
     except Exception as e:
         print(f"\n✗ Migration failed: {e}")

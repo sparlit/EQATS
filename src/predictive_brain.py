@@ -5,7 +5,7 @@ calculates rolling accuracy, and adjusts its weights via backpropagation.
 """
 
 import math
-from typing import Any, Dict
+from typing import Any
 
 try:
     import numpy as np
@@ -119,7 +119,9 @@ class NeuralNetworkPredictor:
             self.bias_output += adjusted_lr * output_delta
             for i in range(6):
                 for h in range(5):
-                    self.w_input_hidden[i][h] += adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
+                    self.w_input_hidden[i][h] += (
+                        adjusted_lr * hidden_deltas[h] * self.last_inputs[i]
+                    )
             for h in range(5):
                 self.bias_hidden[h] += adjusted_lr * hidden_deltas[h]
         acc = self.get_accuracy()

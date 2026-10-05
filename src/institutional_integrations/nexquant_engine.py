@@ -4,7 +4,6 @@ Provides LightGBM Quantitative Factor Model and Multi-Strategy Portfolio Optimiz
 """
 
 import logging
-import math
 
 import numpy as np
 
@@ -13,7 +12,6 @@ try:
 except ImportError:
     pd = None
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("NexQuantEngine")
 

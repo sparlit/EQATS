@@ -13,7 +13,7 @@ Assigned Magic Number: 9100007
 import logging
 import math
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .indian_market_state_machine import round_to_indian_tick_size
 from .sebi_broker_adapter import (
@@ -48,7 +48,12 @@ class OptionChainAnalyzerEngine:
         return (1.0 / math.sqrt(2.0 * math.pi)) * math.exp(-0.5 * x * x)
 
     def calculate_bs_greeks(
-        self, spot: float, strike: float, time_to_expiry_years: float, iv: float, option_type: str = "CALL"
+        self,
+        spot: float,
+        strike: float,
+        time_to_expiry_years: float,
+        iv: float,
+        option_type: str = "CALL",
     ) -> dict[str, float]:
         """
         Calculates Black-Scholes price and Greeks (Delta, Gamma, Theta, Vega) for call/put options.
@@ -78,13 +83,15 @@ class OptionChainAnalyzerEngine:
             price = s * self._norm_cdf(d1) - k * math.exp(-r * t) * self._norm_cdf(d2)
             delta = self._norm_cdf(d1)
             theta = (
-                -(s * self._norm_pdf(d1) * v) / (2.0 * math.sqrt(t)) - r * k * math.exp(-r * t) * self._norm_cdf(d2)
+                -(s * self._norm_pdf(d1) * v) / (2.0 * math.sqrt(t))
+                - r * k * math.exp(-r * t) * self._norm_cdf(d2)
             ) / 365.0
         else:
             price = k * math.exp(-r * t) * self._norm_cdf(-d2) - s * self._norm_cdf(-d1)
             delta = self._norm_cdf(d1) - 1.0
             theta = (
-                -(s * self._norm_pdf(d1) * v) / (2.0 * math.sqrt(t)) + r * k * math.exp(-r * t) * self._norm_cdf(-d2)
+                -(s * self._norm_pdf(d1) * v) / (2.0 * math.sqrt(t))
+                + r * k * math.exp(-r * t) * self._norm_cdf(-d2)
             ) / 365.0
 
         return {
@@ -199,7 +206,12 @@ class OptionChainAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -233,17 +245,30 @@ class OptionChainAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
-            raw_response={"status": True, "ticket": ticket, "magic_number": MAGIC_NUMBER_OPTION_CHAIN},
+            raw_response={
+                "status": True,
+                "ticket": ticket,
+                "magic_number": MAGIC_NUMBER_OPTION_CHAIN,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NFO", product: str = "NRML") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NFO", product: str = "NRML"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

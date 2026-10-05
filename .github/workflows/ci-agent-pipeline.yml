@@ -225,7 +225,7 @@ jobs:
             EOF
           else
             echo "[WARNING] NVIDIA_API_KEY secret unconfigured; running fallback ruff auto-heal pass..."
-            "$GITHUB_WORKSPACE/venv/bin/python" -m ruff check --fix src/ institutional_integrations/ || true
+            "$GITHUB_WORKSPACE/venv/bin/python" -m ruff check --fix src/ || true
           fi
 
           echo "Writing modifications to repository context..."

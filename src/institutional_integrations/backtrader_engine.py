@@ -15,8 +15,7 @@ Provides:
 """
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -44,7 +43,11 @@ class BacktraderAnalyzerEngine:
     """Backtrader Performance & System Quality Analyzer."""
 
     def evaluate_performance(
-        self, returns: list[float], trade_pnls: list[float], initial_balance: float = 100000.0, years: float = 1.0
+        self,
+        returns: list[float],
+        trade_pnls: list[float],
+        initial_balance: float = 100000.0,
+        years: float = 1.0,
     ) -> BacktraderPerformanceMetrics:
         """Calculates SQN, VWR, Calmar Ratio, and DrawDown metrics."""
         if not trade_pnls or len(trade_pnls) < 2:
@@ -91,7 +94,10 @@ class BacktraderSizerEngine:
         notional = risk_usd * leverage
         lot_size = round(notional / 100000.0, 2)
         return BacktraderSizerResult(
-            lot_size=max(0.01, lot_size), risk_amount_usd=risk_usd, risk_pct=percent, sizer_type="PercentSizer"
+            lot_size=max(0.01, lot_size),
+            risk_amount_usd=risk_usd,
+            risk_pct=percent,
+            sizer_type="PercentSizer",
         )
 
     def risk_sizer(
@@ -108,5 +114,8 @@ class BacktraderSizerEngine:
         risk_per_lot = stop_loss_pips * pip_value_per_lot
         raw_lots = risk_usd / risk_per_lot if risk_per_lot > 0 else 0.0
         return BacktraderSizerResult(
-            lot_size=max(0.01, round(raw_lots, 2)), risk_amount_usd=risk_usd, risk_pct=risk_pct, sizer_type="RiskSizer"
+            lot_size=max(0.01, round(raw_lots, 2)),
+            risk_amount_usd=risk_usd,
+            risk_pct=risk_pct,
+            sizer_type="RiskSizer",
         )

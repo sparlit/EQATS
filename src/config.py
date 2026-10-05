@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Any
 
 _log = logging.getLogger("config")
 SIMULATION_MODE = False
@@ -88,12 +87,18 @@ MACD_SIGNAL = 9
 DB_PATH = "scalper_brain.db"
 MT5_COMMON_FILES_PATH = os.environ.get("MT5_COMMON_PATH", ".")
 if os.name == "nt" and "APPDATA" in os.environ:
-    standard_mt5_common_path = os.path.join(os.environ["APPDATA"], "MetaQuotes", "Terminal", "Common", "Files")
+    standard_mt5_common_path = os.path.join(
+        os.environ["APPDATA"], "MetaQuotes", "Terminal", "Common", "Files"
+    )
     try:
         os.makedirs(standard_mt5_common_path, exist_ok=True)
         MT5_COMMON_FILES_PATH = standard_mt5_common_path
     except Exception as e:
-        _log.debug("Cannot use standard MT5 common path %r, falling back to cwd: %s", standard_mt5_common_path, e)
+        _log.debug(
+            "Cannot use standard MT5 common path %r, falling back to cwd: %s",
+            standard_mt5_common_path,
+            e,
+        )
 TELEGRAM_ENABLED = False
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")

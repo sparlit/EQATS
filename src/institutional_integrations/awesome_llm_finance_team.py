@@ -5,7 +5,7 @@ for multi-perspective asset evaluation and LLM recommendation synthesis.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("AwesomeLLMFinanceTeam")
 
@@ -13,7 +13,9 @@ logger = logging.getLogger("AwesomeLLMFinanceTeam")
 class FinancialAdvisorAgent:
     """Provides financial budget, cash flow, and asset allocation guidance."""
 
-    def analyze_allocation(self, equity: float, current_allocations: dict[str, float]) -> dict[str, Any]:
+    def analyze_allocation(
+        self, equity: float, current_allocations: dict[str, float]
+    ) -> dict[str, Any]:
         total_allocated = sum(current_allocations.values())
         cash_balance = max(0.0, equity - total_allocated)
         cash_ratio = cash_balance / equity if equity > 0 else 0.0

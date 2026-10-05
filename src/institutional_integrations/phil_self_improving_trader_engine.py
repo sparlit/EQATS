@@ -437,7 +437,9 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
             success=True,
@@ -448,7 +450,9 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order parameters."""
         return True
 
@@ -479,4 +483,6 @@ class PhilSelfImprovingTraderBrokerAdapter(SEBIBrokerAdapter):
 
 
 # Register adapter into microkernel plugin registry
-IndianBrokerPluginRegistry.register("PHIL_SELF_IMPROVING_TRADER", PhilSelfImprovingTraderBrokerAdapter)
+IndianBrokerPluginRegistry.register(
+    "PHIL_SELF_IMPROVING_TRADER", PhilSelfImprovingTraderBrokerAdapter
+)

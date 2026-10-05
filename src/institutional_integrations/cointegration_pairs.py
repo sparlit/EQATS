@@ -54,7 +54,9 @@ def calculate_z_score_spread(series_a: Any, series_b: Any, hedge_ratio: Any = 1.
     return round(z_score, 4)
 
 
-def evaluate_pairs_arbitrage_signal(z_score: Any, entry_threshold: Any = 2.0, exit_threshold: Any = 0.5) -> Any:
+def evaluate_pairs_arbitrage_signal(
+    z_score: Any, entry_threshold: Any = 2.0, exit_threshold: Any = 0.5
+) -> Any:
     """Evaluates pairs arbitrage trading signals based on Z-score thresholds."""
     if z_score >= entry_threshold:
         return {"action": "SHORT_A_LONG_B", "reason": f"Spread overextended (+{z_score:.2f} SD)"}

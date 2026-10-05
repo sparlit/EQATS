@@ -9,14 +9,16 @@ import math
 import threading
 import time
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
 logger = logging.getLogger("MetaEdgeQuant")
 
 
-def calculate_probabilistic_sharpe_ratio(returns: Sequence[float], benchmark_sharpe: float = 0.0) -> float:
+def calculate_probabilistic_sharpe_ratio(
+    returns: Sequence[float], benchmark_sharpe: float = 0.0
+) -> float:
     """
     Calculates Probabilistic Sharpe Ratio (PSR) from Bailey & López de Prado (2012).
     Evaluates probability that true Sharpe ratio is greater than benchmark_sharpe given
@@ -99,7 +101,9 @@ class EmpiricalSlippageTracker:
         self._lock = threading.Lock()
         self.events = []
 
-    def record_fill(self, symbol: str, signal_price: float, fill_price: float, atr: float = 0.001) -> None:
+    def record_fill(
+        self, symbol: str, signal_price: float, fill_price: float, atr: float = 0.001
+    ) -> None:
         with self._lock:
             slippage = abs(fill_price - signal_price)
             atr_frac = slippage / atr if atr > 0 else 0.0

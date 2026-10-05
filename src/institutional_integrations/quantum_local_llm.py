@@ -52,18 +52,30 @@ class QuantumLocalGPT:
         x = []
         for i, tok in enumerate(tokens):
             pos_idx = min(99, i)
-            emb = [self.token_embeddings[tok][d] + self.position_embeddings[pos_idx][d] for d in range(self.embed_dim)]
+            emb = [
+                self.token_embeddings[tok][d] + self.position_embeddings[pos_idx][d]
+                for d in range(self.embed_dim)
+            ]
             x.append(emb)
         q = [
-            [sum(x[i][d] * self.w_query[d][j] for d in range(self.embed_dim)) for j in range(self.embed_dim)]
+            [
+                sum(x[i][d] * self.w_query[d][j] for d in range(self.embed_dim))
+                for j in range(self.embed_dim)
+            ]
             for i in range(seq_len)
         ]
         k = [
-            [sum(x[i][d] * self.w_key[d][j] for d in range(self.embed_dim)) for j in range(self.embed_dim)]
+            [
+                sum(x[i][d] * self.w_key[d][j] for d in range(self.embed_dim))
+                for j in range(self.embed_dim)
+            ]
             for i in range(seq_len)
         ]
         v = [
-            [sum(x[i][d] * self.w_value[d][j] for d in range(self.embed_dim)) for j in range(self.embed_dim)]
+            [
+                sum(x[i][d] * self.w_value[d][j] for d in range(self.embed_dim))
+                for j in range(self.embed_dim)
+            ]
             for i in range(seq_len)
         ]
         scale = 1.0 / math.sqrt(self.embed_dim)

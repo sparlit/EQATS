@@ -5,11 +5,9 @@ Same Trade Idea Cooldown, Base Currency Exposure Limit, Drawdown Scaling),
 and Global Prop Firm Rules Registry for 20+ prop firms.
 """
 
-import json
 import logging
-import math
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("PropGuardianSafety")
 PROP_FIRMS_DATABASE = {
@@ -116,7 +114,10 @@ class PropGuardianMasterFilters:
         last_t = self.last_trade_times.get(symbol.upper(), 0.0)
         if now - last_t < self.same_idea_cooldown_s:
             rem_s = int(self.same_idea_cooldown_s - (now - last_t))
-            return {"passed": False, "reason": f"Same trade idea cooldown active for {symbol} ({rem_s}s remaining)"}
+            return {
+                "passed": False,
+                "reason": f"Same trade idea cooldown active for {symbol} ({rem_s}s remaining)",
+            }
         is_rollover = (utc_hour == 21 and utc_minute >= 55) or (utc_hour == 22 and utc_minute <= 15)
         if is_rollover:
             return {"passed": False, "reason": "Rollover swap window active (21:55-22:15 UTC)"}
@@ -148,4 +149,6 @@ class PropGuardianMasterFilters:
         sym = symbol.upper()
         self.last_trade_times[sym] = time.time()
         base_curr = self.extract_base_currency(sym)
-        self.active_currency_positions[base_curr] = self.active_currency_positions.get(base_curr, 0) + 1
+        self.active_currency_positions[base_curr] = (
+            self.active_currency_positions.get(base_curr, 0) + 1
+        )

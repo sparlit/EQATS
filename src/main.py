@@ -51,11 +51,11 @@ class AutonomousScalper:
         self.running = False
         self.trade_lock = threading.Lock()
         import institutional_integrations as ii
+        from institutional_integrations.web_api import SocketIPCBridge, TradingOSHTTPServer
 
         self.quantum_auto_engine = ii.QuantumAutoEngine()
         self.self_healer = ii.QuantumSelfHealer()
         self.self_healer.start_non_stop_loop()
-        from institutional_integrations.web_api import SocketIPCBridge
 
         self.ipc_bridge = SocketIPCBridge(host="127.0.0.1", port=9001)
         self.ipc_bridge.start_server()
@@ -107,7 +107,9 @@ class AutonomousScalper:
             self.daily_start_balance = account_info["balance"]
             self.last_day_str = current_date
             database.save_circuit_breaker_state(
-                trading_date=current_date, daily_start_balance=self.daily_start_balance, is_halted=False
+                trading_date=current_date,
+                daily_start_balance=self.daily_start_balance,
+                is_halted=False,
             )
             new_day_msg = f"🌅 New trading day baseline established: {self.daily_start_balance:.2f}"
             print(new_day_msg)
@@ -115,7 +117,11 @@ class AutonomousScalper:
         print(start_msg.replace("*", ""))
         telegram_bot.send_telegram_message(start_msg)
         global_event_bus.publish(
-            Event(family="SystemFault", source="Main", payload={"message": "System starting up cleanly"})
+            Event(
+                family="SystemFault",
+                source="Main",
+                payload={"message": "System starting up cleanly"},
+            )
         )
         self.running = True
         return True
@@ -190,7 +196,9 @@ class AutonomousScalper:
                         current_sl = target_sl
             elif direction == "SELL":
                 be_sl = entry_price - spread_buffer
-                if ask <= entry_price - trigger_distance and (current_sl == 0 or current_sl > be_sl):
+                if ask <= entry_price - trigger_distance and (
+                    current_sl == 0 or current_sl > be_sl
+                ):
                     success = self.conn.modify_order(ticket, round(be_sl, 5), current_tp)
                     if success:
                         print(
@@ -253,8 +261,14 @@ class AutonomousScalper:
             self._symbol_avg_spreads[sym_upper].append(spread_pips)
             if len(self._symbol_avg_spreads[sym_upper]) > 20:
                 self._symbol_avg_spreads[sym_upper].pop(0)
-        avg_spread = sum(self._symbol_avg_spreads[sym_upper]) / len(self._symbol_avg_spreads[sym_upper])
-        if len(self._symbol_avg_spreads[sym_upper]) >= 5 and spread_pips > 2.5 * avg_spread and (spread_pips > 3.0):
+        avg_spread = sum(self._symbol_avg_spreads[sym_upper]) / len(
+            self._symbol_avg_spreads[sym_upper]
+        )
+        if (
+            len(self._symbol_avg_spreads[sym_upper]) >= 5
+            and spread_pips > 2.5 * avg_spread
+            and (spread_pips > 3.0)
+        ):
             return (
                 False,
                 f"Liquidity Filter (Spread Volatility Spike Breaker): Spread ({spread_pips:.1f} pips) exceeds 2.5x 20-period avg spread ({avg_spread:.1f} pips).",
@@ -384,7 +398,11 @@ class AutonomousScalper:
         all_symbols = config.SYMBOLS
         active_session_upper = active_session.upper()
         if "WEEKEND" in active_session_upper:
-            return [s for s in all_symbols if any(c in s.upper() for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])]
+            return [
+                s
+                for s in all_symbols
+                if any(c in s.upper() for c in ["BTC", "ETH", "LTC", "SOL", "XRP"])
+            ]
         return all_symbols
 
     def evaluate_symbol_worker(
@@ -465,7 +483,9 @@ class AutonomousScalper:
         except Exception as e:
             print(f"Warning: Supervisor agent audit exception: {e}")
         if not self.conn.is_connected():
-            print("⚠️ DISCONNECTION DETECTED: Heartbeat failed. Autonomously attempting to reconnect...")
+            print(
+                "⚠️ DISCONNECTION DETECTED: Heartbeat failed. Autonomously attempting to reconnect..."
+            )
             try:
                 self.conn.connect()
             except Exception as e:
@@ -481,9 +501,13 @@ class AutonomousScalper:
             self.daily_start_balance = account_info["balance"]
             self.last_day_str = current_date
             database.save_circuit_breaker_state(
-                trading_date=current_date, daily_start_balance=self.daily_start_balance, is_halted=False
+                trading_date=current_date,
+                daily_start_balance=self.daily_start_balance,
+                is_halted=False,
             )
-            print(f"New day detected: {current_date}. Resetting daily baseline to {self.daily_start_balance:.2f}")
+            print(
+                f"New day detected: {current_date}. Resetting daily baseline to {self.daily_start_balance:.2f}"
+            )
         if config.SIMULATION_MODE:
             closed_tickets = self.conn.tick()
             for ticket in closed_tickets:
@@ -525,7 +549,9 @@ class AutonomousScalper:
                 is_gold = "XAU" in db_trade["symbol"]
                 mult = 1.0 if is_crypto else 100.0 if is_gold else 100000.0
                 estimated_profit = p_diff * db_trade["lot_size"] * mult
-                database.log_trade_close(ticket_str, current_price, estimated_profit, "EXTERNAL_MT5_CLOSE")
+                database.log_trade_close(
+                    ticket_str, current_price, estimated_profit, "EXTERNAL_MT5_CLOSE"
+                )
                 print(
                     f"Trade {ticket_str} ({db_trade['symbol']}) detected as CLOSED on MT5. Synchronized local database."
                 )
@@ -538,7 +564,9 @@ class AutonomousScalper:
         print(
             f"Equity: {current_equity:.2f} USD | Active Trades: {len(active_positions)}/{config.MAX_CONCURRENT_TRADES} | Active Session: {active_session}"
         )
-        print(f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}")
+        print(
+            f"{'Symbol':<9} | {'Price':<10} | {'EMA-200':<10} | {'Trend':<5} | {'RSI':<6} | {'ATR':<8} | {'Status'}"
+        )
         print("-" * 120)
         trading_available = len(active_positions) < config.MAX_CONCURRENT_TRADES
         scans_list = []
@@ -554,7 +582,9 @@ class AutonomousScalper:
         if mp.current_process().name == "MainProcess":
             try:
                 ctx = mp.get_context("spawn")
-                with concurrent.futures.ProcessPoolExecutor(max_workers=pool_workers, mp_context=ctx) as executor:
+                with concurrent.futures.ProcessPoolExecutor(
+                    max_workers=pool_workers, mp_context=ctx
+                ) as executor:
                     future_to_symbol = {
                         executor.submit(
                             self.evaluate_symbol_worker,
@@ -577,10 +607,16 @@ class AutonomousScalper:
         if not parallel_success:
             scans_list = []
             pending_orders = []
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(active_symbols))) as executor:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max(1, len(active_symbols))
+            ) as executor:
                 future_to_symbol = {
                     executor.submit(
-                        self.evaluate_symbol_worker, symbol, list(active_positions), current_equity, trading_available
+                        self.evaluate_symbol_worker,
+                        symbol,
+                        list(active_positions),
+                        current_equity,
+                        trading_available,
                     ): symbol
                     for symbol in active_symbols
                 }
@@ -620,7 +656,9 @@ class AutonomousScalper:
         dedup_dict = {}
         for dec_item in raw_pending_decisions:
             key = (dec_item["symbol"].upper(), dec_item["decision"])
-            if key not in dedup_dict or dec_item.get("probability", 0.0) > dedup_dict[key].get("probability", 0.0):
+            if key not in dedup_dict or dec_item.get("probability", 0.0) > dedup_dict[key].get(
+                "probability", 0.0
+            ):
                 dedup_dict[key] = dec_item
         all_pending_decisions = list(dedup_dict.values())
         for dec_item in all_pending_decisions:
@@ -654,18 +692,24 @@ class AutonomousScalper:
                                 p_open = float(p.get("open_price", 0.0))
                                 p_dir = p.get("direction", "BUY")
                                 price_curr = self.conn.get_current_price(symbol)["bid"]
-                                diff = price_curr - p_open if p_dir == "BUY" else p_open - price_curr
+                                diff = (
+                                    price_curr - p_open if p_dir == "BUY" else p_open - price_curr
+                                )
                                 is_losing = diff < 0
                             if is_losing:
                                 in_loss = True
                                 break
                     if in_loss:
                         continue
-                scan_item = next((sc for sc in scans_list if sc["symbol"].upper() == symbol.upper()), None)
+                scan_item = next(
+                    (sc for sc in scans_list if sc["symbol"].upper() == symbol.upper()), None
+                )
                 tech_trend = scan_item["trend"] if scan_item else "UP"
                 ai_trend = "UP" if dec_item.get("probability", 0.85) >= 0.5 else "DOWN"
                 component_decisions = {"technical_trend": tech_trend, "ai_trend": ai_trend}
-                has_disagreement = not self.engine.safety.verify_component_agreement(component_decisions)
+                has_disagreement = not self.engine.safety.verify_component_agreement(
+                    component_decisions
+                )
                 open_db_trades_refresh = database.get_open_trades()
                 has_reconciliation_mismatch = not self.engine.resilience.reconcile_positions(
                     open_db_trades_refresh, active_positions_refresh
@@ -708,7 +752,9 @@ class AutonomousScalper:
                         )
                         aggregate_exposure_pct += pos_exposure
                 price_info_curr = self.conn.get_current_price(symbol)
-                entry_price_estimate = price_info_curr.get("ask" if decision == "BUY" else "bid", 0.0)
+                entry_price_estimate = price_info_curr.get(
+                    "ask" if decision == "BUY" else "bid", 0.0
+                )
                 proposed_exposure = 0.0
                 total_exposure_with_new_order = None
                 if entry_price_estimate > 0 and sl > 0 and (lot_size > 0):
@@ -735,7 +781,8 @@ class AutonomousScalper:
                         lot_size,
                     )
                 violations = self.engine.safety.evaluate_invariants(
-                    current_risk=config.RISK_PER_TRADE_PERCENT * (len(active_positions_refresh) + 1),
+                    current_risk=config.RISK_PER_TRADE_PERCENT
+                    * (len(active_positions_refresh) + 1),
                     active_count=len(active_positions_refresh) + 1,
                     has_reconciliation_mismatch=has_reconciliation_mismatch,
                     has_disagreement=has_disagreement,
@@ -788,9 +835,15 @@ class AutonomousScalper:
                         )
                         continue
                 else:
-                    sub_alloc_mod = 0.5 if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True) else 1.0
+                    sub_alloc_mod = (
+                        0.5
+                        if getattr(config, "DEDICATED_RISK_SUB_ALLOCATION_ENABLED", True)
+                        else 1.0
+                    )
                     curr_portfolio_risk = (
-                        config.RISK_PER_TRADE_PERCENT * sub_alloc_mod * (len(active_positions_refresh) + 1)
+                        config.RISK_PER_TRADE_PERCENT
+                        * sub_alloc_mod
+                        * (len(active_positions_refresh) + 1)
                     )
                     if curr_portfolio_risk > global_risk_cap:
                         _log.warning(
@@ -808,16 +861,22 @@ class AutonomousScalper:
                     "safety_violations": violations,
                     "portfolio_risk_pct": curr_portfolio_risk,
                     "drawdown_pct": 0.0,
-                    "spread_pips": float(scan_item["spread"] if scan_item and "spread" in scan_item else "1.0"),
+                    "spread_pips": float(
+                        scan_item["spread"] if scan_item and "spread" in scan_item else "1.0"
+                    ),
                     "rate_throttled": self.engine.execution.rate_state != "NORMAL",
                     "strategy_valid": decision in ["BUY", "SELL"],
                     "ai_probability": dec_item.get("probability", 0.85) * 100.0,
                 }
-                const_res = self.engine.constitution.evaluate_constitution_compliance(constitution_payload)
+                const_res = self.engine.constitution.evaluate_constitution_compliance(
+                    constitution_payload
+                )
                 if not const_res["compliant"]:
                     print(f"🛡️ [SYSTEM CONSTITUTION BLOCKED]: {const_res['reason']}")
                     continue
-                feed_price = float(scan_item["price"] if scan_item and scan_item["price"] != "-" else "1.1")
+                feed_price = float(
+                    scan_item["price"] if scan_item and scan_item["price"] != "-" else "1.1"
+                )
                 price_ok = self.engine.data.check_price_deviation(symbol, feed_price, feed_price)
                 if not price_ok:
                     print(
@@ -825,15 +884,21 @@ class AutonomousScalper:
                     )
                     continue
                 if not self.engine.safety.authorize_trade(symbol, env, violations):
-                    print(f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed.")
+                    print(
+                        f"🛑 [TRADE ADMISSION CONTROLLER BLOCKED]: Admitting order for {symbol} failed."
+                    )
                     continue
                 if not self.engine.execution.validate_fat_finger(symbol, lot_size, feed_price):
                     print(
                         f"🛑 [FAT-FINGER PROTECTION BLOCKED]: lot size {lot_size} or notional exceeds standard limits."
                     )
                     continue
-                if self.engine.execution.prevent_self_trade(symbol, decision, active_positions_refresh):
-                    print(f"🛑 [SELF-TRADE PREVENTION BLOCKED]: conflicting positions open on symbol {symbol}.")
+                if self.engine.execution.prevent_self_trade(
+                    symbol, decision, active_positions_refresh
+                ):
+                    print(
+                        f"🛑 [SELF-TRADE PREVENTION BLOCKED]: conflicting positions open on symbol {symbol}."
+                    )
                     continue
                 if not self.engine.execution.check_rate_limits():
                     print("🛑 [RATE LIMITER BLOCKED]: order transmission rate limits exceeded.")
@@ -847,7 +912,9 @@ class AutonomousScalper:
                 else:
                     self.engine.risk.reserve_capital(symbol, config.RISK_PER_TRADE_PERCENT)
                 self.engine.risk.commit_reservation(symbol)
-                print(f"🧠 Brain signaled: {decision} on {symbol} [{strat_tag}/{method_tag}]! Executing order...")
+                print(
+                    f"🧠 Brain signaled: {decision} on {symbol} [{strat_tag}/{method_tag}]! Executing order..."
+                )
                 res = self.engine.execution.execute_admitted_order(
                     symbol=symbol, direction=decision, lot=lot_size, sl=sl, tp=tp
                 )
@@ -871,10 +938,13 @@ class AutonomousScalper:
                         print(
                             f"🚨 CRITICAL ERROR: Failed to log trade {res['ticket']} to database. Closing broker position immediately to prevent untracked exposure."
                         )
-                        close_result = self.conn.close_order(res["ticket"], reason="DATABASE_WRITE_FAILURE")
+                        close_result = self.conn.close_order(
+                            res["ticket"], reason="DATABASE_WRITE_FAILURE"
+                        )
                         if close_result.get("success"):
                             _log.info(
-                                "Successfully closed untracked position %s after database write failure", res["ticket"]
+                                "Successfully closed untracked position %s after database write failure",
+                                res["ticket"],
                             )
                         else:
                             _log.error(

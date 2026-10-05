@@ -16,7 +16,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 logger = logging.getLogger("NoFxAiTerminalEngine")
 
@@ -98,7 +98,11 @@ class NoFxRiskRuntimeDisposer:
         self.safe_mode_active: bool = False
 
     def run_preflight_check(
-        self, model_name: str, account_balance: float, exchange_connected: bool, min_required_balance: float = 12.0
+        self,
+        model_name: str,
+        account_balance: float,
+        exchange_connected: bool,
+        min_required_balance: float = 12.0,
     ) -> NoFxPreflightStatus:
         """Executes server-side preflight launch verification prior to trader start."""
         reasons = []
@@ -201,9 +205,13 @@ class NoFxRiskRuntimeDisposer:
                     veto_reason=f"Max concurrent positions limit reached ({len(open_positions)} / {self.config.max_concurrent_positions}).",
                     reasoning_paper_trail=decision.reasoning_summary,
                 )
-            target_leverage = min(self.config.max_leverage, max(1.0, decision.confidence * self.config.max_leverage))
+            target_leverage = min(
+                self.config.max_leverage, max(1.0, decision.confidence * self.config.max_leverage)
+            )
             max_allowed_notional = account_equity * self.config.max_notional_equity_ratio
-            current_total_notional = sum(float(p.get("lot_size", 0.01)) * current_price for p in open_positions)
+            current_total_notional = sum(
+                float(p.get("lot_size", 0.01)) * current_price for p in open_positions
+            )
             remaining_notional = max(0.0, max_allowed_notional - current_total_notional)
             proposed_notional = decision.proposed_volume * current_price
             clamped_notional = min(proposed_notional, remaining_notional)
@@ -212,7 +220,9 @@ class NoFxRiskRuntimeDisposer:
             else:
                 raw_vol = clamped_notional / current_price
                 steps = math.floor(raw_vol / broker_volume_step) if broker_volume_step > 0 else 0
-                clamped_vol = max(broker_volume_min, min(broker_volume_max, steps * broker_volume_step))
+                clamped_vol = max(
+                    broker_volume_min, min(broker_volume_max, steps * broker_volume_step)
+                )
             if clamped_vol < broker_volume_min:
                 return NoFxClampedOrder(
                     symbol=symbol,
@@ -250,7 +260,9 @@ class NoFxRiskRuntimeDisposer:
     ) -> tuple[bool, str]:
         """Evaluates whether profitable positions giving back too much profit from peak should be auto-closed."""
         with self.lock:
-            p_diff = current_price - open_price if direction == "BUY" else open_price - current_price
+            p_diff = (
+                current_price - open_price if direction == "BUY" else open_price - current_price
+            )
             current_profit = p_diff * lot_size * contract_multiplier
             peak = max(self.symbol_peak_profit.get(symbol, 0.0), current_profit)
             self.symbol_peak_profit[symbol] = peak
@@ -322,7 +334,9 @@ class NoFxMarketDirectionBoard:
                 trend_momentum = float(sum(sub) / len(sub))
             else:
                 trend_momentum = current_bias
-            direction_str = "BUY" if current_bias > 0.15 else "SELL" if current_bias < -0.15 else "NEUTRAL"
+            direction_str = (
+                "BUY" if current_bias > 0.15 else "SELL" if current_bias < -0.15 else "NEUTRAL"
+            )
             return {
                 "symbol": symbol,
                 "direction": direction_str,

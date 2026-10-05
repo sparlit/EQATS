@@ -107,7 +107,9 @@ class CodingRoutingBenchmarkEngine:
             best_model = max(all_cat, key=lambda x: x.pass_rate)
         else:
             # Sort by pass_rate / cost efficiency score
-            best_model = max(eligible, key=lambda x: x.pass_rate / max(0.0001, x.cost_per_1k_tokens))
+            best_model = max(
+                eligible, key=lambda x: x.pass_rate / max(0.0001, x.cost_per_1k_tokens)
+            )
 
         return {
             "task_category": task_category,
@@ -170,16 +172,28 @@ class CodingRoutingBenchmarkBrokerAdapter(SEBIBrokerAdapter):
             status="EXECUTED",
             product=request.product,
             exchange=request.exchange,
-            raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_CODING_ROUTING_BENCHMARK},
+            raw_response={
+                "quantity": sanitized_qty,
+                "magic_number": MAGIC_NUMBER_CODING_ROUTING_BENCHMARK,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

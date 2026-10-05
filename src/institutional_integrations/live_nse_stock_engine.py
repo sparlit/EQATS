@@ -9,17 +9,15 @@ Provides live NSE quote JSON parsing, price percentage change calculation,
 0.05 INR price tick rounding, IST market session validation, and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -61,7 +59,13 @@ class LiveNSEStockEngine:
         Parses live NSE equity quote payload into normalized market data.
         """
         if not raw_quote:
-            return {"symbol": "", "last_price": 0.0, "p_change": 0.0, "volume": 0, "magic_number": self.magic_number}
+            return {
+                "symbol": "",
+                "last_price": 0.0,
+                "p_change": 0.0,
+                "volume": 0,
+                "magic_number": self.magic_number,
+            }
 
         symbol = str(raw_quote.get("symbol", raw_quote.get("companyName", ""))).upper()
         last_price = float(raw_quote.get("lastPrice", raw_quote.get("last", 0.0)))
@@ -138,7 +142,9 @@ class LiveNSEStockBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -148,7 +154,9 @@ class LiveNSEStockBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

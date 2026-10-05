@@ -11,19 +11,16 @@ Assigned Magic Number: 9100006
 """
 
 import logging
-import math
-import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
+from .indian_market_state_machine import round_to_indian_tick_size
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
     generate_indian_market_history_bars,
-    round_to_indian_quantity,
     validate_indian_product_tag,
 )
 
@@ -46,7 +43,9 @@ class BankNiftyGoldenRatioStrategy:
         self.lot_size = lot_size
         self.magic_number = MAGIC_NUMBER_BANKNIFTY_GOLDEN_RATIO
 
-    def calculate_golden_ratio_levels(self, range_high: float, range_low: float) -> dict[str, float]:
+    def calculate_golden_ratio_levels(
+        self, range_high: float, range_low: float
+    ) -> dict[str, float]:
         """
         Calculates Golden Ratio Fibonacci levels from given high and low range bounds.
         """
@@ -104,26 +103,20 @@ class BankNiftyGoldenRatioStrategy:
         decision = "HOLD"
         sl = 0.0
         tp = 0.0
-        explanation = (
-            f"Price {current_price:.2f} within Golden Range [{levels['retrace_382']:.2f} - {levels['retrace_618']:.2f}]"
-        )
+        explanation = f"Price {current_price:.2f} within Golden Range [{levels['retrace_382']:.2f} - {levels['retrace_618']:.2f}]"
 
         # Bullish Golden Ratio Breakout (above 0.618 or range high)
         if current_price >= levels["range_high"]:
             decision = "BUY"
             sl = levels["retrace_618"]
             tp = levels["ext_1618_buy"]
-            explanation = (
-                f"Golden Ratio BUY Breakout above Range High {levels['range_high']:.2f} (Target 1.618 Ext: {tp:.2f})"
-            )
+            explanation = f"Golden Ratio BUY Breakout above Range High {levels['range_high']:.2f} (Target 1.618 Ext: {tp:.2f})"
         # Bearish Golden Ratio Breakdown (below 0.382 or range low)
         elif current_price <= levels["range_low"]:
             decision = "SELL"
             sl = levels["retrace_382"]
             tp = levels["ext_1618_sell"]
-            explanation = (
-                f"Golden Ratio SELL Breakdown below Range Low {levels['range_low']:.2f} (Target 1.618 Ext: {tp:.2f})"
-            )
+            explanation = f"Golden Ratio SELL Breakdown below Range Low {levels['range_low']:.2f} (Target 1.618 Ext: {tp:.2f})"
 
         return {
             "symbol": self.symbol,
@@ -159,7 +152,12 @@ class BankNiftyGoldenRatioAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -193,17 +191,30 @@ class BankNiftyGoldenRatioAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
-            raw_response={"status": True, "ticket": ticket, "magic_number": MAGIC_NUMBER_BANKNIFTY_GOLDEN_RATIO},
+            raw_response={
+                "status": True,
+                "ticket": ticket,
+                "magic_number": MAGIC_NUMBER_BANKNIFTY_GOLDEN_RATIO,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "NRML") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "NRML"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

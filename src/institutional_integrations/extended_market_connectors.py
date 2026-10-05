@@ -4,7 +4,7 @@ from .indian_instrument_scheduler import global_indian_scheduler
 
 "\nInstitutional Extended Market Data & Economic Connectors Engine.\nAdapted from Fincept Terminal data connectors (ft.txt) including AkShare, SEC EDGAR,\nFRED, World Bank, Crypto/DeFi feeds, and Polymarket prediction markets.\nProvides resilient data fetching with robust fallbacks.\n"
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -29,7 +29,9 @@ class ExtendedDataConnectors:
                 records = df.head(10).to_dict(orient="records")
                 return [{"indicator": "GDP", "source": "AkShare", "data": records}]
         except Exception as e:
-            _log.warning("AkShare live query unavailable, utilizing structured macro fallback: %s", e)
+            _log.warning(
+                "AkShare live query unavailable, utilizing structured macro fallback: %s", e
+            )
         return [
             {"indicator": "GDP_Growth", "value": 5.2, "period": "2024Q1", "unit": "%"},
             {"indicator": "CPI", "value": 0.7, "period": "2024M03", "unit": "%"},
@@ -59,8 +61,18 @@ class ExtendedDataConnectors:
         Fetches FRED economic time-series data (e.g. FEDFUNDS, DGS10, CPIAUCSL).
         """
         sample_series = {
-            "FEDFUNDS": {"name": "Federal Funds Effective Rate", "value": 5.33, "unit": "%", "date": "2024-03-01"},
-            "DGS10": {"name": "10-Year Treasury Constant Maturity", "value": 4.22, "unit": "%", "date": "2024-03-25"},
+            "FEDFUNDS": {
+                "name": "Federal Funds Effective Rate",
+                "value": 5.33,
+                "unit": "%",
+                "date": "2024-03-01",
+            },
+            "DGS10": {
+                "name": "10-Year Treasury Constant Maturity",
+                "value": 4.22,
+                "unit": "%",
+                "date": "2024-03-25",
+            },
             "CPIAUCSL": {
                 "name": "Consumer Price Index for All Urban Consumers",
                 "value": 310.28,
@@ -69,7 +81,8 @@ class ExtendedDataConnectors:
             },
         }
         res = sample_series.get(
-            series_id.upper(), {"name": series_id, "value": 5.0, "unit": "n/a", "date": "2024-03-01"}
+            series_id.upper(),
+            {"name": series_id, "value": 5.0, "unit": "n/a", "date": "2024-03-01"},
         )
         return {"series_id": series_id, "data": res, "status": "SUCCESS"}
 
@@ -80,12 +93,33 @@ class ExtendedDataConnectors:
         """
         sym = symbol.upper()
         crypto_db = {
-            "BTC": {"price": 67500.0, "market_cap_billions": 1325.0, "24h_vol_billions": 28.5, "tvl_billions": 1.2},
-            "ETH": {"price": 3550.0, "market_cap_billions": 426.0, "24h_vol_billions": 14.2, "tvl_billions": 58.4},
-            "SOL": {"price": 185.0, "market_cap_billions": 82.0, "24h_vol_billions": 4.8, "tvl_billions": 4.2},
+            "BTC": {
+                "price": 67500.0,
+                "market_cap_billions": 1325.0,
+                "24h_vol_billions": 28.5,
+                "tvl_billions": 1.2,
+            },
+            "ETH": {
+                "price": 3550.0,
+                "market_cap_billions": 426.0,
+                "24h_vol_billions": 14.2,
+                "tvl_billions": 58.4,
+            },
+            "SOL": {
+                "price": 185.0,
+                "market_cap_billions": 82.0,
+                "24h_vol_billions": 4.8,
+                "tvl_billions": 4.2,
+            },
         }
         item = crypto_db.get(
-            sym, {"price": 100.0, "market_cap_billions": 1.0, "24h_vol_billions": 0.1, "tvl_billions": 0.05}
+            sym,
+            {
+                "price": 100.0,
+                "market_cap_billions": 1.0,
+                "24h_vol_billions": 0.1,
+                "tvl_billions": 0.05,
+            },
         )
         return {
             "symbol": sym,
@@ -159,8 +193,14 @@ class ExtendedDataConnectors:
         """
         quote = ExtendedDataConnectors.fetch_indian_equity_quote(symbol, exchange)
         last_price = quote["last"]
-        bids = [{"price": round(last_price - i * 0.2, 2), "quantity": 100 * (i + 1), "orders": i + 1} for i in range(5)]
-        asks = [{"price": round(last_price + i * 0.2, 2), "quantity": 100 * (i + 1), "orders": i + 1} for i in range(5)]
+        bids = [
+            {"price": round(last_price - i * 0.2, 2), "quantity": 100 * (i + 1), "orders": i + 1}
+            for i in range(5)
+        ]
+        asks = [
+            {"price": round(last_price + i * 0.2, 2), "quantity": 100 * (i + 1), "orders": i + 1}
+            for i in range(5)
+        ]
         return {
             "symbol": quote["symbol"],
             "exchange": quote["exchange"],

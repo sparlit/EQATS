@@ -22,15 +22,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 import database
 from institutional_integrations.circuit_breaker import CircuitBreaker
 from institutional_integrations.fix_engine import FIXEngine
 from institutional_integrations.sebi_broker_adapter import (
-    DhanHQAdapter,
-    KiteConnectAdapter,
-    SEBIBrokerAdapter,
     SEBIOrderRequest,
     UnifiedIndianBrokerClientAdapter,
     round_to_indian_quantity,
@@ -170,7 +167,8 @@ class UniversalBrokerGateway:
 
             # Enforce HTTPS for REST endpoints to prevent plaintext credential/order exposure
             is_allowed_http = any(
-                self.rest_url.startswith(prefix) for prefix in ("http://127.0.0.1", "http://localhost")
+                self.rest_url.startswith(prefix)
+                for prefix in ("http://127.0.0.1", "http://localhost")
             )
             if self.rest_url and not (self.rest_url.startswith("https://") or is_allowed_http):
                 _log.error(
@@ -229,7 +227,9 @@ class UniversalBrokerGateway:
         # This is a common pattern used by institutional broker APIs
         signature_payload = f"{method}{endpoint}{timestamp}"
         if body_data:
-            signature_payload += body_data.decode("utf-8") if isinstance(body_data, bytes) else str(body_data)
+            signature_payload += (
+                body_data.decode("utf-8") if isinstance(body_data, bytes) else str(body_data)
+            )
 
         # Generate HMAC-SHA256 signature
         signature = hmac.new(
@@ -764,7 +764,11 @@ class UniversalBrokerGateway:
                 res["product"] = validated_product
             return res
 
-        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
+        if (
+            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
+            and hasattr(self, "rest_url")
+            and self.rest_url
+        ):
             # Generate stable client_order_id for idempotent retry
             client_order_id = f"EQATS_{uuid.uuid4().hex[:16]}_{int(time.time() * 1000)}"
 
@@ -808,7 +812,9 @@ class UniversalBrokerGateway:
                             if isinstance(status_val, int):
                                 http_status = status_val
                         if http_status not in (200, 201):
-                            last_err = f"HTTP {http_status}: Broker returned non-success status code"
+                            last_err = (
+                                f"HTTP {http_status}: Broker returned non-success status code"
+                            )
                             _log.error(
                                 "Universal Broker REST Gateway order rejected with HTTP %d for %s",
                                 http_status,
@@ -837,7 +843,9 @@ class UniversalBrokerGateway:
                             order_status = "ACCEPTED"
                         if order_status not in ("ACCEPTED", "FILLED", "PARTIAL"):
                             # Order was rejected, pending, or status is missing/invalid
-                            last_err = f"Order not accepted by broker. Status: {order_status or 'MISSING'}"
+                            last_err = (
+                                f"Order not accepted by broker. Status: {order_status or 'MISSING'}"
+                            )
                             _log.error(
                                 "Universal Broker REST Gateway order rejected for %s. Status: %s, Response: %s",
                                 symbol,
@@ -878,7 +886,9 @@ class UniversalBrokerGateway:
                         # Validate execution price - must be present and positive
                         execution_price = res_data.get("price")
                         if execution_price is None or float(execution_price) <= 0.0:
-                            last_err = f"Broker response missing valid execution price: {execution_price}"
+                            last_err = (
+                                f"Broker response missing valid execution price: {execution_price}"
+                            )
                             _log.error(
                                 "Universal Broker REST Gateway order for %s has invalid price. Response: %s",
                                 symbol,
@@ -1153,7 +1163,11 @@ class UniversalBrokerGateway:
                     "error": str(e),
                 }
 
-        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
+        if (
+            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
+            and hasattr(self, "rest_url")
+            and self.rest_url
+        ):
             payload = json.dumps({"ticket": str(ticket), "reason": reason}).encode(
                 "utf-8",
             )
@@ -1293,7 +1307,11 @@ class UniversalBrokerGateway:
                 self._breaker.record_failure(e)
                 return False
 
-        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
+        if (
+            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
+            and hasattr(self, "rest_url")
+            and self.rest_url
+        ):
             payload = json.dumps({"ticket": str(ticket), "sl": sl, "tp": tp}).encode(
                 "utf-8",
             )
@@ -1409,7 +1427,11 @@ class UniversalBrokerGateway:
                 )
                 return []
 
-        if self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"] and hasattr(self, "rest_url") and self.rest_url:
+        if (
+            self.protocol in ["REST_WS", "CCXT", "CTRADER", "IBKR"]
+            and hasattr(self, "rest_url")
+            and self.rest_url
+        ):
             # Generate authenticated headers for GET request
             endpoint = "/v1/orders"
             headers = self._generate_auth_headers(

@@ -10,7 +10,6 @@ import threading
 import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
 
 _log = logging.getLogger("IndianInstrumentScheduler")
 IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
@@ -85,8 +84,12 @@ class IndianInstrumentScheduler:
         for row in reader:
             try:
                 token = int(row.get("SEM_SMST_SECURITY_ID", row.get("SECURITY_ID", 0)))
-                exchange = str(row.get("SEM_EXCHANGE_ID", row.get("EXCHANGE", "NSE"))).strip().upper()
-                trading_symbol = str(row.get("SEM_TRADING_SYMBOL", row.get("SYMBOL", ""))).strip().upper()
+                exchange = (
+                    str(row.get("SEM_EXCHANGE_ID", row.get("EXCHANGE", "NSE"))).strip().upper()
+                )
+                trading_symbol = (
+                    str(row.get("SEM_TRADING_SYMBOL", row.get("SYMBOL", ""))).strip().upper()
+                )
                 if exchange and trading_symbol and (token > 0):
                     key = f"{exchange}:{trading_symbol}"
                     new_map[key] = token
@@ -117,7 +120,9 @@ class IndianInstrumentScheduler:
                             self.symbol_to_token[sym] = token
                             self.token_to_symbol[token] = sym
                     self.save_mappings_to_disk()
-                    _log.info("Successfully updated %d instrument token mappings.", len(downloaded_map))
+                    _log.info(
+                        "Successfully updated %d instrument token mappings.", len(downloaded_map)
+                    )
                     return len(downloaded_map)
         except Exception as e:
             _log.warning("Master instrument list download failed (%s). Using cached mappings.", e)
@@ -158,7 +163,10 @@ class IndianInstrumentScheduler:
         target_path = filepath or self.mapping_file
         try:
             with self._lock:
-                data = {"updated_at": time.strftime("%Y-%m-%d %H:%M:%S"), "symbol_to_token": self.symbol_to_token}
+                data = {
+                    "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "symbol_to_token": self.symbol_to_token,
+                }
             with open(target_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             database.save_instrument_tokens_to_db(self.symbol_to_token)
@@ -184,10 +192,14 @@ class IndianInstrumentScheduler:
         except Exception as e:
             _log.warning("Failed to load instrument mappings from disk: %s", e)
 
-    def calculate_seconds_until_target_time_ist(self, target_hour: int = 8, target_minute: int = 45) -> float:
+    def calculate_seconds_until_target_time_ist(
+        self, target_hour: int = 8, target_minute: int = 45
+    ) -> float:
         """Calculates exact seconds remaining until next target time in IST (08:45 AM IST)."""
         now_ist = datetime.now(IST_TIMEZONE)
-        target_today = now_ist.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+        target_today = now_ist.replace(
+            hour=target_hour, minute=target_minute, second=0, microsecond=0
+        )
         if now_ist >= target_today:
             target_next = target_today + timedelta(days=1)
         else:
@@ -207,17 +219,24 @@ class IndianInstrumentScheduler:
         target_minute = int(parts[1])
 
         def _scheduler_loop() -> None:
-            _log.info("Indian instrument token scheduler started (Target Time: %s AM IST).", target_time_ist)
+            _log.info(
+                "Indian instrument token scheduler started (Target Time: %s AM IST).",
+                target_time_ist,
+            )
             while self._running:
                 delay = self.calculate_seconds_until_target_time_ist(target_hour, target_minute)
-                _log.info("Scheduler sleeping for %.1f seconds until next 08:45 AM IST execution.", delay)
+                _log.info(
+                    "Scheduler sleeping for %.1f seconds until next 08:45 AM IST execution.", delay
+                )
                 slept = 0.0
                 while self._running and slept < delay:
                     step = min(5.0, delay - slept)
                     time.sleep(step)
                     slept += step
                 if self._running:
-                    _log.info("Triggering scheduled 08:45 AM IST master instrument list download...")
+                    _log.info(
+                        "Triggering scheduled 08:45 AM IST master instrument list download..."
+                    )
                     self.download_master_instrument_list(broker=broker)
 
         self._scheduler_thread = threading.Thread(

@@ -139,7 +139,12 @@ class TradeMemoryReflectionProtocol:
         else:
             new_weight = max(0.2, current_weight * 0.97 - 0.01)
         self.adaptive_weights[strategy_used] = round(new_weight, 4)
-        _log.info("Self-Learning Retrained %s weight: %.4f -> %.4f", strategy_used, current_weight, new_weight)
+        _log.info(
+            "Self-Learning Retrained %s weight: %.4f -> %.4f",
+            strategy_used,
+            current_weight,
+            new_weight,
+        )
 
     def get_adaptive_strategy_weight(self, strategy_name: str) -> float:
         """Returns the self-learned adaptive weight multiplier for a given strategy."""
@@ -183,7 +188,12 @@ class TradeMemoryReflectionProtocol:
         if symbol:
             records = [r for r in records if r["symbol"] == symbol]
         if not records:
-            return {"total_reflections": 0, "win_rate": 0.0, "avg_efficiency": 0.0, "recent_reflections": []}
+            return {
+                "total_reflections": 0,
+                "win_rate": 0.0,
+                "avg_efficiency": 0.0,
+                "recent_reflections": [],
+            }
         wins = sum(1 for r in records if r["is_win"])
         win_rate = wins / len(records) * 100.0
         avg_eff = sum(r["efficiency_score"] for r in records) / len(records)

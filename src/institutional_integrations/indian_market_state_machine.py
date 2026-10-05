@@ -14,7 +14,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 _log = logging.getLogger("IndianMarketStateMachine")
 IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
@@ -107,7 +107,12 @@ class IndianMarketStateMachine:
 
     @classmethod
     def validate_order_execution(
-        cls, symbol: str, order_type: str, product: str = "CNC", price: float = 0.0, dt_ist: datetime | None = None
+        cls,
+        symbol: str,
+        order_type: str,
+        product: str = "CNC",
+        price: float = 0.0,
+        dt_ist: datetime | None = None,
     ) -> tuple[bool, str, float]:
         """
         Validates order submission against market session rules and applies 0.05 INR tick rounding.
@@ -120,7 +125,11 @@ class IndianMarketStateMachine:
         product_upper = str(product).strip().upper() if product else "CNC"
         rounded_price = round_to_indian_tick_size(price) if price > 0 else 0.0
         if state == IndianMarketState.CLOSED:
-            return (False, f"Indian stock market is CLOSED ({now.strftime('%A %H:%M IST')}).", rounded_price)
+            return (
+                False,
+                f"Indian stock market is CLOSED ({now.strftime('%A %H:%M IST')}).",
+                rounded_price,
+            )
         if state == IndianMarketState.PRE_MARKET:
             return (
                 False,
@@ -194,14 +203,24 @@ class IndianMarketStateMachine:
                     try:
                         cancel_order_func(ticket)
                         cancelled_tickets.append(ticket)
-                        _log.info("Cancelled pending MIS limit order %s for %s ahead of cutoff.", ticket, symbol)
+                        _log.info(
+                            "Cancelled pending MIS limit order %s for %s ahead of cutoff.",
+                            ticket,
+                            symbol,
+                        )
                     except Exception as e:
                         _log.error("Failed to cancel pending MIS order %s: %s", ticket, e)
                 else:
                     try:
-                        res = close_order_func(ticket=ticket, symbol=symbol, exchange=exchange, product="MIS")
+                        res = close_order_func(
+                            ticket=ticket, symbol=symbol, exchange=exchange, product="MIS"
+                        )
                         closed_tickets.append(ticket)
-                        _log.info("Systematically routed market exit for active MIS position %s on %s.", ticket, symbol)
+                        _log.info(
+                            "Systematically routed market exit for active MIS position %s on %s.",
+                            ticket,
+                            symbol,
+                        )
                     except Exception as e:
                         _log.error("Failed to close MIS position %s: %s", ticket, e)
         return {

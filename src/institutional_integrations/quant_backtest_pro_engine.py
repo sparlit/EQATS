@@ -7,10 +7,8 @@ Provides:
 - HighPrecisionOrderMatchingEngine: Candle Processing, Pending Limit/Stop Order Matching, Partial Close, Breakeven SL Adjustment, Trailing Stops, Margin Level Stop-Out Protection
 """
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 
 class OrderType(str, Enum):
@@ -88,14 +86,22 @@ class MultiAssetMathEngine:
 
     @staticmethod
     def calculate_pnl(
-        config: SymbolConfig, side: PositionSide, lot_size: float, entry_price: float, exit_price: float
+        config: SymbolConfig,
+        side: PositionSide,
+        lot_size: float,
+        entry_price: float,
+        exit_price: float,
     ) -> float:
         """Calculates gross PnL in account currency."""
-        price_diff = exit_price - entry_price if side == PositionSide.BUY else entry_price - exit_price
+        price_diff = (
+            exit_price - entry_price if side == PositionSide.BUY else entry_price - exit_price
+        )
         return price_diff * lot_size * config.contract_size
 
     @staticmethod
-    def calculate_required_margin(config: SymbolConfig, lot_size: float, current_price: float) -> float:
+    def calculate_required_margin(
+        config: SymbolConfig, lot_size: float, current_price: float
+    ) -> float:
         """Calculates required margin for position."""
         notional_value = lot_size * config.contract_size * current_price
         return notional_value / config.leverage if config.leverage > 0 else notional_value
@@ -109,7 +115,9 @@ class MultiAssetMathEngine:
 class HighPrecisionOrderMatchingEngine:
     """High Precision Candle Order Matching & Position Lifecycle Engine."""
 
-    def __init__(self, initial_balance: float = 100000.0, config: SymbolConfig | None = None) -> None:
+    def __init__(
+        self, initial_balance: float = 100000.0, config: SymbolConfig | None = None
+    ) -> None:
         self.initial_balance = initial_balance
         self.balance = initial_balance
         self.equity = initial_balance
@@ -162,7 +170,9 @@ class HighPrecisionOrderMatchingEngine:
         if not pos:
             return False
         buffer = buffer_pips * self.config.pip_size
-        pos.stop_loss = pos.entry_price + buffer if pos.side == PositionSide.BUY else pos.entry_price - buffer
+        pos.stop_loss = (
+            pos.entry_price + buffer if pos.side == PositionSide.BUY else pos.entry_price - buffer
+        )
         return True
 
     def partial_close_position(
@@ -232,8 +242,12 @@ class HighPrecisionOrderMatchingEngine:
         self.update_account_state(candle.close)
         self._check_margin_stop_out(candle)
 
-    def _close_position(self, pos: Position, exit_price: float, timestamp: float, reason: str) -> None:
-        gross_pnl = MultiAssetMathEngine.calculate_pnl(self.config, pos.side, pos.lot_size, pos.entry_price, exit_price)
+    def _close_position(
+        self, pos: Position, exit_price: float, timestamp: float, reason: str
+    ) -> None:
+        gross_pnl = MultiAssetMathEngine.calculate_pnl(
+            self.config, pos.side, pos.lot_size, pos.entry_price, exit_price
+        )
         pos.realized_pnl = gross_pnl
         pos.close_price = exit_price
         pos.close_time = timestamp
@@ -253,11 +267,15 @@ class HighPrecisionOrderMatchingEngine:
             )
             pos.floating_pnl = gross
             tot_floating_pnl += gross
-            tot_margin += MultiAssetMathEngine.calculate_required_margin(self.config, pos.lot_size, current_price)
+            tot_margin += MultiAssetMathEngine.calculate_required_margin(
+                self.config, pos.lot_size, current_price
+            )
         self.equity = round(self.balance + tot_floating_pnl, 2)
         self.used_margin = round(tot_margin, 2)
         self.free_margin = round(self.equity - self.used_margin, 2)
-        self.margin_level = round(self.equity / self.used_margin * 100.0, 2) if self.used_margin > 0 else 0.0
+        self.margin_level = (
+            round(self.equity / self.used_margin * 100.0, 2) if self.used_margin > 0 else 0.0
+        )
 
     def _check_margin_stop_out(self, candle: Candle) -> None:
         """Enforces 50% Margin Level Stop Out Liquidation."""

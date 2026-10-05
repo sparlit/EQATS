@@ -10,8 +10,8 @@ Provides:
 """
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -44,10 +44,14 @@ def barssince(condition: Sequence[bool] | Any, default: int = 999999) -> int:
     return int(len(cond) - 1 - true_indices[-1])
 
 
-def resample_apply(rule: str, func: Callable[..., Any], series_or_df: Any, *args: Any, **kwargs: Any) -> Any:
+def resample_apply(
+    rule: str, func: Callable[..., Any], series_or_df: Any, *args: Any, **kwargs: Any
+) -> Any:
     """Resample OHLCV data to higher timeframe, apply function, and reindex back to original timeline without lookahead bias."""
     if not isinstance(series_or_df.index, (pd.DatetimeIndex, pd.PeriodIndex)):
-        raise ValueError("Series/DataFrame must have a DatetimeIndex or PeriodIndex for resampling.")
+        raise ValueError(
+            "Series/DataFrame must have a DatetimeIndex or PeriodIndex for resampling."
+        )
     resampled = series_or_df.resample(rule).last()
     applied = func(resampled, *args, **kwargs)
     if isinstance(applied, (pd.Series, pd.DataFrame)):
@@ -72,19 +76,29 @@ class SignalStrategy:
     def __init__(self, entry_signal_threshold: float = 0.5) -> None:
         self.threshold = entry_signal_threshold
 
-    def evaluate_signal(self, current_price: float, signal_value: float, atr: float = 0.0) -> BacktestTradeSignal:
+    def evaluate_signal(
+        self, current_price: float, signal_value: float, atr: float = 0.0
+    ) -> BacktestTradeSignal:
         """Evaluates a raw numerical signal value (+1.0 = Buy, -1.0 = Sell, 0.0 = Hold/Close)."""
         if signal_value >= self.threshold:
             stop = current_price - 2.0 * atr if atr > 0 else None
             tp = current_price + 4.0 * atr if atr > 0 else None
             return BacktestTradeSignal(
-                "BUY", current_price, stop_loss=stop, take_profit=tp, reason="Signal above threshold"
+                "BUY",
+                current_price,
+                stop_loss=stop,
+                take_profit=tp,
+                reason="Signal above threshold",
             )
         if signal_value <= -self.threshold:
             stop = current_price + 2.0 * atr if atr > 0 else None
             tp = current_price - 4.0 * atr if atr > 0 else None
             return BacktestTradeSignal(
-                "SELL", current_price, stop_loss=stop, take_profit=tp, reason="Signal below negative threshold"
+                "SELL",
+                current_price,
+                stop_loss=stop,
+                take_profit=tp,
+                reason="Signal below negative threshold",
             )
         if signal_value == 0.0:
             return BacktestTradeSignal("CLOSE", current_price, reason="Exit signal received")
@@ -99,7 +113,12 @@ class TrailingStrategy:
         self.pct_trail = pct_trail
 
     def update_trailing_stop(
-        self, position_type: str, current_price: float, extreme_price: float, current_sl: float | None, atr: float = 0.0
+        self,
+        position_type: str,
+        current_price: float,
+        extreme_price: float,
+        current_sl: float | None,
+        atr: float = 0.0,
     ) -> float:
         """Calculates and updates trailing stop-loss level."""
         if position_type.upper() == "BUY":

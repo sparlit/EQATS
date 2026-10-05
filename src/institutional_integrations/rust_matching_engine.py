@@ -12,7 +12,7 @@ import logging
 import time
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -209,7 +209,8 @@ class OrderbookL2:
             for p, queue in sorted(self.bids.items(), reverse=True)[:5]
         ]
         ask_depth = [
-            {"price": p, "volume": sum(o.remaining_size for o in queue)} for p, queue in sorted(self.asks.items())[:5]
+            {"price": p, "volume": sum(o.remaining_size for o in queue)}
+            for p, queue in sorted(self.asks.items())[:5]
         ]
 
         return {
@@ -252,7 +253,9 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -289,7 +292,9 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
             )
 
         rounded_price = round_tick_005(request.price)
-        res = self.orderbook.place_limit_order(side=request.order_type, price=rounded_price, size=request.quantity)
+        res = self.orderbook.place_limit_order(
+            side=request.order_type, price=rounded_price, size=request.quantity
+        )
 
         return SEBIOrderResponse(
             success=True,
@@ -302,10 +307,14 @@ class RustMatchingEngineBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

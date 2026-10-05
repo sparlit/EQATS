@@ -61,7 +61,11 @@ class BrainOrchestratorDirective:
         self.governor_decisions = {}
         self.risk_ceiling_modifier = 1.0
         self.lot_multiplier = 1.0
-        self.execution_instructions = {"max_spread_pips": 3.5, "min_probability_gate": 60.0, "urgency": "NORMAL"}
+        self.execution_instructions = {
+            "max_spread_pips": 3.5,
+            "min_probability_gate": 60.0,
+            "urgency": "NORMAL",
+        }
         self.guidance_notes = []
 
     def to_dict(self) -> Any:
@@ -162,7 +166,12 @@ class DayTradingMethodAgent:
 
     def evaluate(self, spread_pips: Any, volatility: Any) -> Any:
         score = 80.0 if 1.5 <= spread_pips <= 4.0 else 60.0
-        return {"method": "DAY_TRADING", "score": score, "timeframe": "M15-H1", "holding_time": "<1d"}
+        return {
+            "method": "DAY_TRADING",
+            "score": score,
+            "timeframe": "M15-H1",
+            "holding_time": "<1d",
+        }
 
 
 class SwingTradingMethodAgent:
@@ -171,7 +180,12 @@ class SwingTradingMethodAgent:
 
     def evaluate(self, spread_pips: Any, volatility: Any) -> Any:
         score = 75.0 if volatility == "HIGH" else 60.0
-        return {"method": "SWING_TRADING", "score": score, "timeframe": "H4-D1", "holding_time": "2-5d"}
+        return {
+            "method": "SWING_TRADING",
+            "score": score,
+            "timeframe": "H4-D1",
+            "holding_time": "2-5d",
+        }
 
 
 class PositionTradingMethodAgent:
@@ -180,7 +194,12 @@ class PositionTradingMethodAgent:
 
     def evaluate(self, spread_pips: Any, volatility: Any) -> Any:
         score = 70.0
-        return {"method": "POSITION_TRADING", "score": score, "timeframe": "D1-MN", "holding_time": ">1w"}
+        return {
+            "method": "POSITION_TRADING",
+            "score": score,
+            "timeframe": "D1-MN",
+            "holding_time": ">1w",
+        }
 
 
 class SmcIctStrategyAgent:
@@ -210,7 +229,10 @@ class MeanReversionStrategyAgent:
 
 class TrendFollowingStrategyAgent:
     def evaluate(self, sentiment: Any, accuracy: Any) -> Any:
-        return {"strategy": "TREND_FOLLOWING", "score": 85.0 if sentiment in ["BULLISH", "BEARISH"] else 40.0}
+        return {
+            "strategy": "TREND_FOLLOWING",
+            "score": 85.0 if sentiment in ["BULLISH", "BEARISH"] else 40.0,
+        }
 
 
 class MacdMomentumStrategyAgent:
@@ -394,7 +416,9 @@ class AgenticBrainsOrchestrator:
         strategy_scores = {}
         from institutional_integrations.system_autotune import global_tuned_config
 
-        optimal_workers = global_tuned_config.get("thread_pool_workers", max(4, min((os.cpu_count() or 8) * 2, 32)))
+        optimal_workers = global_tuned_config.get(
+            "thread_pool_workers", max(4, min((os.cpu_count() or 8) * 2, 32))
+        )
         with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
             method_futures = {
                 executor.submit(_eval_method_worker, agent, spread_pips, "MEDIUM"): agent
@@ -427,7 +451,10 @@ class AgenticBrainsOrchestrator:
         directive.recommended_style = best_method
         directive.method_scores = method_scores
         directive.strategy_scores = strategy_scores
-        directive.governor_decisions = {"method_governor": method_gov_res, "strategy_governor": strat_gov_res}
+        directive.governor_decisions = {
+            "method_governor": method_gov_res,
+            "strategy_governor": strat_gov_res,
+        }
         if sentiment == "BULLISH" and accuracy >= 50.0:
             directive.recommended_bias = "BUY"
             directive.confidence_score = min(95.0, 50.0 + accuracy * 0.4)
@@ -445,7 +472,9 @@ class AgenticBrainsOrchestrator:
                 f"INTERVENTION: Drawdown ({risk_res['drawdown_pct']}%) exceeded limit. Risk clamped to {risk_res['risk_modifier']}x.",
             )
         if spread_pips > 4.0:
-            interventions.append(f"INTERVENTION: Excessive spread ({spread_pips:.2f} pips). Enforcing HOLD bias.")
+            interventions.append(
+                f"INTERVENTION: Excessive spread ({spread_pips:.2f} pips). Enforcing HOLD bias."
+            )
             directive.recommended_bias = "HOLD"
         self.master_interventions = interventions
         elapsed_ms = (time.time() - start_time) * 1000.0

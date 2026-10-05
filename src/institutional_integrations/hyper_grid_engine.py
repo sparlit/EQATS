@@ -7,10 +7,9 @@ multi-tier order management, 0.05 INR price tick rounding, IST market session va
 and dynamic registration in IndianBrokerPluginRegistry under HYPER_GRID.
 """
 
-import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -146,8 +145,12 @@ class HyperGridEngine:
     def get_summary(self, current_price: float = 0.0) -> GridStateSummary:
         """Computes hyper-grid performance and active state metrics."""
         symbol = self.config.symbol if self.config else "UNKNOWN"
-        filled_buys = sum(1 for lvl in self.grid_levels if lvl.status == "FILLED" and lvl.order_type == "BUY")
-        filled_sells = sum(1 for lvl in self.grid_levels if lvl.status == "FILLED" and lvl.order_type == "SELL")
+        filled_buys = sum(
+            1 for lvl in self.grid_levels if lvl.status == "FILLED" and lvl.order_type == "BUY"
+        )
+        filled_sells = sum(
+            1 for lvl in self.grid_levels if lvl.status == "FILLED" and lvl.order_type == "SELL"
+        )
         active_cnt = sum(1 for lvl in self.grid_levels if lvl.status == "PENDING")
 
         unrealized = 0.0
@@ -182,9 +185,15 @@ class HyperGridBrokerAdapter(SEBIBrokerAdapter):
     """SEBI Broker Adapter for Hyper Grid Engine."""
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
-        super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
+        super().__init__(
+            api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox
+        )
         self.magic_number = MAGIC_NUMBER
         self.engine = HyperGridEngine()
 
@@ -249,7 +258,9 @@ class HyperGridBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -260,7 +271,9 @@ class HyperGridBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:

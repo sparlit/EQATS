@@ -9,9 +9,7 @@ Provides:
 - Liquidity Pool Size Boundary Guard (validates min/max pool liquidity SOL/USDT)
 """
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 
 @dataclass
@@ -65,7 +63,9 @@ class SolanaDEXRiskGuard:
             violations.append("Mint Authority Active: Creator can mint infinite tokens")
             risk_score += 30.0
         if self.require_revoked_freeze and (not metrics.freeze_authority_revoked):
-            violations.append("Freeze Authority Active: Creator can freeze buyer accounts (Honeypot)")
+            violations.append(
+                "Freeze Authority Active: Creator can freeze buyer accounts (Honeypot)"
+            )
             risk_score += 35.0
         if self.require_immutable_metadata and metrics.is_metadata_mutable:
             violations.append("Mutable Metadata: Creator can change token name/URI at any time")

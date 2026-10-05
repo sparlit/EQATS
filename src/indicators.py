@@ -88,7 +88,9 @@ def calculate_atr(highs: Any, lows: Any, closes: Any, period: Any = 14) -> Any:
     return atr
 
 
-def calculate_macd(prices: Any, fast_period: Any = 12, slow_period: Any = 26, signal_period: Any = 9) -> Any:
+def calculate_macd(
+    prices: Any, fast_period: Any = 12, slow_period: Any = 26, signal_period: Any = 9
+) -> Any:
     """
     Calculates MACD (Moving Average Convergence Divergence).
     Returns dict: { 'macd': float, 'signal': float, 'histogram': float } or None.
@@ -178,7 +180,12 @@ def calculate_adx(highs: Any, lows: Any, closes: Any, period: Any = 14) -> Any:
     Average Directional Index (ADX) measuring trend strength.
     Range [0, 100]. Values > 22-25 indicate strong trend.
     """
-    if not closes or len(closes) < period * 2 or len(highs) < period * 2 or (len(lows) < period * 2):
+    if (
+        not closes
+        or len(closes) < period * 2
+        or len(highs) < period * 2
+        or (len(lows) < period * 2)
+    ):
         return 20.0
     tr_list = []
     dm_plus = []
@@ -204,7 +211,9 @@ def calculate_adx(highs: Any, lows: Any, closes: Any, period: Any = 14) -> Any:
     for i in range(period, len(tr_list)):
         tr_smooth.append(tr_smooth[-1] - tr_smooth[-1] / float(period) + tr_list[i])
         dm_plus_smooth.append(dm_plus_smooth[-1] - dm_plus_smooth[-1] / float(period) + dm_plus[i])
-        dm_minus_smooth.append(dm_minus_smooth[-1] - dm_minus_smooth[-1] / float(period) + dm_minus[i])
+        dm_minus_smooth.append(
+            dm_minus_smooth[-1] - dm_minus_smooth[-1] / float(period) + dm_minus[i]
+        )
     dx_list = []
     for i in range(len(tr_smooth)):
         tr_val = tr_smooth[i] if tr_smooth[i] > 0 else 1e-05
@@ -221,7 +230,9 @@ def calculate_adx(highs: Any, lows: Any, closes: Any, period: Any = 14) -> Any:
     return round(adx, 2)
 
 
-def calculate_stochastic(highs: Any, lows: Any, closes: Any, period: Any = 14, d_period: Any = 3) -> Any:
+def calculate_stochastic(
+    highs: Any, lows: Any, closes: Any, period: Any = 14, d_period: Any = 3
+) -> Any:
     """
     Stochastic Oscillator (%K and %D).
     Returns dict: {'k': float, 'd': float}
@@ -290,7 +301,12 @@ def calculate_swing_points(highs: Any, lows: Any, window: Any = 2) -> Any:
             swing_lows.append({"price": lows[i], "idx": i})
     last_sh = swing_highs[-1]["price"] if swing_highs else max(highs[-10:])
     last_sl = swing_lows[-1]["price"] if swing_lows else min(lows[-10:])
-    return {"swing_highs": swing_highs, "swing_lows": swing_lows, "last_swing_high": last_sh, "last_swing_low": last_sl}
+    return {
+        "swing_highs": swing_highs,
+        "swing_lows": swing_lows,
+        "last_swing_high": last_sh,
+        "last_swing_low": last_sl,
+    }
 
 
 def calculate_vsa_metrics(highs: Any, lows: Any, closes: Any, volumes: Any = None) -> Any:
@@ -372,7 +388,11 @@ def classify_market_regime(highs: Any, lows: Any, closes: Any, period: Any = 20)
         sq = calculate_bollinger_squeeze(closes[:i], period, 2.0)
         if sq is not None:
             historical_squeezes.append(sq)
-    avg_squeeze = sum(historical_squeezes) / float(len(historical_squeezes)) if historical_squeezes else squeeze
+    avg_squeeze = (
+        sum(historical_squeezes) / float(len(historical_squeezes))
+        if historical_squeezes
+        else squeeze
+    )
     volatility = "HIGH" if squeeze > avg_squeeze else "LOW"
     if regime == "TRENDING":
         detailed_regime = f"TRENDING_{direction}"

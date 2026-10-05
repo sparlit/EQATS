@@ -6,7 +6,6 @@ NewOrderSingle 35=D, OrderCancelRequest 35=F, ExecutionReport 35=8) for institut
 
 import datetime
 import logging
-import secrets
 import socket
 import threading
 import time
@@ -18,7 +17,9 @@ _log = logging.getLogger(__name__)
 class FIXEngine:
     """Thread-safe low-latency FIX protocol session manager."""
 
-    def __init__(self, sender_comp_id: Any = "EQATS_QUANT", target_comp_id: Any = "PRIME_POP_ECN") -> None:
+    def __init__(
+        self, sender_comp_id: Any = "EQATS_QUANT", target_comp_id: Any = "PRIME_POP_ECN"
+    ) -> None:
         self.sender_comp_id = sender_comp_id
         self.target_comp_id = target_comp_id
         self.seq_num = 1
@@ -143,11 +144,19 @@ class FIXEngine:
 
     def request_market_data(self, symbol: Any) -> Any:
         """Builds MarketDataRequest (35=V)."""
-        tags = {"262": f"REQ_{symbol}_{int(time.time())}", "263": 1, "264": 1, "267": 2, "55": symbol}
+        tags = {
+            "262": f"REQ_{symbol}_{int(time.time())}",
+            "263": 1,
+            "264": 1,
+            "267": 2,
+            "55": symbol,
+        }
         msg = self.construct_fix_message("V", tags)
         return {"symbol": symbol, "status": "STREAMING", "fix_raw": msg}
 
-    def send_order(self, symbol: Any, side: Any, qty: Any, price: Any, order_type: Any = "LIMIT") -> Any:
+    def send_order(
+        self, symbol: Any, side: Any, qty: Any, price: Any, order_type: Any = "LIMIT"
+    ) -> Any:
         """
         Builds and sends NewOrderSingle (35=D) to venue.
         side: 'BUY' (1) or 'SELL' (2)

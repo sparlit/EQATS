@@ -12,21 +12,17 @@ Provides multi-agent agentic swarm deliberation for NSE equities and derivatives
 Assigned Magic Number: 9100013
 """
 
-import json
 import logging
-import math
 import time
-import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
+from .indian_market_state_machine import round_to_indian_tick_size
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
     generate_indian_market_history_bars,
-    round_to_indian_quantity,
     validate_indian_product_tag,
 )
 
@@ -46,9 +42,17 @@ class NSETechnicalAnalystAgent:
         diff = current - ema20
 
         if diff > 0:
-            return {"vote": "BUY", "score": 0.80, "reason": f"Price {current:.2f} above EMA20 {ema20:.2f}"}
+            return {
+                "vote": "BUY",
+                "score": 0.80,
+                "reason": f"Price {current:.2f} above EMA20 {ema20:.2f}",
+            }
         if diff < 0:
-            return {"vote": "SELL", "score": 0.80, "reason": f"Price {current:.2f} below EMA20 {ema20:.2f}"}
+            return {
+                "vote": "SELL",
+                "score": 0.80,
+                "reason": f"Price {current:.2f} below EMA20 {ema20:.2f}",
+            }
         return {"vote": "HOLD", "score": 0.50, "reason": "Price at EMA20"}
 
 
@@ -57,9 +61,17 @@ class NSESentimentAnalystAgent:
 
     def analyze(self, pcr_val: float = 1.0) -> dict[str, Any]:
         if pcr_val >= 1.20:
-            return {"vote": "BUY", "score": 0.85, "reason": f"Bullish Put-Call Ratio ({pcr_val:.2f} >= 1.20)"}
+            return {
+                "vote": "BUY",
+                "score": 0.85,
+                "reason": f"Bullish Put-Call Ratio ({pcr_val:.2f} >= 1.20)",
+            }
         if pcr_val <= 0.80:
-            return {"vote": "SELL", "score": 0.85, "reason": f"Bearish Put-Call Ratio ({pcr_val:.2f} <= 0.80)"}
+            return {
+                "vote": "SELL",
+                "score": 0.85,
+                "reason": f"Bearish Put-Call Ratio ({pcr_val:.2f} <= 0.80)",
+            }
         return {"vote": "HOLD", "score": 0.50, "reason": f"Neutral Put-Call Ratio ({pcr_val:.2f})"}
 
 
@@ -68,7 +80,11 @@ class NSEMarketStructureAgent:
 
     def analyze(self, highs: list[float], lows: list[float], closes: list[float]) -> dict[str, Any]:
         if not closes or len(closes) < 10:
-            return {"vote": "HOLD", "score": 0.50, "reason": "Insufficient bars for structure analysis"}
+            return {
+                "vote": "HOLD",
+                "score": 0.50,
+                "reason": "Insufficient bars for structure analysis",
+            }
 
         last_close = closes[-1]
         swing_high = max(highs[-10:-1])
@@ -158,7 +174,11 @@ class NSETradeAgentsSuite:
             "entry_price": round_to_indian_tick_size(current_price),
             "sl": sl,
             "tp": tp,
-            "agent_deliberations": {"technical": res_tech, "sentiment": res_sent, "structure": res_struct},
+            "agent_deliberations": {
+                "technical": res_tech,
+                "sentiment": res_sent,
+                "structure": res_struct,
+            },
             "magic_number": self.magic_number,
         }
 
@@ -185,7 +205,12 @@ class NSETradeAgentsAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -219,17 +244,30 @@ class NSETradeAgentsAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
-            raw_response={"status": True, "ticket": ticket, "magic_number": MAGIC_NUMBER_NSE_TRADE_AGENTS},
+            raw_response={
+                "status": True,
+                "ticket": ticket,
+                "magic_number": MAGIC_NUMBER_NSE_TRADE_AGENTS,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

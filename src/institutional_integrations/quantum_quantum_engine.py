@@ -167,11 +167,17 @@ class QuantumAutoEngine:
             "Macro Carry Trade": "CARRY_TRADE",
             "Statistical Arbitrage (Pairs Trading)": "STAT_ARB",
         }
-        config.ACTIVE_STRATEGY = standard_strategies_mapping.get(optimal_strategy, "VOTING_ENSEMBLE")
-        self.last_execution_log = f"Autonomously selected: STYLE={optimal_style} | STRATEGY={optimal_strategy}"
+        config.ACTIVE_STRATEGY = standard_strategies_mapping.get(
+            optimal_strategy, "VOTING_ENSEMBLE"
+        )
+        self.last_execution_log = (
+            f"Autonomously selected: STYLE={optimal_style} | STRATEGY={optimal_strategy}"
+        )
         return (optimal_style, optimal_strategy)
 
-    def evaluate_all_strategies(self, symbol: Any, closes: Any, highs: Any, lows: Any, current_equity: Any) -> Any:
+    def evaluate_all_strategies(
+        self, symbol: Any, closes: Any, highs: Any, lows: Any, current_equity: Any
+    ) -> Any:
         """
         Executes specific decision rules for all 50+ mapped strategies, returning
         the signals, SL/TP levels, and a self-explanatory justification statement.
@@ -233,4 +239,9 @@ class QuantumAutoEngine:
         elif decision == "SELL":
             sl = current_price + sl_distance
             tp = current_price - sl_distance * 2.0
-        return {"decision": decision, "sl": round(sl, 5), "tp": round(tp, 5), "explanation": explanation}
+        return {
+            "decision": decision,
+            "sl": round(sl, 5),
+            "tp": round(tp, 5),
+            "explanation": explanation,
+        }

@@ -77,7 +77,12 @@ class AutoresearchMacOSZenEngine:
         self.experiments: list[ResearchExperimentRun] = []
 
     def run_experiment_iteration(
-        self, experiment_id: str, strategy_name: str, params: dict[str, Any], sharpe: float, max_dd: float
+        self,
+        experiment_id: str,
+        strategy_name: str,
+        params: dict[str, Any],
+        sharpe: float,
+        max_dd: float,
     ) -> ResearchExperimentRun:
         """Evaluates an autonomous research experiment run and decides whether to promote to live twin."""
         is_promoted = sharpe >= self.min_sharpe_promotion and max_dd <= 15.0
@@ -159,16 +164,28 @@ class AutoresearchMacOSZenBrokerAdapter(SEBIBrokerAdapter):
             status="EXECUTED",
             product=request.product,
             exchange=request.exchange,
-            raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_AUTORESEARCH_MACOS_ZEN},
+            raw_response={
+                "quantity": sanitized_qty,
+                "magic_number": MAGIC_NUMBER_AUTORESEARCH_MACOS_ZEN,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

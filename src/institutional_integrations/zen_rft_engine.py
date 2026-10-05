@@ -95,7 +95,9 @@ class ZenRFTEngine:
             task_id=task_id,
             reward_score=round(reward, 4),
             is_correct=is_correct,
-            feedback="Correct prediction within tolerance" if is_correct else f"Difference {diff:.4f} exceeds {tol}",
+            feedback="Correct prediction within tolerance"
+            if is_correct
+            else f"Difference {diff:.4f} exceeds {tol}",
             replacement_eligible=eligible,
         )
 
@@ -117,7 +119,9 @@ class ZenRFTEngine:
             "avg_reward": round(avg_reward, 4),
             "pass_rate": round(pass_rate, 4),
             "can_replace_frontier_model": can_replace,
-            "recommended_action": "SWITCH_TO_SMALL_MODEL" if can_replace else "RETAIN_FRONTIER_MODEL",
+            "recommended_action": "SWITCH_TO_SMALL_MODEL"
+            if can_replace
+            else "RETAIN_FRONTIER_MODEL",
         }
 
 
@@ -175,13 +179,22 @@ class ZenRFTBrokerAdapter(SEBIBrokerAdapter):
             raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_ZEN_RFT},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

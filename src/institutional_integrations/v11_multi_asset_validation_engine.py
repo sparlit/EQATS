@@ -10,8 +10,7 @@ Monte Carlo resampling, reverse stress testing, capacity, portfolio compatibilit
 
 import logging
 import math
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("v11_multi_asset_validation")
 
@@ -76,14 +75,20 @@ class MultiAsset33GateValidationEngine:
         annualized_sharpe = (mean_ret - risk_free_rate / 252.0) / std_ret * math.sqrt(252)
 
         # Calculate skewness and kurtosis
-        skewness = sum((r - mean_ret) ** 3 for r in returns) / (n * (std_ret**3)) if std_ret > 0 else 0.0
-        kurtosis = sum((r - mean_ret) ** 4 for r in returns) / (n * (std_ret**4)) if std_ret > 0 else 3.0
+        skewness = (
+            sum((r - mean_ret) ** 3 for r in returns) / (n * (std_ret**3)) if std_ret > 0 else 0.0
+        )
+        kurtosis = (
+            sum((r - mean_ret) ** 4 for r in returns) / (n * (std_ret**4)) if std_ret > 0 else 3.0
+        )
 
         # Euler-Mascheroni constant variance approximation for max Sharpe under multiple testing
         var_max_sharpe = (1 - 0.57721566) + 0.57721566 * math.log(max(1, num_trials))
         expected_max_sharpe = math.sqrt(var_max_sharpe)
 
-        num_adj = 1.0 - skewness * annualized_sharpe + ((kurtosis - 1) / 4.0) * (annualized_sharpe**2)
+        num_adj = (
+            1.0 - skewness * annualized_sharpe + ((kurtosis - 1) / 4.0) * (annualized_sharpe**2)
+        )
         denom = math.sqrt(max(1e-6, 1.0 - (1.0 / max(1, n - 1)) * num_adj))
 
         dsr_stat = (annualized_sharpe - expected_max_sharpe) / denom if denom > 0 else 0.0
@@ -94,7 +99,9 @@ class MultiAsset33GateValidationEngine:
 
         return round(_norm_cdf(dsr_stat), 4)
 
-    def evaluate_33_gates(self, strategy_id: str, strategy_payload: dict[str, Any]) -> dict[str, Any]:
+    def evaluate_33_gates(
+        self, strategy_id: str, strategy_payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Runs the comprehensive 33-gate validation pipeline on a strategy candidate or trade signal.
         """
@@ -104,14 +111,18 @@ class MultiAsset33GateValidationEngine:
         self.test_counter[strategy_id] = self.test_counter.get(strategy_id, 0) + 1
         num_trials = self.test_counter[strategy_id]
 
-        returns = strategy_payload.get("historical_returns", [0.01, -0.005, 0.015, 0.02, -0.008, 0.012, 0.018])
+        returns = strategy_payload.get(
+            "historical_returns", [0.01, -0.005, 0.015, 0.02, -0.008, 0.012, 0.018]
+        )
         spread_pips = strategy_payload.get("spread_pips", 1.5)
         atr_pips = strategy_payload.get("atr_pips", 15.0)
         slippage_mult = strategy_payload.get("slippage_mult", 1.0)
         win_rate = strategy_payload.get("win_rate", 55.0)
 
         # Gate 0: Formal Specification
-        is_spec_valid = bool(strategy_payload.get("entry_rules") and strategy_payload.get("exit_rules"))
+        is_spec_valid = bool(
+            strategy_payload.get("entry_rules") and strategy_payload.get("exit_rules")
+        )
         gates_results.append(
             ValidationGateResult(
                 0,
@@ -173,12 +184,22 @@ class MultiAsset33GateValidationEngine:
 
         # Gate 5: Out-of-Sample Testing
         oos_pass = strategy_payload.get("oos_sharpe", 1.2) > 0.8
-        gates_results.append(ValidationGateResult(5, "Out-of-Sample Testing", oos_pass, 0.88, "OOS Sharpe > 0.8 limit"))
+        gates_results.append(
+            ValidationGateResult(
+                5, "Out-of-Sample Testing", oos_pass, 0.88, "OOS Sharpe > 0.8 limit"
+            )
+        )
 
         # Gate 6: Walk-Forward Testing
         wf_stability = strategy_payload.get("wf_stability", 0.75) > 0.6
         gates_results.append(
-            ValidationGateResult(6, "Walk-Forward Testing", wf_stability, 0.82, "Walk-forward stability window passed"),
+            ValidationGateResult(
+                6,
+                "Walk-Forward Testing",
+                wf_stability,
+                0.82,
+                "Walk-forward stability window passed",
+            ),
         )
 
         # Gate 7: Parameter Robustness
@@ -257,7 +278,13 @@ class MultiAsset33GateValidationEngine:
         # Gate 13: Cross-Timeframe Testing
         cross_tf = strategy_payload.get("cross_tf_valid", True)
         gates_results.append(
-            ValidationGateResult(13, "Cross-Timeframe Testing", cross_tf, 0.80, "Cross-timeframe confluence confirmed"),
+            ValidationGateResult(
+                13,
+                "Cross-Timeframe Testing",
+                cross_tf,
+                0.80,
+                "Cross-timeframe confluence confirmed",
+            ),
         )
 
         # Gate 14: Monte Carlo Testing
@@ -361,7 +388,9 @@ class MultiAsset33GateValidationEngine:
 
         # Gate 22: Liquidity Stress Simulation
         gates_results.append(
-            ValidationGateResult(22, "Liquidity Stress Simulation", True, 0.85, "Liquidity depletion boundary safe"),
+            ValidationGateResult(
+                22, "Liquidity Stress Simulation", True, 0.85, "Liquidity depletion boundary safe"
+            ),
         )
 
         # Gate 23: Extreme Event Stress Testing
@@ -377,7 +406,9 @@ class MultiAsset33GateValidationEngine:
 
         # Gate 24: Reverse Stress Testing
         gates_results.append(
-            ValidationGateResult(24, "Reverse Stress Testing", True, 0.85, "Minimum failure boundary identified"),
+            ValidationGateResult(
+                24, "Reverse Stress Testing", True, 0.85, "Minimum failure boundary identified"
+            ),
         )
 
         # Gate 25: Portfolio Compatibility
@@ -395,7 +426,9 @@ class MultiAsset33GateValidationEngine:
 
         # Gate 26: Regime Dependency Encoding
         gates_results.append(
-            ValidationGateResult(26, "Regime Dependency Encoding", True, 0.85, "Failure regimes explicitly mapped"),
+            ValidationGateResult(
+                26, "Regime Dependency Encoding", True, 0.85, "Failure regimes explicitly mapped"
+            ),
         )
 
         # Gate 27: Complexity Penalty
@@ -424,22 +457,34 @@ class MultiAsset33GateValidationEngine:
 
         # Gate 29: Paper Trading Telemetry
         gates_results.append(
-            ValidationGateResult(29, "Paper Trading Telemetry", True, 0.90, "Paper execution telemetry verified"),
+            ValidationGateResult(
+                29, "Paper Trading Telemetry", True, 0.90, "Paper execution telemetry verified"
+            ),
         )
 
         # Gate 30: Shadow Trading Latency
         gates_results.append(
-            ValidationGateResult(30, "Shadow Trading Execution", True, 0.92, "Signal-to-execution latency < 50ms"),
+            ValidationGateResult(
+                30, "Shadow Trading Execution", True, 0.92, "Signal-to-execution latency < 50ms"
+            ),
         )
 
         # Gate 31: Limited Capital Deployment
         gates_results.append(
-            ValidationGateResult(31, "Limited Capital Deployment", True, 0.95, "Fractional risk allocation active"),
+            ValidationGateResult(
+                31, "Limited Capital Deployment", True, 0.95, "Fractional risk allocation active"
+            ),
         )
 
         # Gate 32: Production Monitoring
         gates_results.append(
-            ValidationGateResult(32, "Production Monitoring", True, 0.95, "Continuous PnL and decay monitoring active"),
+            ValidationGateResult(
+                32,
+                "Production Monitoring",
+                True,
+                0.95,
+                "Continuous PnL and decay monitoring active",
+            ),
         )
 
         # Gate 33: Strategy Health State Machine

@@ -11,10 +11,9 @@ Provides:
 - Episode Accounting (Tracks ROI, Win Rate, Max Drawdown, and Duration across episodes)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -106,7 +105,10 @@ class SuperalgosTradingStagesEngine:
         return pos
 
     def evaluate_manage_stage(
-        self, current_price: float, new_stop_loss: float | None = None, new_take_profit: float | None = None
+        self,
+        current_price: float,
+        new_stop_loss: float | None = None,
+        new_take_profit: float | None = None,
     ) -> StageType:
         """Stage 3: Manages Stop Loss and Take Profit levels during position lifetime."""
         if not self.active_position:

@@ -13,14 +13,13 @@ Delta-Neutral Short Strangle framing, Gamma Scalping Delta Rebalancing, Monte Ca
 import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -88,18 +87,28 @@ class RustFinanceEngine:
         vega = spot * self._norm_pdf(d1) * math.sqrt(time_to_expiry) / 100.0
 
         if option_type.upper() == "CALL":
-            price = spot * self._norm_cdf(d1) - strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(d2)
+            price = spot * self._norm_cdf(d1) - strike * math.exp(
+                -self.rf_rate * time_to_expiry
+            ) * self._norm_cdf(d2)
             delta = self._norm_cdf(d1)
             theta = (
                 -(spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
-                - self.rf_rate * strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(d2)
+                - self.rf_rate
+                * strike
+                * math.exp(-self.rf_rate * time_to_expiry)
+                * self._norm_cdf(d2)
             ) / 365.0
         else:
-            price = strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(-d2) - spot * self._norm_cdf(-d1)
+            price = strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(
+                -d2
+            ) - spot * self._norm_cdf(-d1)
             delta = self._norm_cdf(d1) - 1.0
             theta = (
                 -(spot * self._norm_pdf(d1) * volatility) / (2.0 * math.sqrt(time_to_expiry))
-                + self.rf_rate * strike * math.exp(-self.rf_rate * time_to_expiry) * self._norm_cdf(-d2)
+                + self.rf_rate
+                * strike
+                * math.exp(-self.rf_rate * time_to_expiry)
+                * self._norm_cdf(-d2)
             ) / 365.0
 
         return {
@@ -143,11 +152,19 @@ class RustFinanceEngine:
     def frame_delta_neutral_strangle(
         self, spot: float, volatility: float, time_to_expiry: float, target_delta: float = 0.15
     ) -> dict[str, Any]:
-        call_strike = round_tick_005(spot * (1.0 + target_delta * volatility * math.sqrt(time_to_expiry)))
-        put_strike = round_tick_005(spot * (1.0 - target_delta * volatility * math.sqrt(time_to_expiry)))
+        call_strike = round_tick_005(
+            spot * (1.0 + target_delta * volatility * math.sqrt(time_to_expiry))
+        )
+        put_strike = round_tick_005(
+            spot * (1.0 - target_delta * volatility * math.sqrt(time_to_expiry))
+        )
 
-        call_greeks = self.calculate_black_scholes(spot, call_strike, time_to_expiry, volatility, "CALL")
-        put_greeks = self.calculate_black_scholes(spot, put_strike, time_to_expiry, volatility, "PUT")
+        call_greeks = self.calculate_black_scholes(
+            spot, call_strike, time_to_expiry, volatility, "CALL"
+        )
+        put_greeks = self.calculate_black_scholes(
+            spot, put_strike, time_to_expiry, volatility, "PUT"
+        )
 
         net_delta = round(call_greeks["delta"] + put_greeks["delta"], 4)
         daily_theta_income = round(abs(call_greeks["theta"]) + abs(put_greeks["theta"]), 2)
@@ -227,7 +244,9 @@ class RustFinanceBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -237,7 +256,9 @@ class RustFinanceBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

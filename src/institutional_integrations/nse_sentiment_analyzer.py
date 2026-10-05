@@ -10,12 +10,11 @@ Provides news headline sentiment polarity aggregation for NSE symbols,
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 

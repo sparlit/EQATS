@@ -8,7 +8,6 @@ capabilities inside the Elite Quantum Autonomous Trading System.
 import datetime
 import threading
 import time
-from typing import Any
 
 import config
 import database
@@ -36,7 +35,9 @@ class QuantumSelfHealer:
         self.is_active = True
         self.healer_thread = threading.Thread(target=self._healer_main_loop, daemon=True)
         self.healer_thread.start()
-        print("🧠 QUANTUM SELF-HEALER: Non-stop self-learning & self-healing background thread spawned successfully.")
+        print(
+            "🧠 QUANTUM SELF-HEALER: Non-stop self-learning & self-healing background thread spawned successfully."
+        )
 
     def stop_loop(self) -> None:
         self.is_active = False
@@ -121,7 +122,9 @@ class QuantumSelfHealer:
                     )
                 elif config.MAX_SPREAD_PIPS < 3.0:
                     config.MAX_SPREAD_PIPS = 3.0
-                    print("⚙️ SELF-ADJUSTING & FIXING: Operational parameters restored to default liquid values.")
+                    print(
+                        "⚙️ SELF-ADJUSTING & FIXING: Operational parameters restored to default liquid values."
+                    )
         except Exception as e:
             print(f"⚠️ Self-Adjust warning: {e}")
 

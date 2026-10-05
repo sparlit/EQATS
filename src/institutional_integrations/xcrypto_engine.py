@@ -6,10 +6,9 @@ Provides high-performance crypto spot/futures trading, PyAlgo strategy signal
 execution, position management, and order routing with Indian Market safety compliance.
 """
 
-import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -143,7 +142,9 @@ class XCryptoEngine:
             pos = self.positions[symbol]
             if pos.side == side:
                 new_qty = pos.quantity + quantity
-                new_entry = ((pos.quantity * pos.entry_price) + (quantity * rounded_price)) / new_qty
+                new_entry = (
+                    (pos.quantity * pos.entry_price) + (quantity * rounded_price)
+                ) / new_qty
                 pos.quantity = new_qty
                 pos.entry_price = round_tick_005(new_entry)
             elif pos.quantity > quantity:
@@ -187,9 +188,15 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
     """SEBI Broker adapter for XCrypto Engine."""
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
-        super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
+        super().__init__(
+            api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox
+        )
         self.magic_number = MAGIC_NUMBER
         self.engine = XCryptoEngine()
 
@@ -259,7 +266,9 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -270,7 +279,9 @@ class XCryptoBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:

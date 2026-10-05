@@ -13,14 +13,13 @@ automated strategy performance demotion (demotes strategies to PAPER_TRADING if 
 import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -64,20 +63,33 @@ class BarterRSEngine:
         Calculates Win Rate, Profit Factor, Sharpe Ratio, and Total PnL.
         """
         if not trade_pnls:
-            return {"win_rate_pct": 0.0, "profit_factor": 0.0, "sharpe_ratio": 0.0, "total_pnl": 0.0}
+            return {
+                "win_rate_pct": 0.0,
+                "profit_factor": 0.0,
+                "sharpe_ratio": 0.0,
+                "total_pnl": 0.0,
+            }
 
         wins = [p for p in trade_pnls if p > 0]
         losses = [p for p in trade_pnls if p < 0]
 
         gross_profit = sum(wins)
         gross_loss = abs(sum(losses))
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0.0)
+        profit_factor = (
+            gross_profit / gross_loss
+            if gross_loss > 0
+            else (gross_profit if gross_profit > 0 else 0.0)
+        )
 
         win_rate = (len(wins) / len(trade_pnls)) * 100.0 if trade_pnls else 0.0
         total_pnl = sum(trade_pnls)
 
         mean_pnl = total_pnl / len(trade_pnls)
-        variance = sum((p - mean_pnl) ** 2 for p in trade_pnls) / len(trade_pnls) if len(trade_pnls) > 1 else 0.0
+        variance = (
+            sum((p - mean_pnl) ** 2 for p in trade_pnls) / len(trade_pnls)
+            if len(trade_pnls) > 1
+            else 0.0
+        )
         std_dev = math.sqrt(variance) if variance > 0 else 1.0
 
         sharpe_ratio = (mean_pnl / std_dev) * math.sqrt(252) if std_dev > 0 else 0.0
@@ -91,7 +103,9 @@ class BarterRSEngine:
             "magic_number": float(self.magic_number),
         }
 
-    def evaluate_strategy_performance_demotion(self, strategy_id: str, trade_pnls: list[float]) -> dict[str, Any]:
+    def evaluate_strategy_performance_demotion(
+        self, strategy_id: str, trade_pnls: list[float]
+    ) -> dict[str, Any]:
         """
         Evaluates sub-strategy performance over rolling trades.
         If Profit Factor < 1.10 or Sharpe Ratio < 0.80, automatically demotes strategy mode to PAPER_TRADING.
@@ -100,7 +114,9 @@ class BarterRSEngine:
         pf = metrics["profit_factor"]
         sharpe = metrics["sharpe_ratio"]
 
-        demote = (pf < self.min_profit_factor or sharpe < self.min_sharpe_ratio) and len(trade_pnls) >= 10
+        demote = (pf < self.min_profit_factor or sharpe < self.min_sharpe_ratio) and len(
+            trade_pnls
+        ) >= 10
         mode = "PAPER_TRADING" if demote else "LIVE_TRADING"
 
         return {
@@ -172,7 +188,9 @@ class BarterRSBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -182,7 +200,9 @@ class BarterRSBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

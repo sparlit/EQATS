@@ -8,9 +8,8 @@ Provides:
 """
 
 import math
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -69,9 +68,17 @@ class ApexTradingRiskEngine:
         var_95 = float(abs(np.percentile(returns_arr, 5.0))) * portfolio_value
         var_99 = float(abs(np.percentile(returns_arr, 1.0))) * portfolio_value
         cvar_tail = returns_arr[returns_arr <= -np.percentile(returns_arr, 1.0)]
-        expected_shortfall = float(abs(np.mean(cvar_tail))) * portfolio_value if len(cvar_tail) > 0 else var_99 * 1.25
+        expected_shortfall = (
+            float(abs(np.mean(cvar_tail))) * portfolio_value
+            if len(cvar_tail) > 0
+            else var_99 * 1.25
+        )
         vol_ann = float(np.std(returns_arr) * math.sqrt(252))
-        max_dd = float(np.max(np.maximum.accumulate(returns_arr) - returns_arr)) if len(returns_arr) > 0 else 0.0
+        max_dd = (
+            float(np.max(np.maximum.accumulate(returns_arr) - returns_arr))
+            if len(returns_arr) > 0
+            else 0.0
+        )
         return ApexVaRResult(
             var_95=var_95,
             var_99=var_99,
@@ -89,7 +96,9 @@ class ApexTradingRiskEngine:
             return 0.0
         return max(positions_usd) / tot * 100.0
 
-    def calculate_portfolio_greeks(self, options_positions: list[dict[str, Any]]) -> ApexGreeksResult:
+    def calculate_portfolio_greeks(
+        self, options_positions: list[dict[str, Any]]
+    ) -> ApexGreeksResult:
         """Calculates aggregated portfolio Greeks (Delta, Gamma, Theta, Vega)."""
         total_delta = 0.0
         total_gamma = 0.0
@@ -103,7 +112,9 @@ class ApexTradingRiskEngine:
             total_gamma += qty * 0.05
             total_theta += qty * -0.02
             total_vega += qty * 0.1
-        return ApexGreeksResult(delta=total_delta, gamma=total_gamma, theta=total_theta, vega=total_vega)
+        return ApexGreeksResult(
+            delta=total_delta, gamma=total_gamma, theta=total_theta, vega=total_vega
+        )
 
     def check_pre_trade_risk_limits(
         self, proposed_order_usd: float, current_positions_usd: list[float], portfolio_value: float
@@ -111,16 +122,24 @@ class ApexTradingRiskEngine:
         """Verifies pre-order compliance against institutional risk caps."""
         violations = []
         if proposed_order_usd > self.max_position_size:
-            violations.append(f"Order value ${proposed_order_usd:,.2f} exceeds cap ${self.max_position_size:,.2f}")
+            violations.append(
+                f"Order value ${proposed_order_usd:,.2f} exceeds cap ${self.max_position_size:,.2f}"
+            )
         tot_exposure = sum(current_positions_usd) + proposed_order_usd
         risk_pct = tot_exposure / portfolio_value * 100.0 if portfolio_value > 0 else 0.0
         if risk_pct > self.max_portfolio_risk_pct:
-            violations.append(f"Total risk {risk_pct:.1f}% exceeds max allowed {self.max_portfolio_risk_pct:.1f}%")
+            violations.append(
+                f"Total risk {risk_pct:.1f}% exceeds max allowed {self.max_portfolio_risk_pct:.1f}%"
+            )
         all_pos = current_positions_usd + [proposed_order_usd]
         conc_pct = max(all_pos) / sum(all_pos) * 100.0 if sum(all_pos) > 0 else 0.0
         if conc_pct > self.max_concentration_pct:
-            violations.append(f"Concentration {conc_pct:.1f}% exceeds cap {self.max_concentration_pct:.1f}%")
-        return ApexRiskLimitCheck(approved=len(violations) == 0, violations=violations, risk_score=risk_pct / 100.0)
+            violations.append(
+                f"Concentration {conc_pct:.1f}% exceeds cap {self.max_concentration_pct:.1f}%"
+            )
+        return ApexRiskLimitCheck(
+            approved=len(violations) == 0, violations=violations, risk_score=risk_pct / 100.0
+        )
 
 
 class ApexTradingAISignalEngine:
@@ -139,7 +158,9 @@ class ApexTradingAISignalEngine:
             price = max(0.01, price + drift + noise)
             confidence = max(0.5, 1.0 - step * 0.04)
             preds.append(
-                ApexLSTMPricePrediction(step=step, predicted_price=round(price, 4), confidence=round(confidence, 2))
+                ApexLSTMPricePrediction(
+                    step=step, predicted_price=round(price, 4), confidence=round(confidence, 2)
+                )
             )
         return preds
 

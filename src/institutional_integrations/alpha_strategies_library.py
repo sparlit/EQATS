@@ -6,7 +6,7 @@ and Triple Leverage Volatility Decay Arbitrage.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -84,7 +84,9 @@ class AlphaStrategyLibrary:
         }
 
     @staticmethod
-    def global_equity_ibs_alpha(close_price: float, high_price: float, low_price: float) -> dict[str, Any]:
+    def global_equity_ibs_alpha(
+        close_price: float, high_price: float, low_price: float
+    ) -> dict[str, Any]:
         """
         Calculates Internal Bar Strength (IBS = (Close - Low) / (High - Low)).
         IBS < 0.2 indicates oversold mean-reversion BUY, IBS > 0.8 indicates overbought SELL.

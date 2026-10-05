@@ -10,12 +10,11 @@ Provides multi-factor AI stock screening, fundamental and technical composite ra
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -77,7 +76,9 @@ class AIStockScreenerEngine:
             "mom_score": round(mom_score, 2),
             "passed": passed,
             "price": rounded_price,
-            "reason": "Qualified high-rank composite candidate" if passed else "Composite score below threshold",
+            "reason": "Qualified high-rank composite candidate"
+            if passed
+            else "Composite score below threshold",
             "magic_number": MAGIC_NUMBER,
         }
 

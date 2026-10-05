@@ -11,7 +11,7 @@ import inspect
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -60,7 +60,10 @@ class DynamicPluginLoader:
                         # Discover SEBIBrokerAdapter subclasses
                         for name, obj in inspect.getmembers(module, inspect.isclass):
                             try:
-                                if issubclass(obj, SEBIBrokerAdapter) and obj is not SEBIBrokerAdapter:
+                                if (
+                                    issubclass(obj, SEBIBrokerAdapter)
+                                    and obj is not SEBIBrokerAdapter
+                                ):
                                     plugin_key = getattr(obj, "BROKER_KEY", name.upper())
                                     IndianBrokerPluginRegistry.register(plugin_key, obj)
                                     self.registered_plugins.append(plugin_key)

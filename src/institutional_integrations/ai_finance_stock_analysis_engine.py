@@ -9,21 +9,17 @@ and composite trend prediction for Indian equities and F&O stocks with 0.05 INR 
 Assigned Magic Number: 9100016
 """
 
-import json
 import logging
-import math
 import time
-import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
+from .indian_market_state_machine import round_to_indian_tick_size
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
     generate_indian_market_history_bars,
-    round_to_indian_quantity,
     validate_indian_product_tag,
 )
 
@@ -166,7 +162,12 @@ class AIFinanceStockAnalysisAdapter(SEBIBrokerAdapter):
         return True
 
     def get_account_info(self) -> dict[str, Any]:
-        return {"balance": 1000000.0, "equity": 1000000.0, "currency": "INR", "is_demo": self.is_sandbox}
+        return {
+            "balance": 1000000.0,
+            "equity": 1000000.0,
+            "currency": "INR",
+            "is_demo": self.is_sandbox,
+        }
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
@@ -200,17 +201,30 @@ class AIFinanceStockAnalysisAdapter(SEBIBrokerAdapter):
             status="COMPLETE",
             product=product,
             exchange=exchange,
-            raw_response={"status": True, "ticket": ticket, "magic_number": MAGIC_NUMBER_AI_FINANCE_ANALYSIS},
+            raw_response={
+                "status": True,
+                "ticket": ticket,
+                "magic_number": MAGIC_NUMBER_AI_FINANCE_ANALYSIS,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

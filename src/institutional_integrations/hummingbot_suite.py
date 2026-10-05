@@ -10,7 +10,6 @@ Provides:
 
 import math
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
 
 
 @dataclass
@@ -58,7 +57,11 @@ class AvellanedaStoikovMarketMakingEngine:
         inv_delta = inventory - target_inventory
         reservation_price = mid_price - inv_delta * risk_aversion * volatility**2 * time_horizon
         term1 = risk_aversion * volatility**2 * time_horizon
-        term2 = 2.0 / max(1e-05, risk_aversion) * math.log(1.0 + risk_aversion / max(1e-05, liquidity_density))
+        term2 = (
+            2.0
+            / max(1e-05, risk_aversion)
+            * math.log(1.0 + risk_aversion / max(1e-05, liquidity_density))
+        )
         half_spread = (term1 + term2) / 2.0
         bid_price = max(0.01, reservation_price - half_spread)
         ask_price = reservation_price + half_spread

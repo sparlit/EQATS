@@ -18,9 +18,8 @@ Magic Number Assignment: 9100100
 
 import logging
 import math
-import os
 from datetime import datetime, time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 try:
     import numpy as np
@@ -76,7 +75,13 @@ class KronosTokenizer:
         self.pretrained_name: str | None = None
 
     def tokenize_bar(
-        self, open_p: float, high_p: float, low_p: float, close_p: float, volume: float, ref_price: float
+        self,
+        open_p: float,
+        high_p: float,
+        low_p: float,
+        close_p: float,
+        volume: float,
+        ref_price: float,
     ) -> tuple[int, int, int, int]:
         """
         Quantizes a single bar (relative return, high offset, low offset, volume shift) relative to ref_price into subtoken integer IDs.
@@ -87,7 +92,9 @@ class KronosTokenizer:
         upper_shadow = (high_p - max(open_p, close_p)) / ref_price
         lower_shadow = (min(open_p, close_p) - low_p) / ref_price
         vol_norm = math.log1p(max(0.0, volume))
-        bin_ret = max(0, min(self.num_bins - 1, int(math.floor((ret + 0.05) / 0.1 * self.num_bins))))
+        bin_ret = max(
+            0, min(self.num_bins - 1, int(math.floor((ret + 0.05) / 0.1 * self.num_bins)))
+        )
         bin_u = max(0, min(self.num_bins - 1, int(math.floor(upper_shadow / 0.02 * self.num_bins))))
         bin_l = max(0, min(self.num_bins - 1, int(math.floor(lower_shadow / 0.02 * self.num_bins))))
         bin_v = max(0, min(self.num_bins - 1, int(math.floor(vol_norm / 15.0 * self.num_bins))))
@@ -100,16 +107,28 @@ class KronosTokenizer:
         tokens: list[tuple[int, int, int, int]] = []
         if ohlcv_matrix is None or len(ohlcv_matrix) == 0:
             return tokens
-        ref = float(ohlcv_matrix[0][0]) if isinstance(ohlcv_matrix, list) else float(ohlcv_matrix[0, 0])
+        ref = (
+            float(ohlcv_matrix[0][0])
+            if isinstance(ohlcv_matrix, list)
+            else float(ohlcv_matrix[0, 0])
+        )
         for row in ohlcv_matrix:
-            o, h, l, c, v = (float(row[0]), float(row[1]), float(row[2]), float(row[3]), float(row[4]))
+            o, h, l, c, v = (
+                float(row[0]),
+                float(row[1]),
+                float(row[2]),
+                float(row[3]),
+                float(row[4]),
+            )
             t = self.tokenize_bar(o, h, l, c, v, ref)
             tokens.append(t)
             ref = c
         return tokens
 
     @classmethod
-    def from_pretrained(cls, pretrained_name_or_path: str = "NeoQuasar/Kronos-Tokenizer-base") -> "KronosTokenizer":
+    def from_pretrained(
+        cls, pretrained_name_or_path: str = "NeoQuasar/Kronos-Tokenizer-base"
+    ) -> "KronosTokenizer":
         """Instantiates tokenizer, loading Hugging Face tokenizer or fallback if torch unavailable."""
         inst = cls(num_bins=64)
         inst.pretrained_name = pretrained_name_or_path
@@ -138,7 +157,9 @@ class KronosFoundationModel:
             self.has_torch_model = False
 
     @classmethod
-    def from_pretrained(cls, pretrained_name_or_path: str = "NeoQuasar/Kronos-small") -> "KronosFoundationModel":
+    def from_pretrained(
+        cls, pretrained_name_or_path: str = "NeoQuasar/Kronos-small"
+    ) -> "KronosFoundationModel":
         """Factory method to load pre-trained Kronos transformer weights from Hugging Face or fallback."""
         model_size = "small"
         if "mini" in pretrained_name_or_path.lower():
@@ -150,7 +171,12 @@ class KronosFoundationModel:
         return inst
 
     def forecast_probabilistic(
-        self, ohlcv_history: Any, forecast_horizon: int = 24, num_simulations: int = 30
+        self,
+        ohlcv_history: Any,
+        forecast_horizon: int = 24,
+        num_simulations: int = 30,
+        T: float = 1.0,
+        top_p: float = 0.9,
     ) -> dict[str, Any]:
         """
         Generates probabilistic forward forecasts given historical OHLCV bars.
@@ -174,7 +200,9 @@ class KronosFoundationModel:
             closes = ohlcv_history[:, 3]
             log_rets = np.diff(np.log(np.maximum(1e-08, closes)))
             hist_vol = float(np.std(log_rets)) if len(log_rets) > 1 else 0.01
-            trend_slope = float((closes[-1] - closes[-10]) / (10 * last_close)) if len(closes) >= 10 else 0.0
+            trend_slope = (
+                float((closes[-1] - closes[-10]) / (10 * last_close)) if len(closes) >= 10 else 0.0
+            )
             self.tokenizer.tokenize_kline_sequence(ohlcv_history)
             rng = np.random.RandomState(abs(hash(last_close)) % (2**31 - 1))
             simulations = np.zeros((num_simulations, forecast_horizon))
@@ -193,8 +221,12 @@ class KronosFoundationModel:
             upside_probability = float(upside_count / num_simulations)
             forecast_vols = np.std(np.diff(np.log(np.maximum(1e-08, simulations)), axis=1), axis=1)
             avg_forecast_vol = float(np.mean(forecast_vols)) if len(forecast_vols) > 0 else hist_vol
-            volatility_amplification = float(np.clip((avg_forecast_vol - hist_vol) / max(1e-06, hist_vol), 0.0, 2.0))
-            model_confidence = float(np.clip(1.0 - np.std(final_prices) / (last_close + 1e-06), 0.3, 0.99))
+            volatility_amplification = float(
+                np.clip((avg_forecast_vol - hist_vol) / max(1e-06, hist_vol), 0.0, 2.0)
+            )
+            model_confidence = float(
+                np.clip(1.0 - np.std(final_prices) / (last_close + 1e-06), 0.3, 0.99)
+            )
             return {
                 "upside_probability": round(upside_probability, 4),
                 "volatility_amplification": round(volatility_amplification, 4),
@@ -211,14 +243,17 @@ class KronosFoundationModel:
             closes_list = [float(c) for c in ohlcv_history]
         last_close_val = closes_list[-1] if closes_list else 1.0
         log_rets_list = [
-            math.log(max(1e-08, closes_list[i]) / max(1e-08, closes_list[i - 1])) for i in range(1, len(closes_list))
+            math.log(max(1e-08, closes_list[i]) / max(1e-08, closes_list[i - 1]))
+            for i in range(1, len(closes_list))
         ]
         n_rets = len(log_rets_list)
         mean_ret = sum(log_rets_list) / n_rets if n_rets > 0 else 0.0
         var_ret = sum((r - mean_ret) ** 2 for r in log_rets_list) / n_rets if n_rets > 0 else 0.0001
         hist_vol_val = math.sqrt(var_ret) if var_ret > 0 else 0.01
         trend_slope_val = (
-            (closes_list[-1] - closes_list[-10]) / (10 * last_close_val) if len(closes_list) >= 10 else 0.0
+            (closes_list[-1] - closes_list[-10]) / (10 * last_close_val)
+            if len(closes_list) >= 10
+            else 0.0
         )
         import random
 
@@ -228,7 +263,9 @@ class KronosFoundationModel:
         for _ in range(num_simulations):
             path: list[float] = []
             price = last_close_val
-            sim_v = hist_vol_val * effective_temp * (1.0 + rng_py.uniform(-0.1 * top_p, 0.2 * top_p))
+            sim_v = (
+                hist_vol_val * effective_temp * (1.0 + rng_py.uniform(-0.1 * top_p, 0.2 * top_p))
+            )
             for _ in range(forecast_horizon):
                 shock = rng_py.gauss(trend_slope_val, sim_v)
                 price = round_to_tick(max(0.0001, price * math.exp(shock)))
@@ -241,11 +278,15 @@ class KronosFoundationModel:
             for h in range(forecast_horizon)
         ]
         up_bnd = [
-            round_to_tick(sorted(sims[s][h] for s in range(num_simulations))[int(0.95 * num_simulations)])
+            round_to_tick(
+                sorted(sims[s][h] for s in range(num_simulations))[int(0.95 * num_simulations)]
+            )
             for h in range(forecast_horizon)
         ]
         low_bnd = [
-            round_to_tick(sorted(sims[s][h] for s in range(num_simulations))[int(0.05 * num_simulations)])
+            round_to_tick(
+                sorted(sims[s][h] for s in range(num_simulations))[int(0.05 * num_simulations)]
+            )
             for h in range(forecast_horizon)
         ]
         upside_p = round(upside_cnt / float(num_simulations), 4)
@@ -297,9 +338,15 @@ class KronosPredictor:
 
         # Convert input df into matrix
         if hasattr(df, "to_numpy"):
-            cols = [c for c in ["open", "high", "low", "close", "volume", "amount"] if c in df.columns]
+            cols = [
+                c for c in ["open", "high", "low", "close", "volume", "amount"] if c in df.columns
+            ]
             if len(cols) < 4:
-                cols = [c for c in df.columns if c.lower() in ["open", "high", "low", "close", "volume", "amount"]][:5]
+                cols = [
+                    c
+                    for c in df.columns
+                    if c.lower() in ["open", "high", "low", "close", "volume", "amount"]
+                ][:5]
             matrix = df[cols].to_numpy()
         elif isinstance(df, list):
             matrix = df
@@ -455,7 +502,9 @@ class KronosBrokerAdapter(SEBIBrokerAdapter):
     def place_order(self, req: SEBIOrderRequest) -> SEBIOrderResponse:
         return self.execute_order(req)
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -465,7 +514,9 @@ class KronosBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:

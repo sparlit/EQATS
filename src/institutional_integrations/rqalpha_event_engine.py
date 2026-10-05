@@ -4,12 +4,11 @@ Provides event-driven backtesting execution, slice-based simulation, portfolio t
 bar execution context, dynamic ATR slippage models, and Indian stock market (NSE/BSE) session/tick rules.
 """
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from .indian_market_state_machine import IndianMarketStateMachine, round_to_indian_tick_size
+from .indian_market_state_machine import round_to_indian_tick_size
 from .rust_bridge import rust_accelerated_rqalpha_process_bar_orders
 
 
@@ -74,7 +73,10 @@ class RQAlphaEventEngine:
     """
 
     def __init__(
-        self, initial_capital: float = 100000.0, commission_rate: float = 0.0001, enforce_indian_rules: bool = False
+        self,
+        initial_capital: float = 100000.0,
+        commission_rate: float = 0.0001,
+        enforce_indian_rules: bool = False,
     ) -> None:
         self.initial_capital: float = initial_capital
         self.cash: float = initial_capital
@@ -140,7 +142,9 @@ class RQAlphaEventEngine:
                         self.cash -= cost + commission
                         new_qty = pos.quantity + order.quantity
                         if new_qty > 0:
-                            pos.avg_entry_price = (pos.quantity * pos.avg_entry_price + cost) / new_qty
+                            pos.avg_entry_price = (
+                                pos.quantity * pos.avg_entry_price + cost
+                            ) / new_qty
                         pos.quantity = new_qty
                         order.filled_quantity = order.quantity
                         order.avg_fill_price = fill_price
@@ -169,8 +173,12 @@ class RQAlphaEventEngine:
         pos = self.positions[bar.symbol]
         if pos.quantity != 0:
             pos.unrealized_pnl = (bar.close - pos.avg_entry_price) * pos.quantity
-        total_equity = self.cash + sum(p.quantity * bar.close for p in self.positions.values() if p.quantity != 0)
-        self.equity_history.append({"timestamp": bar.timestamp, "cash": self.cash, "equity": total_equity})
+        total_equity = self.cash + sum(
+            p.quantity * bar.close for p in self.positions.values() if p.quantity != 0
+        )
+        self.equity_history.append(
+            {"timestamp": bar.timestamp, "cash": self.cash, "equity": total_equity}
+        )
         return filled_in_this_bar
 
     def get_portfolio_summary(self) -> dict[str, Any]:
@@ -183,7 +191,9 @@ class RQAlphaEventEngine:
             "unrealized_pnl": unrealized,
             "realized_pnl": realized,
             "total_portfolio_value": portfolio_value,
-            "total_return_pct": (portfolio_value - self.initial_capital) / self.initial_capital * 100.0,
+            "total_return_pct": (portfolio_value - self.initial_capital)
+            / self.initial_capital
+            * 100.0,
             "open_positions_count": sum(1 for p in self.positions.values() if p.quantity != 0),
             "pending_orders_count": len(self.pending_orders),
             "completed_orders_count": len(self.completed_orders),

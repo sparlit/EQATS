@@ -10,11 +10,8 @@ Provides:
 - Session Liquidity Sweep Tracker (Asian / London / NY BSL & SSL Sweeps)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-
-import numpy as np
 
 
 class MarketBias(str, Enum):
@@ -109,11 +106,15 @@ class ICTSystemV2Engine:
         b_low_curr, b_low_prev = (asset_b_lows[-1], min(asset_b_lows[-5:-1]))
         if a_low_curr < a_low_prev and b_low_curr > b_low_prev:
             return SMTDivergenceResult(
-                True, MarketBias.BULLISH, "Bullish SMT: Asset A created Lower Low while Asset B held Higher Low"
+                True,
+                MarketBias.BULLISH,
+                "Bullish SMT: Asset A created Lower Low while Asset B held Higher Low",
             )
         if a_high_curr > a_high_prev and b_high_curr < b_high_prev:
             return SMTDivergenceResult(
-                True, MarketBias.BEARISH, "Bearish SMT: Asset A created Higher High while Asset B held Lower High"
+                True,
+                MarketBias.BEARISH,
+                "Bearish SMT: Asset A created Higher High while Asset B held Lower High",
             )
         return SMTDivergenceResult(False, MarketBias.NONE, "No SMT divergence detected")
 
@@ -130,7 +131,9 @@ class ICTSystemV2Engine:
             zone = PDAZone.EQUILIBRIUM
         return PDAResult(equilibrium=eq, current_zone=zone)
 
-    def track_liquidity_sweeps(self, current_price: float, asian_high: float, asian_low: float) -> tuple[bool, bool]:
+    def track_liquidity_sweeps(
+        self, current_price: float, asian_high: float, asian_low: float
+    ) -> tuple[bool, bool]:
         """Tracks Buy-Side Liquidity (BSL) and Sell-Side Liquidity (SSL) Sweeps."""
         bsl_swept = current_price > asian_high
         ssl_swept = current_price < asian_low
@@ -175,11 +178,19 @@ class ICTSystemV2Engine:
         bias = MarketBias.NONE
         confidence = 0.5
         reason_parts = []
-        if cisd_confirmed and cisd_bias == MarketBias.BULLISH and (pda_res.current_zone == PDAZone.DISCOUNT):
+        if (
+            cisd_confirmed
+            and cisd_bias == MarketBias.BULLISH
+            and (pda_res.current_zone == PDAZone.DISCOUNT)
+        ):
             bias = MarketBias.BULLISH
             confidence = 0.85
             reason_parts.append("Bullish CISD confirmed in Discount Zone")
-        elif cisd_confirmed and cisd_bias == MarketBias.BEARISH and (pda_res.current_zone == PDAZone.PREMIUM):
+        elif (
+            cisd_confirmed
+            and cisd_bias == MarketBias.BEARISH
+            and (pda_res.current_zone == PDAZone.PREMIUM)
+        ):
             bias = MarketBias.BEARISH
             confidence = 0.85
             reason_parts.append("Bearish CISD confirmed in Premium Zone")

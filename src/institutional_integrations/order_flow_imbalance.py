@@ -35,7 +35,11 @@ def detect_bid_ask_imbalance(order_book_depth: Any) -> Any:
         return {"imbalance_ratio": 0.0, "dominant_side": "NEUTRAL"}
     imbalance_ratio = (total_bid_qty - total_ask_qty) / total_qty
     dominant_side = (
-        "BUY_DOMINANT" if imbalance_ratio > 0.2 else "SELL_DOMINANT" if imbalance_ratio < -0.2 else "NEUTRAL"
+        "BUY_DOMINANT"
+        if imbalance_ratio > 0.2
+        else "SELL_DOMINANT"
+        if imbalance_ratio < -0.2
+        else "NEUTRAL"
     )
     return {
         "imbalance_ratio": round(imbalance_ratio, 4),

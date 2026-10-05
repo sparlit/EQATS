@@ -6,13 +6,22 @@ Provides thread-safe logging and retrieval for multi-timeframe trading signals.
 import json
 import os
 import threading
-from typing import Any, Dict, List
+from typing import Any
 
 LOG_DIR = "./logs"
 CSV_PATH = os.path.join(LOG_DIR, "signals_log.csv")
 JSON_PATH = os.path.join(LOG_DIR, "signals_log.json")
 _store_lock = threading.Lock()
-SIGNAL_FIELDS = ("timestamp", "symbol", "timeframe", "direction", "confidence", "session", "atr", "rsi")
+SIGNAL_FIELDS = (
+    "timestamp",
+    "symbol",
+    "timeframe",
+    "direction",
+    "confidence",
+    "session",
+    "atr",
+    "rsi",
+)
 
 
 def init_store() -> None:

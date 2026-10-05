@@ -103,7 +103,9 @@ class PortfolioDistillerEngine:
             )
 
         # Sort descending by composite factor score
-        sorted_holdings = sorted(scored_holdings, key=lambda x: x.composite_factor_score, reverse=True)
+        sorted_holdings = sorted(
+            scored_holdings, key=lambda x: x.composite_factor_score, reverse=True
+        )
         top_distilled = sorted_holdings[: self.target_max_holdings]
 
         # Normalize weights equally across top distilled
@@ -179,16 +181,28 @@ class PortfolioDistillerBrokerAdapter(SEBIBrokerAdapter):
             status="EXECUTED",
             product=request.product,
             exchange=request.exchange,
-            raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_PORTFOLIO_DISTILLER},
+            raw_response={
+                "quantity": sanitized_qty,
+                "magic_number": MAGIC_NUMBER_PORTFOLIO_DISTILLER,
+            },
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

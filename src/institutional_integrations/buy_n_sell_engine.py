@@ -9,14 +9,12 @@ Provides automated quantitative buy/sell momentum signal generation, EMA trend f
 volume confirmation, 0.05 INR price tick rounding, and dynamic microkernel registration.
 """
 
-import math
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -28,7 +26,9 @@ class BuyNSellEngine:
     Quantitative Buy/Sell momentum signal engine for Indian equity markets (NSE/BSE).
     """
 
-    def __init__(self, fast_period: int = 9, slow_period: int = 21, volume_factor: float = 1.2) -> None:
+    def __init__(
+        self, fast_period: int = 9, slow_period: int = 21, volume_factor: float = 1.2
+    ) -> None:
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.volume_factor = volume_factor
@@ -67,7 +67,9 @@ class BuyNSellEngine:
                 "action": "HOLD",
                 "price": rounded_price,
                 "confidence": 0.0,
-                "reason": "Market session closed" if not session_valid else "Insufficient price history",
+                "reason": "Market session closed"
+                if not session_valid
+                else "Insufficient price history",
                 "magic_number": MAGIC_NUMBER,
             }
 

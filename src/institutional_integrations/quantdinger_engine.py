@@ -8,9 +8,8 @@ Provides:
 """
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -102,7 +101,9 @@ class QuantDingerGridEngine:
                     lvl.executed = True
                     lvl.fill_price = current_price
                     executed_levels.append(lvl)
-                    matched_buy_lvls = [l for l in self.state.grid_levels if l.executed and l.order_side == "BUY"]
+                    matched_buy_lvls = [
+                        l for l in self.state.grid_levels if l.executed and l.order_side == "BUY"
+                    ]
                     if matched_buy_lvls:
                         lowest_buy = min(matched_buy_lvls, key=lambda l: l.fill_price)
                         cell_pnl = (lvl.fill_price - lowest_buy.fill_price) * (
@@ -118,7 +119,10 @@ class QuantDingerFactorResearchEngine:
     """QuantDinger Factor Signal & Information Coefficient (IC) Research Engine."""
 
     def evaluate_factor_ic(
-        self, factor_values: list[float], forward_returns: list[float], factor_name: str = "MomentumFactor"
+        self,
+        factor_values: list[float],
+        forward_returns: list[float],
+        factor_name: str = "MomentumFactor",
     ) -> FactorScoreResult:
         """Calculates Information Coefficient (IC) correlation between factor values and forward returns."""
         if not factor_values or not forward_returns or len(factor_values) != len(forward_returns):
@@ -126,11 +130,18 @@ class QuantDingerFactorResearchEngine:
         f_arr = np.array(factor_values)
         r_arr = np.array(forward_returns)
         corr_matrix = np.corrcoef(f_arr, r_arr)
-        ic = float(corr_matrix[0, 1]) if corr_matrix.shape == (2, 2) and (not np.isnan(corr_matrix[0, 1])) else 0.0
+        ic = (
+            float(corr_matrix[0, 1])
+            if corr_matrix.shape == (2, 2) and (not np.isnan(corr_matrix[0, 1]))
+            else 0.0
+        )
         mean_ret = float(np.mean(r_arr))
         std_ret = float(np.std(r_arr))
         sharpe = mean_ret / (std_ret + 1e-06) * math.sqrt(252)
         direction = "BULLISH" if ic > 0.1 else "BEARISH" if ic < -0.1 else "NEUTRAL"
         return FactorScoreResult(
-            factor_name=factor_name, ic_score=round(ic, 4), sharpe_ratio=round(sharpe, 2), direction=direction
+            factor_name=factor_name,
+            ic_score=round(ic, 4),
+            sharpe_ratio=round(sharpe, 2),
+            direction=direction,
         )

@@ -8,7 +8,7 @@ import ctypes
 import logging
 import os
 import struct
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,22 @@ class CompactTickRecord(ctypes.Structure):
 
 def _load_rust_tectonic_lib() -> Any:
     possible_paths = [
-        os.path.join(os.path.dirname(__file__), "..", "eqats_rust_core", "target", "release", "libeqats_rust_core.so"),
-        os.path.join(os.path.dirname(__file__), "..", "eqats_rust_core", "target", "debug", "libeqats_rust_core.so"),
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "eqats_rust_core",
+            "target",
+            "release",
+            "libeqats_rust_core.so",
+        ),
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "eqats_rust_core",
+            "target",
+            "debug",
+            "libeqats_rust_core.so",
+        ),
     ]
     for path in possible_paths:
         if os.path.exists(path):
@@ -107,7 +121,9 @@ class TectonicDBEngine:
                 cap = 4 + 56 * count + 1024
                 buf = (ctypes.c_uint8 * cap)()
                 written = ctypes.c_int(0)
-                res = self.rust_lib.rust_tectonicdb_pack_ticks(tick_array, count, buf, cap, ctypes.byref(written))
+                res = self.rust_lib.rust_tectonicdb_pack_ticks(
+                    tick_array, count, buf, cap, ctypes.byref(written)
+                )
                 if res == 0:
                     return bytes(buf[: written.value])
             except Exception as e:
@@ -152,7 +168,9 @@ class TectonicDBEngine:
                 logger.error(f"Rust unpack_ticks failed, falling back to Python: {e}")
         return self._python_unpack_ticks(data)
 
-    def filter_time_range(self, ticks: list[dict[str, Any]], start_ns: int, end_ns: int) -> list[dict[str, Any]]:
+    def filter_time_range(
+        self, ticks: list[dict[str, Any]], start_ns: int, end_ns: int
+    ) -> list[dict[str, Any]]:
         """
         Filter ticks within timestamp window [start_ns, end_ns].
         """

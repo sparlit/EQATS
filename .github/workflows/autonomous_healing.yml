@@ -64,7 +64,7 @@ jobs:
           MAX_HEALING_ITERATIONS: "3"
           TARGET_DIR: "."
         run: |
-          python scripts/self_healing_engine.py
+          python .github/scripts/self_healing_engine.py
 
       - name: Verify Git Status
         id: git-status

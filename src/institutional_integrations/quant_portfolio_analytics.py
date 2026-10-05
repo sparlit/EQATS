@@ -6,7 +6,7 @@ plus full performance risk metrics (Sharpe, Sortino, Calmar, VaR/CVaR, Max Drawd
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -95,7 +95,9 @@ class QuantPerformanceMetrics:
     """
 
     @staticmethod
-    def calculate_performance_summary(returns: np.ndarray, risk_free_rate: float = 0.02) -> dict[str, float]:
+    def calculate_performance_summary(
+        returns: np.ndarray, risk_free_rate: float = 0.02
+    ) -> dict[str, float]:
         """
         Computes Sharpe, Sortino, Calmar, Max Drawdown, VaR 95%, CVaR 95%, and Win Rate.
         """
@@ -118,7 +120,9 @@ class QuantPerformanceMetrics:
         ann_vol = float(np.std(arr, ddof=1) * np.sqrt(252.0)) if len(arr) > 1 else 0.0
         sharpe = (ann_return - risk_free_rate) / ann_vol if ann_vol > 0 else 0.0
         downside = arr[arr < 0.0]
-        downside_vol = float(np.std(downside, ddof=1) * np.sqrt(252.0)) if len(downside) > 1 else 0.0001
+        downside_vol = (
+            float(np.std(downside, ddof=1) * np.sqrt(252.0)) if len(downside) > 1 else 0.0001
+        )
         sortino = (ann_return - risk_free_rate) / downside_vol if downside_vol > 0 else 0.0
         equity_curve = np.cumprod(1.0 + arr)
         running_max = np.maximum.accumulate(equity_curve)
@@ -128,7 +132,9 @@ class QuantPerformanceMetrics:
         sorted_returns = np.sort(arr)
         var_idx = int(0.05 * len(sorted_returns))
         var_95 = float(-sorted_returns[var_idx]) if len(sorted_returns) > 0 else 0.0
-        cvar_95 = float(-np.mean(sorted_returns[: max(1, var_idx)])) if len(sorted_returns) > 0 else 0.0
+        cvar_95 = (
+            float(-np.mean(sorted_returns[: max(1, var_idx)])) if len(sorted_returns) > 0 else 0.0
+        )
         win_rate = float(np.sum(arr > 0.0) / len(arr)) if len(arr) > 0 else 0.0
         return {
             "cum_return": cum_return,

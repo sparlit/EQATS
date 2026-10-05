@@ -10,7 +10,7 @@ Overlapping Batch Means (OBM), Newey-West Kernel, and Prewhitening methods.
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -68,7 +68,9 @@ class NumericalStandardErrorEngine:
             return 0.0
 
         batch_size = n // nbatch
-        batches = [sum(series[i * batch_size : (i + 1) * batch_size]) / batch_size for i in range(nbatch)]
+        batches = [
+            sum(series[i * batch_size : (i + 1) * batch_size]) / batch_size for i in range(nbatch)
+        ]
         overall_mean = sum(series) / n
         var_bm = (batch_size / (nbatch - 1)) * sum((b - overall_mean) ** 2 for b in batches)
         return math.sqrt(max(0.0, var_bm / n))
@@ -152,9 +154,15 @@ class BraverockNSEBrokerAdapter(SEBIBrokerAdapter):
     """SEBI Broker Adapter for Braverock NSE Engine."""
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
-        super().__init__(api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox)
+        super().__init__(
+            api_key=api_key, api_secret=api_secret, access_token=access_token, is_sandbox=is_sandbox
+        )
         self.magic_number = MAGIC_NUMBER
         self.engine = NumericalStandardErrorEngine()
 
@@ -219,7 +227,9 @@ class BraverockNSEBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -230,7 +240,9 @@ class BraverockNSEBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_open_orders(self) -> list[dict[str, Any]]:

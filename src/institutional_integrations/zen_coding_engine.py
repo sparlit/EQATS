@@ -77,12 +77,20 @@ class ZenCodingEngine:
         """Initializes ZenCodingEngine."""
         self.cost_per_1k_tokens = cost_per_1k_tokens
         self.traces: dict[str, CodingSessionTrace] = {}
-        self.blocked_imports: set[str] = {"os.system", "subprocess.Popen", "shutil.rmtree", "eval", "exec"}
+        self.blocked_imports: set[str] = {
+            "os.system",
+            "subprocess.Popen",
+            "shutil.rmtree",
+            "eval",
+            "exec",
+        }
 
     def inspect_code_guardrails(self, code_snippet: str) -> tuple[bool, list[str]]:
         """Inspects code for prohibited execution calls or unsafe patterns."""
         violations = [
-            f"Forbidden call pattern detected: {pattern}" for pattern in self.blocked_imports if pattern in code_snippet
+            f"Forbidden call pattern detected: {pattern}"
+            for pattern in self.blocked_imports
+            if pattern in code_snippet
         ]
         return (len(violations) == 0, violations)
 
@@ -188,13 +196,22 @@ class ZenCodingBrokerAdapter(SEBIBrokerAdapter):
             raw_response={"quantity": sanitized_qty, "magic_number": MAGIC_NUMBER_ZEN_CODING},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes an active order."""
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order."""
         return True
 

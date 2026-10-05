@@ -10,17 +10,15 @@ RSI momentum break triggers, 0.05 INR price tick rounding, IST market session va
 and microkernel plugin binding.
 """
 
-import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIBrokerAdapter,
     SEBIOrderRequest,
     SEBIOrderResponse,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -99,7 +97,12 @@ class AIStockLiveTraderEngine:
         Evaluates Guppy Multiple Moving Average (GMMA) trend expansion and alignment score.
         """
         if len(prices) < 60:
-            return {"gmma_score": 0.0, "short_group_avg": 0.0, "long_group_avg": 0.0, "trend_status": "NEUTRAL"}
+            return {
+                "gmma_score": 0.0,
+                "short_group_avg": 0.0,
+                "long_group_avg": 0.0,
+                "trend_status": "NEUTRAL",
+            }
 
         short_emas = [self._compute_ema(prices, p) for p in self.SHORT_EMA_PERIODS]
         long_emas = [self._compute_ema(prices, p) for p in self.LONG_EMA_PERIODS]
@@ -108,8 +111,12 @@ class AIStockLiveTraderEngine:
         long_avg = sum(long_emas) / len(long_emas)
 
         # GMMA Expansion Alignment
-        bullish_alignment = all(short_emas[i] >= short_emas[i + 1] for i in range(len(short_emas) - 1))
-        bearish_alignment = all(short_emas[i] <= short_emas[i + 1] for i in range(len(short_emas) - 1))
+        bullish_alignment = all(
+            short_emas[i] >= short_emas[i + 1] for i in range(len(short_emas) - 1)
+        )
+        bearish_alignment = all(
+            short_emas[i] <= short_emas[i + 1] for i in range(len(short_emas) - 1)
+        )
 
         if short_avg > long_avg and bullish_alignment:
             status = "STRONG_BULLISH"
@@ -192,7 +199,9 @@ class AIStockLiveTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=request.exchange,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
@@ -202,7 +211,9 @@ class AIStockLiveTraderBrokerAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
     def get_account_info(self) -> dict[str, Any]:

@@ -10,12 +10,11 @@ Provides high-frequency Order Flow Imbalance (OFI), Cumulative Volume Delta (CVD
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.indian_market_state_machine import IndianMarketStateMachine
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    round_to_indian_quantity,
     round_to_indian_tick_size,
 )
 
@@ -31,7 +30,9 @@ class NSEOrderFlowEngine:
         self.delta_threshold = delta_threshold
         self.market_state = IndianMarketStateMachine()
 
-    def calculate_order_flow_imbalance(self, bid_volumes: list[float], ask_volumes: list[float]) -> float:
+    def calculate_order_flow_imbalance(
+        self, bid_volumes: list[float], ask_volumes: list[float]
+    ) -> float:
         """
         Calculates Order Flow Imbalance (OFI) ratio between total bid volume and total ask volume.
         """

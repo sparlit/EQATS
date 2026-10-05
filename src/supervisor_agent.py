@@ -23,7 +23,9 @@ class TradingSystemSupervisorAgent:
         self.last_audit_time = None
         self.active_interventions = []
         self.telemetry_logs = []
-        self._log_telemetry("🤖 AI Supervisor Agent initialized successfully in ACTIVE monitoring state.")
+        self._log_telemetry(
+            "🤖 AI Supervisor Agent initialized successfully in ACTIVE monitoring state."
+        )
 
     def _log_telemetry(self, message: Any) -> None:
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -42,7 +44,9 @@ class TradingSystemSupervisorAgent:
             return {
                 "health_score": self.health_score,
                 "status": "PAUSED",
-                "interventions": ["Supervisor Agent is currently PAUSED by manual operator request."],
+                "interventions": [
+                    "Supervisor Agent is currently PAUSED by manual operator request."
+                ],
                 "logs": self.telemetry_logs[-5:],
             }
         self.last_audit_time = datetime.datetime.now().isoformat()
@@ -59,7 +63,9 @@ class TradingSystemSupervisorAgent:
                     stale_count += 1
                 elif ask - bid < 0:
                     data_deductions += 15.0
-                    interventions.append(f"Quarantined invalid price feed on {sym} (Negative spread: {ask - bid:.5f}).")
+                    interventions.append(
+                        f"Quarantined invalid price feed on {sym} (Negative spread: {ask - bid:.5f})."
+                    )
             if stale_count > 0:
                 data_deductions += stale_count * 10.0
                 interventions.append(f"Detected {stale_count} stale/unresponsive symbol feeds.")
@@ -119,16 +125,24 @@ class TradingSystemSupervisorAgent:
             win_rate = perf["win_rate"]
             if win_rate < 40.0 and perf["total_trades"] >= 5:
                 model_deductions += 20.0
-                interventions.append(f"Model win-rate degraded to {win_rate}%. Downscaling trade risk fractions.")
+                interventions.append(
+                    f"Model win-rate degraded to {win_rate}%. Downscaling trade risk fractions."
+                )
         except Exception:
             model_deductions += 10.0
         self.model_health = max(0.0, 100.0 - model_deductions)
         self.health_score = round(
-            self.data_health * 0.25 + self.execution_health * 0.3 + self.risk_health * 0.3 + self.model_health * 0.15, 1
+            self.data_health * 0.25
+            + self.execution_health * 0.3
+            + self.risk_health * 0.3
+            + self.model_health * 0.15,
+            1,
         )
         self.active_interventions = interventions
         if self.health_score < 60.0:
-            self._log_telemetry(f"⚠️ HEALTH CRITICAL ({self.health_score}%): Escalating system state to DEFENSIVE.")
+            self._log_telemetry(
+                f"⚠️ HEALTH CRITICAL ({self.health_score}%): Escalating system state to DEFENSIVE."
+            )
             scalper_instance.engine.resilience.transition_state("DEFENSIVE")
             global_event_bus.publish(
                 Event(
@@ -148,7 +162,11 @@ class TradingSystemSupervisorAgent:
             "execution_health": self.execution_health,
             "risk_health": self.risk_health,
             "model_health": self.model_health,
-            "status": "HEALTHY" if self.health_score >= 80 else "DEGRADED" if self.health_score >= 60 else "CRITICAL",
+            "status": "HEALTHY"
+            if self.health_score >= 80
+            else "DEGRADED"
+            if self.health_score >= 60
+            else "CRITICAL",
             "interventions": self.active_interventions,
             "logs": self.telemetry_logs[-10:],
         }
@@ -156,7 +174,13 @@ class TradingSystemSupervisorAgent:
     def generate_supervisory_report(self) -> Any:
         """Generates a detailed, formal Markdown supervisory report of system performance and audit trails."""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-        status_str = "HEALTHY" if self.health_score >= 80 else "DEGRADED" if self.health_score >= 60 else "CRITICAL"
+        status_str = (
+            "HEALTHY"
+            if self.health_score >= 80
+            else "DEGRADED"
+            if self.health_score >= 60
+            else "CRITICAL"
+        )
         report = f"\n================================================================================\nAI SYSTEM SUPERVISOR AGENT — AUDIT & GOVERNANCE REPORT\n================================================================================\nAudit Timestamp:        {timestamp}\nSupervisor Mode:        {('ACTIVE (Hands-Free Supervision)' if self.supervisor_active else 'PAUSED')}\nComposite Health Score: {self.health_score}% / 100.0% [{status_str}]\n\nPLANES HEALTH BREAKDOWN:\n--------------------------------------------------------------------------------\n1. Data Plane Health:        {self.data_health:.1f}% (Feeds, spreads, freshness)\n2. Execution Plane Health:   {self.execution_health:.1f}% (Heartbeat, latency, rate limits)\n3. Risk Plane Health:        {self.risk_health:.1f}% (Drawdown bounds, margin)\n4. Model Intelligence Health:{self.model_health:.1f}% (Prediction accuracy, sentiment)\n\nACTIVE SUPERVISORY INTERVENTIONS:\n--------------------------------------------------------------------------------\n"
         if not self.active_interventions:
             report += "Zero active interventions. All system planes operating within nominal boundaries.\n"
@@ -166,7 +190,9 @@ class TradingSystemSupervisorAgent:
         report += "\nSUPERVISORY TELEMETRY TRAIL:\n--------------------------------------------------------------------------------\n"
         for log in self.telemetry_logs[-8:]:
             report += f"{log}\n"
-        report += "================================================================================\n"
+        report += (
+            "================================================================================\n"
+        )
         return report
 
 

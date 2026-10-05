@@ -16,7 +16,12 @@ class EventDrivenBacktester:
         self.commission_per_trade = commission_per_trade
 
     def run_backtest(
-        self, historical_bars: Any, strategy_func: Any, sl_pips: Any = 20, tp_pips: Any = 40, lot_size: Any = 0.01
+        self,
+        historical_bars: Any,
+        strategy_func: Any,
+        sl_pips: Any = 20,
+        tp_pips: Any = 40,
+        lot_size: Any = 0.01,
     ) -> Any:
         """
         Executes event-driven backtest over bar series.
@@ -63,7 +68,13 @@ class EventDrivenBacktester:
                     tp_dist = tp_pips * 0.0001 if close_p < 10 else tp_pips * 0.01
                     sl_price = close_p - sl_dist if signal == "BUY" else close_p + sl_dist
                     tp_price = close_p + tp_dist if signal == "BUY" else close_p - tp_dist
-                    open_trade = {"entry": close_p, "dir": signal, "sl": sl_price, "tp": tp_price, "bar_idx": idx}
+                    open_trade = {
+                        "entry": close_p,
+                        "dir": signal,
+                        "sl": sl_price,
+                        "tp": tp_price,
+                        "bar_idx": idx,
+                    }
             equity_curve.append(round(capital, 2))
         returns = [
             (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
@@ -76,7 +87,13 @@ class EventDrivenBacktester:
         win_rate = len(wins) / total_trades * 100.0 if total_trades > 0 else 0.0
         gross_profit = sum(t["profit"] for t in wins)
         gross_loss = abs(sum(t["profit"] for t in losses))
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else gross_profit if gross_profit > 0 else 1.0
+        profit_factor = (
+            gross_profit / gross_loss
+            if gross_loss > 0
+            else gross_profit
+            if gross_profit > 0
+            else 1.0
+        )
         peak = max(1e-05, equity_curve[0])
         max_dd = 0.0
         for eq in equity_curve:
@@ -84,7 +101,11 @@ class EventDrivenBacktester:
             dd = (peak - eq) / peak if peak > 0 else 0.0
             max_dd = max(max_dd, dd)
         mean_ret = sum(returns) / len(returns) if returns else 0.0
-        std_ret = math.sqrt(sum((r - mean_ret) ** 2 for r in returns) / len(returns)) if len(returns) > 1 else 0.0001
+        std_ret = (
+            math.sqrt(sum((r - mean_ret) ** 2 for r in returns) / len(returns))
+            if len(returns) > 1
+            else 0.0001
+        )
         sharpe = mean_ret / std_ret * math.sqrt(252 * 1440) if std_ret > 0 else 0.0
         return {
             "initial_capital": self.initial_capital,
@@ -98,7 +119,9 @@ class EventDrivenBacktester:
             "equity_curve": equity_curve,
         }
 
-    def walk_forward_optimization(self, historical_bars: Any, param_grid: Any = [(15, 30), (20, 40), (25, 50)]) -> Any:
+    def walk_forward_optimization(
+        self, historical_bars: Any, param_grid: Any = [(15, 30), (20, 40), (25, 50)]
+    ) -> Any:
         """
         Executes parallel walk-forward optimization across parameter grids
         utilizing concurrent ThreadPoolExecutor worker pipelines.
@@ -116,7 +139,9 @@ class EventDrivenBacktester:
 
         def eval_param_pair(sl_tp: Any) -> Any:
             sl, tp = sl_tp
-            res = self.run_backtest(historical_bars, momentum_trend_strategy, sl_pips=sl, tp_pips=tp)
+            res = self.run_backtest(
+                historical_bars, momentum_trend_strategy, sl_pips=sl, tp_pips=tp
+            )
             return ((sl, tp), res)
 
         best_sharpe = -999.0
@@ -134,7 +159,11 @@ class EventDrivenBacktester:
                         best_results = res
                 except Exception as e:
                     print(f"Diagnostics: Walk-forward parallel task failed: {e}")
-        return {"best_params_sl_tp": best_params, "best_sharpe": best_sharpe, "best_results": best_results}
+        return {
+            "best_params_sl_tp": best_params,
+            "best_sharpe": best_sharpe,
+            "best_results": best_results,
+        }
 
     def run_vectorized_backtest(self, numpy_close_prices: Any, numpy_signals: Any) -> Any:
         """
@@ -153,7 +182,9 @@ class EventDrivenBacktester:
         cumulative_equity = self.initial_capital * np.cumprod(1.0 + strategy_returns)
         equity_curve = np.insert(cumulative_equity, 0, self.initial_capital)
         net_profit = equity_curve[-1] - self.initial_capital
-        win_rate = float(np.mean(strategy_returns > 0) * 100.0) if len(strategy_returns) > 0 else 0.0
+        win_rate = (
+            float(np.mean(strategy_returns > 0) * 100.0) if len(strategy_returns) > 0 else 0.0
+        )
         peaks = np.maximum.accumulate(equity_curve)
         drawdowns = (peaks - equity_curve) / np.maximum(peaks, 1e-05)
         max_drawdown_pct = float(np.max(drawdowns) * 100.0)

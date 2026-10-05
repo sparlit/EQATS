@@ -164,7 +164,11 @@ class MultiStrategyAgenticSignalDispatcher:
         return round(100.0 - (100.0 / (1.0 + rs)), 2)
 
     def generate_signal(
-        self, symbol: str, prices: list[float], current_price: float, dt: datetime.datetime | None = None
+        self,
+        symbol: str,
+        prices: list[float],
+        current_price: float,
+        dt: datetime.datetime | None = None,
     ) -> dict[str, Any]:
         """
         Generates automated trading decision based on technical strategy signals.
@@ -219,7 +223,11 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
     BROKER_KEY = "AUTOMATED_TRADING_TOOL"
 
     def __init__(
-        self, api_key: str = "", api_secret: str = "", access_token: str = "", is_sandbox: bool = False
+        self,
+        api_key: str = "",
+        api_secret: str = "",
+        access_token: str = "",
+        is_sandbox: bool = False,
     ) -> None:
         super().__init__(api_key, api_secret, access_token, is_sandbox)
         self.router = AutomatedExecutionRiskRouter()
@@ -327,7 +335,9 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
             raw_response=validation,
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         """Closes or squares off an open order."""
         if ticket in self.orders:
             self.orders.pop(ticket)
@@ -340,7 +350,9 @@ class AutomatedTradingToolAdapter(SEBIBrokerAdapter):
             exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         """Modifies order price parameters."""
         if ticket in self.orders:
             if price > 0:

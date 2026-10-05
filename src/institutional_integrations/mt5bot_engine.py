@@ -5,8 +5,7 @@ and Relative Price Prediction Gap Evaluator.
 """
 
 import logging
-import math
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("MT5BotEngine")
 
@@ -17,7 +16,11 @@ class MT5BotVolumeNormalizer:
     """
 
     def normalize_volume(
-        self, desired_volume: float, min_volume: float = 0.01, max_volume: float = 100.0, step_volume: float = 0.01
+        self,
+        desired_volume: float,
+        min_volume: float = 0.01,
+        max_volume: float = 100.0,
+        step_volume: float = 0.01,
     ) -> float:
         v = float(desired_volume)
         min_v = float(min_volume)

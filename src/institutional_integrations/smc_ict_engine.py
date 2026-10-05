@@ -142,7 +142,12 @@ def detect_liquidity_sweeps(highs: Any, lows: Any, closes: Any, lookback: Any = 
     curr_close = closes[-1]
     bsl_sweep = curr_high > recent_high and curr_close < recent_high
     ssl_sweep = curr_low < recent_low and curr_close > recent_low
-    return {"bsl_sweep": bsl_sweep, "ssl_sweep": ssl_sweep, "bsl_level": recent_high, "ssl_level": recent_low}
+    return {
+        "bsl_sweep": bsl_sweep,
+        "ssl_sweep": ssl_sweep,
+        "bsl_level": recent_high,
+        "ssl_level": recent_low,
+    }
 
 
 class FVGCacheEngine:
@@ -175,8 +180,12 @@ class FVGCacheEngine:
         for g in self.bearish_cache:
             if curr_p >= g["top"]:
                 g["mitigated"] = True
-        self.bullish_cache = [g for g in self.bullish_cache if not g["mitigated"]][-self.max_capacity :]
-        self.bearish_cache = [g for g in self.bearish_cache if not g["mitigated"]][-self.max_capacity :]
+        self.bullish_cache = [g for g in self.bullish_cache if not g["mitigated"]][
+            -self.max_capacity :
+        ]
+        self.bearish_cache = [g for g in self.bearish_cache if not g["mitigated"]][
+            -self.max_capacity :
+        ]
 
 
 class SmartMoneyConceptsEngine:

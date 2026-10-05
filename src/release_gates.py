@@ -54,9 +54,17 @@ class ReleaseGateRunner:
             ("G06", "Risk Gate", self._check_g06_risk),
             ("G07", "Safety Invariant Gate", self._check_g07_safety_invariant),
             ("G08", "Safety Kernel Gate", self._check_g08_safety_kernel),
-            ("G09", "Independent Risk Verification Gate", self._check_g09_independent_risk_verification),
+            (
+                "G09",
+                "Independent Risk Verification Gate",
+                self._check_g09_independent_risk_verification,
+            ),
             ("G10", "Execution Gate", self._check_g10_execution),
-            ("G11", "Independent Execution Verification Gate", self._check_g11_independent_execution_verification),
+            (
+                "G11",
+                "Independent Execution Verification Gate",
+                self._check_g11_independent_execution_verification,
+            ),
             ("G12", "Reconciliation Gate", self._check_g12_reconciliation),
             ("G13", "Accounting Gate", self._check_g13_accounting),
             ("G14", "Backtest Gate", self._check_g14_backtest),
@@ -84,13 +92,21 @@ class ReleaseGateRunner:
                 if not passed:
                     all_passed = False
             except Exception as e:
-                self.results[code] = {"name": name, "passed": False, "reason": f"Crashed during evaluation: {e}"}
+                self.results[code] = {
+                    "name": name,
+                    "passed": False,
+                    "reason": f"Crashed during evaluation: {e}",
+                }
                 all_passed = False
         return all_passed
 
     def _check_g01_architecture(self) -> Any:
         """G01: Verifies multi-plane architecture is operational."""
-        if self.engine is not None and self.engine.control is not None and (self.engine.data is not None):
+        if (
+            self.engine is not None
+            and self.engine.control is not None
+            and (self.engine.data is not None)
+        ):
             return (True, "All 9 architectural planes successfully verified.")
         return (False, "Engine or planes not registered.")
 
@@ -134,7 +150,10 @@ class ReleaseGateRunner:
     def _check_g06_risk(self) -> Any:
         """G06: Validates risk budget limits and drawdown bounds."""
         if config.RISK_PER_TRADE_PERCENT > 0.0 and config.MAX_DAILY_DRAWDOWN_PERCENT > 0.0:
-            return (True, f"Risk and drawdown bounds set securely: {config.RISK_PER_TRADE_PERCENT}%.")
+            return (
+                True,
+                f"Risk and drawdown bounds set securely: {config.RISK_PER_TRADE_PERCENT}%.",
+            )
         return (False, "Risk limits are unconfigured.")
 
     def _check_g07_safety_invariant(self) -> Any:
@@ -195,18 +214,33 @@ class ReleaseGateRunner:
             orders = self.conn.get_open_orders()
             matching = [o for o in orders if str(o.get("ticket")) == str(ticket)]
             if not matching:
-                return (False, f"Execution verification failed: Order ticket {ticket} not found in open orders")
+                return (
+                    False,
+                    f"Execution verification failed: Order ticket {ticket} not found in open orders",
+                )
             order = matching[0]
             if order.get("symbol") != "EURUSD":
-                return (False, f"Parameter mismatch: Expected symbol EURUSD, got {order.get('symbol')}")
+                return (
+                    False,
+                    f"Parameter mismatch: Expected symbol EURUSD, got {order.get('symbol')}",
+                )
             if order.get("direction") != "BUY":
-                return (False, f"Parameter mismatch: Expected direction BUY, got {order.get('direction')}")
+                return (
+                    False,
+                    f"Parameter mismatch: Expected direction BUY, got {order.get('direction')}",
+                )
             if abs(order.get("lot_size", 0) - 0.1) > 0.001:
                 return (False, f"Parameter mismatch: Expected lot 0.1, got {order.get('lot_size')}")
             close_res = self.conn.close_order(ticket)
             if not close_res.get("success", False):
-                return (False, f"Execution verification cleanup failed: Could not close order {ticket}")
-            return (True, "Execution parameter verification matched successfully. Test order opened and closed safely.")
+                return (
+                    False,
+                    f"Execution verification cleanup failed: Could not close order {ticket}",
+                )
+            return (
+                True,
+                "Execution parameter verification matched successfully. Test order opened and closed safely.",
+            )
         except Exception as e:
             try:
                 self.conn.close_order(ticket)
@@ -219,14 +253,20 @@ class ReleaseGateRunner:
         open_db = database.get_open_trades()
         open_conn = self.conn.get_open_orders()
         if isinstance(open_db, list) and isinstance(open_conn, list):
-            return (True, f"Reconciliation check complete. DB active: {len(open_db)}, Conn active: {len(open_conn)}.")
+            return (
+                True,
+                f"Reconciliation check complete. DB active: {len(open_db)}, Conn active: {len(open_conn)}.",
+            )
         return (False, "Reconciliation query failed.")
 
     def _check_g13_accounting(self) -> Any:
         """G13: Verifies shadow ledger calculations match primary database."""
         perf = database.get_all_time_performance()
         if "win_rate" in perf:
-            return (True, f"Primary ledger matches shadow accounting calculations (Win Rate: {perf['win_rate']}%).")
+            return (
+                True,
+                f"Primary ledger matches shadow accounting calculations (Win Rate: {perf['win_rate']}%).",
+            )
         return (False, "Accounting metrics query failed.")
 
     def _check_g14_backtest(self) -> Any:
@@ -244,7 +284,10 @@ class ReleaseGateRunner:
     def _check_g17_monte_carlo(self) -> Any:
         """G17: Runs simulated random walk and calculates VaR / ES."""
         database.get_all_time_performance()
-        return (True, "Monte Carlo simulation of 10,000 iterations ran successfully. VaR 95%: 1.4%.")
+        return (
+            True,
+            "Monte Carlo simulation of 10,000 iterations ran successfully. VaR 95%: 1.4%.",
+        )
 
     def _check_g18_scenario(self) -> Any:
         """G18: Runs custom market stress scenario."""
@@ -315,7 +358,15 @@ class ReleaseGateRunner:
 
     def _check_g28_zero_stub(self) -> Any:
         """G28: Runs programmatical search for common stub patterns across key production modules."""
-        key_files = ["main.py", "brain.py", "connector.py", "database.py", "gui.py", "eqats_planes.py", "indicators.py"]
+        key_files = [
+            "main.py",
+            "brain.py",
+            "connector.py",
+            "database.py",
+            "gui.py",
+            "eqats_planes.py",
+            "indicators.py",
+        ]
         unresolved = []
         for fname in key_files:
             if os.path.exists(fname):

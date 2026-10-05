@@ -22,7 +22,10 @@ def _load_rust_library() -> Any:
     """Dynamically loads compiled eqats_rust_core library if present."""
     global _RUST_AVAILABLE, _RUST_LIB
     base_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "eqats_rust_core", "target", "release"
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "eqats_rust_core",
+        "target",
+        "release",
     )
     candidate_names = [
         "libeqats_rust_core.so",
@@ -105,7 +108,10 @@ def _load_rust_library() -> Any:
                 ]
                 lib.rust_detect_smc_fvg.restype = ctypes.c_int
             if hasattr(lib, "rust_parse_fix_message"):
-                lib.rust_parse_fix_message.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
+                lib.rust_parse_fix_message.argtypes = [
+                    ctypes.c_char_p,
+                    ctypes.POINTER(ctypes.c_int),
+                ]
                 lib.rust_parse_fix_message.restype = ctypes.c_int
             if hasattr(lib, "rust_calculate_gex_profile"):
                 lib.rust_calculate_gex_profile.argtypes = [
@@ -186,7 +192,9 @@ def _mark_rust_failure() -> None:
     )
 
 
-def execute_high_speed_rust_order_send(symbol: str, order_type: str, price: float, size: float) -> dict[str, Any]:
+def execute_high_speed_rust_order_send(
+    symbol: str, order_type: str, price: float, size: float
+) -> dict[str, Any]:
     """
     Executes high-speed order matching via compiled Rust bridge if available,
     or falls back dynamically to Python execution.
@@ -196,7 +204,11 @@ def execute_high_speed_rust_order_send(symbol: str, order_type: str, price: floa
         try:
             latency_out = ctypes.c_uint64(0)
             res = _RUST_LIB.rust_execute_order(
-                symbol.encode("utf-8"), order_type.encode("utf-8"), float(price), float(size), ctypes.byref(latency_out)
+                symbol.encode("utf-8"),
+                order_type.encode("utf-8"),
+                float(price),
+                float(size),
+                ctypes.byref(latency_out),
             )
             if res == 0:
                 return {
@@ -254,7 +266,9 @@ def rust_accelerated_ema(prices: list[Any], period: int = 20) -> list[Any]:
     return ema
 
 
-def rust_accelerated_vpin(buy_volumes: list[Any], sell_volumes: list[Any], bucket_size: float = 100.0) -> float:
+def rust_accelerated_vpin(
+    buy_volumes: list[Any], sell_volumes: list[Any], bucket_size: float = 100.0
+) -> float:
     """Computes VPIN with Rust acceleration and Python fallback."""
     if not buy_volumes or not sell_volumes or len(buy_volumes) != len(sell_volumes):
         return 0.0
@@ -264,7 +278,9 @@ def rust_accelerated_vpin(buy_volumes: list[Any], sell_volumes: list[Any], bucke
             c_buys = (ctypes.c_double * n)(*buy_volumes)
             c_sells = (ctypes.c_double * n)(*sell_volumes)
             c_vpin = ctypes.c_double(0.0)
-            res = _RUST_LIB.rust_calculate_vpin(c_buys, c_sells, n, float(bucket_size), ctypes.byref(c_vpin))
+            res = _RUST_LIB.rust_calculate_vpin(
+                c_buys, c_sells, n, float(bucket_size), ctypes.byref(c_vpin)
+            )
             if res == 0:
                 return c_vpin.value
             _mark_rust_failure()
@@ -297,7 +313,11 @@ def rust_accelerated_mcts_risk_simulation(
                 ctypes.byref(out_var),
             )
             if res == 0:
-                return {"max_drawdown": out_dd.value, "var_99": out_var.value, "engine_type": "RUST_PARALLEL_RAYON"}
+                return {
+                    "max_drawdown": out_dd.value,
+                    "var_99": out_var.value,
+                    "engine_type": "RUST_PARALLEL_RAYON",
+                }
             _mark_rust_failure()
         except Exception as e:
             _log.exception("Rust MCTS simulation error: %s", e)
@@ -323,7 +343,9 @@ def rust_accelerated_mcts_risk_simulation(
     return {"max_drawdown": avg_dd, "var_99": var_99, "engine_type": "PYTHON_FALLBACK"}
 
 
-def rust_accelerated_backtest(prices: list[Any], initial_balance: float = 10000.0) -> dict[str, Any]:
+def rust_accelerated_backtest(
+    prices: list[Any], initial_balance: float = 10000.0
+) -> dict[str, Any]:
     """Runs high-speed event-driven backtest simulation with Rust acceleration and Python fallback."""
     if not prices or len(prices) < 2:
         return {"total_profit": 0.0, "win_rate": 0.0, "engine_type": "EMPTY"}
@@ -337,7 +359,11 @@ def rust_accelerated_backtest(prices: list[Any], initial_balance: float = 10000.
                 c_prices, n, float(initial_balance), ctypes.byref(c_profit), ctypes.byref(c_winrate)
             )
             if res == 0:
-                return {"total_profit": c_profit.value, "win_rate": c_winrate.value, "engine_type": "RUST_ACCELERATED"}
+                return {
+                    "total_profit": c_profit.value,
+                    "win_rate": c_winrate.value,
+                    "engine_type": "RUST_ACCELERATED",
+                }
             _mark_rust_failure()
         except Exception as e:
             _log.exception("Rust backtest simulation error: %s", e)
@@ -352,7 +378,11 @@ def rust_accelerated_backtest(prices: list[Any], initial_balance: float = 10000.
             wins += 1
         balance += diff * 100.0
     win_rate = wins / trades * 100.0 if trades > 0 else 0.0
-    return {"total_profit": balance - initial_balance, "win_rate": win_rate, "engine_type": "PYTHON_FALLBACK"}
+    return {
+        "total_profit": balance - initial_balance,
+        "win_rate": win_rate,
+        "engine_type": "PYTHON_FALLBACK",
+    }
 
     win_rate = (wins / trades * 100.0) if trades > 0 else 0.0
     return {
@@ -406,7 +436,9 @@ def rust_accelerated_fix_parse(raw_msg: str) -> int:
     return len([s for s in raw_msg.split("\x01") if "=" in s])
 
 
-def rust_accelerated_gex_profile(spot: float, strikes: list[Any], gammas: list[Any], open_interest: list[Any]) -> float:
+def rust_accelerated_gex_profile(
+    spot: float, strikes: list[Any], gammas: list[Any], open_interest: list[Any]
+) -> float:
     """Computes Options Gamma Exposure (GEX) with Rust acceleration and Python fallback."""
     if not strikes or not gammas or (not open_interest) or (spot <= 0):
         return 0.0
@@ -417,7 +449,9 @@ def rust_accelerated_gex_profile(spot: float, strikes: list[Any], gammas: list[A
             c_g = (ctypes.c_double * n)(*gammas)
             c_oi = (ctypes.c_double * n)(*open_interest)
             c_gex = ctypes.c_double(0.0)
-            res = _RUST_LIB.rust_calculate_gex_profile(float(spot), c_k, c_g, c_oi, n, ctypes.byref(c_gex))
+            res = _RUST_LIB.rust_calculate_gex_profile(
+                float(spot), c_k, c_g, c_oi, n, ctypes.byref(c_gex)
+            )
             if res == 0:
                 return c_gex.value
             _mark_rust_failure()
@@ -441,7 +475,9 @@ def rust_accelerated_spread_zscore(p1: list[Any], p2: list[Any], hedge_ratio: fl
             c_p1 = (ctypes.c_double * n)(*p1)
             c_p2 = (ctypes.c_double * n)(*p2)
             c_z = ctypes.c_double(0.0)
-            res = _RUST_LIB.rust_calculate_spread_zscore(c_p1, c_p2, float(hedge_ratio), n, ctypes.byref(c_z))
+            res = _RUST_LIB.rust_calculate_spread_zscore(
+                c_p1, c_p2, float(hedge_ratio), n, ctypes.byref(c_z)
+            )
             if res == 0:
                 return c_z.value
             _mark_rust_failure()

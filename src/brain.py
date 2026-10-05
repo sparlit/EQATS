@@ -6,7 +6,9 @@ try:
     import numpy as np
 except (ImportError, ModuleNotFoundError, Exception) as _np_err:
     _log = logging.getLogger(__name__)
-    _log.warning("NumPy C-extension loading note: %s. Operating in pure-Python array mode.", _np_err)
+    _log.warning(
+        "NumPy C-extension loading note: %s. Operating in pure-Python array mode.", _np_err
+    )
     np = None
 
 import config
@@ -36,8 +38,12 @@ def _get_symbol_pip_specs(symbol: Any, current_price: Any) -> Any:
         return {"pip_size": 0.1, "pip_value_per_lot": 10.0}
     if "XAG" in sym_upper or "SILVER" in sym_upper:
         return {"pip_size": 0.01, "pip_value_per_lot": 50.0}
-    if any(c in sym_upper for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]) or any(
-        idx in sym_upper for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]
+    if any(
+        c in sym_upper
+        for c in ["BTC", "ETH", "LTC", "SOL", "XRP", "DOGE", "ADA", "BNB", "DOT", "CRYPTO"]
+    ) or any(
+        idx in sym_upper
+        for idx in ["US30", "NAS100", "GER40", "DE40", "SPX500", "UK100", "JP225", "US500", "US100"]
     ):
         return {"pip_size": 1.0, "pip_value_per_lot": 1.0}
     if "JPY" in sym_upper:
@@ -89,7 +95,9 @@ class ScalperBrain:
         results_list = pool.execute_batch_parallel(_eval_item, items, use_processes=False)
         return {sym: res for sym, res in results_list if sym and res}
 
-    def evaluate(self, symbol: Any, history_bars: Any, current_equity: Any, brain_directive: Any = None) -> Any:
+    def evaluate(
+        self, symbol: Any, history_bars: Any, current_equity: Any, brain_directive: Any = None
+    ) -> Any:
         """
         Analyzes historical bars and gives a decision: 'BUY', 'SELL', or 'HOLD'.
         history_bars: list[Any] of dicts/objects with keys: 'open', 'high', 'low', 'close'
@@ -104,7 +112,14 @@ class ScalperBrain:
         if len(history_bars) < min_bars_needed:
             msg = f"Insufficient history data for {symbol}. Needs {min_bars_needed} bars, got {len(history_bars)}."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
-            return {"decision": "HOLD", "lot_size": 0.0, "sl": 0.0, "tp": 0.0, "explanation": msg, "indicators": {}}
+            return {
+                "decision": "HOLD",
+                "lot_size": 0.0,
+                "sl": 0.0,
+                "tp": 0.0,
+                "explanation": msg,
+                "indicators": {},
+            }
         closes = [bar["close"] for bar in history_bars]
         highs = [bar["high"] for bar in history_bars]
         lows = [bar["low"] for bar in history_bars]
@@ -137,7 +152,14 @@ class ScalperBrain:
         ):
             msg = f"Indicator calculation returned None for {symbol} due to window constraints."
             database.log_assessment(symbol, "UNKNOWN", None, None, "HOLD", msg)
-            return {"decision": "HOLD", "lot_size": 0.0, "sl": 0.0, "tp": 0.0, "explanation": msg, "indicators": {}}
+            return {
+                "decision": "HOLD",
+                "lot_size": 0.0,
+                "sl": 0.0,
+                "tp": 0.0,
+                "explanation": msg,
+                "indicators": {},
+            }
         baseline_atr = (
             sum(
                 indicators.calculate_atr(highs[:i], lows[:i], closes[:i], 14) or atr_val
@@ -150,9 +172,18 @@ class ScalperBrain:
         pip_specs = _get_symbol_pip_specs(symbol, current_price)
         pip_size = pip_specs["pip_size"]
         spread_dist = 0.0001
-        if hasattr(self, "connector") and self.connector and hasattr(self.connector, "get_current_price"):
+        if (
+            hasattr(self, "connector")
+            and self.connector
+            and hasattr(self.connector, "get_current_price")
+        ):
             price_info = self.connector.get_current_price(symbol)
-            if price_info and "bid" in price_info and ("ask" in price_info) and (price_info["ask"] > price_info["bid"]):
+            if (
+                price_info
+                and "bid" in price_info
+                and ("ask" in price_info)
+                and (price_info["ask"] > price_info["bid"])
+            ):
                 spread_dist = price_info["ask"] - price_info["bid"]
         spread_pips = spread_dist / pip_size if pip_size > 0 else 1.0
         atr_pips = atr_val / pip_size if pip_size > 0 else 10.0
@@ -165,7 +196,11 @@ class ScalperBrain:
                 "sl": 0.0,
                 "tp": 0.0,
                 "explanation": msg,
-                "indicators": {"ema_long": round(ema_long, 5), "rsi": round(rsi_val, 2), "atr": round(atr_val, 5)},
+                "indicators": {
+                    "ema_long": round(ema_long, 5),
+                    "rsi": round(rsi_val, 2),
+                    "atr": round(atr_val, 5),
+                },
             }
         try:
             open_trades = database.get_open_trades()
@@ -179,10 +214,16 @@ class ScalperBrain:
                     "sl": 0.0,
                     "tp": 0.0,
                     "explanation": msg,
-                    "indicators": {"ema_long": round(ema_long, 5), "rsi": round(rsi_val, 2), "atr": round(atr_val, 5)},
+                    "indicators": {
+                        "ema_long": round(ema_long, 5),
+                        "rsi": round(rsi_val, 2),
+                        "atr": round(atr_val, 5),
+                    },
                 }
             if getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True):
-                symbol_trades = [t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()]
+                symbol_trades = [
+                    t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()
+                ]
                 if symbol_trades:
                     any_loss = False
                     all_profit_1atr = True
@@ -190,7 +231,11 @@ class ScalperBrain:
                         direction = t.get("direction", "BUY")
                         trade_profit = t.get("profit")
                         open_price = float(t.get("open_price", current_price))
-                        p_diff = current_price - open_price if direction == "BUY" else open_price - current_price
+                        p_diff = (
+                            current_price - open_price
+                            if direction == "BUY"
+                            else open_price - current_price
+                        )
                         if trade_profit is not None:
                             is_losing = float(trade_profit) < 0
                         else:
@@ -203,7 +248,9 @@ class ScalperBrain:
                             all_profit_1atr = False
                     if any_loss:
                         msg = f"HOLD (Symbol Floating Loss Protection Gate Active: open position on {symbol} in loss)"
-                        database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                        database.log_assessment(
+                            symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
+                        )
                         return {
                             "decision": "HOLD",
                             "lot_size": 0.0,
@@ -218,7 +265,9 @@ class ScalperBrain:
                         }
                     if not all_profit_1atr:
                         msg = f"HOLD (Pyramiding Gate: existing positions on {symbol} profit < 1.0x ATR threshold)"
-                        database.log_assessment(symbol, trend_direction, rsi_val, atr_val, "HOLD", msg)
+                        database.log_assessment(
+                            symbol, trend_direction, rsi_val, atr_val, "HOLD", msg
+                        )
                         return {
                             "decision": "HOLD",
                             "lot_size": 0.0,
@@ -265,11 +314,20 @@ class ScalperBrain:
                 opens_arr = np.roll(closes, 1)
                 opens_arr[0] = closes[0]
                 ohlcv_mat = np.column_stack(
-                    (opens_arr[-min_len:], highs[-min_len:], lows[-min_len:], closes[-min_len:], vols[-min_len:]),
+                    (
+                        opens_arr[-min_len:],
+                        highs[-min_len:],
+                        lows[-min_len:],
+                        closes[-min_len:],
+                        vols[-min_len:],
+                    ),
                 )
             else:
                 opens_lst = [closes[0]] + closes[:-1]
-                ohlcv_mat = [[opens_lst[i], highs[i], lows[i], closes[i], vols[i]] for i in range(-min_len, 0)]
+                ohlcv_mat = [
+                    [opens_lst[i], highs[i], lows[i], closes[i], vols[i]]
+                    for i in range(-min_len, 0)
+                ]
         else:
             ohlcv_mat = [] if np is None else np.empty((0, 5))
         kronos_res = kronos_model.forecast_probabilistic(ohlcv_mat, forecast_horizon=24)
@@ -305,7 +363,9 @@ class ScalperBrain:
         elif macd["histogram"] < 0 and macd["macd"] < macd["signal"]:
             sig_mac = "SELL"
         sig_bo = "HOLD"
-        donchian = indicators.calculate_donchian_channels(highs, lows, getattr(config, "BREAKOUT_PERIOD", 20))
+        donchian = indicators.calculate_donchian_channels(
+            highs, lows, getattr(config, "BREAKOUT_PERIOD", 20)
+        )
         squeeze = indicators.calculate_bollinger_squeeze(
             closes,
             getattr(config, "BB_PERIOD", 20),
@@ -389,12 +449,23 @@ class ScalperBrain:
         except (KeyError, ValueError, TypeError):
             sig_mtf = "HOLD"
         smc_data = indicators.get_smc_analysis(history_bars)
-        sig_smc = "BUY" if smc_data["bias"] == "BULLISH" else "SELL" if smc_data["bias"] == "BEARISH" else "HOLD"
+        sig_smc = (
+            "BUY"
+            if smc_data["bias"] == "BULLISH"
+            else "SELL"
+            if smc_data["bias"] == "BEARISH"
+            else "HOLD"
+        )
         order_book_data = getattr(config, "CURRENT_ORDER_BOOK", None)
-        of_metrics = indicators.calculate_order_flow_metrics(history_bars, order_book=order_book_data)
+        of_metrics = indicators.calculate_order_flow_metrics(
+            history_bars, order_book=order_book_data
+        )
         sig_of = "HOLD"
         if not of_metrics["is_toxic_flow"]:
-            if of_metrics["dominant_side"] == "BUY_DOMINANT" or of_metrics["expected_direction"] == "UPWARD_PRESSURE":
+            if (
+                of_metrics["dominant_side"] == "BUY_DOMINANT"
+                or of_metrics["expected_direction"] == "UPWARD_PRESSURE"
+            ):
                 sig_of = "BUY"
             elif (
                 of_metrics["dominant_side"] == "SELL_DOMINANT"
@@ -468,17 +539,27 @@ class ScalperBrain:
             elif m_style == "POSITION_TRADING":
                 style_multiplier = 6.0
                 style_target_rr = 4.5
-            adaptive_rr = style_target_rr * (1.25 if vol_ratio > 1.2 else 0.85 if vol_ratio < 0.8 else 1.0)
+            adaptive_rr = style_target_rr * (
+                1.25 if vol_ratio > 1.2 else 0.85 if vol_ratio < 0.8 else 1.0
+            )
             base_sl_dist = atr_val * style_multiplier
             if raw_decision == "BUY":
-                struct_sl = swing_low if swing_low and swing_low < current_price else current_price - base_sl_dist
+                struct_sl = (
+                    swing_low
+                    if swing_low and swing_low < current_price
+                    else current_price - base_sl_dist
+                )
                 sl_dist = current_price - struct_sl
                 sl_dist = max(atr_val * 1.0, min(atr_val * (style_multiplier * 1.5), sl_dist))
                 sl_val = current_price - sl_dist
                 tp_val = current_price + sl_dist * adaptive_rr
                 lot_val = self._calculate_lot_size(symbol, current_equity, sl_dist, current_price)
             elif raw_decision == "SELL":
-                struct_sl = swing_high if swing_high and swing_high > current_price else current_price + base_sl_dist
+                struct_sl = (
+                    swing_high
+                    if swing_high and swing_high > current_price
+                    else current_price + base_sl_dist
+                )
                 sl_dist = struct_sl - current_price
                 sl_dist = max(atr_val * 1.0, min(atr_val * (style_multiplier * 1.5), sl_dist))
                 sl_val = current_price + sl_dist
@@ -499,7 +580,9 @@ class ScalperBrain:
             model_name="ScalperBrain_v10.4",
             symbol=symbol,
             action=top_proposed_action,
-            confidence=float(ai_bullish_prob if top_proposed_action == NoFxAction.BUY else 1.0 - ai_bullish_prob),
+            confidence=float(
+                ai_bullish_prob if top_proposed_action == NoFxAction.BUY else 1.0 - ai_bullish_prob
+            ),
             reasoning_summary=f"Regime: {reg_info['detailed_regime']} | Kronos upside: {kronos_upside_prob:.2f}",
             proposed_volume=0.01,
             proposed_sl=0.0,
@@ -524,7 +607,11 @@ class ScalperBrain:
             except (ImportError, AttributeError):
                 brain_directive = None
         agent_notes = ""
-        if brain_directive and hasattr(brain_directive, "guidance_notes") and brain_directive.guidance_notes:
+        if (
+            brain_directive
+            and hasattr(brain_directive, "guidance_notes")
+            and brain_directive.guidance_notes
+        ):
             agent_notes = f" | Agents: {'; '.join(brain_directive.guidance_notes[:2])}"
         concurrent_decisions = []
         if strategy_mode == "MULTI_HYBRID_PARALLEL":
@@ -602,14 +689,10 @@ class ScalperBrain:
                 avg_val = sum(vals) / len(vals) if vals else 0.0
                 if avg_val >= 0.22 and ai_bullish_prob >= 0.35:
                     single_dec = "BUY"
-                    single_exp = (
-                        f"Regime Consensus BUY ({reg_info['detailed_regime']}) | Score: {avg_val:.2f}{agent_notes}"
-                    )
+                    single_exp = f"Regime Consensus BUY ({reg_info['detailed_regime']}) | Score: {avg_val:.2f}{agent_notes}"
                 elif avg_val <= -0.22 and ai_bullish_prob <= 0.65:
                     single_dec = "SELL"
-                    single_exp = (
-                        f"Regime Consensus SELL ({reg_info['detailed_regime']}) | Score: {avg_val:.2f}{agent_notes}"
-                    )
+                    single_exp = f"Regime Consensus SELL ({reg_info['detailed_regime']}) | Score: {avg_val:.2f}{agent_notes}"
                 else:
                     single_dec = "HOLD"
                     single_exp = f"Regime Neutral Hold ({reg_info['detailed_regime']}){agent_notes}"
@@ -645,7 +728,9 @@ class ScalperBrain:
             by_method_dir = {}
             for dec in concurrent_decisions:
                 key = (dec.get("method", ""), dec["decision"])
-                if key not in by_method_dir or dec.get("probability", 0.0) > by_method_dir[key].get("probability", 0.0):
+                if key not in by_method_dir or dec.get("probability", 0.0) > by_method_dir[key].get(
+                    "probability", 0.0
+                ):
                     by_method_dir[key] = dec
             concurrent_decisions = list(by_method_dir.values())
         top_decision = concurrent_decisions[0]["decision"] if concurrent_decisions else "HOLD"
@@ -655,7 +740,9 @@ class ScalperBrain:
             else f"No authentic buy/sell signal in {strategy_mode} mode{agent_notes}"
         )
         try:
-            from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
+            from institutional_integrations.trade_memory_protocol import (
+                global_trade_memory_protocol,
+            )
 
             if top_decision == "HOLD":
                 global_trade_memory_protocol.log_no_trade_veto(
@@ -706,7 +793,11 @@ class ScalperBrain:
             "v10_3_slippage_pips": v10_4_slippage_pips,
             "v10_4_slippage_pips": v10_4_slippage_pips,
             "v11_0_slippage_pips": v11_0_slippage_pips,
-            "indicators": {"ema_long": round(ema_long, 5), "rsi": round(rsi_val, 2), "atr": round(atr_val, 5)},
+            "indicators": {
+                "ema_long": round(ema_long, 5),
+                "rsi": round(rsi_val, 2),
+                "atr": round(atr_val, 5),
+            },
         }
 
     def normalize_volume(
@@ -730,7 +821,9 @@ class ScalperBrain:
             norm_vol = max(min_vol, min(max_vol, norm_vol))
         return norm_vol
 
-    def _calculate_lot_size(self, symbol: Any, equity: Any, sl_distance: Any, current_price: Any = 1.0) -> Any:
+    def _calculate_lot_size(
+        self, symbol: Any, equity: Any, sl_distance: Any, current_price: Any = 1.0
+    ) -> Any:
         """
         Calculates dynamic position size using Fractional Kelly / ATR Volatility Sizing.
         Dynamic pip calculations accurately adapt across Forex, Metals, Crypto, and Equity Indices.
@@ -757,7 +850,9 @@ class ScalperBrain:
             raw_lots = risk_amount / (sl_pips * pip_val_per_lot)
             kelly_lots = raw_lots * 0.25
             max_lot = getattr(config, "MAX_LOT_SIZE", 5.0)
-            lot_size = self.normalize_volume(symbol, kelly_lots, min_vol=0.01, max_vol=max_lot, step_vol=0.01)
+            lot_size = self.normalize_volume(
+                symbol, kelly_lots, min_vol=0.01, max_vol=max_lot, step_vol=0.01
+            )
             return lot_size
         except (KeyError, ValueError, ZeroDivisionError, TypeError):
             return min_lot

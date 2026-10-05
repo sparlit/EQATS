@@ -11,7 +11,7 @@ import logging
 import xml.etree.ElementTree as ET
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -84,7 +84,9 @@ class CorporateDisclosuresEngine:
                 record = {
                     "headline": get_tag_text(["Description", "description", "title", "headline"]),
                     "location": get_tag_text(["Url", "url", "link"]),
-                    "news_class": get_tag_text(["Type_of_Submission", "submission_type", "category"]),
+                    "news_class": get_tag_text(
+                        ["Type_of_Submission", "submission_type", "category"]
+                    ),
                     "company_name": get_tag_text(["CompanyName", "company_name"]),
                     "company_symbol": get_tag_text(["CompanySymbol", "symbol", "company_symbol"]),
                     "date_modified": get_tag_text(["Modified", "modified", "updated"]),
@@ -110,7 +112,9 @@ class CorporateDisclosuresEngine:
 
         if "director" in news_class or "insider" in news_class or "director" in headline:
             event_type = "INSIDER_DEALINGS"
-            if any(w in headline for w in ["acquisition", "buy", "bought", "purchase", "accumulate"]):
+            if any(
+                w in headline for w in ["acquisition", "buy", "bought", "purchase", "accumulate"]
+            ):
                 score = 0.8
             elif any(w in headline for w in ["disposal", "sale", "sold", "divest"]):
                 score = -0.7
@@ -167,7 +171,9 @@ class CorporateDisclosuresBrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -210,10 +216,14 @@ class CorporateDisclosuresBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,

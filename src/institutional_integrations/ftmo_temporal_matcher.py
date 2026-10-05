@@ -5,9 +5,7 @@ and cosine distance similarity for multi-timeframe pattern recognition.
 """
 
 import logging
-import math
 from collections.abc import Sequence
-from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -37,7 +35,9 @@ class FewShotTemporalMatcher:
             emb = np.pad(emb, (0, self.hidden_dim - len(emb)))
         return emb[: self.hidden_dim]
 
-    def compute_similarity(self, query_seq: Sequence[float], support_seqs: list[Sequence[float]]) -> float:
+    def compute_similarity(
+        self, query_seq: Sequence[float], support_seqs: list[Sequence[float]]
+    ) -> float:
         q_emb = self.encode_sequence(np.asarray(query_seq))
         q_norm = np.linalg.norm(q_emb)
         if q_norm <= 1e-08 or not support_seqs:

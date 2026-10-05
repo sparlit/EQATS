@@ -9,14 +9,10 @@ NIFTY/BANKNIFTY option chain matrices, and Bhavcopy historical data downloader.
 Assigned Magic Number: 9100008
 """
 
-import json
 import logging
-import math
 import time
-import urllib.parse
-import urllib.request
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .indian_market_state_machine import global_indian_state_machine, round_to_indian_tick_size
 from .sebi_broker_adapter import (
@@ -52,7 +48,11 @@ class NSEPythonClient(SEBIBrokerAdapter):
 
     def connect(self) -> bool:
         self._is_connected = True
-        _log.info("NSEPythonClient connected (Magic Number=%d, Sandbox=%s).", self.magic_number, self.is_sandbox)
+        _log.info(
+            "NSEPythonClient connected (Magic Number=%d, Sandbox=%s).",
+            self.magic_number,
+            self.is_sandbox,
+        )
         return True
 
     def is_connected(self) -> bool:
@@ -82,7 +82,13 @@ class NSEPythonClient(SEBIBrokerAdapter):
         return generate_indian_market_history_bars(symbol, exchange, count, interval)
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
-        base_price = 2850.0 if "RELIANCE" in symbol.upper() else 1500.0 if "INFY" in symbol.upper() else 500.0
+        base_price = (
+            2850.0
+            if "RELIANCE" in symbol.upper()
+            else 1500.0
+            if "INFY" in symbol.upper()
+            else 500.0
+        )
         bid = round_to_indian_tick_size(base_price)
         ask = round_to_indian_tick_size(base_price + 0.15)
         last = round_to_indian_tick_size(base_price + 0.05)
@@ -184,7 +190,11 @@ class NSEPythonClient(SEBIBrokerAdapter):
         sq_res = global_indian_state_machine.enforce_intraday_mis_cutoff_and_squareoff(
             open_orders=self.get_open_orders(), close_order_func=self.close_order
         )
-        if product == "MIS" and sq_res.get("entries_frozen") and not getattr(self, "is_sandbox", False):
+        if (
+            product == "MIS"
+            and sq_res.get("entries_frozen")
+            and not getattr(self, "is_sandbox", False)
+        ):
             return SEBIOrderResponse(
                 success=False,
                 ticket="",
@@ -216,14 +226,23 @@ class NSEPythonClient(SEBIBrokerAdapter):
             raw_response={"status": True, "ticket": ticket, "magic_number": self.magic_number},
         )
 
-    def close_order(self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str, exchange: str = "NSE", product: str = "CNC"
+    ) -> SEBIOrderResponse:
         if ticket in self.simulated_orders:
             self.simulated_orders.pop(ticket)
         return SEBIOrderResponse(
-            success=True, ticket=ticket, price=0.0, status="CLOSED", product=product, exchange=exchange
+            success=True,
+            ticket=ticket,
+            price=0.0,
+            status="CLOSED",
+            product=product,
+            exchange=exchange,
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         if ticket in self.simulated_orders:
             if price > 0:
                 self.simulated_orders[ticket]["price"] = round_to_indian_tick_size(price)

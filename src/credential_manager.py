@@ -20,7 +20,7 @@ import argparse
 import logging
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Ensure parent directory and src directory are in Python path for imports
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -599,7 +599,9 @@ if _TKINTER_AVAILABLE:
                 fg="#00ffcc",
             ).pack(anchor="w", padx=20, pady=(10, 2))
             role_var = tk.StringVar(value="QUANT_TRADER")
-            role_menu = tk.OptionMenu(win, role_var, "QUANT_TRADER", "SOVEREIGN_ADMIN", "RISK_AUDITOR")
+            role_menu = tk.OptionMenu(
+                win, role_var, "QUANT_TRADER", "SOVEREIGN_ADMIN", "RISK_AUDITOR"
+            )
             role_menu.config(font=("Consolas", 9), bg="#1c1c1c", fg="#ffffff")
             role_menu.pack(fill=tk.X, padx=20)
 
@@ -675,7 +677,9 @@ if _TKINTER_AVAILABLE:
                 fg="#00ffcc",
             ).pack(anchor="w", padx=20, pady=(10, 2))
             role_var = tk.StringVar(value=item["values"][2])
-            role_menu = tk.OptionMenu(win, role_var, "QUANT_TRADER", "SOVEREIGN_ADMIN", "RISK_AUDITOR")
+            role_menu = tk.OptionMenu(
+                win, role_var, "QUANT_TRADER", "SOVEREIGN_ADMIN", "RISK_AUDITOR"
+            )
             role_menu.config(font=("Consolas", 9), bg="#1c1c1c", fg="#ffffff")
             role_menu.pack(fill=tk.X, padx=20)
 
@@ -721,10 +725,13 @@ if _TKINTER_AVAILABLE:
 
         def _action_reset_admin(self) -> None:
             if messagebox.askyesno(
-                "Confirm Reset", "Reset QUANT_OPERATOR admin user to default password 'admin' & PIN '741295'?"
+                "Confirm Reset",
+                "Reset QUANT_OPERATOR admin user to default password 'admin' & PIN '741295'?",
             ):
                 if self.cm.reset_admin_credentials():
-                    messagebox.showinfo("Reset Complete", "QUANT_OPERATOR credentials reset to default.")
+                    messagebox.showinfo(
+                        "Reset Complete", "QUANT_OPERATOR credentials reset to default."
+                    )
                     self._refresh_users_tree()
                 else:
                     messagebox.showerror("Error", "Failed to reset admin credentials.")
@@ -773,7 +780,9 @@ if _TKINTER_AVAILABLE:
             ).pack(side=tk.LEFT, padx=5)
 
             cols = ("ID", "Broker Name", "Server", "Account ID", "Leverage", "Protocol", "Active")
-            self.brokers_tree = ttk.Treeview(self.tab_brokers, columns=cols, show="headings", height=12)
+            self.brokers_tree = ttk.Treeview(
+                self.tab_brokers, columns=cols, show="headings", height=12
+            )
             for c in cols:
                 self.brokers_tree.heading(c, text=c)
                 self.brokers_tree.column(c, anchor=tk.CENTER, width=110)
@@ -827,7 +836,9 @@ if _TKINTER_AVAILABLE:
                     fg="#00ffcc",
                 ).pack(anchor="w", padx=20, pady=(8, 2))
                 show_char = "*" if key == "password" else ""
-                ent = tk.Entry(win, show=show_char, font=("Consolas", 9), bg="#000000", fg="#ffffff")
+                ent = tk.Entry(
+                    win, show=show_char, font=("Consolas", 9), bg="#000000", fg="#ffffff"
+                )
                 ent.insert(0, default)
                 ent.pack(fill=tk.X, padx=20)
                 entries[key] = ent
@@ -866,7 +877,9 @@ if _TKINTER_AVAILABLE:
             item = self.brokers_tree.item(selected[0])
             b_id = item["values"][0]
             if self.cm.set_active_broker(b_id):
-                messagebox.showinfo("Active Gateway Set", f"Broker ID {b_id} set as active primary gateway.")
+                messagebox.showinfo(
+                    "Active Gateway Set", f"Broker ID {b_id} set as active primary gateway."
+                )
                 self._refresh_brokers_tree()
             else:
                 messagebox.showerror("Error", "Failed to set active broker.")
@@ -889,7 +902,9 @@ if _TKINTER_AVAILABLE:
         # TAB 3: SECURITY & CIRCUIT BREAKER CONTROLS
         # -------------------------------------------------------------------------
         def _build_security_tab(self) -> None:
-            frame_sec = tk.Frame(self.tab_security, bg="#121212", bd=1, relief=tk.SOLID, padx=15, pady=15)
+            frame_sec = tk.Frame(
+                self.tab_security, bg="#121212", bd=1, relief=tk.SOLID, padx=15, pady=15
+            )
             frame_sec.pack(fill=tk.X, pady=(0, 15))
 
             tk.Label(
@@ -932,7 +947,9 @@ if _TKINTER_AVAILABLE:
             ).pack(anchor="w")
 
             # Circuit Breaker Section
-            frame_cb = tk.Frame(self.tab_security, bg="#121212", bd=1, relief=tk.SOLID, padx=15, pady=15)
+            frame_cb = tk.Frame(
+                self.tab_security, bg="#121212", bd=1, relief=tk.SOLID, padx=15, pady=15
+            )
             frame_cb.pack(fill=tk.X)
 
             tk.Label(
@@ -977,16 +994,20 @@ if _TKINTER_AVAILABLE:
 
         def _action_reencrypt_credentials(self) -> None:
             if messagebox.askyesno(
-                "Confirm Re-encryption", "Re-encrypt all broker credentials in database using current master key?"
+                "Confirm Re-encryption",
+                "Re-encrypt all broker credentials in database using current master key?",
             ):
                 if self.cm.reencrypt_all_broker_credentials():
-                    messagebox.showinfo("Success", "All broker credentials re-encrypted successfully.")
+                    messagebox.showinfo(
+                        "Success", "All broker credentials re-encrypted successfully."
+                    )
                 else:
                     messagebox.showerror("Error", "Re-encryption failed.")
 
         def _action_reset_cb(self) -> None:
             if messagebox.askyesno(
-                "Confirm Reset", "Clear emergency circuit breaker halt status and resume trading admissions?"
+                "Confirm Reset",
+                "Clear emergency circuit breaker halt status and resume trading admissions?",
             ):
                 if self.cm.reset_circuit_breaker_halt():
                     messagebox.showinfo("Reset Complete", "Circuit breaker halt cleared.")
@@ -1032,7 +1053,9 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
             users = cm.get_all_users()
             print(f"\nFound {len(users)} user(s):")
             for u in users:
-                print(f"  ID: {u['id']} | Username: {u['username']} | Role: {u['role']} | MFA: {u.get('mfa_enabled')}")
+                print(
+                    f"  ID: {u['id']} | Username: {u['username']} | Role: {u['role']} | MFA: {u.get('mfa_enabled')}"
+                )
         elif choice == "2":
             u = input("Username: ").strip()
             p = input("Password: ").strip()
@@ -1112,7 +1135,9 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
             print(f"  EQATS_MASTER_KEY Env Set:       {health['master_key_env_set']}")
             print(f"  Cryptography Fernet Available:  {health['cryptography_available']}")
             print(f"  bcrypt 12-round Available:      {health['bcrypt_available']}")
-            print(f"  Migration Status Complete:      {health['migration_status']['migration_complete']}")
+            print(
+                f"  Migration Status Complete:      {health['migration_status']['migration_complete']}"
+            )
         elif choice == "11":
             if cm.reencrypt_all_broker_credentials():
                 print("✓ All broker credentials re-encrypted.")
@@ -1141,18 +1166,28 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="EQATS Credential & Security Management CLI Utility")
+    parser = argparse.ArgumentParser(
+        description="EQATS Credential & Security Management CLI Utility"
+    )
     parser.add_argument("--gui", action="store_true", help="Launch standalone GUI application")
-    parser.add_argument("--list-users", action="store_true", help="List all registered user accounts")
+    parser.add_argument(
+        "--list-users", action="store_true", help="List all registered user accounts"
+    )
     parser.add_argument("--add-user", action="store_true", help="Add a new user account")
     parser.add_argument("--username", type=str, help="Username parameter")
     parser.add_argument("--password", type=str, help="Password parameter")
     parser.add_argument("--pin", type=str, help="PIN parameter")
     parser.add_argument("--role", type=str, default="QUANT_TRADER", help="User role parameter")
-    parser.add_argument("--reset-admin", action="store_true", help="Reset QUANT_OPERATOR admin user to default")
+    parser.add_argument(
+        "--reset-admin", action="store_true", help="Reset QUANT_OPERATOR admin user to default"
+    )
     parser.add_argument("--list-brokers", action="store_true", help="List all broker profiles")
-    parser.add_argument("--reset-circuit-breaker", action="store_true", help="Clear emergency circuit breaker halt")
-    parser.add_argument("--check-security", action="store_true", help="Check security diagnostics and health grade")
+    parser.add_argument(
+        "--reset-circuit-breaker", action="store_true", help="Clear emergency circuit breaker halt"
+    )
+    parser.add_argument(
+        "--check-security", action="store_true", help="Check security diagnostics and health grade"
+    )
 
     args = parser.parse_args()
     cm = CredentialManager()
@@ -1190,7 +1225,9 @@ def main() -> None:
         print(f"Total Brokers: {len(brokers)}")
         for b in brokers:
             active_str = " (ACTIVE)" if b.get("is_active") else ""
-            print(f"  - ID: {b['id']} | Name: {b.get('broker_name')} | Account: {b.get('account_id')}{active_str}")
+            print(
+                f"  - ID: {b['id']} | Name: {b.get('broker_name')} | Account: {b.get('account_id')}{active_str}"
+            )
     elif args.reset_circuit_breaker:
         if cm.reset_circuit_breaker_halt():
             print("Circuit breaker halt cleared.")

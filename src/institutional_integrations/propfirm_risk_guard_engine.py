@@ -12,11 +12,10 @@ Supports:
 - HTML/SVG Risk Dashboard Snapshot Generator
 """
 
-import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 
 class RiskSeverity(str, Enum):
@@ -111,7 +110,10 @@ class TrailingDrawdownRule:
         if high_equity > self.watermark and (not self.frozen):
             self.watermark = high_equity
             new_floor = self.watermark - self.config.max_drawdown
-            if self.config.lock_at_initial and new_floor >= self.initial_balance + self.config.lock_equity_buffer:
+            if (
+                self.config.lock_at_initial
+                and new_floor >= self.initial_balance + self.config.lock_equity_buffer
+            ):
                 self.floor = self.initial_balance + self.config.lock_equity_buffer
                 self.frozen = True
             else:
@@ -129,7 +131,11 @@ class TrailingDrawdownRule:
                     severity=RiskSeverity.BREACH,
                     rule_name="trailing_drawdown",
                     message=f"Equity ${tick.equity:,.2f} breached trailing floor ${self.floor:,.2f}",
-                    details={"equity": tick.equity, "floor": self.floor, "watermark": self.watermark},
+                    details={
+                        "equity": tick.equity,
+                        "floor": self.floor,
+                        "watermark": self.watermark,
+                    },
                 )
             )
         elif self.cushion(tick.equity) <= self.config.max_drawdown * 0.15:
@@ -139,7 +145,11 @@ class TrailingDrawdownRule:
                     severity=RiskSeverity.WARN,
                     rule_name="trailing_drawdown",
                     message=f"Low drawdown cushion: ${self.cushion(tick.equity):,.2f} remaining above floor ${self.floor:,.2f}",
-                    details={"equity": tick.equity, "floor": self.floor, "cushion": self.cushion(tick.equity)},
+                    details={
+                        "equity": tick.equity,
+                        "floor": self.floor,
+                        "cushion": self.cushion(tick.equity),
+                    },
                 )
             )
         return events
@@ -163,7 +173,11 @@ class DailyLossRule:
                     severity=RiskSeverity.BREACH,
                     rule_name="daily_loss",
                     message=f"Daily loss ${used:,.2f} exceeded limit ${self.config.limit:,.2f}",
-                    details={"used": used, "limit": self.config.limit, "day_start": day_start_equity},
+                    details={
+                        "used": used,
+                        "limit": self.config.limit,
+                        "day_start": day_start_equity,
+                    },
                 )
             )
         elif used >= self.config.limit * 0.8:
@@ -194,7 +208,11 @@ class CutoffRule:
     def evaluate(self, tick: RiskTick) -> list[GuardEvent]:
         events = []
         secs = self.seconds_to_cutoff(tick.timestamp)
-        if secs <= self.config.flatten_buffer_seconds and tick.position_size != 0 and (not self._flattened):
+        if (
+            secs <= self.config.flatten_buffer_seconds
+            and tick.position_size != 0
+            and (not self._flattened)
+        ):
             self._flattened = True
             events.append(
                 GuardEvent(
@@ -227,7 +245,9 @@ class ConsistencyRule:
     def __init__(self, config: ConsistencyConfig) -> None:
         self.config = config
 
-    def evaluate_pnls(self, completed_pnls: list[float], current_day_pnl: float) -> tuple[bool, float]:
+    def evaluate_pnls(
+        self, completed_pnls: list[float], current_day_pnl: float
+    ) -> tuple[bool, float]:
         all_pnls = [p for p in completed_pnls + [current_day_pnl] if p > 0]
         if not all_pnls:
             return (True, 0.0)
@@ -314,7 +334,9 @@ class PropFirmRiskGuardEngine:
         tick = self.last_tick or RiskTick(datetime.now(), self.initial_balance)
         day_pnl = tick.equity - self.day_start_equity
         dl_used = self.daily_rule.loss_used(self.day_start_equity, tick.equity)
-        secs_cutoff = self.cutoff_rule.seconds_to_cutoff(tick.timestamp) if self.cutoff_rule else None
+        secs_cutoff = (
+            self.cutoff_rule.seconds_to_cutoff(tick.timestamp) if self.cutoff_rule else None
+        )
         passed_cons, top_pct = self.consistency_rule.evaluate_pnls(self.completed_day_pnls, day_pnl)
         return RiskGuardSnapshot(
             timestamp=tick.timestamp,

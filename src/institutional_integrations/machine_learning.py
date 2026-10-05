@@ -196,7 +196,9 @@ class RNNLSTMModel:
                     return self.fc(out[:, -1, :])
 
             net = LSTMNet()
-            p_tensor = torch.FloatTensor(series[-10:] if len(series) >= 10 else series).view(1, -1, 1)
+            p_tensor = torch.FloatTensor(series[-10:] if len(series) >= 10 else series).view(
+                1, -1, 1
+            )
             pred_delta = net(p_tensor).item()
             return float(curr_price + pred_delta * 0.0001 * curr_price)
         except Exception:
@@ -369,7 +371,9 @@ class AUCMetricsCalculator:
 class BiasVarianceGradientOptimizer:
     """Model overfitting diagnostics and Gradient Descent optimization engine."""
 
-    def optimize_gradient_descent(self, X: np.ndarray, y: np.ndarray, lr: float = 0.01, epochs: int = 50) -> np.ndarray:
+    def optimize_gradient_descent(
+        self, X: np.ndarray, y: np.ndarray, lr: float = 0.01, epochs: int = 50
+    ) -> np.ndarray:
         m, n = X.shape
         weights = np.zeros(n)
         for _ in range(epochs):

@@ -11,7 +11,7 @@ import logging
 import math
 import zoneinfo
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -106,7 +106,11 @@ class YATATechnicalEngine:
             }
 
         hma_val = self.compute_hma(prices, self.period_hma)
-        prev_hma = self.compute_hma(prices[:-1], self.period_hma) if len(prices) > self.period_hma else hma_val
+        prev_hma = (
+            self.compute_hma(prices[:-1], self.period_hma)
+            if len(prices) > self.period_hma
+            else hma_val
+        )
 
         # MACD (12, 26, 9)
         ema_12 = sum(prices[-12:]) / 12.0
@@ -165,7 +169,9 @@ class YATABrokerAdapter(SEBIBrokerAdapter):
     def get_account_info(self) -> dict[str, Any]:
         return {"broker": self.broker_name, "connected": self._connected}
 
-    def get_history(self, symbol: str, timeframe: str = "1d", limit: int = 100) -> list[dict[str, Any]]:
+    def get_history(
+        self, symbol: str, timeframe: str = "1d", limit: int = 100
+    ) -> list[dict[str, Any]]:
         return []
 
     def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
@@ -208,10 +214,14 @@ class YATABrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def modify_order(self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0) -> bool:
+    def modify_order(
+        self, ticket: str, price: float = 0.0, sl: float = 0.0, tp: float = 0.0
+    ) -> bool:
         return True
 
-    def close_order(self, ticket: str, symbol: str = "", exchange: str = "NSE") -> SEBIOrderResponse:
+    def close_order(
+        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+    ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,
             ticket=ticket,
