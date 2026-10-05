@@ -4,8 +4,11 @@ import hashlib
 import logging
 import os
 import sqlite3
+import threading
 import time
 from typing import Any, Dict, List, Optional
+
+_INIT_DB_LOCK = threading.Lock()
 
 import config
 
@@ -348,6 +351,12 @@ def checkpoint_wal(force: Any = False) -> Any:
 
 def init_db() -> None:
     """Initializes database tables if they do not exist."""
+    with _INIT_DB_LOCK:
+        _init_db_impl()
+
+
+def _init_db_impl() -> None:
+    """Internal implementation of init_db protected by _INIT_DB_LOCK."""
     max_retries = 5
     for attempt in range(max_retries):
         try:
