@@ -1,0 +1,29 @@
+# Ruff configuration optimized for automated self-healing
+target-version = "py313"
+line-length = 100
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports, undefined variables)
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear (common bug patterns)
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade (modernize python syntax)
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"] # ignore unused imports in init files
+"tests/*" = ["ARG", "S"]  # relax security/argument checks in tests
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
