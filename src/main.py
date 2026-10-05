@@ -55,10 +55,12 @@ class AutonomousScalper:
         self.quantum_auto_engine = ii.QuantumAutoEngine()
         self.self_healer = ii.QuantumSelfHealer()
         self.self_healer.start_non_stop_loop()
-        from institutional_integrations.web_api import SocketIPCBridge
+        from institutional_integrations.web_api import SocketIPCBridge, TradingOSHTTPServer
 
         self.ipc_bridge = SocketIPCBridge(host="127.0.0.1", port=9001)
         self.ipc_bridge.start_server()
+        self.http_server = TradingOSHTTPServer(host="127.0.0.1", port=50005, scalper_instance=self)
+        self.http_server.start_server()
         self.supervisor = global_supervisor_agent
         from brain_agents_orchestrator import global_brain_orchestrator
 
@@ -126,6 +128,10 @@ class AutonomousScalper:
             pass
         try:
             self.ipc_bridge.stop_server()
+        except Exception:
+            pass
+        try:
+            self.http_server.stop_server()
         except Exception:
             pass
         self.conn.disconnect()
