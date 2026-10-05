@@ -148,7 +148,7 @@ class AlgoTradeAravinBrokerAdapter(SEBIBrokerAdapter):
 
     def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
-        self.engine.refresh_broker_session("FINVASIA", credentials.get("token", "dummy_token"))
+        self.engine.refresh_broker_session("FINVASIA", credentials.get("token", credentials.get("session_token", "")))
         return True
 
     def get_account_info(self) -> dict[str, Any]:

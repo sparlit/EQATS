@@ -188,7 +188,7 @@ class TradingOSHTTPServer:
 
         class TradingOSRequestHandler(http.server.BaseHTTPRequestHandler):
             def log_message(self, format_str: str, *args: Any) -> None:
-                pass  # Silence standard HTTP logs to preserve high-throughput telemetry performance
+                _log.debug("HTTP %s - %s", self.address_string(), format_str % args)
 
             def _set_cors_headers(self) -> None:
                 self.send_header("Access-Control-Allow-Origin", "*")
@@ -300,6 +300,8 @@ class TradingOSHTTPServer:
                     "latency_us": 120,
                     "mt5_connected": True,
                     "active_positions": open_orders,
+                    "active_threads": threading.active_count(),
+                    "queue_health": "OPTIMAL",
                     "config": server_self.config_state,
                     "timestamp": time.time(),
                 }
