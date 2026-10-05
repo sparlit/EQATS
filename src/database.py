@@ -8,8 +8,6 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-_INIT_DB_LOCK = threading.Lock()
-
 import config
 
 _log = logging.getLogger("database")
@@ -303,30 +301,22 @@ def _legacy_decrypt_secret(cipher_text: Any, key_seed: Any = "EQATS_CIPHER_KEY_2
 
 def get_connection() -> Any:
     """Returns a thread-safe connection to the SQLite database with WAL journal mode and 60-second busy timeout."""
-    max_attempts = 5
-    for attempt in range(max_attempts):
+    if config.DB_PATH == ":memory:":
+        conn = sqlite3.connect("file::memory:?cache=shared", uri=True, timeout=60.0)
+    else:
+        conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=60000;")
+    except sqlite3.OperationalError as e:
+        _log.debug("SQLite PRAGMA WAL mode fallback: %s", e)
         try:
-            if config.DB_PATH == ":memory:":
-                conn = sqlite3.connect("file::memory:?cache=shared", uri=True, timeout=60.0)
-            else:
-                conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
-            conn.row_factory = sqlite3.Row
-            try:
-                conn.execute("PRAGMA journal_mode=WAL;")
-                conn.execute("PRAGMA busy_timeout=60000;")
-            except sqlite3.OperationalError as e:
-                _log.debug("SQLite PRAGMA WAL mode fallback: %s", e)
-                try:
-                    conn.execute("PRAGMA journal_mode=DELETE;")
-                    conn.execute("PRAGMA busy_timeout=60000;")
-                except Exception:
-                    pass
-            return conn
-        except sqlite3.OperationalError as e:
-            if attempt < max_attempts - 1:
-                time.sleep(0.05 * (2**attempt))
-            else:
-                raise e
+            conn.execute("PRAGMA journal_mode=DELETE;")
+            conn.execute("PRAGMA busy_timeout=60000;")
+        except Exception:
+            pass
+    return conn
 
 
 _tick_write_counter = 0
@@ -1183,8 +1173,8 @@ def seed_default_broker_profiles() -> None:
             "Interactive Brokers TWS",
             "IBKR",
             "client_id",
-            "https://127.0.0.1:50005",
-            "wss://127.0.0.1:50005",
+            "https://127.0.0.1:5000",
+            "wss://127.0.0.1:5000",
             1.0,
             10000.0,
             1.0,
@@ -1833,10 +1823,12 @@ def get_broker_credentials() -> Any:
                 pass
             conn = None
         init_db()
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        if not row:
+            cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
             row = cursor.fetchone()
             if not row:
                 cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")

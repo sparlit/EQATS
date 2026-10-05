@@ -707,7 +707,7 @@ def integrate_pycryptodome() -> Any:
     try:
         return {"status": "ACTIVE", "cipher": "AES_GCM", "engine": "PYCRYPTODOME"}
     except Exception:
-        return {"status": "UNAVAILABLE", "fallback": True, "cipher": "SOFTWARE_AES_GCM", "engine": "PYCRYPTODOME"}
+        return {"status": "UNAVAILABLE", "fallback": True, "cipher": "MOCKED_AES_GCM", "engine": "PYCRYPTODOME"}
 
 
 def integrate_pyfolio() -> Any:

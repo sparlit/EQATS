@@ -28,22 +28,22 @@ jobs:
 
     steps:
       - name: Checkout Root Workspace Core
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Initialize Dedicated Python Environment
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: '3.13'
           cache: 'pip'
 
       - name: Setup Multi-Threaded Native Compiler Utilities
-        uses: dtolnay/rust-toolchain@stable # stable
+        uses: dtolnay/rust-toolchain@315e58138fb1422ee379646c4f0393952f44778a # stable
 
       - name: Setup Rust Build Cache
-        uses: Swatinem/rust-cache@v2 # v2.7.7
+        uses: Swatinem/rust-cache@f0deed1e0edfc26ca2027467f0ffa53664d4715f # v2.7.7
         with:
           workspaces: "eqats_rust_core -> target"
 

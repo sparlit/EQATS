@@ -106,18 +106,7 @@ class AlgoTradeAravinEngine:
             "attempted_chain": failover_chain,
         }
 
-    def route_order_execution(
-        self, target_broker: str, request_data: dict[str, Any], require_active_session: bool = True
-    ) -> dict[str, Any]:
-        target = target_broker.upper().strip()
-        if require_active_session:
-            session = self.active_sessions.get(target, {})
-            if not session.get("connected", False):
-                return {
-                    "success": False,
-                    "error": f"BROKER_SESSION_INACTIVE_{target}",
-                    "broker": target,
-                }
+    def route_order_execution(self, target_broker: str, request_data: dict[str, Any]) -> dict[str, Any]:
         return self.route_order_execution_with_failover(target_broker, request_data)
 
 

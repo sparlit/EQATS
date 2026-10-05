@@ -55,7 +55,7 @@ class AutonomousScalper:
         self.quantum_auto_engine = ii.QuantumAutoEngine()
         self.self_healer = ii.QuantumSelfHealer()
         self.self_healer.start_non_stop_loop()
-        from institutional_integrations.web_api import SocketIPCBridge, TradingOSHTTPServer
+        from institutional_integrations.web_api import SocketIPCBridge
 
         self.ipc_bridge = SocketIPCBridge(host="127.0.0.1", port=9001)
         self.ipc_bridge.start_server()

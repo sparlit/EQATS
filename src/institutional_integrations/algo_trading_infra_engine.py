@@ -31,17 +31,13 @@ _log = logging.getLogger("AlgoTradingInfraEngine")
 MAGIC_NUMBER_ALGO_TRADING_INFRA: int = 9100090
 
 
-def is_ist_market_session_active(
-    dt: datetime.datetime | None = None,
-) -> bool:
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """
     Checks whether current or provided time falls within NSE/BSE IST market session.
     IST market hours are 09:15 to 15:30 IST Mon-Fri.
     Assumes provided time is in IST or local time offset for IST (+05:30).
     """
     now = dt or datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=5, minutes=30)))
-    tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-    now = dt or datetime.datetime.now(tz)
     if now.weekday() >= 5:
         return False
     market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
