@@ -5378,6 +5378,35 @@ class ScalperGui:
         import secrets
 
         token_key = secrets.token_hex(8).upper()
+        self.cred_text.insert(
+            tk.END, "================================================================================\n"
+        )
+        self.cred_text.insert(tk.END, "🔑 CREDENTIAL MANAGER & SECURITY HEALTH DIAGNOSTICS\n")
+        self.cred_text.insert(
+            tk.END, "================================================================================\n"
+        )
+        self.cred_text.insert(tk.END, f"Overall Security Grade:          {sec_health['overall_security_grade']}\n")
+        self.cred_text.insert(tk.END, f"EQATS_MASTER_KEY Env Var:        {sec_health['master_key_env_set']}\n")
+        self.cred_text.insert(tk.END, f"Cryptography Fernet Module:      {sec_health['cryptography_available']}\n")
+        self.cred_text.insert(tk.END, f"bcrypt Work Factor (12 rounds):   {sec_health['bcrypt_available']}\n")
+        self.cred_text.insert(
+            tk.END, f"Hash Migration Complete:         {sec_health['migration_status']['migration_complete']}\n\n"
+        )
+        self.cred_text.insert(tk.END, f"REGISTERED OPERATOR ACCOUNTS ({len(users)}):\n")
+        for u in users:
+            self.cred_text.insert(
+                tk.END,
+                f"  • Username: {u['username']:<18} Role: {u['role']:<16} MFA: {'ENABLED' if u.get('mfa_enabled') else 'DISABLED'}\n",
+            )
+        self.cred_text.insert(tk.END, "\nACTIVE PRIMARY BROKER GATEWAY:\n")
+        if active_broker:
+            self.cred_text.insert(
+                tk.END,
+                f"  • Name: {active_broker.get('broker_name')} | Account: {active_broker.get('account_id')} | Server: {active_broker.get('server')} | Protocol: {active_broker.get('protocol_type')}\n",
+            )
+        else:
+            self.cred_text.insert(tk.END, "  • None (Configure via CredentialManager or CFG <GO>)\n")
+        self.cred_text.insert(tk.END, "\nDYNAMIC SESSION 2FA TOKEN:\n")
         mfa_code = secrets.randbelow(900000) + 100000
         cred_data = f"\n================================================================================\nCRED <GO>: SECURE SECURITY LOGINS & USER PRIVILEGES\n================================================================================\nACTIVE PROFILE:              QUANT_OPERATOR\nAUTHORITY LEVEL:             Sovereign Administration (S-12 Root)\nMFA HARDWARE KEY STATUS:     SYNCED (Hardware Token Connected)\nDynamic TOTP Code:           {mfa_code}\nActive Session Token:        {token_key}\n\nSECURITY DOMAINS ENFORCED:\n--------------------------------------------------------------------------------\n1) startup_authentication:   PASSED (QUANT_OPERATOR credentials verified)\n2) RBAC role model:          ENABLED (Read-Write-Execute Permission active)\n3) API Isolations:           SECURE (Isolated from external research files)\n4) MFA Code requirement:     REQUIRED for Settings (SET <GO>) screen\n================================================================================\n"
         self.cred_text.insert(tk.END, cred_data)

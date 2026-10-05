@@ -4,6 +4,7 @@ import hashlib
 import logging
 import os
 import sqlite3
+import threading
 import time
 from typing import Any, Dict, List, Optional
 
@@ -340,6 +341,12 @@ def checkpoint_wal(force: Any = False) -> Any:
 
 def init_db() -> None:
     """Initializes database tables if they do not exist."""
+    with _INIT_DB_LOCK:
+        _init_db_impl()
+
+
+def _init_db_impl() -> None:
+    """Internal implementation of init_db protected by _INIT_DB_LOCK."""
     max_retries = 5
     for attempt in range(max_retries):
         try:
@@ -924,8 +931,8 @@ def seed_default_broker_profiles() -> None:
             "Interactive Brokers TWS",
             "IBKR",
             "client_id",
-            "https://127.0.0.1:5000",
-            "wss://127.0.0.1:5000",
+            "https://127.0.0.1:50005",
+            "wss://127.0.0.1:50005",
             1.0,
             10000.0,
             1.0,
@@ -1483,7 +1490,7 @@ def normalize_leverage(leverage_str: str) -> str:
     """
     Normalizes leverage string input into standard '1:N' format.
     E.g. '1:888' -> '1:888', '888' -> '1:888', '1:10000' -> '1:10000'.
-    Fallback to '1:100' if invalid or unparseable.
+    Fallback to '1:100' if invalid or unparsable.
     """
     if not leverage_str:
         return "1:100"
@@ -1823,7 +1830,13 @@ def get_broker_credentials() -> Any:
         if not row:
             cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
             row = cursor.fetchone()
-        conn.close()
+            if not row:
+                cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
+                row = cursor.fetchone()
+            conn.close()
+        except Exception as err:
+            _log.warning("Unable to query broker_credentials after init_db: %s", err)
+            return None
     if not row:
         _log.error(
             "No broker credentials configured in database. Please configure credentials using add_broker_account() or save_broker_credentials() before attempting to connect to a broker."

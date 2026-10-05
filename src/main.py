@@ -59,6 +59,8 @@ class AutonomousScalper:
 
         self.ipc_bridge = SocketIPCBridge(host="127.0.0.1", port=9001)
         self.ipc_bridge.start_server()
+        self.http_server = TradingOSHTTPServer(host="127.0.0.1", port=50005, scalper_instance=self)
+        self.http_server.start_server()
         self.supervisor = global_supervisor_agent
         from brain_agents_orchestrator import global_brain_orchestrator
 
@@ -126,6 +128,10 @@ class AutonomousScalper:
             pass
         try:
             self.ipc_bridge.stop_server()
+        except Exception:
+            pass
+        try:
+            self.http_server.stop_server()
         except Exception:
             pass
         self.conn.disconnect()

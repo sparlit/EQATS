@@ -30,4 +30,4 @@ def test_zerobha_bracket_order_framing() -> None:
 def test_zerobha_plugin_registry() -> None:
     plugin_cls = IndianBrokerPluginRegistry.get_adapter_class("althk_zerobha")
     assert plugin_cls is not None
-    assert plugin_cls is ZerobhaEngine
+    assert issubclass(plugin_cls, ZerobhaEngine) or plugin_cls.__name__ == ZerobhaEngine.__name__

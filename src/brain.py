@@ -536,12 +536,12 @@ class ScalperBrain:
                             prevailing_sentiment == "BEARISH" and raw_sig == "BUY"
                         ):
                             continue
-                        if (kronos_upside_prob < 0.25 and raw_sig == "BUY") or (
-                            kronos_upside_prob > 0.75 and raw_sig == "SELL"
+                        if (kronos_upside_prob < 0.05 and raw_sig == "BUY") or (
+                            kronos_upside_prob > 0.95 and raw_sig == "SELL"
                         ):
                             continue
                         prob = ai_bullish_prob if raw_sig == "BUY" else 1.0 - ai_bullish_prob
-                        if prob < 0.6:
+                        if prob < 0.2:
                             continue
                         lot_val, sl_val, tp_val = compute_sl_tp_lot(m_style, raw_sig)
                         exp = f"[{m_style}] [{strat_name}] Authentic Signal: {raw_sig}{agent_notes}"
@@ -565,12 +565,12 @@ class ScalperBrain:
                         prevailing_sentiment == "BEARISH" and raw_sig == "BUY"
                     ):
                         continue
-                    if (kronos_upside_prob < 0.25 and raw_sig == "BUY") or (
-                        kronos_upside_prob > 0.75 and raw_sig == "SELL"
+                    if (kronos_upside_prob < 0.05 and raw_sig == "BUY") or (
+                        kronos_upside_prob > 0.95 and raw_sig == "SELL"
                     ):
                         continue
                     prob = ai_bullish_prob if raw_sig == "BUY" else 1.0 - ai_bullish_prob
-                    if prob < 0.6:
+                    if prob < 0.2:
                         continue
                     lot_val, sl_val, tp_val = compute_sl_tp_lot(style_mode, raw_sig)
                     exp = f"[{style_mode}] [{strat_name}] Authentic Signal: {raw_sig}{agent_notes}"

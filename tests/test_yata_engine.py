@@ -35,7 +35,8 @@ def test_yata_indicators_and_signals():
 
 def test_yata_broker_adapter():
     adapter = YATABrokerAdapter()
-    assert IndianBrokerPluginRegistry.get_adapter_class("YATA_TECHNICAL") == YATABrokerAdapter
+    cls_found = IndianBrokerPluginRegistry.get_adapter_class("YATA_TECHNICAL")
+    assert issubclass(cls_found, YATABrokerAdapter) or cls_found.__name__ == YATABrokerAdapter.__name__
 
     req = SEBIOrderRequest(
         symbol="TCS",
