@@ -40,10 +40,10 @@ jobs:
           cache: 'pip'
 
       - name: Setup Multi-Threaded Native Compiler Utilities
-        uses: dtolnay/rust-toolchain@315e58138fb1422ee379646c4f0393952f44778a # stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Rust Build Cache
-        uses: Swatinem/rust-cache@f0deed1e0edfc26ca2027467f0ffa53664d4715f # v2.7.7
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: "eqats_rust_core -> target"
 
