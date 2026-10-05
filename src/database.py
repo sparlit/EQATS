@@ -23,6 +23,7 @@ except ImportError:
 # Encryption key management with environment variable support
 _ENCRYPTION_KEY = None
 _ENCRYPTION_SALT = None
+_INIT_DB_LOCK = threading.Lock()
 
 
 def _get_encryption_key() -> Any:
@@ -1823,12 +1824,10 @@ def get_broker_credentials() -> Any:
                 pass
             conn = None
         init_db()
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        if not row:
-            cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM broker_credentials WHERE is_active = 1 ORDER BY id DESC LIMIT 1")
             row = cursor.fetchone()
             if not row:
                 cursor.execute("SELECT * FROM broker_credentials ORDER BY id DESC LIMIT 1")

@@ -150,7 +150,12 @@ class KronosFoundationModel:
         return inst
 
     def forecast_probabilistic(
-        self, ohlcv_history: Any, forecast_horizon: int = 24, num_simulations: int = 30
+        self,
+        ohlcv_history: Any,
+        forecast_horizon: int = 24,
+        num_simulations: int = 30,
+        T: float = 1.0,
+        top_p: float = 0.9,
     ) -> dict[str, Any]:
         """
         Generates probabilistic forward forecasts given historical OHLCV bars.
