@@ -1,0 +1,88 @@
+name: Autonomous Self-Healing Engine
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "**.py"
+      - "pyproject.toml"
+      - "requirements*.txt"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**.py"
+  workflow_run:
+    workflows:
+      - "Lint Code Base"
+      - "Python 3.13 Free-Threaded Autonomous Healing Pipeline"
+      - "eqats-ci"
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  auto-remediate:
+    name: Scan, Detect & Auto-Heal
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - name: Set Up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install Tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pytest mypy autoflake
+
+      - name: Execute Autonomous Self-Healing Engine
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MAX_HEALING_ITERATIONS: "3"
+          TARGET_DIR: "."
+        run: |
+          python scripts/self_healing_engine.py
+
+      - name: Verify Git Status
+        id: git-status
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected after autonomous healing pass:"
+            git status --short
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "Zero changes detected. Codebase is clean."
+          fi
+
+      - name: Auto-Commit and Push Remediated Code
+        if: steps.git-status.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(auto-heal): remediate stubs, syntax flaws, and test errors [skip ci]"
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
