@@ -196,7 +196,7 @@ class KronosFoundationModel:
             final_prices = simulations[:, -1]
             upside_count = np.sum(final_prices > last_close)
             upside_probability = float(upside_count / num_simulations)
-            forecast_vols = np.std(np.diff(np.log(simulations), axis=1), axis=1)
+            forecast_vols = np.std(np.diff(np.log(np.maximum(1e-08, simulations)), axis=1), axis=1)
             avg_forecast_vol = float(np.mean(forecast_vols)) if len(forecast_vols) > 0 else hist_vol
             volatility_amplification = float(np.clip((avg_forecast_vol - hist_vol) / max(1e-06, hist_vol), 0.0, 2.0))
             model_confidence = float(np.clip(1.0 - np.std(final_prices) / (last_close + 1e-06), 0.3, 0.99))
