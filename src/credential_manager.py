@@ -50,7 +50,7 @@ class CredentialManager:
     and Security Engine Parameters.
     """
 
-    def __init__(self, db_path: Optional[str] = None) -> None:
+    def __init__(self, db_path: str | None = None) -> None:
         if db_path:
             config.DB_PATH = db_path
         database.init_db()
@@ -79,11 +79,11 @@ class CredentialManager:
             _log.error("Failed to add user '%s': %s", username, e)
             return False
 
-    def get_all_users(self) -> List[Dict[str, Any]]:
+    def get_all_users(self) -> list[dict[str, Any]]:
         """Retrieves all registered user account profiles."""
         return database.get_all_users()
 
-    def get_user(self, username: str) -> Optional[Dict[str, Any]]:
+    def get_user(self, username: str) -> dict[str, Any] | None:
         """Retrieves user profile details by username."""
         users = self.get_all_users()
         for u in users:
@@ -94,11 +94,11 @@ class CredentialManager:
     def update_user(
         self,
         username: str,
-        new_password: Optional[str] = None,
-        new_pin: Optional[str] = None,
-        new_role: Optional[str] = None,
-        new_username: Optional[str] = None,
-        login_style: Optional[str] = None,
+        new_password: str | None = None,
+        new_pin: str | None = None,
+        new_role: str | None = None,
+        new_username: str | None = None,
+        login_style: str | None = None,
     ) -> bool:
         """Modifies credentials, role, username, or login style for an existing user account."""
         try:
@@ -156,9 +156,7 @@ class CredentialManager:
             _log.error("Failed to reset system admin credentials: %s", e)
             return False
 
-    def verify_user_credentials(
-        self, username: str, password: str, pin: Optional[str] = None
-    ) -> bool:
+    def verify_user_credentials(self, username: str, password: str, pin: str | None = None) -> bool:
         """Validates username, password, and optional secondary PIN."""
         return database.verify_user_credentials(username, password, pin)
 
@@ -242,11 +240,11 @@ class CredentialManager:
             _log.error("Failed to save primary broker credentials: %s", e)
             return False
 
-    def get_all_brokers(self) -> List[Dict[str, Any]]:
+    def get_all_brokers(self) -> list[dict[str, Any]]:
         """Retrieves all registered broker profiles with decrypted secrets."""
         return database.get_all_brokers()
 
-    def get_active_broker_credentials(self) -> Optional[Dict[str, Any]]:
+    def get_active_broker_credentials(self) -> dict[str, Any] | None:
         """Retrieves the currently active primary broker configuration."""
         return database.get_broker_credentials()
 
@@ -270,7 +268,7 @@ class CredentialManager:
             _log.error("Failed to delete broker account ID %s: %s", broker_id, e)
             return False
 
-    def validate_terminal_path(self, terminal_path: str) -> Tuple[bool, str]:
+    def validate_terminal_path(self, terminal_path: str) -> tuple[bool, str]:
         """Validates MT5 executable path for security compliance."""
         try:
             validated = database.validate_terminal_path(terminal_path)
@@ -278,7 +276,7 @@ class CredentialManager:
         except ValueError as e:
             return (False, str(e))
 
-    def get_all_broker_profiles(self) -> List[Dict[str, Any]]:
+    def get_all_broker_profiles(self) -> list[dict[str, Any]]:
         """Retrieves all operational broker profile templates."""
         return database.get_all_broker_profiles()
 
@@ -322,13 +320,13 @@ class CredentialManager:
     # SECURITY & SYSTEM CONFIGURATION
     # =========================================================================
 
-    def get_security_health_status(self) -> Dict[str, Any]:
+    def get_security_health_status(self) -> dict[str, Any]:
         """Returns security status report including hash migration and cryptography state."""
         migration_status = database.get_credential_migration_status()
         master_key_set = bool(os.environ.get("EQATS_MASTER_KEY"))
 
         try:
-            import cryptography  # type: ignore # noqa: F401
+            import cryptography  # type: ignore
 
             crypto_available = True
         except ImportError:
@@ -389,7 +387,7 @@ class CredentialManager:
             _log.error("Re-encryption failed: %s", e)
             return False
 
-    def load_circuit_breaker_state(self) -> Optional[Dict[str, Any]]:
+    def load_circuit_breaker_state(self) -> dict[str, Any] | None:
         """Retrieves current emergency circuit breaker state."""
         return database.load_circuit_breaker_state()
 
@@ -978,14 +976,18 @@ if _TKINTER_AVAILABLE:
             ).pack(anchor="w")
 
         def _action_reencrypt_credentials(self) -> None:
-            if messagebox.askyesno("Confirm Re-encryption", "Re-encrypt all broker credentials in database using current master key?"):
+            if messagebox.askyesno(
+                "Confirm Re-encryption", "Re-encrypt all broker credentials in database using current master key?"
+            ):
                 if self.cm.reencrypt_all_broker_credentials():
                     messagebox.showinfo("Success", "All broker credentials re-encrypted successfully.")
                 else:
                     messagebox.showerror("Error", "Re-encryption failed.")
 
         def _action_reset_cb(self) -> None:
-            if messagebox.askyesno("Confirm Reset", "Clear emergency circuit breaker halt status and resume trading admissions?"):
+            if messagebox.askyesno(
+                "Confirm Reset", "Clear emergency circuit breaker halt status and resume trading admissions?"
+            ):
                 if self.cm.reset_circuit_breaker_halt():
                     messagebox.showinfo("Reset Complete", "Circuit breaker halt cleared.")
                 else:
@@ -1026,7 +1028,7 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
         if choice == "0":
             print("Exiting Credential Manager CLI.")
             break
-        elif choice == "1":
+        if choice == "1":
             users = cm.get_all_users()
             print(f"\nFound {len(users)} user(s):")
             for u in users:
@@ -1067,7 +1069,9 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
             print(f"\nFound {len(brokers)} broker configuration(s):")
             for b in brokers:
                 active_str = " [PRIMARY ACTIVE]" if b.get("is_active") else ""
-                print(f"  ID: {b['id']} | Name: {b.get('broker_name')} | Account: {b.get('account_id')} | Server: {b.get('server')}{active_str}")
+                print(
+                    f"  ID: {b['id']} | Name: {b.get('broker_name')} | Account: {b.get('account_id')} | Server: {b.get('server')}{active_str}"
+                )
         elif choice == "7":
             name = input("Broker Name [Primary Gateway]: ").strip() or "Primary Gateway"
             server = input("Server [MetaQuotes-Demo]: ").strip() or "MetaQuotes-Demo"
@@ -1117,7 +1121,9 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
         elif choice == "12":
             cb = cm.load_circuit_breaker_state()
             if cb:
-                print(f"\nCircuit Breaker State: Halted={cb['is_halted']}, Date={cb['trading_date']}, Baseline=${cb['daily_start_balance']:,.2f}")
+                print(
+                    f"\nCircuit Breaker State: Halted={cb['is_halted']}, Date={cb['trading_date']}, Baseline=${cb['daily_start_balance']:,.2f}"
+                )
                 if cb["is_halted"]:
                     ans = input("Clear halt status now? (y/N): ").strip().lower()
                     if ans == "y":
