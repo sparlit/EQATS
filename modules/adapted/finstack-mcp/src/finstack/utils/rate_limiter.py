@@ -75,7 +75,10 @@ class RateLimiter:
             oldest = min(self._requests[key]) if self._requests[key] else now
             reset_at = oldest + self._window
 
-            logger.warning(f"Rate limit exceeded for {key[:16]}... ({current_count}/{limit}, tier={tier.value})")
+            logger.warning(
+                f"Rate limit exceeded for {key[:16]}... "
+                f"({current_count}/{limit}, tier={tier.value})"
+            )
             return False, {
                 "remaining": 0,
                 "limit": limit,

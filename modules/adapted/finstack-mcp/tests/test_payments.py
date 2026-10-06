@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import json
 from pathlib import Path
 
-from finstack import payments
+import finstack.payments as payments
 from finstack.config import UserTier
 
 

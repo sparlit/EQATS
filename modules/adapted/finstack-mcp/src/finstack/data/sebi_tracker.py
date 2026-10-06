@@ -37,12 +37,14 @@ Data: SEBI public enforcement orders (free, no auth needed)
 import logging
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.sebi_tracker")
 
 # SEBI enforcement orders RSS
-SEBI_ORDERS_URL = "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doGetOrderDerived=yes&type=1&intmId=4"
+SEBI_ORDERS_URL = (
+    "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doGetOrderDerived=yes&type=1&intmId=4"
+)
 SEBI_RSS_URL = "https://www.sebi.gov.in/sebi_data/rss/SEBIOrders.xml"
 
 # Sector keyword mapping
@@ -72,7 +74,16 @@ ACTION_KEYWORDS = {
         "insider",
         "disgorgement",
     ],
-    "medium": ["show cause", "adjudication", "penalty", "fine", "warning", "suspension", "consent", "settlement"],
+    "medium": [
+        "show cause",
+        "adjudication",
+        "penalty",
+        "fine",
+        "warning",
+        "suspension",
+        "consent",
+        "settlement",
+    ],
     "low": ["observation", "clarification", "disclosure", "minor", "technical"],
 }
 
@@ -162,7 +173,9 @@ def get_sebi_alerts(sector: str | None = None) -> dict:
     if sector and sector.lower() != "all":
         sector_norm = sector.strip().title()
         filtered = [
-            o for o in orders if sector_norm in o["sectors"] or any(sector.lower() in s.lower() for s in o["sectors"])
+            o
+            for o in orders
+            if sector_norm in o["sectors"] or any(sector.lower() in s.lower() for s in o["sectors"])
         ]
     else:
         filtered = orders

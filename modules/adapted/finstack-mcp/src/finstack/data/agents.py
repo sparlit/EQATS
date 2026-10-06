@@ -41,7 +41,7 @@ The debate JSON is also consumable by the AgentBattle canvas visualisation.
 
 import contextlib
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.agents")
 
@@ -92,10 +92,14 @@ def _fii_desk_analysis(symbol: str) -> dict:
     score = 0
 
     if fii_net_5d > 1000:
-        reasoning.append(f"FII net buying ₹{fii_net_5d:,.0f}Cr over 5 days — strong institutional interest")
+        reasoning.append(
+            f"FII net buying ₹{fii_net_5d:,.0f}Cr over 5 days — strong institutional interest"
+        )
         score += 1
     elif fii_net_5d < -1000:
-        reasoning.append(f"FII net selling ₹{abs(fii_net_5d):,.0f}Cr over 5 days — institutional exit in progress")
+        reasoning.append(
+            f"FII net selling ₹{abs(fii_net_5d):,.0f}Cr over 5 days — institutional exit in progress"
+        )
         score -= 1
     else:
         reasoning.append(f"FII flows neutral (₹{fii_net_5d:,.0f}Cr net 5d)")
@@ -231,7 +235,9 @@ def _value_investor_analysis(symbol: str) -> dict:
     if credit and isinstance(credit, dict):
         ratings = credit.get("ratings", [])
         if ratings:
-            credit_rating = ratings[0].get("rating") if isinstance(ratings[0], dict) else str(ratings[0])
+            credit_rating = (
+                ratings[0].get("rating") if isinstance(ratings[0], dict) else str(ratings[0])
+            )
 
     reasoning = []
     score = 0
@@ -263,11 +269,13 @@ def _value_investor_analysis(symbol: str) -> dict:
             score += 0.5
 
     if credit_rating:
-        if credit_rating.startswith(("AAA", "AA+")):
+        if credit_rating.startswith("AAA") or credit_rating.startswith("AA+"):
             reasoning.append(f"Credit rating {credit_rating} — highest quality debt")
             score += 0.5
         elif any(credit_rating.startswith(x) for x in ["BB", "B", "C"]):
-            reasoning.append(f"Credit rating {credit_rating} — below investment grade, elevated risk")
+            reasoning.append(
+                f"Credit rating {credit_rating} — below investment grade, elevated risk"
+            )
             score -= 1
 
     signal = "BUY" if score >= 1 else ("SELL" if score <= -1 else "HOLD")
@@ -310,7 +318,17 @@ def _retail_pulse_analysis(symbol: str) -> dict:
     # Quick news tone from headlines
     if news_data and isinstance(news_data, list):
         bullish_words = {"beat", "surge", "rally", "growth", "record", "profit", "buy", "upgrade"}
-        bearish_words = {"miss", "fall", "crash", "loss", "cut", "sell", "downgrade", "concern", "risk"}
+        bearish_words = {
+            "miss",
+            "fall",
+            "crash",
+            "loss",
+            "cut",
+            "sell",
+            "downgrade",
+            "concern",
+            "risk",
+        }
         b, s = 0, 0
         for item in news_data:
             title = (item.get("title") or item.get("headline") or "").lower()
@@ -353,9 +371,13 @@ def _retail_pulse_analysis(symbol: str) -> dict:
 
     if pos_52w is not None:
         if pos_52w >= 80:
-            reasoning.append(f"Near 52W high ({pos_52w:.0f}% of range) — strong momentum but watch for resistance")
+            reasoning.append(
+                f"Near 52W high ({pos_52w:.0f}% of range) — strong momentum but watch for resistance"
+            )
         elif pos_52w <= 20:
-            reasoning.append(f"Near 52W low ({pos_52w:.0f}% of range) — beaten down, contrarian opportunity")
+            reasoning.append(
+                f"Near 52W low ({pos_52w:.0f}% of range) — beaten down, contrarian opportunity"
+            )
             score += 0.5
 
     signal = "BUY" if score >= 1 else ("SELL" if score <= -1 else "HOLD")
@@ -419,14 +441,18 @@ def _macro_analyst_analysis(symbol: str) -> dict:  # noqa: ARG001
             reasoning.append(f"RBI repo {repo_rate}% — accommodative, cheap money environment")
             score += 1
         elif repo_rate >= 6.5:
-            reasoning.append(f"RBI repo {repo_rate}% — tight monetary policy, credit costs elevated")
+            reasoning.append(
+                f"RBI repo {repo_rate}% — tight monetary policy, credit costs elevated"
+            )
             score -= 0.5
         else:
             reasoning.append(f"RBI repo {repo_rate}% — neutral stance, rate pause likely")
 
     if inflation is not None:
         if inflation < 4.5:
-            reasoning.append(f"CPI {inflation:.1f}% — within RBI 4% target band, supportive for equities")
+            reasoning.append(
+                f"CPI {inflation:.1f}% — within RBI 4% target band, supportive for equities"
+            )
             score += 0.5
         elif inflation > 6.0:
             reasoning.append(f"CPI {inflation:.1f}% — above tolerance band, rate hike risk")
@@ -436,13 +462,19 @@ def _macro_analyst_analysis(symbol: str) -> dict:  # noqa: ARG001
 
     if gsec_10y is not None:
         if gsec_10y < 6.5:
-            reasoning.append(f"10Y G-Sec {gsec_10y:.2f}% — low risk-free rate, equities attractive by spread")
+            reasoning.append(
+                f"10Y G-Sec {gsec_10y:.2f}% — low risk-free rate, equities attractive by spread"
+            )
             score += 0.5
         elif gsec_10y > 7.5:
-            reasoning.append(f"10Y G-Sec {gsec_10y:.2f}% — high bond yield competing with equity earnings yield")
+            reasoning.append(
+                f"10Y G-Sec {gsec_10y:.2f}% — high bond yield competing with equity earnings yield"
+            )
             score -= 0.5
         else:
-            reasoning.append(f"10Y G-Sec {gsec_10y:.2f}% — neutral, watch for yield direction shift")
+            reasoning.append(
+                f"10Y G-Sec {gsec_10y:.2f}% — neutral, watch for yield direction shift"
+            )
 
     if not reasoning:
         reasoning.append("Macro data unavailable — neutral macro environment assumed")
@@ -510,14 +542,18 @@ def _options_flow_analysis(symbol: str) -> dict:
             reasoning.append(f"PCR {pcr:.2f} — balanced options positioning, no directional edge")
 
     if oi_signal == "bullish":
-        reasoning.append("Put OI > Call OI — institutional hedging implies underlying long positions")
+        reasoning.append(
+            "Put OI > Call OI — institutional hedging implies underlying long positions"
+        )
         score += 0.5
     elif oi_signal == "bearish":
         reasoning.append("Call OI > Put OI — speculative call buying, distribution risk elevated")
         score -= 0.5
 
     if max_pain is not None:
-        reasoning.append(f"Max pain ₹{max_pain:,.0f} — options writers favour price convergence here")
+        reasoning.append(
+            f"Max pain ₹{max_pain:,.0f} — options writers favour price convergence here"
+        )
 
     if not reasoning:
         reasoning.append("Options data unavailable for this symbol — signal neutral")
@@ -639,11 +675,13 @@ def _round2_rebuttal(agent: dict, others: list[dict]) -> dict:
         elif sells_others >= 2 and avg_others < -0.5:
             new_score = max(my_score - 0.5, -1.0)
             rebuttal_text.append(
-                f"Majority SELL signals. {agent['one_liner']}. Downgrading to SELL — risks outweigh upside."
+                f"Majority SELL signals. {agent['one_liner']}. "
+                f"Downgrading to SELL — risks outweigh upside."
             )
         else:
             rebuttal_text.append(
-                f"Mixed signals from peers. Maintaining HOLD. {agent['one_liner']} supports a wait-and-watch stance."
+                f"Mixed signals from peers. Maintaining HOLD. "
+                f"{agent['one_liner']} supports a wait-and-watch stance."
             )
     else:
         # Holding ground — peer majority agrees or data is clear

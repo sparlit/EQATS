@@ -276,7 +276,7 @@ def register_analytics_tools(mcp):
             market_cap_min=market_cap_min if market_cap_min > 0 else None,
             dividend_yield_min=dividend_yield_min if dividend_yield_min > 0 else None,
             debt_equity_max=debt_equity_max if debt_equity_max > 0 else None,
-            sector=sector or None,
+            sector=sector if sector else None,
             limit=min(limit, 25),
         )
         return json.dumps(result, indent=2, default=str)
@@ -359,7 +359,7 @@ def register_analytics_tools(mcp):
             return json.dumps(
                 {
                     "error": True,
-                    "message": f"Invalid JSON: {e!s}",
+                    "message": f"Invalid JSON: {str(e)}",
                     "example": '[{"symbol":"RELIANCE","quantity":10,"buy_price":2500}]',
                 },
                 indent=2,

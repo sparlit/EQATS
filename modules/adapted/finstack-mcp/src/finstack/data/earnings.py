@@ -32,7 +32,7 @@ If correct → screenshot → tweet → repeat.
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.earnings")
 
@@ -92,7 +92,10 @@ def _get_analyst_estimates(symbol: str) -> dict:
             "target_price": info.get("targetMeanPrice"),
             "current_price": info.get("currentPrice") or info.get("regularMarketPrice"),
             "upside_pct": round(
-                (info.get("targetMeanPrice", 0) - info.get("currentPrice", 1)) / info.get("currentPrice", 1) * 100, 1
+                (info.get("targetMeanPrice", 0) - info.get("currentPrice", 1))
+                / info.get("currentPrice", 1)
+                * 100,
+                1,
             )
             if info.get("targetMeanPrice") and info.get("currentPrice")
             else None,
@@ -153,7 +156,9 @@ def _get_sector_momentum(symbol: str) -> dict:
             "stock_return_1mo_pct": round(stock_ret, 1),
             "nifty_return_1mo_pct": round(nifty_ret, 1),
             "alpha_vs_nifty": alpha,
-            "momentum": "outperforming" if alpha > 2 else ("underperforming" if alpha < -2 else "inline"),
+            "momentum": "outperforming"
+            if alpha > 2
+            else ("underperforming" if alpha < -2 else "inline"),
         }
     except Exception as e:
         logger.debug("Sector momentum error: %s", e)
@@ -250,9 +255,13 @@ def predict_earnings(symbol: str) -> dict:
     if eps_data.get("trend") == "declining":
         risks.append("EPS trend declining over last 3 quarters")
     if fii_change and fii_change < -1:
-        risks.append(f"FII reduced holding by {abs(fii_change):.1f}% — smart money reducing exposure")
+        risks.append(
+            f"FII reduced holding by {abs(fii_change):.1f}% — smart money reducing exposure"
+        )
     if momentum_data.get("momentum") == "underperforming":
-        risks.append(f"Stock underperforming Nifty by {abs(alpha):.1f}% — weak pre-results momentum")
+        risks.append(
+            f"Stock underperforming Nifty by {abs(alpha):.1f}% — weak pre-results momentum"
+        )
     if analyst_data.get("recommendation") in ("sell", "strongSell"):
         risks.append("Analyst consensus is Sell — low expectations")
     if not risks:
@@ -261,11 +270,15 @@ def predict_earnings(symbol: str) -> dict:
     # ── What to watch ────────────────────────────────────────────────────────
     watch = []
     watch.append("Revenue growth QoQ — market rewards top-line beats more than EPS")
-    watch.append("Management guidance for next quarter — forward commentary matters more than reported numbers")
+    watch.append(
+        "Management guidance for next quarter — forward commentary matters more than reported numbers"
+    )
     if fii_data.get("fii_holding_pct") and fii_data["fii_holding_pct"] > 20:
         watch.append("FII holding changes post-results — they move fast on guidance misses")
     if momentum_data.get("alpha_vs_nifty") and abs(momentum_data["alpha_vs_nifty"]) > 5:
-        watch.append("Price reaction on day 2 — large pre-results moves often reverse after results")
+        watch.append(
+            "Price reaction on day 2 — large pre-results moves often reverse after results"
+        )
 
     # ── Signal ───────────────────────────────────────────────────────────────
     if beat_probability >= 65:

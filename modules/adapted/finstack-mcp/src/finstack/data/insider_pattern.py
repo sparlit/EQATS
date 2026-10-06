@@ -34,7 +34,7 @@ Data: NSE SAST filings (free, public)
 import json
 import logging
 import urllib.request
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.insider")
 
@@ -128,7 +128,9 @@ def get_insider_signal(symbol: str) -> dict:
     net_shares = 0
 
     for tx in transactions[:50]:
-        tx_type = (tx.get("transType") or tx.get("acqMode") or tx.get("typeOfSecurity") or "").upper()
+        tx_type = (
+            tx.get("transType") or tx.get("acqMode") or tx.get("typeOfSecurity") or ""
+        ).upper()
         shares = int(tx.get("noOfSecAcq") or tx.get("secAcq") or tx.get("qty") or 0)
         person = tx.get("personName") or tx.get("acquirerName") or tx.get("name") or ""
         designation = tx.get("personCategory") or tx.get("category") or ""
@@ -164,7 +166,9 @@ def get_insider_signal(symbol: str) -> dict:
         signal = "NEUTRAL"
 
     # Key insiders
-    key_insiders = list({tx["person"]: tx for tx in (buy_transactions + sell_transactions)}.values())[:5]
+    key_insiders = list(
+        {tx["person"]: tx for tx in (buy_transactions + sell_transactions)}.values()
+    )[:5]
 
     # Price since last insider buy
     price_since_buy = None
@@ -185,7 +189,9 @@ def get_insider_signal(symbol: str) -> dict:
             "selling before results is a warning sign."
         )
     else:
-        interpretation = f"Mixed insider activity — {buy_count} buys, {sell_count} sells. No clear signal."
+        interpretation = (
+            f"Mixed insider activity — {buy_count} buys, {sell_count} sells. No clear signal."
+        )
 
     return {
         "symbol": symbol,

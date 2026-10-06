@@ -77,7 +77,11 @@ def get_credit_ratings(symbol: str) -> dict:
 
             resp = client.get(
                 "https://www.nseindia.com/api/corporates-credit-ratings",
-                params={"symbol": symbol, "from_date": "01-01-2023", "to_date": datetime.now().strftime("%d-%m-%Y")},
+                params={
+                    "symbol": symbol,
+                    "from_date": "01-01-2023",
+                    "to_date": datetime.now().strftime("%d-%m-%Y"),
+                },
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -89,7 +93,8 @@ def get_credit_ratings(symbol: str) -> dict:
                         parsed.append(
                             {
                                 "rating_agency": r.get("ratingAgency") or r.get("agency", ""),
-                                "instrument_type": r.get("instrumentType") or r.get("instrument", ""),
+                                "instrument_type": r.get("instrumentType")
+                                or r.get("instrument", ""),
                                 "rating": r.get("currentRating") or r.get("rating", ""),
                                 "rating_action": r.get("ratingAction") or r.get("action", ""),
                                 "outlook": r.get("outlook", ""),
@@ -101,7 +106,9 @@ def get_credit_ratings(symbol: str) -> dict:
                     result["ratings"] = parsed
                     result["total_entries"] = len(ratings)
                     result["data_source"] = "NSE Corporate Filings (SEBI mandated)"
-                    result["agencies_seen"] = list({p["rating_agency"] for p in parsed if p["rating_agency"]})
+                    result["agencies_seen"] = list(
+                        {p["rating_agency"] for p in parsed if p["rating_agency"]}
+                    )
                     return clean_nan(result)
 
         except Exception as e:
@@ -194,7 +201,9 @@ def get_brsr_esg(symbol: str) -> dict:
                 headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.bseindia.com/"},
             )
             if resp.status_code == 200 and resp.json():
-                result["bse_brsr_filings"] = resp.json()[:5] if isinstance(resp.json(), list) else []
+                result["bse_brsr_filings"] = (
+                    resp.json()[:5] if isinstance(resp.json(), list) else []
+                )
                 result["data_source"] = result.get("data_source", "") + " + BSE"
     except Exception as e:
         logger.debug("BSE BRSR: %s", e)

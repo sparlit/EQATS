@@ -36,13 +36,17 @@ Adds product-level tools on top of existing market data primitives:
 
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
 import yfinance as yf
 from finstack.data.agents import get_stock_brief
-from finstack.data.analytics import compare_stocks, compute_technical_indicators, get_sector_performance
+from finstack.data.analytics import (
+    compare_stocks,
+    compute_technical_indicators,
+    get_sector_performance,
+)
 from finstack.data.earnings import predict_earnings
 from finstack.data.fundamentals import get_key_ratios
 from finstack.data.global_markets import get_market_news
@@ -109,7 +113,9 @@ def _get_peer_symbols(symbol: str, sector: str | None, industry: str | None) -> 
     return deduped[:4]
 
 
-def _signal_to_points(signal: str, positive: int, neutral: int = 0, negative: int | None = None) -> int:
+def _signal_to_points(
+    signal: str, positive: int, neutral: int = 0, negative: int | None = None
+) -> int:
     negative = -positive if negative is None else negative
     signal = (signal or "").upper()
     if signal == "BUY":
@@ -185,7 +191,11 @@ def _build_price_action_snapshot(
         score -= 4
         reasons.append("Price below 20-day trend")
 
-    if pd.notna(sma50.iloc[-1]) and pd.notna(sma20.iloc[-1]) and float(sma20.iloc[-1]) > float(sma50.iloc[-1]):
+    if (
+        pd.notna(sma50.iloc[-1])
+        and pd.notna(sma20.iloc[-1])
+        and float(sma20.iloc[-1]) > float(sma50.iloc[-1])
+    ):
         score += 6
         reasons.append("20-day moving average above 50-day")
     elif pd.notna(sma50.iloc[-1]) and pd.notna(sma20.iloc[-1]):
@@ -257,7 +267,7 @@ def get_sector_peer_context(symbol: str) -> dict:
     sector = quote.get("sector") or ratios.get("sector")
     industry = quote.get("industry")
     peers = _get_peer_symbols(symbol, sector, industry)
-    comparison = _safe(compare_stocks, [symbol, *peers]) or {}
+    comparison = _safe(compare_stocks, [symbol] + peers) or {}
     comp_rows = comparison.get("comparison", [])
 
     peer_avg_change = None
@@ -267,19 +277,29 @@ def get_sector_peer_context(symbol: str) -> dict:
     price_return_1m = _history_return_pct(hist, 20) if isinstance(hist, pd.DataFrame) else None
 
     if comp_rows:
-        sorted_change = sorted(comp_rows, key=lambda row: _parse_float(row.get("change_pct")) or -999, reverse=True)
-        peer_rank = next((idx + 1 for idx, row in enumerate(sorted_change) if row.get("symbol") == symbol), None)
+        sorted_change = sorted(
+            comp_rows, key=lambda row: _parse_float(row.get("change_pct")) or -999, reverse=True
+        )
+        peer_rank = next(
+            (idx + 1 for idx, row in enumerate(sorted_change) if row.get("symbol") == symbol), None
+        )
         peer_only = [row for row in comp_rows if row.get("symbol") != symbol]
         peer_changes = [_parse_float(row.get("change_pct")) for row in peer_only]
         peer_pes = [
-            _parse_float(row.get("pe_ratio")) for row in peer_only if _parse_float(row.get("pe_ratio")) is not None
+            _parse_float(row.get("pe_ratio"))
+            for row in peer_only
+            if _parse_float(row.get("pe_ratio")) is not None
         ]
         peer_changes = [value for value in peer_changes if value is not None]
         if peer_changes:
             peer_avg_change = round(sum(peer_changes) / len(peer_changes), 2)
         if peer_pes:
             peer_avg_pe = round(sum(peer_pes) / len(peer_pes), 2)
-            own_pe = _parse_float(next((row.get("pe_ratio") for row in comp_rows if row.get("symbol") == symbol), None))
+            own_pe = _parse_float(
+                next(
+                    (row.get("pe_ratio") for row in comp_rows if row.get("symbol") == symbol), None
+                )
+            )
             if own_pe is not None:
                 if own_pe < peer_avg_pe * 0.9:
                     valuation_vs_peers = "discount"
@@ -292,7 +312,12 @@ def get_sector_peer_context(symbol: str) -> dict:
     sector_match = None
     if sector and sector_rows:
         sector_match = next(
-            (row for row in sector_rows if sector.lower().split()[0] in row.get("sector", "").lower()), None
+            (
+                row
+                for row in sector_rows
+                if sector.lower().split()[0] in row.get("sector", "").lower()
+            ),
+            None,
         )
 
     signal = "neutral"
@@ -357,14 +382,18 @@ def get_stock_signal_score(symbol: str) -> dict:
     if consensus:
         base = 14 if strength == "strong" else 10
         add_component(
-            "agent_consensus", _signal_to_points(consensus, base, 0), f"Agent consensus is {consensus} ({strength})"
+            "agent_consensus",
+            _signal_to_points(consensus, base, 0),
+            f"Agent consensus is {consensus} ({strength})",
         )
 
     alert_level = (smart_money.get("alert_level") or "").lower()
     if alert_level == "high":
         add_component("smart_money", 12, smart_money.get("verdict", "Multiple unusual signals"))
     elif alert_level == "moderate":
-        add_component("smart_money", 7, smart_money.get("verdict", "Some unusual accumulation signals"))
+        add_component(
+            "smart_money", 7, smart_money.get("verdict", "Some unusual accumulation signals")
+        )
     elif alert_level == "low":
         add_component("smart_money", 3, smart_money.get("verdict", "One unusual signal detected"))
 
@@ -373,7 +402,9 @@ def get_stock_signal_score(symbol: str) -> dict:
     if sentiment_signal:
         strength_bonus = 2 if confidence == "high" else 0
         delta = _signal_to_points(sentiment_signal, 6 + strength_bonus, 0)
-        add_component("social_sentiment", delta, f"Social/news sentiment is {sentiment_signal} ({confidence})")
+        add_component(
+            "social_sentiment", delta, f"Social/news sentiment is {sentiment_signal} ({confidence})"
+        )
 
     pledge_risk = (pledge.get("risk_level") or "").lower()
     if pledge_risk == "critical":
@@ -389,7 +420,9 @@ def get_stock_signal_score(symbol: str) -> dict:
     if insider_signal == "BUY":
         add_component("insider_activity", 7, insider.get("interpretation", "Insiders accumulating"))
     elif insider_signal == "SELL":
-        add_component("insider_activity", -7, insider.get("interpretation", "Insiders distributing"))
+        add_component(
+            "insider_activity", -7, insider.get("interpretation", "Insiders distributing")
+        )
 
     rsi_value = ((technicals.get("indicators") or {}).get("RSI") or {}).get("value")
     macd_signal = ((technicals.get("indicators") or {}).get("MACD") or {}).get("signal") or ""
@@ -403,7 +436,10 @@ def get_stock_signal_score(symbol: str) -> dict:
         add_component("technical_macd", 5, macd_signal)
     elif "Bearish" in macd_signal:
         add_component("technical_macd", -5, macd_signal)
-    if any("bullish" in str(item).lower() or "golden cross" in str(item).lower() for item in sma_signals):
+    if any(
+        "bullish" in str(item).lower() or "golden cross" in str(item).lower()
+        for item in sma_signals
+    ):
         add_component("technical_trend", 5, ", ".join(str(item) for item in sma_signals[:2]))
     elif any("bearish" in str(item).lower() for item in sma_signals):
         add_component("technical_trend", -4, ", ".join(str(item) for item in sma_signals[:2]))
@@ -425,17 +461,22 @@ def get_stock_signal_score(symbol: str) -> dict:
         elif beat_prob <= 35:
             add_component("earnings_setup", -4, f"Earnings beat probability only {beat_prob:.0f}%")
 
-    score = max(0, min(100, score))
+    score = max(0, min(100, round(score)))
     signal, strength = _score_to_signal(score)
     bullish = sum(1 for item in components if item["impact"] > 0)
     bearish = sum(1 for item in components if item["impact"] < 0)
 
     top_supports = [
         item["evidence"]
-        for item in sorted((i for i in components if i["impact"] > 0), key=lambda i: i["impact"], reverse=True)[:3]
+        for item in sorted(
+            (i for i in components if i["impact"] > 0), key=lambda i: i["impact"], reverse=True
+        )[:3]
     ]
     top_risks = [
-        item["evidence"] for item in sorted((i for i in components if i["impact"] < 0), key=lambda i: i["impact"])[:3]
+        item["evidence"]
+        for item in sorted((i for i in components if i["impact"] < 0), key=lambda i: i["impact"])[
+            :3
+        ]
     ]
 
     return clean_nan(
@@ -551,7 +592,9 @@ def get_stock_timeline(symbol: str, max_events: int = 12) -> dict:
         )
 
     bulk = _safe(get_bulk_deals) or {}
-    raw_deals = bulk.get("data", []) if isinstance(bulk, dict) else (bulk if isinstance(bulk, list) else [])
+    raw_deals = (
+        bulk.get("data", []) if isinstance(bulk, dict) else (bulk if isinstance(bulk, list) else [])
+    )
     symbol_deals = []
     for deal in raw_deals:
         if (deal.get("symbol") or deal.get("SYMBOL") or "").upper() == symbol:
@@ -589,7 +632,9 @@ def get_stock_timeline(symbol: str, max_events: int = 12) -> dict:
                 "type": "pledge",
                 "headline": f"Promoter pledge: {pledge.get('risk_level')}",
                 "detail": pledge.get("alert", ""),
-                "importance": "high" if pledge.get("risk_level") in {"danger", "critical"} else "medium",
+                "importance": "high"
+                if pledge.get("risk_level") in {"danger", "critical"}
+                else "medium",
             }
         )
 
@@ -630,7 +675,9 @@ def evaluate_signal_quality(symbol: str, lookback_months: int = 6, holding_days:
     """
     symbol = _normalize_symbol(symbol)
     stock_hist = _safe(_price_history, symbol, f"{max(lookback_months, 3)}mo")
-    index_hist = _safe(lambda: yf.Ticker("^NSEI").history(period=f"{max(lookback_months, 3)}mo", interval="1d"))
+    index_hist = _safe(
+        lambda: yf.Ticker("^NSEI").history(period=f"{max(lookback_months, 3)}mo", interval="1d")
+    )
 
     if not isinstance(stock_hist, pd.DataFrame) or stock_hist.empty or len(stock_hist) < 90:
         return {
@@ -644,7 +691,9 @@ def evaluate_signal_quality(symbol: str, lookback_months: int = 6, holding_days:
     for idx in range(60, latest_idx, step):
         sub_stock = stock_hist.iloc[: idx + 1].copy()
         sub_index = (
-            index_hist.iloc[: idx + 1].copy() if isinstance(index_hist, pd.DataFrame) and not index_hist.empty else None
+            index_hist.iloc[: idx + 1].copy()
+            if isinstance(index_hist, pd.DataFrame) and not index_hist.empty
+            else None
         )
         snapshot = _build_price_action_snapshot(sub_stock, sub_index, holding_days=holding_days)
         entry_price = float(stock_hist["Close"].iloc[idx])

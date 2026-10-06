@@ -64,8 +64,7 @@ def _get_client():
     try:
         from fyers_apiv3 import fyersModel
     except ImportError:
-        msg = "Run: pip install fyers-apiv3"
-        raise ImportError(msg)
+        raise ImportError("Run: pip install fyers-apiv3")
 
     app_id = os.getenv("FYERS_APP_ID", "")
     access_token = os.getenv("FYERS_ACCESS_TOKEN", "")
@@ -73,7 +72,8 @@ def _get_client():
 
     token = f"{client_id}:{access_token}" if client_id else access_token
 
-    return fyersModel.FyersModel(client_id=app_id, is_async=False, token=token, log_path="")
+    fyers = fyersModel.FyersModel(client_id=app_id, is_async=False, token=token, log_path="")
+    return fyers
 
 
 def get_live_quote_fyers(symbol: str) -> dict:
@@ -105,7 +105,7 @@ def get_live_quote_fyers(symbol: str) -> dict:
             "source": "fyers",
         }
     except Exception as e:
-        logger.exception("Fyers quote error: %s", e)
+        logger.error("Fyers quote error: %s", e)
         return {"error": str(e)}
 
 
@@ -157,11 +157,13 @@ def get_candle_data_fyers(symbol: str, interval: str = "D", days: int = 30) -> d
         for c in response.get("candles", []):
             ts, o, h, low, close, vol = c
             dt = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
-            candles.append({"date": dt, "open": o, "high": h, "low": low, "close": close, "volume": vol})
+            candles.append(
+                {"date": dt, "open": o, "high": h, "low": low, "close": close, "volume": vol}
+            )
 
         return {"symbol": symbol.upper(), "interval": interval, "data": candles, "source": "fyers"}
     except Exception as e:
-        logger.exception("Fyers candle error: %s", e)
+        logger.error("Fyers candle error: %s", e)
         return {"error": str(e)}
 
 
