@@ -34,9 +34,9 @@ from os import environ, listdir, path
 from subprocess import PIPE, Popen
 from time import localtime, time
 
+import cryptoalgotrading.var as var
 import matplotlib as mpl
 from binance.client import Client as Binance
-from cryptoalgotrading import var
 from cryptoalgotrading.finance import bollinger_bands
 from cryptoalgotrading.lib_bittrex import Bittrex
 from influxdb import InfluxDBClient
@@ -62,7 +62,10 @@ import matplotlib.pylab as plt
 
 # Initiates log file.
 log.basicConfig(
-    filename=var.LOG_FILENAME, format="%(asctime)s - %(message)s", datefmt="%d/%m/%Y %H:%M:%S", level=log.INFO
+    filename=var.LOG_FILENAME,
+    format="%(asctime)s - %(message)s",
+    datefmt="%d/%m/%Y %H:%M:%S",
+    level=log.INFO,
 )
 
 
@@ -146,7 +149,11 @@ def get_markets_list(base="BTC", exchange=var.default_exchange):
         try:
             bt = Bittrex("", "")
             log.debug("Connected to Bittrex.")
-            ret = [i["MarketName"] for i in bt.get_markets()["result"] if i["MarketName"].startswith(base)]
+            ret = [
+                i["MarketName"]
+                for i in bt.get_markets()["result"]
+                if i["MarketName"].startswith(base)
+            ]
         except Exception as e:
             log.exception(f"Unable to connect to Bittrex - {e}")
 
@@ -182,7 +189,9 @@ def get_markets_on_files(interval, base="BTC"):
 
 
 # @dropnan
-def get_historical_data(market, interval=var.default_interval, init_date=0, end_date=0, exchange=var.default_exchange):
+def get_historical_data(
+    market, interval=var.default_interval, init_date=0, end_date=0, exchange=var.default_exchange
+):
     """
     Gets all historical data stored on DB, from a certain market.
 
@@ -212,26 +221,38 @@ def get_historical_data(market, interval=var.default_interval, init_date=0, end_
     if exchange == "bittrex":
         command = (
             "SELECT last(Last) AS Last,"
-            " last(BaseVolume) AS BaseVolume,"
-            " last(High) AS High,"
-            " last(Low) AS Low,"
-            " last(Ask) AS Ask,"
-            " last(Bid) AS Bid,"
-            " last(OpenBuyOrders) AS OpenBuy,"
-            " last(OpenSellOrders) AS OpenSell "
-            "FROM bittrex WHERE " + time + " AND MarketName='" + verified_market + "' GROUP BY time(" + interval + ")"
+            + " last(BaseVolume) AS BaseVolume,"
+            + " last(High) AS High,"
+            + " last(Low) AS Low,"
+            + " last(Ask) AS Ask,"
+            + " last(Bid) AS Bid,"
+            + " last(OpenBuyOrders) AS OpenBuy,"
+            + " last(OpenSellOrders) AS OpenSell "
+            + "FROM bittrex WHERE "
+            + time
+            + " AND MarketName='"
+            + verified_market
+            + "' GROUP BY time("
+            + interval
+            + ")"
         )
 
     # Gets data from Binance exchange.
     elif exchange == "binance":
         command = (
             "SELECT last(Last) AS Last,"
-            " last(BaseVolume) AS BaseVolume,"
-            " last(High) AS High,"
-            " last(Low) AS Low,"
-            " last(Ask) AS Ask,"
-            " last(Bid) AS Bid "
-            "FROM binance WHERE " + time + " AND MarketName='" + verified_market + "' GROUP BY time(" + interval + ")"
+            + " last(BaseVolume) AS BaseVolume,"
+            + " last(High) AS High,"
+            + " last(Low) AS Low,"
+            + " last(Ask) AS Ask,"
+            + " last(Bid) AS Bid "
+            + "FROM binance WHERE "
+            + time
+            + " AND MarketName='"
+            + verified_market
+            + "' GROUP BY time("
+            + interval
+            + ")"
         )
 
     db_client = connect_db()
@@ -244,7 +265,9 @@ def get_historical_data(market, interval=var.default_interval, init_date=0, end_
     return detect_init(DataFrame(list(res.get_points(measurement=exchange))))
 
 
-def get_last_data(market, last="24", interval=var.default_interval, exchange=var.default_exchange, db_client=0):
+def get_last_data(
+    market, last="24", interval=var.default_interval, exchange=var.default_exchange, db_client=0
+):
     """
     Gets last data from DB.
 
@@ -264,7 +287,9 @@ def get_last_data(market, last="24", interval=var.default_interval, exchange=var
     # date and time format> 2018-02-02 00:00:00
     start_date = format(datetime.now() - timedelta(hours=last), "%Y-%m-%d %H:%M:%S")
 
-    return get_historical_data(market, interval=interval, init_date=start_date, end_date=end_date, exchange=exchange)
+    return get_historical_data(
+        market, interval=interval, init_date=start_date, end_date=end_date, exchange=exchange
+    )
 
 
 def detect_init(data):
@@ -276,7 +301,6 @@ def detect_init(data):
     for i in range(len(data)):
         if not isnan(data.Last.iloc[i]):
             return data[i : len(data)]
-    return None
 
 
 def plot_data(
@@ -301,11 +325,12 @@ def plot_data(
     # For when it's called outside backtest.
     if date is None:
         date = [0, 0]
-    if date != [0, 0]:
-        if len(data) != date[1] - date[0]:
-            data = data[date[0] : date[1]]
+    if date != [0, 0] and len(data) != date[1] - date[0]:
+        data = data[date[0] : date[1]]
 
-    f, (ax1, ax2, ax3) = plt.subplots(3, sharex="all", figsize=(9, 4), gridspec_kw={"height_ratios": [3, 1, 1]})
+    f, (ax1, ax2, ax3) = plt.subplots(
+        3, sharex="all", figsize=(9, 4), gridspec_kw={"height_ratios": [3, 1, 1]}
+    )
 
     ax1.grid(True)
     ax2.grid(True)
@@ -334,9 +359,18 @@ def plot_data(
             ax1.plot(x, data.Last.ewm(ema).mean())
 
     if entry_points:
-        ax1.plot(entry_points[0], entry_points[1], marker="o", linestyle="None", color="green", alpha=0.55)
+        ax1.plot(
+            entry_points[0],
+            entry_points[1],
+            marker="o",
+            linestyle="None",
+            color="green",
+            alpha=0.55,
+        )
     if exit_points:
-        ax1.plot(exit_points[0], exit_points[1], marker="o", linestyle="None", color="red", alpha=0.45)
+        ax1.plot(
+            exit_points[0], exit_points[1], marker="o", linestyle="None", color="red", alpha=0.45
+        )
     ax2.set_ylim((data.BaseVolume.min() - 1, data.BaseVolume.max() + 1))
     ax2.bar(x, data.BaseVolume.iloc[:], 1, color="black", alpha=0.55)
 
@@ -351,7 +385,7 @@ def plot_data(
     if to_file:
         if not name:
             name = "fig_test" + str(time())
-        f.savefig(f"{var.fig_dir}{name}-{time()!s}.pdf", bbox_inches="tight")
+        f.savefig(f"{var.fig_dir}{name}-{str(time())}.pdf", bbox_inches="tight")
         plt.close(f)
 
     return True
@@ -401,7 +435,11 @@ def get_histdata_to_file(
         log.debug(verified_market)
 
         data_ = get_historical_data(
-            verified_market, interval=interval, init_date=date_[0], end_date=date_[1], exchange=exchange
+            verified_market,
+            interval=interval,
+            init_date=date_[0],
+            end_date=date_[1],
+            exchange=exchange,
         )
 
         if not file_name:
@@ -415,7 +453,9 @@ def get_histdata_to_file(
         if filetype == "csv":
             data_.to_csv(f"{file_name}{filetype}")
         elif filetype == "hdf":
-            data_.to_hdf(f"{file_name}{filetype}", "data", mode="w", format="f", complevel=9, complib="bzip2")
+            data_.to_hdf(
+                f"{file_name}{filetype}", "data", mode="w", format="f", complevel=9, complib="bzip2"
+            )
         # TEST
         del data_
         log.info(f"{file_name}{filetype} downloaded.")
@@ -426,7 +466,9 @@ def get_histdata_to_file(
 # Use it if you got too much NaN in your data.
 # Will make your func slower!
 @dropnan
-def get_data_from_file(market, interval=var.default_interval, exchange=var.default_exchange, filetype="csv"):
+def get_data_from_file(
+    market, interval=var.default_interval, exchange=var.default_exchange, filetype="csv"
+):
     """
     Gets data from file.
 
@@ -448,9 +490,10 @@ def get_data_from_file(market, interval=var.default_interval, exchange=var.defau
 
     if filetype == "csv":
         return read_csv(filename_, sep=",", engine="c", index_col=0)  # Optimized.
-    if filetype == "hdf":
+    elif filetype == "hdf":
         return read_hdf(filename_, "data")
-    return 0
+    else:
+        return 0
 
 
 def check_market_name(market, exchange=var.default_exchange):
@@ -464,9 +507,8 @@ def check_market_name(market, exchange=var.default_exchange):
             return market
         return "BTC-" + market
 
-    if exchange == "binance":
+    elif exchange == "binance":
         return market
-    return None
 
 
 def time_to_index(data, _datetime):
@@ -502,7 +544,16 @@ def time_to_index(data, _datetime):
         t_hour, t_minute = t_time.split(":")
 
         dtime.append(
-            str(t_year) + "-" + str(t_month) + "-" + str(t_day) + "T" + str(t_hour) + ":" + str(t_minute) + ":00Z"
+            str(t_year)
+            + "-"
+            + str(t_month)
+            + "-"
+            + str(t_day)
+            + "T"
+            + str(t_hour)
+            + ":"
+            + str(t_minute)
+            + ":00Z"
         )
 
     try:
@@ -552,10 +603,7 @@ def trailing_stop_loss(last, higher, percentage=var.trailing_loss_prcnt):
     Returns true when triggered.
     """
 
-    if last <= higher * (1 - (percentage * 0.01)):
-        return True
-
-    return False
+    return last <= higher * (1 - percentage * 0.01)
 
 
 def stop_loss(last, entry_point_x, percentage=var.stop_loss_prcnt):
@@ -569,10 +617,7 @@ def stop_loss(last, entry_point_x, percentage=var.stop_loss_prcnt):
     Returns true when triggered.
     """
 
-    if last <= entry_point_x * (1 - (percentage * 0.01)):
-        return True
-
-    return False
+    return last <= entry_point_x * (1 - percentage * 0.01)
 
 
 def num_processors(level="medium"):
@@ -593,7 +638,7 @@ def num_processors(level="medium"):
         n_threads = 1
     elif level == "high":
         n_threads = mp - 1
-    elif level in {"extreme", "max"}:
+    elif level == "extreme" or level == "max":
         n_threads = mp
     elif isinstance(level, int) and 0 < level <= mp:
         n_threads = level
@@ -612,7 +657,9 @@ def beep(duration=0.5):
     freq = 440  # Hz
 
     # Play need to be installed.
-    _, err = run_command(f"play --no-show-progress --null --channels 1 synth {duration} sine {freq}")
+    _, err = run_command(
+        f"play --no-show-progress --null --channels 1 synth {duration} sine {freq}"
+    )
 
     return err
 
@@ -625,11 +672,12 @@ def desktop_notification(content: dict):
 
     icon = ""
 
-    if var.desktop_cool_mode:
-        if content["type"] == "P&L":
-            icon = var.img_profit if content["profit"] > 0 else var.img_loss
+    if var.desktop_cool_mode and content["type"] == "P&L":
+        icon = var.img_profit if content["profit"] > 0 else var.img_loss
 
-    notification.notify(title=content["title"], message=content["message"], app_name="CAT", app_icon=icon)
+    notification.notify(
+        title=content["title"], message=content["message"], app_name="CAT", app_icon=icon
+    )
     return 0
 
 
@@ -681,7 +729,7 @@ def binance2btrx(_data):
     Converts Binance data structure into Bittrex model.
     """
 
-    return {
+    new_data = {
         "MarketName": str(_data["symbol"]),
         "Ask": float(_data["askPrice"]),
         "BaseVolume": float(_data["quoteVolume"]),
@@ -692,6 +740,8 @@ def binance2btrx(_data):
         "Volume": float(_data["volume"]),
         "Count": float(_data["count"]),
     }
+
+    return new_data
 
 
 def run_command(cmd):

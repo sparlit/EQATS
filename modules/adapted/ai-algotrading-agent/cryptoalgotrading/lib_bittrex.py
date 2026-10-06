@@ -49,7 +49,14 @@ BASE_URL = "https://bittrex.com/api/v1.1/%s/"
 
 MARKET_SET = {"getopenorders", "cancel", "sellmarket", "selllimit", "buymarket", "buylimit"}
 
-ACCOUNT_SET = {"getbalances", "getbalance", "getdepositaddress", "withdraw", "getorderhistory", "getorder"}
+ACCOUNT_SET = {
+    "getbalances",
+    "getbalance",
+    "getdepositaddress",
+    "withdraw",
+    "getorderhistory",
+    "getorder",
+}
 
 
 class Bittrex:
@@ -90,7 +97,11 @@ class Bittrex:
 
         return requests.get(
             request_url,
-            headers={"apisign": hmac.new(self.api_secret.encode(), request_url.encode(), hashlib.sha512).hexdigest()},
+            headers={
+                "apisign": hmac.new(
+                    self.api_secret.encode(), request_url.encode(), hashlib.sha512
+                ).hexdigest()
+            },
         ).json()
 
     def get_markets(self):
@@ -150,7 +161,9 @@ class Bittrex:
         :return: Orderbook of market in JSON
         :rtype : dict
         """
-        return self.api_query("getorderbook", {"market": market, "type": depth_type, "depth": depth})
+        return self.api_query(
+            "getorderbook", {"market": market, "type": depth_type, "depth": depth}
+        )
 
     def get_market_history(self, market, count):
         """
@@ -303,7 +316,9 @@ class Bittrex:
         :return:
         :rtype : dict
         """
-        return self.api_query("withdraw", {"currency": currency, "quantity": quantity, "address": address})
+        return self.api_query(
+            "withdraw", {"currency": currency, "quantity": quantity, "address": address}
+        )
 
     def get_order_history(self, market, count):
         """
