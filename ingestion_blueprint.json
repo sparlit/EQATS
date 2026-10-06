@@ -1,5 +1,5 @@
 {
-  "current_index": 99,
+  "current_index": 100,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -797,7 +797,7 @@
       "name": "solana-copytrading-bot",
       "target": "cutupdev/solana-copytrading-bot",
       "url": "https://github.com/cutupdev/solana-copytrading-bot",
-      "status": "pending",
+      "status": "Skipped: Private/Non-Existent (404/403)",
       "pr_url": null,
       "merged": false
     },
