@@ -41,7 +41,7 @@ Total Repositories: 424 | Current Index: 39
 | 36 | aniruddhsujish/nsetradeagents | Completed | https://github.com/sparlit/EQATS/pull/2972 |
 | 37 | anjulgarg/sharewatch | Processed | https://github.com/sparlit/EQATS/pull/2973 |
 | 38 | ankitchaudhary6886/nse-system | Completed | https://github.com/sparlit/EQATS/pull/2974 |
-| 39 | ankitsny/nse_scrapper | Processed | None |
+| 39 | ankitsny/nse_scrapper | Processed | https://github.com/sparlit/EQATS/pull/2975 |
 | 40 | anshulk/nse | pending | None |
 | 41 | anshuthopsee/nse-oi-visualizer | pending | None |
 | 42 | anthdm/rust-trading-engine | pending | None |
