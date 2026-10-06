@@ -38,7 +38,6 @@ SCAN_WINDOWS_UTC (in settings.py) in the same commit — the CI guard fails
 until both agree.
 """
 
-from typing import List, Optional, Tuple
 
 from settings import SCAN_WINDOWS_UTC
 

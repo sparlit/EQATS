@@ -31,11 +31,8 @@ GitHub Actions egress IPs. Import-safe (no yfinance at import time).
 
 import random
 import time
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Optional, TypeVar
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from collections.abc import Callable
+from typing import TypeVar
 
 T = TypeVar("T")
 
@@ -84,10 +81,9 @@ def call_with_retry[T](
     Last attempt's exception is re-raised; last non-retryable result is returned.
     """
     if max_attempts < 1:
-        msg = "max_attempts must be >= 1"
-        raise ValueError(msg)
+        raise ValueError("max_attempts must be >= 1")
     if is_retryable is None:
-        is_retryable = is_rate_limit_error
+        is_retryable = lambda exc: is_rate_limit_error(exc)  # noqa: E731
 
     last_exc: BaseException | None = None
     last_result: T | None = None

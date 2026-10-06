@@ -57,7 +57,6 @@ import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -177,7 +176,10 @@ def gate_drawdown(pct_off_high) -> tuple[bool, str | None]:
     if pct_off_high is None or np.isnan(pct_off_high):
         return False, "pct_off_high_missing"
     if not (DRAWDOWN_LOWER_PCT <= pct_off_high <= DRAWDOWN_UPPER_PCT):
-        return False, f"pct_off_high {pct_off_high} outside [{DRAWDOWN_LOWER_PCT},{DRAWDOWN_UPPER_PCT}]"
+        return (
+            False,
+            f"pct_off_high {pct_off_high} outside [{DRAWDOWN_LOWER_PCT},{DRAWDOWN_UPPER_PCT}]",
+        )
     return True, None
 
 
@@ -225,7 +227,10 @@ def gate_liquidity_adequacy(
         if adv_value_inr is not None and adv_value_inr >= MIN_ADV_SECONDARY_FLOOR_INR:
             return True, None
         if adv_value_inr is None:
-            return False, "liquidity_missing (delivery path needs ADV secondary floor; ADV unavailable)"
+            return (
+                False,
+                "liquidity_missing (delivery path needs ADV secondary floor; ADV unavailable)",
+            )
         return (
             False,
             f"adv {int(adv_value_inr)} below secondary floor {int(MIN_ADV_SECONDARY_FLOOR_INR)} for delivery path",
@@ -264,7 +269,7 @@ def gate_holdings(
     we let the stock through with a flag. Useful when Screener is rate-
     limiting the scanner's IP (common on GitHub Actions runners).
     """
-    if holdings_status == "source_failed":
+    if holdings_status in ("source_failed",):
         if lenient:
             return True, None
         return False, "holdings_source_failed"
@@ -295,7 +300,9 @@ def gate_corporate_actions(ca_data: dict | None) -> tuple[bool, str | None]:
 # ---------------------------------------------------------------------------
 # Relative-strength adjustment
 # ---------------------------------------------------------------------------
-def relative_strength_factor(stock_pct_from_ema200: float | None, index_pct_from_ema200: float | None) -> float:
+def relative_strength_factor(
+    stock_pct_from_ema200: float | None, index_pct_from_ema200: float | None
+) -> float:
     """
     Returns a multiplier in {0.70, 0.85, 1.0, 1.05} applied to the swing_score.
     - If the index is also correcting heavily, the stock's drawdown is normal market
@@ -351,7 +358,9 @@ def evaluate_stock(
     time.sleep(sleep_between_calls)
 
     result.update({f"tech_{k}": v for k, v in tech.items() if k != "yf_ticker"})
-    result.update({f"fscore_{k}": v for k, v in fsc.items() if k not in ("yf_ticker", "f_score_detail")})
+    result.update(
+        {f"fscore_{k}": v for k, v in fsc.items() if k not in ("yf_ticker", "f_score_detail")}
+    )
     result.update({f"pe5y_{k}": v for k, v in pe5y.items() if k != "yf_ticker"})
 
     # External sources (Screener holdings — may be slow; should be pre-fetched
@@ -384,7 +393,9 @@ def evaluate_stock(
     result["delivery_source"] = deliv["source"]
 
     # Required-source failure
-    critical_source_failed = fsc.get("error") is not None or tech.get("error") is not None or fsc.get("f_score") is None
+    critical_source_failed = (
+        fsc.get("error") is not None or tech.get("error") is not None or fsc.get("f_score") is None
+    )
     if critical_source_failed:
         result["gate_pass"] = False
         result["gate_fail_reason"] = tech.get("error") or fsc.get("error") or "f_score_missing"
@@ -418,7 +429,9 @@ def evaluate_stock(
         fail_reasons.append(why)
 
     raw_adv = tech.get("adv_value_inr")
-    clamped_adv = min(raw_adv, ADV_HARD_CEILING_INR) if isinstance(raw_adv, (int, float)) else raw_adv
+    clamped_adv = (
+        min(raw_adv, ADV_HARD_CEILING_INR) if isinstance(raw_adv, (int, float)) else raw_adv
+    )
     ok, why = gate_liquidity_adequacy(
         clamped_adv,
         deliv["delivery_value_inr"],
@@ -447,17 +460,23 @@ def evaluate_stock(
         fail_reasons.append(why)
 
     ok, why = gate_surveillance(surv["is_restricted"], surv["source_status"])
-    gate_results.append({"gate": "surveillance", "passed": bool(ok), "reason": why if not ok else None})
+    gate_results.append(
+        {"gate": "surveillance", "passed": bool(ok), "reason": why if not ok else None}
+    )
     if not ok:
         fail_reasons.append(why)
 
     ok, why = gate_holdings(holdings_data, holdings_status, lenient=lenient_external_gates)
-    gate_results.append({"gate": "holdings_conviction", "passed": bool(ok), "reason": why if not ok else None})
+    gate_results.append(
+        {"gate": "holdings_conviction", "passed": bool(ok), "reason": why if not ok else None}
+    )
     if not ok:
         fail_reasons.append(why)
 
     ok, why = gate_corporate_actions(ca_data)
-    gate_results.append({"gate": "corporate_actions", "passed": bool(ok), "reason": why if not ok else None})
+    gate_results.append(
+        {"gate": "corporate_actions", "passed": bool(ok), "reason": why if not ok else None}
+    )
     if not ok:
         fail_reasons.append(why)
 
@@ -682,7 +701,9 @@ def run_scan(
                     elapsed = time.time() - start
                     rate = completed / elapsed if elapsed > 0 else 0
                     eta = (n - completed) / rate if rate > 0 else 0
-                    print(f"  {completed}/{n} stocks evaluated ({elapsed:.1f}s, {rate:.1f}/s, eta {eta:.0f}s)")
+                    print(
+                        f"  {completed}/{n} stocks evaluated ({elapsed:.1f}s, {rate:.1f}/s, eta {eta:.0f}s)"
+                    )
         except KeyboardInterrupt:
             print("\nInterrupted — cancelling remaining workers…")
             for f in futures:
@@ -707,7 +728,8 @@ def run_scan(
         lenient_external_gates=lenient_external_gates,
     )
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    return df
 
 
 def _row_price(row: dict):
@@ -893,7 +915,9 @@ def to_json_records(df: pd.DataFrame) -> list:
                 "volume_surge_factor": _json_safe(r.get("tech_volume_surge_factor")),
                 "adtv_value_inr_approx": _json_safe(r.get("tech_adtv_value_inr_approx")),
                 "f_score": _json_safe(r.get("fscore_f_score")),
-                "f_score_components_available": _json_safe(r.get("fscore_f_score_components_available")),
+                "f_score_components_available": _json_safe(
+                    r.get("fscore_f_score_components_available")
+                ),
                 "avg_pe_5y": _json_safe(r.get("pe5y_avg_pe_5y")),
                 "trailing_pe": _json_safe(r.get("pe5y_trailing_pe_check")),
                 # New fields
@@ -936,12 +960,18 @@ def to_json_records(df: pd.DataFrame) -> list:
                 "market_correction_factor": _json_safe(r.get("market_correction_factor")),
                 # Existing
                 "gate_pass": bool(r.get("gate_pass")) if r.get("gate_pass") is not None else False,
-                "gate_fail_reason": r.get("gate_fail_reason") if isinstance(r.get("gate_fail_reason"), str) else None,
+                "gate_fail_reason": r.get("gate_fail_reason")
+                if isinstance(r.get("gate_fail_reason"), str)
+                else None,
                 "gate_results": (
-                    _json_safe(r.get("gate_results")) if isinstance(r.get("gate_results"), list) else None
+                    _json_safe(r.get("gate_results"))
+                    if isinstance(r.get("gate_results"), list)
+                    else None
                 ),
                 "swing_score": _json_safe(r.get("swing_score")),
-                "sub_scores": _json_safe(r.get("sub_scores")) if isinstance(r.get("sub_scores"), dict) else None,
+                "sub_scores": _json_safe(r.get("sub_scores"))
+                if isinstance(r.get("sub_scores"), dict)
+                else None,
                 # 1.5.0 feedback loop: which weight regime produced this score.
                 "score_version": SCORE_VERSION,
                 # B3: earnings proximity (gate-passed names only)
@@ -1009,7 +1039,9 @@ def write_scan_output(df: pd.DataFrame, output_path: str) -> dict:
             "rsi_window": [RSI_LOWER, RSI_UPPER],
             "drawdown_window": [DRAWDOWN_LOWER_PCT, DRAWDOWN_UPPER_PCT],
         },
-        "stocks": sorted(records, key=lambda r: (r["swing_score"] is None, -(r["swing_score"] or 0))),
+        "stocks": sorted(
+            records, key=lambda r: (r["swing_score"] is None, -(r["swing_score"] or 0))
+        ),
     }
     # Belt-and-suspenders: sanitize the entire payload once more so any value
     # that slipped past to_json_records (e.g. raw float('inf') in a gate field
@@ -1034,10 +1066,16 @@ if __name__ == "__main__":
         "100 = Nifty 100 (fastest), 500 = Nifty 500 (full universe).",
     )
     parser.add_argument(
-        "--sample", type=int, default=None, help="Limit universe to first N stocks (after --top-n is applied)"
+        "--sample",
+        type=int,
+        default=None,
+        help="Limit universe to first N stocks (after --top-n is applied)",
     )
     parser.add_argument(
-        "--sleep", type=float, default=0.3, help="Seconds to sleep between yfinance calls (rate-limit courtesy)"
+        "--sleep",
+        type=float,
+        default=0.3,
+        help="Seconds to sleep between yfinance calls (rate-limit courtesy)",
     )
     parser.add_argument(
         "--workers",
@@ -1052,7 +1090,9 @@ if __name__ == "__main__":
         help="Path to write the JSON contract for the frontend",
     )
     parser.add_argument(
-        "--skip-holdings", action="store_true", help="Skip Screener holdings fetch (faster, drops holdings gate)"
+        "--skip-holdings",
+        action="store_true",
+        help="Skip Screener holdings fetch (faster, drops holdings gate)",
     )
     parser.add_argument(
         "--skip-corporate-actions",
@@ -1069,7 +1109,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(
-        f"Starting scan: top_n={args.top_n}, sample={args.sample or 'ALL'}, sleep={args.sleep}s, workers={args.workers}"
+        f"Starting scan: top_n={args.top_n}, sample={args.sample or 'ALL'}, "
+        f"sleep={args.sleep}s, workers={args.workers}"
     )
     start = time.time()
     df = run_scan(

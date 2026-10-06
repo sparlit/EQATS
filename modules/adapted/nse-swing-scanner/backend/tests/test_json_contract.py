@@ -24,13 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Tests for the JSON output contract writer."""
 import datetime
 import json
-import math
-import os
-import tempfile
 
 import numpy as np
 import pandas as pd
-import pytest
 from scanner import _json_safe, to_json_records, write_scan_output
 
 
@@ -75,7 +71,12 @@ def _make_df():
                 "surveillance_restriction_type": None,
                 "surveillance_source_status": "ok",
                 "surveillance_source": "nse",
-                "holdings_data": {"promoter_pct": 50.0, "fii_pct": 19.0, "dii_pct": 20.0, "conviction_pct": 89.0},
+                "holdings_data": {
+                    "promoter_pct": 50.0,
+                    "fii_pct": 19.0,
+                    "dii_pct": 20.0,
+                    "conviction_pct": 89.0,
+                },
                 "holdings_status": "ok",
                 "holdings_source": "screener.in",
                 "corporate_actions_data": {"has_excluded_action": False, "actions": []},
@@ -185,8 +186,7 @@ def test_to_json_records_gate_results_structure():
     actual_gates = {g["gate"] for g in r["gate_results"]}
     assert actual_gates == expected_gates
     for g in r["gate_results"]:
-        assert "passed" in g
-        assert isinstance(g["passed"], bool)
+        assert "passed" in g and isinstance(g["passed"], bool)
         assert "reason" in g  # may be None
     # All seven gates pass for this well-formed row.
     assert all(g["passed"] for g in r["gate_results"])
@@ -295,7 +295,10 @@ def test_to_json_records_handles_nan_and_inf_in_row():
     row["tech_volume_surge_factor"] = float("inf")
     row["tech_rsi14"] = -float("inf")
     row["fscore_f_score"] = float("nan")
-    row["sub_scores"] = {"valuation_compression": float("nan"), "oversold_positioning": float("inf")}
+    row["sub_scores"] = {
+        "valuation_compression": float("nan"),
+        "oversold_positioning": float("inf"),
+    }
     df = pd.DataFrame([row])
     records = to_json_records(df)
     # Must serialise cleanly with allow_nan=False

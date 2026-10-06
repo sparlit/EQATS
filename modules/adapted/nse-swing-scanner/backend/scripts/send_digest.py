@@ -54,7 +54,6 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from typing import Optional
 
 # Cap the message body to stay under Telegram's 4096-char limit with margin.
 MAX_MESSAGE_LEN = 3500
@@ -100,7 +99,9 @@ def build_message(latest_path: str, history_path: str | None) -> str | None:
 
     stocks = scan.get("stocks", [])
     passed = [s for s in stocks if s.get("gate_pass")]
-    top = sorted(passed, key=lambda s: (s.get("swing_score") is None, -(s.get("swing_score") or 0)))[:5]
+    top = sorted(
+        passed, key=lambda s: (s.get("swing_score") is None, -(s.get("swing_score") or 0))
+    )[:5]
 
     # Index regime: pick from first row that has it (universe-constant).
     idx_pct = None
@@ -124,7 +125,9 @@ def build_message(latest_path: str, history_path: str | None) -> str | None:
         pct = cov.get("pct")
         rl = cov.get("rate_limited") or 0
         pct_s = f"{pct * 100:.0f}%" if isinstance(pct, (int, float)) else "—"
-        lines.append(f"Coverage: *{priced}/{univ}* priced ({pct_s})" + (f", {rl} rate-limited" if rl else ""))
+        lines.append(
+            f"Coverage: *{priced}/{univ}* priced ({pct_s})" + (f", {rl} rate-limited" if rl else "")
+        )
     lines.append("")
 
     if top:
@@ -136,7 +139,9 @@ def build_message(latest_path: str, history_path: str | None) -> str | None:
             px = _fmt_rupees(s.get("current_price"))
             t1 = _fmt_rupees(s.get("target_1"))
             stop = _fmt_rupees(s.get("stop_loss"))
-            lines.append(f"• `{sym}` score *{_safe(sc)}* · px {px} · RSI {_safe(rsi)} · T1 {t1} · stop {stop}")
+            lines.append(
+                f"• `{sym}` score *{_safe(sc)}* · px {px} · RSI {_safe(rsi)} · T1 {t1} · stop {stop}"
+            )
     else:
         lines.append("_No names passed the gates today._")
 
@@ -216,9 +221,10 @@ def main(argv=None) -> int:
     if ok:
         print(f"send_digest: sent ({len(message)} chars). {info}")
         return 0
-    # Always soft-fail — the scan is the load-bearing artifact.
-    print(f"::warning::send_digest: {info}")
-    return 0
+    else:
+        # Always soft-fail — the scan is the load-bearing artifact.
+        print(f"::warning::send_digest: {info}")
+        return 0
 
 
 if __name__ == "__main__":

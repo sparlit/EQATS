@@ -49,23 +49,21 @@ with a top-level `source_status` ("ok" | "fallback_used" | "source_failed")
 and a `provider_chain` list describing what was tried.
 """
 import io
-import json
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
 import yfinance as yf
 from cache import read_cache, write_cache
-from nse_client import NSE_ARCHIVES_BASE, nse_get
+from nse_client import NSE_ARCHIVES_BASE
 from settings import BHAVCOPY_CACHE_TTL_SECONDS
-from source_status import make_status, worst_status
+from source_status import make_status
 
 ARCHIVES_HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     ),
     "Accept": "text/csv,*/*",
     "Referer": "https://www.nseindia.com/",
@@ -98,7 +96,10 @@ BSE_PROVIDER = "bse:bhavcopy"
 
 def _bhavcopy_url_for(d: date) -> list[str]:
     d_str = d.strftime("%Y%m%d")
-    return [f"{NSE_ARCHIVES_BASE}/content/equities/" + fn.format(date=d_str) for fn in BHAVCOPY_FILENAMES]
+    return [
+        f"{NSE_ARCHIVES_BASE}/content/equities/" + fn.format(date=d_str)
+        for fn in BHAVCOPY_FILENAMES
+    ]
 
 
 def _bse_bhavcopy_url_for(d: date) -> list[str]:
@@ -106,7 +107,8 @@ def _bse_bhavcopy_url_for(d: date) -> list[str]:
     rotates; we try a small set on each lookback day."""
     d_str = d.strftime("%d%m%y")
     return [
-        "https://www.bseindia.com/download/BhavCopy/Equity/" + fn.format(date=d_str) for fn in BSE_BHAVCOPY_FILENAMES
+        "https://www.bseindia.com/download/BhavCopy/Equity/" + fn.format(date=d_str)
+        for fn in BSE_BHAVCOPY_FILENAMES
     ]
 
 
@@ -120,7 +122,7 @@ def _try_nse_archives(timeout: int, max_lookback_days: int) -> dict:
     Returns a source_status dict; status='ok' if any URL returned a parseable CSV."""
     today = date.today()
     last_err: str | None = None
-    for offset in range(max_lookback_days + 1):
+    for offset in range(0, max_lookback_days + 1):
         d = today - timedelta(days=offset)
         if d.weekday() >= 5:  # Sat/Sun — NSE doesn't publish bhavcopy
             continue
@@ -215,7 +217,10 @@ def _try_yfinance_traded_value(
     errors: list[str] = []
     workers = max(1, min(workers, len(yf_tickers)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(_yfinance_fetch_one, yf): sym for sym, yf in zip(symbols, yf_tickers, strict=False)}
+        futures = {
+            pool.submit(_yfinance_fetch_one, yf): sym
+            for sym, yf in zip(symbols, yf_tickers, strict=False)
+        }
         for fut in as_completed(futures):
             sym = futures[fut]
             try:
@@ -273,7 +278,7 @@ def _try_yfinance_traded_value(
 def _try_bse_archives(timeout: int, max_lookback_days: int) -> dict:
     today = date.today()
     last_err: str | None = None
-    for offset in range(max_lookback_days + 1):
+    for offset in range(0, max_lookback_days + 1):
         d = today - timedelta(days=offset)
         if d.weekday() >= 5:
             continue
@@ -412,12 +417,20 @@ def _parse_bhavcopy(df: pd.DataFrame) -> dict[str, dict]:
     NSE column names vary; we lowercase + strip + match.
     """
     df.columns = [str(c).strip().lower() for c in df.columns]
-    sym_col = next((c for c in ("symbol", "symbol_nse", "scrip", "scripcode") if c in df.columns), None)
+    sym_col = next(
+        (c for c in ("symbol", "symbol_nse", "scrip", "scripcode") if c in df.columns), None
+    )
     if sym_col is None:
         return {}
-    deliv_qty_col = next((c for c in ("delivqty", "delivery_qty", "del_qty") if c in df.columns), None)
-    deliv_val_col = next((c for c in ("delivval", "delivery_value", "del_val") if c in df.columns), None)
-    deliv_pct_col = next((c for c in ("deliv_per", "delivery_pct", "del_pct") if c in df.columns), None)
+    deliv_qty_col = next(
+        (c for c in ("delivqty", "delivery_qty", "del_qty") if c in df.columns), None
+    )
+    deliv_val_col = next(
+        (c for c in ("delivval", "delivery_value", "del_val") if c in df.columns), None
+    )
+    deliv_pct_col = next(
+        (c for c in ("deliv_per", "delivery_pct", "del_pct") if c in df.columns), None
+    )
     close_col = next((c for c in ("close", "close_price", "last") if c in df.columns), None)
     out: dict[str, dict] = {}
     for _, row in df.iterrows():

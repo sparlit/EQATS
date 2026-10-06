@@ -34,14 +34,15 @@ HTML rather than JSON/CSV, callers should fall back to a documented secondary
 source and report `fallback_used` source-status, not fail silently.
 """
 
+
 import contextlib
-from typing import Optional
 
 import requests
 
 DEFAULT_HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     ),
     "Accept": "application/json,text/csv,text/plain,*/*",
     "Accept-Language": "en-US,en;q=0.9",

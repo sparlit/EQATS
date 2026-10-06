@@ -40,7 +40,6 @@ without holdings data rather than silently pass them.
 
 import re
 import time
-from typing import Dict, List, Optional
 
 import requests
 from bs4 import BeautifulSoup
@@ -59,7 +58,9 @@ SCREENER_HEADERS = {
 }
 
 
-def _scrape_screener(symbol: str, consolidated: bool = True, timeout: int = 15) -> BeautifulSoup | None:
+def _scrape_screener(
+    symbol: str, consolidated: bool = True, timeout: int = 15
+) -> BeautifulSoup | None:
     if consolidated:
         url = f"https://www.screener.in/company/{symbol.upper()}/consolidated/"
     else:
@@ -135,7 +136,7 @@ def _parse_shareholding_table(soup: BeautifulSoup) -> dict[str, dict] | None:
                 "latest_pct": val,
                 "prev_pct": prev_val,
             }
-    return result or None
+    return result if result else None
 
 
 def _best_pct(parsed: dict[str, dict], key_match: str) -> float | None:

@@ -32,27 +32,28 @@ BACKEND_DIR = os.path.abspath(os.path.join(HERE, ".."))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-import pytest
 import yf_retry  # noqa: E402
 from cache import cached_call, read_cache  # noqa: E402
 
 
 class TestRateLimitDetection(unittest.TestCase):
     def test_markers(self):
-        assert yf_retry.is_rate_limit_error("Too Many Requests. Rate limited.")
-        assert yf_retry.is_rate_limit_error(Exception("HTTP 429"))
-        assert not yf_retry.is_rate_limit_error("insufficient_history")
-        assert yf_retry.is_rate_limit_payload(
-            {"error": "fetch_failed: Too Many Requests. Rate limited.", "f_score": None}
+        self.assertTrue(yf_retry.is_rate_limit_error("Too Many Requests. Rate limited."))
+        self.assertTrue(yf_retry.is_rate_limit_error(Exception("HTTP 429")))
+        self.assertFalse(yf_retry.is_rate_limit_error("insufficient_history"))
+        self.assertTrue(
+            yf_retry.is_rate_limit_payload(
+                {"error": "fetch_failed: Too Many Requests. Rate limited.", "f_score": None}
+            )
         )
-        assert not yf_retry.is_rate_limit_payload({"error": None})
-        assert not yf_retry.should_cache_yf_payload({"error": "fetch_failed: rate limited"})
-        assert yf_retry.should_cache_yf_payload({"error": None, "rsi14": 30})
+        self.assertFalse(yf_retry.is_rate_limit_payload({"error": None}))
+        self.assertFalse(yf_retry.should_cache_yf_payload({"error": "fetch_failed: rate limited"}))
+        self.assertTrue(yf_retry.should_cache_yf_payload({"error": None, "rsi14": 30}))
 
 
 class TestCallWithRetry(unittest.TestCase):
     def test_succeeds_first_try(self):
-        assert yf_retry.call_with_retry(lambda: 42, max_attempts=3) == 42
+        self.assertEqual(yf_retry.call_with_retry(lambda: 42, max_attempts=3), 42)
 
     def test_retries_then_succeeds(self):
         calls = {"n": 0}
@@ -60,13 +61,14 @@ class TestCallWithRetry(unittest.TestCase):
         def flaky():
             calls["n"] += 1
             if calls["n"] < 3:
-                msg = "Too Many Requests. Rate limited."
-                raise RuntimeError(msg)
+                raise RuntimeError("Too Many Requests. Rate limited.")
             return "ok"
 
         with patch("yf_retry.time.sleep"):
-            assert yf_retry.call_with_retry(flaky, max_attempts=3, base_delay_s=0.01) == "ok"
-        assert calls["n"] == 3
+            self.assertEqual(
+                yf_retry.call_with_retry(flaky, max_attempts=3, base_delay_s=0.01), "ok"
+            )
+        self.assertEqual(calls["n"], 3)
 
     def test_retries_on_retryable_result(self):
         calls = {"n": 0}
@@ -84,23 +86,24 @@ class TestCallWithRetry(unittest.TestCase):
                 base_delay_s=0.01,
                 retryable_result=lambda d: not d,
             )
-        assert got == {"Close": 1}
+        self.assertEqual(got, {"Close": 1})
 
     def test_non_retryable_raises_immediately(self):
         calls = {"n": 0}
 
         def boom():
             calls["n"] += 1
-            msg = "hard fail"
-            raise ValueError(msg)
+            raise ValueError("hard fail")
 
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             yf_retry.call_with_retry(boom, max_attempts=3)
-        assert calls["n"] == 1
+        self.assertEqual(calls["n"], 1)
 
 
 class TestCachedCallShouldCache(unittest.TestCase):
-    def test_rate_limit_not_written(self):
+    def test_rate_limit_not_written(
+        self,
+    ):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,8 +117,8 @@ class TestCachedCallShouldCache(unittest.TestCase):
                     cache_dir=tmp,
                     should_cache=yf_retry.should_cache_yf_payload,
                 )
-                assert "Too Many" in result["error"]
-                assert read_cache("rl:test", cache_dir=tmp) is None
+                self.assertIn("Too Many", result["error"])
+                self.assertIsNone(read_cache("rl:test", cache_dir=tmp))
 
                 ok = cached_call(
                     "ok:test",
@@ -124,8 +127,8 @@ class TestCachedCallShouldCache(unittest.TestCase):
                     cache_dir=tmp,
                     should_cache=yf_retry.should_cache_yf_payload,
                 )
-                assert ok["v"] == 1
-                assert read_cache("ok:test", cache_dir=tmp)["v"] == 1
+                self.assertEqual(ok["v"], 1)
+                self.assertEqual(read_cache("ok:test", cache_dir=tmp)["v"], 1)
             finally:
                 if old is not None:
                     os.environ["NSE_SWING_NO_CACHE"] = old
@@ -143,7 +146,10 @@ class TestCachedCallShouldCache(unittest.TestCase):
             try:
                 write_cache(
                     "tech:poison",
-                    {"error": "fetch_failed: Too Many Requests. Rate limited.", "yf_ticker": "X.NS"},
+                    {
+                        "error": "fetch_failed: Too Many Requests. Rate limited.",
+                        "yf_ticker": "X.NS",
+                    },
                     cache_dir=tmp,
                 )
                 calls = {"n": 0}
@@ -159,10 +165,10 @@ class TestCachedCallShouldCache(unittest.TestCase):
                     cache_dir=tmp,
                     should_cache=yf_retry.should_cache_yf_payload,
                 )
-                assert got["current_price"] == 100.0
-                assert calls["n"] == 1
+                self.assertEqual(got["current_price"], 100.0)
+                self.assertEqual(calls["n"], 1)
                 # Poison file deleted; good result written
-                assert read_cache("tech:poison", cache_dir=tmp)["current_price"] == 100.0
+                self.assertEqual(read_cache("tech:poison", cache_dir=tmp)["current_price"], 100.0)
             finally:
                 if old is not None:
                     os.environ["NSE_SWING_NO_CACHE"] = old

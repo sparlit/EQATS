@@ -46,13 +46,13 @@ class TestDiscover(unittest.TestCase):
             "snapshot_writer.py",
             "watchdog_check.py",
         ):
-            assert required in names
-        assert "check_workflow_scripts.py" not in names
+            self.assertIn(required, names)
+        self.assertNotIn("check_workflow_scripts.py", names)
 
 
 class TestGuardMain(unittest.TestCase):
     def test_main_exits_zero(self):
-        assert check_workflow_scripts.main() == 0
+        self.assertEqual(check_workflow_scripts.main(), 0)
 
     def test_subprocess_matches_ci_invocation(self):
         """Same command line as ci.yml (cwd=backend, no PYTHONPATH)."""
@@ -65,7 +65,7 @@ class TestGuardMain(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        assert proc.returncode == 0, proc.stdout + proc.stderr
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
 
 if __name__ == "__main__":

@@ -109,7 +109,9 @@ def _compute_fscore_impl(yf_ticker: str) -> dict:
     net_income_1 = _safe_get(fin, ["Net Income", "Net Income Common Stockholders"], y1)
     total_assets_0 = _safe_get(bs, ["Total Assets"], y0)
     total_assets_1 = _safe_get(bs, ["Total Assets"], y1)
-    op_cashflow_0 = _safe_get(cf, ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"], y0)
+    op_cashflow_0 = _safe_get(
+        cf, ["Operating Cash Flow", "Cash Flow From Continuing Operating Activities"], y0
+    )
     lt_debt_0 = _safe_get(bs, ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"], y0)
     lt_debt_1 = _safe_get(bs, ["Long Term Debt", "Long Term Debt And Capital Lease Obligation"], y1)
     curr_assets_0 = _safe_get(bs, ["Current Assets"], y0)
@@ -145,16 +147,24 @@ def _compute_fscore_impl(yf_ticker: str) -> dict:
         "positive_op_cashflow": pt(op_cashflow_0 > 0 if pd.notna(op_cashflow_0) else None),
         "roa_improving": pt(roa_0 > roa_1 if (pd.notna(roa_0) and pd.notna(roa_1)) else None),
         "cashflow_quality": pt(
-            op_cashflow_0 > net_income_0 if (pd.notna(op_cashflow_0) and pd.notna(net_income_0)) else None
+            op_cashflow_0 > net_income_0
+            if (pd.notna(op_cashflow_0) and pd.notna(net_income_0))
+            else None
         ),
         "leverage_decreasing": pt(lev_0 < lev_1 if (pd.notna(lev_0) and pd.notna(lev_1)) else None),
         "current_ratio_improving": pt(
-            curr_ratio_0 > curr_ratio_1 if (pd.notna(curr_ratio_0) and pd.notna(curr_ratio_1)) else None
+            curr_ratio_0 > curr_ratio_1
+            if (pd.notna(curr_ratio_0) and pd.notna(curr_ratio_1))
+            else None
         ),
-        "no_dilution": pt(shares_0 <= shares_1 * 1.01 if (pd.notna(shares_0) and pd.notna(shares_1)) else None),
+        "no_dilution": pt(
+            shares_0 <= shares_1 * 1.01 if (pd.notna(shares_0) and pd.notna(shares_1)) else None
+        ),
         "gross_margin_improving": pt(gm_0 > gm_1 if (pd.notna(gm_0) and pd.notna(gm_1)) else None),
         "asset_turnover_improving": pt(
-            asset_turn_0 > asset_turn_1 if (pd.notna(asset_turn_0) and pd.notna(asset_turn_1)) else None
+            asset_turn_0 > asset_turn_1
+            if (pd.notna(asset_turn_0) and pd.notna(asset_turn_1))
+            else None
         ),
     }
 
