@@ -31,7 +31,9 @@ sys.path.append(root + "/python")
 
 import ccxt  # noqa: E402
 
-exchange = ccxt.kucoin({"apiKey": "YOUR_API_KEY", "secret": "YOUR_SECRET", "password": "YOUR_PASSWORD"})
+exchange = ccxt.kucoin(
+    {"apiKey": "YOUR_API_KEY", "secret": "YOUR_SECRET", "password": "YOUR_PASSWORD"}
+)
 
 symbol = "ETH/USDT"
 now = exchange.milliseconds()

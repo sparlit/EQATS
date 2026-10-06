@@ -76,21 +76,33 @@ class ImplicitAPI:
     private_get_trade_account_trading_history = privateGetTradeAccountTradingHistory = Entry[_Dict](
         "trade/account/trading_history", "private", "GET", {"cost": 1}
     )
-    private_get_trade_account_settlements_history = privateGetTradeAccountSettlementsHistory = Entry[_Dict](
-        "trade/account/settlements_history", "private", "GET", {"cost": 1}
+    private_get_trade_account_settlements_history = privateGetTradeAccountSettlementsHistory = (
+        Entry[_Dict]("trade/account/settlements_history", "private", "GET", {"cost": 1})
     )
-    private_get_trade_orders = privateGetTradeOrders = Entry[_List]("trade/orders", "private", "GET", {"cost": 1})
-    private_get_trade_order = privateGetTradeOrder = Entry[_Dict]("trade/order", "private", "GET", {"cost": 1})
+    private_get_trade_orders = privateGetTradeOrders = Entry[_List](
+        "trade/orders", "private", "GET", {"cost": 1}
+    )
+    private_get_trade_order = privateGetTradeOrder = Entry[_Dict](
+        "trade/order", "private", "GET", {"cost": 1}
+    )
     private_get_trade_orders_history = privateGetTradeOrdersHistory = Entry[_Dict](
         "trade/orders/history", "private", "GET", {"cost": 1}
     )
-    private_put_trade_order = privatePutTradeOrder = Entry[_Dict]("trade/order", "private", "PUT", {"cost": 1})
-    private_delete_trade_order = privateDeleteTradeOrder = Entry[_Dict]("trade/order", "private", "DELETE", {"cost": 1})
+    private_put_trade_order = privatePutTradeOrder = Entry[_Dict](
+        "trade/order", "private", "PUT", {"cost": 1}
+    )
+    private_delete_trade_order = privateDeleteTradeOrder = Entry[_Dict](
+        "trade/order", "private", "DELETE", {"cost": 1}
+    )
     private_delete_trade_orders = privateDeleteTradeOrders = Entry[_Dict](
         "trade/orders", "private", "DELETE", {"cost": 1}
     )
-    private_post_trade_order = privatePostTradeOrder = Entry[_Dict]("trade/order", "private", "POST", {"cost": 1})
-    private_post_trade_orders = privatePostTradeOrders = Entry[_Dict]("trade/orders", "private", "POST", {"cost": 1})
+    private_post_trade_order = privatePostTradeOrder = Entry[_Dict](
+        "trade/order", "private", "POST", {"cost": 1}
+    )
+    private_post_trade_orders = privatePostTradeOrders = Entry[_Dict](
+        "trade/orders", "private", "POST", {"cost": 1}
+    )
     private_post_capital_withdraw = privatePostCapitalWithdraw = Entry[_Dict](
         "capital/withdraw", "private", "POST", {"cost": 1}
     )

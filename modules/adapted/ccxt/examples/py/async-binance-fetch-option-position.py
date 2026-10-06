@@ -50,11 +50,12 @@ async def main():
     await exchange.load_markets()
     symbol = "ETH/USDT:USDT-221028-1700-C"
     try:
-        await exchange.fetch_position(symbol)
+        response = await exchange.fetch_position(symbol)
         # Implicit API:
         # response = await exchange.eapiPrivateGetPosition({
         #     # 'symbol': market_id,  # optional
         # })
+        pprint(response)
     except Exception as e:
         print("fetch_position() failed")
         print(e)

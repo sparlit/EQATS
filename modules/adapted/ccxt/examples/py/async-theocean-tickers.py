@@ -42,7 +42,9 @@ def get_active_symbols(exchange):
 
 
 def is_active_symbol(exchange, symbol):
-    return ("." not in symbol) and (("active" not in exchange.markets[symbol]) or (exchange.markets[symbol]["active"]))
+    return ("." not in symbol) and (
+        ("active" not in exchange.markets[symbol]) or (exchange.markets[symbol]["active"])
+    )
 
 
 async def fetch_ticker(exchange, symbol):

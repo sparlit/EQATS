@@ -23,17 +23,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import matplotlib.pyplot as plt
+import pandas as pd
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from .dtypes import BreadthIndicator, BreadthOption
 from .util import debounce, setup_xaxis
-
-if TYPE_CHECKING:
-    import pandas as pd
-    from matplotlib.axes import Axes
-    from matplotlib.figure import Figure
 
 BREADTH_INDICATORS = {
     "sma": BreadthIndicator(

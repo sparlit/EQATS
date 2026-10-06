@@ -40,12 +40,15 @@ print("CCXT Version:", ccxt.__version__)
 
 
 async def main():
-    exchange = ccxt.phemex({"apiKey": "YOUR_API_KEY", "secret": "YOUR_SECRET", "options": {"defaultType": "swap"}})
+    exchange = ccxt.phemex(
+        {"apiKey": "YOUR_API_KEY", "secret": "YOUR_SECRET", "options": {"defaultType": "swap"}}
+    )
     await exchange.load_markets()
     # exchange.verbose = True  # uncomment for debugging purposes if necessary
     usd_balance = await exchange.fetch_balance({"code": "USD"})
     btc_balance = await exchange.fetch_balance({"code": "BTC"})
-    exchange.deep_extend(usd_balance, btc_balance)
+    balance = exchange.deep_extend(usd_balance, btc_balance)
+    pprint(balance)
     await exchange.close()
 
 

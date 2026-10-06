@@ -28,37 +28,57 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    public_get_activate2fa = publicGetActivate2FA = Entry[_Dict]("Activate2FA", "public", "GET", {"cost": 1})
+    public_get_activate2fa = publicGetActivate2FA = Entry[_Dict](
+        "Activate2FA", "public", "GET", {"cost": 1}
+    )
     public_get_authenticate2fa = publicGetAuthenticate2FA = Entry[_Dict](
         "Authenticate2FA", "public", "GET", {"cost": 1}
     )
     public_get_authenticateuser = publicGetAuthenticateUser = Entry[_Dict](
         "AuthenticateUser", "public", "GET", {"cost": 1}
     )
-    public_get_enablexp2fa = publicGetEnableXP2FA = Entry[_Dict]("EnableXP2FA", "public", "GET", {"cost": 1})
-    public_get_getl2snapshot = publicGetGetL2Snapshot = Entry[_List]("GetL2Snapshot", "public", "GET", {"cost": 1})
-    public_get_getlevel1 = publicGetGetLevel1 = Entry[_Dict]("GetLevel1", "public", "GET", {"cost": 1})
-    public_get_getvalidate2farequiredendpoints = publicGetGetValidate2FARequiredEndpoints = Entry[_List](
-        "GetValidate2FARequiredEndpoints", "public", "GET", {"cost": 1}
+    public_get_enablexp2fa = publicGetEnableXP2FA = Entry[_Dict](
+        "EnableXP2FA", "public", "GET", {"cost": 1}
     )
+    public_get_getl2snapshot = publicGetGetL2Snapshot = Entry[_List](
+        "GetL2Snapshot", "public", "GET", {"cost": 1}
+    )
+    public_get_getlevel1 = publicGetGetLevel1 = Entry[_Dict](
+        "GetLevel1", "public", "GET", {"cost": 1}
+    )
+    public_get_getvalidate2farequiredendpoints = publicGetGetValidate2FARequiredEndpoints = Entry[
+        _List
+    ]("GetValidate2FARequiredEndpoints", "public", "GET", {"cost": 1})
     public_get_logout = publicGetLogOut = Entry[_Dict]("LogOut", "public", "GET", {"cost": 1})
     public_get_gettickerhistory = publicGetGetTickerHistory = Entry[_List](
         "GetTickerHistory", "public", "GET", {"cost": 1}
     )
-    public_get_getproduct = publicGetGetProduct = Entry[_Dict]("GetProduct", "public", "GET", {"cost": 1})
-    public_get_getproducts = publicGetGetProducts = Entry[_List]("GetProducts", "public", "GET", {"cost": 1})
-    public_get_getinstrument = publicGetGetInstrument = Entry[_Dict]("GetInstrument", "public", "GET", {"cost": 1})
-    public_get_getinstruments = publicGetGetInstruments = Entry[_List]("GetInstruments", "public", "GET", {"cost": 1})
+    public_get_getproduct = publicGetGetProduct = Entry[_Dict](
+        "GetProduct", "public", "GET", {"cost": 1}
+    )
+    public_get_getproducts = publicGetGetProducts = Entry[_List](
+        "GetProducts", "public", "GET", {"cost": 1}
+    )
+    public_get_getinstrument = publicGetGetInstrument = Entry[_Dict](
+        "GetInstrument", "public", "GET", {"cost": 1}
+    )
+    public_get_getinstruments = publicGetGetInstruments = Entry[_List](
+        "GetInstruments", "public", "GET", {"cost": 1}
+    )
     public_get_getearliestticktime = publicGetGetEarliestTickTime = Entry[_List](
         "GetEarliestTickTime", "public", "GET", {"cost": 1}
     )
     public_get_ping = publicGetPing = Entry[_Dict]("Ping", "public", "GET", {"cost": 1})
     public_get_assets = publicGetAssets = Entry[_List]("assets", "public", "GET", {"cost": 1})
-    public_get_orderbook = publicGetOrderbook = Entry[_Dict]("orderbook", "public", "GET", {"cost": 1})
+    public_get_orderbook = publicGetOrderbook = Entry[_Dict](
+        "orderbook", "public", "GET", {"cost": 1}
+    )
     public_get_ticker = publicGetTicker = Entry[_Dict]("ticker", "public", "GET", {"cost": 1})
     public_get_summary = publicGetSummary = Entry[_List]("summary", "public", "GET", {"cost": 1})
     public_get_trades = publicGetTrades = Entry[_List]("trades", "public", "GET", {"cost": 1})
-    public_get_getlasttrades = publicGetGetLastTrades = Entry[_List]("GetLastTrades", "public", "GET", {"cost": 1})
+    public_get_getlasttrades = publicGetGetLastTrades = Entry[_List](
+        "GetLastTrades", "public", "GET", {"cost": 1}
+    )
     public_get_confirmwithdraw = publicGetConfirmWithdraw = Entry[_Dict](
         "ConfirmWithdraw", "public", "GET", {"cost": 1}
     )
@@ -92,7 +112,9 @@ class ImplicitAPI:
     public_get_unsubscribetrades = publicGetUnsubscribeTrades = Entry[_Dict](
         "UnsubscribeTrades", "public", "GET", {"cost": 1}
     )
-    public_get_authenticate = publicGetAuthenticate = Entry[_Dict]("Authenticate", "public", "GET", {"cost": 1})
+    public_get_authenticate = publicGetAuthenticate = Entry[_Dict](
+        "Authenticate", "public", "GET", {"cost": 1}
+    )
     private_get_getuseraccountinfos = privateGetGetUserAccountInfos = Entry[_List](
         "GetUserAccountInfos", "private", "GET", {"cost": 1}
     )
@@ -105,21 +127,23 @@ class ImplicitAPI:
     private_get_getuseraffiliatetag = privateGetGetUserAffiliateTag = Entry[_List](
         "GetUserAffiliateTag", "private", "GET", {"cost": 1}
     )
-    private_get_getuserconfig = privateGetGetUserConfig = Entry[_List]("GetUserConfig", "private", "GET", {"cost": 1})
-    private_get_getallunredacteduserconfigsforuser = privateGetGetAllUnredactedUserConfigsForUser = Entry[_List](
-        "GetAllUnredactedUserConfigsForUser", "private", "GET", {"cost": 1}
+    private_get_getuserconfig = privateGetGetUserConfig = Entry[_List](
+        "GetUserConfig", "private", "GET", {"cost": 1}
     )
-    private_get_getunredacteduserconfigbykey = privateGetGetUnredactedUserConfigByKey = Entry[_List](
-        "GetUnredactedUserConfigByKey", "private", "GET", {"cost": 1}
-    )
+    private_get_getallunredacteduserconfigsforuser = (
+        privateGetGetAllUnredactedUserConfigsForUser
+    ) = Entry[_List]("GetAllUnredactedUserConfigsForUser", "private", "GET", {"cost": 1})
+    private_get_getunredacteduserconfigbykey = privateGetGetUnredactedUserConfigByKey = Entry[
+        _List
+    ]("GetUnredactedUserConfigByKey", "private", "GET", {"cost": 1})
     private_get_getuserdevices = privateGetGetUserDevices = Entry[_List](
         "GetUserDevices", "private", "GET", {"cost": 1}
     )
     private_get_getuserreporttickets = privateGetGetUserReportTickets = Entry[_List](
         "GetUserReportTickets", "private", "GET", {"cost": 1}
     )
-    private_get_getuserreportwriterresultrecords = privateGetGetUserReportWriterResultRecords = Entry[_List](
-        "GetUserReportWriterResultRecords", "private", "GET", {"cost": 1}
+    private_get_getuserreportwriterresultrecords = privateGetGetUserReportWriterResultRecords = (
+        Entry[_List]("GetUserReportWriterResultRecords", "private", "GET", {"cost": 1})
     )
     private_get_getaccountinfo = privateGetGetAccountInfo = Entry[_Dict](
         "GetAccountInfo", "private", "GET", {"cost": 1}
@@ -130,9 +154,9 @@ class ImplicitAPI:
     private_get_getallaccountconfigs = privateGetGetAllAccountConfigs = Entry[_List](
         "GetAllAccountConfigs", "private", "GET", {"cost": 1}
     )
-    private_get_gettreasuryproductsforaccount = privateGetGetTreasuryProductsForAccount = Entry[_List](
-        "GetTreasuryProductsForAccount", "private", "GET", {"cost": 1}
-    )
+    private_get_gettreasuryproductsforaccount = privateGetGetTreasuryProductsForAccount = Entry[
+        _List
+    ]("GetTreasuryProductsForAccount", "private", "GET", {"cost": 1})
     private_get_getaccounttrades = privateGetGetAccountTrades = Entry[_List](
         "GetAccountTrades", "private", "GET", {"cost": 1}
     )
@@ -148,9 +172,15 @@ class ImplicitAPI:
     private_get_gettradeshistory = privateGetGetTradesHistory = Entry[_List](
         "GetTradesHistory", "private", "GET", {"cost": 1}
     )
-    private_get_getopenorders = privateGetGetOpenOrders = Entry[_List]("GetOpenOrders", "private", "GET", {"cost": 1})
-    private_get_getopenquotes = privateGetGetOpenQuotes = Entry[_Dict]("GetOpenQuotes", "private", "GET", {"cost": 1})
-    private_get_getorderfee = privateGetGetOrderFee = Entry[_Dict]("GetOrderFee", "private", "GET", {"cost": 1})
+    private_get_getopenorders = privateGetGetOpenOrders = Entry[_List](
+        "GetOpenOrders", "private", "GET", {"cost": 1}
+    )
+    private_get_getopenquotes = privateGetGetOpenQuotes = Entry[_Dict](
+        "GetOpenQuotes", "private", "GET", {"cost": 1}
+    )
+    private_get_getorderfee = privateGetGetOrderFee = Entry[_Dict](
+        "GetOrderFee", "private", "GET", {"cost": 1}
+    )
     private_get_getorderhistory = privateGetGetOrderHistory = Entry[_List](
         "GetOrderHistory", "private", "GET", {"cost": 1}
     )
@@ -163,22 +193,24 @@ class ImplicitAPI:
     private_get_getomsfeetiers = privateGetGetOmsFeeTiers = Entry[_List](
         "GetOmsFeeTiers", "private", "GET", {"cost": 1}
     )
-    private_get_getaccountdeposittransactions = privateGetGetAccountDepositTransactions = Entry[_List](
-        "GetAccountDepositTransactions", "private", "GET", {"cost": 1}
-    )
-    private_get_getaccountwithdrawtransactions = privateGetGetAccountWithdrawTransactions = Entry[_List](
-        "GetAccountWithdrawTransactions", "private", "GET", {"cost": 1}
-    )
-    private_get_getalldepositrequestinfotemplates = privateGetGetAllDepositRequestInfoTemplates = Entry[_List](
-        "GetAllDepositRequestInfoTemplates", "private", "GET", {"cost": 1}
+    private_get_getaccountdeposittransactions = privateGetGetAccountDepositTransactions = Entry[
+        _List
+    ]("GetAccountDepositTransactions", "private", "GET", {"cost": 1})
+    private_get_getaccountwithdrawtransactions = privateGetGetAccountWithdrawTransactions = Entry[
+        _List
+    ]("GetAccountWithdrawTransactions", "private", "GET", {"cost": 1})
+    private_get_getalldepositrequestinfotemplates = privateGetGetAllDepositRequestInfoTemplates = (
+        Entry[_List]("GetAllDepositRequestInfoTemplates", "private", "GET", {"cost": 1})
     )
     private_get_getdepositinfo = privateGetGetDepositInfo = Entry[_Dict](
         "GetDepositInfo", "private", "GET", {"cost": 1}
     )
-    private_get_getdepositrequestinfotemplate = privateGetGetDepositRequestInfoTemplate = Entry[_Dict](
-        "GetDepositRequestInfoTemplate", "private", "GET", {"cost": 1}
+    private_get_getdepositrequestinfotemplate = privateGetGetDepositRequestInfoTemplate = Entry[
+        _Dict
+    ]("GetDepositRequestInfoTemplate", "private", "GET", {"cost": 1})
+    private_get_getdeposits = privateGetGetDeposits = Entry[_List](
+        "GetDeposits", "private", "GET", {"cost": 1}
     )
-    private_get_getdeposits = privateGetGetDeposits = Entry[_List]("GetDeposits", "private", "GET", {"cost": 1})
     private_get_getdepositticket = privateGetGetDepositTicket = Entry[_Dict](
         "GetDepositTicket", "private", "GET", {"cost": 1}
     )
@@ -191,7 +223,9 @@ class ImplicitAPI:
     private_get_getwithdrawfee = privateGetGetWithdrawFee = Entry[_Dict](
         "GetWithdrawFee", "private", "GET", {"cost": 1}
     )
-    private_get_getwithdraws = privateGetGetWithdraws = Entry[_List]("GetWithdraws", "private", "GET", {"cost": 1})
+    private_get_getwithdraws = privateGetGetWithdraws = Entry[_List](
+        "GetWithdraws", "private", "GET", {"cost": 1}
+    )
     private_get_getwithdrawtemplate = privateGetGetWithdrawTemplate = Entry[_Dict](
         "GetWithdrawTemplate", "private", "GET", {"cost": 1}
     )
@@ -216,9 +250,9 @@ class ImplicitAPI:
     private_post_adddepositticketattachment = privatePostAddDepositTicketAttachment = Entry[_Dict](
         "AddDepositTicketAttachment", "private", "POST", {"cost": 1}
     )
-    private_post_addwithdrawticketattachment = privatePostAddWithdrawTicketAttachment = Entry[_Dict](
-        "AddWithdrawTicketAttachment", "private", "POST", {"cost": 1}
-    )
+    private_post_addwithdrawticketattachment = privatePostAddWithdrawTicketAttachment = Entry[
+        _Dict
+    ]("AddWithdrawTicketAttachment", "private", "POST", {"cost": 1})
     private_post_canceluserreport = privatePostCancelUserReport = Entry[_Dict](
         "CancelUserReport", "private", "POST", {"cost": 1}
     )
@@ -231,39 +265,51 @@ class ImplicitAPI:
     private_post_updateuseraffiliatetag = privatePostUpdateUserAffiliateTag = Entry[_Dict](
         "UpdateUserAffiliateTag", "private", "POST", {"cost": 1}
     )
-    private_post_generatetradeactivityreport = privatePostGenerateTradeActivityReport = Entry[_Dict](
-        "GenerateTradeActivityReport", "private", "POST", {"cost": 1}
-    )
-    private_post_generatetransactionactivityreport = privatePostGenerateTransactionActivityReport = Entry[_Dict](
-        "GenerateTransactionActivityReport", "private", "POST", {"cost": 1}
-    )
-    private_post_generatetreasuryactivityreport = privatePostGenerateTreasuryActivityReport = Entry[_Dict](
-        "GenerateTreasuryActivityReport", "private", "POST", {"cost": 1}
-    )
-    private_post_scheduletradeactivityreport = privatePostScheduleTradeActivityReport = Entry[_Dict](
-        "ScheduleTradeActivityReport", "private", "POST", {"cost": 1}
-    )
-    private_post_scheduletransactionactivityreport = privatePostScheduleTransactionActivityReport = Entry[_Dict](
-        "ScheduleTransactionActivityReport", "private", "POST", {"cost": 1}
-    )
-    private_post_scheduletreasuryactivityreport = privatePostScheduleTreasuryActivityReport = Entry[_Dict](
-        "ScheduleTreasuryActivityReport", "private", "POST", {"cost": 1}
-    )
+    private_post_generatetradeactivityreport = privatePostGenerateTradeActivityReport = Entry[
+        _Dict
+    ]("GenerateTradeActivityReport", "private", "POST", {"cost": 1})
+    private_post_generatetransactionactivityreport = (
+        privatePostGenerateTransactionActivityReport
+    ) = Entry[_Dict]("GenerateTransactionActivityReport", "private", "POST", {"cost": 1})
+    private_post_generatetreasuryactivityreport = privatePostGenerateTreasuryActivityReport = Entry[
+        _Dict
+    ]("GenerateTreasuryActivityReport", "private", "POST", {"cost": 1})
+    private_post_scheduletradeactivityreport = privatePostScheduleTradeActivityReport = Entry[
+        _Dict
+    ]("ScheduleTradeActivityReport", "private", "POST", {"cost": 1})
+    private_post_scheduletransactionactivityreport = (
+        privatePostScheduleTransactionActivityReport
+    ) = Entry[_Dict]("ScheduleTransactionActivityReport", "private", "POST", {"cost": 1})
+    private_post_scheduletreasuryactivityreport = privatePostScheduleTreasuryActivityReport = Entry[
+        _Dict
+    ]("ScheduleTreasuryActivityReport", "private", "POST", {"cost": 1})
     private_post_cancelallorders = privatePostCancelAllOrders = Entry[_Dict](
         "CancelAllOrders", "private", "POST", {"cost": 1}
     )
-    private_post_cancelorder = privatePostCancelOrder = Entry[_Dict]("CancelOrder", "private", "POST", {"cost": 1})
-    private_post_cancelquote = privatePostCancelQuote = Entry[_Dict]("CancelQuote", "private", "POST", {"cost": 1})
+    private_post_cancelorder = privatePostCancelOrder = Entry[_Dict](
+        "CancelOrder", "private", "POST", {"cost": 1}
+    )
+    private_post_cancelquote = privatePostCancelQuote = Entry[_Dict](
+        "CancelQuote", "private", "POST", {"cost": 1}
+    )
     private_post_cancelreplaceorder = privatePostCancelReplaceOrder = Entry[_Dict](
         "CancelReplaceOrder", "private", "POST", {"cost": 1}
     )
-    private_post_createquote = privatePostCreateQuote = Entry[_Dict]("CreateQuote", "private", "POST", {"cost": 1})
-    private_post_modifyorder = privatePostModifyOrder = Entry[_Dict]("ModifyOrder", "private", "POST", {"cost": 1})
-    private_post_sendorder = privatePostSendOrder = Entry[_Dict]("SendOrder", "private", "POST", {"cost": 1})
+    private_post_createquote = privatePostCreateQuote = Entry[_Dict](
+        "CreateQuote", "private", "POST", {"cost": 1}
+    )
+    private_post_modifyorder = privatePostModifyOrder = Entry[_Dict](
+        "ModifyOrder", "private", "POST", {"cost": 1}
+    )
+    private_post_sendorder = privatePostSendOrder = Entry[_Dict](
+        "SendOrder", "private", "POST", {"cost": 1}
+    )
     private_post_submitblocktrade = privatePostSubmitBlockTrade = Entry[_Dict](
         "SubmitBlockTrade", "private", "POST", {"cost": 1}
     )
-    private_post_updatequote = privatePostUpdateQuote = Entry[_Dict]("UpdateQuote", "private", "POST", {"cost": 1})
+    private_post_updatequote = privatePostUpdateQuote = Entry[_Dict](
+        "UpdateQuote", "private", "POST", {"cost": 1}
+    )
     private_post_cancelwithdraw = privatePostCancelWithdraw = Entry[_Dict](
         "CancelWithdraw", "private", "POST", {"cost": 1}
     )
@@ -276,9 +322,9 @@ class ImplicitAPI:
     private_post_submitdepositticketcomment = privatePostSubmitDepositTicketComment = Entry[_Dict](
         "SubmitDepositTicketComment", "private", "POST", {"cost": 1}
     )
-    private_post_submitwithdrawticketcomment = privatePostSubmitWithdrawTicketComment = Entry[_Dict](
-        "SubmitWithdrawTicketComment", "private", "POST", {"cost": 1}
-    )
+    private_post_submitwithdrawticketcomment = privatePostSubmitWithdrawTicketComment = Entry[
+        _Dict
+    ]("SubmitWithdrawTicketComment", "private", "POST", {"cost": 1})
     private_post_getorderhistorybyorderid = privatePostGetOrderHistoryByOrderId = Entry[_List](
         "GetOrderHistoryByOrderId", "private", "POST", {"cost": 1}
     )

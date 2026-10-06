@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -85,10 +87,11 @@ def test_options_networks(exchange, skipped_properties):
         assert exchange.is_dictionary(exchange.options["networksById"]), (
             'exchange.options["networksById"] is not a dict'
         )
+        #
         network_codes = list(exchange.options["networks"].keys())
         # 3) ensure that the same network-id is not assigned to multiple networkCodes
         collected_network_ids = []
-        for i in range(len(network_codes)):
+        for i in range(0, len(network_codes)):
             network_code = network_codes[i]
             network_id = exchange.options["networks"][network_code]
             if not exchange.in_array(network_code, allowed_unified_aliases):
@@ -100,7 +103,7 @@ def test_options_networks(exchange, skipped_properties):
             collected_network_ids.append(network_id)
         # 4) ensure that there are no same networkCode with different case (uppercase/lowercase)
         collected_network_codes = []
-        for i in range(len(network_codes)):
+        for i in range(0, len(network_codes)):
             network_code_lower = (network_codes[i]).lower()
             assert not exchange.in_array(network_code_lower, collected_network_codes), (
                 'exchange.options["networks"] contains multiple networkCodes with the same networkCode "'
@@ -109,7 +112,7 @@ def test_options_networks(exchange, skipped_properties):
             )
             collected_network_codes.append(network_code_lower)
         # 5) test networkCodeToId & networkIdToCode
-        for i in range(len(network_codes)):
+        for i in range(0, len(network_codes)):
             network_code = network_codes[i]
             network_id = exchange.options["networks"][network_code]
             # check networkCodeToId

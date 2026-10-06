@@ -113,7 +113,9 @@ try:
         markets = exchange.load_markets()
 
         # output all symbols
-        dump(green(id), "has", len(exchange.symbols), "symbols:", yellow(", ".join(exchange.symbols)))
+        dump(
+            green(id), "has", len(exchange.symbols), "symbols:", yellow(", ".join(exchange.symbols))
+        )
 
         try:
             if len(sys.argv) > 2:  # if symbol is present, get that symbol only
@@ -137,7 +139,11 @@ try:
         except ccxt.RequestTimeout as e:
             print(type(e).__name__, e.args, "Request Timeout (ignoring)")
         except ccxt.ExchangeNotAvailable as e:
-            print(type(e).__name__, e.args, "Exchange Not Available due to downtime or maintenance (ignoring)")
+            print(
+                type(e).__name__,
+                e.args,
+                "Exchange Not Available due to downtime or maintenance (ignoring)",
+            )
         except ccxt.AuthenticationError as e:
             print(type(e).__name__, e.args, "Authentication Error (missing API keys, ignoring)")
     else:

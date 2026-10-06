@@ -25,10 +25,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 from datetime import date
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, TypedDict, cast
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
+from typing import Literal, TypedDict, cast
 
 
 class SymbolHistory(TypedDict):
@@ -116,11 +114,13 @@ class SymbolTracker:
                     if last["symbol"] == symbol:
                         last["to_date"] = dt
                     else:
-                        msg = f"Expected last entry for {isin} to be {symbol}: got {last['symbol']}"
-                        raise ValueError(msg)
+                        raise ValueError(
+                            f"Expected last entry for {isin} to be {symbol}: got {last['symbol']}"
+                        )
                 else:
-                    msg = f"Expected {self.data['sym2isin'][symbol]} for {symbol}: got {isin}"
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Expected {self.data['sym2isin'][symbol]} for {symbol}: got {isin}"
+                    )
 
             else:
                 self.data["sym2isin"][symbol] = isin
@@ -133,7 +133,9 @@ class SymbolTracker:
                     )
                 )
         else:
-            self.data["isin2hist"][isin] = [SymbolHistory(symbol=symbol, from_date=dt, to_date=dt, action=None)]
+            self.data["isin2hist"][isin] = [
+                SymbolHistory(symbol=symbol, from_date=dt, to_date=dt, action=None)
+            ]
             self.data["sym2isin"][symbol] = isin
 
     def get_last_symbol(self, key: str, by: Literal["isin", "symbol"]) -> str | None:
@@ -229,7 +231,7 @@ class SymbolTracker:
         result = json.loads(file.read_text())
 
         return cast(
-            "SymbolISINMap",
+            SymbolISINMap,
             {
                 "sym2isin": result["sym2isin"],
                 "isin2hist": {

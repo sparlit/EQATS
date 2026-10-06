@@ -25,7 +25,9 @@ import asyncio
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 from asyncio import gather, sleep
@@ -40,7 +42,7 @@ async def watch_ticker_loop(exchange):
             print("ticker received")
     except Exception as e:
         print(f"{e}")
-        raise
+        raise e
 
 
 async def watch_trades_for_symbols_loop(exchange):
@@ -48,8 +50,8 @@ async def watch_trades_for_symbols_loop(exchange):
         while True:
             await exchange.watch_trades_for_symbols(["BTC/USDT", "ETH/USDT", "LTC/USDT"])
             print("trades received")
-    except Exception:
-        raise
+    except Exception as e:
+        raise e
 
 
 async def close_after(exchange, ms):
@@ -67,7 +69,9 @@ async def test_ws_close():
     await exchange.close()
     print("PASSED - exchange closed with no errors")
     # --------------------------------------------
-    print("---- Testing exchange.close(): Open watch multiple, resolve, should close with no errors")
+    print(
+        "---- Testing exchange.close(): Open watch multiple, resolve, should close with no errors"
+    )
     await exchange.watch_trades_for_symbols(["BTC/USDT", "ETH/USDT", "LTC/USDT"])
     print("ticker received")
     await exchange.close()
@@ -76,25 +80,23 @@ async def test_ws_close():
     print("---- Testing exchange.close(): Awaiting future should throw ClosedByUser")
     try:
         await gather(close_after(exchange, 4), watch_ticker_loop(exchange))
-        msg = "Expected Future rejected with ClosedByUser"
-        raise AssertionError(msg)
+        raise AssertionError("Expected Future rejected with ClosedByUser")
     except asyncio.CancelledError:
         assert True
     except Exception as e:
         print(f"Unexpected exception: {e}")
-        raise AssertionError
+        raise AssertionError()
     await exchange.close()  # Added to ensure close finishes correctly
     # --------------------------------------------
     print("---- Testing exchange.close(): Call watch_multiple unhandled futures are canceled")
     try:
         await gather(close_after(exchange, 4), watch_trades_for_symbols_loop(exchange))
-        msg = "Expected ExchangeClosedByUser error"
-        raise AssertionError(msg)
+        raise AssertionError("Expected ExchangeClosedByUser error")
     except asyncio.CancelledError:
         assert True
     except Exception as e:
         print(f"Unexpected exception: {e}")
-        raise AssertionError
+        raise AssertionError()
     await exchange.close()
     # --------------------------------------------
     await test_cancelled_task_no_invalid_state(exchange)
@@ -159,18 +161,21 @@ async def test_unwatch_tickers_after_cancellation(exchange):
     Tests the specific case where un_watch_tickers() is called after cancelling tasks,
     which was causing InvalidStateError. This reproduces the user's reported issue, but for tickers.
     """
-    print("---- Testing un_watch_tickers() after task cancellation does not raise InvalidStateError")
+    print(
+        "---- Testing un_watch_tickers() after task cancellation does not raise InvalidStateError"
+    )
 
     async def watch_tickers_task(symbols):
         try:
             while True:
                 tickers = await exchange.watch_tickers(symbols)
-                print(f"[TICKERS] {symbols} received: {list(tickers.keys()) if hasattr(tickers, 'keys') else tickers}")
+                print(
+                    f"[TICKERS] {symbols} received: {list(tickers.keys()) if hasattr(tickers, 'keys') else tickers}"
+                )
         except asyncio.CancelledError:
             print(f"[CANCELLED] {symbols} tickers task cancelled")
         except Exception as e:
-            msg = f"[ERROR] {symbols} tickers: {e}"
-            raise AssertionError(msg)
+            raise AssertionError(f"[ERROR] {symbols} tickers: {e}")
 
     # Start both tasks for different symbols
     print("Starting BTC/USDT tickers watch...")
@@ -200,8 +205,7 @@ async def test_unwatch_tickers_after_cancellation(exchange):
         await exchange.un_watch_tickers()
         print("un_watch_tickers() completed successfully")
     except asyncio.InvalidStateError as e:
-        msg = f"InvalidStateError occurred: {e}"
-        raise AssertionError(msg)
+        raise AssertionError(f"InvalidStateError occurred: {e}")
     except Exception as e:
         print(f"Unexpected exception during un_watch_tickers(): {e}")
 
@@ -248,7 +252,9 @@ async def test_no_memory_leak():
         "AVAX/USDT",
     ]
 
-    print(f"Running concurrent watch operations for {duration_seconds} seconds across {len(symbols)} symbols...")
+    print(
+        f"Running concurrent watch operations for {duration_seconds} seconds across {len(symbols)} symbols..."
+    )
 
     loop = asyncio.get_running_loop()
     start_time = loop.time()
@@ -279,7 +285,9 @@ async def test_no_memory_leak():
             max_tasks_seen = max(max_tasks_seen, current_tasks)
             elapsed = loop.time() - start_time
             task_growth = current_tasks - initial_tasks
-            print(f"  [{elapsed:.1f}s] Tasks: {current_tasks} (growth: {task_growth}), Iterations: {iterations}")
+            print(
+                f"  [{elapsed:.1f}s] Tasks: {current_tasks} (growth: {task_growth}), Iterations: {iterations}"
+            )
 
     monitor_task = asyncio.create_task(monitor_tasks())
 
@@ -315,12 +323,11 @@ async def test_no_memory_leak():
     max_acceptable_growth = 40
 
     if max_growth > max_acceptable_growth:
-        msg = (
+        raise AssertionError(
             f"Memory leak detected! Max task growth was {max_growth} "
             f"(expected < {max_acceptable_growth}). "
             f"The old implementation creates tasks that accumulate under concurrent load."
         )
-        raise AssertionError(msg)
 
     print(f"PASSED - No memory leak detected (max growth: {max_growth} < {max_acceptable_growth})")
 

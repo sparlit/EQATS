@@ -26,27 +26,23 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """PlotCoordinator - central orchestrator for chart navigation and interaction."""
 
 
-import sys
 from enum import Enum, auto
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import matplotlib.pyplot as plt
+import pandas as pd
+from matplotlib.axes import Axes
+from matplotlib.backend_bases import KeyEvent, MouseEvent, PickEvent
+from matplotlib.figure import Figure
 from renderer.candle_render import CandlestickRenderer
 
+from .annotations import DrawingTool
 from .breadth_render import BREADTH_INDICATORS
+from .cli import PlotCommand
 from .dtypes import TF_MAP, Modifier, RenderContext
+from .navigation import NavigationList
 from .notify import Notify
 from .shortcuts import ShortcutHandler
-
-if TYPE_CHECKING:
-    import pandas as pd
-    from matplotlib.axes import Axes
-    from matplotlib.backend_bases import KeyEvent, MouseEvent, PickEvent
-    from matplotlib.figure import Figure
-
-    from .annotations import DrawingTool
-    from .cli import PlotCommand
-    from .navigation import NavigationList
 
 
 class Direction(Enum):
@@ -125,8 +121,7 @@ class PlotCoordinator:
         # Get preloaded data
         if self.is_stock_mode:
             if not self.indicator_pipeline:
-                msg = "IndicatorPipeline not set"
-                raise RuntimeError(msg)
+                raise RuntimeError("IndicatorPipeline not set")
 
             if self.drawing_manager and self.session_store and self.drawing_manager.updated:
                 drawings_data = self.drawing_manager.to_dict()
@@ -178,7 +173,7 @@ class PlotCoordinator:
                 self.plugin_runner.apply(df, plot_args, period)
 
             df = df[-period:]
-            df = cast("pd.DataFrame", df)
+            df = cast(pd.DataFrame, df)
 
             if self.drawing_tool:
                 self.drawing_tool.set_data(df)
@@ -201,7 +196,7 @@ class PlotCoordinator:
             plot_args["xlim"] = (-2, df.shape[0] + 15)
 
             if self.drawing_manager and self.session_store:
-                index = cast("pd.DatetimeIndex", df.index)
+                index = cast(pd.DatetimeIndex, df.index)
                 self.drawing_manager.set_index(index)
 
                 if not self.drawing_manager.drawings_loaded:
@@ -213,7 +208,7 @@ class PlotCoordinator:
             breadth_info = BREADTH_INDICATORS[symbol]
             df = df[breadth_info.columns]
 
-        df = cast("pd.DataFrame", df)
+        df = cast(pd.DataFrame, df)
         # Render with mplfinance
         fig, axs = self._renderer.render(df, plot_args, symbol)
 
@@ -264,7 +259,9 @@ class PlotCoordinator:
 
         self._events.append(self._fig.canvas.mpl_connect("key_press_event", self._on_key_press))
         self._events.append(self._fig.canvas.mpl_connect("key_release_event", self._on_key_release))
-        self._events.append(self._fig.canvas.mpl_connect("button_press_event", self._on_button_press))
+        self._events.append(
+            self._fig.canvas.mpl_connect("button_press_event", self._on_button_press)
+        )
         self._events.append(self._fig.canvas.mpl_connect("pick_event", self._on_pick))
 
     def _on_key_press(self, event: KeyEvent) -> None:
@@ -399,11 +396,12 @@ class PlotCoordinator:
                 self._show_current(Direction.REVERSE)
 
             return
-        if index > 0:
-            self._notify.add(
-                f"Cannot jump to {index}. Valid range 1 to {self.nav.length}",
-                level="error",
-            )
+        else:
+            if index > 0:
+                self._notify.add(
+                    f"Cannot jump to {index}. Valid range 1 to {self.nav.length}",
+                    level="error",
+                )
 
     def add_jump_status(self, status: str) -> None:
         if status:
@@ -460,7 +458,10 @@ class PlotCoordinator:
         else:
             self._selections.add(self._current_symbol)
             self._notify.add("✓ Added to selection")
-            print(f"Added to selection: {self._current_symbol.upper()} ({len(self._selections)} total)")
+            print(
+                f"Added to selection: {self._current_symbol.upper()} "
+                f"({len(self._selections)} total)"
+            )
 
     def draw_mode_enabled(self):
         return self.drawing_tool.is_active()
@@ -488,7 +489,7 @@ class PlotCoordinator:
                 self.session_store.save_watch_resume(watch_name, self.nav.current_index)
 
         self._close_all()
-        sys.exit(0)
+        exit(0)
 
     def _close_all(self) -> None:
         """Close all matplotlib figures."""

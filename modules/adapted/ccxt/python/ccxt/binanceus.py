@@ -155,18 +155,23 @@ class binanceus(binance, ImplicitAPI):
                             "trades": {"cost": 1},
                             "historicalTrades": {"cost": 5},
                             "aggTrades": {"cost": 1},
-                            "depth": {"cost": 1, "byLimit": [[100, 1], [500, 5], [1000, 10], [5000, 50]]},
+                            "depth": {
+                                "cost": 1,
+                                "byLimit": [[100, 1], [500, 5], [1000, 10], [5000, 50]],
+                            },
                             "klines": {"cost": 1},
                             "ticker/price": {"cost": 1, "noSymbol": 2},
                             "avgPrice": {"cost": 1},
                             "ticker/bookTicker": {"cost": 1, "noSymbol": 2},
                             "ticker/24hr": {"cost": 1, "noSymbol": 40},
                             "ticker": {"cost": 2, "noSymbol": 100},
+                            "ticker/tradingDay": {"cost": 4},
                         },
                     },
                     "private": {
                         "get": {
                             "account": {"cost": 10},
+                            "account/commission": {"cost": 20},
                             "rateLimit/order": {"cost": 20},
                             "order": {"cost": 2},
                             "openOrders": {"cost": 3, "noSymbol": 40},
@@ -174,6 +179,7 @@ class binanceus(binance, ImplicitAPI):
                             "myPreventedMatches": {
                                 "cost": 10
                             },  # with ID it has weight 1, but we don't have that complex handling yet
+                            "myFilters": {"cost": 40},
                             "allOrders": {"cost": 10},
                             "orderList": {"cost": 2},
                             "allOrderList": {"cost": 10},

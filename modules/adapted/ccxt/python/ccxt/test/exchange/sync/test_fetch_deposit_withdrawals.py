@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,18 +37,18 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_deposit_withdrawal,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_deposit_withdrawal  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_fetch_deposit_withdrawals(exchange, skipped_properties, code):
     method = "fetchTransactions"
     transactions = exchange.fetch_transactions(code)
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, transactions, code)
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, transactions, code
+    )
     now = exchange.milliseconds()
-    for i in range(len(transactions)):
+    for i in range(0, len(transactions)):
         test_deposit_withdrawal(exchange, skipped_properties, method, transactions[i], code, now)
     test_shared_methods.assert_timestamp_order(exchange, method, code, transactions)
     return True

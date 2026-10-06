@@ -31,7 +31,7 @@ from importlib.util import find_spec
 
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pprint import pprint
 
 # -----------------------------------------------------------------------------
@@ -102,6 +102,7 @@ async def main():
     print("CCXT Version:", ccxt.__version__)
     print(now + " iteration 0 passed in " + duration + " ms")
     print()
+    pprint(priceChanges)
 
 
 run(main())

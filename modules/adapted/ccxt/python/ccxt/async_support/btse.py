@@ -59,6 +59,8 @@ from ccxt.base.types import (
     MarginMode,
     Market,
     Num,
+    OpenInterest,
+    OpenInterests,
     Order,
     OrderBook,
     OrderSide,
@@ -83,7 +85,7 @@ class btse(Exchange, ImplicitAPI):
             {
                 "id": "btse",
                 "name": "BTSE",
-                "countries": ["VG"],  # Virgin Islands(British)
+                "countries": ["VG"],  # Virgin Islands (British)
                 "rateLimit": 1000 / 75,  # 75 requests per second
                 "version": "v3",  # spot v3.3 and v3.2, swap v.2.3
                 "certified": False,
@@ -252,7 +254,7 @@ class btse(Exchange, ImplicitAPI):
                     "ws": False,
                 },
                 "urls": {
-                    "logo": "https://github.com/user-attachments/assets/879ce771-6db1-4d8f-868a-77c9621635dc",  # TODO add logo
+                    "logo": "https://github.com/user-attachments/assets/879ce771-6db1-4d8f-868a-77c9621635dc",  # todo add logo
                     "api": {
                         "public": "https://api.btse.com",
                         "private": "https://api.btse.com",
@@ -275,7 +277,7 @@ class btse(Exchange, ImplicitAPI):
                             "spot/api/v3.3/orderbook": 5,  # not used
                             "spot/api/v3.3/orderbook/L2": 5,  # done
                             "spot/api/v3.3/trades": {"cost": 5},  # done
-                            "spot/api/v3.3/time": 5,  # done
+                            "spot/api/v3.3/time": {"cost": 5},  # done
                             "futures/api/v2.3/market_summary": {"cost": 5},  # done
                             "futures/api/v2.3/ohlcv": {"cost": 5},  # done
                             "futures/api/v2.3/price": 5,  # not used
@@ -335,12 +337,22 @@ class btse(Exchange, ImplicitAPI):
                             "spot/api/v4/trade/order": {"cost": 5},  # done
                             "spot/api/v4/trade/trade_history": 5,  # done, mixed response shapes, enveloped and bare
                             "spot/api/v4/trade/fees": {"cost": 5},  # done, bare array responses
-                            "futures/api/v3/trade/orders": {"cost": 5},  # done, bare array responses
+                            "futures/api/v3/trade/orders": {
+                                "cost": 5
+                            },  # done, bare array responses
                             "futures/api/v3/trade/risk_limit": 5,  # not used
-                            "futures/api/v3/trade/position_mode": {"cost": 5},  # done, bare array responses
-                            "futures/api/v3/trade/leverage": {"cost": 5},  # done, bare array responses
-                            "futures/api/v3/trade/trade_history": {"cost": 5},  # done, bare array responses
-                            "futures/api/v3/trade/positions": {"cost": 5},  # done, bare array responses
+                            "futures/api/v3/trade/position_mode": {
+                                "cost": 5
+                            },  # done, bare array responses
+                            "futures/api/v3/trade/leverage": {
+                                "cost": 5
+                            },  # done, bare array responses
+                            "futures/api/v3/trade/trade_history": {
+                                "cost": 5
+                            },  # done, bare array responses
+                            "futures/api/v3/trade/positions": {
+                                "cost": 5
+                            },  # done, bare array responses
                             "futures/api/v3/trade/margin_setting": 5,  # not used
                             "public-api/wallet/v1/assets": 15,  # not used
                             "public-api/wallet/v1/user/assets": {"cost": 15},  # done
@@ -579,16 +591,13 @@ class btse(Exchange, ImplicitAPI):
                 "exceptions": {
                     "exact": {
                         # 200 {"symbol":"ETH-PERP","timestamp":1770892916507,"status":135,"type":93,"message":"{\"msgKey\":\"trade.error.invalid.position_id\",\"params\":[\"ETH-PERP-USDT\"] ,\"default_msg\":\"User is in ISOLATE_HEDGE in market: ETH-PERP-USDT, but positionId is empty in the request.\"}"}
-                        # {"code":400,"msg":"BADREQUEST: startTime can not before than 1569888000000(2019-10-01T00:00)","time":1770828108074,"data":null,"success":false}
+                        # {"code":400,"msg":"BADREQUEST: startTime can not before than 1569888000000 (2019-10-01T00:00)","time":1770828108074,"data":null,"success":false}
                         # {"code":400,"msg":"BADREQUEST: resolution too small for the requested time range. Records returned exceeds 300","success":false,"time":1770452248292,"data":[]}
                         # when position mode is wrong {"status":429,"errorCode":-1,"message":"Order not found","extraData":["117","0"]}
                         # {"status":400,"errorCode":-2,"message":"Invalid request parameters","extraData":null}
                         # {"status":400,"errorCode":-2,"message":"Can't support count more than 500","extraData":null}
-                        # code -1 is ambiguous across the api surfaces, the official api status
-                        # enum defines it while the legacy error envelope uses it as a
-                        # generic failure whose message varies, observed live both not
-                        # found and as a plain Failed on a malformed request against an existing
-                        # order, so it is classified by message in the broad map instead
+                        # code -1 is ambiguous (TIMEOUT in the official status enum, generic failure with a
+                        # varying message in the legacy envelope), so it is classified by message in the broad map
                         "-2": BadRequest,  # INVALID_REQUEST {"status":400,"errorCode":-2,"message":"symbol parameter is mandatory","extraData":null}
                         "-7": AuthenticationError,  # {"status":400,"errorCode":-7,"message":"Authenticate failed","extraData":null}
                         "-7006": BadSymbol,  # {"status":400,"errorCode":-7006,"message":"Unsupported symbol","extraData":null} observed live for a full contract id sent to the unified futures api
@@ -627,7 +636,7 @@ class btse(Exchange, ImplicitAPI):
                         "51523": InsufficientFunds,  # {"code":51523,"msg":"BADREQUEST: Insufficient wallet balance","time":1770814875493,"data":null,"success":false}
                         "33001001": InvalidOrder,  # {"code":33001001,"msg":"BADREQUEST: The distance between Trigger Price and Limit Price cannot exceed 5.0 %","time":1770815167145,"data":["5.0 %"],"success":false}
                         "33001003": InvalidOrder,  # {"status":400,"errorCode":33001003,"message":"You can not SELL ETH lower than 1825.24 USDT","extraData":["SELL","ETH","lower","1825.24","USDT"]}
-                        "33199101": InsufficientFunds,  # {"status":400,"errorCode":33199101,"message":"Available balance is insufficient to meet self order.","extraData":["0.013553333"]}
+                        "33199101": InsufficientFunds,  # {"status":400,"errorCode":33199101,"message":"Available balance is insufficient to meet this order.","extraData":["0.013553333"]}
                         "33199120": InvalidOrder,  # {"status":400,"errorCode":33199120,"message":"Reduce only open order canceled because no active position exists","extraData":null}
                     },
                     "broad": {
@@ -673,7 +682,7 @@ class btse(Exchange, ImplicitAPI):
             },
         )
 
-    async def fetch_time(self, params=None) -> Int:
+    async def fetch_time(self, params: dict = None) -> Int:
         """
         fetches the current integer timestamp in milliseconds from the exchange server
 
@@ -693,7 +702,7 @@ class btse(Exchange, ImplicitAPI):
         #
         return self.safe_timestamp(response, "epoch")
 
-    async def fetch_markets(self, params=None) -> list[Market]:
+    async def fetch_markets(self, params: dict = None) -> list[Market]:
         """
         retrieves data on all markets for btse
 
@@ -704,7 +713,7 @@ class btse(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        if self.options["adjustForTimeDifference"] is True:
+        if self.safe_bool(self.options, "adjustForTimeDifference", False):
             await self.load_time_difference()
         response = await self.publicGetPublicApiMarketV1Markets(params)
         data = self.safe_dict(response, "data", {})
@@ -722,7 +731,7 @@ class btse(Exchange, ImplicitAPI):
         #         "baseCurrency": "BTC",
         #         "quoteCurrency": "USDT",
         #         "displayName": "Bitcoin",
-        #         "active": True,
+        #         "active": true,
         #         "minOrderPrice": "0.1",
         #         "minPriceIncrement": "0.1",
         #         "pricePrecision": 1,
@@ -741,7 +750,7 @@ class btse(Exchange, ImplicitAPI):
         #         "baseCurrency": "BTC",
         #         "quoteCurrency": "USDT",
         #         "displayName": "Bitcoin",
-        #         "active": True,
+        #         "active": true,
         #         "minOrderPrice": "0.1",
         #         "minPriceIncrement": "0.1",
         #         "pricePrecision": 1,
@@ -750,7 +759,7 @@ class btse(Exchange, ImplicitAPI):
         #         "minSizeIncrement": "1",
         #         "sizePrecision": 0,
         #         "contractSize": "0.00001",
-        #         "availableSettlement": ["USD", "USDT"]
+        #         "availableSettlement": [ "USD", "USDT" ]
         #     }
         #
         # future
@@ -762,7 +771,7 @@ class btse(Exchange, ImplicitAPI):
         #         "baseCurrency": "BTC",
         #         "quoteCurrency": "USDT",
         #         "displayName": "Bitcoin",
-        #         "active": True,
+        #         "active": true,
         #         "minOrderPrice": "0.1",
         #         "minPriceIncrement": "0.1",
         #         "pricePrecision": 1,
@@ -771,7 +780,7 @@ class btse(Exchange, ImplicitAPI):
         #         "minSizeIncrement": "1",
         #         "sizePrecision": 0,
         #         "contractSize": "0.00001",
-        #         "availableSettlement": ["USD", "USDT"],
+        #         "availableSettlement": [ "USD", "USDT" ],
         #         "contractStartTime": 1774569600000,
         #         "contractEndTime": 1790323230000,
         #         "matchingStartTime": 1774569615000,
@@ -787,6 +796,8 @@ class btse(Exchange, ImplicitAPI):
         quoteId = self.safe_string(market, "quoteCurrency")
         base = self.safe_currency_code(baseId)
         quote = self.safe_currency_code(quoteId)
+        if (base is None) or (quote is None):
+            return None
         symbol = base + "/" + quote
         maxAmountString = self.safe_string(market, "maxOrderSize")
         minAmountString = self.safe_string(market, "minOrderSize")
@@ -806,9 +817,9 @@ class btse(Exchange, ImplicitAPI):
                 type = "future"
             else:
                 type = "swap"
-        fees = self.safe_value(self.fees, "contract")
+        fees = self.safe_dict(self.fees, "contract", {})
         if isSpot:
-            fees = self.safe_value(self.fees, "spot")
+            fees = self.safe_dict(self.fees, "spot", {})
         return self.safe_market_structure(
             {
                 "id": id,
@@ -864,7 +875,12 @@ class btse(Exchange, ImplicitAPI):
         )
 
     async def fetch_ohlcv(
-        self, symbol: str, timeframe="1m", since: Int = None, limit: Int = None, params=None
+        self,
+        symbol: str,
+        timeframe: str = "1m",
+        since: Int = None,
+        limit: Int = None,
+        params: dict = None,
     ) -> list[list]:
         """
         fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
@@ -884,11 +900,12 @@ class btse(Exchange, ImplicitAPI):
             params = {}
         await self.load_markets()
         maxLimit = 300
-        paginate = False
-        paginate, params = self.handle_option_and_params(params, "fetchOHLCV", "paginate")
+        paginate, paramsPaginate = self.handle_option_bool_and_params(
+            params, "fetchOHLCV", "paginate", False
+        )
         if paginate:
             return self.fetch_paginated_call_deterministic(
-                "fetchOHLCV", symbol, since, limit, timeframe, params, maxLimit
+                "fetchOHLCV", symbol, since, limit, timeframe, paramsPaginate, maxLimit
             )
         market = self.market(symbol)
         interval = self.safe_string(self.timeframes, timeframe, timeframe)
@@ -904,8 +921,9 @@ class btse(Exchange, ImplicitAPI):
         if since is not None:
             # the endpoint accepts timestamps in seconds
             request["start"] = self.parse_to_int(since / 1000)
-        until = None
-        until, params = self.handle_option_and_params(params, "fetchOHLCV", "until")
+        until, paramsUntil = self.handle_option_integer_and_params(
+            paramsPaginate, "fetchOHLCV", "until"
+        )
         if until is not None:
             if since is not None:
                 # check if the requested time range is too large for one request
@@ -919,7 +937,7 @@ class btse(Exchange, ImplicitAPI):
                     request["end"] = self.parse_to_int(until / 1000)
             else:
                 request["end"] = self.parse_to_int(until / 1000)
-        response = await self.publicGetPublicApiMarketV1Klines(self.extend(request, params))
+        response = await self.publicGetPublicApiMarketV1Klines(self.extend(request, paramsUntil))
         #
         #     {
         #         "data": [
@@ -934,22 +952,23 @@ class btse(Exchange, ImplicitAPI):
         #         ],
         #         "code": 1,
         #         "msg": "Success",
-        #         "success": True,
+        #         "success": true,
         #         "time": 1786604274378
         #     }
         #
         data = self.safe_list(response, "data", [])
-        return self.parse_ohlcvs(data, market, timeframe, since, limit)
+        result = self.parse_ohlcvs(data, market, timeframe, since, limit)
+        return result
 
     def parse_ohlcv(self, ohlcv: object, market: Market = None) -> list:
         #
         #     [
-        #         "1786600800",  # timestamp in seconds
+        #         "1786600800", // timestamp in seconds
         #         "1895.78",
         #         "1898.52",
         #         "1892.05",
         #         "1898.3",
-        #         "560622.306372"  # volume in quote currency, contract rows may use scientific notation
+        #         "560622.306372" // volume in quote currency, contract rows may use scientific notation
         #     ]
         #
         return [
@@ -961,7 +980,9 @@ class btse(Exchange, ImplicitAPI):
             self.safe_number(ohlcv, 5),
         ]
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def fetch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -987,15 +1008,15 @@ class btse(Exchange, ImplicitAPI):
         #         "data": {
         #             "timestamp": 1786605670799,
         #             "bids": [
-        #                 ["1896.11", "0.015"]
+        #                 [ "1896.11", "0.015" ]
         #             ],
         #             "asks": [
-        #                 ["1896.74", "0.945"]
+        #                 [ "1896.74", "0.945" ]
         #             ]
         #         },
         #         "code": 1,
         #         "msg": "Success",
-        #         "success": True,
+        #         "success": true,
         #         "time": 1786605670833
         #     }
         #
@@ -1004,7 +1025,7 @@ class btse(Exchange, ImplicitAPI):
         return self.parse_order_book(data, market["symbol"], timestamp, "bids", "asks")
 
     async def fetch_funding_rate_history(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[FundingRateHistory]:
         """
         fetches historical funding rate prices
@@ -1022,13 +1043,18 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         if symbol is None:
-            raise ArgumentsRequired(self.id + " fetchFundingRateHistory() requires a symbol argument")
+            raise ArgumentsRequired(
+                self.id + " fetchFundingRateHistory() requires a symbol argument"
+            )
         await self.load_markets()
         market = self.market(symbol)
         if market["contract"] is not True:
             raise BadRequest(self.id + " fetchFundingRateHistory() supports contract markets only")
         period = None
-        period, params = self.handle_option_and_params(params, "fetchFundingRateHistory", "period")
+        paramsPeriod = None
+        period, paramsPeriod = self.handle_option_string_and_params(
+            params, "fetchFundingRateHistory", "period"
+        )
         if period is None:
             period = "7D"
             if since is not None:
@@ -1042,9 +1068,12 @@ class btse(Exchange, ImplicitAPI):
             "symbol": market["id"],
             "period": period,
         }
-        until = None
-        until, params = self.handle_option_and_params(params, "fetchFundingRateHistory", "until")
-        response = await self.publicGetPublicApiMarketV1RecentFundingHistory(self.extend(request, params))
+        until, paramsUntil = self.handle_option_integer_and_params(
+            paramsPeriod, "fetchFundingRateHistory", "until"
+        )
+        response = await self.publicGetPublicApiMarketV1RecentFundingHistory(
+            self.extend(request, paramsUntil)
+        )
         #
         #     {
         #         "data": [
@@ -1055,7 +1084,7 @@ class btse(Exchange, ImplicitAPI):
         #         ],
         #         "code": 1,
         #         "msg": "Success",
-        #         "success": True,
+        #         "success": true,
         #         "time": 1786607775380
         #     }
         #
@@ -1064,14 +1093,16 @@ class btse(Exchange, ImplicitAPI):
         if until is None:
             return rates
         result = []
-        for i in range(len(rates)):
+        for i in range(0, len(rates)):
             rate = rates[i]
             timestamp = self.safe_integer(rate, "timestamp")
             if (timestamp is None) or (timestamp <= until):
                 result.append(rate)
         return result
 
-    def parse_funding_rate_history(self, contract: object, market: Market = None):
+    def parse_funding_rate_history(
+        self, contract: object, market: Market = None
+    ) -> FundingRateHistory:
         #
         #     {
         #         "timestamp": 1786003200911,
@@ -1087,7 +1118,7 @@ class btse(Exchange, ImplicitAPI):
             "datetime": self.iso8601(timestamp),
         }
 
-    async def fetch_balance(self, params=None) -> Balances:
+    async def fetch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
 
@@ -1102,11 +1133,12 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         await self.load_markets()
-        type = "spot"
-        type, params = self.handle_market_type_and_params("fetchBalance", None, params, type)
+        marketType, paramsMarketType = self.handle_market_type_and_params(
+            "fetchBalance", None, params, "spot"
+        )
         response = None
-        if type == "spot":
-            walletResponse = await self.privateGetPublicApiWalletV1UserAssets(params)
+        if marketType == "spot":
+            walletResponse = await self.privateGetPublicApiWalletV1UserAssets(paramsMarketType)
             #
             #     {
             #         "data": [
@@ -1115,24 +1147,27 @@ class btse(Exchange, ImplicitAPI):
             #                 "type": "CRYPTO",
             #                 "totalAmount": "100.0",
             #                 "availableAmount": "100.0",
-            #                 "availableActions": ["CONVERT", "TRANSFER", "WITHDRAW", "DEPOSIT", "SEND_TO"],
-            #                 "cryptoNetwork": {"depositNetworks": ["BITCOIN"], "withdrawalNetworks": ["BITCOIN"]}
+            #                 "availableActions": [ "CONVERT", "TRANSFER", "WITHDRAW", "DEPOSIT", "SEND_TO" ],
+            #                 "cryptoNetwork": { "depositNetworks": [ "BITCOIN" ], "withdrawalNetworks": [ "BITCOIN" ] }
             #             }
             #         ],
             #         "code": 1,
             #         "msg": "Success",
-            #         "success": True,
+            #         "success": true,
             #         "time": 1624989977940
             #     }
             #
             response = self.safe_list(walletResponse, "data", [])
         else:
-            wallet = None
-            wallet, params = self.handle_option_and_params(params, "fetchBalance", "wallet", "CROSS@")
+            wallet, paramsWallet = self.handle_option_string_and_params(
+                paramsMarketType, "fetchBalance", "wallet", "CROSS@"
+            )
             request = {
                 "wallet": wallet,
             }
-            response = await self.privateGetFuturesApiV23UserWallet(self.extend(request, params))
+            response = await self.privateGetFuturesApiV23UserWallet(
+                self.extend(request, paramsWallet)
+            )
             #
             #     [
             #         {
@@ -1159,23 +1194,23 @@ class btse(Exchange, ImplicitAPI):
         totals = {}
         frees = {}
         useds = {}
-        for i in range(len(response)):
-            row = response[i]
+        for i in range(0, len(response)):
+            row = self.safe_dict(response, i)
             assets = self.safe_list(row, "assets")
             if assets is not None:
                 # futures wallet row: per-currency totals in assets, locked amounts in assetsInUse
                 # several wallet rows can report the same currency, so amounts are aggregated
                 inUse = self.safe_list(row, "assetsInUse", [])
-                for j in range(len(inUse)):
-                    usedRow = inUse[j]
+                for j in range(0, len(inUse)):
+                    usedRow = self.safe_dict(inUse, j)
                     usedCode = self.safe_currency_code(self.safe_string(usedRow, "currency"))
                     if usedCode is None:
                         continue
                     useds[usedCode] = Precise.string_add(
                         self.safe_string(useds, usedCode, "0"), self.safe_string(usedRow, "balance")
                     )
-                for j in range(len(assets)):
-                    assetRow = assets[j]
+                for j in range(0, len(assets)):
+                    assetRow = self.safe_dict(assets, j)
                     code = self.safe_currency_code(self.safe_string(assetRow, "currency"))
                     if code is None:
                         continue
@@ -1190,13 +1225,15 @@ class btse(Exchange, ImplicitAPI):
                 if code is None:
                     continue
                 totals[code] = Precise.string_add(
-                    self.safe_string(totals, code, "0"), self.safe_string_2(row, "totalAmount", "total")
+                    self.safe_string(totals, code, "0"),
+                    self.safe_string_2(row, "totalAmount", "total"),
                 )
                 frees[code] = Precise.string_add(
-                    self.safe_string(frees, code, "0"), self.safe_string_2(row, "availableAmount", "available")
+                    self.safe_string(frees, code, "0"),
+                    self.safe_string_2(row, "availableAmount", "available"),
                 )
         codes = list(totals.keys())
-        for i in range(len(codes)):
+        for i in range(0, len(codes)):
             code = codes[i]
             account = self.account()
             account["total"] = self.safe_string(totals, code)
@@ -1205,7 +1242,9 @@ class btse(Exchange, ImplicitAPI):
             result[code] = account
         return self.safe_balance(result)
 
-    async def fetch_leverage_tiers(self, symbols: Strings = None, params=None) -> LeverageTiers:
+    async def fetch_leverage_tiers(
+        self, symbols: Strings = None, params: dict = None
+    ) -> LeverageTiers:
         """
 
         https://docs.btse.com/markets/rest/get-market-risk-limits/
@@ -1218,12 +1257,12 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         await self.load_markets()
-        symbols = self.market_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols)
         request = {}
-        if symbols is not None:
-            length = len(symbols)
+        if symbolsNormalized is not None:
+            length = len(symbolsNormalized)
             if length == 1:
-                requestedSymbol = self.safe_string(symbols, 0)
+                requestedSymbol = self.safe_string(symbolsNormalized, 0)
                 market = self.market(requestedSymbol)
                 request["symbol"] = market["id"]
         response = await self.publicGetPublicApiMarketV1RiskLimits(self.extend(request, params))
@@ -1233,14 +1272,14 @@ class btse(Exchange, ImplicitAPI):
         #             {
         #                 "symbol": "BTC-PERP-USDT",
         #                 "riskLimits": [
-        #                     {"level": 1, "value": 3000000},
-        #                     {"level": 2, "value": 6000000}
+        #                     { "level": 1, "value": 3000000 },
+        #                     { "level": 2, "value": 6000000 }
         #                 ]
         #             }
         #         ],
         #         "code": 1,
         #         "msg": "Success",
-        #         "success": True,
+        #         "success": true,
         #         "time": 1786609503920
         #     }
         #
@@ -1251,15 +1290,15 @@ class btse(Exchange, ImplicitAPI):
             single = self.safe_dict(response, "data", {})
             data = [single]
         result = {}
-        for i in range(len(data)):
-            entry = data[i]
+        for i in range(0, len(data)):
+            entry = self.safe_dict(data, i)
             marketId = self.safe_string(entry, "symbol")
             market = self.safe_market(marketId)
             symbol = market["symbol"]
-            if symbols is None or self.in_array(symbol, symbols):
+            if symbolsNormalized is None or self.in_array(symbol, symbolsNormalized):
                 levels = self.safe_list(entry, "riskLimits", [])
                 tiers = []
-                for j in range(len(levels)):
+                for j in range(0, len(levels)):
                     level = levels[j]
                     # the endpoint only reports the notional ladder, the
                     # per-tier leverage and margin rates are not available
@@ -1282,10 +1321,10 @@ class btse(Exchange, ImplicitAPI):
         # is derived from the previous tier: 0 for the first tier, and the
         # previous tier's maxNotional for every subsequent tier
         symbolKeys = list(result.keys())
-        for i in range(len(symbolKeys)):
+        for i in range(0, len(symbolKeys)):
             symbolKey = symbolKeys[i]
             tiersList = result[symbolKey]
-            for j in range(len(tiersList)):
+            for j in range(0, len(tiersList)):
                 if j == 0:
                     tiersList[j]["minNotional"] = 0
                 else:
@@ -1294,7 +1333,9 @@ class btse(Exchange, ImplicitAPI):
             result[symbolKey] = tiersList
         return result
 
-    async def fetch_market_leverage_tiers(self, symbol: str, params=None) -> list[LeverageTier]:
+    async def fetch_market_leverage_tiers(
+        self, symbol: str, params: dict = None
+    ) -> list[LeverageTier]:
         """
         retrieve information on the maximum leverage, for different trade sizes for a single market
 
@@ -1313,7 +1354,7 @@ class btse(Exchange, ImplicitAPI):
         result = await self.fetch_leverage_tiers([symbol], params)
         return result[symbol]
 
-    async def fetch_tickers(self, symbols: Strings = None, params=None) -> Tickers:
+    async def fetch_tickers(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
 
         https://docs.btse.com/markets/rest/get-24-hr-ticker/
@@ -1326,14 +1367,14 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True)
         # the unified endpoint serves all market types in one call, the legacy type param is accepted and ignored
-        params = self.omit(params, "type")
-        response = await self.publicGetPublicApiMarketV1Ticker24hr(params)
+        paramsOmitted = self.omit(params, "type")
+        response = await self.publicGetPublicApiMarketV1Ticker24hr(paramsOmitted)
         data = self.safe_list(response, "data", [])
-        return self.parse_tickers(data, symbols)
+        return self.parse_tickers(data, symbolsNormalized)
 
-    async def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -1379,7 +1420,7 @@ class btse(Exchange, ImplicitAPI):
         #         ],
         #         "code": 1,
         #         "msg": "Success",
-        #         "success": True,
+        #         "success": true,
         #         "time": 1786602644221
         #     }
         #
@@ -1396,19 +1437,23 @@ class btse(Exchange, ImplicitAPI):
         # openInterest, fundingRate, nextFundingTime and fundingIntervalMinutes
         #
         marketId = self.safe_string(ticker, "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         last = self.safe_string(ticker, "lastPrice")
         baseVolume = self.safe_string(ticker, "amount")
-        if (baseVolume is not None) and (market is not None) and (market["contract"] is True):
+        if (
+            (baseVolume is not None)
+            and (marketResolved is not None)
+            and (marketResolved["contract"] is True)
+        ):
             # for contract markets the amount field is denominated in contracts, verified live -
             # scaling by contractSize converts it into base currency units
-            contractSizeString = self.number_to_string(market["contractSize"])
+            contractSizeString = self.number_to_string(marketResolved["contractSize"])
             if contractSizeString is not None:
                 baseVolume = Precise.string_mul(baseVolume, contractSizeString)
         timestamp = self.safe_timestamp(ticker, "closeTime")
         return self.safe_ticker(
             {
-                "symbol": self.safe_symbol(marketId, market),
+                "symbol": self.safe_symbol(marketId, marketResolved),
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
                 "high": self.safe_string(ticker, "highPrice"),
@@ -1433,10 +1478,10 @@ class btse(Exchange, ImplicitAPI):
                 "indexPrice": None,
                 "info": ticker,
             },
-            market,
+            marketResolved,
         )
 
-    async def fetch_open_interest(self, symbol: str, params=None):
+    async def fetch_open_interest(self, symbol: str, params: dict = None) -> OpenInterest:
         """
         Retrieves the open interest of a derivative trading pair
 
@@ -1451,7 +1496,9 @@ class btse(Exchange, ImplicitAPI):
         await self.load_markets()
         market = self.market(symbol)
         if market["spot"] is True:
-            raise BadRequest(self.id + " fetchOpenInterest() symbol does not support market " + symbol)
+            raise BadRequest(
+                self.id + " fetchOpenInterest() symbol does not support market " + symbol
+            )
         request = {
             "symbol": market["id"],
         }
@@ -1462,7 +1509,9 @@ class btse(Exchange, ImplicitAPI):
             interest = self.safe_dict(rows, 0, {})
         return self.parse_open_interest(interest, market)
 
-    async def fetch_open_interests(self, symbols: Strings = None, params=None):
+    async def fetch_open_interests(
+        self, symbols: Strings = None, params: dict = None
+    ) -> OpenInterests:
         """
         Retrieves the open interest for a list of symbols
 
@@ -1475,37 +1524,37 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         await self.load_markets()
-        symbols = self.market_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols)
         response = await self.publicGetPublicApiMarketV1Ticker24hr(params)
         data = self.safe_list(response, "data", [])
         rows = []
-        for i in range(len(data)):
+        for i in range(0, len(data)):
             row = data[i]
             # spot rows do not carry an open interest
             if self.safe_string(row, "openInterest") is not None:
                 rows.append(row)
-        return self.parse_open_interests(rows, symbols)
+        return self.parse_open_interests(rows, symbolsNormalized)
 
-    def parse_open_interest(self, interest: object, market: Market = None):
+    def parse_open_interest(self, interest: object, market: Market = None) -> OpenInterest:
         #
         # ticker/24hr contract rows, see parseFundingRate for the full shape
         #
         marketId = self.safe_string(interest, "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_timestamp(interest, "closeTime")
         return self.safe_open_interest(
             {
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "openInterestAmount": self.safe_number(interest, "openInterest"),
                 "openInterestValue": self.safe_number(interest, "openInterestUSD"),
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
                 "info": interest,
             },
-            market,
+            marketResolved,
         )
 
-    async def fetch_funding_rate(self, symbol: str, params=None) -> FundingRate:
+    async def fetch_funding_rate(self, symbol: str, params: dict = None) -> FundingRate:
         """
         fetch the current funding rate
 
@@ -1531,7 +1580,9 @@ class btse(Exchange, ImplicitAPI):
             data = self.safe_dict(rows, 0, {})
         return self.parse_funding_rate(data, market)
 
-    async def fetch_funding_rates(self, symbols: Strings = None, params=None) -> FundingRates:
+    async def fetch_funding_rates(
+        self, symbols: Strings = None, params: dict = None
+    ) -> FundingRates:
         """
         fetch the funding rate for multiple markets
 
@@ -1544,16 +1595,16 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         await self.load_markets()
-        symbols = self.market_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols)
         response = await self.publicGetPublicApiMarketV1Ticker24hr(params)
         data = self.safe_list(response, "data", [])
         rows = []
-        for i in range(len(data)):
+        for i in range(0, len(data)):
             row = data[i]
             # spot rows do not carry a funding rate
             if self.safe_string(row, "fundingRate") is not None:
                 rows.append(row)
-        return self.parse_funding_rates(rows, symbols)
+        return self.parse_funding_rates(rows, symbolsNormalized)
 
     def parse_funding_rate(self, contract: object, market: Market = None) -> FundingRate:
         #
@@ -1582,14 +1633,14 @@ class btse(Exchange, ImplicitAPI):
         #     }
         #
         marketId = self.safe_string(contract, "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_timestamp(contract, "closeTime")
         # dated futures carry a zero nextFundingTime as funding only applies to
         # perpetuals, observed live, the zero means no next funding and is omitted
         nextFundingTimestamp = self.safe_integer_omit_zero(contract, "nextFundingTime")
         fundingIntervalMinutes = self.safe_integer(contract, "fundingIntervalMinutes")
         interval = None
-        # a wire value of zero minutes reaches self, and zero hours is not an
+        # a wire value of zero minutes reaches this, and zero hours is not an
         # interval: a caller annualising a rate divides by it. anything under an
         # hour rounds to the same string, and the vocabulary has no minutes
         if (fundingIntervalMinutes is not None) and (fundingIntervalMinutes >= 60):
@@ -1597,7 +1648,7 @@ class btse(Exchange, ImplicitAPI):
             interval = str(hours) + "h"
         return {
             "info": contract,
-            "symbol": market["symbol"],
+            "symbol": marketResolved["symbol"],
             "markPrice": None,
             "indexPrice": None,
             "interestRate": None,
@@ -1616,7 +1667,9 @@ class btse(Exchange, ImplicitAPI):
             "interval": interval,
         }
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    async def fetch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
 
@@ -1639,9 +1692,8 @@ class btse(Exchange, ImplicitAPI):
         if limit is not None:
             request["limit"] = min(limit, 500)  # the endpoint supports a maximum of 500 trades
         # the unified trades endpoint has no server-side time filtering, since and until are applied client-side below
-        until = None
-        until, params = self.handle_option_and_params(params, "fetchTrades", "until")
-        response = await self.publicGetPublicApiMarketV1Trades(self.extend(request, params))
+        until, paramsUntil = self.handle_option_integer_and_params(params, "fetchTrades", "until")
+        response = await self.publicGetPublicApiMarketV1Trades(self.extend(request, paramsUntil))
         #
         #     {
         #         "data": [
@@ -1656,7 +1708,7 @@ class btse(Exchange, ImplicitAPI):
         #         ],
         #         "code": 1,
         #         "msg": "Success",
-        #         "success": True,
+        #         "success": true,
         #         "time": 1786605671650
         #     }
         #
@@ -1665,7 +1717,7 @@ class btse(Exchange, ImplicitAPI):
         if until is None:
             return trades
         result = []
-        for i in range(len(trades)):
+        for i in range(0, len(trades)):
             trade = trades[i]
             timestamp = self.safe_integer(trade, "timestamp")
             if (timestamp is None) or (timestamp <= until):
@@ -1673,7 +1725,7 @@ class btse(Exchange, ImplicitAPI):
         return result
 
     async def fetch_my_trades(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         fetch all trades made by the user
@@ -1694,8 +1746,9 @@ class btse(Exchange, ImplicitAPI):
         await self.load_markets()
         paginate = self.safe_bool(params, "paginate", False)
         if paginate is True:
-            params = self.omit(params, "paginate")
-            return await self.fetch_paginated_call_dynamic("fetchMyTrades", symbol, since, limit, params)
+            return await self.fetch_paginated_call_dynamic(
+                "fetchMyTrades", symbol, since, limit, self.omit(params, "paginate")
+            )
         market = None
         request = {}
         if symbol is not None:
@@ -1705,13 +1758,17 @@ class btse(Exchange, ImplicitAPI):
             request["startTime"] = since
         if limit is not None:
             request["count"] = limit
-        request, params = self.handle_until_option("endTime", request, params)
-        marketType = "spot"
-        marketType, params = self.handle_market_type_and_params("fetchMyTrades", market, params, marketType)
+        paramsUntil = None
+        request, paramsUntil = self.handle_until_option("endTime", request, params)
+        marketType, paramsMarketType = self.handle_market_type_and_params(
+            "fetchMyTrades", market, paramsUntil, "spot"
+        )
         response = None
         if marketType == "spot":
             if symbol is None:
-                raise ArgumentsRequired(self.id + " fetchMyTrades() requires a symbol argument for spot markets")
+                raise ArgumentsRequired(
+                    self.id + " fetchMyTrades() requires a symbol argument for spot markets"
+                )
             #
             #     {
             #         "data": [
@@ -1737,11 +1794,13 @@ class btse(Exchange, ImplicitAPI):
             #         ],
             #         "code": 1,
             #         "msg": "Success",
-            #         "success": True,
+            #         "success": true,
             #         "time": 1786610160164
             #     }
             #
-            response = await self.privateGetSpotApiV4TradeTradeHistory(self.extend(request, params))
+            response = await self.privateGetSpotApiV4TradeTradeHistory(
+                self.extend(request, paramsMarketType)
+            )
         else:
             # the futures endpoint does not support a count parameter, the limit is applied client-side
             request = self.omit(request, "count")
@@ -1778,18 +1837,20 @@ class btse(Exchange, ImplicitAPI):
             #         ],
             #         "code": 1,
             #         "msg": "Success",
-            #         "success": True,
+            #         "success": true,
             #         "time": 1786610160164
             #     }
             #
-            response = await self.privateGetFuturesApiV3TradeTradeHistory(self.extend(request, params))
+            response = await self.privateGetFuturesApiV3TradeTradeHistory(
+                self.extend(request, paramsMarketType)
+            )
         rows = self.safe_list(response, "data")
         if rows is None:
             rows = response
         return self.parse_trades(rows, market, since, limit)
 
     async def fetch_order_trades(
-        self, id: str, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, id: str, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         fetch all the trades made from a single order
@@ -1810,15 +1871,13 @@ class btse(Exchange, ImplicitAPI):
             params = {}
         await self.load_markets()
         clientOrderId = self.safe_string(params, "clientOrderId")
-        if clientOrderId is None:
-            if id is None:
-                raise ArgumentsRequired(
-                    self.id + " fetchOrderTrades() requires an id argument or a clientOrderId parameter"
-                )
-            params = self.extend(params, {"orderID": id})
-        else:
-            params = self.extend(params, {"clOrderID": clientOrderId})
-        return await self.fetch_my_trades(symbol, since, limit, params)
+        if (clientOrderId is None) and (id is None):
+            raise ArgumentsRequired(
+                self.id + " fetchOrderTrades() requires an id argument or a clientOrderId parameter"
+            )
+        orderIdParams = {}
+        orderIdParams = {"orderID": id} if clientOrderId is None else {"clOrderID": clientOrderId}
+        return await self.fetch_my_trades(symbol, since, limit, self.extend(params, orderIdParams))
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         #
@@ -1892,7 +1951,7 @@ class btse(Exchange, ImplicitAPI):
         # the unified futures rows echo the short symbol form but carry the full
         # market id in positionId, which resolves against the markets snapshot
         marketId = self.safe_string_2(trade, "positionId", "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_integer(trade, "timestamp")
         fee = None
         feeCost = self.safe_number(trade, "feeAmount")
@@ -1906,7 +1965,7 @@ class btse(Exchange, ImplicitAPI):
                 "info": trade,
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "id": self.safe_string_n(trade, ["tradeId", "serialId", "id"]),
                 "order": self.safe_string(trade, "orderId"),
                 "type": self.parse_order_type(self.safe_string_2(trade, "orderType", "type")),
@@ -1917,11 +1976,17 @@ class btse(Exchange, ImplicitAPI):
                 "cost": None,
                 "fee": fee,
             },
-            market,
+            marketResolved,
         )
 
     async def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
     ) -> Order:
         """
         create a trade order
@@ -1949,7 +2014,7 @@ class btse(Exchange, ImplicitAPI):
         :param float [params.stopPrice]: *NB - It is NOT stopLossPrice or triggerPricenot !! OCO orders only* Mandatory when creating an OCO order. Indicates the stop price
         :param bool [params.hedged]: *contract markets only* True for hedged mode, False for one way mode, default is False
         :param str [params.marginMode]: *contract markets only* 'cross' or 'isolated'(default is 'cross') - the exchange does not have cross/isolated margin modes but instead has 'ONE_WAY', 'HEDGE' and 'ISOLATED' position modes, so self param will be converted to the appropriate position mode
-        :param str [params.positionMode]: *contract markets only* 'ONE_WAY(default) or 'HEDGE or 'ISOLATED'(if not provided, it will be derived from marginMode and hedged params)
+        :param str [params.positionMode]: *contract markets only* 'ONE_WAY (default) or 'HEDGE or 'ISOLATED'(if not provided, it will be derived from marginMode and hedged params)
         :param dict [params.takeProfit]: *contract markets only* *takeProfit object in params* containing the triggerPrice at which the attached take profit order will be triggered(perpetual swap markets only)
         :param float [params.takeProfit.triggerPrice]: *contract markets only* take profit trigger price
         :param str [params.takeProfit.priceType]: *contract markets only* 'markPrice' or 'lastPrice', default is 'markPrice'
@@ -1964,10 +2029,17 @@ class btse(Exchange, ImplicitAPI):
         market = self.market(symbol)
         if market["spot"] is True:
             return await self.create_spot_order(symbol, type, side, amount, price, params)
-        return await self.create_contract_order(symbol, type, side, amount, price, params)
+        else:
+            return await self.create_contract_order(symbol, type, side, amount, price, params)
 
     async def create_spot_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
     ) -> Order:
         """
         create a trade order on spot market
@@ -2000,7 +2072,7 @@ class btse(Exchange, ImplicitAPI):
             params = {}
         await self.load_markets()
         market = self.market(symbol)
-        type = type.upper()
+        typeValue = type.upper()
         upperSide = side.upper()
         request = {
             "symbol": market["id"],
@@ -2009,41 +2081,42 @@ class btse(Exchange, ImplicitAPI):
         clientOrderId = self.safe_string(params, "clientOrderId")
         if clientOrderId is not None:
             request["clOrderId"] = clientOrderId
-            params = self.omit(params, "clientOrderId")
-        isMarketOrder = type == "MARKET"
-        isLimitOrder = type == "LIMIT"
+        query = self.omit(params, "clientOrderId")
+        isMarketOrder = typeValue == "MARKET"
+        isLimitOrder = typeValue == "LIMIT"
         postOnly = False
         # exchange-specific postOnly is the same as the unified one
-        postOnly, params = self.handle_post_only(
-            isMarketOrder, postOnly, params
-        )  # self will remove PO from params.timeInForce if present
+        postOnly, query = self.handle_post_only(
+            isMarketOrder, postOnly, query
+        )  # this will remove PO from params.timeInForce if present
         if postOnly:
             request["postOnly"] = True
-        timeInForce = self.handle_time_in_force(params)
+        timeInForce = self.handle_time_in_force(query)
         if timeInForce is not None:
             request["timeInForce"] = timeInForce
-        triggerPrice = self.safe_string(params, "triggerPrice")
-        takeProfitPrice = self.safe_string(params, "takeProfitPrice")
-        stopLossPrice = self.safe_string(params, "stopLossPrice")
+        triggerPrice = self.safe_string(query, "triggerPrice")
+        takeProfitPrice = self.safe_string(query, "takeProfitPrice")
+        stopLossPrice = self.safe_string(query, "stopLossPrice")
         isTriggerOrder = (triggerPrice is not None) or (takeProfitPrice is not None)
         isStopLossOrder = stopLossPrice is not None
         isConditionalOrder = (isTriggerOrder or isStopLossOrder) and (isMarketOrder or isLimitOrder)
         isAlgoOrder = isConditionalOrder or (not isMarketOrder and not isLimitOrder)
-        if isLimitOrder or type in {"PEG", "OCO"}:
-            if price is None:
-                raise InvalidOrder(self.id + " createOrder() requires a price argument for " + type + " orders")
+        if (isLimitOrder or (typeValue == "PEG") or (typeValue == "OCO")) and price is None:
+            raise InvalidOrder(
+                self.id + " createOrder() requires a price argument for " + typeValue + " orders"
+            )
         # market and trailing buys are denominated in the quote currency while
         # every other combination is denominated in the base currency, the
         # sizing rules are strict on both sides, verified live
-        needsQuoteSize = (isMarketOrder or (type == "TRAILING")) and (upperSide == "BUY")
+        needsQuoteSize = (isMarketOrder or (typeValue == "TRAILING")) and (upperSide == "BUY")
         if needsQuoteSize:
             quoteAmount = None
             createMarketBuyOrderRequiresPrice = True
-            createMarketBuyOrderRequiresPrice, params = self.handle_option_and_params(
-                params, "createOrder", "createMarketBuyOrderRequiresPrice", True
+            createMarketBuyOrderRequiresPrice, query = self.handle_option_bool_and_params(
+                query, "createOrder", "createMarketBuyOrderRequiresPrice", True
             )
-            cost = self.safe_string(params, "cost")
-            params = self.omit(params, "cost")
+            cost = self.safe_string(query, "cost")
+            query = self.omit(query, "cost")
             if cost is not None:
                 quoteAmount = self.cost_to_precision(symbol, cost)
             elif createMarketBuyOrderRequiresPrice:
@@ -2052,9 +2125,12 @@ class btse(Exchange, ImplicitAPI):
                         self.id
                         + " createOrder() requires the price argument for market buy orders to calculate the total cost to spend, alternatively set the createMarketBuyOrderRequiresPrice option or param to False and pass the cost to spend in the amount argument"
                     )
-                amountString = self.number_to_string(amount)
-                priceString = self.number_to_string(price)
-                quoteAmount = self.cost_to_precision(symbol, Precise.string_mul(amountString, priceString))
+                else:
+                    amountString = self.number_to_string(amount)
+                    priceString = self.number_to_string(price)
+                    quoteAmount = self.cost_to_precision(
+                        symbol, Precise.string_mul(amountString, priceString)
+                    )
             else:
                 quoteAmount = self.cost_to_precision(symbol, self.number_to_string(amount))
             request["quoteOrderSize"] = quoteAmount
@@ -2062,7 +2138,7 @@ class btse(Exchange, ImplicitAPI):
             request["orderSize"] = self.amount_to_precision(symbol, amount)
         response = None
         if not isAlgoOrder:
-            request["orderType"] = type
+            request["orderType"] = typeValue
             if isLimitOrder:
                 request["orderPrice"] = self.price_to_precision(symbol, price)
             #
@@ -2075,7 +2151,7 @@ class btse(Exchange, ImplicitAPI):
             #             "type": 76,
             #             "orderSide": "BUY",
             #             "orderPrice": 61024.1,
-            #             "postOnly": False,
+            #             "postOnly": false,
             #             "timestamp": 1784891308063,
             #             "orderDetailType": null,
             #             "message": null,
@@ -2094,7 +2170,7 @@ class btse(Exchange, ImplicitAPI):
             #         }
             #     ]
             #
-            response = await self.privatePostSpotApiV4TradeOrders(self.extend(request, params))
+            response = await self.privatePostSpotApiV4TradeOrders(self.extend(request, query))
         else:
             if isConditionalOrder:
                 request["orderType"] = "CONDITIONAL"
@@ -2113,46 +2189,60 @@ class btse(Exchange, ImplicitAPI):
                     request["orderPrice"] = self.price_to_precision(symbol, price)
                 request["triggerOrderType"] = triggerOrderType
                 request["triggerPrice"] = self.price_to_precision(symbol, triggerPriceToSend)
-                triggerPriceType = self.safe_string(params, "triggerPriceType", "last")
+                triggerPriceType = self.safe_string(query, "triggerPriceType", "last")
                 request["triggerPriceType"] = self.encode_trigger_price_type(triggerPriceType)
-                params = self.omit(params, ["triggerPrice", "takeProfitPrice", "stopLossPrice", "triggerPriceType"])
+                query = self.omit(
+                    query, ["triggerPrice", "takeProfitPrice", "stopLossPrice", "triggerPriceType"]
+                )
             else:
-                request["orderType"] = type
-                if type == "OCO":
+                request["orderType"] = typeValue
+                if typeValue == "OCO":
                     # the price argument is the limit price of the take profit leg,
                     # the stopPrice param is the limit price of the stop loss leg
                     # and the triggerPrice param is where the stop loss leg fires
                     request["takeProfitOrderPrice"] = self.price_to_precision(symbol, price)
-                    stopPrice = self.safe_string(params, "stopPrice")
+                    stopPrice = self.safe_string(query, "stopPrice")
                     if stopPrice is not None:
                         request["stopLossOrderPrice"] = self.price_to_precision(symbol, stopPrice)
                     if triggerPrice is not None:
-                        request["stopLossTriggerPrice"] = self.price_to_precision(symbol, triggerPrice)
-                    triggerPriceType = self.safe_string(params, "triggerPriceType", "last")
-                    request["stopLossTriggerPriceType"] = self.encode_trigger_price_type(triggerPriceType)
-                    params = self.omit(params, ["stopPrice", "triggerPrice", "triggerPriceType"])
-                elif type == "PEG":
+                        request["stopLossTriggerPrice"] = self.price_to_precision(
+                            symbol, triggerPrice
+                        )
+                    triggerPriceType = self.safe_string(query, "triggerPriceType", "last")
+                    request["stopLossTriggerPriceType"] = self.encode_trigger_price_type(
+                        triggerPriceType
+                    )
+                    query = self.omit(query, ["stopPrice", "triggerPrice", "triggerPriceType"])
+                elif typeValue == "PEG":
                     # the required stealth and optional deviation params pass through
                     request["orderPrice"] = self.price_to_precision(symbol, price)
-                elif type == "TRAILING":
-                    trailingAmount = self.safe_string(params, "trailingAmount")
-                    trailingPercent = self.safe_string(params, "trailingPercent")
+                elif typeValue == "TRAILING":
+                    trailingAmount = self.safe_string(query, "trailingAmount")
+                    trailingPercent = self.safe_string(query, "trailingPercent")
                     if trailingAmount is not None:
                         request["trailValue"] = self.price_to_precision(symbol, trailingAmount)
                         request["trailValueType"] = "DISTANCE"
                     elif trailingPercent is not None:
                         request["trailValue"] = trailingPercent
                         request["trailValueType"] = "PERCENTAGE"
-                    triggerPriceType = self.safe_string(params, "triggerPriceType", "last")
+                    triggerPriceType = self.safe_string(query, "triggerPriceType", "last")
                     request["triggerPriceType"] = self.encode_trigger_price_type(triggerPriceType)
-                    params = self.omit(params, ["trailingAmount", "trailingPercent", "triggerPriceType"])
+                    query = self.omit(
+                        query, ["trailingAmount", "trailingPercent", "triggerPriceType"]
+                    )
                 # TWAP orders require the timePeriod param which passes through
-            response = await self.privatePostSpotApiV4TradeOrdersAlgo(self.extend(request, params))
+            response = await self.privatePostSpotApiV4TradeOrdersAlgo(self.extend(request, query))
         order = self.safe_dict(response, 0, {})
         return self.parse_order(order, market)
 
     async def create_contract_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
     ) -> Order:
         """
         create a trade order on contract market
@@ -2194,7 +2284,7 @@ class btse(Exchange, ImplicitAPI):
             params = {}
         await self.load_markets()
         market = self.market(symbol)
-        type = type.upper()
+        typeValue = type.upper()
         request = {
             "symbol": self.futures_request_id(market),
             "orderSide": side.upper(),
@@ -2203,64 +2293,79 @@ class btse(Exchange, ImplicitAPI):
         clientOrderId = self.safe_string(params, "clientOrderId")
         if clientOrderId is not None:
             request["clOrderId"] = clientOrderId
-            params = self.omit(params, "clientOrderId")
+        query = self.omit(params, "clientOrderId")
         # handle positionMode
-        positionMode = self.safe_string(params, "positionMode")
+        positionMode = self.safe_string(query, "positionMode")
         # if positionMode is provided, we will get it from params and send it as is
         if positionMode is None:
             hedged = False
-            hedged, params = self.handle_option_and_params(params, "createOrder", "hedged", hedged)
+            hedged, query = self.handle_option_bool_and_params(
+                query, "createOrder", "hedged", hedged
+            )
             marginMode = "cross"
-            marginMode, params = self.handle_option_and_params(params, "createOrder", "marginMode", marginMode)
+            marginMode, query = self.handle_option_string_and_params(
+                query, "createOrder", "marginMode", marginMode
+            )
             if marginMode == "isolated":
                 if hedged:
-                    raise BadRequest(self.id + " createOrder() cannot use isolated margin with hedged positions")
+                    raise BadRequest(
+                        self.id + " createOrder() cannot use isolated margin with hedged positions"
+                    )
                 request["positionMode"] = "ISOLATED"
             elif hedged:
                 request["positionMode"] = "HEDGE"
             # if not hedged and not isolated, the default is ONE_WAY
-        isMarketOrder = type == "MARKET"
-        isLimitOrder = type == "LIMIT"
+        isMarketOrder = typeValue == "MARKET"
+        isLimitOrder = typeValue == "LIMIT"
         postOnly = False
         # exchange-specific postOnly is the same as the unified one
-        postOnly, params = self.handle_post_only(
-            isMarketOrder, postOnly, params
-        )  # self will remove PO from params.timeInForce if present
+        postOnly, query = self.handle_post_only(
+            isMarketOrder, postOnly, query
+        )  # this will remove PO from params.timeInForce if present
         if postOnly:
             request["postOnly"] = True
-        timeInForce = self.handle_time_in_force(params)
+        timeInForce = self.handle_time_in_force(query)
         if timeInForce is not None:
             request["timeInForce"] = timeInForce
-        triggerPrice = self.safe_string(params, "triggerPrice")
-        takeProfitPrice = self.safe_string(params, "takeProfitPrice")
-        stopLossPrice = self.safe_string(params, "stopLossPrice")
+        triggerPrice = self.safe_string(query, "triggerPrice")
+        takeProfitPrice = self.safe_string(query, "takeProfitPrice")
+        stopLossPrice = self.safe_string(query, "stopLossPrice")
         isTriggerOrder = (triggerPrice is not None) or (takeProfitPrice is not None)
         isStopLossOrder = stopLossPrice is not None
         isConditionalOrder = (isTriggerOrder or isStopLossOrder) and (isMarketOrder or isLimitOrder)
         isAlgoOrder = isConditionalOrder or (not isMarketOrder and not isLimitOrder)
-        if isLimitOrder or (type == "OCO"):
-            if price is None:
-                raise InvalidOrder(self.id + " createOrder() requires a price argument for " + type + " orders")
+        if (isLimitOrder or (typeValue == "OCO")) and price is None:
+            raise InvalidOrder(
+                self.id + " createOrder() requires a price argument for " + typeValue + " orders"
+            )
         # here we handling with attached take profit and stop loss orders
-        takeProfit = self.safe_dict(params, "takeProfit")
-        stopLoss = self.safe_dict(params, "stopLoss")
+        takeProfit = self.safe_dict(query, "takeProfit")
+        stopLoss = self.safe_dict(query, "stopLoss")
         if (takeProfit is not None) or (stopLoss is not None):
             takeProfitTriggerPrice = self.safe_string(takeProfit, "triggerPrice")
             stopLossTriggerPrice = self.safe_string(stopLoss, "triggerPrice")
             if takeProfitTriggerPrice is not None:
-                request["takeProfitTriggerPrice"] = self.price_to_precision(symbol, takeProfitTriggerPrice)
+                request["takeProfitTriggerPrice"] = self.price_to_precision(
+                    symbol, takeProfitTriggerPrice
+                )
                 takeProfitTriggerPriceType = self.safe_string(takeProfit, "priceType")
                 if takeProfitTriggerPriceType is not None:
-                    request["takeProfitTriggerType"] = self.encode_trigger_price_type(takeProfitTriggerPriceType)
+                    request["takeProfitTriggerType"] = self.encode_trigger_price_type(
+                        takeProfitTriggerPriceType
+                    )
             if stopLossTriggerPrice is not None:
-                request["stopLossTriggerPrice"] = self.price_to_precision(symbol, stopLossTriggerPrice)
+                request["stopLossTriggerPrice"] = self.price_to_precision(
+                    symbol, stopLossTriggerPrice
+                )
                 stopLossTriggerPriceType = self.safe_string(stopLoss, "priceType")
                 if stopLossTriggerPriceType is not None:
-                    request["stopLossTriggerType"] = self.encode_trigger_price_type(stopLossTriggerPriceType)
-            params = self.omit(params, ["takeProfit", "stopLoss"])
+                    request["stopLossTriggerType"] = self.encode_trigger_price_type(
+                        stopLossTriggerPriceType
+                    )
+            query = self.omit(query, ["takeProfit", "stopLoss"])
         response = None
         if not isAlgoOrder:
-            request["orderType"] = type
+            request["orderType"] = typeValue
             if isLimitOrder:
                 request["orderPrice"] = self.price_to_precision(symbol, price)
             #
@@ -2268,7 +2373,7 @@ class btse(Exchange, ImplicitAPI):
             #         "status": 2,
             #         "type": 0,
             #         "symbol": "BTC-PERP",
-            #         "postOnly": False,
+            #         "postOnly": false,
             #         "orderSide": "BUY",
             #         "orderId": "0251ea47-88b5-48c0-aeb3-b38774fd1f90",
             #         "clOrderID": "",
@@ -2287,7 +2392,7 @@ class btse(Exchange, ImplicitAPI):
             #         "timeInForce": "GTC"
             #     }
             #
-            response = await self.privatePostFuturesApiV3TradeOrders(self.extend(request, params))
+            response = await self.privatePostFuturesApiV3TradeOrders(self.extend(request, query))
         else:
             if isConditionalOrder:
                 # the futures conditional variant has no trigger direction field,
@@ -2299,45 +2404,57 @@ class btse(Exchange, ImplicitAPI):
                 if triggerPriceToSend is None:
                     triggerPriceToSend = stopLossPrice
                 request["triggerPrice"] = self.price_to_precision(symbol, triggerPriceToSend)
-                triggerPriceType = self.safe_string(params, "triggerPriceType", "mark")
+                triggerPriceType = self.safe_string(query, "triggerPriceType", "mark")
                 request["triggerType"] = self.encode_trigger_price_type(triggerPriceType)
                 if isLimitOrder:
                     request["orderPrice"] = self.price_to_precision(symbol, price)
-                params = self.omit(params, ["triggerPrice", "takeProfitPrice", "stopLossPrice", "triggerPriceType"])
+                query = self.omit(
+                    query, ["triggerPrice", "takeProfitPrice", "stopLossPrice", "triggerPriceType"]
+                )
             else:
-                request["orderType"] = type
-                if type == "OCO":
+                request["orderType"] = typeValue
+                if typeValue == "OCO":
                     # the price argument is the limit price of the take profit leg,
                     # the stopPrice param is the limit price of the stop loss leg
                     # and the triggerPrice param is where the stop loss leg fires
                     request["takeProfitOrderPrice"] = self.price_to_precision(symbol, price)
-                    stopPrice = self.safe_string(params, "stopPrice")
+                    stopPrice = self.safe_string(query, "stopPrice")
                     if stopPrice is not None:
                         request["stopLossOrderPrice"] = self.price_to_precision(symbol, stopPrice)
                     if triggerPrice is not None:
-                        request["stopLossTriggerPrice"] = self.price_to_precision(symbol, triggerPrice)
-                    triggerPriceType = self.safe_string(params, "triggerPriceType", "mark")
-                    request["stopLossTriggerType"] = self.encode_trigger_price_type(triggerPriceType)
-                    params = self.omit(params, ["stopPrice", "triggerPrice", "triggerPriceType"])
-                elif type == "PEG":
+                        request["stopLossTriggerPrice"] = self.price_to_precision(
+                            symbol, triggerPrice
+                        )
+                    triggerPriceType = self.safe_string(query, "triggerPriceType", "mark")
+                    request["stopLossTriggerType"] = self.encode_trigger_price_type(
+                        triggerPriceType
+                    )
+                    query = self.omit(query, ["stopPrice", "triggerPrice", "triggerPriceType"])
+                elif typeValue == "PEG":
                     # the required deviation and stealth params pass through, the
                     # optional price argument becomes a worst-price bound
                     if price is not None:
                         request["orderPrice"] = self.price_to_precision(symbol, price)
-                elif type == "TRAILING":
-                    trailingAmount = self.safe_string(params, "trailingAmount")
-                    trailingPercent = self.safe_string(params, "trailingPercent")
+                elif typeValue == "TRAILING":
+                    trailingAmount = self.safe_string(query, "trailingAmount")
+                    trailingPercent = self.safe_string(query, "trailingPercent")
                     if trailingAmount is not None:
                         request["trailValue"] = self.price_to_precision(symbol, trailingAmount)
                         request["trailValueType"] = "DISTANCE"
                     elif trailingPercent is not None:
                         request["trailValue"] = trailingPercent
                         request["trailValueType"] = "PERCENTAGE"
-                    triggerPriceType = self.safe_string(params, "triggerPriceType", "mark")
-                    request["trailTriggerPriceType"] = self.encode_trigger_price_type(triggerPriceType)
-                    params = self.omit(params, ["trailingAmount", "trailingPercent", "triggerPriceType"])
+                    triggerPriceType = self.safe_string(query, "triggerPriceType", "mark")
+                    request["trailTriggerPriceType"] = self.encode_trigger_price_type(
+                        triggerPriceType
+                    )
+                    query = self.omit(
+                        query, ["trailingAmount", "trailingPercent", "triggerPriceType"]
+                    )
                 # TWAP orders require the timePeriod param which passes through
-            response = await self.privatePostFuturesApiV3TradeOrdersAlgo(self.extend(request, params))
+            response = await self.privatePostFuturesApiV3TradeOrdersAlgo(
+                self.extend(request, query)
+            )
         # the normal futures endpoint responds with a single order dict, keep a
         # one element array guard in case a gateway wraps it
         order = response
@@ -2356,7 +2473,7 @@ class btse(Exchange, ImplicitAPI):
         }
         return self.safe_string(priceTypes, priceType, priceType)
 
-    async def fetch_open_order(self, id: str, symbol: Str = None, params=None) -> Order:
+    async def fetch_open_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         fetches information on an open order made by the user
 
@@ -2378,23 +2495,32 @@ class btse(Exchange, ImplicitAPI):
         clientOrderId = self.safe_string(params, "clientOrderId")
         if clientOrderId is not None:
             request["clOrderId"] = clientOrderId
-            params = self.omit(params, "clientOrderId")
         elif id is None:
-            raise ArgumentsRequired(self.id + " fetchOpenOrder() requires an id argument or a clientOrderId parameter")
+            raise ArgumentsRequired(
+                self.id + " fetchOpenOrder() requires an id argument or a clientOrderId parameter"
+            )
         else:
             request["orderId"] = id
+        paramsOmitted = (
+            self.omit(params, "clientOrderId") if (clientOrderId is not None) else params
+        )
         market = None
         if symbol is not None:
             market = self.market(symbol)
-        marketType = "spot"
-        marketType, params = self.handle_market_type_and_params("fetchOrder", market, params, marketType)
+        marketType, paramsMarketType = self.handle_market_type_and_params(
+            "fetchOrder", market, paramsOmitted, "spot"
+        )
         response = None
         if marketType == "spot":
-            response = await self.privateGetSpotApiV4TradeOrder(self.extend(request, params))
+            response = await self.privateGetSpotApiV4TradeOrder(
+                self.extend(request, paramsMarketType)
+            )
         else:
             # the futures endpoint doubles as the single order lookup when an
             # order id is sent and responds with a bare array
-            response = await self.privateGetFuturesApiV3TradeOrders(self.extend(request, params))
+            response = await self.privateGetFuturesApiV3TradeOrders(
+                self.extend(request, paramsMarketType)
+            )
         # accept a bare order dict, a data envelope and a one element array
         order = self.safe_value(response, "data", response)
         if isinstance(order, list):
@@ -2402,8 +2528,15 @@ class btse(Exchange, ImplicitAPI):
         return self.parse_order(order, market)
 
     async def edit_order(
-        self, id: str, symbol: str, type: OrderType, side: OrderSide, amount: Num = None, price: Num = None, params=None
-    ):
+        self,
+        id: str,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: Num = None,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
         edit a trade order
 
@@ -2431,28 +2564,42 @@ class btse(Exchange, ImplicitAPI):
         clientOrderId = self.safe_string(params, "clientOrderId")
         if clientOrderId is not None:
             request["clOrderId"] = clientOrderId
-            params = self.omit(params, "clientOrderId")
         elif id is None:
-            raise ArgumentsRequired(self.id + " editOrder() requires an id argument or a clientOrderId parameter")
+            raise ArgumentsRequired(
+                self.id + " editOrder() requires an id argument or a clientOrderId parameter"
+            )
         else:
             request["orderId"] = id
-        triggerPrice = self.safe_string(params, "triggerPrice")
+        paramsOmitted = (
+            self.omit(params, "clientOrderId") if (clientOrderId is not None) else params
+        )
+        triggerPrice = self.safe_string(paramsOmitted, "triggerPrice")
         if triggerPrice is not None:
             request["triggerPrice"] = self.price_to_precision(symbol, triggerPrice)
-            params = self.omit(params, "triggerPrice")
+        query = (
+            self.omit(paramsOmitted, "triggerPrice")
+            if (triggerPrice is not None)
+            else paramsOmitted
+        )
         if amount is not None:
             request["orderSize"] = self.amount_to_precision(symbol, amount)
         if price is not None:
             request["orderPrice"] = self.price_to_precision(symbol, price)
-        isSlide = self.safe_bool(params, "slide", False)
-        if (amount is None) and (price is None) and (triggerPrice is None) and (isSlide is not True):
+        isSlide = self.safe_bool(query, "slide", False)
+        if (
+            (amount is None)
+            and (price is None)
+            and (triggerPrice is None)
+            and (isSlide is not True)
+        ):
             raise ArgumentsRequired(
-                self.id + " editOrder() requires an amount argument, a price argument or a triggerPrice parameter"
+                self.id
+                + " editOrder() requires an amount argument, a price argument or a triggerPrice parameter"
             )
         response = None
         if market["spot"] is True:
             request["symbol"] = market["id"]
-            response = await self.privatePutSpotApiV4TradeOrders(self.extend(request, params))
+            response = await self.privatePutSpotApiV4TradeOrders(self.extend(request, query))
         else:
             # the futures amend requires an explicit amendType discriminator
             # which can change the price and size together or a single field
@@ -2470,11 +2617,11 @@ class btse(Exchange, ImplicitAPI):
                 request["amendType"] = "SIZE"
             else:
                 request["amendType"] = "PRICE"
-            response = await self.privatePutFuturesApiV3TradeOrders(self.extend(request, params))
+            response = await self.privatePutFuturesApiV3TradeOrders(self.extend(request, query))
         order = self.safe_dict(response, 0, {})
         return self.parse_order(order, market)
 
-    async def cancel_order(self, id: str, symbol: Str = None, params=None):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
 
         https://docs.btse.com/spot/rest/cancel-order
@@ -2497,15 +2644,21 @@ class btse(Exchange, ImplicitAPI):
         clientOrderId = self.safe_string(params, "clientOrderId")
         if clientOrderId is not None:
             request["clOrderId"] = clientOrderId
-            params = self.omit(params, "clientOrderId")
         elif id is None:
-            raise ArgumentsRequired(self.id + " cancelOrder() requires an id argument or a clientOrderId parameter")
+            raise ArgumentsRequired(
+                self.id + " cancelOrder() requires an id argument or a clientOrderId parameter"
+            )
         else:
             request["orderId"] = id
+        paramsOmitted = (
+            self.omit(params, "clientOrderId") if (clientOrderId is not None) else params
+        )
         response = None
         if market["spot"] is True:
             request["symbol"] = market["id"]
-            response = await self.privateDeleteSpotApiV4TradeOrders(self.extend(request, params))
+            response = await self.privateDeleteSpotApiV4TradeOrders(
+                self.extend(request, paramsOmitted)
+            )
         else:
             #
             #     [
@@ -2524,11 +2677,13 @@ class btse(Exchange, ImplicitAPI):
             #     ]
             #
             request["symbol"] = self.futures_request_id(market)
-            response = await self.privateDeleteFuturesApiV3TradeOrders(self.extend(request, params))
+            response = await self.privateDeleteFuturesApiV3TradeOrders(
+                self.extend(request, paramsOmitted)
+            )
         order = self.safe_dict(response, 0, {})
         return self.parse_order(order, market)
 
-    async def cancel_all_orders(self, symbol: Str = None, params=None) -> list[Order]:
+    async def cancel_all_orders(self, symbol: Str = None, params: dict = None) -> list[Order]:
         """
         cancel all open orders in a market
 
@@ -2547,24 +2702,32 @@ class btse(Exchange, ImplicitAPI):
         if symbol is not None:
             market = self.market(symbol)
         marketType = "spot"
-        marketType, params = self.handle_market_type_and_params("cancelAllOrders", market, params, marketType)
+        marketTypeOption, paramsMarketType = self.handle_market_type_and_params(
+            "cancelAllOrders", market, params, marketType
+        )
         request = {}
         response = None
-        if marketType == "spot":
+        if marketTypeOption == "spot":
             # the literal ALL value cancels every open order across all pairs
             request["symbol"] = market["id"] if (market is not None) else "ALL"
-            response = await self.privateDeleteSpotApiV4TradeOrdersAll(self.extend(request, params))
+            response = await self.privateDeleteSpotApiV4TradeOrdersAll(
+                self.extend(request, paramsMarketType)
+            )
         else:
             if market is None:
-                raise ArgumentsRequired(self.id + " cancelAllOrders() requires a symbol argument for contract markets")
+                raise ArgumentsRequired(
+                    self.id + " cancelAllOrders() requires a symbol argument for contract markets"
+                )
             # the unified futures api has no cancel all endpoint, the legacy
             # endpoint cancels every order for the symbol when no order id is
             # sent, and it identifies contracts by the short symbol form
             request["symbol"] = self.futures_request_id(market)
-            response = await self.privateDeleteFuturesApiV23Order(self.extend(request, params))
+            response = await self.privateDeleteFuturesApiV23Order(
+                self.extend(request, paramsMarketType)
+            )
         return self.parse_orders(response, market)
 
-    async def cancel_all_orders_after(self, timeout: Int, params=None):
+    async def cancel_all_orders_after(self, timeout: Int, params: dict = None):
         """
         dead man's switch, cancel all orders after the given timeout
 
@@ -2582,18 +2745,24 @@ class btse(Exchange, ImplicitAPI):
         request = {}
         response = None
         marketType = "spot"
-        marketType, params = self.handle_market_type_and_params("cancelAllOrdersAfter", None, params, marketType)
-        if marketType == "spot":
+        marketTypeOption, paramsMarketType = self.handle_market_type_and_params(
+            "cancelAllOrdersAfter", None, params, marketType
+        )
+        if marketTypeOption == "spot":
             request["timeout"] = timeout
-            response = await self.privatePostSpotApiV4TradeOrdersCancelAllAfter(self.extend(request, params))
+            response = await self.privatePostSpotApiV4TradeOrdersCancelAllAfter(
+                self.extend(request, paramsMarketType)
+            )
         else:
             # the futures param is named timeoutMs and is required, zero disarms
             request["timeoutMs"] = timeout
-            response = await self.privatePostFuturesApiV3TradeOrdersCancelAllAfter(self.extend(request, params))
+            response = await self.privatePostFuturesApiV3TradeOrdersCancelAllAfter(
+                self.extend(request, paramsMarketType)
+            )
         return response
 
     async def fetch_open_orders(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Order]:
         """
         fetch all unfilled currently open orders
@@ -2616,16 +2785,22 @@ class btse(Exchange, ImplicitAPI):
         if symbol is not None:
             market = self.market(symbol)
         marketType = "spot"
-        marketType, params = self.handle_market_type_and_params("fetchOpenOrders", market, params, marketType)
+        marketTypeOption, paramsMarketType = self.handle_market_type_and_params(
+            "fetchOpenOrders", market, params, marketType
+        )
         response = None
-        if marketType == "spot":
+        if marketTypeOption == "spot":
             if market is not None:
                 request["symbol"] = market["id"]
-            response = await self.privateGetSpotApiV4TradeOrders(self.extend(request, params))
+            response = await self.privateGetSpotApiV4TradeOrders(
+                self.extend(request, paramsMarketType)
+            )
         else:
             if market is not None:
                 request["symbol"] = self.futures_request_id(market)
-            response = await self.privateGetFuturesApiV3TradeOrders(self.extend(request, params))
+            response = await self.privateGetFuturesApiV3TradeOrders(
+                self.extend(request, paramsMarketType)
+            )
         # the endpoints have no server side time filters, accept a bare array
         # and a data envelope and filter client-side
         rows = self.safe_list(response, "data", response)
@@ -2644,12 +2819,12 @@ class btse(Exchange, ImplicitAPI):
         #         "timestamp": 1770813053751,
         #         "triggerPrice": 0,
         #         "stopPrice": null,
-        #         "trigger": False,
+        #         "trigger": false,
         #         "message": "",
         #         "clOrderID": null,
         #         "stealth": 1,
         #         "deviation": 1,
-        #         "postOnly": False,
+        #         "postOnly": false,
         #         "orderDetailType": null,
         #         "originalOrderBaseSize": 0.0001,
         #         "originalOrderQuoteSize": null,
@@ -2674,7 +2849,7 @@ class btse(Exchange, ImplicitAPI):
         #         "orderID": "5c6a26db-8cfb-45c7-b25d-56927bc36795",
         #         "timestamp": 1770821231984,
         #         "triggerPrice": 0,
-        #         "trigger": False,
+        #         "trigger": false,
         #         "deviation": 100,
         #         "stealth": 100,
         #         "message": "",
@@ -2685,7 +2860,7 @@ class btse(Exchange, ImplicitAPI):
         #         "filledSize": 1,
         #         "totalFilledSize": 1,
         #         "remainingSize": 0,
-        #         "postOnly": False,
+        #         "postOnly": false,
         #         "orderDetailType": null,
         #         "positionMode": "ONE_WAY",
         #         "positionDirection": null,
@@ -2694,11 +2869,11 @@ class btse(Exchange, ImplicitAPI):
         #     }
         #
         marketId = self.safe_string_2(order, "symbol", "market")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_integer(order, "timestamp")
         # open_orders rows carry no numeric status - the state lives in
-        # orderState(STATUS_ACTIVE / STATUS_INACTIVE), and time_in_force
-        # is spelled timeInForce there(observed live), so both fall back
+        # orderState (STATUS_ACTIVE / STATUS_INACTIVE), and time_in_force
+        # is spelled timeInForce there (observed live), so both fall back
         rawStatus = self.safe_string_2(order, "status", "orderState")
         rawType = self.safe_string_2(order, "orderType", "type")
         status = self.parse_order_status(rawStatus)
@@ -2719,25 +2894,33 @@ class btse(Exchange, ImplicitAPI):
                 "lastTradeTimestamp": None,
                 "lastUpdateTimestamp": None,
                 "status": status,
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "type": orderType,
                 "timeInForce": self.parse_time_in_force(rawTimeInForce),
                 "postOnly": self.safe_bool(order, "postOnly"),
                 "reduceOnly": self.safe_bool(order, "reduceOnly"),
                 "side": self.safe_string_lower_2(order, "side", "orderSide"),
                 "price": self.safe_string_2(order, "price", "orderPrice"),
-                "triggerPrice": self.omit_zero(self.safe_string_2(order, "triggerOriginalPrice", "triggerPrice")),
-                "stopLossPrice": None,  # TODO check
-                "takeProfitPrice": None,  # TODO check
-                "amount": self.safe_string_n(order, ["currentOrderBaseSize", "currentOrderSize", "orderSize"]),
-                "filled": self.safe_string_n(order, ["totalFilledBaseSize", "totalFilledSize", "filledSize"]),
+                "triggerPrice": self.omit_zero(
+                    self.safe_string_2(order, "triggerOriginalPrice", "triggerPrice")
+                ),
+                "stopLossPrice": None,  # todo check
+                "takeProfitPrice": None,  # todo check
+                "amount": self.safe_string_n(
+                    order, ["currentOrderBaseSize", "currentOrderSize", "orderSize"]
+                ),
+                "filled": self.safe_string_n(
+                    order, ["totalFilledBaseSize", "totalFilledSize", "filledSize"]
+                ),
                 "remaining": self.safe_string_2(order, "remainingOrderBaseSize", "remainingSize"),
                 "cost": None,
                 "trades": None,
                 "fee": None,
-                "average": self.omit_zero(self.safe_string_2(order, "avgFilledPrice", "averageFillPrice")),
+                "average": self.omit_zero(
+                    self.safe_string_2(order, "avgFilledPrice", "averageFillPrice")
+                ),
             },
-            market,
+            marketResolved,
         )
 
     def parse_order_status(self, status: Str):
@@ -2791,7 +2974,7 @@ class btse(Exchange, ImplicitAPI):
         }
         return self.safe_string(values, timeInForce, timeInForce)
 
-    async def fetch_trading_fees(self, params=None) -> TradingFees:
+    async def fetch_trading_fees(self, params: dict = None) -> TradingFees:
         """
         fetch the trading fees for multiple markets
 
@@ -2807,13 +2990,15 @@ class btse(Exchange, ImplicitAPI):
         await self.load_markets()
         response = None
         marketType = "spot"
-        marketType, params = self.handle_market_type_and_params("fetchTradingFees", None, params, marketType)
-        if marketType == "spot":
-            response = await self.privateGetSpotApiV4TradeFees(params)
+        marketTypeOption, paramsMarketType = self.handle_market_type_and_params(
+            "fetchTradingFees", None, params, marketType
+        )
+        if marketTypeOption == "spot":
+            response = await self.privateGetSpotApiV4TradeFees(paramsMarketType)
         else:
             # the futures fees stay on the legacy endpoint, the unified futures
             # api has no fees route
-            response = await self.privateGetFuturesApiV23UserFees(params)
+            response = await self.privateGetFuturesApiV23UserFees(paramsMarketType)
         #
         #     [
         #         {
@@ -2826,7 +3011,7 @@ class btse(Exchange, ImplicitAPI):
         rows = self.safe_list(response, "data", response)
         responseList = self.array_concat([], rows)
         result = {}
-        for i in range(len(responseList)):
+        for i in range(0, len(responseList)):
             feeInfo = responseList[i]
             marketId = self.safe_string(feeInfo, "symbol")
             market = self.safe_market(marketId)
@@ -2850,7 +3035,7 @@ class btse(Exchange, ImplicitAPI):
         code: Str = None,
         since: Int = None,
         limit: Int = None,
-        params=None,
+        params: dict = None,
     ):
         # the helper always receives a non empty history type list, the list is
         # rebuilt through safeList so the transpilers treat it as an array in
@@ -2866,7 +3051,7 @@ class btse(Exchange, ImplicitAPI):
         # the endpoint applies a server side history type filter sent as a
         # json encoded array in the query string, verified live
         request["historyTypes"] = self.json(typesList)
-        params = self.omit(params, "walletType")
+        paramsOmitted = self.omit(params, "walletType")
         currency = None
         if code is not None:
             currency = self.currency(code)
@@ -2875,17 +3060,23 @@ class btse(Exchange, ImplicitAPI):
             # the exchange rejects spot wallet history queries without an asset,
             # verified live, and omitting walletType still defaults to spot
             raise ArgumentsRequired(
-                self.id + " " + methodName + "() requires a code argument for the spot wallet history"
+                self.id
+                + " "
+                + methodName
+                + "() requires a code argument for the spot wallet history"
             )
         if since is not None:
             request["startTime"] = since
         if limit is not None:
             request["pageSize"] = limit
-        until = None
-        until, params = self.handle_option_and_params(params, methodName, "until")
+        until, paramsUntil = self.handle_option_integer_and_params(
+            paramsOmitted, methodName, "until"
+        )
         if until is not None:
             request["endTime"] = until
-        response = await self.privateGetPublicApiWalletV1UserWalletHistory(self.extend(request, params))
+        response = await self.privateGetPublicApiWalletV1UserWalletHistory(
+            self.extend(request, paramsUntil)
+        )
         #
         #     {
         #         "code": 1,
@@ -2909,7 +3100,7 @@ class btse(Exchange, ImplicitAPI):
         #                 "txId": "0xb4d88986d013f799d78e6232792c44b45dff1213a015171ddcf4adfcd283b3fd"
         #             }
         #         ],
-        #         "success": True
+        #         "success": true
         #     }
         #
         rawRows = self.safe_list(response, "data", response)
@@ -2917,12 +3108,12 @@ class btse(Exchange, ImplicitAPI):
         # and the unified enum vocabularies as the legacy endpoint ignored the
         # filter and returned the whole mixed ledger
         allowed = {}
-        for i in range(len(typesList)):
+        for i in range(0, len(typesList)):
             historyType = typesList[i]
             allowed[historyType] = True
             allowed[self.capitalize(historyType.lower())] = True
         rows = []
-        for i in range(len(rawRows)):
+        for i in range(0, len(rawRows)):
             entry = rawRows[i]
             type = self.safe_string(entry, "type", "")
             if type in allowed:
@@ -2930,7 +3121,7 @@ class btse(Exchange, ImplicitAPI):
         return [rows, currency]
 
     async def fetch_deposits_withdrawals(
-        self, code: Str = None, since: Int = None, limit: Int = None, params=None
+        self, code: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Transaction]:
         """
         fetch history of deposits and withdrawals
@@ -2953,7 +3144,7 @@ class btse(Exchange, ImplicitAPI):
         return self.parse_transactions(rows, currency, since, limit)
 
     async def fetch_deposits(
-        self, code: Str = None, since: Int = None, limit: Int = None, params=None
+        self, code: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Transaction]:
         """
         fetch all deposits made to an account
@@ -2976,7 +3167,7 @@ class btse(Exchange, ImplicitAPI):
         return self.parse_transactions(rows, currency, since, limit)
 
     async def fetch_withdrawals(
-        self, code: Str = None, since: Int = None, limit: Int = None, params=None
+        self, code: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Transaction]:
         """
         fetch all withdrawals made from an account
@@ -3073,7 +3264,7 @@ class btse(Exchange, ImplicitAPI):
         return self.safe_string(statuses, status, status)
 
     async def fetch_ledger(
-        self, code: Str = None, since: Int = None, limit: Int = None, params=None
+        self, code: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[LedgerEntry]:
         """
         fetch the history of changes, actions done by the user or operations that altered the balance of the user
@@ -3094,7 +3285,7 @@ class btse(Exchange, ImplicitAPI):
         request = {}
         walletType = self.safe_string(params, "walletType", "SPOT")
         request["walletType"] = walletType
-        params = self.omit(params, "walletType")
+        paramsOmitted = self.omit(params, "walletType")
         currency = None
         if code is not None:
             currency = self.currency(code)
@@ -3102,16 +3293,21 @@ class btse(Exchange, ImplicitAPI):
         elif walletType == "SPOT":
             # the exchange rejects spot wallet history queries without an asset,
             # verified live, and omitting walletType still defaults to spot
-            raise ArgumentsRequired(self.id + " fetchLedger() requires a code argument for the spot wallet history")
+            raise ArgumentsRequired(
+                self.id + " fetchLedger() requires a code argument for the spot wallet history"
+            )
         if since is not None:
             request["startTime"] = since
         if limit is not None:
             request["pageSize"] = limit
-        until = None
-        until, params = self.handle_option_and_params(params, "fetchLedger", "until")
+        until, paramsUntil = self.handle_option_integer_and_params(
+            paramsOmitted, "fetchLedger", "until"
+        )
         if until is not None:
             request["endTime"] = until
-        response = await self.privateGetPublicApiWalletV1UserWalletHistory(self.extend(request, params))
+        response = await self.privateGetPublicApiWalletV1UserWalletHistory(
+            self.extend(request, paramsUntil)
+        )
         #
         #     [
         #         {
@@ -3224,7 +3420,7 @@ class btse(Exchange, ImplicitAPI):
         }
         return self.safe_string(directions, type)
 
-    async def fetch_trading_fee(self, symbol: str, params=None) -> TradingFeeInterface:
+    async def fetch_trading_fee(self, symbol: str, params: dict = None) -> TradingFeeInterface:
         """
         fetch the trading fees for a market
 
@@ -3262,7 +3458,7 @@ class btse(Exchange, ImplicitAPI):
             "tierBased": True,
         }
 
-    async def fetch_positions(self, symbols: Strings = None, params=None) -> list[Position]:
+    async def fetch_positions(self, symbols: Strings = None, params: dict = None) -> list[Position]:
         """
         fetch all open positions
 
@@ -3275,7 +3471,7 @@ class btse(Exchange, ImplicitAPI):
         if params is None:
             params = {}
         await self.load_markets()
-        symbols = self.market_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols)
         response = await self.privateGetFuturesApiV3TradePositions(params)
         #
         # the response is a bare array of position rows
@@ -3283,9 +3479,9 @@ class btse(Exchange, ImplicitAPI):
         rows = self.safe_list(response, "data")
         if rows is None:
             rows = response
-        return self.parse_positions(rows, symbols)
+        return self.parse_positions(rows, symbolsNormalized)
 
-    async def fetch_positions_for_symbol(self, symbol: str, params=None) -> list[Position]:
+    async def fetch_positions_for_symbol(self, symbol: str, params: dict = None) -> list[Position]:
         """
         fetch open positions for a single market
 
@@ -3300,15 +3496,15 @@ class btse(Exchange, ImplicitAPI):
             params = {}
         await self.load_markets()
         market = self.market(symbol)
-        params = self.extend(
+        paramsExtended = self.extend(
             {
                 "symbol": self.futures_request_id(market),
             },
             params,
         )
-        return await self.fetch_positions([symbol], params)
+        return await self.fetch_positions([symbol], paramsExtended)
 
-    def parse_position(self, position: dict, market: Market = None):
+    def parse_position(self, position: dict, market: Market = None) -> Position:
         #
         #     {
         #         "marginType": 91,
@@ -3325,19 +3521,19 @@ class btse(Exchange, ImplicitAPI):
         #         "isolatedLeverage": 25,
         #         "adlScoreBucket": 1,
         #         "contractSize": 0.0001,
-        #         "liquidationInProgress": False,
+        #         "liquidationInProgress": false,
         #         "timestamp": 1770880518034,
         #         "takeProfitOrder": {
         #             "orderId": "18b4056a-59de-424a-843e-c2df5c9f7265",
         #             "side": "SELL",
         #             "triggerPrice": 2500,
-        #             "triggerUseLastPrice": False
+        #             "triggerUseLastPrice": false
         #         },
         #         "stopLossOrder": {
         #             "orderId": "e7ef1035-0773-446d-9a80-2de0e1de2c13",
         #             "side": "SELL",
         #             "triggerPrice": 1000,
-        #             "triggerUseLastPrice": False
+        #             "triggerUseLastPrice": false
         #         },
         #         "positionMode": "ONE_WAY",
         #         "positionDirection": null,
@@ -3355,12 +3551,12 @@ class btse(Exchange, ImplicitAPI):
             marketId = self.safe_string(parts, 0)
         else:
             marketId = self.safe_string(position, "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_integer(position, "timestamp")
         marginType = self.safe_string(position, "marginType")
         side = self.safe_string_lower_2(position, "positionDirection", "side")
         positionMode = self.safe_string(position, "positionMode")
-        hedged = positionMode in {"HEDGE", "ISOLATED"}
+        hedged = (positionMode == "HEDGE") or (positionMode == "ISOLATED")
         takeProfitOrder = self.safe_dict(position, "takeProfitOrder", {})
         takeProfitPrice = self.safe_string(takeProfitOrder, "triggerPrice")
         stopLossOrder = self.safe_dict(position, "stopLossOrder", {})
@@ -3369,15 +3565,19 @@ class btse(Exchange, ImplicitAPI):
             {
                 "info": position,
                 "id": self.safe_string(position, "positionId"),
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "entryPrice": self.parse_number(self.safe_string(position, "entryPrice")),
                 "markPrice": self.parse_number(self.safe_string(position, "markPrice")),
                 "lastPrice": None,
                 "takeProfitPrice": self.parse_number(takeProfitPrice),
                 "stopLossPrice": self.parse_number(stopLossPrice),
-                "notional": self.parse_number(self.safe_string_2(position, "notionalValue", "orderValue")),
+                "notional": self.parse_number(
+                    self.safe_string_2(position, "notionalValue", "orderValue")
+                ),
                 "collateral": None,
-                "unrealizedPnl": self.parse_number(self.safe_string(position, "unrealizedProfitLoss")),
+                "unrealizedPnl": self.parse_number(
+                    self.safe_string(position, "unrealizedProfitLoss")
+                ),
                 "realizedPnl": None,
                 "side": self.parse_position_side(side),
                 "contracts": self.parse_number(self.safe_string(position, "size")),
@@ -3386,12 +3586,16 @@ class btse(Exchange, ImplicitAPI):
                 "datetime": self.iso8601(timestamp),
                 "lastUpdateTimestamp": None,
                 "hedged": hedged,
-                "maintenanceMargin": self.parse_number(self.safe_string(position, "totalMaintenanceMargin")),
+                "maintenanceMargin": self.parse_number(
+                    self.safe_string(position, "totalMaintenanceMargin")
+                ),
                 "maintenanceMarginPercentage": None,
                 "initialMargin": None,
                 "initialMarginPercentage": None,
                 "leverage": self.parse_number(self.safe_string(position, "currentLeverage")),
-                "liquidationPrice": self.parse_number(self.safe_string(position, "liquidationPrice")),
+                "liquidationPrice": self.parse_number(
+                    self.safe_string(position, "liquidationPrice")
+                ),
                 "marginRatio": None,
                 "marginMode": self.parse_margin_mode_type(marginType),
                 "percentage": None,
@@ -3414,7 +3618,9 @@ class btse(Exchange, ImplicitAPI):
         }
         return self.safe_string(sides, side, side)
 
-    async def fetch_position_mode(self, symbol: Str = None, params=None) -> PositionModeInfo:
+    async def fetch_position_mode(
+        self, symbol: Str = None, params: dict = None
+    ) -> PositionModeInfo:
         """
         fetchs the position mode, hedged or one way, hedged for btse is set identically for all linear markets or all inverse markets
 
@@ -3444,13 +3650,13 @@ class btse(Exchange, ImplicitAPI):
         #
         data = self.safe_dict(response, 0, {})
         positionMode = self.safe_string(data, "positionMode")
-        hedged = positionMode in {"HEDGE", "ISOLATED"}
+        hedged = (positionMode == "HEDGE") or (positionMode == "ISOLATED")
         return {
             "info": data,
             "hedged": hedged,
         }
 
-    async def set_position_mode(self, hedged: bool, symbol: Str = None, params=None):
+    async def set_position_mode(self, hedged: bool, symbol: Str = None, params: dict = None):
         """
         NBnot !! This method also sets margin mode to cross on btse. Set hedged to True or False for a cross-margin market.
 
@@ -3461,7 +3667,7 @@ class btse(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict: response from the exchange
         """
-        # NBnot !! This method also sets margin mode to cross on btse
+        # NB!!! This method also sets margin mode to cross on btse
         # btse do not have specific endpoint for marginMode
         # both marginMode and positionMode are set and get with the same endpoints
         # it terms of btse positionMode could be HEDGE, ONE_WAY or ISOLATED
@@ -3472,14 +3678,16 @@ class btse(Exchange, ImplicitAPI):
             raise ArgumentsRequired(self.id + " setPositionMode() requires a symbol argument")
         await self.load_markets()
         market = self.market(symbol)
-        positionMode = "HEDGE" if hedged else "ONE_WAY"
+        positionMode = "ONE_WAY"
+        if hedged:
+            positionMode = "HEDGE"
         request = {
             "symbol": self.futures_request_id(market),
             "positionMode": positionMode,
         }
         return await self.privatePostFuturesApiV3TradePositionMode(self.extend(request, params))
 
-    async def fetch_margin_mode(self, symbol: str, params=None) -> MarginMode:
+    async def fetch_margin_mode(self, symbol: str, params: dict = None) -> MarginMode:
         """
         fetches the margin mode of a specific symbol
 
@@ -3510,18 +3718,18 @@ class btse(Exchange, ImplicitAPI):
         #     }
         #
         marketId = self.safe_string(marginMode, "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         positionMode = self.safe_string_lower(marginMode, "marginMode")
         marginModeValue = "cross"
         if positionMode == "isolated":
             marginModeValue = "isolated"
         return {
             "info": marginMode,
-            "symbol": market["symbol"],
+            "symbol": marketResolved["symbol"],
             "marginMode": marginModeValue,
         }
 
-    async def set_margin_mode(self, marginMode: str, symbol: Str = None, params=None):
+    async def set_margin_mode(self, marginMode: str, symbol: Str = None, params: dict = None):
         """
         set margin mode to 'cross' or 'isolated'
 
@@ -3545,28 +3753,37 @@ class btse(Exchange, ImplicitAPI):
             raise ArgumentsRequired(self.id + " setMarginMode() requires a symbol argument")
         await self.load_markets()
         market = self.market(symbol)
-        marginMode = marginMode.lower()
+        marginModeValue = marginMode.lower()
         positionMode = "ONE_WAY"
-        if marginMode not in {"cross", "isolated"}:
-            raise BadRequest(self.id + " setMarginMode() marginMode argument should be either cross or isolated")
+        if (marginModeValue != "cross") and (marginModeValue != "isolated"):
+            raise BadRequest(
+                self.id + " setMarginMode() marginMode argument should be either cross or isolated"
+            )
         hedged = self.safe_bool(params, "hedged")
-        if marginMode == "cross":
+        if marginModeValue == "cross":
             if "hedged" not in params:
-                raise ArgumentsRequired(self.id + " setMarginMode() requires a hedged parameter for cross margin mode")
-            if hedged is True:
+                raise ArgumentsRequired(
+                    self.id + " setMarginMode() requires a hedged parameter for cross margin mode"
+                )
+            elif hedged is True:
                 positionMode = "HEDGE"
         elif ("hedged" in params) and (hedged is not True):
-            raise BadRequest(self.id + " setMarginMode() hedged parameter cannot be False for isolated margin mode")
+            raise BadRequest(
+                self.id
+                + " setMarginMode() hedged parameter cannot be False for isolated margin mode"
+            )
         else:
             positionMode = "ISOLATED"
-        params = self.omit(params, "hedged")
+        paramsOmitted = self.omit(params, "hedged")
         request = {
             "symbol": self.futures_request_id(market),
             "positionMode": positionMode,
         }
-        return await self.privatePostFuturesApiV3TradePositionMode(self.extend(request, params))
+        return await self.privatePostFuturesApiV3TradePositionMode(
+            self.extend(request, paramsOmitted)
+        )
 
-    async def close_position(self, symbol: str, side: OrderSide = None, params=None) -> Order:
+    async def close_position(self, symbol: str, side: Str = None, params: dict = None) -> Order:
         """
         closes an open position for a market
 
@@ -3591,23 +3808,30 @@ class btse(Exchange, ImplicitAPI):
         request = {
             "symbol": self.futures_request_id(market),
         }
-        type = "market"
-        type, params = self.handle_option_and_params(params, "closePosition", "type", type)
-        type = type.upper()
-        request["orderType"] = type
-        if type == "LIMIT":
-            price = self.safe_string(params, "price")
+        orderType, paramsOrderType = self.handle_option_string_and_params(
+            params, "closePosition", "type", "market"
+        )
+        typeUpper = orderType.upper()
+        request["orderType"] = typeUpper
+        if typeUpper == "LIMIT":
+            price = self.safe_string(paramsOrderType, "price")
             if price is None:
-                raise ArgumentsRequired(self.id + " closePosition() requires a price parameter for limit orders")
+                raise ArgumentsRequired(
+                    self.id + " closePosition() requires a price parameter for limit orders"
+                )
             request["orderPrice"] = self.price_to_precision(symbol, price)
-            params = self.omit(params, "price")
-        response = await self.privateDeleteFuturesApiV3TradePositions(self.extend(request, params))
+        paramsOmitted = (
+            self.omit(paramsOrderType, "price") if (typeUpper == "LIMIT") else paramsOrderType
+        )
+        response = await self.privateDeleteFuturesApiV3TradePositions(
+            self.extend(request, paramsOmitted)
+        )
         order = self.safe_dict(response, 0)
         if order is None:
             order = response
         return self.parse_order(order, market)
 
-    async def fetch_leverage(self, symbol: str, params=None) -> Leverage:
+    async def fetch_leverage(self, symbol: str, params: dict = None) -> Leverage:
         """
         fetch the leverage for a market
 
@@ -3651,8 +3875,8 @@ class btse(Exchange, ImplicitAPI):
         longLeverage = None
         shortLeverage = None
         marginMode = None
-        for i in range(len(safeResponse)):
-            entrty = safeResponse[i]
+        for i in range(0, len(safeResponse)):
+            entrty = self.safe_dict(safeResponse, i)
             leverageValue = self.safe_integer(entrty, "leverage")
             positionDirection = self.safe_string(entrty, "positionDirection")
             marginMode = self.safe_string_lower(entrty, "marginMode")
@@ -3668,7 +3892,7 @@ class btse(Exchange, ImplicitAPI):
         result["shortLeverage"] = shortLeverage
         return result
 
-    async def set_leverage(self, leverage: int, symbol: Str = None, params=None):
+    async def set_leverage(self, leverage: int, symbol: Str = None, params: dict = None):
         """
         set the level of leverage for a market
 
@@ -3695,11 +3919,13 @@ class btse(Exchange, ImplicitAPI):
         # the endpoint defaults to the ISOLATED bucket when marginMode is omitted,
         # verified live - a bare call on a cross account silently changes the
         # isolated leverage only, so the unified marginMode param is translated here
-        marginMode = None
-        marginMode, params = self.handle_margin_mode_and_params("setLeverage", params)
+        marginMode, paramsMarginMode = self.handle_margin_mode_and_params("setLeverage", params)
         if marginMode is not None:
             request["marginMode"] = marginMode.upper()
-        return await self.privatePostFuturesApiV3TradeLeverage(self.extend(request, params))
+        response = await self.privatePostFuturesApiV3TradeLeverage(
+            self.extend(request, paramsMarginMode)
+        )
+        return response
 
     def handle_errors(
         self,
@@ -3714,7 +3940,7 @@ class btse(Exchange, ImplicitAPI):
         requestBody: object,
     ):
         if (response is None) or (response is None):
-            return  # fallback to default error handler
+            return None  # fallback to default error handler
         #
         # spot
         #
@@ -3763,8 +3989,8 @@ class btse(Exchange, ImplicitAPI):
             raise ExchangeError(feedback)
         rows = []
         rows = response if isinstance(response, list) else [response]
-        for i in range(len(rows)):
-            row = rows[i]
+        for i in range(0, len(rows)):
+            row = self.safe_dict(rows, i)
             status = self.safe_string(row, "status")
             if status is not None:
                 message = self.safe_string(row, "message")
@@ -3774,11 +4000,11 @@ class btse(Exchange, ImplicitAPI):
                 feedback = self.id + " " + body
                 self.throw_exactly_matched_exception(self.exceptions["exact"], status, feedback)
                 self.throw_broadly_matched_exception(self.exceptions["broad"], message, feedback)
-        return
+        return None
 
     def sign(
         self,
-        path: object,
+        path: str,
         api: object = "public",
         method="GET",
         params=None,
@@ -3787,7 +4013,12 @@ class btse(Exchange, ImplicitAPI):
     ):
         if params is None:
             params = {}
-        baseUrl = self.urls["api"][api]
+        requestBody = None
+        requestHeaders = None
+        apiUrl = self.safe_string(self.urls["api"], api)
+        if apiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        baseUrl = apiUrl
         url = baseUrl + "/" + self.implode_params(path, params)
         query = self.omit(params, self.extract_params(path))
         # the futures v3 trading api reads DELETE params from a signed json
@@ -3796,7 +4027,7 @@ class btse(Exchange, ImplicitAPI):
         # in both directions
         isBodyDelete = (method == "DELETE") and (path.startswith("futures/api/v3/") is True)
         queryString = ""
-        if (method in {"GET", "DELETE"}) and not isBodyDelete:
+        if ((method == "GET") or (method == "DELETE")) and not isBodyDelete:
             if len(query) > 0:
                 queryString = self.urlencode(query)
                 url += "?" + queryString
@@ -3804,26 +4035,31 @@ class btse(Exchange, ImplicitAPI):
             self.check_required_credentials()
             nonce = self.nonce()
             bodyString = self.json(query)
-            if (method in {"GET", "DELETE"}) and not isBodyDelete:
+            if ((method == "GET") or (method == "DELETE")) and not isBodyDelete:
                 bodyString = ""
             else:
-                body = bodyString
+                requestBody = bodyString
             # the signed urlpath is the path relative to the base url of the product, the
             # spot and futures apis of every generation mount under /spot and /futures and
             # sign the /api/v... remainder, while the public-api wallet, otc and markets
             # endpoints mount on the bare host and sign the full path with the leading slash
             signPath = None
-            signPath = "/" + path if path.startswith("public-api/") is True else self.clean_path(path)
+            if path.startswith("public-api/") is True:
+                signPath = "/" + path
+            else:
+                signPath = self.clean_path(path)
             payload = signPath + str(nonce) + bodyString
             signature = self.hmac(self.encode(payload), self.encode(self.secret), hashlib.sha384)
-            headers = {
+            requestHeaders = {
                 "request-api": self.apiKey,
                 "request-nonce": str(nonce),
                 "request-sign": signature,
                 "Content-Type": "application/json",
                 "BROKER-ID": "ccxt",
             }
-        return {"url": url, "method": method, "body": body, "headers": headers}
+        bodyResolved = body if (requestBody is None) else requestBody
+        headersResolved = headers if (requestHeaders is None) else requestHeaders
+        return {"url": url, "method": method, "body": bodyResolved, "headers": headersResolved}
 
     def futures_request_id(self, market: object):
         # the futures v3 trading api identifies contracts by the short trade-currency
@@ -3834,7 +4070,8 @@ class btse(Exchange, ImplicitAPI):
     def clean_path(self, path: str):
         result = path.replace("spot", "")
         result = result.replace("futures", "")
-        return result.replace("otc", "")
+        result = result.replace("otc", "")
+        return result
 
-    def nonce(self):
-        return self.milliseconds() - self.options["timeDifference"]
+    def nonce(self) -> float:
+        return self.milliseconds() - self.safe_integer(self.options, "timeDifference", 0)

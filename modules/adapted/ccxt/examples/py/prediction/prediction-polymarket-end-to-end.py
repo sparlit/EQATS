@@ -76,7 +76,12 @@ async def main():
                     probes += 1
                     orderbook = await exchange.fetch_order_book(outcome["outcome"])
                     if orderbook["bids"] and orderbook["asks"]:
-                        chosen = {"event": event, "market": market, "outcome": outcome, "orderbook": orderbook}
+                        chosen = {
+                            "event": event,
+                            "market": market,
+                            "outcome": outcome,
+                            "orderbook": orderbook,
+                        }
                         break
                 if chosen:
                     break
@@ -98,12 +103,23 @@ async def main():
         print("orderbook bid/ask:", best_bid, "/", best_ask)
         try:
             ticker = await exchange.fetch_ticker(symbol)
-            print("ticker bid/ask/last:", ticker.get("bid"), "/", ticker.get("ask"), "/", ticker.get("last"))
+            print(
+                "ticker bid/ask/last:",
+                ticker.get("bid"),
+                "/",
+                ticker.get("ask"),
+                "/",
+                ticker.get("last"),
+            )
         except Exception as e:
             print("ticker:        n/a (" + type(e).__name__ + ")")
         try:
             trades = await exchange.fetch_trades(symbol, None, 3)
-            print("recent trades:", len(trades), ("last @ " + str(trades[0]["price"])) if trades else "")
+            print(
+                "recent trades:",
+                len(trades),
+                ("last @ " + str(trades[0]["price"])) if trades else "",
+            )
         except Exception as e:
             print("trades:        n/a (" + type(e).__name__ + ")")
 
@@ -115,7 +131,15 @@ async def main():
         price = max(tick, round(int((bid_price * 0.5) / tick) * tick, 4))
         notional = ORDER_SIZE_SHARES * price
         print("\n--- order ---")
-        print("placing limit BUY", ORDER_SIZE_SHARES, "shares @", price, "(notional", round(notional, 2), "USD)")
+        print(
+            "placing limit BUY",
+            ORDER_SIZE_SHARES,
+            "shares @",
+            price,
+            "(notional",
+            round(notional, 2),
+            "USD)",
+        )
         if notional >= MAX_NOTIONAL_USD:
             print("ABORT: notional >=", MAX_NOTIONAL_USD, "USD safety cap.")
             return
@@ -124,7 +148,14 @@ async def main():
             order = await exchange.create_order(symbol, "limit", "buy", ORDER_SIZE_SHARES, price)
             print("placed:  id", order["id"], "| status", order["status"])
             fetched = await exchange.fetch_order(order["id"], symbol)
-            print("fetched: id", fetched["id"], "| status", fetched["status"], "| remaining", fetched["remaining"])
+            print(
+                "fetched: id",
+                fetched["id"],
+                "| status",
+                fetched["status"],
+                "| remaining",
+                fetched["remaining"],
+            )
         finally:
             if order and order.get("id"):
                 canceled = await exchange.cancel_order(order["id"], symbol)

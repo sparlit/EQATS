@@ -24,15 +24,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # zerodha_kite_historical_data_backward_pagination.py
 import csv
 import logging
-import os
-import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 import psycopg2
-import requests
 from kiteconnect import KiteConnect
 from psycopg2.extras import execute_values
 
@@ -99,7 +96,9 @@ class KiteHistoricalDataDownloader:
 
     def _setup_logging(self):
         """Setup console-only logging configuration with detailed formatting"""
-        console_formatter = logging.Formatter("%(asctime)s - %(levelname)-8s - %(message)s", datefmt="%H:%M:%S")
+        console_formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)-8s - %(message)s", datefmt="%H:%M:%S"
+        )
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -153,7 +152,9 @@ class KiteHistoricalDataDownloader:
                 f"Failed Symbols ({len(stats['failed_symbols'])}): {', '.join(stats['failed_symbols'][:10])}"
             )
             if len(stats["failed_symbols"]) > 10:
-                self.logger.warning(f"... and {len(stats['failed_symbols']) - 10} more failed symbols")
+                self.logger.warning(
+                    f"... and {len(stats['failed_symbols']) - 10} more failed symbols"
+                )
 
         self.logger.info("=" * 60)
 
@@ -163,8 +164,12 @@ class KiteHistoricalDataDownloader:
             self.logger.info("Reading access token from file...")
             if not self.access_token_file.exists():
                 self.logger.error(f"Access token file not found: {self.access_token_file}")
-                self.logger.error("Please create the access token file with your Kite Connect access token")
-                self.logger.error("Example: echo 'your_access_token_here' > key_files/access_token.txt")
+                self.logger.error(
+                    "Please create the access token file with your Kite Connect access token"
+                )
+                self.logger.error(
+                    "Example: echo 'your_access_token_here' > key_files/access_token.txt"
+                )
                 return None
 
             with open(self.access_token_file, encoding="utf-8") as file:
@@ -176,7 +181,7 @@ class KiteHistoricalDataDownloader:
                 return token
 
         except Exception as e:
-            self.logger.exception(f"Error reading access token file: {e}")
+            self.logger.error(f"Error reading access token file: {e}")
             return None
 
     def _test_kite_connection(self):
@@ -192,8 +197,8 @@ class KiteHistoricalDataDownloader:
             self.logger.info(f"  Broker: {broker}")
             return True
         except Exception as e:
-            self.logger.exception(f"✗ Access token validation failed: {e}")
-            self.logger.exception("Please ensure your access token is valid and not expired")
+            self.logger.error(f"✗ Access token validation failed: {e}")
+            self.logger.error("Please ensure your access token is valid and not expired")
             return False
 
     def authenticate_kite(self):
@@ -203,7 +208,9 @@ class KiteHistoricalDataDownloader:
 
             access_token = self._read_access_token()
             if not access_token:
-                self.logger.error("Please ensure the access token file exists and contains a valid token")
+                self.logger.error(
+                    "Please ensure the access token file exists and contains a valid token"
+                )
                 return False
 
             self.logger.info("Initializing KiteConnect client...")
@@ -213,7 +220,7 @@ class KiteHistoricalDataDownloader:
             return self._test_kite_connection()
 
         except Exception as e:
-            self.logger.exception(f"Authentication failed: {e}")
+            self.logger.error(f"Authentication failed: {e}")
             return False
 
     def _filter_instruments(self, instruments):
@@ -235,19 +242,27 @@ class KiteHistoricalDataDownloader:
         self.logger.info(f"After lot_size filter: {len(lot_size_filtered)} instruments")
 
         # STEP 3: Third filter for non-empty names (FINAL FILTER)
-        final_filtered = [inst for inst in lot_size_filtered if inst.get("name") and inst["name"].strip()]
+        final_filtered = [
+            inst for inst in lot_size_filtered if inst.get("name") and inst["name"].strip()
+        ]
 
         # Log filtering statistics for names
         empty_names_count = len(lot_size_filtered) - len(final_filtered)
         self.logger.info(f"Filtered out {empty_names_count} instruments with empty names")
-        self.logger.info(f"FINAL FILTERED INSTRUMENTS: {len(final_filtered)} (only non-empty names)")
+        self.logger.info(
+            f"FINAL FILTERED INSTRUMENTS: {len(final_filtered)} (only non-empty names)"
+        )
 
         # Log examples of filtered out instruments for debugging
         if empty_names_count > 0:
             empty_name_examples = [
-                inst["tradingsymbol"] for inst in lot_size_filtered if not (inst.get("name") and inst["name"].strip())
+                inst["tradingsymbol"]
+                for inst in lot_size_filtered
+                if not (inst.get("name") and inst["name"].strip())
             ][:5]
-            self.logger.info(f"Examples of symbols with empty names (filtered out): {empty_name_examples}")
+            self.logger.info(
+                f"Examples of symbols with empty names (filtered out): {empty_name_examples}"
+            )
 
         if lot_size_filtered_count > 0:
             lot_size_examples = [
@@ -293,11 +308,13 @@ class KiteHistoricalDataDownloader:
                 writer.writeheader()
                 writer.writerows(instruments)
 
-            self.logger.info(f"✓ Successfully saved {len(instruments)} instruments to {self.instruments_file}")
+            self.logger.info(
+                f"✓ Successfully saved {len(instruments)} instruments to {self.instruments_file}"
+            )
             return True
 
         except Exception as e:
-            self.logger.exception(f"✗ Failed to save instruments to CSV: {e}")
+            self.logger.error(f"✗ Failed to save instruments to CSV: {e}")
             return False
 
     def download_instruments(self):
@@ -308,17 +325,20 @@ class KiteHistoricalDataDownloader:
             instruments = self.kite.instruments()
             download_time = time.time() - start_time
 
-            self.logger.info(f"✓ Downloaded {len(instruments)} instruments in {download_time:.2f} seconds")
+            self.logger.info(
+                f"✓ Downloaded {len(instruments)} instruments in {download_time:.2f} seconds"
+            )
 
             filtered_instruments = self._filter_instruments(instruments)
 
             if self._save_instruments_to_csv(filtered_instruments):
                 self.logger.info("✓ Instrument download completed successfully")
                 return filtered_instruments
-            return []
+            else:
+                return []
 
         except Exception as e:
-            self.logger.exception(f"✗ Failed to download instruments: {e}")
+            self.logger.error(f"✗ Failed to download instruments: {e}")
             return []
 
     def _create_instruments_table(self, cursor):
@@ -403,8 +423,8 @@ class KiteHistoricalDataDownloader:
             return True
 
         except Exception as e:
-            self.logger.exception(f"✗ Failed to create database tables: {e}")
-            self.logger.exception("Please check your database connection details in DB_PARAMS")
+            self.logger.error(f"✗ Failed to create database tables: {e}")
+            self.logger.error("Please check your database connection details in DB_PARAMS")
             return False
 
     def _prepare_instrument_data(self, instruments):
@@ -425,9 +445,9 @@ class KiteHistoricalDataDownloader:
                     inst["exchange_token"],
                     inst["tradingsymbol"],
                     inst["name"],
-                    inst["last_price"] or 0,
+                    inst["last_price"] if inst["last_price"] else 0,
                     expiry,
-                    inst["strike"] or 0,
+                    inst["strike"] if inst["strike"] else 0,
                     inst["tick_size"],
                     inst["lot_size"],
                     inst["instrument_type"],
@@ -474,7 +494,9 @@ class KiteHistoricalDataDownloader:
 
             instrument_data = self._prepare_instrument_data(instruments)
 
-            self.logger.info(f"Prepared {len(instrument_data)} instrument records for database insertion")
+            self.logger.info(
+                f"Prepared {len(instrument_data)} instrument records for database insertion"
+            )
 
             self._execute_instrument_insert(cursor, instrument_data)
 
@@ -492,19 +514,24 @@ class KiteHistoricalDataDownloader:
             return True
 
         except Exception as e:
-            self.logger.exception(f"✗ Failed to save instruments to database: {e}")
+            self.logger.error(f"✗ Failed to save instruments to database: {e}")
             return False
 
     def _generate_backward_date_ranges(self, start_date, earliest_date=None):
         """Generate date ranges for backward pagination"""
         if earliest_date is None:
-            earliest_date = datetime.now() - timedelta(days=365 * self.PAGINATION_CONFIG["max_years_back"])
+            earliest_date = datetime.now() - timedelta(
+                days=365 * self.PAGINATION_CONFIG["max_years_back"]
+            )
 
         date_ranges = []
         current_end = start_date
 
         while current_end > earliest_date:
-            current_start = max(current_end - timedelta(days=self.PAGINATION_CONFIG["days_per_batch"]), earliest_date)
+            current_start = max(
+                current_end - timedelta(days=self.PAGINATION_CONFIG["days_per_batch"]),
+                earliest_date,
+            )
             date_ranges.append((current_start, current_end))
             current_end = current_start - timedelta(days=1)
 
@@ -513,7 +540,9 @@ class KiteHistoricalDataDownloader:
 
         return date_ranges
 
-    def _fetch_historical_data_with_retry(self, instrument_token, from_date, to_date, interval, tradingsymbol):
+    def _fetch_historical_data_with_retry(
+        self, instrument_token, from_date, to_date, interval, tradingsymbol
+    ):
         """Fetch historical data with retry mechanism"""
         for attempt in range(self.PAGINATION_CONFIG["max_retries"]):
             try:
@@ -527,14 +556,21 @@ class KiteHistoricalDataDownloader:
                 start_time = time.time()
 
                 response = self.kite.historical_data(
-                    instrument_token=instrument_token, from_date=from_str, to_date=to_str, interval=interval
+                    instrument_token=instrument_token,
+                    from_date=from_str,
+                    to_date=to_str,
+                    interval=interval,
                 )
 
                 api_time = time.time() - start_time
                 self.processing_stats["total_api_calls"] += 1
 
                 # Extract the candles from the response
-                if isinstance(response, dict) and "data" in response and "candles" in response["data"]:
+                if (
+                    isinstance(response, dict)
+                    and "data" in response
+                    and "candles" in response["data"]
+                ):
                     historical_data = response["data"]["candles"]
                 elif isinstance(response, list):
                     historical_data = response
@@ -555,19 +591,25 @@ class KiteHistoricalDataDownloader:
                 if attempt < self.PAGINATION_CONFIG["max_retries"] - 1:
                     time.sleep(self.PAGINATION_CONFIG["retry_delay"] * (attempt + 1))
                 else:
-                    self.logger.exception(f"  ✗ API call failed after {self.PAGINATION_CONFIG['max_retries']} attempts")
+                    self.logger.error(
+                        f"  ✗ API call failed after {self.PAGINATION_CONFIG['max_retries']} attempts"
+                    )
                     return []
 
         return []
 
-    def download_historical_data_backward(self, instrument_token, tradingsymbol, exchange, interval="day"):
+    def download_historical_data_backward(
+        self, instrument_token, tradingsymbol, exchange, interval="day"
+    ):
         """Download historical data using backward pagination strategy"""
         try:
             self.logger.info(f"Starting backward pagination for {tradingsymbol}")
 
             # Start from today and go backward
             start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            earliest_date = datetime.now() - timedelta(days=365 * self.PAGINATION_CONFIG["max_years_back"])
+            earliest_date = datetime.now() - timedelta(
+                days=365 * self.PAGINATION_CONFIG["max_years_back"]
+            )
 
             # Generate backward date ranges
             date_ranges = self._generate_backward_date_ranges(start_date, earliest_date)
@@ -592,7 +634,9 @@ class KiteHistoricalDataDownloader:
                 )
 
                 if historical_data:
-                    records_saved = self.save_historical_data(tradingsymbol, exchange, historical_data)
+                    records_saved = self.save_historical_data(
+                        tradingsymbol, exchange, historical_data
+                    )
                     total_records += records_saved
                     successful_batches += 1
 
@@ -610,7 +654,7 @@ class KiteHistoricalDataDownloader:
             return total_records
 
         except Exception as e:
-            self.logger.exception(f"✗ Failed backward pagination for {tradingsymbol}: {e}")
+            self.logger.error(f"✗ Failed backward pagination for {tradingsymbol}: {e}")
             return 0
 
     def _prepare_historical_data(self, tradingsymbol, exchange, historical_data):
@@ -622,10 +666,18 @@ class KiteHistoricalDataDownloader:
                 if isinstance(record, dict):
                     # Dictionary format: {'date': datetime, 'open': float, 'high': float, ...}
                     timestamp = record.get("date")
-                    open_price = float(record.get("open", 0)) if record.get("open") is not None else 0.0
-                    high_price = float(record.get("high", 0)) if record.get("high") is not None else 0.0
-                    low_price = float(record.get("low", 0)) if record.get("low") is not None else 0.0
-                    close_price = float(record.get("close", 0)) if record.get("close") is not None else 0.0
+                    open_price = (
+                        float(record.get("open", 0)) if record.get("open") is not None else 0.0
+                    )
+                    high_price = (
+                        float(record.get("high", 0)) if record.get("high") is not None else 0.0
+                    )
+                    low_price = (
+                        float(record.get("low", 0)) if record.get("low") is not None else 0.0
+                    )
+                    close_price = (
+                        float(record.get("close", 0)) if record.get("close") is not None else 0.0
+                    )
                     volume = int(record.get("volume", 0)) if record.get("volume") is not None else 0
 
                 elif isinstance(record, (list, tuple)) and len(record) >= 6:
@@ -652,7 +704,16 @@ class KiteHistoricalDataDownloader:
                         timestamp = timestamp.replace(tzinfo=None)
 
                 data_to_insert.append(
-                    (tradingsymbol, exchange, timestamp, open_price, high_price, low_price, close_price, volume)
+                    (
+                        tradingsymbol,
+                        exchange,
+                        timestamp,
+                        open_price,
+                        high_price,
+                        low_price,
+                        close_price,
+                        volume,
+                    )
                 )
 
             except Exception as e:
@@ -686,13 +747,16 @@ class KiteHistoricalDataDownloader:
             if data_to_insert:
                 self._execute_historical_data_insert(cursor, data_to_insert)
                 conn.commit()
-                self.logger.debug(f"Successfully inserted {len(data_to_insert)} records to database")
+                self.logger.debug(
+                    f"Successfully inserted {len(data_to_insert)} records to database"
+                )
                 return len(data_to_insert)
-            self.logger.warning("No valid data to insert")
-            return 0
+            else:
+                self.logger.warning("No valid data to insert")
+                return 0
 
         except Exception as e:
-            self.logger.exception(f"Failed to save historical data to database: {e}")
+            self.logger.error(f"Failed to save historical data to database: {e}")
             if conn:
                 conn.rollback()
             return 0
@@ -710,7 +774,7 @@ class KiteHistoricalDataDownloader:
             self.logger.info(f"✓ Loaded {len(df)} instruments from CSV")
             return df
         except Exception as e:
-            self.logger.exception(f"✗ Failed to load instruments from CSV: {e}")
+            self.logger.error(f"✗ Failed to load instruments from CSV: {e}")
             return None
 
     def _filter_test_symbols(self, instruments_df, test_symbols):
@@ -721,11 +785,15 @@ class KiteHistoricalDataDownloader:
         self.logger.info(f"Filtering for test symbols: {test_symbols}")
 
         test_symbols_upper = [symbol.upper() for symbol in test_symbols]
-        filtered_df = instruments_df[instruments_df["tradingsymbol"].str.upper().isin(test_symbols_upper)].copy()
+        filtered_df = instruments_df[
+            instruments_df["tradingsymbol"].str.upper().isin(test_symbols_upper)
+        ].copy()
 
         self.logger.info(f"Found {len(filtered_df)} instruments matching test symbols:")
         for _, row in filtered_df.iterrows():
-            self.logger.info(f"  - {row['tradingsymbol']} ({row['exchange']}) - Token: {row['instrument_token']}")
+            self.logger.info(
+                f"  - {row['tradingsymbol']} ({row['exchange']}) - Token: {row['instrument_token']}"
+            )
 
         return filtered_df
 
@@ -742,7 +810,9 @@ class KiteHistoricalDataDownloader:
             )
 
             # All instruments here already have valid names, so proceed directly with API call
-            records_downloaded = self.download_historical_data_backward(instrument_token, tradingsymbol, exchange)
+            records_downloaded = self.download_historical_data_backward(
+                instrument_token, tradingsymbol, exchange
+            )
 
             if records_downloaded > 0:
                 self.processing_stats["successful_instruments"] += 1
@@ -766,7 +836,7 @@ class KiteHistoricalDataDownloader:
             self.processing_stats["processed_instruments"] += 1
             symbol = row.get("tradingsymbol", "Unknown")
             self.processing_stats["failed_symbols"].append(symbol)
-            self.logger.exception(f"✗ ERROR processing {symbol}: {e}")
+            self.logger.error(f"✗ ERROR processing {symbol}: {e}")
             return False
 
     def process_all_instruments(self, limit=None, test_symbols=None):
@@ -796,7 +866,9 @@ class KiteHistoricalDataDownloader:
             self.logger.info(f"STARTING {mode}: {total_instruments} INSTRUMENTS")
             if test_symbols:
                 self.logger.info(f"TEST SYMBOLS: {test_symbols}")
-            self.logger.info(f"PAGINATION CONFIG: {self.PAGINATION_CONFIG['days_per_batch']} days per batch")
+            self.logger.info(
+                f"PAGINATION CONFIG: {self.PAGINATION_CONFIG['days_per_batch']} days per batch"
+            )
             self.logger.info("=" * 80)
 
             for index, (_, row) in enumerate(instruments_df.iterrows()):
@@ -816,7 +888,7 @@ class KiteHistoricalDataDownloader:
             return True
 
         except Exception as e:
-            self.logger.exception(f"✗ Failed to process instruments: {e}")
+            self.logger.error(f"✗ Failed to process instruments: {e}")
             return False
 
     def run(self, test_mode=False, test_symbols=None, limit=None):
@@ -827,7 +899,9 @@ class KiteHistoricalDataDownloader:
 
             mode_info = "TEST MODE" if (test_mode or test_symbols) else "FULL PROCESSING"
             self.logger.info(f"🚀 Starting Kite Historical Data Downloader - {mode_info}")
-            self.logger.info(f"📊 Backward Pagination: {self.PAGINATION_CONFIG['days_per_batch']} days per batch")
+            self.logger.info(
+                f"📊 Backward Pagination: {self.PAGINATION_CONFIG['days_per_batch']} days per batch"
+            )
 
             if test_symbols:
                 self.logger.info(f"🧪 Test symbols: {test_symbols}")
@@ -856,11 +930,13 @@ class KiteHistoricalDataDownloader:
                 self.logger.error("❌ Failed to process instruments. Exiting.")
                 return False
 
-            self.logger.info("🎉 Backward pagination historical data download process completed successfully!")
+            self.logger.info(
+                "🎉 Backward pagination historical data download process completed successfully!"
+            )
             return True
 
         except Exception as e:
-            self.logger.exception(f"💥 Main process failed: {e}")
+            self.logger.error(f"💥 Main process failed: {e}")
             return False
 
 
@@ -911,7 +987,7 @@ def main():
 
         success = downloader.run(test_mode=False, limit=LIMIT)
 
-    sys.exit(0 if success else 1)
+    exit(0 if success else 1)
 
 
 if __name__ == "__main__":

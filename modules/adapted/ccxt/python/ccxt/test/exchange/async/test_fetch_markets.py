@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_market,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_market  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_markets(exchange, skipped_properties):
@@ -47,7 +47,7 @@ async def test_fetch_markets(exchange, skipped_properties):
     test_shared_methods.assert_dictionary_response(exchange, method, markets)
     market_values = list(markets.values())
     test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, market_values)
-    for i in range(len(market_values)):
+    for i in range(0, len(market_values)):
         test_market(exchange, skipped_properties, method, market_values[i])
     detect_market_conflicts(exchange, markets)
     return True
@@ -56,7 +56,7 @@ async def test_fetch_markets(exchange, skipped_properties):
 def detect_market_conflicts(exchange, market_values):
     # detect if there are markets with different ids for the same symbol
     ids = {}
-    for i in range(len(market_values)):
+    for i in range(0, len(market_values)):
         market = market_values[i]
         symbol = market["symbol"]
         if symbol not in ids:

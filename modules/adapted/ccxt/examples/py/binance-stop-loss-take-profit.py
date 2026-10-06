@@ -55,7 +55,9 @@ try:
     inverted_side = "sell" if side == "buy" else "buy"
 
     stopLossParams = {"stopPrice": stopLossPrice}
-    stopLossOrder = exchange.create_order(symbol, "STOP_MARKET", inverted_side, amount, price, stopLossParams)
+    stopLossOrder = exchange.create_order(
+        symbol, "STOP_MARKET", inverted_side, amount, price, stopLossParams
+    )
     print(stopLossOrder)
 
     takeProfitParams = {"stopPrice": takeProfitPrice}

@@ -66,5 +66,5 @@ while True:
         exchange.sleep(10000)
     except Exception as e:
         print(type(e).__name__, str(e))
-        raise
+        raise e
     i += 1

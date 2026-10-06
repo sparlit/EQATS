@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,15 +37,12 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import json  # noqa: E402
-import numbers  # noqa: E402
-
-from ccxt.base.decimal_to_precision import TICK_SIZE  # noqa: E402
-from ccxt.base.errors import (
-    OnMaintenance,
-    OperationFailed,
-)
-from ccxt.base.precise import Precise  # noqa: E402
+from ccxt.base.decimal_to_precision import TICK_SIZE  # noqa E402
+import numbers  # noqa E402
+import json  # noqa E402
+from ccxt.base.precise import Precise  # noqa E402
+from ccxt.base.errors import OnMaintenance  # noqa E402
+from ccxt.base.errors import OperationFailed  # noqa E402
 
 
 def log_template(exchange, method, entry):
@@ -76,8 +75,12 @@ def assert_type(exchange, skipped_properties, entry, key, format):
     entry_key_val = exchange.safe_value(entry, key)
     format_key_val = exchange.safe_value(format, key)
     same_string = (isinstance(entry_key_val, str)) and (isinstance(format_key_val, str))
-    same_numeric = (isinstance(entry_key_val, numbers.Real)) and (isinstance(format_key_val, numbers.Real))
-    same_boolean = ((entry_key_val) or (entry_key_val is False)) and ((format_key_val) or (format_key_val is False))
+    same_numeric = (isinstance(entry_key_val, numbers.Real)) and (
+        isinstance(format_key_val, numbers.Real)
+    )
+    same_boolean = ((entry_key_val) or (entry_key_val is False)) and (
+        (format_key_val) or (format_key_val is False)
+    )
     same_array = isinstance(entry_key_val, list) and isinstance(format_key_val, list)
     # PHP cannot tell an empty dict {} from an empty list [] (both are array()), so isDictionary
     # returns false for an empty {} format marker — accept a dict entry against an empty-array format
@@ -88,10 +91,20 @@ def assert_type(exchange, skipped_properties, entry, key, format):
     same_object = exchange.is_dictionary(entry_key_val) and (
         exchange.is_dictionary(format_key_val) or format_is_empty_array
     )
-    return (entry_key_val is None) or same_string or same_numeric or same_boolean or same_array or same_object
+    result = (
+        (entry_key_val is None)
+        or same_string
+        or same_numeric
+        or same_boolean
+        or same_array
+        or same_object
+    )
+    return result
 
 
-def assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for=None, deep=False):
+def assert_structure(
+    exchange, skipped_properties, method, entry, format, empty_allowed_for=None, deep=False
+):
     log_text = log_template(exchange, method, entry)
     assert entry is not None, "item is null/undefined" + log_text
     # get all expected & predefined keys for this specific item and ensure thos ekeys exist in parsed structure
@@ -105,8 +118,10 @@ def assert_structure(exchange, skipped_properties, method, entry, format, empty_
         assert real_length == expected_length, (
             "entry length is not equal to expected length of " + str(expected_length) + log_text
         )
-        for i in range(len(format)):
-            empty_allowed_for_this_key = (empty_allowed_for is None) or exchange.in_array(i, empty_allowed_for)
+        for i in range(0, len(format)):
+            empty_allowed_for_this_key = (empty_allowed_for is None) or exchange.in_array(
+                i, empty_allowed_for
+            )
             value = entry[i]
             # check when:
             # - it's not inside "allowe empty values" list
@@ -120,12 +135,16 @@ def assert_structure(exchange, skipped_properties, method, entry, format, empty_
     else:
         assert exchange.is_dictionary(entry), "entry is not a dict" + log_text
         keys = list(format.keys())
-        for i in range(len(keys)):
+        for i in range(0, len(keys)):
             key = keys[i]
             if key in skipped_properties:
                 continue
-            assert key in entry, '"' + string_value(key) + '" key is missing from structure' + log_text
-            empty_allowed_for_this_key = (empty_allowed_for is None) or exchange.in_array(key, empty_allowed_for)
+            assert key in entry, (
+                '"' + string_value(key) + '" key is missing from structure' + log_text
+            )
+            empty_allowed_for_this_key = (empty_allowed_for is None) or exchange.in_array(
+                key, empty_allowed_for
+            )
             value = entry[key]
             # check when:
             # - it's not inside "allowed empty values" list
@@ -133,22 +152,39 @@ def assert_structure(exchange, skipped_properties, method, entry, format, empty_
             if empty_allowed_for_this_key and (value is None):
                 continue
             # if it was in needed keys, then it should have value.
-            assert value is not None, '"' + string_value(key) + '" key is expected to have a value' + log_text
+            assert value is not None, (
+                '"' + string_value(key) + '" key is expected to have a value' + log_text
+            )
             # add exclusion for info key, as it can be any type
             if key != "info":
                 type_assertion = assert_type(exchange, {}, entry, key, format)
                 assert type_assertion, (
-                    '"' + string_value(key) + '" key is neither undefined, neither of expected type' + log_text
+                    '"'
+                    + string_value(key)
+                    + '" key is neither undefined, neither of expected type'
+                    + log_text
                 )
                 if deep:
                     if exchange.is_dictionary(value) or isinstance(value, list):
                         assert_structure(
-                            exchange, skipped_properties, method, value, format[key], empty_allowed_for, deep
+                            exchange,
+                            skipped_properties,
+                            method,
+                            value,
+                            format[key],
+                            empty_allowed_for,
+                            deep,
                         )
 
 
 def assert_timestamp(
-    exchange, skipped_properties, method, entry, now_to_check=None, key_name_or_index="timestamp", allow_null=True
+    exchange,
+    skipped_properties,
+    method,
+    entry,
+    now_to_check=None,
+    key_name_or_index="timestamp",
+    allow_null=True,
 ):
     log_text = log_template(exchange, method, entry)
     skip_value = exchange.safe_value(skipped_properties, key_name_or_index)
@@ -190,7 +226,13 @@ def assert_timestamp(
 
 
 def assert_timestamp_and_datetime(
-    exchange, skipped_properties, method, entry, now_to_check=None, key_name_or_index="timestamp", allow_null=True
+    exchange,
+    skipped_properties,
+    method,
+    entry,
+    now_to_check=None,
+    key_name_or_index="timestamp",
+    allow_null=True,
 ):
     log_text = log_template(exchange, method, entry)
     skip_value = exchange.safe_value(skipped_properties, key_name_or_index)
@@ -227,15 +269,22 @@ def assert_timestamp_and_datetime(
                 )
 
 
-def assert_currency_code(exchange, skipped_properties, method, entry, actual_code, expected_code=None, allow_null=True):
+def assert_currency_code(
+    exchange, skipped_properties, method, entry, actual_code, expected_code=None, allow_null=True
+):
     if ("currency" in skipped_properties) or ("currencyIdAndCode" in skipped_properties):
         return
     log_text = log_template(exchange, method, entry)
     assert actual_code is not None or allow_null, "currency code is null" + log_text
     if actual_code is not None:
-        assert isinstance(actual_code, str), "currency code should be either undefined or a string" + log_text
+        assert isinstance(actual_code, str), (
+            "currency code should be either undefined or a string" + log_text
+        )
         assert actual_code in exchange.currencies, (
-            'currency code ("' + actual_code + '") should be present in exchange.currencies' + log_text
+            'currency code ("'
+            + actual_code
+            + '") should be present in exchange.currencies'
+            + log_text
         )
         if expected_code is not None:
             assert actual_code == expected_code, (
@@ -283,13 +332,17 @@ def assert_valid_currency_id_and_code(
         )
 
 
-def assert_symbol(exchange, skipped_properties, method, entry, key, expected_symbol=None, allow_null=True):
+def assert_symbol(
+    exchange, skipped_properties, method, entry, key, expected_symbol=None, allow_null=True
+):
     if key in skipped_properties:
         return
     log_text = log_template(exchange, method, entry)
     actual_symbol = exchange.safe_string(entry, key)
     if actual_symbol is not None:
-        assert isinstance(actual_symbol, str), "symbol should be either undefined or a string" + log_text
+        assert isinstance(actual_symbol, str), (
+            "symbol should be either undefined or a string" + log_text
+        )
     if expected_symbol is not None:
         assert actual_symbol == expected_symbol, (
             'symbol in response ("'
@@ -327,7 +380,9 @@ def assert_greater(exchange, skipped_properties, method, entry, key, compare_to,
         )
 
 
-def assert_greater_or_equal(exchange, skipped_properties, method, entry, key, compare_to, allow_null=True):
+def assert_greater_or_equal(
+    exchange, skipped_properties, method, entry, key, compare_to, allow_null=True
+):
     if key in skipped_properties:
         return
     log_text = log_template(exchange, method, entry)
@@ -361,7 +416,9 @@ def assert_less(exchange, skipped_properties, method, entry, key, compare_to, al
         )
 
 
-def assert_less_or_equal(exchange, skipped_properties, method, entry, key, compare_to, allow_null=True):
+def assert_less_or_equal(
+    exchange, skipped_properties, method, entry, key, compare_to, allow_null=True
+):
     if key in skipped_properties:
         return
     log_text = log_template(exchange, method, entry)
@@ -412,13 +469,15 @@ def assert_non_equal(exchange, skipped_properties, method, entry, key, compare_t
         )
 
 
-def assert_in_array(exchange, skipped_properties, method, entry, key, expected_array, allow_null=True):
+def assert_in_array(
+    exchange, skipped_properties, method, entry, key, expected_array, allow_null=True
+):
     if key in skipped_properties:
         return
     log_text = log_template(exchange, method, entry)
     value = exchange.safe_value(entry, key)
     assert value is not None or allow_null, "value is null" + log_text
-    # TODO: remove undefined check
+    # todo: remove undefined check
     if value is not None:
         stingified_array_value = exchange.json(
             expected_array
@@ -440,25 +499,31 @@ def assert_fee_structure(exchange, skipped_properties, method, entry, key, allow
     key_string = string_value(key)
     if isinstance(key, int):
         assert isinstance(entry, list), "fee container is expected to be an array" + log_text
-        assert key < len(entry), "fee key " + key_string + " was expected to be present in entry" + log_text
+        assert key < len(entry), (
+            "fee key " + key_string + " was expected to be present in entry" + log_text
+        )
     else:
         assert exchange.is_dictionary(entry), "fee container is expected to be a dict" + log_text
         assert key in entry, 'fee key "' + key + '" was expected to be present in entry' + log_text
     fee_object = exchange.safe_value(entry, key)
     assert fee_object is not None or allow_null, "fee object is null" + log_text
-    # TODO: remove undefined check to make stricter
+    # todo: remove undefined check to make stricter
     if fee_object is not None:
         assert "cost" in fee_object, key_string + ' fee object should contain "cost" key' + log_text
         if fee_object["cost"] is None:
-            return  # TODO: remove undefined check to make stricter
-        assert isinstance(fee_object["cost"], numbers.Real), key_string + ' "cost" must be numeric type' + log_text
+            return  # todo: remove undefined check to make stricter
+        assert isinstance(fee_object["cost"], numbers.Real), (
+            key_string + ' "cost" must be numeric type' + log_text
+        )
         # assertGreaterOrEqual (exchange, skippedProperties, method, feeObject, 'cost', '0'); # fee might be negative in the case of a rebate or reward
-        assert "currency" in fee_object, '"' + key_string + '" fee object should contain "currency" key' + log_text
+        assert "currency" in fee_object, (
+            '"' + key_string + '" fee object should contain "currency" key' + log_text
+        )
         assert_currency_code(exchange, skipped_properties, method, entry, fee_object["currency"])
 
 
 def assert_timestamp_order(exchange, method, code_or_symbol, items, ascending=True):
-    for i in range(len(items)):
+    for i in range(0, len(items)):
         if i > 0:
             current_ts = items[i - 1]["timestamp"]
             next_ts = items[i]["timestamp"]
@@ -492,7 +557,12 @@ def assert_integer(exchange, skipped_properties, method, entry, key, allow_null=
         if value is not None:
             is_integer = isinstance(value, int)
             assert is_integer, (
-                '"' + string_value(key) + '" key (value "' + string_value(value) + '") is not an integer' + log_text
+                '"'
+                + string_value(key)
+                + '" key (value "'
+                + string_value(value)
+                + '") is not an integer'
+                + log_text
             )
 
 
@@ -503,17 +573,34 @@ def check_precision_accuracy(exchange, skipped_properties, method, entry, key):
         # TICK_SIZE should be above zero
         assert_greater(exchange, skipped_properties, method, entry, key, "0")
         # the below array of integers are inexistent tick-sizes (theoretically technically possible, but not in real-world cases), so in our case, such values probably indicate an incorrectly implemented tick-sizes calculation, so we throw error
-        decimal_numbers = ["2", "3", "4", "5", "6", "7", "8", "9", "11", "12", "13", "14", "15", "16"]
+        decimal_numbers = [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+        ]
         if key == "amount" and "precisionAmountAbnormal" in skipped_properties:
             return
-        for i in range(len(decimal_numbers)):
+        for i in range(0, len(decimal_numbers)):
             num = decimal_numbers[i]
             num_str = num
             assert_non_equal(exchange, skipped_properties, method, entry, key, num_str)
     else:
-        # TODO: significant-digits return doubles from `this.parseNumber`, so for now can't assert against integer atm
+        # todo: significant-digits return doubles from `this.parseNumber`, so for now can't assert against integer atm
         # assertInteger (exchange, skippedProperties, method, entry, key); # should be integer
-        assert_less_or_equal(exchange, skipped_properties, method, entry, key, "18")  # should be under 18 decimals
+        assert_less_or_equal(
+            exchange, skipped_properties, method, entry, key, "18"
+        )  # should be under 18 decimals
         assert_greater_or_equal(
             exchange, skipped_properties, method, entry, key, "-8"
         )  # in real-world cases, there would not be less than that
@@ -525,7 +612,9 @@ def fetch_best_bid_ask(exchange, method, symbol):
     best_bid = None
     best_ask = None
     used_method = None
-    if (exchange.has["fetchOrderBook"] is not None) and (exchange.has["fetchOrderBook"] is not False):
+    if (exchange.has["fetchOrderBook"] is not None) and (
+        exchange.has["fetchOrderBook"] is not False
+    ):
         used_method = "fetchOrderBook"
         orderbook = exchange.fetch_order_book(symbol)
         bids = exchange.safe_list(orderbook, "bids")
@@ -534,7 +623,9 @@ def fetch_best_bid_ask(exchange, method, symbol):
         best_ask_array = exchange.safe_list(asks, 0)
         best_bid = exchange.safe_number(best_bid_array, 0)
         best_ask = exchange.safe_number(best_ask_array, 0)
-    elif (exchange.has["fetchBidsAsks"] is not None) and (exchange.has["fetchBidsAsks"] is not False):
+    elif (exchange.has["fetchBidsAsks"] is not None) and (
+        exchange.has["fetchBidsAsks"] is not False
+    ):
         used_method = "fetchBidsAsks"
         tickers = exchange.fetch_bids_asks([symbol])
         ticker = exchange.safe_dict(tickers, symbol)
@@ -551,6 +642,7 @@ def fetch_best_bid_ask(exchange, method, symbol):
         ticker = exchange.safe_dict(tickers, symbol)
         best_bid = exchange.safe_number(ticker, "bid")
         best_ask = exchange.safe_number(ticker, "ask")
+    #
     assert best_bid is not None and best_ask is not None, (
         log_text
         + " "
@@ -572,9 +664,11 @@ def fetch_order(exchange, symbol, order_id, skipped_properties):
     since_time = exchange.milliseconds() - 1000 * 60 * 5
     # iterate
     methods_singular = ["fetchOrder", "fetchOpenOrder", "fetchClosedOrder", "fetchCanceledOrder"]
-    for i in range(len(methods_singular)):
+    for i in range(0, len(methods_singular)):
         singular_fetch_name = methods_singular[i]
-        if (exchange.has[singular_fetch_name] is not None) and (exchange.has[singular_fetch_name] is not False):
+        if (exchange.has[singular_fetch_name] is not None) and (
+            exchange.has[singular_fetch_name] is not False
+        ):
             current_order = exchange[singular_fetch_name](original_id, symbol)
             # if there is an id inside the order, it means the order was fetched successfully
             if current_order["id"] == original_id:
@@ -583,13 +677,20 @@ def fetch_order(exchange, symbol, order_id, skipped_properties):
     #
     # search through plural methods
     if fetched_order is None:
-        methods_plural = ["fetchOrders", "fetchOpenOrders", "fetchClosedOrders", "fetchCanceledOrders"]
-        for i in range(len(methods_plural)):
+        methods_plural = [
+            "fetchOrders",
+            "fetchOpenOrders",
+            "fetchClosedOrders",
+            "fetchCanceledOrders",
+        ]
+        for i in range(0, len(methods_plural)):
             plural_fetch_name = methods_plural[i]
-            if (exchange.has[plural_fetch_name] is not None) and (exchange.has[plural_fetch_name] is not False):
+            if (exchange.has[plural_fetch_name] is not None) and (
+                exchange.has[plural_fetch_name] is not False
+            ):
                 orders = exchange[plural_fetch_name](symbol, since_time)
                 found = False
-                for j in range(len(orders)):
+                for j in range(0, len(orders)):
                     current_order = orders[j]
                     if current_order["id"] == original_id:
                         fetched_order = current_order
@@ -632,7 +733,9 @@ def assert_order_state(exchange, skipped_properties, method, order, asserted_sta
     # ### CLOSED STATUS
     #
     # if strict check, then 'status' must be 'closed' and filled amount should be equal to the whole order amount
-    closed_strict = status_closed and (filled_defined and amount_defined and Precise.string_eq(filled, amount))
+    closed_strict = status_closed and (
+        filled_defined and amount_defined and Precise.string_eq(filled, amount)
+    )
     # if non-strict check, then accept & ignore undefined values
     closed_non_strict = (status_closed or status_undefined) and (
         (not filled_defined or not amount_defined) or Precise.string_eq(filled, amount)
@@ -646,7 +749,9 @@ def assert_order_state(exchange, skipped_properties, method, order, asserted_sta
     # ### CANCELED STATUS
     #
     # if strict check, then 'status' must be 'canceled' and filled amount should be less then whole order amount
-    canceled_strict = status_clanceled and (filled_defined and amount_defined and Precise.string_lt(filled, amount))
+    canceled_strict = status_clanceled and (
+        filled_defined and amount_defined and Precise.string_lt(filled, amount)
+    )
     # if non-strict check, then accept & ignore undefined values
     canceled_non_strict = (status_clanceled or status_undefined) and (
         (not filled_defined or not amount_defined) or Precise.string_lt(filled, amount)
@@ -660,7 +765,11 @@ def assert_order_state(exchange, skipped_properties, method, order, asserted_sta
     # ### CLOSED_or_CANCELED STATUS
     #
     if asserted_status == "closed_or_canceled":
-        condition = (closed_strict or canceled_strict) if strict_check else (closed_non_strict or canceled_non_strict)
+        condition = (
+            (closed_strict or canceled_strict)
+            if strict_check
+            else (closed_non_strict or canceled_non_strict)
+        )
         assert condition, msg
         return
 
@@ -688,7 +797,9 @@ def remove_proxy_options(exchange, skipped_properties):
     return [proxy_url, http_proxy, https_proxy, socks_proxy]
 
 
-def set_proxy_options(exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy):
+def set_proxy_options(
+    exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy
+):
     exchange.proxy_url = proxy_url
     exchange.http_proxy = http_proxy
     exchange.https_proxy = https_proxy
@@ -699,14 +810,15 @@ def concat(a=None, b=None):
     # we use this method temporarily, because of ast-transpiler issue across langs
     if a is None:
         return b
-    if b is None:
+    elif b is None:
         return a
-    result = []
-    for i in range(len(a)):
-        result.append(a[i])
-    for j in range(len(b)):
-        result.append(b[j])
-    return result
+    else:
+        result = []
+        for i in range(0, len(a)):
+            result.append(a[i])
+        for j in range(0, len(b)):
+            result.append(b[j])
+        return result
 
 
 def assert_dictionary_response(exchange, method, response, hint=None):
@@ -744,7 +856,9 @@ def assert_round_minute_timestamp(exchange, skipped_properties, method, entry, k
         return
     log_text = log_template(exchange, method, entry)
     ts = exchange.safe_string(entry, key)
-    assert Precise.string_mod(ts, "60000") == "0", "timestamp should be a multiple of 60 seconds (1 minute)" + log_text
+    assert Precise.string_mod(ts, "60000") == "0", (
+        "timestamp should be a multiple of 60 seconds (1 minute)" + log_text
+    )
 
 
 def deep_equal(exchange, a, b):
@@ -753,7 +867,9 @@ def deep_equal(exchange, a, b):
 
 def assert_deep_equal(exchange, skipped_properties, method, a, b):
     log_text = log_template(exchange, method, {})
-    assert deep_equal(exchange, a, b), "two dicts do not match: " + json.dumps(a) + " != " + json.dumps(b) + log_text
+    assert deep_equal(exchange, a, b), (
+        "two dicts do not match: " + json.dumps(a) + " != " + json.dumps(b) + log_text
+    )
 
 
 def exchange_prop(exchange, key, default_value=None):
@@ -769,7 +885,9 @@ def ticker_exception_needs_ohlcv(ex, exchange, ticker):
     # pure helper (no awaits): files under test/Exchange/base transpile into a single
     # sync-flavored php shared by both lanes, so the actual fetchOHLCV await must live
     # in the per-lane callers - this tells them whether the probe is needed
-    e_message = exchange.exception_message(ex, False)  # typed string so the php transpile uses mb_strpos, not in_array
+    e_message = exchange.exception_message(
+        ex, False
+    )  # typed string so the php transpile uses mb_strpos, not in_array
     if "percentage should be above" in e_message or "percentage should be below" in e_message:
         symbol = ticker["symbol"]
         if symbol is not None:
@@ -783,7 +901,9 @@ def validate_ticker_exception_for_percentage(ex, exchange, ticker, ohlcv=None):
     # only skip cases of "too far price" when it's the first day of listing, otherwise rethrow abnormality
     # pure (no awaits) for the sync-shared php transpile - the ohlcv candles, when needed
     # per tickerExceptionNeedsOhlcv, are fetched by the per-lane caller and passed in
-    e_message = exchange.exception_message(ex, False)  # typed string so the php transpile uses mb_strpos, not in_array
+    e_message = exchange.exception_message(
+        ex, False
+    )  # typed string so the php transpile uses mb_strpos, not in_array
     if "percentage should be above" in e_message or "percentage should be below" in e_message:
         symbol = ticker["symbol"]
         if symbol is not None:

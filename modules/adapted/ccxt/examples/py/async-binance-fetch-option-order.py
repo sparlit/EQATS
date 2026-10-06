@@ -52,12 +52,13 @@ async def main():
     since = 1677102900000
     limit = 10
     try:
-        await exchange.fetch_open_orders(symbol, since, limit)
+        response = await exchange.fetch_open_orders(symbol, since, limit)
         # Implicit API:
         # response = await exchange.eapiPrivateGetOpenOrders({
         #     # 'symbol': market_id,  # optional
         #     # 'orderId': order_id,  # optional
         # })
+        pprint(response)
     except Exception as e:
         print("fetch_open_orders() failed")
         print(e)

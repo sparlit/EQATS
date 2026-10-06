@@ -45,5 +45,6 @@ code = "USDT"
 
 try:
     depositAddresses = exchange.fetch_deposit_addresses_by_network(code)
+    pprint(depositAddresses)
 except Exception as err:
     print(err)

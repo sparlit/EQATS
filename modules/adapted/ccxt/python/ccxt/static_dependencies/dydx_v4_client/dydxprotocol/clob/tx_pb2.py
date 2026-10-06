@@ -35,18 +35,6 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from ...cosmos.msg.v1 import msg_pb2 as cosmos_dot_msg_dot_v1_dot_msg__pb2
-from ...cosmos_proto import cosmos_pb2 as cosmos__proto_dot_cosmos__pb2
-from ...gogoproto import gogo_pb2 as gogoproto_dot_gogo__pb2
-from ..clob import block_rate_limit_config_pb2 as dydxprotocol_dot_clob_dot_block__rate__limit__config__pb2
-from ..clob import clob_pair_pb2 as dydxprotocol_dot_clob_dot_clob__pair__pb2
-from ..clob import equity_tier_limit_config_pb2 as dydxprotocol_dot_clob_dot_equity__tier__limit__config__pb2
-from ..clob import liquidations_config_pb2 as dydxprotocol_dot_clob_dot_liquidations__config__pb2
-from ..clob import matches_pb2 as dydxprotocol_dot_clob_dot_matches__pb2
-from ..clob import order_pb2 as dydxprotocol_dot_clob_dot_order__pb2
-from ..clob import order_removals_pb2 as dydxprotocol_dot_clob_dot_order__removals__pb2
-from ..subaccounts import subaccount_pb2 as dydxprotocol_dot_subaccounts_dot_subaccount__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n\x1a\x64ydxprotocol/clob/tx.proto\x12\x11\x64ydxprotocol.clob\x1a\x19\x63osmos_proto/cosmos.proto\x1a\x17\x63osmos/msg/v1/msg.proto\x1a\x14gogoproto/gogo.proto\x1a/dydxprotocol/clob/block_rate_limit_config.proto\x1a!dydxprotocol/clob/clob_pair.proto\x1a\x30\x64ydxprotocol/clob/equity_tier_limit_config.proto\x1a\x1f\x64ydxprotocol/clob/matches.proto\x1a\x1d\x64ydxprotocol/clob/order.proto\x1a&dydxprotocol/clob/order_removals.proto\x1a+dydxprotocol/clob/liquidations_config.proto\x1a)dydxprotocol/subaccounts/subaccount.proto"\x86\x01\n\x11MsgCreateClobPair\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12\x34\n\tclob_pair\x18\x02 \x01(\x0b\x32\x1b.dydxprotocol.clob.ClobPairB\x04\xc8\xde\x1f\x00:\x0e\x82\xe7\xb0*\tauthority"\x1b\n\x19MsgCreateClobPairResponse"X\n\x15MsgProposedOperations\x12?\n\x10operations_queue\x18\x01 \x03(\x0b\x32\x1f.dydxprotocol.clob.OperationRawB\x04\xc8\xde\x1f\x00"\x1f\n\x1dMsgProposedOperationsResponse">\n\rMsgPlaceOrder\x12-\n\x05order\x18\x01 \x01(\x0b\x32\x18.dydxprotocol.clob.OrderB\x04\xc8\xde\x1f\x00"\x17\n\x15MsgPlaceOrderResponse"\x8f\x01\n\x0eMsgCancelOrder\x12\x32\n\x08order_id\x18\x01 \x01(\x0b\x32\x1a.dydxprotocol.clob.OrderIdB\x04\xc8\xde\x1f\x00\x12\x18\n\x0egood_til_block\x18\x02 \x01(\rH\x00\x12\x1d\n\x13good_til_block_time\x18\x03 \x01(\x07H\x00\x42\x10\n\x0egood_til_oneof"\x18\n\x16MsgCancelOrderResponse"\xae\x01\n\x0eMsgBatchCancel\x12\x43\n\rsubaccount_id\x18\x01 \x01(\x0b\x32&.dydxprotocol.subaccounts.SubaccountIdB\x04\xc8\xde\x1f\x00\x12?\n\x12short_term_cancels\x18\x02 \x03(\x0b\x32\x1d.dydxprotocol.clob.OrderBatchB\x04\xc8\xde\x1f\x00\x12\x16\n\x0egood_til_block\x18\x03 \x01(\r"6\n\nOrderBatch\x12\x14\n\x0c\x63lob_pair_id\x18\x01 \x01(\r\x12\x12\n\nclient_ids\x18\x02 \x03(\r"\x8f\x01\n\x16MsgBatchCancelResponse\x12;\n\x14short_term_succeeded\x18\x01 \x03(\x0b\x32\x1d.dydxprotocol.clob.OrderBatch\x12\x38\n\x11short_term_failed\x18\x02 \x03(\x0b\x32\x1d.dydxprotocol.clob.OrderBatch"\x86\x01\n\x11MsgUpdateClobPair\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12\x34\n\tclob_pair\x18\x02 \x01(\x0b\x32\x1b.dydxprotocol.clob.ClobPairB\x04\xc8\xde\x1f\x00:\x0e\x82\xe7\xb0*\tauthority"\x1b\n\x19MsgUpdateClobPairResponse"\xaa\x01\n\x0cOperationRaw\x12-\n\x05match\x18\x01 \x01(\x0b\x32\x1c.dydxprotocol.clob.ClobMatchH\x00\x12$\n\x1ashort_term_order_placement\x18\x02 \x01(\x0cH\x00\x12\x38\n\rorder_removal\x18\x03 \x01(\x0b\x32\x1f.dydxprotocol.clob.OrderRemovalH\x00\x42\x0b\n\toperation"\xbd\x01\n%MsgUpdateEquityTierLimitConfiguration\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12W\n\x18\x65quity_tier_limit_config\x18\x02 \x01(\x0b\x32/.dydxprotocol.clob.EquityTierLimitConfigurationB\x04\xc8\xde\x1f\x00:\x0e\x82\xe7\xb0*\tauthority"/\n-MsgUpdateEquityTierLimitConfigurationResponse"\xba\x01\n$MsgUpdateBlockRateLimitConfiguration\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12U\n\x17\x62lock_rate_limit_config\x18\x03 \x01(\x0b\x32..dydxprotocol.clob.BlockRateLimitConfigurationB\x04\xc8\xde\x1f\x00:\x0e\x82\xe7\xb0*\tauthority".\n,MsgUpdateBlockRateLimitConfigurationResponse"\xa4\x01\n\x1bMsgUpdateLiquidationsConfig\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12H\n\x13liquidations_config\x18\x02 \x01(\x0b\x32%.dydxprotocol.clob.LiquidationsConfigB\x04\xc8\xde\x1f\x00:\x0e\x82\xe7\xb0*\tauthority"%\n#MsgUpdateLiquidationsConfigResponse2\x9f\x08\n\x03Msg\x12p\n\x12ProposedOperations\x12(.dydxprotocol.clob.MsgProposedOperations\x1a\x30.dydxprotocol.clob.MsgProposedOperationsResponse\x12X\n\nPlaceOrder\x12 .dydxprotocol.clob.MsgPlaceOrder\x1a(.dydxprotocol.clob.MsgPlaceOrderResponse\x12[\n\x0b\x43\x61ncelOrder\x12!.dydxprotocol.clob.MsgCancelOrder\x1a).dydxprotocol.clob.MsgCancelOrderResponse\x12[\n\x0b\x42\x61tchCancel\x12!.dydxprotocol.clob.MsgBatchCancel\x1a).dydxprotocol.clob.MsgBatchCancelResponse\x12\x64\n\x0e\x43reateClobPair\x12$.dydxprotocol.clob.MsgCreateClobPair\x1a,.dydxprotocol.clob.MsgCreateClobPairResponse\x12\x64\n\x0eUpdateClobPair\x12$.dydxprotocol.clob.MsgUpdateClobPair\x1a,.dydxprotocol.clob.MsgUpdateClobPairResponse\x12\xa0\x01\n"UpdateEquityTierLimitConfiguration\x12\x38.dydxprotocol.clob.MsgUpdateEquityTierLimitConfiguration\x1a@.dydxprotocol.clob.MsgUpdateEquityTierLimitConfigurationResponse\x12\x9d\x01\n!UpdateBlockRateLimitConfiguration\x12\x37.dydxprotocol.clob.MsgUpdateBlockRateLimitConfiguration\x1a?.dydxprotocol.clob.MsgUpdateBlockRateLimitConfigurationResponse\x12\x82\x01\n\x18UpdateLiquidationsConfig\x12..dydxprotocol.clob.MsgUpdateLiquidationsConfig\x1a\x36.dydxprotocol.clob.MsgUpdateLiquidationsConfigResponseB8Z6github.com/dydxprotocol/v4-chain/protocol/x/clob/typesb\x06proto3'
 )
@@ -57,13 +45,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b"Z6github.com/dydxprotocol/v4-chain/protocol/x/clob/types"
     _MSGCREATECLOBPAIR.fields_by_name["authority"]._options = None
-    _MSGCREATECLOBPAIR.fields_by_name["authority"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGCREATECLOBPAIR.fields_by_name[
+        "authority"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGCREATECLOBPAIR.fields_by_name["clob_pair"]._options = None
     _MSGCREATECLOBPAIR.fields_by_name["clob_pair"]._serialized_options = b"\310\336\037\000"
     _MSGCREATECLOBPAIR._options = None
     _MSGCREATECLOBPAIR._serialized_options = b"\202\347\260*\tauthority"
     _MSGPROPOSEDOPERATIONS.fields_by_name["operations_queue"]._options = None
-    _MSGPROPOSEDOPERATIONS.fields_by_name["operations_queue"]._serialized_options = b"\310\336\037\000"
+    _MSGPROPOSEDOPERATIONS.fields_by_name[
+        "operations_queue"
+    ]._serialized_options = b"\310\336\037\000"
     _MSGPLACEORDER.fields_by_name["order"]._options = None
     _MSGPLACEORDER.fields_by_name["order"]._serialized_options = b"\310\336\037\000"
     _MSGCANCELORDER.fields_by_name["order_id"]._options = None
@@ -73,7 +65,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _MSGBATCHCANCEL.fields_by_name["short_term_cancels"]._options = None
     _MSGBATCHCANCEL.fields_by_name["short_term_cancels"]._serialized_options = b"\310\336\037\000"
     _MSGUPDATECLOBPAIR.fields_by_name["authority"]._options = None
-    _MSGUPDATECLOBPAIR.fields_by_name["authority"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGUPDATECLOBPAIR.fields_by_name[
+        "authority"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGUPDATECLOBPAIR.fields_by_name["clob_pair"]._options = None
     _MSGUPDATECLOBPAIR.fields_by_name["clob_pair"]._serialized_options = b"\310\336\037\000"
     _MSGUPDATECLOBPAIR._options = None
@@ -82,7 +76,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _MSGUPDATEEQUITYTIERLIMITCONFIGURATION.fields_by_name[
         "authority"
     ]._serialized_options = b"\322\264-\024cosmos.AddressString"
-    _MSGUPDATEEQUITYTIERLIMITCONFIGURATION.fields_by_name["equity_tier_limit_config"]._options = None
+    _MSGUPDATEEQUITYTIERLIMITCONFIGURATION.fields_by_name[
+        "equity_tier_limit_config"
+    ]._options = None
     _MSGUPDATEEQUITYTIERLIMITCONFIGURATION.fields_by_name[
         "equity_tier_limit_config"
     ]._serialized_options = b"\310\336\037\000"
@@ -99,9 +95,13 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _MSGUPDATEBLOCKRATELIMITCONFIGURATION._options = None
     _MSGUPDATEBLOCKRATELIMITCONFIGURATION._serialized_options = b"\202\347\260*\tauthority"
     _MSGUPDATELIQUIDATIONSCONFIG.fields_by_name["authority"]._options = None
-    _MSGUPDATELIQUIDATIONSCONFIG.fields_by_name["authority"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGUPDATELIQUIDATIONSCONFIG.fields_by_name[
+        "authority"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGUPDATELIQUIDATIONSCONFIG.fields_by_name["liquidations_config"]._options = None
-    _MSGUPDATELIQUIDATIONSCONFIG.fields_by_name["liquidations_config"]._serialized_options = b"\310\336\037\000"
+    _MSGUPDATELIQUIDATIONSCONFIG.fields_by_name[
+        "liquidations_config"
+    ]._serialized_options = b"\310\336\037\000"
     _MSGUPDATELIQUIDATIONSCONFIG._options = None
     _MSGUPDATELIQUIDATIONSCONFIG._serialized_options = b"\202\347\260*\tauthority"
     _MSGCREATECLOBPAIR._serialized_start = 450

@@ -26,7 +26,6 @@ import argparse
 import contextlib
 import csv
 import datetime
-import io
 import json
 import os
 import signal
@@ -37,7 +36,6 @@ import traceback
 import psycopg2
 import psycopg2.extras  # For batch operations
 import pyotp
-import requests
 from api_helper import ShoonyaApiPy
 
 # ─ Shoonya API credentials ───────────────────────────────────
@@ -105,8 +103,14 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Historical Data Downloader for Shoonya API")
     parser.add_argument("--nse", action="store_true", help="Process NSE symbols only")
     parser.add_argument("--bse", action="store_true", help="Process BSE symbols only")
-    parser.add_argument("--both", action="store_true", help="Process both NSE and BSE symbols (default)")
-    parser.add_argument("--skip-download", action="store_true", help="Skip downloading symbol files (not recommended)")
+    parser.add_argument(
+        "--both", action="store_true", help="Process both NSE and BSE symbols (default)"
+    )
+    parser.add_argument(
+        "--skip-download",
+        action="store_true",
+        help="Skip downloading symbol files (not recommended)",
+    )
     args = parser.parse_args()
 
     # Set the processing flags based on arguments
@@ -134,7 +138,7 @@ def safe_print(*args, **kwargs):
         # Even if print fails, we don't want to crash
         try:
             with open("print_errors.log", "a") as f:
-                f.write(f"Print error: {e!s}\n")
+                f.write(f"Print error: {str(e)}\n")
         except:
             pass  # If even error logging fails, just continue silently
 
@@ -157,7 +161,7 @@ def log_exception(prefix="EXCEPTION"):
         # If logging fails, try one more simple approach
         try:
             with open("emergency_error_log.txt", "a") as f:
-                f.write(f"Error logging exception: {e!s}\n")
+                f.write(f"Error logging exception: {str(e)}\n")
         except:
             pass  # Total silence if all fails
 
@@ -294,7 +298,6 @@ def setup_database():
                 safe_print("All database setup attempts failed!")
                 # Instead of exiting, we'll return None and handle it in the main function
                 return None
-    return None
 
 
 def cleanup_database(conn):
@@ -345,7 +348,9 @@ def parse_csv_symbols(file_path, exchange):
 
     while retry_count < max_retries:
         if not os.path.exists(file_path):
-            safe_print(f"WARNING: Symbol file {file_path} not found (attempt {retry_count + 1}/{max_retries}).")
+            safe_print(
+                f"WARNING: Symbol file {file_path} not found (attempt {retry_count + 1}/{max_retries})."
+            )
 
             # Try to download the file
             if download_symbols():
@@ -398,12 +403,16 @@ def parse_csv_symbols(file_path, exchange):
                             trading_symbol = row["TradingSymbol"]
                             # Remove -EQ suffix if present
                             symbol = (
-                                trading_symbol.replace("-EQ", "") if trading_symbol.endswith("-EQ") else trading_symbol
+                                trading_symbol.replace("-EQ", "")
+                                if trading_symbol.endswith("-EQ")
+                                else trading_symbol
                             )
 
                             try:
                                 token = int(row["Token"])
-                                symbols.append({"exchange": "NSE", "token": token, "symbol": symbol})
+                                symbols.append(
+                                    {"exchange": "NSE", "token": token, "symbol": symbol}
+                                )
                             except ValueError:
                                 safe_print(
                                     f"WARNING: Invalid token in {file_path}: {row['Token']} for symbol {trading_symbol}"
@@ -414,7 +423,13 @@ def parse_csv_symbols(file_path, exchange):
                         if instrument != "F":
                             try:
                                 token = int(row["Token"])
-                                symbols.append({"exchange": "BSE", "token": token, "symbol": row["TradingSymbol"]})
+                                symbols.append(
+                                    {
+                                        "exchange": "BSE",
+                                        "token": token,
+                                        "symbol": row["TradingSymbol"],
+                                    }
+                                )
                             except ValueError:
                                 safe_print(
                                     f"WARNING: Invalid token in {file_path}: {row['Token']} for symbol {row['TradingSymbol']}"
@@ -424,14 +439,18 @@ def parse_csv_symbols(file_path, exchange):
             break
 
         except Exception as e:
-            safe_print(f"ERROR parsing symbols file {file_path} (attempt {retry_count + 1}/{max_retries}): {e}")
+            safe_print(
+                f"ERROR parsing symbols file {file_path} (attempt {retry_count + 1}/{max_retries}): {e}"
+            )
             log_exception(f"PARSE_{exchange}")
             retry_count += 1
 
             if retry_count < max_retries:
                 time.sleep(10)  # Wait before retry
             else:
-                safe_print(f"Failed to parse symbols after {max_retries} attempts. Returning empty list.")
+                safe_print(
+                    f"Failed to parse symbols after {max_retries} attempts. Returning empty list."
+                )
                 return []
 
     # Log some sample symbols for verification
@@ -451,7 +470,13 @@ def parse_csv_symbols(file_path, exchange):
 def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
     """Fetch data for a single symbol and insert directly into database"""
     global success_count, error_count, skipped_count, timeout_count, retry_count
-    global total_records, total_api_time, total_db_time, last_successful_symbol, consecutive_failures, KEEP_RUNNING
+    global \
+        total_records, \
+        total_api_time, \
+        total_db_time, \
+        last_successful_symbol, \
+        consecutive_failures, \
+        KEEP_RUNNING
 
     # Check if we should continue processing
     if not KEEP_RUNNING:
@@ -478,7 +503,8 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
 
     # Check if current time is in the reset window
     in_reset_window = (
-        current_time.hour > reset_start_hour or (current_time.hour == reset_start_hour and current_time.minute >= 0)
+        current_time.hour > reset_start_hour
+        or (current_time.hour == reset_start_hour and current_time.minute >= 0)
     ) and (
         current_time.hour < reset_end_hour
         or (current_time.hour == reset_end_hour and current_time.minute < reset_end_minute)
@@ -564,7 +590,10 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
 
                 # Make API call with timeout awareness
                 api_data = api.get_daily_price_series(
-                    exchange=exch, tradingsymbol=api_symbol, startdate=str(start_ts), enddate=str(end_ts)
+                    exchange=exch,
+                    tradingsymbol=api_symbol,
+                    startdate=str(start_ts),
+                    enddate=str(end_ts),
                 )
 
                 req_time = time.time() - req_start
@@ -572,7 +601,9 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
 
                 # Handle empty response
                 if not api_data:
-                    safe_print(f"{progress} No data received for {exch}:{sym} after {req_time:.2f}s.")
+                    safe_print(
+                        f"{progress} No data received for {exch}:{sym} after {req_time:.2f}s."
+                    )
                     skipped_count += 1
                     consecutive_failures = 0  # Reset on empty data (not an error)
                     return True  # Still return success to move to next symbol
@@ -590,7 +621,9 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
 
                 # Check if it's a connection refused error, which might indicate API reset
                 if "Connection refused" in str(e):
-                    safe_print(f"{progress} CONNECTION REFUSED ERROR - possibly in API reset period. Checking time...")
+                    safe_print(
+                        f"{progress} CONNECTION REFUSED ERROR - possibly in API reset period. Checking time..."
+                    )
 
                     # Re-check if we entered a reset window
                     current_time = datetime.datetime.now()
@@ -599,7 +632,10 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
                         or (current_time.hour == reset_start_hour and current_time.minute >= 0)
                     ) and (
                         current_time.hour < reset_end_hour
-                        or (current_time.hour == reset_end_hour and current_time.minute < reset_end_minute)
+                        or (
+                            current_time.hour == reset_end_hour
+                            and current_time.minute < reset_end_minute
+                        )
                     )
 
                     if in_reset_window:
@@ -611,7 +647,7 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
                         continue
 
                 safe_print(
-                    f"{progress} API CALL ERROR for {exch}:{sym} after {req_time:.2f}s: {e!s} (Attempt {api_retry_count}/{MAX_API_RETRIES})"
+                    f"{progress} API CALL ERROR for {exch}:{sym} after {req_time:.2f}s: {str(e)} (Attempt {api_retry_count}/{MAX_API_RETRIES})"
                 )
 
                 if api_retry_count < MAX_API_RETRIES and KEEP_RUNNING:
@@ -634,13 +670,17 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
 
         # If no data after retries, skip this symbol
         if not api_data:
-            safe_print(f"{progress} No valid data for {exch}:{sym} after all retries. Skipping symbol.")
+            safe_print(
+                f"{progress} No valid data for {exch}:{sym} after all retries. Skipping symbol."
+            )
             skipped_count += 1
             return True
 
         # Log API response data for debugging
         if VERBOSE_LOGGING:
-            safe_print(f"{progress} API Response Sample (showing max {MAX_LOG_ITEMS} of {len(api_data)} records):")
+            safe_print(
+                f"{progress} API Response Sample (showing max {MAX_LOG_ITEMS} of {len(api_data)} records):"
+            )
             sample_data = api_data[:MAX_LOG_ITEMS]
             for i, item in enumerate(sample_data):
                 if isinstance(item, str):
@@ -689,7 +729,9 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
 
         # Check if we have any valid records after processing
         if not batch_data:
-            safe_print(f"{progress} No valid records after processing API data for {exch}:{sym}. Skipping insertion.")
+            safe_print(
+                f"{progress} No valid records after processing API data for {exch}:{sym}. Skipping insertion."
+            )
             skipped_count += 1
             return True
 
@@ -705,7 +747,9 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
             try:
                 # Handle potential database connection issues
                 if conn is None or conn.closed:
-                    safe_print(f"{progress} Database connection is None or closed. Attempting to reconnect...")
+                    safe_print(
+                        f"{progress} Database connection is None or closed. Attempting to reconnect..."
+                    )
                     try:
                         conn = psycopg2.connect(**DB_PARAMS)
                         conn.autocommit = False
@@ -757,7 +801,7 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
                         with contextlib.suppress(BaseException):
                             conn.rollback()
 
-                        raise  # Re-raise to trigger outer retry
+                        raise e  # Re-raise to trigger outer retry
 
                 db_time = time.time() - db_start
                 total_db_time += db_time
@@ -787,11 +831,12 @@ def fetch_symbol_data(api, symbol_data, index, total_symbols, conn):
         if insertion_success:
             success_count += 1
             return True
-        error_count += 1
-        return True  # Still return True to move to the next symbol
+        else:
+            error_count += 1
+            return True  # Still return True to move to the next symbol
 
     except Exception as e:
-        safe_print(f"{progress} UNHANDLED ERROR for {exch}:{sym}: {e!s}")
+        safe_print(f"{progress} UNHANDLED ERROR for {exch}:{sym}: {str(e)}")
         log_exception(f"UNHANDLED_{exch}_{sym}")
         error_count += 1
         consecutive_failures += 1
@@ -813,7 +858,8 @@ def download_symbols():
             if result == 0:
                 safe_print("Symbol files downloaded successfully using download_symbols.py")
                 return True
-            safe_print("download_symbols.py failed. Trying built-in download method...")
+            else:
+                safe_print("download_symbols.py failed. Trying built-in download method...")
         except ImportError:
             safe_print("download_symbols.py not found. Using built-in download method...")
 
@@ -837,7 +883,8 @@ def download_symbols():
                     response.raise_for_status()
 
                     with open(filename, "wb") as f:
-                        f.writelines(response.iter_content(chunk_size=8192))
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
 
                     safe_print(f"Extracting {filename}...")
                     with zipfile.ZipFile(filename, "r") as zip_ref:
@@ -861,18 +908,24 @@ def download_symbols():
                     break  # Exit retry loop on success
 
                 except Exception as e:
-                    safe_print(f"Error downloading {exchange} symbols (attempt {retry_count + 1}/{max_retries}): {e}")
+                    safe_print(
+                        f"Error downloading {exchange} symbols (attempt {retry_count + 1}/{max_retries}): {e}"
+                    )
                     retry_count += 1
                     if retry_count < max_retries:
                         time.sleep(30)  # Longer delay between retries
                     else:
-                        safe_print(f"Failed to download {exchange} symbols after {max_retries} attempts.")
+                        safe_print(
+                            f"Failed to download {exchange} symbols after {max_retries} attempts."
+                        )
                         return False
 
         # Check if all files were successfully downloaded
         for exchange in exchanges:
             if not os.path.exists(f"{exchange}_symbols.txt"):
-                safe_print(f"Error: Failed to download {exchange}_symbols.txt after multiple attempts.")
+                safe_print(
+                    f"Error: Failed to download {exchange}_symbols.txt after multiple attempts."
+                )
                 return False
 
         return True
@@ -899,7 +952,9 @@ def display_status_update(start_time, total_symbols):
     current_count = success_count + error_count + skipped_count + timeout_count
 
     safe_print("\n--- STATUS UPDATE ---")
-    safe_print(f"Processed {current_count}/{total_symbols} symbols ({current_count / total_symbols * 100:.1f}%)")
+    safe_print(
+        f"Processed {current_count}/{total_symbols} symbols ({current_count / total_symbols * 100:.1f}%)"
+    )
     safe_print(
         f"Success: {success_count}, Errors: {error_count}, Skipped: {skipped_count}, Timeouts: {timeout_count}, Retries: {retry_count}"
     )
@@ -909,7 +964,9 @@ def display_status_update(start_time, total_symbols):
     if current_count > 0 and elapsed > 0:
         safe_print(f"Avg API time: {total_api_time / max(1, current_count):.2f}s per symbol")
         safe_print(f"Avg DB time: {total_db_time / max(1, success_count):.2f}s per symbol")
-        safe_print(f"Estimated time remaining: {elapsed / current_count * (total_symbols - current_count):.1f}s")
+        safe_print(
+            f"Estimated time remaining: {elapsed / current_count * (total_symbols - current_count):.1f}s"
+        )
     safe_print(f"Processing rate: {current_count / max(1, elapsed):.2f} symbols/second")
     safe_print(f"Insertion rate: {total_records / max(1, elapsed):.2f} records/second")
     safe_print(f"Consecutive failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}")
@@ -924,8 +981,12 @@ def load_checkpoint():
                 progress = json.load(f)
 
             safe_print(f"Found previous progress from {progress.get('timestamp', 'unknown time')}:")
-            safe_print(f"  Processed {progress.get('current_index', 0)}/{progress.get('total_symbols', 0)} symbols")
-            safe_print(f"  Success: {progress.get('success_count', 0)}, Errors: {progress.get('error_count', 0)}")
+            safe_print(
+                f"  Processed {progress.get('current_index', 0)}/{progress.get('total_symbols', 0)} symbols"
+            )
+            safe_print(
+                f"  Success: {progress.get('success_count', 0)}, Errors: {progress.get('error_count', 0)}"
+            )
             safe_print(f"  Records inserted: {progress.get('total_records', 0)}")
 
             return progress.get("current_index", 0)
@@ -936,7 +997,14 @@ def load_checkpoint():
 
 
 def main():
-    global KEEP_RUNNING, success_count, error_count, skipped_count, total_records, PROCESS_NSE, PROCESS_BSE
+    global \
+        KEEP_RUNNING, \
+        success_count, \
+        error_count, \
+        skipped_count, \
+        total_records, \
+        PROCESS_NSE, \
+        PROCESS_BSE
 
     # Parse command-line arguments
     args = parse_arguments()
@@ -1036,7 +1104,9 @@ def main():
     safe_print("\n[1/6] Downloading symbol files...")
     if not args.skip_download:
         if not download_symbols():
-            safe_print("Warning: Problems downloading symbol files. Will continue but may encounter issues.")
+            safe_print(
+                "Warning: Problems downloading symbol files. Will continue but may encounter issues."
+            )
     else:
         safe_print("Symbol file download skipped as requested.")
 
@@ -1147,7 +1217,9 @@ def main():
             return
 
     # 6) Process symbols - single-threaded for maximum reliability
-    safe_print(f"\n[6/6] Beginning data download for {len(all_symbols)} symbols (single-threaded)...")
+    safe_print(
+        f"\n[6/6] Beginning data download for {len(all_symbols)} symbols (single-threaded)..."
+    )
     write_checkpoint("Starting symbol processing")
 
     # Process each symbol one at a time
@@ -1246,16 +1318,22 @@ def main():
     safe_print("\n" + "=" * 80)
     safe_print("DOWNLOAD SUMMARY")
     safe_print("=" * 80)
-    safe_print(f"Exchanges processed: {', '.join([e for e, f in [('NSE', PROCESS_NSE), ('BSE', PROCESS_BSE)] if f])}")
+    safe_print(
+        f"Exchanges processed: {', '.join([e for e, f in [('NSE', PROCESS_NSE), ('BSE', PROCESS_BSE)] if f])}"
+    )
     safe_print(f"Total symbols processed: {success_count + error_count + skipped_count}")
-    safe_print(f"Success: {success_count}, Errors: {error_count}, Skipped: {skipped_count}, Retries: {retry_count}")
+    safe_print(
+        f"Success: {success_count}, Errors: {error_count}, Skipped: {skipped_count}, Retries: {retry_count}"
+    )
     safe_print(f"Total records inserted: {total_records}")
     safe_print(f"Total execution time: {total_time:.2f}s")
     safe_print(f"API fetch time: {total_api_time:.2f}s")
     safe_print(f"Database insert time: {total_db_time:.2f}s")
 
     if success_count > 0:
-        safe_print(f"Average time per symbol: {total_time / (success_count + error_count + skipped_count):.2f}s")
+        safe_print(
+            f"Average time per symbol: {total_time / (success_count + error_count + skipped_count):.2f}s"
+        )
         safe_print(f"Average records per successful symbol: {total_records / success_count:.2f}")
 
     safe_print(

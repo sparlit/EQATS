@@ -56,7 +56,9 @@ async def main():
 
     try:
         # open long market price order
-        order = await exchange.create_order(symbol, "market", side, amount, price, {"type": future_type})
+        order = await exchange.create_order(
+            symbol, "market", side, amount, price, {"type": future_type}
+        )
         # --------------------------------------------------------------------
         # open long market price order
         # const order = await exchange.create_order(symbol, type, side, amount, price, {'order_type': order_type})

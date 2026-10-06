@@ -28,7 +28,6 @@ from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-import pytest
 from context import defs
 
 DIR = Path(__file__).parent / "test_data"
@@ -54,7 +53,7 @@ class TestGetMuhuratHolidayInfo(unittest.TestCase):
         result = defs.getMuhuratHolidayInfo(holidays)
 
         expected = {"description": "Laxmi Pujan"}
-        assert result == expected
+        self.assertEqual(result, expected)
 
     def test_no_matching_description(self):
         holidays = {
@@ -66,7 +65,7 @@ class TestGetMuhuratHolidayInfo(unittest.TestCase):
         result = defs.getMuhuratHolidayInfo(holidays)
 
         expected = {}
-        assert result == expected
+        self.assertEqual(result, expected)
 
 
 class TestGetHolidayList(unittest.TestCase):
@@ -85,14 +84,14 @@ class TestGetHolidayList(unittest.TestCase):
 
         expected = {"2023-11-12": "Diwali Laxmi Pujan"}
 
-        assert result == expected
+        self.assertEqual(result, expected)
 
     def test_failed_request(self):
         mock_nse = Mock()
         exc = Exception("Download failed.")
         mock_nse.holidays.side_effect = exc
 
-        with pytest.raises(SystemExit):
+        with self.assertRaises(SystemExit):
             defs.getHolidayList(mock_nse)
 
 
@@ -112,7 +111,7 @@ class TestCheckForHolidays(unittest.TestCase):
         with patch.object(defs, "meta", meta_obj):
             result = defs.checkForHolidays(mock_nse, defs.dates)
 
-        assert not result
+        self.assertFalse(result)
         mock_get_holiday_list.assert_not_called()
 
     @patch.object(defs, "dates")
@@ -127,7 +126,7 @@ class TestCheckForHolidays(unittest.TestCase):
         with patch.object(defs, "meta", {"holidays": {}, "year": 2023}):
             result = defs.checkForHolidays(mock_nse, defs.dates)
 
-        assert result
+        self.assertTrue(result)
         mock_get_holiday_list.assert_not_called()
 
     @patch.object(defs, "dates")
@@ -149,7 +148,7 @@ class TestCheckForHolidays(unittest.TestCase):
             result = defs.checkForHolidays(mock_nse, defs.dates)
 
         # Assertions
-        assert not result
+        self.assertFalse(result)
         mock_get_holiday_list.assert_called_once_with(mock_nse)
         mock_nse.holidays.assert_not_called()
 
@@ -174,7 +173,7 @@ class TestCheckForHolidays(unittest.TestCase):
         with patch.object(defs, "meta", meta_obj):
             result = defs.checkForHolidays(mock_nse, defs.dates)
 
-        assert result
+        self.assertTrue(result)
         mock_get_holiday_list.assert_called_once()
 
     @patch.object(defs, "dates")
@@ -188,7 +187,7 @@ class TestCheckForHolidays(unittest.TestCase):
         with patch.object(defs, "meta", {"special_sessions": [dt.isoformat()]}):
             result = defs.checkForHolidays(mock_nse, defs.dates)
 
-        assert not result
+        self.assertFalse(result)
 
 
 class TestValidateNseActionsFile(unittest.TestCase):
@@ -219,8 +218,8 @@ class TestValidateNseActionsFile(unittest.TestCase):
             "mfActionsExpiry": expiry,
         }
 
-        assert mock_nse.actions.call_count == 3
-        assert defs.meta == expect
+        self.assertEqual(mock_nse.actions.call_count, 3)
+        self.assertEqual(defs.meta, expect)
 
     @patch.object(defs, "meta", {})
     def test_missing_actions_failed_request(self, *_):
@@ -233,7 +232,7 @@ class TestValidateNseActionsFile(unittest.TestCase):
         exc = Exception("Download Failed")
         mock_nse.actions.side_effect = exc
 
-        with pytest.raises(SystemExit):
+        with self.assertRaises(SystemExit):
             defs.validateNseActionsFile(mock_nse)
 
         mock_nse.actions.assert_called_once()
@@ -264,10 +263,10 @@ class TestValidateNseActionsFile(unittest.TestCase):
 
         defs.validateNseActionsFile(mock_nse)
 
-        assert mock_nse.actions.call_count == 3
-        assert defs.meta["equityActionsExpiry"] == newExpiry
-        assert defs.meta["smeActionsExpiry"] == newExpiry
-        assert defs.meta["mfActionsExpiry"] == newExpiry
+        self.assertEqual(mock_nse.actions.call_count, 3)
+        self.assertEqual(defs.meta["equityActionsExpiry"], newExpiry)
+        self.assertEqual(defs.meta["smeActionsExpiry"], newExpiry)
+        self.assertEqual(defs.meta["mfActionsExpiry"], newExpiry)
 
     @patch.object(defs, "meta", {})
     @patch.object(defs, "dates")
@@ -291,7 +290,7 @@ class TestValidateNseActionsFile(unittest.TestCase):
         exc = Exception("Download Failed")
         mock_nse.actions.side_effect = exc
 
-        with pytest.raises(SystemExit):
+        with self.assertRaises(SystemExit):
             defs.validateNseActionsFile(mock_nse)
 
         mock_nse.actions.assert_called_once()
@@ -323,7 +322,7 @@ def test_not_expired(self, _):
     defs.validateNseActionsFile(mock_nse)
 
     mock_nse.actions.assert_not_called()
-    assert defs.meta == meta_obj
+    self.assertEqual(defs.meta, meta_obj)
 
 
 class TestUpdateNseEOD(unittest.TestCase):
@@ -369,7 +368,7 @@ class TestUpdateNseEOD(unittest.TestCase):
 
         # Make assertions
         # Only EQ, BE, BZ, SM and ST series are allowed
-        assert mock_update_nse_symbol.call_count == 5
+        self.assertEqual(mock_update_nse_symbol.call_count, 5)
 
         for i, call in enumerate(mock_update_nse_symbol.call_args_list):
             args = call.args
@@ -377,8 +376,7 @@ class TestUpdateNseEOD(unittest.TestCase):
             expected_filename = f"{symbols[i]}.csv"
 
             # first argument must be pathlib.Path
-            assert isinstance(args[0], Path)
-            assert args[0].name == expected_filename
+            self.assertTrue(isinstance(args[0], Path) and args[0].name == expected_filename)
 
             i = i + 1  # zero indexed
 
@@ -388,8 +386,8 @@ class TestUpdateNseEOD(unittest.TestCase):
             # (100, 100, 100, 100, 1000, 1000, 1000)
             # (200, 200, 200, 200, 2000, 2000, 2000)
             expected_args = (i * 100,) * 4 + (i * 1000,) * 3
-            assert args[1] in ("EQ", "BE", "BZ", "SM", "ST")
-            assert args[2:] == expected_args
+            self.assertTrue(args[1] in ("EQ", "BE", "BZ", "SM", "ST"))
+            self.assertEqual(args[2:], expected_args)
 
 
 if __name__ == "__main__":

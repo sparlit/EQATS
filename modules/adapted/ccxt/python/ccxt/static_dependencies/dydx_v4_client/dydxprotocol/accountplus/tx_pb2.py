@@ -35,10 +35,6 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from ...amino import amino_pb2 as amino_dot_amino__pb2
-from ...cosmos.msg.v1 import msg_pb2 as cosmos_dot_msg_dot_v1_dot_msg__pb2
-from ...cosmos_proto import cosmos_pb2 as cosmos__proto_dot_cosmos__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n!dydxprotocol/accountplus/tx.proto\x12\x18\x64ydxprotocol.accountplus\x1a\x19\x63osmos_proto/cosmos.proto\x1a\x17\x63osmos/msg/v1/msg.proto\x1a\x11\x61mino/amino.proto"\x8b\x01\n\x13MsgAddAuthenticator\x12\x0e\n\x06sender\x18\x01 \x01(\t\x12\x1a\n\x12\x61uthenticator_type\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c::\x8a\xe7\xb0**dydxprotocol/accountplus/add-authenticator\x82\xe7\xb0*\x06sender".\n\x1bMsgAddAuthenticatorResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08"s\n\x16MsgRemoveAuthenticator\x12\x0e\n\x06sender\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x04:=\x8a\xe7\xb0*-dydxprotocol/accountplus/remove-authenticator\x82\xe7\xb0*\x06sender"1\n\x1eMsgRemoveAuthenticatorResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08"\x8e\x01\n\x11MsgSetActiveState\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12\x0e\n\x06\x61\x63tive\x18\x02 \x01(\x08:<\x8a\xe7\xb0*)dydxprotocol/accountplus/set-active-state\x82\xe7\xb0*\tauthority"\x1b\n\x19MsgSetActiveStateResponse".\n\x0bTxExtension\x12\x1f\n\x17selected_authenticators\x18\x01 \x03(\x04\x32\xf7\x02\n\x03Msg\x12x\n\x10\x41\x64\x64\x41uthenticator\x12-.dydxprotocol.accountplus.MsgAddAuthenticator\x1a\x35.dydxprotocol.accountplus.MsgAddAuthenticatorResponse\x12\x81\x01\n\x13RemoveAuthenticator\x12\x30.dydxprotocol.accountplus.MsgRemoveAuthenticator\x1a\x38.dydxprotocol.accountplus.MsgRemoveAuthenticatorResponse\x12r\n\x0eSetActiveState\x12+.dydxprotocol.accountplus.MsgSetActiveState\x1a\x33.dydxprotocol.accountplus.MsgSetActiveStateResponseB?Z=github.com/dydxprotocol/v4-chain/protocol/x/accountplus/typesb\x06proto3'
 )
@@ -47,7 +43,9 @@ _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "dydxprotocol.accountplus.tx_pb2", globals())
 if not _descriptor._USE_C_DESCRIPTORS:
     DESCRIPTOR._options = None
-    DESCRIPTOR._serialized_options = b"Z=github.com/dydxprotocol/v4-chain/protocol/x/accountplus/types"
+    DESCRIPTOR._serialized_options = (
+        b"Z=github.com/dydxprotocol/v4-chain/protocol/x/accountplus/types"
+    )
     _MSGADDAUTHENTICATOR._options = None
     _MSGADDAUTHENTICATOR._serialized_options = (
         b"\212\347\260**dydxprotocol/accountplus/add-authenticator\202\347\260*\006sender"
@@ -57,7 +55,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
         b"\212\347\260*-dydxprotocol/accountplus/remove-authenticator\202\347\260*\006sender"
     )
     _MSGSETACTIVESTATE.fields_by_name["authority"]._options = None
-    _MSGSETACTIVESTATE.fields_by_name["authority"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGSETACTIVESTATE.fields_by_name[
+        "authority"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGSETACTIVESTATE._options = None
     _MSGSETACTIVESTATE._serialized_options = (
         b"\212\347\260*)dydxprotocol/accountplus/set-active-state\202\347\260*\tauthority"

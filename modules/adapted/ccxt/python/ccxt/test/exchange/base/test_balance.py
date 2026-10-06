@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,8 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.precise import Precise  # noqa: E402
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.base.precise import Precise  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_balance(exchange, skipped_properties, method, entry):
@@ -48,19 +50,28 @@ def test_balance(exchange, skipped_properties, method, entry):
     }
     test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format)
     log_text = test_shared_methods.log_template(exchange, method, entry)
+    #
     codes_total = list(entry["total"].keys())
     codes_free = list(entry["free"].keys())
     codes_used = list(entry["used"].keys())
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, codes_total, "total")
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, codes_free, "free")
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, codes_used, "used")
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, codes_total, "total"
+    )
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, codes_free, "free"
+    )
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, codes_used, "used"
+    )
     all_codes = exchange.array_concat(codes_total, codes_free)
     all_codes = exchange.array_concat(all_codes, codes_used)
     codes_length = len(codes_total)
     free_length = len(codes_free)
     used_length = len(codes_used)
-    assert codes_length in (free_length, used_length), "free and total and used codes have different lengths" + log_text
-    for i in range(len(all_codes)):
+    assert codes_length in (free_length, used_length), (
+        "free and total and used codes have different lengths" + log_text
+    )
+    for i in range(0, len(all_codes)):
         code = all_codes[i]
         # testSharedMethods.assertCurrencyCode (exchange, skippedProperties, method, entry, code);
         assert code in entry["total"], "code " + code + " not in total" + log_text
@@ -76,4 +87,6 @@ def test_balance(exchange, skipped_properties, method, entry):
         assert Precise.string_ge(free, "0"), "free is not positive" + log_text
         assert Precise.string_ge(used, "0"), "used is not positive" + log_text
         sum_free_used = Precise.string_add(free, used)
-        assert Precise.string_eq(total, sum_free_used), "free and used do not sum to total" + log_text
+        assert Precise.string_eq(total, sum_free_used), (
+            "free and used do not sum to total" + log_text
+        )

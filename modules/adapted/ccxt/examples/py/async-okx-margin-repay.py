@@ -52,13 +52,14 @@ async def main():
     amount = 1
     order_id = "YOUR_ORDER_ID_FROM_BORROWING"
     try:
-        await exchange.repayCrossMargin(
+        response = await exchange.repayCrossMargin(
             code,
             amount,
             {
                 "ordId": order_id,
             },
         )
+        pprint(response)
     except ccxt.InsufficientFunds as e:
         print("repayCrossMargin() failed – not enough funds")
         print(e)

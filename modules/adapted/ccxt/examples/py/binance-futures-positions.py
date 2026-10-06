@@ -50,3 +50,4 @@ exchange.verbose = True  # debug output
 
 balance = exchange.fetch_balance()
 positions = balance["info"]["positions"]
+pprint(positions)

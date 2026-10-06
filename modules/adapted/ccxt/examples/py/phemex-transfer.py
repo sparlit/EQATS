@@ -55,7 +55,8 @@ def main_account_transfer():
     params = {}
 
     try:
-        exchange.transfer(code, amount, fromAccount, toAccount, params=params)
+        transfer = exchange.transfer(code, amount, fromAccount, toAccount, params=params)
+        pprint(transfer)
     except Exception as err:
         print(err)
 
@@ -78,7 +79,8 @@ def transfer_between_main_and_sub_accounts():
     params = {"bizType": bizType}
 
     try:
-        exchange.transfer(code, amount, fromAccount, toAccount, params=params)
+        transfer = exchange.transfer(code, amount, fromAccount, toAccount, params=params)
+        pprint(transfer)
     except Exception as err:
         print(err)
 
@@ -99,7 +101,8 @@ def sub_account_transfer():
     params = {}
 
     try:
-        exchange.transfer(code, amount, fromAccount, toAccount, params=params)
+        transfer = exchange.transfer(code, amount, fromAccount, toAccount, params=params)
+        pprint(transfer)
     except Exception as err:
         print(err)
 
@@ -118,12 +121,13 @@ def sub_swap_to_main_swap():
     convertedAmount = exchange.toEv(amount)
 
     try:
-        exchange.privatePostAssetsFuturesSubAccountsTransfer(
+        response = exchange.privatePostAssetsFuturesSubAccountsTransfer(
             {
                 "amountEv": convertedAmount,
                 "currency": code,
             }
         )
+        pprint(response)
     except Exception as e:
         print("privatePostAssetsFuturesSubAccountsTransfer() failed")
         print(e)

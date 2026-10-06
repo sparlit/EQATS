@@ -26,8 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-import asciichart
-
 # -----------------------------------------------------------------------------
 
 this_folder = os.path.dirname(os.path.abspath(__file__))
@@ -76,4 +74,4 @@ timeframe = "1h"
 
 ohlcvs = exchange.fetch_ohlcv(symbol, timeframe)
 for ohlcv in ohlcvs:
-    print([exchange.iso8601(ohlcv[0]), *ohlcv[1:]])
+    print([exchange.iso8601(ohlcv[0])] + ohlcv[1:])

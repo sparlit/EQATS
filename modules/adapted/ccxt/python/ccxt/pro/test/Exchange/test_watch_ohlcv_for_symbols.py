@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_ohlcv,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_ohlcv  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_watch_ohlcv_for_symbols(exchange, skipped_properties, symbol):
@@ -61,28 +61,46 @@ async def test_watch_ohlcv_for_symbols(exchange, skipped_properties, symbol):
         success = True
         start_time = exchange.milliseconds()
         try:
-            response = await exchange.watch_ohlcv_for_symbols([[symbol, chosen_timeframe_key]], since, limit)
+            response = await exchange.watch_ohlcv_for_symbols(
+                [[symbol, chosen_timeframe_key]], since, limit
+            )
             if response is None:
                 raise Error(exchange.id + " watch returned undefined response")
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             success = False
         now = exchange.milliseconds()
         if (success) and (response is not None):
             assertion_message = (
-                exchange.id + " " + method + " " + symbol + " " + chosen_timeframe_key + " | " + exchange.json(response)
+                exchange.id
+                + " "
+                + method
+                + " "
+                + symbol
+                + " "
+                + chosen_timeframe_key
+                + " | "
+                + exchange.json(response)
             )
-            assert exchange.is_dictionary(response), "Response must be a dictionary. " + assertion_message
-            assert symbol in response, "Response should contain the symbol as key. " + assertion_message
+            assert exchange.is_dictionary(response), (
+                "Response must be a dictionary. " + assertion_message
+            )
+            assert symbol in response, (
+                "Response should contain the symbol as key. " + assertion_message
+            )
             symbol_obj = response[symbol]
-            assert exchange.is_dictionary(symbol_obj), "Response.Symbol should be a dictionary. " + assertion_message
+            assert exchange.is_dictionary(symbol_obj), (
+                "Response.Symbol should be a dictionary. " + assertion_message
+            )
             assert chosen_timeframe_key in symbol_obj, (
                 "Response.symbol should contain the timeframe key. " + assertion_message
             )
             ohlcvs = symbol_obj[chosen_timeframe_key]
-            assert isinstance(ohlcvs, list), "Response.symbol.timeframe should be an array. " + assertion_message
-            for i in range(len(ohlcvs)):
+            assert isinstance(ohlcvs, list), (
+                "Response.symbol.timeframe should be an array. " + assertion_message
+            )
+            for i in range(0, len(ohlcvs)):
                 test_ohlcv(exchange, skipped_properties, method, ohlcvs[i], symbol, now)
             if (now - start_time) > max_idle_time:
                 idle = True

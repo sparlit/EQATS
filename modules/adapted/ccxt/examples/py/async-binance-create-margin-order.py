@@ -52,7 +52,7 @@ async def main():
         amount = 1
         type = "limit"  # or market
         side = "buy"
-        await exchange.create_order(
+        order = await exchange.create_order(
             symbol,
             type,
             side,
@@ -62,6 +62,7 @@ async def main():
                 "type": "margin",
             },
         )
+        pprint(order)
     except ccxt.InsufficientFunds as e:
         print("create_order() failed – not enough funds")
         print(e)

@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,8 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.errors import NetworkError  # noqa: E402
-from ccxt.test.exchange.base import test_liquidation  # noqa: E402
+from ccxt.base.errors import NetworkError  # noqa E402
+from ccxt.test.exchange.base import test_liquidation  # noqa E402
 
 
 async def test_watch_liquidations_for_symbols(exchange, skipped_properties, symbol):
@@ -63,10 +65,10 @@ async def test_watch_liquidations_for_symbols(exchange, skipped_properties, symb
             m3 = exchange.id + " " + method + "() returned " + len(response) + " liquidations"
             print(m3)
             # log.noLocate (asTable (response))
-            for i in range(len(response)):
+            for i in range(0, len(response)):
                 test_liquidation(exchange, skipped_properties, method, response[i], symbol)
         except Exception as e:
             if not (isinstance(e, NetworkError)):
-                raise
+                raise e
             now = int(time.time() * 1000)
     return response

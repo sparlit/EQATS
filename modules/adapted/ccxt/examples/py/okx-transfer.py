@@ -60,5 +60,6 @@ try:
             # 'to_instrument_id': 'String'  # margin trading pair of token or underlying of USDT-margined futures transferred in, such as: btc-usdt. Limited to trading pairs available for margin trading or underlying of enabled futures trading.
         }
     )
+    pprint(response)
 except Exception as e:
     print(type(e).__name__, str(e))

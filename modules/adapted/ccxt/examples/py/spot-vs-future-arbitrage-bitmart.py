@@ -50,8 +50,14 @@ def handle_all_orderbooks(exchange, orderbooks, spot, future):
         spot_order_book = orderbooks[spot]
         future_order_book = orderbooks[future]
         timestamp = exchange.milliseconds()
-        spot_lag = abs(timestamp - spot_order_book["timestamp"]) if spot_order_book["timestamp"] else 10000
-        future_lag = abs(timestamp - future_order_book["timestamp"]) if future_order_book["timestamp"] else 10000
+        spot_lag = (
+            abs(timestamp - spot_order_book["timestamp"]) if spot_order_book["timestamp"] else 10000
+        )
+        future_lag = (
+            abs(timestamp - future_order_book["timestamp"])
+            if future_order_book["timestamp"]
+            else 10000
+        )
         if spot_lag >= 10000 or future_lag >= 10000:
             print("Lag > 10 seconds")
 
@@ -61,7 +67,13 @@ async def symbol_loop(exchange, symbol, spot, future):
         try:
             orderbook = await exchange.watch_order_book(symbol)
             orderbooks[symbol] = orderbook
-            print(exchange.id, f"{symbol:13s}", orderbook["datetime"], orderbook["asks"][0], orderbook["bids"][0])
+            print(
+                exchange.id,
+                f"{symbol:13s}",
+                orderbook["datetime"],
+                orderbook["asks"][0],
+                orderbook["bids"][0],
+            )
             #
             # here you can do what you want
             # with the most recent versions of each orderbook you have so far

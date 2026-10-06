@@ -64,7 +64,7 @@ def plot(series, cfg=None):
     y0 = int(series[0] * ratio - min2)
     result[rows - y0][offset - 1] = "┼"  # first value
 
-    for x in range(len(series) - 1):  # plot the line
+    for x in range(0, len(series) - 1):  # plot the line
         y0 = int(round(series[x + 0] * ratio) - intmin2)
         y1 = int(round(series[x + 1] * ratio) - intmin2)
         if y0 == y1:

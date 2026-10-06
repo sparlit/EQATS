@@ -51,12 +51,13 @@ async def main():
     symbol = "ETH/USDT:USDT-230214-1525-C"
     order_id = 4612100534317768959
     try:
-        await exchange.cancel_order(order_id, symbol)
+        response = await exchange.cancel_order(order_id, symbol)
         # Implicit API:
         # response = await exchange.eapiPrivateDeleteOrder({
         #     'symbol': market_id,
         #     'orderId': order_id,
         # })
+        pprint(response)
     except Exception as e:
         print("cancel_order() failed")
         print(e)

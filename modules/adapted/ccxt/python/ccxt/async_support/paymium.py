@@ -40,6 +40,7 @@ from ccxt.base.types import (
     Int,
     Market,
     Num,
+    Order,
     OrderBook,
     OrderSide,
     OrderType,
@@ -124,6 +125,7 @@ class paymium(Exchange, ImplicitAPI):
                             "user/orders": {"cost": 1},
                             "user/orders/{uuid}": {"cost": 1},
                             "user/price_alerts": {"cost": 1},
+                            "user/withdrawals": {"cost": 1},
                             "merchant/get_payment/{uuid}": {"cost": 1},
                         },
                         "post": {
@@ -183,18 +185,18 @@ class paymium(Exchange, ImplicitAPI):
                             "hedged": False,
                             "trailing": False,
                             "leverage": False,
-                            "marketBuyByCost": True,  # TODO
+                            "marketBuyByCost": True,  # todo
                             "marketBuyRequiresPrice": False,
                             "selfTradePrevention": False,
                             "iceberg": False,
                         },
                         "createOrders": None,
                         "fetchMyTrades": None,
-                        "fetchOrder": None,  # TODO
-                        "fetchOpenOrders": None,  # TODO
-                        "fetchOrders": None,  # TODO
-                        "fetchClosedOrders": None,  # TODO
-                        "fetchOHLCV": None,  # TODO
+                        "fetchOrder": None,  # todo
+                        "fetchOpenOrders": None,  # todo
+                        "fetchOrders": None,  # todo
+                        "fetchClosedOrders": None,  # todo
+                        "fetchOHLCV": None,  # todo
                     },
                     "swap": {
                         "linear": None,
@@ -211,7 +213,7 @@ class paymium(Exchange, ImplicitAPI):
     def parse_balance(self, response: object) -> Balances:
         result = {"info": response}
         currencies = list(self.currencies.keys())
-        for i in range(len(currencies)):
+        for i in range(0, len(currencies)):
             code = currencies[i]
             currency = self.currency(code)
             currencyId = currency["id"]
@@ -224,7 +226,7 @@ class paymium(Exchange, ImplicitAPI):
                 result[code] = account
         return self.safe_balance(result)
 
-    async def fetch_balance(self, params=None) -> Balances:
+    async def fetch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
 
@@ -240,7 +242,9 @@ class paymium(Exchange, ImplicitAPI):
         response = await self.privateGetUser(params)
         return self.parse_balance(response)
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def fetch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -260,7 +264,9 @@ class paymium(Exchange, ImplicitAPI):
             "currency": market["id"],
         }
         response = await self.publicGetDataCurrencyDepth(self.extend(request, params))
-        return self.parse_order_book(response, market["symbol"], None, "bids", "asks", "price", "amount")
+        return self.parse_order_book(
+            response, market["symbol"], None, "bids", "asks", "price", "amount"
+        )
 
     def parse_ticker(self, ticker: dict, market: Market = None) -> Ticker:
         #
@@ -313,7 +319,7 @@ class paymium(Exchange, ImplicitAPI):
             market,
         )
 
-    async def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -355,10 +361,10 @@ class paymium(Exchange, ImplicitAPI):
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         timestamp = self.safe_timestamp(trade, "created_at_int")
         id = self.safe_string(trade, "uuid")
-        market = self.safe_market(None, market)
+        marketResolved = self.safe_market(None, market)
         side = self.safe_string(trade, "side")
         price = self.safe_string(trade, "price")
-        amountField = "traded_" + market["base"].lower()
+        amountField = "traded_" + marketResolved["base"].lower()
         amount = self.safe_string(trade, amountField)
         return self.safe_trade(
             {
@@ -367,7 +373,7 @@ class paymium(Exchange, ImplicitAPI):
                 "order": None,
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "type": None,
                 "side": side,
                 "takerOrMaker": None,
@@ -376,10 +382,12 @@ class paymium(Exchange, ImplicitAPI):
                 "cost": None,
                 "fee": None,
             },
-            market,
+            marketResolved,
         )
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    async def fetch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
 
@@ -402,7 +410,7 @@ class paymium(Exchange, ImplicitAPI):
         response = await self.publicGetDataCurrencyTrades(self.extend(request, params))
         return self.parse_trades(response, market, since, limit)
 
-    async def create_deposit_address(self, code: str, params=None) -> DepositAddress:
+    async def create_deposit_address(self, code: str, params: dict = None) -> DepositAddress:
         """
         create a currency deposit address
 
@@ -427,7 +435,7 @@ class paymium(Exchange, ImplicitAPI):
         #
         return self.parse_deposit_address(response)
 
-    async def fetch_deposit_address(self, code: str, params=None) -> DepositAddress:
+    async def fetch_deposit_address(self, code: str, params: dict = None) -> DepositAddress:
         """
         fetch the deposit address for a currency associated with self account
 
@@ -455,7 +463,9 @@ class paymium(Exchange, ImplicitAPI):
         #
         return self.parse_deposit_address(response)
 
-    async def fetch_deposit_addresses(self, codes: Strings = None, params=None) -> list[DepositAddress]:
+    async def fetch_deposit_addresses(
+        self, codes: Strings = None, params: dict = None
+    ) -> list[DepositAddress]:
         """
         fetch deposit addresses for multiple currencies and chain types
 
@@ -482,7 +492,9 @@ class paymium(Exchange, ImplicitAPI):
         #
         return self.parse_deposit_addresses(response, codes, False)
 
-    def parse_deposit_address(self, depositAddress: object, currency: Currency = None) -> DepositAddress:
+    def parse_deposit_address(
+        self, depositAddress: dict, currency: Currency = None
+    ) -> DepositAddress:
         #
         #     {
         #         "address": "1HdjGr6WCTcnmW1tNNsHX7fh4Jr5C2PeKe",
@@ -502,8 +514,14 @@ class paymium(Exchange, ImplicitAPI):
         }
 
     async def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
-    ):
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
         create a trade order
 
@@ -539,7 +557,7 @@ class paymium(Exchange, ImplicitAPI):
             market,
         )
 
-    async def cancel_order(self, id: str, symbol: Str = None, params=None):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         cancels an open order
 
@@ -562,7 +580,9 @@ class paymium(Exchange, ImplicitAPI):
             }
         )
 
-    async def transfer(self, code: str, amount: float, fromAccount: str, toAccount: str, params=None) -> TransferEntry:
+    async def transfer(
+        self, code: str, amount: float, fromAccount: str, toAccount: str, params: dict = None
+    ) -> TransferEntry:
         """
         transfer currency internally between wallets on the same account
 
@@ -582,7 +602,7 @@ class paymium(Exchange, ImplicitAPI):
         currency = self.currency(code)
         if toAccount.find("@") < 0:
             raise ExchangeError(self.id + " transfer() only allows transfers to an email address")
-        if code not in {"BTC", "EUR"}:
+        if code != "BTC" and code != "EUR":
             raise ExchangeError(self.id + " transfer() only allows BTC or EUR")
         request = {
             "currency": currency["id"],
@@ -618,7 +638,7 @@ class paymium(Exchange, ImplicitAPI):
         #                 "name": "account_operation",
         #                 "address": "1FPDBXNqSkZMsw1kSkkajcj8berxDQkUoc",
         #                 "tx_hash": "string",
-        #                 "is_trading_account": True
+        #                 "is_trading_account": true
         #             }
         #         ]
         #     }
@@ -653,7 +673,7 @@ class paymium(Exchange, ImplicitAPI):
         #                 "name": "account_operation",
         #                 "address": "1FPDBXNqSkZMsw1kSkkajcj8berxDQkUoc",
         #                 "tx_hash": "string",
-        #                 "is_trading_account": True
+        #                 "is_trading_account": true
         #             }
         #         ]
         #     }
@@ -661,8 +681,8 @@ class paymium(Exchange, ImplicitAPI):
         currencyId = self.safe_string(transfer, "currency")
         updatedAt = self.safe_string(transfer, "updated_at")
         timetstamp = self.parse_date(updatedAt)
-        accountOperations = self.safe_value(transfer, "account_operations")
-        firstOperation = self.safe_value(accountOperations, 0, {})
+        accountOperations = self.safe_list(transfer, "account_operations")
+        firstOperation = self.safe_dict(accountOperations, 0, {})
         status = self.safe_string(transfer, "state")
         return {
             "info": transfer,
@@ -683,40 +703,56 @@ class paymium(Exchange, ImplicitAPI):
         }
         return self.safe_string(statuses, status, status)
 
+    def nonce(self) -> float:
+        # the venue accepts any strictly-increasing integer, so use milliseconds: with the second-resolution base nonce a burst of N calls would leave incrementingNonce N seconds ahead of the clock
+        return self.milliseconds()
+
     def sign(
         self,
-        path: object,
-        api: object = "public",
+        path: str,
+        api="public",
         method="GET",
-        params=None,
-        headers: dict | None = None,
+        params: dict = None,
+        headers: dict = None,
         body: Str = None,
-    ):
+    ) -> dict:
         if params is None:
             params = {}
-        url = self.urls["api"]["rest"] + "/" + self.version + "/" + self.implode_params(path, params)
+        baseApiUrl = self.safe_string(self.urls["api"], "rest")
+        if baseApiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        baseUrl = baseApiUrl
+        url = baseUrl + "/" + self.version + "/" + self.implode_params(path, params)
         query = self.omit(params, self.extract_params(path))
         if api == "public":
             if len(query) > 0:
                 url += "?" + self.urlencode(query)
         else:
             self.check_required_credentials()
-            nonce = str(self.nonce())
+            # paymium requires an increasing nonce
+            nonce = str(self.incrementing_nonce())
             auth = nonce + url
-            headers = {
+            signedHeaders = {
                 "Api-Key": self.apiKey,
                 "Api-Nonce": nonce,
             }
+            hasQuery = len(query) > 0
+            signedBody = body
+            if method == "POST" and hasQuery:
+                signedBody = self.json(query)
             if method == "POST":
-                if len(query) > 0:
-                    body = self.json(query)
-                    auth += body
-                    headers["Content-Type"] = "application/json"
-            elif len(query) > 0:
-                queryString = self.urlencode(query)
-                auth += queryString
-                url += "?" + queryString
-            headers["Api-Signature"] = self.hmac(self.encode(auth), self.encode(self.secret), hashlib.sha256)
+                if hasQuery:
+                    auth += signedBody
+                    signedHeaders["Content-Type"] = "application/json"
+            else:
+                if hasQuery:
+                    queryString = self.urlencode(query)
+                    auth += queryString
+                    url += "?" + queryString
+            signedHeaders["Api-Signature"] = self.hmac(
+                self.encode(auth), self.encode(self.secret), hashlib.sha256
+            )
+            return {"url": url, "method": method, "body": signedBody, "headers": signedHeaders}
         return {"url": url, "method": method, "body": body, "headers": headers}
 
     def handle_errors(
@@ -732,8 +768,8 @@ class paymium(Exchange, ImplicitAPI):
         requestBody: object,
     ):
         if response is None:
-            return
+            return None
         errors = self.safe_value(response, "errors")
         if errors is not None:
             raise ExchangeError(self.id + " " + self.json(response))
-        return
+        return None

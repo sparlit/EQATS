@@ -179,16 +179,24 @@ class OrderFetcher:
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM master_account_orders WHERE master_account_name = %s", (self.account_name,))
+            cursor.execute(
+                "DELETE FROM master_account_orders WHERE master_account_name = %s",
+                (self.account_name,),
+            )
             orders_cleared = cursor.rowcount
-            cursor.execute("DELETE FROM master_account_trades WHERE master_account_name = %s", (self.account_name,))
+            cursor.execute(
+                "DELETE FROM master_account_trades WHERE master_account_name = %s",
+                (self.account_name,),
+            )
             trades_cleared = cursor.rowcount
             conn.commit()
             cursor.close()
             conn.close()
-            logging.info(f"Cleared intraday tables | Orders: {orders_cleared} | Trades: {trades_cleared}")
+            logging.info(
+                f"Cleared intraday tables | Orders: {orders_cleared} | Trades: {trades_cleared}"
+            )
         except Exception as e:
-            logging.exception(f"Error clearing intraday tables: {e}")
+            logging.error(f"Error clearing intraday tables: {e}")
 
     def initialize(self):
         self.create_tables()
@@ -205,8 +213,9 @@ class OrderFetcher:
         conn.close()
 
         if not result or not result[1]:
-            msg = f"No access token for {self.account_name}. Run login_all_accounts.py first."
-            raise Exception(msg)
+            raise Exception(
+                f"No access token for {self.account_name}. Run login_all_accounts.py first."
+            )
 
         self.kite = KiteConnect(api_key=result[0])
         self.kite.set_access_token(result[1])
@@ -232,7 +241,10 @@ class OrderFetcher:
             conn = self.get_persistent_connection()
             cursor = conn.cursor()
 
-            cursor.execute("DELETE FROM master_account_orders WHERE master_account_name = %s", (self.account_name,))
+            cursor.execute(
+                "DELETE FROM master_account_orders WHERE master_account_name = %s",
+                (self.account_name,),
+            )
 
             if not orders:
                 conn.commit()
@@ -302,14 +314,18 @@ class OrderFetcher:
             conn.commit()
             cursor.close()
 
-            open_orders = sum(1 for o in orders if o.get("status") in ("OPEN", "TRIGGER PENDING", "OPEN PENDING"))
+            open_orders = sum(
+                1 for o in orders if o.get("status") in ("OPEN", "TRIGGER PENDING", "OPEN PENDING")
+            )
             complete_orders = sum(1 for o in orders if o.get("status") == "COMPLETE")
 
-            logging.info(f"Orders: {len(orders)} | Open: {open_orders} | Complete: {complete_orders}")
+            logging.info(
+                f"Orders: {len(orders)} | Open: {open_orders} | Complete: {complete_orders}"
+            )
             return len(orders)
 
         except Exception as e:
-            logging.exception(f"Error fetching orders: {e}")
+            logging.error(f"Error fetching orders: {e}")
             if self.db_conn:
                 with contextlib.suppress(Exception):
                     self.db_conn.rollback()
@@ -323,7 +339,10 @@ class OrderFetcher:
             conn = self.get_persistent_connection()
             cursor = conn.cursor()
 
-            cursor.execute("DELETE FROM master_account_trades WHERE master_account_name = %s", (self.account_name,))
+            cursor.execute(
+                "DELETE FROM master_account_trades WHERE master_account_name = %s",
+                (self.account_name,),
+            )
 
             if not trades:
                 conn.commit()
@@ -376,7 +395,7 @@ class OrderFetcher:
             return len(trades)
 
         except Exception as e:
-            logging.exception(f"Error fetching trades: {e}")
+            logging.error(f"Error fetching trades: {e}")
             if self.db_conn:
                 with contextlib.suppress(Exception):
                     self.db_conn.rollback()
@@ -421,7 +440,7 @@ class OrderFetcher:
             return trades_saved
 
         except Exception as e:
-            logging.exception(f"Error saving EOD tradebook: {e}")
+            logging.error(f"Error saving EOD tradebook: {e}")
             if self.db_conn:
                 with contextlib.suppress(Exception):
                     self.db_conn.rollback()
@@ -450,7 +469,7 @@ class OrderFetcher:
                 self.fetch_and_save_trades()
                 self.check_and_save_eod()
             except Exception as e:
-                logging.exception(f"Error: {e}")
+                logging.error(f"Error: {e}")
             time.sleep(FETCH_INTERVAL)
 
     def stop(self):

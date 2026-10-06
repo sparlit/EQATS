@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_order,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_order  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_watch_orders(exchange, skipped_properties, symbol):
@@ -54,16 +54,18 @@ async def test_watch_orders(exchange, skipped_properties, symbol):
                 raise Error(exchange.id + " watch returned undefined response")
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             now = exchange.milliseconds()
             # continue;
             success = False
         if success:
             if response is None:
                 raise Error(exchange.id + " watch returned undefined response")
-            test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, response, symbol)
+            test_shared_methods.assert_non_emtpy_array(
+                exchange, skipped_properties, method, response, symbol
+            )
             now = exchange.milliseconds()
-            for i in range(len(response)):
+            for i in range(0, len(response)):
                 test_order(exchange, skipped_properties, method, response[i], symbol, now)
             test_shared_methods.assert_timestamp_order(exchange, method, symbol, response)
     return True

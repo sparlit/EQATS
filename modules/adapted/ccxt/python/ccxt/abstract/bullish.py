@@ -30,20 +30,33 @@ _List = list[object]
 class ImplicitAPI:
     public_get_v1_nonce = publicGetV1Nonce = Entry[_Dict]("v1/nonce", "public", "GET", {"cost": 1})
     public_get_v1_time = publicGetV1Time = Entry[_Dict]("v1/time", "public", "GET", {"cost": 1})
-    public_get_v1_assets = publicGetV1Assets = Entry[_List]("v1/assets", "public", "GET", {"cost": 1})
+    public_get_v1_assets = publicGetV1Assets = Entry[_List](
+        "v1/assets", "public", "GET", {"cost": 1}
+    )
     public_get_v1_assets_symbol = publicGetV1AssetsSymbol = Entry[_Dict](
         "v1/assets/{symbol}", "public", "GET", {"cost": 1}
     )
-    public_get_v1_markets = publicGetV1Markets = Entry[_List]("v1/markets", "public", "GET", {"cost": 1})
+    public_get_v1_vol_grids = publicGetV1VolGrids = Entry[_List](
+        "v1/vol-grids", "public", "GET", {"cost": 1}
+    )
+    public_get_v1_assets_symbol_vol_grid = publicGetV1AssetsSymbolVolGrid = Entry[_Dict](
+        "v1/assets/{symbol}/vol-grid", "public", "GET", {"cost": 1}
+    )
+    public_get_v1_markets = publicGetV1Markets = Entry[_List](
+        "v1/markets", "public", "GET", {"cost": 1}
+    )
     public_get_v1_markets_symbol = publicGetV1MarketsSymbol = Entry[_Dict](
         "v1/markets/{symbol}", "public", "GET", {"cost": 1}
+    )
+    public_get_v1_history_markets = publicGetV1HistoryMarkets = Entry[_List](
+        "v1/history/markets", "public", "GET", {"cost": 1}
     )
     public_get_v1_history_markets_symbol = publicGetV1HistoryMarketsSymbol = Entry[_Dict](
         "v1/history/markets/{symbol}", "public", "GET", {"cost": 1}
     )
-    public_get_v1_markets_symbol_orderbook_hybrid = publicGetV1MarketsSymbolOrderbookHybrid = Entry[_Dict](
-        "v1/markets/{symbol}/orderbook/hybrid", "public", "GET", {"cost": 1}
-    )
+    public_get_v1_markets_symbol_orderbook_hybrid = publicGetV1MarketsSymbolOrderbookHybrid = Entry[
+        _Dict
+    ]("v1/markets/{symbol}/orderbook/hybrid", "public", "GET", {"cost": 1})
     public_get_v1_markets_symbol_trades = publicGetV1MarketsSymbolTrades = Entry[_List](
         "v1/markets/{symbol}/trades", "public", "GET", {"cost": 1}
     )
@@ -53,13 +66,27 @@ class ImplicitAPI:
     public_get_v1_markets_symbol_candle = publicGetV1MarketsSymbolCandle = Entry[_List](
         "v1/markets/{symbol}/candle", "public", "GET", {"cost": 1}
     )
-    public_get_v1_history_markets_symbol_trades = publicGetV1HistoryMarketsSymbolTrades = Entry[_List](
-        "v1/history/markets/{symbol}/trades", "public", "GET", {"cost": 1}
+    public_get_v1_markets_symbol_auctions = publicGetV1MarketsSymbolAuctions = Entry[_Dict](
+        "v1/markets/{symbol}/auctions", "public", "GET", {"cost": 1}
     )
-    public_get_v1_history_markets_symbol_funding_rate = publicGetV1HistoryMarketsSymbolFundingRate = Entry[_List](
-        "v1/history/markets/{symbol}/funding-rate", "public", "GET", {"cost": 1}
+    public_get_v1_markets_symbol_auctions_noii = publicGetV1MarketsSymbolAuctionsNoii = Entry[
+        _Dict
+    ]("v1/markets/{symbol}/auctions/noii", "public", "GET", {"cost": 1})
+    public_get_v1_history_markets_symbol_trades = publicGetV1HistoryMarketsSymbolTrades = Entry[
+        _List
+    ]("v1/history/markets/{symbol}/trades", "public", "GET", {"cost": 1})
+    public_get_v1_history_markets_symbol_funding_rate = (
+        publicGetV1HistoryMarketsSymbolFundingRate
+    ) = Entry[_List]("v1/history/markets/{symbol}/funding-rate", "public", "GET", {"cost": 1})
+    public_get_v1_history_markets_symbol_auctions = publicGetV1HistoryMarketsSymbolAuctions = Entry[
+        _List
+    ]("v1/history/markets/{symbol}/auctions", "public", "GET", {"cost": 1})
+    public_get_v1_history_option_trades = publicGetV1HistoryOptionTrades = Entry[_List](
+        "v1/history/option-trades", "public", "GET", {"cost": 1}
     )
-    public_get_v1_index_prices = publicGetV1IndexPrices = Entry[_List]("v1/index-prices", "public", "GET", {"cost": 1})
+    public_get_v1_index_prices = publicGetV1IndexPrices = Entry[_List](
+        "v1/index-prices", "public", "GET", {"cost": 1}
+    )
     public_get_v1_index_prices_assetsymbol = publicGetV1IndexPricesAssetSymbol = Entry[_Dict](
         "v1/index-prices/{assetSymbol}", "public", "GET", {"cost": 1}
     )
@@ -72,18 +99,23 @@ class ImplicitAPI:
     public_get_v1_option_ladder_symbol = publicGetV1OptionLadderSymbol = Entry[_Dict](
         "v1/option-ladder/{symbol}", "public", "GET", {"cost": 1}
     )
-    private_get_v2_orders = privateGetV2Orders = Entry[_List]("v2/orders", "private", "GET", {"cost": 1})
+    private_get_v2_orders = privateGetV2Orders = Entry[_List](
+        "v2/orders", "private", "GET", {"cost": 1}
+    )
     private_get_v2_history_orders = privateGetV2HistoryOrders = Entry[_List](
         "v2/history/orders", "private", "GET", {"cost": 1}
     )
     private_get_v2_orders_orderid = privateGetV2OrdersOrderId = Entry[_Dict](
         "v2/orders/{orderId}", "private", "GET", {"cost": 1}
     )
+    private_get_v2_orders_client_order_id_clientorderid = (
+        privateGetV2OrdersClientOrderIdClientOrderId
+    ) = Entry[_Dict]("v2/orders/client-order-id/{clientOrderId}", "private", "GET", {"cost": 1})
     private_get_v2_amm_instructions = privateGetV2AmmInstructions = Entry[_List](
         "v2/amm-instructions", "private", "GET", {"cost": 1}
     )
-    private_get_v2_amm_instructions_instructionid = privateGetV2AmmInstructionsInstructionId = Entry[_Dict](
-        "v2/amm-instructions/{instructionId}", "private", "GET", {"cost": 1}
+    private_get_v2_amm_instructions_instructionid = privateGetV2AmmInstructionsInstructionId = (
+        Entry[_Dict]("v2/amm-instructions/{instructionId}", "private", "GET", {"cost": 1})
     )
     private_get_v1_wallets_transactions = privateGetV1WalletsTransactions = Entry[_Dict](
         "v1/wallets/transactions", "private", "GET", {"cost": 1}
@@ -91,31 +123,39 @@ class ImplicitAPI:
     private_get_v1_wallets_limits_symbol = privateGetV1WalletsLimitsSymbol = Entry[_Dict](
         "v1/wallets/limits/{symbol}", "private", "GET", {"cost": 1}
     )
-    private_get_v1_wallets_deposit_instructions_crypto_symbol = privateGetV1WalletsDepositInstructionsCryptoSymbol = (
-        Entry[_List]("v1/wallets/deposit-instructions/crypto/{symbol}", "private", "GET", {"cost": 1})
+    private_get_v1_wallets_deposit_instructions_crypto_symbol = (
+        privateGetV1WalletsDepositInstructionsCryptoSymbol
+    ) = Entry[_List](
+        "v1/wallets/deposit-instructions/crypto/{symbol}", "private", "GET", {"cost": 1}
     )
     private_get_v1_wallets_withdrawal_instructions_crypto_symbol = (
         privateGetV1WalletsWithdrawalInstructionsCryptoSymbol
-    ) = Entry[_List]("v1/wallets/withdrawal-instructions/crypto/{symbol}", "private", "GET", {"cost": 1})
-    private_get_v1_wallets_deposit_instructions_fiat_symbol = privateGetV1WalletsDepositInstructionsFiatSymbol = Entry[
-        _List
-    ]("v1/wallets/deposit-instructions/fiat/{symbol}", "private", "GET", {"cost": 1})
-    private_get_v1_wallets_withdrawal_instructions_fiat_symbol = privateGetV1WalletsWithdrawalInstructionsFiatSymbol = (
-        Entry[_List]("v1/wallets/withdrawal-instructions/fiat/{symbol}", "private", "GET", {"cost": 1})
+    ) = Entry[_List](
+        "v1/wallets/withdrawal-instructions/crypto/{symbol}", "private", "GET", {"cost": 1}
     )
-    private_get_v1_wallets_self_hosted_verification_attempts = privateGetV1WalletsSelfHostedVerificationAttempts = (
-        Entry[_List]("v1/wallets/self-hosted/verification-attempts", "private", "GET", {"cost": 1})
+    private_get_v1_wallets_deposit_instructions_fiat_symbol = (
+        privateGetV1WalletsDepositInstructionsFiatSymbol
+    ) = Entry[_List]("v1/wallets/deposit-instructions/fiat/{symbol}", "private", "GET", {"cost": 1})
+    private_get_v1_wallets_withdrawal_instructions_fiat_symbol = (
+        privateGetV1WalletsWithdrawalInstructionsFiatSymbol
+    ) = Entry[_List](
+        "v1/wallets/withdrawal-instructions/fiat/{symbol}", "private", "GET", {"cost": 1}
     )
-    private_get_v1_trades = privateGetV1Trades = Entry[_List]("v1/trades", "private", "GET", {"cost": 5})
+    private_get_v1_wallets_self_hosted_verification_attempts = (
+        privateGetV1WalletsSelfHostedVerificationAttempts
+    ) = Entry[_List]("v1/wallets/self-hosted/verification-attempts", "private", "GET", {"cost": 1})
+    private_get_v1_trades = privateGetV1Trades = Entry[_List](
+        "v1/trades", "private", "GET", {"cost": 5}
+    )
     private_get_v1_history_trades = privateGetV1HistoryTrades = Entry[_List](
         "v1/history/trades", "private", "GET", {"cost": 5}
     )
     private_get_v1_trades_tradeid = privateGetV1TradesTradeId = Entry[_Dict](
         "v1/trades/{tradeId}", "private", "GET", {"cost": 5}
     )
-    private_get_v1_trades_client_order_id_clientorderid = privateGetV1TradesClientOrderIdClientOrderId = Entry[_List](
-        "v1/trades/client-order-id/{clientOrderId}", "private", "GET", {"cost": 1}
-    )
+    private_get_v1_trades_client_order_id_clientorderid = (
+        privateGetV1TradesClientOrderIdClientOrderId
+    ) = Entry[_List]("v1/trades/client-order-id/{clientOrderId}", "private", "GET", {"cost": 1})
     private_get_v1_accounts_asset = privateGetV1AccountsAsset = Entry[_List](
         "v1/accounts/asset", "private", "GET", {"cost": 1}
     )
@@ -131,14 +171,16 @@ class ImplicitAPI:
     private_get_v1_accounts_trading_accounts = privateGetV1AccountsTradingAccounts = Entry[_List](
         "v1/accounts/trading-accounts", "private", "GET", {"cost": 1}
     )
-    private_get_v1_accounts_trading_accounts_tradingaccountid = privateGetV1AccountsTradingAccountsTradingAccountId = (
-        Entry[_Dict]("v1/accounts/trading-accounts/{tradingAccountId}", "private", "GET", {"cost": 1})
+    private_get_v1_accounts_trading_accounts_tradingaccountid = (
+        privateGetV1AccountsTradingAccountsTradingAccountId
+    ) = Entry[_Dict](
+        "v1/accounts/trading-accounts/{tradingAccountId}", "private", "GET", {"cost": 1}
     )
     private_get_v1_derivatives_positions = privateGetV1DerivativesPositions = Entry[_List](
         "v1/derivatives-positions", "private", "GET", {"cost": 1}
     )
-    private_get_v1_history_derivatives_settlement = privateGetV1HistoryDerivativesSettlement = Entry[_List](
-        "v1/history/derivatives-settlement", "private", "GET", {"cost": 1}
+    private_get_v1_history_derivatives_settlement = privateGetV1HistoryDerivativesSettlement = (
+        Entry[_List]("v1/history/derivatives-settlement", "private", "GET", {"cost": 1})
     )
     private_get_v1_history_transfer = privateGetV1HistoryTransfer = Entry[_List](
         "v1/history/transfer", "private", "GET", {"cost": 1}
@@ -149,15 +191,30 @@ class ImplicitAPI:
     private_get_v2_mmp_configuration = privateGetV2MmpConfiguration = Entry[_Dict](
         "v2/mmp-configuration", "private", "GET", {"cost": 1}
     )
-    private_get_v2_otc_trades = privateGetV2OtcTrades = Entry[_List]("v2/otc-trades", "private", "GET", {"cost": 1})
+    private_get_v2_otc_trades = privateGetV2OtcTrades = Entry[_List](
+        "v2/otc-trades", "private", "GET", {"cost": 1}
+    )
     private_get_v2_otc_trades_otctradeid = privateGetV2OtcTradesOtcTradeId = Entry[_Dict](
         "v2/otc-trades/{otcTradeId}", "private", "GET", {"cost": 1}
     )
-    private_get_v2_otc_trades_unconfirmed_trade = privateGetV2OtcTradesUnconfirmedTrade = Entry[_Dict](
-        "v2/otc-trades/unconfirmed-trade", "private", "GET", {"cost": 1}
+    private_get_v2_otc_trades_unconfirmed_trade = privateGetV2OtcTradesUnconfirmedTrade = Entry[
+        _Dict
+    ]("v2/otc-trades/unconfirmed-trade", "private", "GET", {"cost": 1})
+    private_get_v2_otc_trades_delegated_accounts = privateGetV2OtcTradesDelegatedAccounts = Entry[
+        _List
+    ]("v2/otc-trades/delegated-accounts", "private", "GET", {"cost": 1})
+    private_get_v2_idb_delegated_accounts = privateGetV2IdbDelegatedAccounts = Entry[_List](
+        "v2/idb/delegated-accounts", "private", "GET", {"cost": 1}
     )
-    private_post_v2_orders = privatePostV2Orders = Entry[_Dict]("v2/orders", "private", "POST", {"cost": 5})
-    private_post_v2_command = privatePostV2Command = Entry[_Dict]("v2/command", "private", "POST", {"cost": 5})
+    private_get_v2_idb_otc_trades = privateGetV2IdbOtcTrades = Entry[_List](
+        "v2/idb/otc-trades", "private", "GET", {"cost": 1}
+    )
+    private_post_v2_orders = privatePostV2Orders = Entry[_Dict](
+        "v2/orders", "private", "POST", {"cost": 5}
+    )
+    private_post_v2_command = privatePostV2Command = Entry[_Dict](
+        "v2/command", "private", "POST", {"cost": 5}
+    )
     private_post_v2_amm_instructions = privatePostV2AmmInstructions = Entry[_Dict](
         "v2/amm-instructions", "private", "POST", {"cost": 1}
     )
@@ -170,13 +227,24 @@ class ImplicitAPI:
     private_post_v1_simulate_portfolio_margin = privatePostV1SimulatePortfolioMargin = Entry[_Dict](
         "v1/simulate-portfolio-margin", "private", "POST", {"cost": 1}
     )
-    private_post_v1_wallets_self_hosted_initiate = privatePostV1WalletsSelfHostedInitiate = Entry[_Dict](
-        "v1/wallets/self-hosted/initiate", "private", "POST", {"cost": 1}
+    private_post_v1_bulk_simulate_portfolio_margin = privatePostV1BulkSimulatePortfolioMargin = (
+        Entry[_List]("v1/bulk-simulate-portfolio-margin", "private", "POST", {"cost": 1})
     )
+    private_post_v1_wallets_self_hosted_initiate = privatePostV1WalletsSelfHostedInitiate = Entry[
+        _Dict
+    ]("v1/wallets/self-hosted/initiate", "private", "POST", {"cost": 1})
     private_post_v2_mmp_configuration = privatePostV2MmpConfiguration = Entry[_Dict](
         "v2/mmp-configuration", "private", "POST", {"cost": 1}
     )
-    private_post_v2_otc_trades = privatePostV2OtcTrades = Entry[_Dict]("v2/otc-trades", "private", "POST", {"cost": 1})
+    private_post_v2_otc_trades = privatePostV2OtcTrades = Entry[_Dict](
+        "v2/otc-trades", "private", "POST", {"cost": 1}
+    )
     private_post_v2_otc_command = privatePostV2OtcCommand = Entry[_Dict](
         "v2/otc-command", "private", "POST", {"cost": 1}
+    )
+    private_post_v2_idb_otc_trades = privatePostV2IdbOtcTrades = Entry[_Dict](
+        "v2/idb/otc-trades", "private", "POST", {"cost": 1}
+    )
+    private_post_v2_idb_otc_command = privatePostV2IdbOtcCommand = Entry[_Dict](
+        "v2/idb/otc-command", "private", "POST", {"cost": 1}
     )

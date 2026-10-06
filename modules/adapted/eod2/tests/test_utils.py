@@ -36,7 +36,7 @@ class TestJsonFunctions(unittest.TestCase):
         test_datetime = datetime(2023, 1, 1, 12, 0, 0)
 
         result = date_encoder.default(test_datetime)
-        assert result == "2023-01-01T12:00:00"
+        self.assertEqual(result, "2023-01-01T12:00:00")
 
     def test_write_json(self):
         # temp file
@@ -50,7 +50,7 @@ class TestJsonFunctions(unittest.TestCase):
 
         expected_json_string = json.dumps(data, indent=2, cls=utils.DateEncoder)
 
-        assert file_content == expected_json_string
+        self.assertEqual(file_content, expected_json_string)
 
         # Clean up: Remove the temp file
         filepath.unlink()
@@ -62,7 +62,7 @@ class TestArgParseDict(unittest.TestCase):
 
         expected = ["--sym", "tcs", "--sma", "20", "50", "200", "--volume"]
 
-        assert args == expected
+        self.assertEqual(args, expected)
 
     def test_boolean_false(self):
         args = utils.arg_parse_dict({"sym": "tcs", "volume": False})
@@ -70,7 +70,7 @@ class TestArgParseDict(unittest.TestCase):
         # volume argument not included
         expected = ["--sym", "tcs"]
 
-        assert args == expected
+        self.assertEqual(args, expected)
 
     def test_none(self):
         args = utils.arg_parse_dict({"sym": "tcs", "watch": None})
@@ -78,7 +78,7 @@ class TestArgParseDict(unittest.TestCase):
         # watch argument not included
         expected = ["--sym", "tcs"]
 
-        assert args == expected
+        self.assertEqual(args, expected)
 
 
 class TestGetDataFrameFunction(unittest.TestCase):
@@ -131,13 +131,17 @@ class TestGetDataFrameFunction(unittest.TestCase):
         }
 
         expected = (
-            pd.read_csv(self.csv_path, parse_dates=True, index_col="Date").resample("W", label="left").apply(dct)[-2:]
+            pd.read_csv(self.csv_path, parse_dates=True, index_col="Date")
+            .resample("W", label="left")
+            .apply(dct)[-2:]
         )
 
         pd.testing.assert_frame_equal(result, expected)
 
     def test_weekly_close_column(self):
-        result = utils.getDataFrame(Path(self.csv_path), tf="weekly", period=2, columns=["Date", "Close"])
+        result = utils.getDataFrame(
+            Path(self.csv_path), tf="weekly", period=2, columns=["Date", "Close"]
+        )
 
         expected = (
             pd.read_csv(
@@ -160,7 +164,9 @@ class TestGetDataFrameFunction(unittest.TestCase):
             toDate=datetime(2022, 1, 5),
         )
 
-        expected = pd.read_csv(self.csv_path, parse_dates=True, index_col="Date")[:"2022-01-05"][-2:]
+        expected = pd.read_csv(self.csv_path, parse_dates=True, index_col="Date")[:"2022-01-05"][
+            -2:
+        ]
 
         pd.testing.assert_frame_equal(result, expected)
 
@@ -182,27 +188,27 @@ class TestGetLevels(unittest.TestCase):
         # List[ Tuple[ Tuple[date, price], Tuple[date, price] ] ]
         result = utils.getLevels(self.df, mean_candle_size)
 
-        assert isinstance(result, list)
+        self.assertIsInstance(result, list)
 
         # Tuple[ Tuple[date, price], Tuple[date, price] ]
         for level in result:
             # each level is tuple
-            assert isinstance(level, tuple)
+            self.assertIsInstance(level, tuple)
             # level has two tuples within
-            assert isinstance(level[0], tuple)
-            assert isinstance(level[1], tuple)
+            self.assertIsInstance(level[0], tuple)
+            self.assertIsInstance(level[1], tuple)
 
             # each tuple contains datetime and float values
-            assert isinstance(level[0][0], pd.Timestamp)
-            assert isinstance(level[1][0], pd.Timestamp)
-            assert isinstance(level[0][1], float)
-            assert isinstance(level[1][1], float)
+            self.assertIsInstance(level[0][0], pd.Timestamp)
+            self.assertIsInstance(level[1][0], pd.Timestamp)
+            self.assertIsInstance(level[0][1], float)
+            self.assertIsInstance(level[1][1], float)
 
         # First resistance line is at 60
-        assert result[0][0][1] == 60
+        self.assertEqual(result[0][0][1], 60)
 
         # second support line is at 30
-        assert result[1][0][1] == 30
+        self.assertEqual(result[1][0][1], 30)
 
 
 class TestIsFarFromLevel(unittest.TestCase):
@@ -214,21 +220,21 @@ class TestIsFarFromLevel(unittest.TestCase):
 
         result = utils.isFarFromLevel(self.level, levels, self.mean_size)
 
-        assert result
+        self.assertTrue(result)
 
     def test_close_to_one(self):
         levels = [(1, 45.0), (2, 49.0), (3, 60.0)]
 
         result = utils.isFarFromLevel(self.level, levels, self.mean_size)
 
-        assert not result
+        self.assertFalse(result)
 
     def test_no_levels(self):
         levels = []
 
         result = utils.isFarFromLevel(self.level, levels, self.mean_size)
 
-        assert result
+        self.assertTrue(result)
 
 
 class TestRelativeStrength(unittest.TestCase):
@@ -267,7 +273,7 @@ class TestRandomChar(unittest.TestCase):
         for length in (5, 10, 15):
             result = utils.randomChar(length)
 
-            assert len(result) == length
+            self.assertEqual(len(result), length)
 
 
 if __name__ == "__main__":

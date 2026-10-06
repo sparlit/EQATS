@@ -147,8 +147,9 @@ class PositionFetcher:
         conn.close()
 
         if not result or not result[1]:
-            msg = f"No access token for {self.account_name}. Run login_all_accounts.py first."
-            raise Exception(msg)
+            raise Exception(
+                f"No access token for {self.account_name}. Run login_all_accounts.py first."
+            )
 
         self.kite = KiteConnect(api_key=result[0])
         self.kite.set_access_token(result[1])
@@ -201,7 +202,10 @@ class PositionFetcher:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("DELETE FROM master_account_positions WHERE master_account_name = %s", (self.account_name,))
+        cursor.execute(
+            "DELETE FROM master_account_positions WHERE master_account_name = %s",
+            (self.account_name,),
+        )
 
         if values:
             execute_values(
@@ -288,7 +292,7 @@ class PositionFetcher:
                 "live_total_pnl": float(result[5] or 0),
             }
         except Exception as e:
-            logging.exception(f"Error getting live PnL snapshot: {e}")
+            logging.error(f"Error getting live PnL snapshot: {e}")
             return None
 
     def save_pnl_snapshot(self, snapshot_type="REGULAR"):
@@ -329,7 +333,7 @@ class PositionFetcher:
                 f"Total: {snapshot['live_total_pnl']:.2f}"
             )
         except Exception as e:
-            logging.exception(f"Error saving PnL snapshot: {e}")
+            logging.error(f"Error saving PnL snapshot: {e}")
 
     def check_and_save_pnl_snapshot(self):
         current_time = time.time()
@@ -365,7 +369,7 @@ class PositionFetcher:
                 self.check_and_save_pnl_snapshot()
                 self.check_and_save_eod_snapshot()
             except Exception as e:
-                logging.exception(f"Error: {e}")
+                logging.error(f"Error: {e}")
             time.sleep(FETCH_INTERVAL)
 
 
@@ -376,4 +380,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logging.info("Stopped")
     except Exception as e:
-        logging.exception(f"Fatal: {e}")
+        logging.error(f"Fatal: {e}")

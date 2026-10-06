@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_filter_by():
@@ -85,4 +85,6 @@ def test_filter_by():
             "bar": "b",
         },
     ]
-    test_shared_methods.assert_deep_equal(exchange, None, "testFilterBy", current_value, stored_value)
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testFilterBy", current_value, stored_value
+    )

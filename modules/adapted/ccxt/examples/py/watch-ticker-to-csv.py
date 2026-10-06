@@ -28,7 +28,6 @@ from importlib import import_module
 from importlib.util import find_spec
 
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
-from pprint import pprint
 
 import ccxt.pro
 
@@ -36,7 +35,17 @@ import ccxt.pro
 async def watch_ticker_continuously(exchange, symbol):
     filename = exchange.id + "-" + symbol.replace("/", "-") + ".csv"
     print("Watching", exchange.id, symbol, filename)
-    keys = ["index", "exchange", "symbol", "timestamp", "open", "high", "low", "close", "baseVolume"]
+    keys = [
+        "index",
+        "exchange",
+        "symbol",
+        "timestamp",
+        "open",
+        "high",
+        "low",
+        "close",
+        "baseVolume",
+    ]
     with open(filename, "w") as file:
         file.write(",".join(keys) + "\n")
     index = 0
@@ -63,7 +72,10 @@ async def watch_tickers_continuously(exchange_id, overrides, symbols):
 async def main():
     exchanges = {"binance": {"options": {"defaultType": "future"}}, "htx": {}}
     symbols = ["BTC/USDT", "ETH/USDT", "LTC/USDT", "XRP/USDT", "BCH/USDT"]
-    coroutines = [watch_tickers_continuously(exchange_id, exchanges[exchange_id], symbols) for exchange_id in exchanges]
+    coroutines = [
+        watch_tickers_continuously(exchange_id, exchanges[exchange_id], symbols)
+        for exchange_id in exchanges
+    ]
     return await gather(*coroutines)
 
 

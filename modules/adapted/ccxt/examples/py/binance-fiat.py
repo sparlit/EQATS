@@ -40,7 +40,11 @@ exchange = ccxt.binance(
 
 markets = exchange.load_markets()
 
-fiat_currencies = [currency["code"] for currency in exchange.currencies.values() if currency["info"]["isLegalMoney"]]
+fiat_currencies = [
+    currency["code"]
+    for currency in exchange.currencies.values()
+    if currency["info"]["isLegalMoney"]
+]
 
 fiat_markets = [
     market
