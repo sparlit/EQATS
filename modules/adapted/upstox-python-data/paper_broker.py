@@ -84,7 +84,7 @@ class PaperBroker:
         max_lots: int = 5,
         max_positions: int = 7,
         per_trade_pct: float = 20.0,
-        persist_dir: str | Path | None = None,
+        persist_dir: str | Path = None,
     ):
         self._capital = float(capital)
         self._start_capital = float(capital)
@@ -145,8 +145,8 @@ class PaperBroker:
         order_type: str = "MARKET",
         reason: str = "",
         strategy_name: str = "directional",
-        limit_price: float | None = None,
-        depth_hint: dict | None = None,
+        limit_price: float = None,
+        depth_hint: dict = None,
         instrument_key: str = "",
         vix: float = 14.0,
     ) -> dict:
@@ -263,10 +263,14 @@ class PaperBroker:
         per_trade_limit = self._start_capital * self._per_trade_pct / 100
 
         if margin > per_trade_limit:
-            return self._reject(f"Margin INR {margin:,.0f} exceeds per-trade limit INR {per_trade_limit:,.0f}")
+            return self._reject(
+                f"Margin INR {margin:,.0f} exceeds per-trade limit INR {per_trade_limit:,.0f}"
+            )
 
         if margin > self._capital:
-            return self._reject(f"Margin INR {margin:,.0f} exceeds available capital INR {self._capital:,.0f}")
+            return self._reject(
+                f"Margin INR {margin:,.0f} exceeds available capital INR {self._capital:,.0f}"
+            )
 
         # Execute
         self._order_counter += 1
@@ -315,7 +319,9 @@ class PaperBroker:
             f"{margin:,.0f}",
             pos_id,
         )
-        log.info("SLIPPAGE | %s raw=%.2f fill=%.2f (%+.2f%%)", pos_id, raw_price, entry_price, slip_pct)
+        log.info(
+            "SLIPPAGE | %s raw=%.2f fill=%.2f (%+.2f%%)", pos_id, raw_price, entry_price, slip_pct
+        )
 
         return {
             "status": "SUCCESS",
@@ -330,7 +336,13 @@ class PaperBroker:
     # ── PLACE SPREAD ─────────────────────────────────────────────
 
     def place_spread(
-        self, symbol: str, expiry: str, legs: list[dict], reason: str = "", strategy: str = "spread", vix: float = 14.0
+        self,
+        symbol: str,
+        expiry: str,
+        legs: list[dict],
+        reason: str = "",
+        strategy: str = "spread",
+        vix: float = 14.0,
     ) -> dict:
         """
         Place a multi-leg spread. Rolls back if any leg fails.
@@ -390,7 +402,9 @@ class PaperBroker:
 
     # ── CLOSE POSITION ───────────────────────────────────────────
 
-    def close_position(self, position_id: str, reason: str, *, exit_price_override: float | None = None) -> dict:
+    def close_position(
+        self, position_id: str, reason: str, *, exit_price_override: float = None
+    ) -> dict:
         """Close a position. Uses current_price or override for exit."""
         with self._lock:
             return self._close_locked(position_id, reason, exit_price_override)
@@ -422,7 +436,10 @@ class PaperBroker:
         )
 
         # P&L
-        pnl_per_unit = exit_price - pos["entry_price"] if pos["action"] == "BUY" else pos["entry_price"] - exit_price
+        if pos["action"] == "BUY":
+            pnl_per_unit = exit_price - pos["entry_price"]
+        else:
+            pnl_per_unit = pos["entry_price"] - exit_price
 
         gross_pnl = round(pnl_per_unit * pos["total_qty"], 2)
         costs = compute_trade_costs(
@@ -647,7 +664,10 @@ class PaperBroker:
                 and pos["option_type"] == option_type
                 and pos["action"] == action
             ):
-                return f"Duplicate: already holding {action} {symbol} {strike}{option_type} ({pos['position_id']})"
+                return (
+                    f"Duplicate: already holding {action} {symbol} "
+                    f"{strike}{option_type} ({pos['position_id']})"
+                )
         return None
 
     # ── PERSISTENCE ──────────────────────────────────────────────
@@ -667,7 +687,7 @@ class PaperBroker:
             with open(self._positions_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, default=str)
         except Exception as e:
-            log.exception("Failed to save positions: %s", e)
+            log.error("Failed to save positions: %s", e)
 
     def _load_positions(self):
         if not self._positions_file.exists():
@@ -694,6 +714,10 @@ class PaperBroker:
             if self._positions:
                 margin_held = sum(p.get("margin_used", 0) for p in self._positions.values())
                 self._capital -= margin_held
-                log.info("Loaded %d positions (margin held: INR %s)", len(self._positions), f"{margin_held:,.0f}")
+                log.info(
+                    "Loaded %d positions (margin held: INR %s)",
+                    len(self._positions),
+                    f"{margin_held:,.0f}",
+                )
         except Exception as e:
-            log.exception("Failed to load positions: %s", e)
+            log.error("Failed to load positions: %s", e)

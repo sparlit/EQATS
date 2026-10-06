@@ -80,7 +80,9 @@ result = broker.place_order(
 print(f"  Status: {result['status']}")
 if result["status"] == "SUCCESS":
     print(f"  Position: {result['position_id']}")
-    print(f"  Fill price: {result['entry_price']:.2f} (LTP was {ce['ltp']:.2f}, ask was {ce.get('ask', 'N/A')})")
+    print(
+        f"  Fill price: {result['entry_price']:.2f} (LTP was {ce['ltp']:.2f}, ask was {ce.get('ask', 'N/A')})"
+    )
     print(f"  Margin used: INR {result['margin_used']:,.2f}")
 
     # 3. Set stop loss and target

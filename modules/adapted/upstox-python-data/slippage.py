@@ -33,7 +33,12 @@ import random
 
 
 def compute_slippage(
-    action: str, moneyness: float = 0.0, vix: float = 14.0, hour: int = 10, symbol: str = "NIFTY", is_exit: bool = False
+    action: str,
+    moneyness: float = 0.0,
+    vix: float = 14.0,
+    hour: int = 10,
+    symbol: str = "NIFTY",
+    is_exit: bool = False,
 ) -> float:
     """Compute formula-based slippage multiplier (fallback when no depth)."""
     base = 1.0
@@ -68,7 +73,9 @@ def compute_slippage(
     return max(base, 1.001)
 
 
-def _apply_depth_slippage(price: float, action: str, depth: dict, vix: float = 14.0, hour: int = 10) -> float:
+def _apply_depth_slippage(
+    price: float, action: str, depth: dict, vix: float = 14.0, hour: int = 10
+) -> float:
     """Apply realistic slippage from bid/ask depth data."""
     bid = depth.get("bid", 0) or depth.get("best_bid", 0)
     ask = depth.get("ask", 0) or depth.get("best_ask", 0)
@@ -104,14 +111,17 @@ def _apply_depth_slippage(price: float, action: str, depth: dict, vix: float = 1
     return round(max(fill_price, 0.05), 2)
 
 
-def apply_slippage(price: float, action: str, *, depth: dict | None = None, **kwargs) -> float:
+def apply_slippage(price: float, action: str, *, depth: dict = None, **kwargs) -> float:
     """Apply slippage. Uses depth if available, else formula."""
     if depth:
-        result = _apply_depth_slippage(price, action, depth, vix=kwargs.get("vix", 14.0), hour=kwargs.get("hour", 10))
+        result = _apply_depth_slippage(
+            price, action, depth, vix=kwargs.get("vix", 14.0), hour=kwargs.get("hour", 10)
+        )
         if result is not None:
             return result
 
     mult = compute_slippage(action, **kwargs)
     if action == "BUY":
         return round(price * mult, 2)
-    return round(price / mult, 2)
+    else:
+        return round(price / mult, 2)

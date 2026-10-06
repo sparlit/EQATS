@@ -36,7 +36,9 @@ STAMP_DUTY_BUY_PCT = 0.003  # 0.003% on buy-side premium
 GST_PCT = 18.0  # 18% on (brokerage + exchange txn)
 
 
-def compute_trade_costs(entry_price: float, exit_price: float, total_qty: int, action: str = "BUY") -> dict:
+def compute_trade_costs(
+    entry_price: float, exit_price: float, total_qty: int, action: str = "BUY"
+) -> dict:
     """
     Compute all charges for a completed round-trip options trade.
 
@@ -73,6 +75,8 @@ def compute_trade_costs(entry_price: float, exit_price: float, total_qty: int, a
     }
 
 
-def total_costs(entry_price: float, exit_price: float, total_qty: int, action: str = "BUY") -> float:
+def total_costs(
+    entry_price: float, exit_price: float, total_qty: int, action: str = "BUY"
+) -> float:
     """Shortcut — returns just the total cost as a float."""
     return compute_trade_costs(entry_price, exit_price, total_qty, action)["total"]

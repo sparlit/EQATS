@@ -48,7 +48,7 @@ log = logging.getLogger(__name__)
 class MarketStreamer:
     """Real-time market data via Upstox MarketDataStreamerV3."""
 
-    def __init__(self, on_tick: Callable[[dict], None], on_disconnect: Callable[[], None] | None = None):
+    def __init__(self, on_tick: Callable[[dict], None], on_disconnect: Callable[[], None] = None):
         self._on_tick = on_tick
         self._on_disconnect = on_disconnect
         self._streamer = None
@@ -97,7 +97,9 @@ class MarketStreamer:
             self._streamer.on(MarketDataStreamerV3.Event["ERROR"], self._on_error)
             self._streamer.on(MarketDataStreamerV3.Event["CLOSE"], self._on_close)
             self._streamer.on(MarketDataStreamerV3.Event["RECONNECTING"], self._on_reconnecting)
-            self._streamer.on(MarketDataStreamerV3.Event["AUTO_RECONNECT_STOPPED"], self._on_reconnect_stopped)
+            self._streamer.on(
+                MarketDataStreamerV3.Event["AUTO_RECONNECT_STOPPED"], self._on_reconnect_stopped
+            )
 
             self._streamer.connect()
             log.info("WebSocket connecting...")
@@ -126,14 +128,18 @@ class MarketStreamer:
                 self._pending_subs.append((list(instrument_keys), mode))
                 for key in instrument_keys:
                     self._subscriptions[key] = mode
-            log.info("WS queued %d keys in %s mode (waiting for connection)", len(instrument_keys), mode)
+            log.info(
+                "WS queued %d keys in %s mode (waiting for connection)", len(instrument_keys), mode
+            )
             return
         try:
             self._streamer.subscribe(instrument_keys, mode)
             with self._lock:
                 for key in instrument_keys:
                     self._subscriptions[key] = mode
-            log.info("WS subscribed %d keys in %s mode: %s", len(instrument_keys), mode, instrument_keys)
+            log.info(
+                "WS subscribed %d keys in %s mode: %s", len(instrument_keys), mode, instrument_keys
+            )
         except Exception as e:
             log.warning("WS subscribe failed: %s", e)
 
@@ -258,8 +264,14 @@ class MarketStreamer:
                 if not bids and not asks:
                     bid_ask = market_ff.get("marketLevel", {}).get("bidAskQuote", [])
                     if bid_ask:
-                        bids = [{"price": q.get("bidP", 0), "quantity": q.get("bidQ", 0)} for q in bid_ask]
-                        asks = [{"price": q.get("askP", 0), "quantity": q.get("askQ", 0)} for q in bid_ask]
+                        bids = [
+                            {"price": q.get("bidP", 0), "quantity": q.get("bidQ", 0)}
+                            for q in bid_ask
+                        ]
+                        asks = [
+                            {"price": q.get("askP", 0), "quantity": q.get("askQ", 0)}
+                            for q in bid_ask
+                        ]
 
                 if bids:
                     tick["bid"] = float(bids[0].get("price", 0))
