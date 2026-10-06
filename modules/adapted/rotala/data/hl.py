@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import argparse
 import datetime
 import os
-import sys
 
 import boto3
 import lz4framed
@@ -59,7 +58,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     max_year = 2024
-    hours = list(range(24))
+    hours = list(range(0, 24))
     days = list(range(1, 32))
     months = list(range(1, 13))
     client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
@@ -89,8 +88,9 @@ if __name__ == "__main__":
                     print("Reached the present")
                     print(file_path)
                     with open(f"{file_path}", "w") as f:
-                        f.writelines(chunks)
-                    sys.exit(1)
+                        for chunk in chunks:
+                            f.write(chunk)
+                    exit(1)
 
                 for hour in hours:
                     date_string = str(year) + zero_padding(month) + zero_padding(day)
@@ -112,4 +112,5 @@ if __name__ == "__main__":
 
             print(file_path)
             with open(f"{file_path}", "w") as f:
-                f.writelines(chunks)
+                for chunk in chunks:
+                    f.write(chunk)
