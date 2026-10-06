@@ -23,14 +23,18 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from datetime import timedelta
 
+from database.models import User
 from flask import request
 from flask_jwt_extended import create_access_token
 from flask_restful import Resource
 from mongoengine.errors import DoesNotExist, FieldDoesNotExist, NotUniqueError, ValidationError
 from mongoengine.queryset.visitor import Q
-from resources.errors import EmailAlreadyExistsError, InternalServerError, SchemaValidationError, UnauthorizedError
-
-from database.models import User
+from resources.errors import (
+    EmailAlreadyExistsError,
+    InternalServerError,
+    SchemaValidationError,
+    UnauthorizedError,
+)
 
 
 class SignupApi(Resource):
