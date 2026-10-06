@@ -68,7 +68,9 @@ def compute_atr(df: pd.DataFrame, period: int = 14) -> float:
     low = df["Low"]
     close = df["Close"]
     prev_close = close.shift(1)
-    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(
+        axis=1
+    )
     atr = tr.rolling(period).mean().iloc[-1]
     return float(atr) if not np.isnan(atr) else 0.0
 

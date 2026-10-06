@@ -37,7 +37,6 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
 
 import pandas as pd
 import yfinance as yf
@@ -152,7 +151,8 @@ def calculate_weighted_return(
     total_weight = sum(weights)
     normalized_weights = [w / total_weight for w in weights]
 
-    return sum(r * w for r, w in zip(returns, normalized_weights, strict=False))
+    weighted_return = sum(r * w for r, w in zip(returns, normalized_weights, strict=False))
+    return weighted_return
 
 
 def fetch_benchmark_returns(
@@ -171,7 +171,9 @@ def fetch_benchmark_returns(
     """
     try:
         logger.info(f"Fetching benchmark data for {benchmark_symbol}...")
-        data = yf.download(benchmark_symbol, start=start_str, end=end_str, progress=False, auto_adjust=True)
+        data = yf.download(
+            benchmark_symbol, start=start_str, end=end_str, progress=False, auto_adjust=True
+        )
 
         if data.empty:
             logger.warning(f"No data for benchmark {benchmark_symbol}")
@@ -190,7 +192,7 @@ def fetch_benchmark_returns(
         return bench_1w, bench_1m, bench_3m
 
     except Exception as e:
-        logger.exception(f"Error fetching benchmark data: {e}")
+        logger.error(f"Error fetching benchmark data: {e}")
         return None, None, None
 
 
@@ -209,7 +211,9 @@ def process_stock(args: tuple) -> StockReturn | None:
     try:
         ticker_symbol = symbol if symbol.endswith(".NS") else f"{symbol}.NS"
 
-        data = yf.download(ticker_symbol, start=start_str, end=end_str, progress=False, auto_adjust=True)
+        data = yf.download(
+            ticker_symbol, start=start_str, end=end_str, progress=False, auto_adjust=True
+        )
 
         if data.empty:
             logger.debug(f"No data for {symbol}")
@@ -317,7 +321,9 @@ def aggregate_sector_returns(stock_returns: list[StockReturn]) -> pd.DataFrame:
 
     sector_stats = sector_stats.reset_index()
     # Sort by weighted RS (relative strength) instead of absolute return
-    return sector_stats.sort_values("avg_weighted_rs", ascending=False)
+    sector_stats = sector_stats.sort_values("avg_weighted_rs", ascending=False)
+
+    return sector_stats
 
 
 def generate_signal(
@@ -375,8 +381,12 @@ def main():
         default="ind_nifty500list.csv",
         help="Path to CSV file with symbols (columns: 'Symbol', 'Industry')",
     )
-    parser.add_argument("--output", type=str, default="trending_sectors.csv", help="Output CSV file path")
-    parser.add_argument("--top", type=int, default=5, help="Number of top sectors to display (default: 5)")
+    parser.add_argument(
+        "--output", type=str, default="trending_sectors.csv", help="Output CSV file path"
+    )
+    parser.add_argument(
+        "--top", type=int, default=5, help="Number of top sectors to display (default: 5)"
+    )
     parser.add_argument(
         "--workers",
         type=int,
@@ -401,9 +411,12 @@ def main():
     start_date = end_date - timedelta(days=110)
 
     logger.info(
-        f"Analyzing sectors using data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        f"Analyzing sectors using data from {start_date.strftime('%Y-%m-%d')} "
+        f"to {end_date.strftime('%Y-%m-%d')}"
     )
-    logger.info(f"Weights: 1W={WEIGHT_1W * 100:.0f}%, 1M={WEIGHT_1M * 100:.0f}%, 3M={WEIGHT_3M * 100:.0f}%")
+    logger.info(
+        f"Weights: 1W={WEIGHT_1W * 100:.0f}%, 1M={WEIGHT_1M * 100:.0f}%, 3M={WEIGHT_3M * 100:.0f}%"
+    )
 
     # Load symbols from CSV
     if not os.path.exists(args.symbols):
@@ -417,9 +430,11 @@ def main():
             logger.error(f"CSV must contain columns: {required_cols}")
             sys.exit(1)
 
-        symbols_with_industry = list(zip(df_symbols["Symbol"].tolist(), df_symbols["Industry"].tolist(), strict=False))
+        symbols_with_industry = list(
+            zip(df_symbols["Symbol"].tolist(), df_symbols["Industry"].tolist(), strict=False)
+        )
     except Exception as e:
-        logger.exception(f"Error reading symbols file: {e}")
+        logger.error(f"Error reading symbols file: {e}")
         sys.exit(1)
 
     logger.info(f"Processing {len(symbols_with_industry)} stocks...")
@@ -432,7 +447,9 @@ def main():
     bench_1w, bench_1m, bench_3m = fetch_benchmark_returns(args.benchmark, start_str, end_str)
 
     if bench_1w is None and bench_1m is None and bench_3m is None:
-        logger.warning("Failed to fetch benchmark data. Relative strength calculations will be unavailable.")
+        logger.warning(
+            "Failed to fetch benchmark data. Relative strength calculations will be unavailable."
+        )
 
     # Prepare tasks for parallel processing (include benchmark returns)
     tasks = [
@@ -515,8 +532,12 @@ def main():
     print(f"{'-' * 80}")
     bottom_sectors = sector_stats.tail(args.top).iloc[::-1]
     for _idx, row in bottom_sectors.iterrows():
-        signal_emoji, _ = generate_signal(row["avg_rs_1w"], row["avg_rs_1m"], row["avg_rs_3m"], row["avg_weighted_rs"])
-        print(f"  {signal_emoji} {row['industry']}: Weighted RS = {format_rs(row['avg_weighted_rs'])}")
+        signal_emoji, _ = generate_signal(
+            row["avg_rs_1w"], row["avg_rs_1m"], row["avg_rs_3m"], row["avg_weighted_rs"]
+        )
+        print(
+            f"  {signal_emoji} {row['industry']}: Weighted RS = {format_rs(row['avg_weighted_rs'])}"
+        )
     print()
 
 

@@ -70,13 +70,29 @@ def load_closes(stem: str) -> pd.Series:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--symbols", default="ind_nifty200list.csv", help="universe CSV with a Symbol column")
-    ap.add_argument("--benchmark", default="nifty50", help="benchmark file stem under test/data/day")
-    ap.add_argument("--as-of", required=True, help="first backtest session, YYYY-MM-DD; the window ends the day before")
-    ap.add_argument("--months", type=int, default=3, help="lookback window length in calendar months")
-    ap.add_argument("--top", type=int, default=50, help="how many names to keep, highest beta first")
-    ap.add_argument("--min-sessions", type=int, default=40, help="minimum overlapping sessions to rank a name")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--symbols", default="ind_nifty200list.csv", help="universe CSV with a Symbol column"
+    )
+    ap.add_argument(
+        "--benchmark", default="nifty50", help="benchmark file stem under test/data/day"
+    )
+    ap.add_argument(
+        "--as-of",
+        required=True,
+        help="first backtest session, YYYY-MM-DD; the window ends the day before",
+    )
+    ap.add_argument(
+        "--months", type=int, default=3, help="lookback window length in calendar months"
+    )
+    ap.add_argument(
+        "--top", type=int, default=50, help="how many names to keep, highest beta first"
+    )
+    ap.add_argument(
+        "--min-sessions", type=int, default=40, help="minimum overlapping sessions to rank a name"
+    )
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -123,7 +139,9 @@ def main() -> int:
 
     out = pd.DataFrame(rows).sort_values("beta", ascending=False).head(args.top)
     out.to_csv(args.output, index=False)
-    print(f"Ranked {len(rows)} names, skipped {len(skipped)}; wrote top {len(out)} to {args.output}")
+    print(
+        f"Ranked {len(rows)} names, skipped {len(skipped)}; wrote top {len(out)} to {args.output}"
+    )
     for s, n in skipped:
         print(f"  skipped {s}: {n} sessions")
     print(out.head(10).to_string(index=False))

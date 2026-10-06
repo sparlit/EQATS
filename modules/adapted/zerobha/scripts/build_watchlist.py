@@ -58,7 +58,9 @@ from sector_momentum_analyzer import (
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build trading watchlist from sector momentum + high beta analysis")
+    parser = argparse.ArgumentParser(
+        description="Build trading watchlist from sector momentum + high beta analysis"
+    )
     parser.add_argument(
         "--symbols",
         type=str,
@@ -109,7 +111,8 @@ def main():
     parser.add_argument(
         "--allow-unfiltered",
         action="store_true",
-        help="Allow building the watchlist without an industry filter when no selected sector has an industry mapping",
+        help="Allow building the watchlist without an industry filter when "
+        "no selected sector has an industry mapping",
     )
     parser.add_argument(
         "--as-of-date",
@@ -136,7 +139,9 @@ def main():
 
     # Step 1: Sector momentum analysis
     print("\n[Step 1/3] Running sector momentum analysis...")
-    as_of_date = datetime.today() if not args.as_of_date else datetime.strptime(args.as_of_date, "%Y-%m-%d")
+    as_of_date = (
+        datetime.today() if not args.as_of_date else datetime.strptime(args.as_of_date, "%Y-%m-%d")
+    )
     sector_report = calculate_sector_momentum(NSE_SECTORS, as_of_date=as_of_date)
 
     if sector_report.empty:
@@ -150,7 +155,9 @@ def main():
     print("\n[Step 2/3] Selecting top sectors...")
 
     # Prefer LEADING and IMPROVING quadrants
-    actionable = sector_report[sector_report["Quadrant"].isin(["LEADING", "IMPROVING"])].head(args.top_sectors)
+    actionable = sector_report[sector_report["Quadrant"].isin(["LEADING", "IMPROVING"])].head(
+        args.top_sectors
+    )
 
     if actionable.empty:
         if args.include_all_if_no_leaders:

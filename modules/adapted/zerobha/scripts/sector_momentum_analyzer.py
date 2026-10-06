@@ -129,11 +129,12 @@ def classify_quadrant(rs_ratio_positive, rs_momentum_positive):
     """
     if rs_ratio_positive and rs_momentum_positive:
         return "LEADING"
-    if rs_ratio_positive and not rs_momentum_positive:
+    elif rs_ratio_positive and not rs_momentum_positive:
         return "WEAKENING"
-    if not rs_ratio_positive and rs_momentum_positive:
+    elif not rs_ratio_positive and rs_momentum_positive:
         return "IMPROVING"
-    return "LAGGING"
+    else:
+        return "LAGGING"
 
 
 def window_perf(series, days, offset=0):
@@ -164,7 +165,7 @@ def calculate_sector_momentum(sectors, benchmark="^NSEI", as_of_date=None):
     max_lookback = WINDOWS["3M"] + PREV_SHIFT + 20
     start_date = (as_of_date - timedelta(days=int(max_lookback * 1.7))).strftime("%Y-%m-%d")
 
-    tickers = [benchmark, *list(sectors.values())]
+    tickers = [benchmark] + list(sectors.values())
     print(f"Fetching data for {len(tickers)} symbols from {start_date}...")
 
     try:
@@ -220,7 +221,10 @@ def calculate_sector_momentum(sectors, benchmark="^NSEI", as_of_date=None):
         # gaps were already forward-filled above
         prices = data[ticker].dropna()
         if len(prices) < min_rows:
-            print(f"  Skipping {sector_name} ({ticker}): insufficient history ({len(prices)} rows, need {min_rows})")
+            print(
+                f"  Skipping {sector_name} ({ticker}): insufficient history "
+                f"({len(prices)} rows, need {min_rows})"
+            )
             continue
 
         # Current RS for each window
@@ -326,7 +330,9 @@ def main():
     # Display
     print(f"\n{'=' * 80}")
     print("SECTOR RELATIVE STRENGTH RANKING (vs Nifty 50)")
-    print(f"Weights: 1W={WEIGHT_1W * 100:.0f}% | 1M={WEIGHT_1M * 100:.0f}% | 3M={WEIGHT_3M * 100:.0f}%")
+    print(
+        f"Weights: 1W={WEIGHT_1W * 100:.0f}% | 1M={WEIGHT_1M * 100:.0f}% | 3M={WEIGHT_3M * 100:.0f}%"
+    )
     print(f"{'=' * 80}\n")
 
     for _, row in report.iterrows():

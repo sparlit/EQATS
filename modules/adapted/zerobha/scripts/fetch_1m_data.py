@@ -52,18 +52,21 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 def fetch_chunk(isin, from_date, to_date, retries=3):
     key = f"NSE_EQ|{isin}"
     url = f"https://api.upstox.com/v2/historical-candle/{key}/1minute/{to_date}/{from_date}"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
+    )
 
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode())
-                return data.get("data", {}).get("candles", [])
+                candles = data.get("data", {}).get("candles", [])
+                return candles
         except urllib.error.HTTPError as e:
             if e.code == 429:
                 time.sleep(1.0 * (attempt + 1))
                 continue
-            if e.code in {404, 400}:
+            if e.code == 404 or e.code == 400:
                 return []
             if attempt == retries - 1:
                 print(f"[{isin}] HTTP {e.code} for {from_date}..{to_date}: {e}")
@@ -104,7 +107,16 @@ def download_symbol(symbol, isin, out_dirs):
     rows = [["timestamp", "open", "high", "low", "close", "volume"]]
     for c in all_candles:
         ts, o, h, l, cl, vol = c[0], c[1], c[2], c[3], c[4], c[5]
-        rows.append([ts, f"{float(o):.2f}", f"{float(h):.2f}", f"{float(l):.2f}", f"{float(cl):.2f}", str(int(vol))])
+        rows.append(
+            [
+                ts,
+                f"{float(o):.2f}",
+                f"{float(h):.2f}",
+                f"{float(l):.2f}",
+                f"{float(cl):.2f}",
+                str(int(vol)),
+            ]
+        )
 
     for out_dir in out_dirs:
         os.makedirs(out_dir, exist_ok=True)
@@ -145,13 +157,17 @@ def main():
     start_time = time.time()
 
     with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {executor.submit(download_symbol, sym, isin, out_dirs): sym for sym, isin in stocks}
+        futures = {
+            executor.submit(download_symbol, sym, isin, out_dirs): sym for sym, isin in stocks
+        }
         for future in as_completed(futures):
             sym, count = future.result()
             total_downloaded += count
 
     elapsed = time.time() - start_time
-    print(f"\nFinished in {elapsed:.1f}s. Downloaded {total_downloaded} total 1m candles for {len(stocks)} stocks.")
+    print(
+        f"\nFinished in {elapsed:.1f}s. Downloaded {total_downloaded} total 1m candles for {len(stocks)} stocks."
+    )
 
 
 if __name__ == "__main__":
