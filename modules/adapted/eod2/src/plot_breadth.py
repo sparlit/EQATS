@@ -50,9 +50,13 @@ def parse_args():
 
     parser.add_argument("-i", "--index", default="nifty 50", help="Index name (default: nifty 50)")
 
-    parser.add_argument("-ind", required=True, choices=INDICATOR_MAP.keys(), help="Indicator to plot")
+    parser.add_argument(
+        "-ind", required=True, choices=INDICATOR_MAP.keys(), help="Indicator to plot"
+    )
 
-    parser.add_argument("--tf", default="D", choices=("D", "W"), help="Timeframe: D (daily), W (weekly)")
+    parser.add_argument(
+        "--tf", default="D", choices=("D", "W"), help="Timeframe: D (daily), W (weekly)"
+    )
 
     parser.add_argument(
         "--period",
@@ -151,7 +155,7 @@ def main():
         )
 
     else:
-        _fig, ax1 = plt.subplots(figsize=(12, 6), constrained_layout=True)
+        fig, ax1 = plt.subplots(figsize=(12, 6), constrained_layout=True)
 
         ax2 = ax1.twinx()
 
@@ -175,7 +179,8 @@ def main():
 
 if __name__ == "__main__":
     warnings.warn(
-        "plot_breadth.py is deprecated and will be removed in a future version. Please use chart.py instead.",
+        "plot_breadth.py is deprecated and will be removed in a future version. "
+        "Please use chart.py instead.",
         FutureWarning,
         stacklevel=2,
     )

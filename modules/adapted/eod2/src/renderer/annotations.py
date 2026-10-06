@@ -24,21 +24,18 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import Any, Literal, cast
 
+import numpy as np
+import pandas as pd
 from defs.config import config
+from matplotlib.artist import Artist
+from matplotlib.axes import Axes
+from matplotlib.backend_bases import DrawEvent, MouseEvent
 from matplotlib.collections import LineCollection
 
+from .dtypes import Timeframe
 from .util import index_to_iso, iso_to_index, randomChar
-
-if TYPE_CHECKING:
-    import numpy as np
-    import pandas as pd
-    from matplotlib.artist import Artist
-    from matplotlib.axes import Axes
-    from matplotlib.backend_bases import DrawEvent, MouseEvent
-
-    from .dtypes import Timeframe
 
 DatePoint = tuple[str, float]
 
@@ -70,8 +67,7 @@ class BlitPreview:
 
     def _on_draw(self, event: DrawEvent | None = None) -> None:
         if self.ax is None or self.canvas is None:
-            msg = "Axes or canvas is not set"
-            raise ValueError(msg)
+            raise ValueError("Axes or canvas is not set")
         # Capture clean axes background after a full draw.
         self.background = self.canvas.copy_from_bbox(self.ax.bbox)
 
@@ -167,7 +163,7 @@ class DrawingTool:
             self._drawing_manager.update_draw_state(self._state)
 
     def set_data(self, df: pd.DataFrame) -> None:
-        self._index = cast("pd.DatetimeIndex", df.index)
+        self._index = cast(pd.DatetimeIndex, df.index)
         self._open = df["Open"].to_numpy()
         self._high = df["High"].to_numpy()
         self._low = df["Low"].to_numpy()
@@ -204,8 +200,7 @@ class DrawingTool:
                 or self._low is None
                 or self._close is None
             ):
-                msg = "Data not set on DrawingTool"
-                raise RuntimeError(msg)
+                raise RuntimeError("Data not set on DrawingTool")
 
             y = self._snap_to_ohlc(
                 event.ydata,
@@ -236,7 +231,7 @@ class DrawingTool:
             self.set_draw_state(key)
             return None
 
-        self._index = cast("pd.DatetimeIndex", self._index)
+        self._index = cast(pd.DatetimeIndex, self._index)
 
         if key == "shift":
             # Shift+click → tline / trendline (two points)
@@ -245,7 +240,7 @@ class DrawingTool:
 
             if p1 == p2:
                 # A trendline cannot be drawn with identical points
-                return None
+                return
 
             self._pending_points.clear()
 
@@ -266,7 +261,7 @@ class DrawingTool:
 
             if p1 == p2:
                 # A segment cannot be drawn with identical points
-                return None
+                return
             self._pending_points.clear()
             self._pending_points.append(p2)
 
@@ -287,7 +282,7 @@ class DrawingTool:
 
             if self._pending_points[0] == p2:
                 # A segment cannot be drawn with identical points
-                return None
+                return
 
             return Drawing(
                 kind="hline",
@@ -306,9 +301,14 @@ class DrawingTool:
         if event.xdata is None or event.ydata is None or self._ax is None:
             return
 
-        if self._open is None or self._high is None or self._high is None or self._low is None or self._close is None:
-            msg = "Data not set on DrawingTool"
-            raise RuntimeError(msg)
+        if (
+            self._open is None
+            or self._high is None
+            or self._high is None
+            or self._low is None
+            or self._close is None
+        ):
+            raise RuntimeError("Data not set on DrawingTool")
 
         if not len(self._pending_points):
             return
@@ -363,7 +363,9 @@ class DrawingTool:
             self._preview_artist.set_color(color)
         self._blit.draw()
 
-    def _snap_to_ohlc(self, y: float, open_val: float, high: float, low: float, close: float) -> float:
+    def _snap_to_ohlc(
+        self, y: float, open_val: float, high: float, low: float, close: float
+    ) -> float:
         """Snap y-coordinate to nearest OHLC value."""
         if y >= high:
             return high
@@ -462,8 +464,7 @@ class DrawingManager:
         url = artist.get_url()
 
         if not url:
-            msg = "No url attached to artist"
-            raise ValueError(msg)
+            raise ValueError("No url attached to artist")
 
         artist.remove()
 
@@ -510,20 +511,21 @@ class DrawingManager:
 
         if drawing.kind == "axhline":
             _, y = drawing.points[0]
-            return self._ax.axhline(
+            artist = self._ax.axhline(
                 y,
                 color=drawing.color,
                 url=drawing.url,
                 **self.line_args,
             )
+            return artist
 
-        if drawing.kind == "hline":
+        elif drawing.kind == "hline":
             (x1, y), (x2, _) = drawing.points
 
             x1 = iso_to_index(x1, self._index)
             x2 = self._ax.get_xlim()[1] if x2 == -1 else iso_to_index(x2, self._index)
 
-            return self._ax.hlines(
+            artist = self._ax.hlines(
                 y,
                 x1,
                 x2,
@@ -531,12 +533,13 @@ class DrawingManager:
                 url=drawing.url,
                 **self.segment_args,
             )
+            return artist
 
-        if drawing.kind == "tline":
+        elif drawing.kind == "tline":
             if len(drawing.points) >= 2:
                 points = [(iso_to_index(x, self._index), y) for x, y in drawing.points]
 
-                return self._ax.axline(
+                artist = self._ax.axline(
                     *points,
                     color=drawing.color,
                     linewidth=1,
@@ -544,6 +547,7 @@ class DrawingManager:
                     picker=True,
                     url=drawing.url,
                 )
+                return artist
 
         elif drawing.kind == "aline":
             if len(drawing.points) >= 2:
@@ -580,7 +584,10 @@ class DrawingManager:
         Shape:
             symbol -> url -> Drawing dict
         """
-        return {sym: {url: asdict(d) for url, d in url_map.items()} for sym, url_map in self._drawings.items()}
+        return {
+            sym: {url: asdict(d) for url, d in url_map.items()}
+            for sym, url_map in self._drawings.items()
+        }
 
     def from_dict(self, data: dict[str, dict[str, Any]]) -> None:
         """Restore drawings for the current timeframe.
