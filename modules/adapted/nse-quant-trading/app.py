@@ -35,7 +35,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 import streamlit as st
-from supabase import Client, create_client
+from supabase import create_client
 
 st.set_page_config(
     page_title="NSE Quantitative Trading Dashboard",
@@ -74,7 +74,9 @@ def build_symbol_index(report_items):
     for _, df in report_items:
         sc = symbol_col(df)
         if sc and not df.empty:
-            symbols.update(str(v).strip().upper() for v in df[sc].dropna().tolist() if str(v).strip())
+            symbols.update(
+                str(v).strip().upper() for v in df[sc].dropna().tolist() if str(v).strip()
+            )
     return sorted(symbols)
 
 
@@ -347,7 +349,9 @@ def load_subscription():
 
 
 def subscription_is_active(subscription):
-    return bool(subscription and str(subscription.get("status", "")).lower() in {"active", "authenticated"})
+    return bool(
+        subscription and str(subscription.get("status", "")).lower() in {"active", "authenticated"}
+    )
 
 
 # ------------------------- LOGIN -------------------------
@@ -358,7 +362,8 @@ if not st.session_state.logged_in:
 
     if supabase is None:
         st.error(
-            "Supabase authentication is not configured. Add SUPABASE_URL and SUPABASE_ANON_KEY to Streamlit Secrets."
+            "Supabase authentication is not configured. "
+            "Add SUPABASE_URL and SUPABASE_ANON_KEY to Streamlit Secrets."
         )
         st.stop()
 
@@ -440,43 +445,48 @@ if not has_paid_access:
         """,
         unsafe_allow_html=True,
     )
-    st.info("Premium unlocks Next-Day Candidates, High-Priority Overlap and future premium features.")
+    st.info(
+        "Premium unlocks Next-Day Candidates, High-Priority Overlap and future premium features."
+    )
 
     if subscription:
         st.caption(f"Current subscription status: {subscription.get('status', 'unknown')}")
 
     if not RAZORPAY_KEY_ID:
-        st.warning("Razorpay checkout is not configured yet. Add RAZORPAY_KEY_ID to Streamlit Secrets.")
-    elif st.button(
-        "💳 Upgrade to Premium — ₹100 / month",
-        type="primary",
-        use_container_width=True,
-    ):
-        try:
-            response = requests.post(
-                f"{PAYMENT_API_URL.rstrip('/')}/create-subscription",
-                headers={
-                    "Authorization": f"Bearer {st.session_state.access_token}",
-                    "Content-Type": "application/json",
-                },
-                json={},
-                timeout=30,
-            )
-            if response.status_code != 200:
-                try:
-                    detail = response.json()
-                except Exception:
-                    detail = response.text
-                st.error(f"Unable to create subscription: {detail}")
-            else:
-                data = response.json()
-                sid = data.get("subscription_id")
-                if sid:
-                    st.session_state.checkout_subscription_id = sid
+        st.warning(
+            "Razorpay checkout is not configured yet. Add RAZORPAY_KEY_ID to Streamlit Secrets."
+        )
+    else:
+        if st.button(
+            "💳 Upgrade to Premium — ₹100 / month",
+            type="primary",
+            use_container_width=True,
+        ):
+            try:
+                response = requests.post(
+                    f"{PAYMENT_API_URL.rstrip('/')}/create-subscription",
+                    headers={
+                        "Authorization": f"Bearer {st.session_state.access_token}",
+                        "Content-Type": "application/json",
+                    },
+                    json={},
+                    timeout=30,
+                )
+                if response.status_code != 200:
+                    try:
+                        detail = response.json()
+                    except Exception:
+                        detail = response.text
+                    st.error(f"Unable to create subscription: {detail}")
                 else:
-                    st.error("Payment API did not return a subscription ID.")
-        except Exception as exc:
-            st.error(f"Payment service error: {exc}")
+                    data = response.json()
+                    sid = data.get("subscription_id")
+                    if sid:
+                        st.session_state.checkout_subscription_id = sid
+                    else:
+                        st.error("Payment API did not return a subscription ID.")
+            except Exception as exc:
+                st.error(f"Payment service error: {exc}")
 
     sid = st.session_state.checkout_subscription_id
     if sid:
@@ -551,7 +561,17 @@ def load_csv(name):
 def symbol_col(df):
     if df.empty:
         return None
-    for c in ["SYMBOL", "Symbol", "symbol", "STOCK", "Stock", "TICKER", "Ticker", "SECURITY", "Security"]:
+    for c in [
+        "SYMBOL",
+        "Symbol",
+        "symbol",
+        "STOCK",
+        "Stock",
+        "TICKER",
+        "Ticker",
+        "SECURITY",
+        "Security",
+    ]:
         if c in df.columns:
             return c
     for c in df.columns:
@@ -633,7 +653,10 @@ st.markdown("## 📊 Research Workspace")
 # Desktop: horizontal report navigation.
 # Mobile: a single dropdown is easier to use and prevents six tiny tabs.
 report_names = list(REPORTS)
-available_reports = report_names if has_paid_access else [n for n in report_names if n in FREE_REPORTS]
+if has_paid_access:
+    available_reports = report_names
+else:
+    available_reports = [n for n in report_names if n in FREE_REPORTS]
 
 # Report selector: use the dropdown as the compact/mobile-safe navigation.
 # Desktop also gets the side-by-side navigation buttons below.
@@ -655,7 +678,10 @@ if True:
             ):
                 st.session_state.active_report = name
 
-    if "active_report" not in st.session_state or st.session_state.active_report not in available_reports:
+    if (
+        "active_report" not in st.session_state
+        or st.session_state.active_report not in available_reports
+    ):
         st.session_state.active_report = available_reports[0]
 
     active_reports = [st.session_state.active_report]
@@ -690,10 +716,17 @@ else:
 
     view = df
     if q.strip():
-        mask = view.astype(str).apply(lambda s: s.str.contains(q.strip(), case=False, na=False)).any(axis=1)
+        mask = (
+            view.astype(str)
+            .apply(lambda s: s.str.contains(q.strip(), case=False, na=False))
+            .any(axis=1)
+        )
         view = view.loc[mask]
 
-    st.caption(f"Showing {len(view):,} of {len(df):,} rows • Select a stock row to open its complete research profile.")
+    st.caption(
+        f"Showing {len(view):,} of {len(df):,} rows • "
+        "Select a stock row to open its complete research profile."
+    )
 
     # The dataframe remains the primary desktop table.
     # Selecting a row immediately opens the complete stock profile.
@@ -832,7 +865,10 @@ if view_mode == "stock" and sym:
 
         selected_df = found_map[selected_report]
 
-        st.caption(f"{selected_report} • {len(selected_df):,} matching row(s) • {len(selected_df.columns):,} fields")
+        st.caption(
+            f"{selected_report} • {len(selected_df):,} matching row(s) • "
+            f"{len(selected_df.columns):,} fields"
+        )
 
         # COMPLETE DATA for the selected report, but rendered only on demand.
         # Transpose is much easier to read on phones for a single stock.
@@ -873,8 +909,14 @@ if view_mode == "stock" and sym:
             )
 
     st.markdown("---")
-    st.caption("Research/ranking tool only. Scores are not guaranteed returns; leverage magnifies gains and losses.")
+    st.caption(
+        "Research/ranking tool only. Scores are not guaranteed returns; "
+        "leverage magnifies gains and losses."
+    )
     st.stop()
 
 st.markdown("---")
-st.caption("Research/ranking tool only. Scores are not guaranteed returns; leverage magnifies gains and losses.")
+st.caption(
+    "Research/ranking tool only. Scores are not guaranteed returns; "
+    "leverage magnifies gains and losses."
+)

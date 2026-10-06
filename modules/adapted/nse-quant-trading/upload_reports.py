@@ -37,12 +37,10 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 if not SUPABASE_URL:
-    msg = "SUPABASE_URL is missing from .env"
-    raise RuntimeError(msg)
+    raise RuntimeError("SUPABASE_URL is missing from .env")
 
 if not SUPABASE_SERVICE_KEY:
-    msg = "SUPABASE_SERVICE_KEY is missing from .env"
-    raise RuntimeError(msg)
+    raise RuntimeError("SUPABASE_SERVICE_KEY is missing from .env")
 
 
 # ============================================================
