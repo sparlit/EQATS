@@ -8,6 +8,8 @@ import threading
 import time
 from typing import Any
 
+_INIT_DB_LOCK = threading.Lock()
+
 import config
 
 _log = logging.getLogger("database")
