@@ -89,7 +89,7 @@ INSTRUMENT_KEYS = {
 _lot_size_cache: dict[str, int] = {}
 
 
-def get_lot_size(symbol: str, instrument_key: str | None = None) -> int:
+def get_lot_size(symbol: str, instrument_key: str = None) -> int:
     """Get lot size from API via /option/contract. Cached after first call.
 
     Falls back to 1 if API fails (data collection doesn't need lot size).
@@ -114,7 +114,7 @@ def get_lot_size(symbol: str, instrument_key: str | None = None) -> int:
     return 1
 
 
-def load_env(path: Path | None = None) -> int:
+def load_env(path: Path = None) -> int:
     """Load .env file into os.environ. Returns count of vars loaded."""
     env_path = path or (ROOT_DIR / ".env")
     if not env_path.is_file():

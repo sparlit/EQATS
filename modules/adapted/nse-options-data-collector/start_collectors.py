@@ -44,7 +44,10 @@ def main():
     env["PYTHONUNBUFFERED"] = "1"
 
     collectors = [
-        ("premarket_collector", [sys.executable, "-m", "collectors.premarket_collector", "--schedule"]),
+        (
+            "premarket_collector",
+            [sys.executable, "-m", "collectors.premarket_collector", "--schedule"],
+        ),
         ("oi_collector", [sys.executable, "-m", "collectors.oi_collector", "--schedule"]),
         ("eod_collector", [sys.executable, "-m", "collectors.eod_collector", "--schedule"]),
     ]

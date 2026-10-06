@@ -173,7 +173,12 @@ def collect_sectors() -> pd.DataFrame:
                     "low": float(latest["low"]),
                     "close": float(latest["close"]),
                     "prev_close": float(prev["close"]),
-                    "chg_pct": round((float(latest["close"]) - float(prev["close"])) / float(prev["close"]) * 100, 3),
+                    "chg_pct": round(
+                        (float(latest["close"]) - float(prev["close"]))
+                        / float(prev["close"])
+                        * 100,
+                        3,
+                    ),
                 }
             )
             time.sleep(0.3)
@@ -401,7 +406,9 @@ def show_info():
         dates = {f.split("_")[-1].replace(".parquet", "") for f in candle_files}
         print(f"  Candles: {len(candle_files)} files across {len(dates)} days")
     other_files = sorted(
-        f for f in os.listdir(DATA_DIR) if f.endswith(".parquet") and not os.path.isdir(os.path.join(DATA_DIR, f))
+        f
+        for f in os.listdir(DATA_DIR)
+        if f.endswith(".parquet") and not os.path.isdir(os.path.join(DATA_DIR, f))
     )
     for f in other_files:
         path = os.path.join(DATA_DIR, f)
